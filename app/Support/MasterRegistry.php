@@ -1,0 +1,269 @@
+<?php
+
+namespace App\Support;
+
+use App\Models\Master\BahanKain;
+use App\Models\Master\BankAccount;
+use App\Models\Master\CustomerType;
+use App\Models\Master\KategoriOrder;
+use App\Models\Master\Logo;
+use App\Models\Master\PaketOrder;
+use App\Models\Master\PolaJahitan;
+use App\Models\Master\Printing;
+use App\Models\Master\Product;
+use App\Models\Master\Progress;
+use App\Models\Master\Resleting;
+use App\Models\Master\Size;
+use App\Models\Master\SumberOrder;
+use App\Models\Master\TipeOrder;
+
+/**
+ * Konfigurasi terpusat untuk semua master data.
+ *
+ * Setiap entry:
+ * - slug: URL slug (kebab-case)
+ * - label: nama tampilan
+ * - group: kategori sidebar (global | order | finance | production)
+ * - icon: nama icon lucide-react
+ * - model: class FQDN model
+ * - scope: 'global' (no brand_id) | 'brand' (brand_id required) | 'brand_nullable' (brand_id nullable — global utk reseller)
+ * - fields: definisi field untuk form & validation
+ * - list_columns: kolom yang ditampilkan di list view
+ * - search_fields: field DB yang bisa di-search
+ * - order_by: kolom default sort
+ */
+class MasterRegistry
+{
+    public static function all(): array
+    {
+        return [
+            'bahan-kain' => [
+                'slug' => 'bahan-kain',
+                'label' => 'Bahan Kain',
+                'group' => 'global',
+                'icon' => 'Shirt',
+                'model' => BahanKain::class,
+                'scope' => 'global',
+                'fields' => self::simpleNamaFields(),
+                'list_columns' => [
+                    ['key' => 'nama', 'label' => 'Nama'],
+                    ['key' => 'deskripsi', 'label' => 'Deskripsi', 'class' => 'text-muted-foreground text-xs'],
+                    ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+                ],
+                'search_fields' => ['nama', 'deskripsi'],
+                'order_by' => 'nama',
+            ],
+            'logo' => self::simpleConfig('logo', 'Logo', 'Sparkles', Logo::class),
+            'resleting' => self::simpleConfig('resleting', 'Resleting', 'Move3D', Resleting::class),
+            'printing' => self::simpleConfig('printing', 'Jenis Printing', 'Printer', Printing::class),
+            'paket-order' => self::simpleConfig('paket-order', 'Paket Order', 'PackageOpen', PaketOrder::class),
+            'tipe-order' => self::simpleConfig('tipe-order', 'Tipe Order', 'Boxes', TipeOrder::class),
+
+            'size' => [
+                'slug' => 'size',
+                'label' => 'Size / Ukuran',
+                'group' => 'global',
+                'icon' => 'Ruler',
+                'model' => Size::class,
+                'scope' => 'global',
+                'fields' => [
+                    ['name' => 'kategori_size', 'label' => 'Kategori', 'type' => 'select', 'required' => true, 'options' => [
+                        ['value' => 'ANAK', 'label' => 'Anak'],
+                        ['value' => 'PEREMPUAN', 'label' => 'Perempuan'],
+                        ['value' => 'LAKI-LAKI', 'label' => 'Laki-laki'],
+                        ['value' => 'UNISEX', 'label' => 'Unisex'],
+                        ['value' => 'CUSTOM', 'label' => 'Custom'],
+                    ]],
+                    ['name' => 'ukuran', 'label' => 'Ukuran', 'type' => 'text', 'required' => true, 'max' => 20, 'placeholder' => 'Contoh: XS, S, M, L, 6XL'],
+                    ['name' => 'urutan', 'label' => 'Urutan Tampil', 'type' => 'number', 'default' => 0],
+                    ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
+                ],
+                'list_columns' => [
+                    ['key' => 'kategori_size', 'label' => 'Kategori', 'type' => 'badge'],
+                    ['key' => 'ukuran', 'label' => 'Ukuran'],
+                    ['key' => 'urutan', 'label' => 'Urutan'],
+                    ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+                ],
+                'search_fields' => ['kategori_size', 'ukuran'],
+                'order_by' => 'kategori_size',
+                'secondary_order' => 'urutan',
+            ],
+
+            'pola-jahitan' => [
+                'slug' => 'pola-jahitan',
+                'label' => 'Pola Jahitan',
+                'group' => 'global',
+                'icon' => 'Scissors',
+                'model' => PolaJahitan::class,
+                'scope' => 'global',
+                'fields' => [
+                    ['name' => 'jenis_pola', 'label' => 'Jenis Pola', 'type' => 'text', 'required' => true, 'max' => 100, 'placeholder' => 'Lengan / Kerah / Bawah / Pundak'],
+                    ['name' => 'nama', 'label' => 'Nama Pola', 'type' => 'text', 'required' => true, 'max' => 100],
+                    ['name' => 'deskripsi', 'label' => 'Deskripsi', 'type' => 'textarea'],
+                    ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
+                ],
+                'list_columns' => [
+                    ['key' => 'jenis_pola', 'label' => 'Jenis', 'type' => 'badge'],
+                    ['key' => 'nama', 'label' => 'Nama Pola'],
+                    ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+                ],
+                'search_fields' => ['jenis_pola', 'nama'],
+                'order_by' => 'jenis_pola',
+                'secondary_order' => 'nama',
+            ],
+
+            'bank' => [
+                'slug' => 'bank',
+                'label' => 'Bank',
+                'group' => 'finance',
+                'icon' => 'Landmark',
+                'model' => BankAccount::class,
+                'scope' => 'brand_nullable',
+                'fields' => [
+                    ['name' => 'bank', 'label' => 'Nama Bank', 'type' => 'text', 'required' => true, 'max' => 100, 'placeholder' => 'BCA / Mandiri / BRI'],
+                    ['name' => 'atas_nama', 'label' => 'Atas Nama', 'type' => 'text', 'required' => true, 'max' => 255],
+                    ['name' => 'nomor_rekening', 'label' => 'Nomor Rekening', 'type' => 'text', 'required' => true, 'max' => 50],
+                    ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
+                ],
+                'list_columns' => [
+                    ['key' => 'bank', 'label' => 'Bank'],
+                    ['key' => 'atas_nama', 'label' => 'Atas Nama'],
+                    ['key' => 'nomor_rekening', 'label' => 'No. Rekening', 'class' => 'font-mono text-sm'],
+                    ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+                ],
+                'search_fields' => ['bank', 'atas_nama', 'nomor_rekening'],
+                'order_by' => 'bank',
+            ],
+
+            'progress' => [
+                'slug' => 'progress',
+                'label' => 'Tahapan Progress',
+                'group' => 'production',
+                'icon' => 'ListChecks',
+                'model' => Progress::class,
+                'scope' => 'global',
+                'fields' => [
+                    ['name' => 'nama_progress', 'label' => 'Nama Tahapan', 'type' => 'text', 'required' => true, 'max' => 100],
+                    ['name' => 'urutan', 'label' => 'Urutan', 'type' => 'number', 'required' => true, 'default' => 1],
+                    ['name' => 'warna', 'label' => 'Warna', 'type' => 'color', 'default' => '#3B82F6'],
+                    ['name' => 'is_skippable', 'label' => 'Bisa di-Skip', 'type' => 'switch', 'default' => true],
+                    ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
+                ],
+                'list_columns' => [
+                    ['key' => 'urutan', 'label' => '#', 'class' => 'w-12 text-center font-semibold'],
+                    ['key' => 'nama_progress', 'label' => 'Nama Tahapan'],
+                    ['key' => 'warna', 'label' => 'Warna', 'type' => 'color_swatch'],
+                    ['key' => 'is_skippable', 'label' => 'Skippable', 'type' => 'badge_bool', 'true_label' => 'Ya', 'false_label' => 'Wajib'],
+                    ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+                ],
+                'search_fields' => ['nama_progress'],
+                'order_by' => 'urutan',
+            ],
+
+            'kategori-order' => self::brandScopedSimple('kategori-order', 'Kategori Order', 'Tag', KategoriOrder::class),
+            'sumber-order' => self::brandScopedSimple('sumber-order', 'Sumber Order', 'Compass', SumberOrder::class),
+
+            'customer-type' => [
+                'slug' => 'customer-type',
+                'label' => 'Tipe Pelanggan',
+                'group' => 'order',
+                'icon' => 'UserCheck',
+                'model' => CustomerType::class,
+                'scope' => 'brand_nullable',
+                'fields' => [
+                    ['name' => 'nama', 'label' => 'Nama Tipe', 'type' => 'text', 'required' => true, 'max' => 100, 'placeholder' => 'VIP / Reguler / Reseller'],
+                    ['name' => 'diskon_default', 'label' => 'Diskon Default (%)', 'type' => 'number', 'default' => 0, 'step' => '0.01'],
+                    ['name' => 'deskripsi', 'label' => 'Deskripsi', 'type' => 'textarea'],
+                    ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
+                ],
+                'list_columns' => [
+                    ['key' => 'nama', 'label' => 'Nama'],
+                    ['key' => 'diskon_default', 'label' => 'Diskon Default (%)', 'class' => 'font-mono'],
+                    ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+                ],
+                'search_fields' => ['nama'],
+                'order_by' => 'nama',
+            ],
+
+            'produk' => [
+                'slug' => 'produk',
+                'label' => 'Produk',
+                'group' => 'order',
+                'icon' => 'Package',
+                'model' => Product::class,
+                'scope' => 'brand_nullable',
+                'fields' => [
+                    ['name' => 'nama', 'label' => 'Nama Produk', 'type' => 'text', 'required' => true, 'max' => 255],
+                    ['name' => 'kode', 'label' => 'Kode (opsional)', 'type' => 'text', 'max' => 50],
+                    ['name' => 'harga', 'label' => 'Harga (Rp)', 'type' => 'number', 'default' => 0, 'step' => '1'],
+                    ['name' => 'deskripsi', 'label' => 'Deskripsi', 'type' => 'textarea'],
+                    ['name' => 'gambar', 'label' => 'Gambar Produk', 'type' => 'image', 'purpose' => 'products', 'full_width' => true],
+                    ['name' => 'is_featured', 'label' => 'Produk Unggulan', 'type' => 'switch', 'default' => false],
+                    ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
+                ],
+                'list_columns' => [
+                    ['key' => 'gambar', 'label' => '', 'type' => 'image', 'class' => 'w-12'],
+                    ['key' => 'nama', 'label' => 'Produk'],
+                    ['key' => 'kode', 'label' => 'Kode', 'class' => 'font-mono text-xs text-muted-foreground'],
+                    ['key' => 'harga', 'label' => 'Harga', 'type' => 'currency'],
+                    ['key' => 'is_featured', 'label' => 'Unggulan', 'type' => 'badge_bool', 'true_label' => 'Ya', 'false_label' => '-'],
+                    ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+                ],
+                'search_fields' => ['nama', 'kode'],
+                'order_by' => 'nama',
+            ],
+        ];
+    }
+
+    public static function find(string $slug): ?array
+    {
+        return self::all()[$slug] ?? null;
+    }
+
+    public static function groups(): array
+    {
+        return [
+            'global' => 'Global (Lintas Brand)',
+            'order' => 'Order & Pelanggan',
+            'finance' => 'Keuangan',
+            'production' => 'Produksi',
+        ];
+    }
+
+    private static function simpleConfig(string $slug, string $label, string $icon, string $model): array
+    {
+        return [
+            'slug' => $slug,
+            'label' => $label,
+            'group' => 'global',
+            'icon' => $icon,
+            'model' => $model,
+            'scope' => 'global',
+            'fields' => self::simpleNamaFields(),
+            'list_columns' => [
+                ['key' => 'nama', 'label' => 'Nama'],
+                ['key' => 'deskripsi', 'label' => 'Deskripsi', 'class' => 'text-muted-foreground text-xs'],
+                ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+            ],
+            'search_fields' => ['nama', 'deskripsi'],
+            'order_by' => 'nama',
+        ];
+    }
+
+    private static function brandScopedSimple(string $slug, string $label, string $icon, string $model): array
+    {
+        $cfg = self::simpleConfig($slug, $label, $icon, $model);
+        $cfg['group'] = 'order';
+        $cfg['scope'] = 'brand_nullable';
+        return $cfg;
+    }
+
+    private static function simpleNamaFields(): array
+    {
+        return [
+            ['name' => 'nama', 'label' => 'Nama', 'type' => 'text', 'required' => true, 'max' => 100],
+            ['name' => 'deskripsi', 'label' => 'Deskripsi', 'type' => 'textarea'],
+            ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
+        ];
+    }
+}

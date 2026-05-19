@@ -1,0 +1,18 @@
+<?php
+
+namespace App\Models\Master;
+
+use App\Models\Concerns\HasUuidAndSoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class PolaJahitan extends Model
+{
+    use HasFactory, HasUuidAndSoftDeletes;
+
+    protected $fillable = ['jenis_pola', 'nama', 'deskripsi', 'is_active'];
+
+    protected $casts = ['is_active' => 'boolean'];
+
+    public function scopeActive($q) { return $q->where('is_active', true); }
+}

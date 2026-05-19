@@ -1,0 +1,60 @@
+<?php
+
+namespace App\Support;
+
+use App\Models\Brand;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+
+class BrandContext
+{
+    public const SESSION_KEY = 'current_brand_id';
+
+    public static function resolve(Request $request, User $user, Collection|array $availableBrands): ?array
+    {
+        $brands = $availableBrands instanceof Collection
+            ? $availableBrands
+            : collect($availableBrands);
+
+        if ($brands->isEmpty()) {
+            return null;
+        }
+
+        $current = $request->session()->get(self::SESSION_KEY) ?? $user->last_brand_id;
+        $brand = $current ? $brands->firstWhere('id', $current) : null;
+
+        if (! $brand) {
+            $brand = $brands->firstWhere('is_active', true) ?? $brands->first();
+            $request->session()->put(self::SESSION_KEY, $brand->id);
+            if ($user->last_brand_id !== $brand->id) {
+                $user->forceFill(['last_brand_id' => $brand->id])->saveQuietly();
+            }
+        }
+
+        return [
+            'id' => $brand->id,
+            'nama_brand' => $brand->nama_brand,
+            'kode' => $brand->kode,
+            'warna_primary' => $brand->warna_primary,
+            'is_active' => (bool) $brand->is_active,
+        ];
+    }
+
+    public static function set(Request $request, User $user, string $brandId): bool
+    {
+        if (! $user->hasAccessToBrand($brandId)) {
+            return false;
+        }
+
+        $request->session()->put(self::SESSION_KEY, $brandId);
+        $user->forceFill(['last_brand_id' => $brandId])->saveQuietly();
+
+        return true;
+    }
+
+    public static function current(Request $request): ?string
+    {
+        return $request->session()->get(self::SESSION_KEY);
+    }
+}
