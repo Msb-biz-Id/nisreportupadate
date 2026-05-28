@@ -91,7 +91,7 @@ Sistem ini dirancang untuk mengelola orderan masuk dan laporan multi-data yang r
 | Master Data Produk | ✓ | ✓ | ✓ | ✓ |
 | Master Data Pelanggan | ✓ | ✓ | ✓ | ✓ |
 | Master Data Promo | ✓ | ✓ | ✓ | ✓ |
-| Master Data Kategori Order | ✓ | ✓ | ✓ | ✓ |
+| Master Data Tipe Order | ✓ | ✓ | ✓ | ✓ |
 | Master Data Sumber Order | ✓ | ✓ | ✓ | ✓ |
 | Input Order Baru | ✓ | ✓ | ✓ | ✓* |
 | Laporan Penjualan | ✓ | ✓ | - | - |
@@ -1043,7 +1043,7 @@ Setelah DITERBITKAN (otomatis):
   ✅ PO masuk ke dashboard Admin Produksi (siap diproses)
   ✅ Status PO berubah dari 'draft' ke 'published'
   ✅ PO tidak bisa dihapus lagi (hanya bisa diubah via mekanisme unlock)
-  ✅ Invoice TIDAK otomatis dibuat; invoice dibuat manual oleh Admin Keuangan jika ada DP atau PO ditandai pesanan khusus
+  ✅ Invoice otomatis dibuat ketika status po publish
 ```
 
 ### 8.0.2 Status PO
@@ -1051,7 +1051,7 @@ Setelah DITERBITKAN (otomatis):
 | Status | Keterangan |
 |--------|-------------|
 | `draft` | PO baru dibuat, belum diterbitkan. Bisa diedit/dihapus bebas. |
-| `published` | PO sudah diterbitkan dan masuk ke Admin Produksi. Invoice dibuat manual jika ada DP atau pesanan khusus. |
+| `published` | PO sudah diterbitkan dan masuk ke Admin Produksi. Invoice otomatis dibuat ketika status po publish |
 | `on_progress` | PO sedang dalam proses produksi. |
 | `selesai_produksi` | Produksi selesai. |
 | `siap_dikirim` | Sudah packing + syarat terpenuhi. |
@@ -1064,9 +1064,7 @@ Setelah DITERBITKAN (otomatis):
 - **Draft**: PO bisa diedit, dihapus, dilengkapi data kapan saja
 - **Terbitkan**: Tombol "Terbitkan" hanya aktif jika semua field wajib sudah terisi
 - **Setelah Terbitkan**: PO tidak bisa dihapus, perubahan hanya via mekanisme unlock
-- **Otomatis**: Saat terbitkan, PO muncul di dashboard Admin Produksi untuk mulai diproses
-- **Tidak Otomatis**: Invoice tidak dibuat otomatis saat terbitkan
-- **Conditional Invoice**: Admin Keuangan membuat invoice manual hanya jika DP sudah tercatat di PO payment section atau PO diberi flag `is_special_order`
+- **Otomatis**: Saat terbitkan, PO muncul di dashboard Admin Produksi untuk mulai diproses, Invoice dibuat otomatis saat terbitkan
 
 ## 8.0.4 Fitur Repeat Order
 

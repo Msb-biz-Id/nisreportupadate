@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\DashboardService;
 use App\Support\BrandContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
@@ -17,14 +18,17 @@ class DashboardController extends Controller
         $brandId = BrandContext::current($request);
         $role = $user->getRoleNames()->first();
 
-        $data = match ($role) {
+        $filterBrand = $request->string('brand_id')->toString() ?: null;
+        $cacheKey = "dashboard:{$role}:{$user->id}:{$brandId}:{$filterBrand}";
+
+        $data = Cache::remember($cacheKey, 60, fn () => match ($role) {
             'superadmin' => [
                 'view' => 'Superadmin',
                 'stats' => $this->service->superadminStats(),
             ],
             'owner' => [
                 'view' => 'Owner',
-                'stats' => $this->service->ownerStats($user, $request->string('brand_id')->toString() ?: null),
+                'stats' => $this->service->ownerStats($user, $filterBrand),
             ],
             'admin_produksi' => [
                 'view' => 'AdminProduksi',
@@ -42,7 +46,7 @@ class DashboardController extends Controller
                 'view' => 'AdminBrand',
                 'stats' => $this->service->adminBrandStats($brandId),
             ],
-        };
+        });
 
         return Inertia::render('Dashboard', [
             'role' => $role ?? 'guest',

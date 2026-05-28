@@ -90,13 +90,16 @@ function buildMenu(user) {
     }
     if (adminItems.length) sections.push({ title: 'Administrasi', items: adminItems });
 
-    if (hasPermission(user, 'master.manage')) {
+    const canManageAll = hasPermission(user, 'master.manage');
+    const canManageBrand = canManageAll || hasPermission(user, 'master.brand');
+    if (canManageBrand) {
         const isMasterActive = route().current('master.*');
         const customerActive = route().current('master.pelanggan.*');
         const currentSlug = route().params?.slug;
 
+        const visibleItems = MASTER_ITEMS.filter((m) => canManageAll || m.group === 'brand');
         const masterChildren = [
-            ...MASTER_ITEMS.map((m) => ({
+            ...visibleItems.map((m) => ({
                 name: m.name,
                 href: route('master.index', m.slug),
                 icon: m.icon,

@@ -11,35 +11,27 @@ class MasterDataTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_brand_can_list_master_data(): void
+    public function test_admin_brand_can_list_brand_master_data(): void
     {
         $brand = $this->makeBrand();
         $user = $this->makeUser('admin_brand', [$brand]);
 
-        BahanKain::create(['nama' => 'Polyester', 'is_active' => true]);
-
         $this->actingAsWithBrand($user, $brand)
-            ->get(route('master.index', 'bahan-kain'))
+            ->get(route('master.index', 'kategori-order'))
             ->assertOk();
     }
 
-    public function test_admin_brand_can_create_global_master(): void
+    public function test_admin_brand_cannot_access_global_master(): void
     {
         $brand = $this->makeBrand();
         $user = $this->makeUser('admin_brand', [$brand]);
 
         $this->actingAsWithBrand($user, $brand)
-            ->post(route('master.store', 'bahan-kain'), [
-                'nama' => 'Microfiber Test',
-                'deskripsi' => 'Test bahan',
-                'is_active' => true,
-            ])
-            ->assertRedirect();
-
-        $this->assertDatabaseHas('bahan_kains', ['nama' => 'Microfiber Test']);
+            ->get(route('master.index', 'bahan-kain'))
+            ->assertForbidden();
     }
 
-    public function test_brand_scoped_master_assigns_brand_id_automatically(): void
+    public function test_admin_brand_can_create_brand_scoped_master(): void
     {
         $brand = $this->makeBrand();
         $user = $this->makeUser('admin_brand', [$brand]);
@@ -54,6 +46,36 @@ class MasterDataTest extends TestCase
         $kategori = KategoriOrder::where('nama', 'Kategori Tim')->first();
         $this->assertNotNull($kategori);
         $this->assertEquals($brand->id, $kategori->brand_id);
+    }
+
+    public function test_admin_brand_cannot_create_global_master(): void
+    {
+        $brand = $this->makeBrand();
+        $user = $this->makeUser('admin_brand', [$brand]);
+
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('master.store', 'bahan-kain'), [
+                'nama' => 'Microfiber Test',
+                'is_active' => true,
+            ])
+            ->assertForbidden();
+
+        $this->assertDatabaseMissing('bahan_kains', ['nama' => 'Microfiber Test']);
+    }
+
+    public function test_owner_can_create_global_master(): void
+    {
+        $brand = $this->makeBrand();
+        $user = $this->makeUser('owner', [$brand]);
+
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('master.store', 'bahan-kain'), [
+                'nama' => 'Microfiber Owner',
+                'is_active' => true,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('bahan_kains', ['nama' => 'Microfiber Owner']);
     }
 
     public function test_reseller_cannot_manage_master_data(): void

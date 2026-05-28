@@ -26,8 +26,9 @@ class DashboardService
         $month = (clone $base)->whereMonth('tanggal_masuk', now()->month)->whereYear('tanggal_masuk', now()->year)->count();
 
         $totalProdukDiOrder = OrderItem::query()
-            ->when($brandId, fn ($q) => $q->whereHas('order', fn ($x) => $x->where('brand_id', $brandId)))
-            ->distinct('product_id')->count('product_id');
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->when($brandId, fn ($q) => $q->where('orders.brand_id', $brandId))
+            ->distinct('order_items.product_id')->count('order_items.product_id');
 
         $totalPelanggan = Customer::query()->when($brandId, fn ($q) => $q->where('brand_id', $brandId))->count();
 
@@ -68,9 +69,16 @@ class DashboardService
             ->whereIn('status_po', ['published', 'on_progress'])
             ->whereBetween('deadline_customer', [now(), now()->addDays(7)])
             ->count();
-        $totalRijek = Rijek::query()->when($brandId, fn ($q) => $q->whereHas('order', fn ($x) => $x->where('brand_id', $brandId)))->sum('jumlah');
-        $totalProduksi = (clone $base)->where('status_po', '!=', 'draft')->withCount('items')->get()->sum(function ($o) { return $o->items->sum('quantity'); });
-        $rijekRate = $totalProduksi > 0 ? round(($totalRijek / max($totalProduksi, 1)) * 100, 2) : 0;
+        $totalRijek = Rijek::query()
+            ->join('orders', 'orders.id', '=', 'rijeks.order_id')
+            ->when($brandId, fn ($q) => $q->where('orders.brand_id', $brandId))
+            ->sum('rijeks.jumlah');
+        $totalProduksi = OrderItem::query()
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->when($brandId, fn ($q) => $q->where('orders.brand_id', $brandId))
+            ->where('orders.status_po', '!=', 'draft')
+            ->sum('order_items.quantity');
+        $rijekRate = $totalProduksi > 0 ? round(($totalRijek / $totalProduksi) * 100, 2) : 0;
 
         return [
             'cards' => [
@@ -206,18 +214,7 @@ class DashboardService
                 ->where('status', 'pending_review')
                 ->with(['order:id,no_po', 'creator:id,name'])
                 ->orderByDesc('created_at')->limit(10)->get(),
-            'payment_status' => [
-                ['label' => 'Lunas', 'value' => Order::when($brandId, fn ($q) => $q->where('brand_id', $brandId))
-                    ->whereRaw('(SELECT COALESCE(SUM(amount), 0) FROM order_payments WHERE order_payments.order_id = orders.id) >= total_tagihan')
-                    ->where('status_po', '!=', 'draft')->count()],
-                ['label' => 'Partial', 'value' => Order::when($brandId, fn ($q) => $q->where('brand_id', $brandId))
-                    ->whereRaw('(SELECT COALESCE(SUM(amount), 0) FROM order_payments WHERE order_payments.order_id = orders.id) > 0')
-                    ->whereRaw('(SELECT COALESCE(SUM(amount), 0) FROM order_payments WHERE order_payments.order_id = orders.id) < total_tagihan')
-                    ->where('status_po', '!=', 'draft')->count()],
-                ['label' => 'Belum Bayar', 'value' => Order::when($brandId, fn ($q) => $q->where('brand_id', $brandId))
-                    ->whereRaw('(SELECT COALESCE(SUM(amount), 0) FROM order_payments WHERE order_payments.order_id = orders.id) = 0')
-                    ->where('status_po', '!=', 'draft')->count()],
-            ],
+            'payment_status' => $this->paymentStatusBreakdown($brandId),
         ];
     }
 
@@ -481,12 +478,40 @@ class DashboardService
             ->all();
     }
 
+    private function paymentStatusBreakdown(?string $brandId): array
+    {
+        $sub = DB::table('orders')
+            ->leftJoin('order_payments', 'order_payments.order_id', '=', 'orders.id')
+            ->when($brandId, fn ($q) => $q->where('orders.brand_id', $brandId))
+            ->where('orders.status_po', '!=', 'draft')
+            ->select('orders.id', 'orders.total_tagihan', DB::raw('COALESCE(SUM(order_payments.amount), 0) as paid'))
+            ->groupBy('orders.id', 'orders.total_tagihan');
+
+        $row = DB::table(DB::raw("({$sub->toSql()}) as o"))
+            ->mergeBindings($sub)
+            ->selectRaw('SUM(CASE WHEN paid >= total_tagihan THEN 1 ELSE 0 END) as lunas')
+            ->selectRaw('SUM(CASE WHEN paid > 0 AND paid < total_tagihan THEN 1 ELSE 0 END) as partial')
+            ->selectRaw('SUM(CASE WHEN paid = 0 THEN 1 ELSE 0 END) as belum_bayar')
+            ->first();
+
+        return [
+            ['label' => 'Lunas', 'value' => (int) ($row->lunas ?? 0)],
+            ['label' => 'Partial', 'value' => (int) ($row->partial ?? 0)],
+            ['label' => 'Belum Bayar', 'value' => (int) ($row->belum_bayar ?? 0)],
+        ];
+    }
+
     private function calculateRejectRate(array $brandIds): float
     {
-        $totalRijek = Rijek::query()->whereHas('order', fn ($q) => $q->whereIn('brand_id', $brandIds))->sum('jumlah');
+        $totalRijek = Rijek::query()
+            ->join('orders', 'orders.id', '=', 'rijeks.order_id')
+            ->whereIn('orders.brand_id', $brandIds)
+            ->sum('rijeks.jumlah');
         $totalProduksi = OrderItem::query()
-            ->whereHas('order', fn ($q) => $q->whereIn('brand_id', $brandIds)->where('status_po', '!=', 'draft'))
-            ->sum('quantity');
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->whereIn('orders.brand_id', $brandIds)
+            ->where('orders.status_po', '!=', 'draft')
+            ->sum('order_items.quantity');
         return $totalProduksi > 0 ? round(($totalRijek / $totalProduksi) * 100, 2) : 0;
     }
 }

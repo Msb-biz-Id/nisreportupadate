@@ -1,6 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
-import { Search, Receipt, CheckCircle2, Send } from 'lucide-react';
+import { Search, Receipt, CheckCircle2, ExternalLink } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -91,11 +91,11 @@ export default function InvoiceIndex({ invoices, filters, statuses, can }) {
                                             <TableCell className="text-right font-mono text-xs text-destructive">{formatRupiah(iv.sisa_pembayaran)}</TableCell>
                                             <TableCell><Badge variant={STATUS_VARIANT[iv.status] ?? 'outline'}>{iv.status}</Badge></TableCell>
                                             <TableCell className="text-right">
-                                                {can?.publish && ['draft', 'validated'].includes(iv.status) && (
-                                                    <Button size="sm" variant="outline" onClick={() => publish(iv)}>
-                                                        <Send className="h-3.5 w-3.5" /> Publish
-                                                    </Button>
-                                                )}
+                                                <Button asChild size="sm" variant="outline">
+                                                    <a href={route('invoice.public', iv.invoice_number)} target="_blank" rel="noopener noreferrer">
+                                                        <ExternalLink className="h-3.5 w-3.5" /> Detail
+                                                    </a>
+                                                </Button>
                                             </TableCell>
                                         </TableRow>
                                     ))}

@@ -8,7 +8,6 @@ use App\Models\Master\CustomerType;
 use App\Models\Master\SumberOrder;
 use App\Support\BrandContext;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -17,7 +16,7 @@ class CustomerController extends Controller
 {
     public function index(Request $request)
     {
-        Gate::authorize('master.manage');
+        $this->authorizeBrandMaster($request->user());
 
         $brandId = BrandContext::current($request);
         $query = Customer::query()->with(['customerType:id,nama', 'sumberOrder:id,nama'])
@@ -56,14 +55,14 @@ class CustomerController extends Controller
                 }))
                 ->active()->orderBy('nama')->get(['id', 'nama']),
             'can' => [
-                'manage' => $request->user()->can('master.manage'),
+                'manage' => $request->user()->can('master.manage') || $request->user()->can('master.brand'),
             ],
         ]);
     }
 
     public function store(Request $request)
     {
-        Gate::authorize('master.manage');
+        $this->authorizeBrandMaster($request->user());
 
         $data = $this->validatePayload($request);
 
@@ -81,7 +80,7 @@ class CustomerController extends Controller
 
     public function update(Request $request, Customer $customer)
     {
-        Gate::authorize('master.manage');
+        $this->authorizeBrandMaster($request->user());
         $this->guardOwnership($request, $customer);
 
         $data = $this->validatePayload($request, $customer->id);
@@ -92,11 +91,17 @@ class CustomerController extends Controller
 
     public function destroy(Request $request, Customer $customer)
     {
-        Gate::authorize('master.manage');
+        $this->authorizeBrandMaster($request->user());
         $this->guardOwnership($request, $customer);
 
         $customer->delete();
         return back()->with('success', 'Pelanggan berhasil dihapus.');
+    }
+
+    private function authorizeBrandMaster($user): void
+    {
+        if ($user->can('master.manage') || $user->can('master.brand')) return;
+        abort(403);
     }
 
     private function validatePayload(Request $request, ?string $ignoreId = null): array

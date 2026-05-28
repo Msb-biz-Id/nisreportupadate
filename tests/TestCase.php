@@ -10,6 +10,12 @@ use Illuminate\Support\Facades\Hash;
 
 abstract class TestCase extends BaseTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+    }
+
     /**
      * Seed roles+permissions sebelum membuat user yang butuh role.
      * Aman dipanggil berkali-kali (firstOrCreate inside).
@@ -61,12 +67,12 @@ abstract class TestCase extends BaseTestCase
      */
     protected function actingAsWithBrand(User $user, ?Brand $brand = null): self
     {
+        $brandId = $brand?->id ?? $user->brands->first()?->id;
+
         $this->actingAs($user);
 
-        if ($brand) {
-            session(['current_brand_id' => $brand->id]);
-        } elseif ($user->brands->isNotEmpty()) {
-            session(['current_brand_id' => $user->brands->first()->id]);
+        if ($brandId) {
+            $this->withSession(['current_brand_id' => $brandId]);
         }
 
         return $this;

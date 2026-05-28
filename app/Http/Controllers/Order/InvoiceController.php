@@ -118,9 +118,7 @@ class InvoiceController extends Controller
     {
         Gate::authorize('finance.manage-invoice');
         abort_if($order->isDraft(), 422, 'Hanya PO terbitkan yang bisa dibuatkan invoice.');
-
-        $hasDP = $order->payments()->where('payment_type', 'dp')->exists();
-        abort_unless($hasDP || $order->is_special_order, 422, 'Invoice butuh DP atau flag special_order.');
+        abort_if(Invoice::where('order_id', $order->id)->exists(), 422, 'Invoice untuk PO ini sudah ada.');
 
         $order->load('items', 'payments', 'brand');
 

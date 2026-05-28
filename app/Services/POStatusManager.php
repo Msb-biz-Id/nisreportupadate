@@ -12,10 +12,6 @@ use Illuminate\Support\Facades\DB;
 
 class POStatusManager
 {
-    /**
-     * Publish PO dari draft → siap masuk produksi.
-     * Auto-create progress details + invoice draft tidak dibuat otomatis (BRD 8.0.1).
-     */
     public function publish(Order $order, User $user): Order
     {
         if (! $order->isDraft()) {
@@ -29,7 +25,6 @@ class POStatusManager
                 'published_by' => $user->id,
             ]);
 
-            // Init progress details berdasar master progress aktif
             $progresses = Progress::active()->ordered()->get();
             foreach ($progresses as $p) {
                 OrderProgressDetail::firstOrCreate(

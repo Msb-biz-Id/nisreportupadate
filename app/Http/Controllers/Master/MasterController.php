@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Support\BrandContext;
 use App\Support\MasterRegistry;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,7 +15,7 @@ class MasterController extends Controller
     public function index(Request $request, string $slug)
     {
         $config = $this->resolveConfig($slug);
-        $this->authorizeView();
+        $this->authorizeForConfig($config);
         $modelClass = $config['model'];
 
         $query = $modelClass::query();
@@ -58,7 +57,7 @@ class MasterController extends Controller
                 'status' => $request->string('status')->toString(),
             ],
             'can' => [
-                'manage' => $request->user()->can('master.manage'),
+                'manage' => $this->canManageConfig($request->user(), $config),
             ],
         ]);
     }
@@ -66,8 +65,7 @@ class MasterController extends Controller
     public function store(Request $request, string $slug)
     {
         $config = $this->resolveConfig($slug);
-        $this->authorizeManage();
-        Gate::authorize('master.manage');
+        $this->authorizeForConfig($config);
 
         $data = $this->validatePayload($request, $config);
 
@@ -88,7 +86,7 @@ class MasterController extends Controller
     public function update(Request $request, string $slug, string $id)
     {
         $config = $this->resolveConfig($slug);
-        $this->authorizeManage();
+        $this->authorizeForConfig($config);
 
         $modelClass = $config['model'];
         $record = $modelClass::findOrFail($id);
@@ -104,7 +102,7 @@ class MasterController extends Controller
     public function destroy(Request $request, string $slug, string $id)
     {
         $config = $this->resolveConfig($slug);
-        $this->authorizeManage();
+        $this->authorizeForConfig($config);
 
         $modelClass = $config['model'];
         $record = $modelClass::findOrFail($id);
@@ -122,14 +120,18 @@ class MasterController extends Controller
         return $config;
     }
 
-    private function authorizeView(): void
+    private function authorizeForConfig(array $config): void
     {
-        Gate::authorize('master.manage');
+        $user = request()->user();
+        if ($user->can('master.manage')) return;
+        if ($user->can('master.brand') && $config['group'] === 'order') return;
+        abort(403);
     }
 
-    private function authorizeManage(): void
+    private function canManageConfig($user, array $config): bool
     {
-        Gate::authorize('master.manage');
+        if ($user->can('master.manage')) return true;
+        return $user->can('master.brand') && $config['group'] === 'order';
     }
 
     private function guardBrandOwnership(Request $request, array $config, $record): void

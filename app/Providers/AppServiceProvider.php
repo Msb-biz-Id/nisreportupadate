@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Models\Order\Order;
+use App\Models\Order\OrderPayment;
 use App\Models\Order\Refund;
 use App\Observers\OrderObserver;
+use App\Observers\OrderPaymentObserver;
 use App\Observers\RefundObserver;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
@@ -32,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Order::observe(OrderObserver::class);
+        OrderPayment::observe(OrderPaymentObserver::class);
         Refund::observe(RefundObserver::class);
     }
 }

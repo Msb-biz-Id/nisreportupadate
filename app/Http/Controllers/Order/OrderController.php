@@ -15,6 +15,8 @@ use App\Models\Master\Product;
 use App\Models\Master\Resleting;
 use App\Models\Master\Size;
 use App\Models\Master\SumberOrder;
+use App\Models\Order\Invoice;
+use App\Models\Order\InvoiceItem;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItem;
 use App\Models\Order\OrderNameset;
@@ -137,6 +139,33 @@ class OrderController extends Controller
             $this->syncPayments($order, $data['payments'] ?? [], $user->id);
             $order->update(['total_tagihan' => $order->items()->sum('subtotal')]);
 
+            $order->load('items');
+            $totalTagihan = (float) $order->total_tagihan;
+            $dp = (float) $order->payments()->where('payment_type', 'dp')->sum('amount');
+
+            $invoice = Invoice::create([
+                'brand_id'        => $order->brand_id,
+                'order_id'        => $order->id,
+                'invoice_number'  => $this->numbers->generateInvoiceNumber($brand),
+                'tanggal_terbit'  => now()->toDateString(),
+                'jatuh_tempo'     => now()->addDays(14)->toDateString(),
+                'status'          => 'draft',
+                'total_tagihan'   => $totalTagihan,
+                'dp_amount'       => $dp,
+                'sisa_pembayaran' => max(0, $totalTagihan - $dp),
+                'created_by'      => $user->id,
+            ]);
+
+            foreach ($order->items as $item) {
+                InvoiceItem::create([
+                    'invoice_id'   => $invoice->id,
+                    'produk'       => $item->nama_produk . ($item->varian_label ? " ({$item->varian_label})" : ''),
+                    'jumlah'       => $item->quantity,
+                    'harga_satuan' => $item->harga_satuan,
+                    'subtotal'     => $item->subtotal,
+                ]);
+            }
+
             return $order;
         });
 
@@ -202,6 +231,7 @@ class OrderController extends Controller
                 'publish' => $request->user()->can('order.publish') && $order->isDraft(),
                 'unlock' => $request->user()->isSuperadmin() || $request->user()->hasRole(['owner', 'admin_brand']),
                 'repeat' => $request->user()->can('order.create') && ! $order->isDraft(),
+                'manage_invoice' => $request->user()->can('finance.manage-invoice'),
             ],
         ]);
     }
