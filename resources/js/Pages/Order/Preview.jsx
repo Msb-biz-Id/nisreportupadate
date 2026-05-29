@@ -130,10 +130,40 @@ function AddPaymentDialog({ order, open, onOpenChange, banks }) {
     );
 }
 
+function TimelineForm({ order, onDone }) {
+    const { data, setData, patch, processing } = useForm({
+        start_production_date: order.start_production_date?.slice(0, 10) ?? '',
+        end_production_date:   order.end_production_date?.slice(0, 10) ?? '',
+    });
+
+    function submit(e) {
+        e.preventDefault();
+        patch(route('orders.timeline.update', order.id), { onSuccess: onDone });
+    }
+
+    return (
+        <form onSubmit={submit} className="space-y-2 pt-2 border-t border-slate-100">
+            <div className="flex justify-between items-center gap-2">
+                <span className="text-muted-foreground text-sm">Mulai Produksi</span>
+                <Input type="date" value={data.start_production_date} onChange={(e) => setData('start_production_date', e.target.value)} className="h-7 text-xs w-36" />
+            </div>
+            <div className="flex justify-between items-center gap-2">
+                <span className="text-muted-foreground text-sm">Selesai Produksi</span>
+                <Input type="date" value={data.end_production_date} onChange={(e) => setData('end_production_date', e.target.value)} className="h-7 text-xs w-36" />
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+                <Button type="button" size="sm" variant="ghost" onClick={onDone}>Batal</Button>
+                <Button type="submit" size="sm" disabled={processing}>Simpan</Button>
+            </div>
+        </form>
+    );
+}
+
 export default function OrderPreview({ order, can }) {
     const [openUnlock, setOpenUnlock] = useState(false);
     const [openPayment, setOpenPayment] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
+    const [editTimeline, setEditTimeline] = useState(false);
 
     const banks = []; // banks fetched separately in real impl; here we accept what backend provides via payments
 
@@ -236,14 +266,25 @@ export default function OrderPreview({ order, can }) {
                     </Card>
 
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="flex items-center gap-2 text-base"><CalendarClock className="h-4 w-4 text-primary" /> Timeline</CardTitle>
+                            {can?.edit_timeline && !editTimeline && (
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditTimeline(true)} title="Edit Timeline Produksi">
+                                    <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                            )}
                         </CardHeader>
                         <CardContent className="space-y-1.5 text-sm">
                             <div className="flex justify-between"><span className="text-muted-foreground">Tanggal Masuk</span><span className="font-medium">{formatDate(order.tanggal_masuk)}</span></div>
                             <div className="flex justify-between"><span className="text-muted-foreground">Deadline Customer</span><span className="font-medium">{formatDate(order.deadline_customer)}</span></div>
-                            <div className="flex justify-between"><span className="text-muted-foreground">Mulai Produksi</span><span className="font-medium">{formatDate(order.start_production_date) || '-'}</span></div>
-                            <div className="flex justify-between"><span className="text-muted-foreground">Selesai Produksi</span><span className="font-medium">{formatDate(order.end_production_date) || '-'}</span></div>
+                            {editTimeline ? (
+                                <TimelineForm order={order} onDone={() => setEditTimeline(false)} />
+                            ) : (
+                                <>
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Mulai Produksi</span><span className="font-medium">{formatDate(order.start_production_date) || '-'}</span></div>
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Selesai Produksi</span><span className="font-medium">{formatDate(order.end_production_date) || '-'}</span></div>
+                                </>
+                            )}
                             {order.published_at && (
                                 <>
                                     <Separator className="my-2" />

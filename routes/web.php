@@ -89,6 +89,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{order}/unlock', [OrderController::class, 'unlock'])->name('unlock');
         Route::post('/{order}/relock', [OrderController::class, 'relock'])->name('relock');
         Route::post('/{order}/payments', [OrderController::class, 'addPayment'])->name('payments.store');
+        Route::patch('/{order}/timeline', [OrderController::class, 'updateTimeline'])->name('timeline.update');
         Route::get('/{order}/spk.pdf', [OrderController::class, 'spkPdf'])->name('spk.pdf');
     });
 

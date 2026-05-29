@@ -78,9 +78,17 @@ class OrderController extends Controller
             $query->whereDate('tanggal_masuk', '<=', $dateTo);
         }
 
-        // Summary per status (clone query sebelum pagination)
-        $summaryQuery = clone $query;
-        $statusCounts = $summaryQuery->selectRaw('status_po, count(*) as total')
+        // Summary per status — query terpisah tanpa with/withCount agar GROUP BY aman
+        $statusCounts = Order::query()
+            ->forBrand($brandId)
+            ->when($user->hasRole('admin_produksi'), fn ($q) => $q->where('status_po', '!=', 'draft'))
+            ->when($canSeeMultiBrand && $request->string('brand_id')->toString(), fn ($q, $v) => $q->where('orders.brand_id', $v))
+            ->when($request->string('q')->toString(), fn ($q, $v) => $q->where(function ($w) use ($v) {
+                $w->where('no_po', 'like', "%{$v}%")->orWhere('nama_po', 'like', "%{$v}%");
+            }))
+            ->when($request->string('date_from')->toString(), fn ($q, $v) => $q->whereDate('tanggal_masuk', '>=', $v))
+            ->when($request->string('date_to')->toString(), fn ($q, $v) => $q->whereDate('tanggal_masuk', '<=', $v))
+            ->selectRaw('status_po, count(*) as total')
             ->groupBy('status_po')
             ->pluck('total', 'status_po')
             ->toArray();
@@ -279,6 +287,7 @@ class OrderController extends Controller
                 'repeat' => $request->user()->can('order.create') && ! $order->isDraft(),
                 'manage_invoice' => $request->user()->can('finance.manage-invoice'),
                 'add_payment' => ! $request->user()->hasRole('admin_produksi'),
+                'edit_timeline' => $request->user()->hasRole('admin_produksi'),
             ],
         ]);
     }
@@ -409,6 +418,21 @@ class OrderController extends Controller
         $pdf = Pdf::loadView('pdf.spk', ['order' => $order])->setPaper('a4', 'portrait');
 
         return $pdf->download("SPK-{$order->no_po}.pdf");
+    }
+
+    public function updateTimeline(Request $request, Order $order)
+    {
+        Gate::authorize('production.update-progress');
+        $this->guardBrandOwnership($request, $order);
+
+        $data = $request->validate([
+            'start_production_date' => ['nullable', 'date'],
+            'end_production_date'   => ['nullable', 'date', 'after_or_equal:start_production_date'],
+        ]);
+
+        $order->update($data);
+
+        return back()->with('success', 'Timeline produksi berhasil diperbarui.');
     }
 
     private function mastersForForm(string $brandId): array
