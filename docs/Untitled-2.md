@@ -16,7 +16,6 @@ admin brand memlih produk
 
 jenis printing + kategori order (produk) di ambil dari master data role admin produksi
 
-
 admin brand hnaya buat draft invoice
 
 di produksi gak ada swith brand, hanya ada filter brand di order manajemen

@@ -222,12 +222,19 @@ export default function OrderPreview({ order, can }) {
                                         <FileText className="h-4 w-4" /> SPK PDF
                                     </a>
                                 </Button>
-                                {can?.manage_invoice && order.invoices?.length > 0 && (
-                                    <Button asChild variant="outline" size="sm">
-                                        <a href={route('invoice.public', order.invoices[0].invoice_number)} target="_blank" rel="noopener noreferrer">
-                                            <Receipt className="h-4 w-4" /> Invoice
-                                        </a>
-                                    </Button>
+                                {order.invoices?.length > 0 && (
+                                    <>
+                                        <Button asChild variant="outline" size="sm">
+                                            <a href={route('invoice.public', order.invoices[0].invoice_number)} target="_blank" rel="noopener noreferrer">
+                                                <Receipt className="h-4 w-4" /> Invoice
+                                            </a>
+                                        </Button>
+                                        <Button asChild size="sm">
+                                            <a href={route('invoice.public.pdf', order.invoices[0].invoice_number)} target="_blank" rel="noopener noreferrer">
+                                                <FileText className="h-4 w-4" /> Cetak Invoice
+                                            </a>
+                                        </Button>
+                                    </>
                                 )}
                                 {order.lock_status?.is_locked && can?.unlock && (
                                     <Button variant="outline" size="sm" onClick={() => setOpenUnlock(true)}><Unlock className="h-4 w-4" /> Unlock</Button>
