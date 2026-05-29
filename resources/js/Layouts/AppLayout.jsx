@@ -33,6 +33,7 @@ import {
     Tag,
     Compass,
     UserCheck,
+    Megaphone,
 } from 'lucide-react';
 import { cn, initials, roleLabel } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/Components/ui/sheet';
@@ -66,6 +67,7 @@ const MASTER_ITEMS = [
     { slug: 'progress', name: 'Tahapan Progress', icon: ListChecks, group: 'global' },
     { slug: 'kategori-order', name: 'Kategori Order', icon: Tag, group: 'brand' },
     { slug: 'sumber-order', name: 'Sumber Order', icon: Compass, group: 'brand' },
+    { slug: 'iklan', name: 'Iklan', icon: Megaphone, group: 'brand' },
     { slug: 'customer-type', name: 'Tipe Pelanggan', icon: UserCheck, group: 'brand' },
     { slug: 'produk', name: 'Produk', icon: Package, group: 'brand' },
     { slug: 'bank', name: 'Bank', icon: Landmark, group: 'brand' },

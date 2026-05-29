@@ -27,7 +27,7 @@ class Order extends Model
     protected $fillable = [
         'brand_id', 'no_po', 'nama_po', 'status_po', 'is_special_order',
         'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date',
-        'kategori_order_id', 'sumber_order_id', 'pelanggan_id', 'printing_id',
+        'kategori_order_id', 'sumber_order_id', 'pelanggan_id', 'printing_id', 'iklan_id',
         'nama_ekspedisi', 'no_resi',
         'repeat_from_po_id', 'is_repeat_order',
         'published_at', 'published_by',

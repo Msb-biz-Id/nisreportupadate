@@ -591,6 +591,7 @@ export default function OrderForm({ mode, masters, order }) {
         sumber_order_id: order?.sumber_order_id ?? '',
         pelanggan_id: order?.pelanggan_id ?? '',
         printing_id: order?.printing_id ?? '',
+        iklan_id: order?.iklan_id ?? '',
         catatan: order?.catatan ?? '',
         items: (order?.items ?? []).map((i) => ({
             ...newItem(),
@@ -751,13 +752,27 @@ export default function OrderForm({ mode, masters, order }) {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div className="flex flex-col col-span-2">
+                                <div className="flex flex-col col-span-1">
                                     <FieldLabel>Jenis Printing</FieldLabel>
                                     <Select value={data.printing_id || NONE} onValueChange={(v) => setData('printing_id', v === NONE ? '' : v)}>
                                         <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value={NONE}>— Tidak diset —</SelectItem>
                                             {masters.printings.map((p) => (<SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex flex-col col-span-1">
+                                    <FieldLabel>Iklan / Kampanye</FieldLabel>
+                                    <Select value={data.iklan_id || NONE} onValueChange={(v) => setData('iklan_id', v === NONE ? '' : v)}>
+                                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={NONE}>— Tidak diset —</SelectItem>
+                                            {(masters.iklans ?? []).map((k) => (
+                                                <SelectItem key={k.id} value={k.id}>
+                                                    {k.nama}{k.platform ? ` (${k.platform})` : ''}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>

@@ -14,6 +14,7 @@ use App\Models\Master\Product;
 use App\Models\Master\Progress;
 use App\Models\Master\Resleting;
 use App\Models\Master\Size;
+use App\Models\Master\Iklan;
 use App\Models\Master\SumberOrder;
 use App\Models\Master\TipeOrder;
 
@@ -162,6 +163,29 @@ class MasterRegistry
 
             'kategori-order' => self::brandScopedSimple('kategori-order', 'Kategori Order', 'Tag', KategoriOrder::class),
             'sumber-order' => self::brandScopedSimple('sumber-order', 'Sumber Order', 'Compass', SumberOrder::class),
+
+            'iklan' => [
+                'slug' => 'iklan',
+                'label' => 'Iklan',
+                'group' => 'order',
+                'icon' => 'Megaphone',
+                'model' => Iklan::class,
+                'scope' => 'brand_nullable',
+                'fields' => [
+                    ['name' => 'nama', 'label' => 'Nama Iklan / Kampanye', 'type' => 'text', 'required' => true, 'max' => 150, 'placeholder' => 'Contoh: Promo Ramadan IG'],
+                    ['name' => 'platform', 'label' => 'Platform', 'type' => 'text', 'max' => 100, 'placeholder' => 'Instagram / TikTok / Facebook / dll'],
+                    ['name' => 'deskripsi', 'label' => 'Deskripsi', 'type' => 'textarea'],
+                    ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
+                ],
+                'list_columns' => [
+                    ['key' => 'nama', 'label' => 'Nama Iklan'],
+                    ['key' => 'platform', 'label' => 'Platform', 'class' => 'text-xs text-muted-foreground'],
+                    ['key' => 'deskripsi', 'label' => 'Deskripsi', 'class' => 'text-xs text-muted-foreground'],
+                    ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+                ],
+                'search_fields' => ['nama', 'platform', 'deskripsi'],
+                'order_by' => 'nama',
+            ],
 
             'customer-type' => [
                 'slug' => 'customer-type',

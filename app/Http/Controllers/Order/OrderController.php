@@ -7,6 +7,7 @@ use App\Models\Brand;
 use App\Models\Master\BahanKain;
 use App\Models\Master\BankAccount;
 use App\Models\Master\Customer;
+use App\Models\Master\Iklan;
 use App\Models\Master\KategoriOrder;
 use App\Models\Master\Logo;
 use App\Models\Master\PolaJahitan;
@@ -180,6 +181,7 @@ class OrderController extends Controller
                 'sumber_order_id' => $data['sumber_order_id'] ?? null,
                 'pelanggan_id' => $data['pelanggan_id'],
                 'printing_id' => $data['printing_id'] ?? null,
+                'iklan_id' => $data['iklan_id'] ?? null,
                 'catatan' => $data['catatan'] ?? null,
                 'created_by' => $user->id,
             ]);
@@ -243,6 +245,7 @@ class OrderController extends Controller
                 'sumber_order_id' => $data['sumber_order_id'] ?? null,
                 'pelanggan_id' => $data['pelanggan_id'],
                 'printing_id' => $data['printing_id'] ?? null,
+                'iklan_id' => $data['iklan_id'] ?? null,
                 'catatan' => $data['catatan'] ?? null,
                 'updated_by' => $user->id,
             ]);
@@ -444,6 +447,7 @@ class OrderController extends Controller
         return [
             'kategori_orders' => KategoriOrder::active()->where($brandQ)->orderBy('nama')->get(['id', 'nama']),
             'sumber_orders' => SumberOrder::active()->where($brandQ)->orderBy('nama')->get(['id', 'nama']),
+            'iklans' => Iklan::active()->where($brandQ)->orderBy('nama')->get(['id', 'nama', 'platform']),
             'pelanggan' => Customer::active()->where('brand_id', $brandId)->orderBy('nama')->limit(500)->get(['id', 'kode', 'nama', 'nomor_hp']),
             'produk' => Product::active()->where($brandQ)->orderBy('nama')->get(['id', 'nama', 'harga']),
             'bahan_kains' => BahanKain::active()->orderBy('nama')->get(['id', 'nama']),
@@ -468,6 +472,7 @@ class OrderController extends Controller
             'sumber_order_id' => ['nullable', 'uuid'],
             'pelanggan_id' => ['required', 'uuid', 'exists:customers,id'],
             'printing_id' => ['nullable', 'uuid', 'exists:printings,id'],
+            'iklan_id' => ['nullable', 'uuid', 'exists:iklans,id'],
             'catatan' => ['nullable', 'string'],
             'items' => ['array'],
             'items.*.product_id' => ['nullable', 'uuid'],
