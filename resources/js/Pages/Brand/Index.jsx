@@ -24,6 +24,11 @@ function BrandForm({ open, onOpenChange, brand, onSuccess }) {
         email: brand?.email ?? '',
         no_hp: brand?.no_hp ?? '',
         alamat: brand?.alamat ?? '',
+        instagram: brand?.instagram ?? '',
+        facebook: brand?.facebook ?? '',
+        tiktok: brand?.tiktok ?? '',
+        whatsapp: brand?.whatsapp ?? '',
+        website: brand?.website ?? '',
         warna_primary: brand?.warna_primary ?? '#3B82F6',
         timezone: brand?.timezone ?? 'Asia/Jakarta',
         currency: brand?.currency ?? 'IDR',
@@ -154,6 +159,32 @@ function BrandForm({ open, onOpenChange, brand, onSuccess }) {
                                 rows={2}
                                 className="mt-1.5"
                             />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                            <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Media Sosial</Label>
+                            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div>
+                                    <Label htmlFor="instagram" className="text-xs">Instagram</Label>
+                                    <Input id="instagram" value={data.instagram} onChange={(e) => setData('instagram', e.target.value)} placeholder="@namaakun" className="mt-1" />
+                                </div>
+                                <div>
+                                    <Label htmlFor="tiktok" className="text-xs">TikTok</Label>
+                                    <Input id="tiktok" value={data.tiktok} onChange={(e) => setData('tiktok', e.target.value)} placeholder="@namaakun" className="mt-1" />
+                                </div>
+                                <div>
+                                    <Label htmlFor="facebook" className="text-xs">Facebook</Label>
+                                    <Input id="facebook" value={data.facebook} onChange={(e) => setData('facebook', e.target.value)} placeholder="Nama Page" className="mt-1" />
+                                </div>
+                                <div>
+                                    <Label htmlFor="whatsapp" className="text-xs">WhatsApp</Label>
+                                    <Input id="whatsapp" value={data.whatsapp} onChange={(e) => setData('whatsapp', e.target.value)} placeholder="628xxxxxxxxxx" className="mt-1" />
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <Label htmlFor="website" className="text-xs">Website</Label>
+                                    <Input id="website" value={data.website} onChange={(e) => setData('website', e.target.value)} placeholder="https://..." className="mt-1" />
+                                </div>
+                            </div>
                         </div>
 
                         <div>

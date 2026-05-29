@@ -1,0 +1,61 @@
+Rangkuman diskusi:
+
+22 Mei Produksi 
+- Nilai Rupiah di Rijek di hapus dan fitur rijek bisa di edit/hapus sebelum di kirim.
+x - kalender PO Tab minggu di hapus.
+x - Penambahan Filter berdasarkan brand dan berdasarkan tanggal & range tanggal di Po, invoice dan refund dan juga bisa salin data tinggal tempel di exsel untuk membuat laporan cepat.
+- di Tab bulan di rubah seperti google kalender jadi di klik dalam 1 tanggal menampilkan seluruh pcs yang berjalan dan list po yang berjalan dan yang masih progress sesuai indikator & data yang ada.
+- di Tab agenda ada filter harian mingguan dan bulanan serta range tanggal juga, untuk warna harus clean supaya tidak sakit mata, indikator warna di poll kanan saja dan penambahan tentang berupa jumlah pcs di setiap baris PO dan juga bisa salin data tinggal tempel di exsel untuk membuat laporan cepat.
+x - di proses kirim ada penambahan data nama ekspedisi & nomer resi untuk tampil di tracking.
+
+23 Mei Keuangan 
+- Invoice hanya 2 kali pertama kali ketika DP atau lunas di awal dan invoice kedua pengembalian sisa uang, DP 2, DP 3, DP 4 dan seterusnya, ongkir, casback, dll. penambahan  produk di tengah jalan sampai benar-benar lunas.
+- Invoice belum bayar harus ada untuk detail kepada customer terkait pembelian produk beserta harga.
+- No Invoice di Setiap PO 1 saja dengan berisi berbagai jenis diatas.
+- ketika tipe order support 100% di hitung nol bukan minus.
+- Harus ada detailing sisa bayar dan record di setiap invoice di setiap split pembayaran.
+- Return mengikat dengan Po yang ada, jadi record return di setiap po di ada dan juga 
+- tidak usah ada pengurangan di sistem keuangan hanya penambahan otomatis berdasarkan berdasarkan penjualan.
+- Ada Penambahan fitur tanpa PO dan invoice tentang tanda jadi terkait desain  untuk antisipasi record keuangan dan ketika berlanjut ke order bisa masuk ke Invoice po.
+- harus ada tab detail terkait belum lunas, sudah lunas dan Filter data brand dan belum masuk produksi (tanda jadi).
+- invoice diterbitkan ketika bukti transfer selaras dengan cek mutasi bank dan baru PO di kerjakan dikawatirkan ada transaksi bodong.
+- keuangan setuju untuk menghilangkan nilai di meng-inputan rijek.
+
+
+23 Mei brand
+x - Perubahan Nomor PO : PO-NAMABRAND-NAMAPO-NUMBERORDER.
+- Kategori/Jenis Pelanggan: Sekolah, Perusahaan, Tim football, komunitas.
+- name bahan tentang milano coolmax untuk alle, drive & circle menggunakan premium.
+- Lotto ekonomis
+- bahan atasan dan bawahan beda
+- logo printing belum ada
+- jahitan pundak dihapus
+- keterangan data harus bisa di kasih gambar 
+- tambah kategori tunik
+- size celana beda (kolom)
+- nopung 2 diubah Nama punggung (napung 2).
+
+25 Mei Produksi & Brand
+- kesepakatan jahitan pundak dihapus di PO.
+- kesepakatan repeat order PO.
+- kesepakatan No PO: PO-NAMABRAND-NAMAPO-NUMBERORDER.
+- kesepakatan penambahan form upload gambar Keterangan Tambahan dan outputnya pdfnya di bawah gambar kerah, jadi semua gambar menjadi 1.
+- kesepakatan size celana beda kolom dengan atasan memakai master data sama.
+- kesepakatan Pemisahan bahan atasan dan bahan bawahan/celana menggunakan master data bahan.
+- Kesepakatan nopung 2 diubah Nama punggung (napung 2).
+- kesepakatan nama bahan tentang Milano coolmax untuk alle, drive & circle menggunakan premium.
+- Kesepakatan bahan Lotto dihapus.
+- Kesepakatan Pola Jahitan di tambah pecah pola Custom & reglan stick.
+- Kesepakatan penambahan kategori order : Tunik, celana panjang slim dan non slim, celana rok slim dan non slim. penghapusan ROK PADEL/TENIS, CELANA ROK PADEL/TENIS, CELANA ROK HOKI.
+- kesepakatan nomer order di reset setiap tahun tapi tidak menghapus data di seluruh PO dan tampil terbaru terus menerus.
+- Kesepakatan di giant card penambahan filter range tanggal dan tanggal khusus tinggal memilih tanggal yang ada dan menampilkan seluruh data sesuai kondisi masing-masing.
+- Kesepakatan filter per brand dan tahun untuk mempermudah pencarian dan laporan eksport ke exsel atau pdf.
+- Kesepakatan tipe order khusus bisa di terbitkan langsung meskipun belum bayar (perintah owner dll).
+- Kesepakatan kategori Bendera. 
+
+NB Pribadi:
+- Tambahkan RBAC Role User.
+- Untuk Owner, superadmin dan admin produk ada switch tampilkan semuanya bukan hanya 1 brand.
+- Fungsi pencarian po berdasarkan UUID di rubah ke nama Po/no PO saja.
+- Ada archive PO pertahun dan per brand.
+- Ada performa order per bulan dan bisa di compare antar brand/reseller.

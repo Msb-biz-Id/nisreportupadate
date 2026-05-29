@@ -74,6 +74,30 @@ export default function Track({ po_number, found, order }) {
                                 </div>
                             </div>
 
+                            {/* Ekspedisi & Resi */}
+                            {(order.nama_ekspedisi || order.no_resi) && (
+                                <div className="rounded-2xl border bg-violet-50 border-violet-200 p-5 shadow-sm">
+                                    <div className="mb-3 flex items-center gap-2 font-semibold text-violet-800">
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" /></svg>
+                                        Info Pengiriman
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                        {order.nama_ekspedisi && (
+                                            <div className="rounded-lg bg-white border border-violet-100 p-3">
+                                                <div className="text-xs text-violet-500 font-medium">Ekspedisi</div>
+                                                <div className="font-bold text-violet-900 mt-0.5">{order.nama_ekspedisi}</div>
+                                            </div>
+                                        )}
+                                        {order.no_resi && (
+                                            <div className="rounded-lg bg-white border border-violet-100 p-3">
+                                                <div className="text-xs text-violet-500 font-medium">No. Resi</div>
+                                                <div className="font-mono font-bold text-violet-900 mt-0.5 break-all">{order.no_resi}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Items */}
                             <div className="rounded-2xl border bg-white p-5 shadow-sm">
                                 <div className="mb-3 flex items-center gap-2 font-semibold">

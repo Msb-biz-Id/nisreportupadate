@@ -45,12 +45,36 @@
 <body>
     <div class="header">
         <div>
-            <div class="brand">{{ $invoice->brand->nama_brand }}</div>
-            <div class="brand-tagline">{{ $invoice->brand->tagline ?? '' }}</div>
-            <div style="font-size: 7.5pt; color: #6B7280; margin-top: 4px;">
-                {{ $invoice->brand->alamat ?? '' }}<br>
-                {{ $invoice->brand->no_hp ?? '' }} · {{ $invoice->brand->email ?? '' }}
+            @if ($invoice->brand->logo)
+            <div style="margin-bottom: 6px;">
+                <img src="{{ public_path('storage/' . $invoice->brand->logo) }}" alt="{{ $invoice->brand->nama_brand }}" style="max-height: 52px; max-width: 160px; object-fit: contain;">
             </div>
+            @else
+            <div class="brand">{{ $invoice->brand->nama_brand }}</div>
+            @endif
+            @if ($invoice->brand->tagline)
+            <div class="brand-tagline">{{ $invoice->brand->tagline }}</div>
+            @endif
+            @if ($invoice->brand->deskripsi)
+            <div style="font-size: 7.5pt; color: #6B7280; margin-top: 3px;">{{ $invoice->brand->deskripsi }}</div>
+            @endif
+            <div style="font-size: 7.5pt; color: #6B7280; margin-top: 4px;">
+                @if ($invoice->brand->alamat){{ $invoice->brand->alamat }}<br>@endif
+                @if ($invoice->brand->no_hp || $invoice->brand->email)
+                {{ $invoice->brand->no_hp ?? '' }}@if ($invoice->brand->no_hp && $invoice->brand->email) · @endif{{ $invoice->brand->email ?? '' }}
+                @endif
+            </div>
+            @php
+                $medsos = array_filter([
+                    $invoice->brand->instagram ? 'IG: @' . ltrim($invoice->brand->instagram, '@') : null,
+                    $invoice->brand->tiktok    ? 'TikTok: @' . ltrim($invoice->brand->tiktok, '@') : null,
+                    $invoice->brand->facebook  ? 'FB: ' . $invoice->brand->facebook : null,
+                    $invoice->brand->website   ? $invoice->brand->website : null,
+                ]);
+            @endphp
+            @if (!empty($medsos))
+            <div style="font-size: 7pt; color: #6B7280; margin-top: 3px;">{{ implode('  ·  ', $medsos) }}</div>
+            @endif
         </div>
         <div>
             <div class="invoice-title">INVOICE</div>

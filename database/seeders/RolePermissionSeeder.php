@@ -29,7 +29,7 @@ class RolePermissionSeeder extends Seeder
             'audit.view',
             'dashboard.view-global',
             'dashboard.view-brand',
-            'master.manage', 'master.brand',
+            'master.manage', 'master.brand', 'master.produk',
             'order.view', 'order.create', 'order.update', 'order.delete', 'order.publish', 'order.refund',
             'production.update-progress', 'production.add-reject',
             'finance.view', 'finance.manage-invoice', 'finance.manage-refund',
@@ -78,6 +78,7 @@ class RolePermissionSeeder extends Seeder
             'admin_produksi' => [
                 'order.view',
                 'production.update-progress', 'production.add-reject',
+                'master.produk',
                 'report.view', 'report.export',
                 'dashboard.view-brand',
             ],

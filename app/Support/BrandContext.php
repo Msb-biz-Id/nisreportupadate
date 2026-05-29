@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use App\Models\Brand;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -55,6 +54,23 @@ class BrandContext
 
     public static function current(Request $request): ?string
     {
-        return $request->session()->get(self::SESSION_KEY);
+        $fromSession = $request->session()->get(self::SESSION_KEY);
+        if ($fromSession) {
+            return $fromSession;
+        }
+
+        // Fallback: session kosong, coba resolve dari user
+        $user = $request->user();
+        if (! $user) {
+            return null;
+        }
+
+        $availableBrands = $user->isSuperadmin()
+            ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary', 'is_active'])
+            : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode', 'warna_primary', 'is_active']);
+
+        $resolved = self::resolve($request, $user, $availableBrands);
+
+        return $resolved ? $resolved['id'] : null;
     }
 }

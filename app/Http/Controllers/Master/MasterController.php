@@ -125,13 +125,15 @@ class MasterController extends Controller
         $user = request()->user();
         if ($user->can('master.manage')) return;
         if ($user->can('master.brand') && $config['group'] === 'order') return;
+        if ($user->can('master.produk') && $config['slug'] === 'produk') return;
         abort(403);
     }
 
     private function canManageConfig($user, array $config): bool
     {
         if ($user->can('master.manage')) return true;
-        return $user->can('master.brand') && $config['group'] === 'order';
+        if ($user->can('master.brand') && $config['group'] === 'order') return true;
+        return $user->can('master.produk') && $config['slug'] === 'produk';
     }
 
     private function guardBrandOwnership(Request $request, array $config, $record): void

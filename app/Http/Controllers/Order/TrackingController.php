@@ -37,6 +37,8 @@ class TrackingController extends Controller
             'tanggal_masuk' => $order->tanggal_masuk?->toDateString(),
             'deadline_customer' => $order->deadline_customer?->toDateString(),
             'end_production_date' => $order->end_production_date?->toDateString(),
+            'nama_ekspedisi' => $order->nama_ekspedisi,
+            'no_resi'        => $order->no_resi,
             'brand' => [
                 'nama_brand' => $order->brand->nama_brand,
                 'kode' => $order->brand->kode,

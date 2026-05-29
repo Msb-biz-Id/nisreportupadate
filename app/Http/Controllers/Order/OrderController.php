@@ -42,10 +42,13 @@ class OrderController extends Controller
     {
         Gate::authorize('order.view');
 
-        $brandId = BrandContext::current($request);
+        $user      = $request->user();
+        $brandId   = BrandContext::current($request);
+        $canSeeMultiBrand = $user->isSuperadmin() || $user->hasRole('owner');
+
         $query = Order::query()
             ->forBrand($brandId)
-            ->with(['pelanggan:id,nama,nomor_hp', 'kategoriOrder:id,nama'])
+            ->with(['pelanggan:id,nama', 'brand:id,nama_brand,kode'])
             ->withCount(['items', 'progressDetails']);
 
         if ($search = $request->string('q')->toString()) {
@@ -55,24 +58,61 @@ class OrderController extends Controller
                   ->orWhereHas('pelanggan', fn ($x) => $x->where('nama', 'like', "%{$search}%"));
             });
         }
+
+        if ($user->hasRole('admin_produksi')) {
+            $query->where('status_po', '!=', 'draft');
+        }
+
         if ($status = $request->string('status')->toString()) {
             $query->where('status_po', $status);
         }
 
-        $orders = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
+        if ($canSeeMultiBrand && ($filterBrand = $request->string('brand_id')->toString())) {
+            $query->where('orders.brand_id', $filterBrand);
+        }
+
+        if ($dateFrom = $request->string('date_from')->toString()) {
+            $query->whereDate('tanggal_masuk', '>=', $dateFrom);
+        }
+        if ($dateTo = $request->string('date_to')->toString()) {
+            $query->whereDate('tanggal_masuk', '<=', $dateTo);
+        }
+
+        // Summary per status (clone query sebelum pagination)
+        $summaryQuery = clone $query;
+        $statusCounts = $summaryQuery->selectRaw('status_po, count(*) as total')
+            ->groupBy('status_po')
+            ->pluck('total', 'status_po')
+            ->toArray();
+
+        $orders = $query->orderByDesc('created_at')->paginate(25)->withQueryString();
+
+        $brands = $canSeeMultiBrand
+            ? Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
+            : [];
+
+        $visibleStatuses = $user->hasRole('admin_produksi')
+            ? array_values(array_filter(Order::STATUSES, fn ($s) => $s !== 'draft'))
+            : Order::STATUSES;
 
         return Inertia::render('Order/Index', [
             'orders' => $orders,
             'filters' => [
-                'q' => $request->string('q')->toString(),
-                'status' => $request->string('status')->toString(),
+                'q'        => $request->string('q')->toString(),
+                'status'   => $request->string('status')->toString(),
+                'brand_id' => $request->string('brand_id')->toString(),
+                'date_from' => $request->string('date_from')->toString(),
+                'date_to'   => $request->string('date_to')->toString(),
             ],
-            'statuses' => Order::STATUSES,
+            'statuses'     => $visibleStatuses,
+            'statusCounts' => $statusCounts,
+            'brands'       => $brands,
             'can' => [
-                'create' => $request->user()->can('order.create'),
-                'update' => $request->user()->can('order.update'),
-                'delete' => $request->user()->can('order.delete'),
-                'publish' => $request->user()->can('order.publish'),
+                'create'          => $user->can('order.create'),
+                'update'          => $user->can('order.update'),
+                'delete'          => $user->can('order.delete'),
+                'publish'         => $user->can('order.publish'),
+                'filter_by_brand' => $canSeeMultiBrand,
             ],
         ]);
     }
@@ -122,7 +162,7 @@ class OrderController extends Controller
         $order = DB::transaction(function () use ($brand, $data, $user) {
             $order = Order::create([
                 'brand_id' => $brand->id,
-                'no_po' => $this->numbers->generateOrderNumber($brand),
+                'no_po' => $this->numbers->generateOrderNumber($brand, $data['nama_po']),
                 'nama_po' => $data['nama_po'],
                 'status_po' => 'draft',
                 'is_special_order' => $data['is_special_order'] ?? false,
@@ -131,6 +171,7 @@ class OrderController extends Controller
                 'kategori_order_id' => $data['kategori_order_id'] ?? null,
                 'sumber_order_id' => $data['sumber_order_id'] ?? null,
                 'pelanggan_id' => $data['pelanggan_id'],
+                'printing_id' => $data['printing_id'] ?? null,
                 'catatan' => $data['catatan'] ?? null,
                 'created_by' => $user->id,
             ]);
@@ -193,6 +234,7 @@ class OrderController extends Controller
                 'kategori_order_id' => $data['kategori_order_id'] ?? null,
                 'sumber_order_id' => $data['sumber_order_id'] ?? null,
                 'pelanggan_id' => $data['pelanggan_id'],
+                'printing_id' => $data['printing_id'] ?? null,
                 'catatan' => $data['catatan'] ?? null,
                 'updated_by' => $user->id,
             ]);
@@ -209,6 +251,10 @@ class OrderController extends Controller
     {
         Gate::authorize('order.view');
         $this->guardBrandOwnership($request, $order);
+
+        if ($request->user()->hasRole('admin_produksi') && $order->status_po === 'draft') {
+            abort(403, 'Draft PO tidak dapat diakses oleh Admin Produksi.');
+        }
 
         $order->load([
             'pelanggan', 'kategoriOrder', 'sumberOrder',
@@ -232,6 +278,7 @@ class OrderController extends Controller
                 'unlock' => $request->user()->isSuperadmin() || $request->user()->hasRole(['owner', 'admin_brand']),
                 'repeat' => $request->user()->can('order.create') && ! $order->isDraft(),
                 'manage_invoice' => $request->user()->can('finance.manage-invoice'),
+                'add_payment' => ! $request->user()->hasRole('admin_produksi'),
             ],
         ]);
     }
@@ -263,7 +310,7 @@ class OrderController extends Controller
                 'no_po', 'status_po', 'is_repeat_order', 'repeat_from_po_id',
                 'published_at', 'published_by', 'created_at', 'updated_at',
             ]);
-            $clone->no_po = $this->numbers->generateOrderNumber($brand);
+            $clone->no_po = $this->numbers->generateOrderNumber($brand, $order->nama_po);
             $clone->status_po = 'draft';
             $clone->is_repeat_order = true;
             $clone->repeat_from_po_id = $order->id;
@@ -373,7 +420,7 @@ class OrderController extends Controller
         return [
             'kategori_orders' => KategoriOrder::active()->where($brandQ)->orderBy('nama')->get(['id', 'nama']),
             'sumber_orders' => SumberOrder::active()->where($brandQ)->orderBy('nama')->get(['id', 'nama']),
-            'pelanggan' => Customer::active()->where($brandQ)->orderBy('nama')->limit(500)->get(['id', 'kode', 'nama', 'nomor_hp']),
+            'pelanggan' => Customer::active()->where('brand_id', $brandId)->orderBy('nama')->limit(500)->get(['id', 'kode', 'nama', 'nomor_hp']),
             'produk' => Product::active()->where($brandQ)->orderBy('nama')->get(['id', 'nama', 'harga']),
             'bahan_kains' => BahanKain::active()->orderBy('nama')->get(['id', 'nama']),
             'logos' => Logo::active()->orderBy('nama')->get(['id', 'nama']),
@@ -396,6 +443,7 @@ class OrderController extends Controller
             'kategori_order_id' => ['nullable', 'uuid'],
             'sumber_order_id' => ['nullable', 'uuid'],
             'pelanggan_id' => ['required', 'uuid', 'exists:customers,id'],
+            'printing_id' => ['nullable', 'uuid', 'exists:printings,id'],
             'catatan' => ['nullable', 'string'],
             'items' => ['array'],
             'items.*.product_id' => ['nullable', 'uuid'],

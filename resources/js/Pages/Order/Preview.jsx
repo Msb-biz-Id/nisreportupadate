@@ -262,9 +262,11 @@ export default function OrderPreview({ order, can }) {
                             <div className="flex justify-between"><span className="text-muted-foreground">Sudah Dibayar</span><span className="font-mono text-emerald-600">{formatRupiah(totalPaid)}</span></div>
                             <div className="flex justify-between"><span className="text-muted-foreground">Sisa Tagihan</span><span className="font-mono font-bold text-destructive">{formatRupiah(sisaTagihan)}</span></div>
                             <Separator className="my-2" />
-                            <Button size="sm" variant="outline" className="w-full" onClick={() => setOpenPayment(true)}>
-                                <CreditCard className="h-4 w-4" /> Tambah Pembayaran
-                            </Button>
+                            {can?.add_payment && (
+                                <Button size="sm" variant="outline" className="w-full" onClick={() => setOpenPayment(true)}>
+                                    <CreditCard className="h-4 w-4" /> Tambah Pembayaran
+                                </Button>
+                            )}
                         </CardContent>
                     </Card>
                 </div>

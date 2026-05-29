@@ -143,12 +143,17 @@ class ProductionController extends Controller
         Gate::authorize('production.update-progress');
         $this->guardBrandOwnership($request, $order);
         abort_unless($detail->order_id === $order->id, 404);
+        $detail->loadMissing('progress');
+
+        $isSending = strtoupper($detail->progress->nama_progress ?? '') === 'SENDING';
 
         $data = $request->validate([
-            'status' => ['required', Rule::in(OrderProgressDetail::STATUSES)],
-            'catatan' => ['required_unless:status,pending', 'nullable', 'string'],
-            'kendala' => ['nullable', 'string'],
+            'status'         => ['required', Rule::in(OrderProgressDetail::STATUSES)],
+            'catatan'        => ['required_unless:status,pending', 'nullable', 'string'],
+            'kendala'        => ['nullable', 'string'],
             'skipped_reason' => ['required_if:status,skipped', 'nullable', 'string'],
+            'nama_ekspedisi' => [$isSending && $request->input('status') === 'selesai' ? 'required' : 'nullable', 'string', 'max:100'],
+            'no_resi'        => ['nullable', 'string', 'max:100'],
         ]);
 
         $this->statusManager->updateProgressDetail(
@@ -156,6 +161,13 @@ class ProductionController extends Controller
             $data['catatan'] ?? null, $data['kendala'] ?? null,
             $data['skipped_reason'] ?? null, $request->user()
         );
+
+        if ($isSending && $data['status'] === 'selesai') {
+            $order->update([
+                'nama_ekspedisi' => $data['nama_ekspedisi'] ?? null,
+                'no_resi'        => $data['no_resi'] ?? null,
+            ]);
+        }
 
         return back()->with('success', 'Progress berhasil diperbarui.');
     }

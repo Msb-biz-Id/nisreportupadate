@@ -10,10 +10,14 @@ use Carbon\Carbon;
 
 class NumberGenerator
 {
-    public function generateOrderNumber(Brand $brand): string
+    public function generateOrderNumber(Brand $brand, string $namaPo = ''): string
     {
-        $date = Carbon::now()->format('Ymd');
-        $prefix = "PO-{$brand->kode}-{$date}";
+        // Slug dari nama PO: huruf & angka saja, max 12 karakter
+        $slug = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $namaPo));
+        $slug = substr($slug, 0, 12);
+        if ($slug === '') $slug = 'ORDER';
+
+        $prefix = "PO-{$brand->kode}-{$slug}";
 
         $last = Order::where('brand_id', $brand->id)
             ->where('no_po', 'like', "{$prefix}-%")

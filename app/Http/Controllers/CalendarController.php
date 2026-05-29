@@ -35,30 +35,44 @@ class CalendarController extends Controller
         Gate::authorize('order.view');
         $brandId = BrandContext::current($request);
 
+        $isProduksi = $request->user()->hasRole('admin_produksi');
+
         $orders = Order::query()
             ->forBrand($brandId)
             ->published()
             ->with('pelanggan:id,nama')
+            ->withCount(['items as total_pcs' => fn ($q) => $q->selectRaw('SUM(quantity)')])
             ->orderBy('deadline_customer')
             ->get();
 
-        $events = $orders->map(fn (Order $o) => [
-            'id'            => $o->id,
-            'title'         => "[{$o->no_po}] " . ($o->nama_po ?? ''),
-            'start'         => $o->tanggal_masuk?->toDateString(),
-            'end'           => $o->deadline_customer?->toDateString(),
-            'status'        => $o->status_po,
-            'statusLabel'   => self::STATUS_LABELS[$o->status_po] ?? $o->status_po,
-            'color'         => self::STATUS_COLORS[$o->status_po] ?? '#94A3B8',
-            'pelanggan'     => $o->pelanggan?->nama,
-            'noPo'          => $o->no_po,
-            'namaPo'        => $o->nama_po,
-            'daysRemaining' => $o->deadline_customer
-                ? now()->startOfDay()->diffInDays($o->deadline_customer, false)
-                : null,
-            'detailUrl'     => route('orders.show', $o->id),
-            'progressUrl'   => route('produksi.progress', $o->id),
-        ]);
+        $events = $orders->map(function (Order $o) use ($isProduksi) {
+            $start = $isProduksi
+                ? ($o->start_production_date ?? $o->tanggal_masuk)?->toDateString()
+                : $o->tanggal_masuk?->toDateString();
+
+            $end = $isProduksi
+                ? ($o->end_production_date ?? $o->deadline_customer)?->toDateString()
+                : $o->deadline_customer?->toDateString();
+
+            return [
+                'id'            => $o->id,
+                'title'         => "[{$o->no_po}] " . ($o->nama_po ?? ''),
+                'start'         => $start,
+                'end'           => $end,
+                'status'        => $o->status_po,
+                'statusLabel'   => self::STATUS_LABELS[$o->status_po] ?? $o->status_po,
+                'color'         => self::STATUS_COLORS[$o->status_po] ?? '#94A3B8',
+                'pelanggan'     => $o->pelanggan?->nama,
+                'noPo'          => $o->no_po,
+                'namaPo'        => $o->nama_po,
+                'daysRemaining' => $o->deadline_customer
+                    ? now()->startOfDay()->diffInDays($o->deadline_customer, false)
+                    : null,
+                'totalPcs'      => (int) ($o->total_pcs ?? 0),
+                'detailUrl'     => route('orders.show', $o->id),
+                'progressUrl'   => route('produksi.progress', $o->id),
+            ];
+        });
 
         return Inertia::render('Calendar/Index', [
             'events'       => $events,

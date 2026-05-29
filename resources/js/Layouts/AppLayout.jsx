@@ -92,12 +92,18 @@ function buildMenu(user) {
 
     const canManageAll = hasPermission(user, 'master.manage');
     const canManageBrand = canManageAll || hasPermission(user, 'master.brand');
-    if (canManageBrand) {
+    const canManageProduk = hasPermission(user, 'master.produk');
+    if (canManageBrand || canManageProduk) {
         const isMasterActive = route().current('master.*');
         const customerActive = route().current('master.pelanggan.*');
         const currentSlug = route().params?.slug;
 
-        const visibleItems = MASTER_ITEMS.filter((m) => canManageAll || m.group === 'brand');
+        const visibleItems = MASTER_ITEMS.filter((m) => {
+            if (canManageAll) return true;
+            if (canManageBrand && m.group === 'brand') return true;
+            if (canManageProduk && m.slug === 'produk') return true;
+            return false;
+        });
         const masterChildren = [
             ...visibleItems.map((m) => ({
                 name: m.name,
@@ -325,7 +331,7 @@ function SidebarContent({ user, brandContext, onNavigate }) {
                 </div>
             </div>
 
-            <BrandSwitcher brandContext={brandContext} />
+            {!user?.roles?.includes('admin_produksi') && <BrandSwitcher brandContext={brandContext} />}
 
             <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4 scrollbar-thin">
                 {sections.map((section) => (
