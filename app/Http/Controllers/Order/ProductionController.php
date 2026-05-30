@@ -12,6 +12,7 @@ use App\Support\BrandContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use App\Services\Notifications\DynamicNotificationService;
 use Inertia\Inertia;
 
 class ProductionController extends Controller
@@ -127,7 +128,7 @@ class ProductionController extends Controller
         Gate::authorize('order.view');
         $this->guardBrandOwnership($request, $order);
 
-        $order->load(['progressDetails.progress', 'progressDetails.updater', 'rijeks']);
+        $order->load(['progressDetails.progress', 'progressDetails.updater', 'rijeks.progress', 'rijeks.creator']);
 
         return Inertia::render('Production/Progress', [
             'order' => $order,
@@ -169,6 +170,14 @@ class ProductionController extends Controller
             ]);
         }
 
+        DynamicNotificationService::dispatch('progress_updated', [
+            'no_po' => $order->no_po,
+            'brand_id' => $order->brand_id,
+            'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
+            'stage' => $detail->progress->nama_progress ?? '-',
+            'action_url' => "/produksi/progress/{$order->id}"
+        ]);
+
         return back()->with('success', 'Progress berhasil diperbarui.');
     }
 
@@ -185,10 +194,9 @@ class ProductionController extends Controller
             'tingkat' => ['required', Rule::in(Rijek::TINGKAT)],
             'kendala' => ['required', 'string'],
             'penanganan' => ['nullable', 'string'],
-            'biaya_ganti' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        Rijek::create([
+        $rijek = Rijek::create([
             ...$data,
             'order_id' => $order->id,
             'status' => 'pending',
@@ -201,7 +209,93 @@ class ProductionController extends Controller
                 ->update(['has_reject' => true]);
         }
 
+        $stageName = 'Produksi';
+        if (! empty($data['progress_id'])) {
+            $progressObj = Progress::find($data['progress_id']);
+            if ($progressObj) {
+                $stageName = $progressObj->nama_progress;
+            }
+        }
+
+        DynamicNotificationService::dispatch('rijek_reported', [
+            'no_po' => $order->no_po,
+            'brand_id' => $order->brand_id,
+            'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
+            'stage' => $stageName,
+            'action_url' => "/produksi/progress/{$order->id}"
+        ]);
+
         return back()->with('success', 'Rijek berhasil dicatat.');
+    }
+
+    public function updateRijek(Request $request, Order $order, Rijek $rijek)
+    {
+        Gate::authorize('production.add-reject');
+        $this->guardBrandOwnership($request, $order);
+        abort_unless($rijek->order_id === $order->id, 404);
+
+        if ($order->status_po === 'sudah_dikirim') {
+            return back()->with('error', 'Tidak dapat mengubah rijek karena PO sudah dikirim.');
+        }
+
+        $data = $request->validate([
+            'progress_id' => ['nullable', 'uuid', 'exists:progress,id'],
+            'order_item_id' => ['nullable', 'uuid'],
+            'jumlah' => ['required', 'integer', 'min:1'],
+            'jenis' => ['required', Rule::in(Rijek::JENIS)],
+            'tingkat' => ['required', Rule::in(Rijek::TINGKAT)],
+            'kendala' => ['required', 'string'],
+            'penanganan' => ['nullable', 'string'],
+        ]);
+
+        $oldProgressId = $rijek->progress_id;
+        $rijek->update($data);
+
+        if (! empty($data['progress_id'])) {
+            OrderProgressDetail::where('order_id', $order->id)
+                ->where('progress_id', $data['progress_id'])
+                ->update(['has_reject' => true]);
+        }
+
+        if (! empty($oldProgressId) && $oldProgressId !== ($data['progress_id'] ?? null)) {
+            $otherExists = Rijek::where('order_id', $order->id)
+                ->where('progress_id', $oldProgressId)
+                ->exists();
+            if (! $otherExists) {
+                OrderProgressDetail::where('order_id', $order->id)
+                    ->where('progress_id', $oldProgressId)
+                    ->update(['has_reject' => false]);
+            }
+        }
+
+        return back()->with('success', 'Rijek berhasil diperbarui.');
+    }
+
+    public function destroyRijek(Request $request, Order $order, Rijek $rijek)
+    {
+        Gate::authorize('production.add-reject');
+        $this->guardBrandOwnership($request, $order);
+        abort_unless($rijek->order_id === $order->id, 404);
+
+        if ($order->status_po === 'sudah_dikirim') {
+            return back()->with('error', 'Tidak dapat menghapus rijek karena PO sudah dikirim.');
+        }
+
+        $progressId = $rijek->progress_id;
+        $rijek->delete();
+
+        if (! empty($progressId)) {
+            $otherExists = Rijek::where('order_id', $order->id)
+                ->where('progress_id', $progressId)
+                ->exists();
+            if (! $otherExists) {
+                OrderProgressDetail::where('order_id', $order->id)
+                    ->where('progress_id', $progressId)
+                    ->update(['has_reject' => false]);
+            }
+        }
+
+        return back()->with('success', 'Rijek berhasil dihapus.');
     }
 
     /**

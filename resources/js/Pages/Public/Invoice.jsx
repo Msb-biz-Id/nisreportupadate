@@ -1,126 +1,361 @@
 import { Head } from '@inertiajs/react';
-import { Download, ExternalLink, ShieldCheck } from 'lucide-react';
+import { Download, ExternalLink, ShieldCheck, CheckCircle2, AlertCircle, ArrowDownLeft, ArrowUpRight, HelpCircle, Globe } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { formatDate, formatRupiah } from '@/lib/utils';
 
 const STATUS_BADGE = {
-    draft: { label: 'Draft', class: 'bg-gray-100 text-gray-700' },
-    published: { label: 'Diterbitkan', class: 'bg-blue-100 text-blue-700' },
-    sent: { label: 'Terkirim', class: 'bg-cyan-100 text-cyan-700' },
-    paid: { label: 'Lunas', class: 'bg-emerald-100 text-emerald-700' },
-    overdue: { label: 'Lewat Jatuh Tempo', class: 'bg-red-100 text-red-700' },
+    draft: { label: 'Draft', class: 'bg-slate-100 text-slate-700' },
+    published: { label: 'Diterbitkan', class: 'bg-blue-100 text-blue-700 border-blue-200' },
+    sent: { label: 'Terkirim', class: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
+    paid: { label: 'Lunas', class: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+    overdue: { label: 'Lewat Jatuh Tempo', class: 'bg-red-100 text-red-700 border-red-200' },
 };
 
 export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
     const brand = invoice.brand ?? {};
-    const status = STATUS_BADGE[invoice.status] ?? { label: invoice.status, class: 'bg-gray-100 text-gray-700' };
+    const status = STATUS_BADGE[invoice.status] ?? { label: invoice.status, class: 'bg-slate-100 text-slate-700' };
+
+    // Get verified payments / ledger history
+    const payments = (invoice.order?.payments ?? [])
+        .filter(p => p.verified_at !== null)
+        .sort((a, b) => new Date(a.payment_date) - new Date(b.payment_date));
+
+    // Dynamic totals calculation matches the Order model
+    const dpPayments = payments.filter(p => p.payment_type === 'dp');
+    const pelunasanPayments = payments.filter(p => p.payment_type === 'pelunasan');
+    const returnPayments = payments.filter(p => p.payment_type === 'return');
+    const ongkirPayments = payments.filter(p => p.payment_type === 'ongkir');
+    const cashbackPayments = payments.filter(p => p.payment_type === 'cashback');
+    const additionPayments = payments.filter(p => p.payment_type === 'tambahan_produk');
 
     return (
         <>
-            <Head title={`Invoice ${invoice.invoice_number}`} />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 px-4 py-6">
-                <div className="mx-auto max-w-3xl space-y-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Head title={`Invoice ${invoice.invoice_number} - ${brand.nama_brand}`} />
+            <div className="min-h-screen bg-slate-50/50 px-4 py-8 md:py-12">
+                <div className="mx-auto max-w-4xl space-y-6">
+                    
+                    {/* Public Header Bar */}
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-md" style={{ background: brand.warna_primary || '#4F46E5' }}>
                                 <ShieldCheck className="h-5 w-5" />
                             </div>
-                            <div className="text-sm">
-                                <div className="font-bold tracking-tight">NISReport</div>
-                                <div className="text-xs text-muted-foreground">Invoice Publik</div>
+                            <div>
+                                <div className="font-extrabold text-slate-800 tracking-tight">{brand.nama_brand || 'Secure'} Invoice Portal</div>
+                                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block animate-ping"></span>
+                                    Invoice Terverifikasi Sistem
+                                </div>
                             </div>
                         </div>
-                        <Button asChild size="sm">
-                            <a href={route('invoice.public.pdf', invoice.invoice_number)}><Download className="h-4 w-4" /> Download PDF</a>
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button asChild variant="outline" size="sm" className="rounded-xl font-semibold">
+                                <a href={route('invoice.public.pdf', invoice.invoice_number)}>
+                                    <Download className="h-4 w-4 mr-1.5" /> PDF
+                                </a>
+                            </Button>
+                            <Button asChild size="sm" className="text-white rounded-xl font-semibold" style={{ background: brand.warna_primary || '#4F46E5' }}>
+                                <a href={tracking_url} target="_blank" rel="noopener noreferrer">
+                                    <ExternalLink className="h-4 w-4 mr-1.5" /> Lacak PO
+                                </a>
+                            </Button>
+                        </div>
                     </div>
 
-                    <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-                        <div className="flex flex-col gap-3 border-b p-6 sm:flex-row sm:items-center sm:justify-between" style={{ borderBottomColor: brand.warna_primary || '#3B82F6' }}>
-                            <div>
-                                <div className="text-2xl font-bold tracking-tight" style={{ color: brand.warna_primary || '#1E40AF' }}>{brand.nama_brand}</div>
-                                <div className="text-xs text-muted-foreground">{brand.tagline}</div>
-                                <div className="mt-2 text-xs text-muted-foreground">{brand.alamat} · {brand.no_hp}</div>
-                            </div>
-                            <div className="text-right">
-                                <div className="text-3xl font-black tracking-tight" style={{ color: brand.warna_primary || '#1E40AF' }}>INVOICE</div>
-                                <div className="font-mono text-sm text-muted-foreground">{invoice.invoice_number}</div>
-                                <div className={`mt-1 inline-block rounded-full px-3 py-0.5 text-xs font-semibold ${status.class}`}>{status.label}</div>
-                            </div>
-                        </div>
+                    {/* Master Invoice Card */}
+                    <div className="overflow-hidden rounded-3xl border border-slate-150 bg-white shadow-lg">
+                        {/* Brand Banner Accent */}
+                        <div 
+                            className="h-3"
+                            style={{ background: brand.warna_primary || '#4F46E5' }}
+                        ></div>
 
-                        <div className="grid grid-cols-1 gap-3 border-b p-6 sm:grid-cols-2">
-                            <div>
-                                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tagihan kepada</div>
-                                <div className="mt-1 font-semibold">{invoice.order?.pelanggan?.nama}</div>
-                                <div className="text-xs text-muted-foreground">{invoice.order?.pelanggan?.nomor_hp}</div>
-                                <div className="text-xs text-muted-foreground">{invoice.order?.pelanggan?.email}</div>
-                            </div>
-                            <div>
-                                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Referensi & Tanggal</div>
-                                <div className="mt-1 font-mono text-sm">{invoice.order?.no_po}</div>
-                                <div className="text-xs">Terbit: <strong>{formatDate(invoice.tanggal_terbit)}</strong></div>
-                                {invoice.jatuh_tempo && <div className="text-xs">Jatuh Tempo: <strong>{formatDate(invoice.jatuh_tempo)}</strong></div>}
-                            </div>
-                        </div>
-
-                        <div className="p-6">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                                        <th className="py-2">#</th>
-                                        <th className="py-2">Produk</th>
-                                        <th className="py-2 text-right">Qty</th>
-                                        <th className="py-2 text-right">Harga</th>
-                                        <th className="py-2 text-right">Subtotal</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {(invoice.items ?? []).map((item, i) => (
-                                        <tr key={item.id} className="border-b">
-                                            <td className="py-2 text-xs">{i + 1}</td>
-                                            <td className="py-2">{item.produk}</td>
-                                            <td className="py-2 text-right font-mono">{item.jumlah}</td>
-                                            <td className="py-2 text-right font-mono text-xs">{formatRupiah(item.harga_satuan)}</td>
-                                            <td className="py-2 text-right font-mono text-xs">{formatRupiah(item.subtotal)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-
-                            <div className="ml-auto mt-4 w-full max-w-xs space-y-1.5 text-sm">
-                                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-mono">{formatRupiah(invoice.total_tagihan)}</span></div>
-                                {invoice.dp_amount > 0 && <div className="flex justify-between"><span className="text-muted-foreground">DP Diterima</span><span className="font-mono text-emerald-600">- {formatRupiah(invoice.dp_amount)}</span></div>}
-                                {invoice.biaya_pengiriman > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Ongkir</span><span className="font-mono">{formatRupiah(invoice.biaya_pengiriman)}</span></div>}
-                                <div className="flex justify-between border-t pt-2 text-base"><span className="font-bold">Sisa Tagihan</span><span className="font-bold font-mono">{formatRupiah(invoice.sisa_pembayaran)}</span></div>
-                            </div>
-                        </div>
-
-                        {invoice.bank && (
-                            <div className="flex flex-col gap-3 border-t bg-muted/30 p-6 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
-                                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Transfer ke</div>
-                                    <div className="mt-1 font-semibold">{invoice.bank.bank}</div>
-                                    <div className="text-sm">{invoice.bank.atas_nama}</div>
-                                    <div className="font-mono text-lg">{invoice.bank.nomor_rekening}</div>
-                                </div>
-                                {qr_code && (
-                                    <div className="text-center">
-                                        <img src={qr_code} alt="QR Tracking" className="mx-auto h-24 w-24" />
-                                        <div className="mt-1 text-[10px] text-muted-foreground">Scan untuk tracking PO</div>
+                        {/* Invoice Header */}
+                        <div className="flex flex-col gap-6 border-b p-6 md:p-8 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex items-start gap-4">
+                                {brand.logo ? (
+                                    <div className="h-20 w-20 overflow-hidden rounded-2xl border bg-white flex items-center justify-center p-2 shadow-sm">
+                                        <img 
+                                            src={`/storage/${brand.logo}`} 
+                                            alt={brand.nama_brand} 
+                                            className="h-full w-full object-contain"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div 
+                                        className="h-20 w-20 rounded-2xl flex items-center justify-center font-black text-white text-2xl shadow-md"
+                                        style={{ background: brand.warna_primary || '#4F46E5' }}
+                                    >
+                                        {brand.kode || 'B'}
                                     </div>
                                 )}
+                                <div className="space-y-2">
+                                    <h2 className="text-2xl font-black tracking-tight text-slate-800">{brand.nama_brand}</h2>
+                                    {brand.tagline && (
+                                        <div className="text-xs font-bold tracking-wide uppercase" style={{ color: brand.warna_primary || '#4F46E5' }}>
+                                            {brand.tagline}
+                                        </div>
+                                    )}
+                                    <div className="text-xs text-slate-600 leading-relaxed max-w-md space-y-1">
+                                        {brand.alamat && <div><span className="font-bold text-slate-500">Alamat:</span> {brand.alamat}</div>}
+                                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                            {brand.no_hp && <div><span className="font-bold text-slate-500">WA/Telp:</span> {brand.no_hp}</div>}
+                                            {brand.email && <div><span className="font-bold text-slate-500">Email:</span> {brand.email}</div>}
+                                        </div>
+                                        
+                                        {/* Social Media & Website Info */}
+                                        <div className="flex flex-wrap gap-2 pt-1">
+                                            {brand.website && (
+                                                <a href={brand.website.startsWith('http') ? brand.website : `https://${brand.website}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded text-[10px] transition-colors border border-slate-200">
+                                                    <Globe className="h-3 w-3" /> {brand.website}
+                                                </a>
+                                            )}
+                                            {brand.instagram && (
+                                                <a href={`https://instagram.com/${brand.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 bg-pink-50 hover:bg-pink-100 text-pink-750 font-bold px-2 py-0.5 rounded text-[10px] transition-colors border border-pink-100">
+                                                    <svg className="h-3 w-3 text-pink-600 fill-current" viewBox="0 0 24 24">
+                                                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+                                                    </svg> @{brand.instagram.replace('@', '')}
+                                                </a>
+                                            )}
+                                            {brand.facebook && (
+                                                <a href={`https://facebook.com/${brand.facebook}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded text-[10px] transition-colors border border-blue-100">
+                                                    <svg className="h-3 w-3 text-blue-600 fill-current" viewBox="0 0 24 24">
+                                                        <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z" />
+                                                    </svg> {brand.facebook}
+                                                </a>
+                                            )}
+                                            {brand.tiktok && (
+                                                <a href={`https://tiktok.com/@${brand.tiktok.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 bg-slate-900 hover:bg-slate-800 text-white font-bold px-2 py-0.5 rounded text-[10px] transition-colors border border-slate-900">
+                                                    TikTok: @{brand.tiktok.replace('@', '')}
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="sm:text-right space-y-1.5">
+                                <div className="text-[10px] font-extrabold tracking-widest text-muted-foreground uppercase">Master Invoice</div>
+                                <h3 className="text-3xl font-black tracking-tight text-slate-800">{invoice.invoice_number}</h3>
+                                <div className="flex sm:justify-end">
+                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${status.class}`}>
+                                        {status.label.toUpperCase()}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Customer & PO Info */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-b p-6 md:p-8 bg-slate-50/50">
+                            <div className="space-y-1">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">DIBAYAR OLEH</span>
+                                <h4 className="font-bold text-slate-800 text-base">{invoice.order?.pelanggan?.nama || '—'}</h4>
+                                <div className="text-xs text-slate-600 font-medium">{invoice.order?.pelanggan?.nomor_hp || '—'}</div>
+                                <div className="text-xs text-slate-500 font-medium">{invoice.order?.pelanggan?.email || '—'}</div>
+                            </div>
+
+                            <div className="space-y-1 md:text-right">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">REFERENSI ORDER</span>
+                                <div className="font-mono text-sm font-bold text-indigo-700">{invoice.order?.no_po || '—'}</div>
+                                <div className="text-xs text-slate-600 font-medium">Tanggal PO: <strong>{formatDate(invoice.tanggal_terbit)}</strong></div>
+                                {invoice.jatuh_tempo && (
+                                    <div className="text-xs text-slate-500">Jatuh Tempo: <strong className="text-red-600">{formatDate(invoice.jatuh_tempo)}</strong></div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Items Purchased */}
+                        <div className="p-6 md:p-8 space-y-4">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Rincian Produk</h4>
+                            <div className="overflow-hidden rounded-2xl border border-slate-150">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-slate-50">
+                                        <tr className="border-b text-left text-xs uppercase tracking-wide text-slate-500 font-semibold">
+                                            <th className="py-3 px-4">#</th>
+                                            <th className="py-3 px-4">Produk / Item</th>
+                                            <th className="py-3 px-4 text-right">Quantity</th>
+                                            <th className="py-3 px-4 text-right">Harga Satuan</th>
+                                            <th className="py-3 px-4 text-right">Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {(invoice.items ?? []).map((item, i) => (
+                                            <tr key={item.id} className="hover:bg-slate-50/20">
+                                                <td className="py-3 px-4 text-xs font-medium text-slate-400">{i + 1}</td>
+                                                <td className="py-3 px-4 font-semibold text-slate-800">{item.produk}</td>
+                                                <td className="py-3 px-4 text-right font-mono font-medium">{item.jumlah} pcs</td>
+                                                <td className="py-3 px-4 text-right font-mono text-xs">{formatRupiah(item.harga_satuan)}</td>
+                                                <td className="py-3 px-4 text-right font-mono text-xs font-semibold text-slate-800">{formatRupiah(item.subtotal)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Ledger Transaction History (Incoming/Outgoing Payments) */}
+                        <div className="px-6 md:px-8 pb-6 space-y-4">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Riwayat Pembayaran & Penyesuaian (Verified)</h4>
+                            <div className="overflow-hidden rounded-2xl border border-slate-150">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-slate-50">
+                                        <tr className="border-b text-left text-xs uppercase tracking-wide text-slate-500 font-semibold">
+                                            <th className="py-3 px-4">Tanggal</th>
+                                            <th className="py-3 px-4">Deskripsi / Jenis Transaksi</th>
+                                            <th className="py-3 px-4">Tujuan Mutasi Bank</th>
+                                            <th className="py-3 px-4 text-right">Nominal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {payments.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={4} className="py-4 px-4 text-center text-xs text-slate-400 italic">
+                                                    Belum ada riwayat pembayaran yang diverifikasi oleh Admin Keuangan.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            payments.map((p) => {
+                                                const isDebit = [ 'dp', 'pelunasan', 'tambahan_produk', 'ongkir' ].includes(p.payment_type);
+                                                
+                                                let displayType = p.payment_type.toUpperCase();
+                                                if (p.payment_type === 'dp') {
+                                                    displayType = `DP SEQUENCE (DP #${p.dp_sequence || '1'})`;
+                                                } else if (p.payment_type === 'tambahan_produk') {
+                                                    displayType = 'TAMBAHAN PRODUK';
+                                                }
+
+                                                return (
+                                                    <tr key={p.id} className="hover:bg-slate-50/20 text-xs">
+                                                        <td className="py-3 px-4 text-slate-500 font-medium">{formatDate(p.payment_date)}</td>
+                                                        <td className="py-3 px-4">
+                                                            <div className="flex items-center gap-2">
+                                                                {isDebit ? (
+                                                                    <div className="h-5 w-5 bg-emerald-100 text-emerald-700 rounded-md flex items-center justify-center">
+                                                                        <ArrowDownLeft className="h-3 w-3" />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="h-5 w-5 bg-red-100 text-red-700 rounded-md flex items-center justify-center">
+                                                                        <ArrowUpRight className="h-3 w-3" />
+                                                                    </div>
+                                                                )}
+                                                                <div>
+                                                                    <span className="font-bold text-slate-800">{displayType}</span>
+                                                                    {p.notes && <span className="block text-[10px] text-slate-500 mt-0.5">{p.notes}</span>}
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3 px-4 font-medium text-slate-600">
+                                                            {p.bank ? `${p.bank.bank_name} — ${p.bank.account_number}` : '—'}
+                                                        </td>
+                                                        <td className={`py-3 px-4 text-right font-mono font-bold ${isDebit ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                            {isDebit ? '+' : '-'} {formatRupiah(p.amount)}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Totals Summary */}
+                        <div className="border-t bg-slate-50/40 p-6 md:p-8 flex flex-col md:flex-row justify-between gap-6">
+                            <div className="space-y-4 max-w-sm">
+                                {invoice.bank && (
+                                    <div className="space-y-1.5 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                                        <span className="text-[10px] font-bold tracking-wider text-slate-400 block uppercase">Metode Pembayaran Resmi</span>
+                                        <div className="text-sm font-extrabold text-slate-800">{invoice.bank.bank}</div>
+                                        <div className="text-xs font-semibold text-slate-500">Atas Nama: {invoice.bank.atas_nama}</div>
+                                        <div className="font-mono font-black text-indigo-700 text-base select-all bg-indigo-50/50 py-1.5 px-3 rounded-lg border border-indigo-100/50 inline-block">
+                                            {invoice.bank.nomor_rekening}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="w-full md:max-w-sm space-y-2.5 text-slate-700">
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="font-semibold text-slate-400">Total Harga Produk</span>
+                                    <span className="font-mono font-bold text-slate-700">{formatRupiah(invoice.items?.reduce((s, x) => s + Number(x.subtotal), 0) || 0)}</span>
+                                </div>
+
+                                {additionPayments.length > 0 && (
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="font-semibold text-slate-400">Tambahan Produk</span>
+                                        <span className="font-mono font-bold text-slate-700">+ {formatRupiah(additionPayments.reduce((s, x) => s + Number(x.amount), 0))}</span>
+                                    </div>
+                                )}
+
+                                {ongkirPayments.length > 0 && (
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="font-semibold text-slate-400">Biaya Pengiriman</span>
+                                        <span className="font-mono font-bold text-slate-700">+ {formatRupiah(ongkirPayments.reduce((s, x) => s + Number(x.amount), 0))}</span>
+                                    </div>
+                                )}
+
+                                {cashbackPayments.length > 0 && (
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="font-semibold text-slate-400 text-red-500">Cashback Diterima</span>
+                                        <span className="font-mono font-bold text-red-500">- {formatRupiah(cashbackPayments.reduce((s, x) => s + Number(x.amount), 0))}</span>
+                                    </div>
+                                )}
+
+                                {returnPayments.length > 0 && (
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="font-semibold text-slate-400 text-red-500">Returns / Refunds</span>
+                                        <span className="font-mono font-bold text-red-500">- {formatRupiah(returnPayments.reduce((s, x) => s + Number(x.amount), 0))}</span>
+                                    </div>
+                                )}
+
+                                <div className="flex justify-between items-center text-xs font-bold border-t pt-2 border-slate-150">
+                                    <span className="text-slate-800">Total Tagihan (Nett)</span>
+                                    <span className="font-mono text-slate-800">{formatRupiah(invoice.total_tagihan)}</span>
+                                </div>
+
+                                {dpPayments.length > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
+                                        <span>Total DP Masuk</span>
+                                        <span className="font-mono">- {formatRupiah(dpPayments.reduce((s, x) => s + Number(x.amount), 0))}</span>
+                                    </div>
+                                )}
+
+                                {pelunasanPayments.length > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
+                                        <span>Pelunasan Masuk</span>
+                                        <span className="font-mono">- {formatRupiah(pelunasanPayments.reduce((s, x) => s + Number(x.amount), 0))}</span>
+                                    </div>
+                                )}
+
+                                <div 
+                                    className="flex justify-between items-center border-t border-slate-200 pt-3 text-lg font-black"
+                                    style={{ color: brand.warna_primary || '#4F46E5' }}
+                                >
+                                    <span>Sisa Pembayaran</span>
+                                    <span className="font-mono">{formatRupiah(invoice.sisa_pembayaran)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer Tracking Banner */}
+                        {qr_code && (
+                            <div className="flex flex-col gap-4 border-t bg-slate-50 p-6 md:p-8 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="space-y-1">
+                                    <div className="text-[10px] font-extrabold tracking-widest text-slate-400 uppercase">E-Tracking System</div>
+                                    <div className="text-xs font-semibold text-slate-700">Scan QR Code disamping untuk memantau status pengerjaan produksi secara realtime di workshop kami.</div>
+                                </div>
+                                <div className="text-center bg-white p-3 rounded-2xl border shadow-sm shrink-0 self-center">
+                                    <img src={qr_code} alt="QR Tracking" className="mx-auto h-28 w-28" />
+                                    <div className="mt-1.5 text-[9px] font-bold" style={{ color: brand.warna_primary || '#4F46E5' }}>SECURE PO MONITOR</div>
+                                </div>
                             </div>
                         )}
                     </div>
 
-                    <div className="rounded-2xl border bg-muted/40 p-4 text-center">
-                        <Button asChild variant="outline" size="sm">
-                            <a href={tracking_url} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="h-4 w-4" /> Lacak Pesanan Anda
-                            </a>
-                        </Button>
+                    {/* Disclaimer */}
+                    <div className="rounded-2xl border border-slate-200/50 bg-slate-100/50 p-4 text-center text-[10px] text-slate-500 leading-normal">
+                        Seluruh transaksi dan data yang tercantum dalam dokumen ini diterbitkan secara resmi oleh sistem master ledger keuangan <strong>{brand.nama_brand || 'Konveksi'}</strong> dan dilindungi oleh syarat & ketentuan pengerjaan konveksi. Hubungi Admin Brand jika terdapat selisih.
                     </div>
                 </div>
             </div>

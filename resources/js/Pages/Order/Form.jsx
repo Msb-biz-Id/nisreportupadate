@@ -540,6 +540,10 @@ function PaymentRow({ index, payment, banks, onChange, onRemove }) {
                     <SelectContent>
                         <SelectItem value="dp">DP</SelectItem>
                         <SelectItem value="pelunasan">Pelunasan</SelectItem>
+                        <SelectItem value="ongkir">Ongkir</SelectItem>
+                        <SelectItem value="cashback">Cashback</SelectItem>
+                        <SelectItem value="tambahan_produk">Tambahan Produk</SelectItem>
+                        <SelectItem value="return">Return</SelectItem>
                         <SelectItem value="lainnya">Lainnya</SelectItem>
                     </SelectContent>
                 </Select>

@@ -10,6 +10,7 @@ use App\Support\BrandContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use App\Services\Notifications\DynamicNotificationService;
 use Inertia\Inertia;
 
 class RefundController extends Controller
@@ -19,9 +20,10 @@ class RefundController extends Controller
     public function index(Request $request)
     {
         $brandId = BrandContext::current($request);
+        $selectedBrandId = $request->input('brand_id', $brandId);
 
         $query = Refund::query()
-            ->when($brandId, fn ($q) => $q->where('brand_id', $brandId))
+            ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
             ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'creator:id,name']);
 
         if ($status = $request->string('status')->toString()) {
@@ -33,14 +35,39 @@ class RefundController extends Controller
                   ->orWhereHas('order', fn ($x) => $x->where('no_po', 'like', "%{$search}%"));
             });
         }
+        if ($startDate = $request->string('start_date')->toString()) {
+            $query->whereDate('created_at', '>=', $startDate);
+        }
+        if ($endDate = $request->string('end_date')->toString()) {
+            $query->whereDate('created_at', '<=', $endDate);
+        }
+
+        $allFiltered = (clone $query)->orderByDesc('created_at')->get()->map(fn ($ref) => [
+            'refund_number' => $ref->refund_number,
+            'no_po' => $ref->order?->no_po ?? '—',
+            'jenis_masalah' => $ref->jenis_masalah,
+            'nominal_refund' => $ref->nominal_refund,
+            'created_at' => $ref->created_at->toDateString(),
+            'status' => $ref->status,
+        ]);
 
         $refunds = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
 
+        $user = $request->user();
+        $brands = $user->isSuperadmin()
+            ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
+            : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);
+
         return Inertia::render('Finance/RefundIndex', [
             'refunds' => $refunds,
+            'all_filtered_refunds' => $allFiltered,
+            'brands' => $brands,
             'filters' => [
                 'q' => $request->string('q')->toString(),
                 'status' => $request->string('status')->toString(),
+                'brand_id' => $request->string('brand_id', $selectedBrandId)->toString(),
+                'start_date' => $request->string('start_date')->toString(),
+                'end_date' => $request->string('end_date')->toString(),
             ],
             'statuses' => Refund::STATUSES,
             'jenis_options' => Refund::JENIS_MASALAH,
@@ -74,12 +101,19 @@ class RefundController extends Controller
             return back()->withErrors(['nominal_refund' => 'Nominal refund tidak boleh melebihi total tagihan PO.']);
         }
 
-        Refund::create([
+        $refund = Refund::create([
             ...$data,
             'brand_id' => $order->brand_id,
             'refund_number' => $this->numbers->generateRefundNumber($order->brand),
             'status' => 'pending_review',
             'created_by' => $request->user()->id,
+        ]);
+
+        DynamicNotificationService::dispatch('refund_submitted', [
+            'no_po' => $order->no_po,
+            'brand_id' => $order->brand_id,
+            'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
+            'action_url' => '/refunds'
         ]);
 
         return back()->with('success', 'Refund berhasil diajukan dan menunggu review keuangan.');
@@ -98,6 +132,14 @@ class RefundController extends Controller
 
         \App\Services\ActivityLogger::log('publish', 'refund', $refund, "Terbitkan refund {$refund->refund_number}");
 
+        DynamicNotificationService::dispatch('refund_processed', [
+            'no_po' => $refund->order?->no_po,
+            'brand_id' => $refund->brand_id,
+            'brand_nama' => $refund->order?->brand?->nama_brand ?? $refund->brand_id,
+            'status' => 'Diterima (Published)',
+            'action_url' => '/refunds'
+        ]);
+
         return back()->with('success', "Refund {$refund->refund_number} diterbitkan.");
     }
 
@@ -115,6 +157,14 @@ class RefundController extends Controller
             'rejected_reason' => $data['rejected_reason'],
             'reviewed_by' => $request->user()->id,
             'reviewed_at' => now(),
+        ]);
+
+        DynamicNotificationService::dispatch('refund_processed', [
+            'no_po' => $refund->order?->no_po,
+            'brand_id' => $refund->brand_id,
+            'brand_nama' => $refund->order?->brand?->nama_brand ?? $refund->brand_id,
+            'status' => 'Ditolak',
+            'action_url' => '/refunds'
         ]);
 
         return back()->with('info', 'Refund ditolak. Pengaju dapat revisi dan ajukan ulang.');

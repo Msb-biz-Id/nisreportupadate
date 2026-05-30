@@ -25,7 +25,7 @@ class RbacTest extends TestCase
 
         $this->assertTrue($user->can('order.view'));
         $this->assertTrue($user->can('order.create'));
-        $this->assertTrue($user->can('master.manage'));
+        $this->assertTrue($user->can('master.brand'));
         $this->assertFalse($user->can('brand.create'));
         $this->assertFalse($user->can('user.delete'));
         $this->assertFalse($user->can('settings.system'));

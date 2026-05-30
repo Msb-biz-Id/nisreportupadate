@@ -15,12 +15,14 @@ use App\Http\Controllers\Order\OrderController;
 use App\Http\Controllers\Order\ProductionController;
 use App\Http\Controllers\Order\RefundController;
 use App\Http\Controllers\Order\TrackingController;
+use App\Http\Controllers\Order\DesignDepositController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\Tools\AiToolsController;
 use App\Http\Controllers\UploadController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -33,6 +35,7 @@ Route::get('/', function () {
 
 // Public tracking PO + invoice (rate-limited)
 Route::middleware('throttle:60,1')->group(function () {
+    Route::get('/track', [TrackingController::class, 'index'])->name('track.index');
     Route::get('/track/{noPo}', [TrackingController::class, 'show'])->name('track.show');
     Route::get('/invoice/{invoiceNumber}', [InvoiceController::class, 'publicShow'])->name('invoice.public');
     Route::get('/invoice/{invoiceNumber}/pdf', [InvoiceController::class, 'publicPdf'])->name('invoice.public.pdf');
@@ -103,6 +106,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/{order}/progress', [ProductionController::class, 'progress'])->name('progress');
         Route::put('/{order}/progress/{detail}', [ProductionController::class, 'updateProgress'])->name('progress.update');
         Route::post('/{order}/rijek', [ProductionController::class, 'storeRijek'])->name('rijek.store');
+        Route::put('/{order}/rijek/{rijek}', [ProductionController::class, 'updateRijek'])->name('rijek.update');
+        Route::delete('/{order}/rijek/{rijek}', [ProductionController::class, 'destroyRijek'])->name('rijek.destroy');
         Route::put('/{order}/move-status', [ProductionController::class, 'moveStatus'])->name('move-status');
     });
 
@@ -113,6 +118,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{invoice}/validate', [InvoiceController::class, 'validateInvoice'])->name('validate');
         Route::post('/{invoice}/publish', [InvoiceController::class, 'publish'])->name('publish');
         Route::get('/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('pdf');
+    });
+
+    // Phase 3: Finance — Design Deposits (Tanda Jadi)
+    Route::prefix('design-deposits')->name('design-deposits.')->group(function () {
+        Route::post('/', [DesignDepositController::class, 'store'])->name('store');
+        Route::post('/{deposit}/verify', [DesignDepositController::class, 'verify'])->name('verify');
+        Route::post('/{deposit}/convert', [DesignDepositController::class, 'convertToOrder'])->name('convert');
+        Route::post('/{deposit}/refund', [DesignDepositController::class, 'refund'])->name('refund');
     });
 
     // Phase 5: Reports
@@ -137,13 +150,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{slug}/run', [AiToolsController::class, 'run'])->name('run');
     });
 
-    // Phase 6: Settings & Integrations
     Route::prefix('settings')->name('settings.')->group(function () {
         Route::get('/integrasi', [SettingsController::class, 'index'])->name('integrasi');
         Route::put('/integrasi/ai', [SettingsController::class, 'updateAi'])->name('integrasi.ai');
         Route::put('/integrasi/whatsapp', [SettingsController::class, 'updateWhatsapp'])->name('integrasi.whatsapp');
         Route::put('/integrasi/telegram', [SettingsController::class, 'updateTelegram'])->name('integrasi.telegram');
         Route::put('/integrasi/system', [SettingsController::class, 'updateSystem'])->name('integrasi.system');
+        Route::put('/integrasi/seo', [SettingsController::class, 'updateSeo'])->name('integrasi.seo');
+        Route::put('/integrasi/mail', [SettingsController::class, 'updateMail'])->name('integrasi.mail');
+        Route::put('/integrasi/matrix', [SettingsController::class, 'updateMatrix'])->name('integrasi.matrix');
         Route::post('/integrasi/test/ai', [SettingsController::class, 'testAi'])->name('integrasi.test.ai');
         Route::post('/integrasi/test/whatsapp', [SettingsController::class, 'testWhatsapp'])->name('integrasi.test.whatsapp');
         Route::post('/integrasi/test/telegram', [SettingsController::class, 'testTelegram'])->name('integrasi.test.telegram');
@@ -155,9 +170,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Phase 5.1: Comparison Report
     Route::get('/laporan-comparison', [ComparisonController::class, 'show'])->name('comparison.show');
+    Route::get('/laporan-comparison/excel', [ComparisonController::class, 'exportExcel'])->name('comparison.export.excel');
+    Route::get('/laporan-comparison/pdf', [ComparisonController::class, 'exportPdf'])->name('comparison.export.pdf');
 
     // Phase 6.1: Audit Log
     Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
+
+    // In-App Notifications
+    Route::prefix('notifications')->name('notifications.')->group(function () {
+        Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::post('/{notification}/read', [NotificationController::class, 'markAsRead'])->name('read');
+        Route::post('/read-all', [NotificationController::class, 'markAllAsRead'])->name('read-all');
+        Route::delete('/{notification}', [NotificationController::class, 'destroy'])->name('destroy');
+    });
 });
 
 Route::middleware('auth')->group(function () {
@@ -171,4 +196,4 @@ Route::middleware('auth')->group(function () {
     // Route::post('/two-factor/disable', [TwoFactorController::class, 'disable'])->name('two-factor.disable');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

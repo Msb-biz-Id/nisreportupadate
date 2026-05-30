@@ -9,10 +9,10 @@
         @page { margin: 14mm; }
         .header { display: table; width: 100%; margin-bottom: 18px; }
         .header > div { display: table-cell; vertical-align: top; }
-        .brand { color: {{ $invoice->brand->warna_primary ?? '#1E40AF' }}; font-weight: 700; font-size: 18pt; }
-        .brand-tagline { font-size: 8.5pt; color: #6B7280; }
-        .invoice-title { font-size: 28pt; font-weight: 800; color: {{ $invoice->brand->warna_primary ?? '#1E40AF' }}; text-align: right; letter-spacing: -1px; }
-        .invoice-no { font-family: monospace; text-align: right; font-size: 10pt; color: #6B7280; margin-top: -6px; }
+        .brand { color: #000000; font-weight: 900; font-size: 20pt; letter-spacing: -0.5px; }
+        .brand-tagline { font-size: 9.5pt; color: #000000; font-weight: 700; }
+        .invoice-title { font-size: 28pt; font-weight: 900; color: #000000; text-align: right; letter-spacing: -1px; }
+        .invoice-no { font-family: monospace; text-align: right; font-size: 10pt; color: #111827; font-weight: 700; margin-top: -6px; }
 
         .info-grid { display: table; width: 100%; margin-bottom: 16px; }
         .info-grid > div { display: table-cell; width: 50%; vertical-align: top; padding-right: 12px; }
@@ -45,9 +45,13 @@
 <body>
     <div class="header">
         <div>
-            @if ($invoice->brand->logo)
-            <div style="margin-bottom: 6px;">
-                <img src="{{ public_path('storage/' . $invoice->brand->logo) }}" alt="{{ $invoice->brand->nama_brand }}" style="max-height: 52px; max-width: 160px; object-fit: contain;">
+            @if (!empty($logoData))
+            <div style="margin-bottom: 8px;">
+                <img src="{{ $logoData }}" alt="{{ $invoice->brand->nama_brand }}" style="max-height: 58px; max-width: 180px; object-fit: contain;">
+            </div>
+            @elseif ($invoice->brand->logo)
+            <div style="margin-bottom: 8px;">
+                <img src="{{ public_path('storage/' . $invoice->brand->logo) }}" alt="{{ $invoice->brand->nama_brand }}" style="max-height: 58px; max-width: 180px; object-fit: contain;">
             </div>
             @else
             <div class="brand">{{ $invoice->brand->nama_brand }}</div>
@@ -56,12 +60,12 @@
             <div class="brand-tagline">{{ $invoice->brand->tagline }}</div>
             @endif
             @if ($invoice->brand->deskripsi)
-            <div style="font-size: 7.5pt; color: #6B7280; margin-top: 3px;">{{ $invoice->brand->deskripsi }}</div>
+            <div style="font-size: 8pt; color: #000000; font-weight: 600; margin-top: 3px;">{{ $invoice->brand->deskripsi }}</div>
             @endif
-            <div style="font-size: 7.5pt; color: #6B7280; margin-top: 4px;">
+            <div style="font-size: 8pt; color: #000000; font-weight: 600; margin-top: 4px; line-height: 1.3;">
                 @if ($invoice->brand->alamat){{ $invoice->brand->alamat }}<br>@endif
                 @if ($invoice->brand->no_hp || $invoice->brand->email)
-                {{ $invoice->brand->no_hp ?? '' }}@if ($invoice->brand->no_hp && $invoice->brand->email) · @endif{{ $invoice->brand->email ?? '' }}
+                WA/Telp: {{ $invoice->brand->no_hp ?? '' }}@if ($invoice->brand->no_hp && $invoice->brand->email) · @endifEmail: {{ $invoice->brand->email ?? '' }}
                 @endif
             </div>
             @php
@@ -73,13 +77,13 @@
                 ]);
             @endphp
             @if (!empty($medsos))
-            <div style="font-size: 7pt; color: #6B7280; margin-top: 3px;">{{ implode('  ·  ', $medsos) }}</div>
+            <div style="font-size: 7.5pt; color: #000000; font-weight: 600; margin-top: 3px;">{{ implode('  ·  ', $medsos) }}</div>
             @endif
         </div>
         <div>
             <div class="invoice-title">INVOICE</div>
             <div class="invoice-no">{{ $invoice->invoice_number }}</div>
-            <div style="text-align: right; font-size: 8.5pt; color: #6B7280; margin-top: 8px;">
+            <div style="text-align: right; font-size: 8.5pt; color: #000000; font-weight: 600; margin-top: 8px;">
                 <div>Tgl Terbit: <strong>{{ \Carbon\Carbon::parse($invoice->tanggal_terbit)->translatedFormat('d M Y') }}</strong></div>
                 @if ($invoice->jatuh_tempo)
                 <div>Jatuh Tempo: <strong>{{ \Carbon\Carbon::parse($invoice->jatuh_tempo)->translatedFormat('d M Y') }}</strong></div>

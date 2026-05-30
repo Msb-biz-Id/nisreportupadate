@@ -10,21 +10,65 @@ use Inertia\Inertia;
 class TrackingController extends Controller
 {
     /**
+     * Halaman index pencarian PO publik.
+     */
+    public function index()
+    {
+        return Inertia::render('Public/TrackIndex')
+            ->withViewData(['title' => 'Lacak Progress Pesanan']);
+    }
+
+    /**
      * Halaman publik tracking PO — tidak butuh login.
      * Rate-limited via middleware. Data sensitif di-mask.
      */
     public function show(Request $request, string $noPo)
     {
         $order = Order::query()
-            ->with(['brand:id,nama_brand,kode,warna_primary', 'pelanggan:id,nama,nomor_hp', 'progressDetails.progress', 'items'])
+            ->with(['brand:id,nama_brand,kode,warna_primary,logo,instagram,whatsapp,no_hp', 'pelanggan:id,nama,nomor_hp', 'progressDetails.progress', 'items'])
             ->where('no_po', $noPo)
-            ->whereNot('status_po', 'draft')
+            ->where(function ($q) {
+                $q->where('status_po', '!=', 'draft')
+                  ->orWhereHas('invoices', function ($invQuery) {
+                      $invQuery->whereIn('status', ['published', 'sent', 'paid']);
+                  });
+            })
             ->first();
+
+        $invoices = [];
+        if ($order) {
+            $invoices = \App\Models\Order\Invoice::where('order_id', $order->id)
+                ->whereIn('status', ['published', 'sent', 'paid'])
+                ->get(['invoice_number'])
+                ->map(fn ($inv) => ['invoice_number' => $inv->invoice_number])
+                ->all();
+        }
+
+        $brand = null;
+        if ($order) {
+            $brand = $order->brand;
+        } else {
+            $parts = explode('-', $noPo);
+            if (count($parts) >= 2) {
+                $brandKode = $parts[1];
+                $brand = \App\Models\Brand::where('kode', $brandKode)->first(['id', 'nama_brand', 'kode', 'warna_primary', 'logo', 'instagram', 'whatsapp', 'no_hp']);
+            }
+        }
 
         return Inertia::render('Public/Track', [
             'po_number' => $noPo,
             'found' => (bool) $order,
             'order' => $order ? $this->maskOrder($order) : null,
+            'invoice' => count($invoices) > 0 ? $invoices[0] : null,
+            'invoices' => $invoices,
+            'brand' => $brand ? [
+                'nama_brand' => $brand->nama_brand,
+                'kode' => $brand->kode,
+                'warna_primary' => $brand->warna_primary,
+                'logo' => $brand->logo,
+                'instagram' => $brand->instagram,
+                'whatsapp' => $brand->whatsapp ?? $brand->no_hp,
+            ] : null,
         ])->withViewData(['title' => "Tracking $noPo"]);
     }
 
@@ -43,6 +87,9 @@ class TrackingController extends Controller
                 'nama_brand' => $order->brand->nama_brand,
                 'kode' => $order->brand->kode,
                 'warna_primary' => $order->brand->warna_primary,
+                'logo' => $order->brand->logo,
+                'instagram' => $order->brand->instagram,
+                'whatsapp' => $order->brand->whatsapp ?? $order->brand->no_hp,
             ],
             'pelanggan' => [
                 'nama_initial' => $this->maskName($order->pelanggan->nama),

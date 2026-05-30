@@ -232,11 +232,17 @@ class MasterDataSeeder extends Seeder
     private function seedCustomerType(): void
     {
         // Global reseller defaults
-        foreach ([
-            ['nama' => 'Reguler', 'diskon_default' => 0],
-            ['nama' => 'VIP', 'diskon_default' => 5],
-            ['nama' => 'Reseller', 'diskon_default' => 15],
-        ] as $type) {
+        foreach (
+            [
+                ['nama' => 'Reguler', 'diskon_default' => 0],
+                ['nama' => 'VIP', 'diskon_default' => 0],
+                ['nama' => 'Reseller', 'diskon_default' => 0],
+                ['nama' => 'Sekolah', 'diskon_default' => 0],
+                ['nama' => 'Perusahaan', 'diskon_default' => 0],
+                ['nama' => 'Tim football', 'diskon_default' => 0],
+                ['nama' => 'komunitas', 'diskon_default' => 0],
+            ] as $type
+        ) {
             CustomerType::firstOrCreate(
                 ['brand_id' => null, 'nama' => $type['nama']],
                 $type + ['is_active' => true]
@@ -244,11 +250,17 @@ class MasterDataSeeder extends Seeder
         }
 
         foreach (Brand::all() as $brand) {
-            foreach ([
-                ['nama' => 'Reguler', 'diskon_default' => 0],
-                ['nama' => 'Member', 'diskon_default' => 3],
-                ['nama' => 'Reseller', 'diskon_default' => 15],
-            ] as $type) {
+            foreach (
+                [
+                    ['nama' => 'Reguler', 'diskon_default' => 0],
+                    ['nama' => 'Member', 'diskon_default' => 0],
+                    ['nama' => 'Reseller', 'diskon_default' => 0],
+                    ['nama' => 'Sekolah', 'diskon_default' => 0],
+                    ['nama' => 'Perusahaan', 'diskon_default' => 0],
+                    ['nama' => 'Tim football', 'diskon_default' => 0],
+                    ['nama' => 'komunitas', 'diskon_default' => 0],
+                ] as $type
+            ) {
                 CustomerType::firstOrCreate(
                     ['brand_id' => $brand->id, 'nama' => $type['nama']],
                     $type + ['is_active' => true]

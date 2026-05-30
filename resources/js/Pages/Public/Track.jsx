@@ -19,32 +19,114 @@ function ProgressIcon({ status }) {
     if (status === 'skipped') return <Circle className="h-5 w-5 text-gray-300" />;
     return <Circle className="h-5 w-5 text-gray-300" />;
 }
+export default function Track({ po_number, found, order, brand, invoice, invoices = [] }) {
+    const activeBrand = order?.brand || brand;
 
-export default function Track({ po_number, found, order }) {
+    // Helper to format WhatsApp API link
+    const getWhatsAppUrl = () => {
+        if (!activeBrand?.whatsapp) return null;
+        let cleaned = activeBrand.whatsapp.replace(/\D/g, '');
+        if (cleaned.startsWith('0')) {
+            cleaned = '62' + cleaned.substring(1);
+        } else if (cleaned.startsWith('8')) {
+            cleaned = '62' + cleaned;
+        }
+        const text = `Halo tim *${activeBrand.nama_brand}*, saya ingin menanyakan status pesanan saya dengan nomor PO *${order?.no_po || po_number}*${order?.nama_po ? ` (*${order.nama_po}*)` : ''}.`;
+        return `https://wa.me/${cleaned}?text=${encodeURIComponent(text)}`;
+    };
+
+    // Helper to format Instagram link
+    const getInstagramUrl = () => {
+        if (!activeBrand?.instagram) return null;
+        const cleaned = activeBrand.instagram.replace('@', '').trim();
+        return `https://instagram.com/${cleaned}`;
+    };
+
+    const whatsappUrl = getWhatsAppUrl();
+    const instagramUrl = getInstagramUrl();
+
     return (
         <>
             <Head title={`Tracking ${po_number}`} />
             <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 px-4 py-8">
                 <div className="mx-auto max-w-2xl">
-                    <div className="mb-6 flex items-center justify-center gap-2 text-center">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow">
-                            <ShieldCheck className="h-5 w-5" />
-                        </div>
+                    <div className="mb-6 flex items-center justify-center gap-3 text-center">
+                        {activeBrand ? (
+                            activeBrand.logo ? (
+                                <img
+                                    src={activeBrand.logo.startsWith('http') ? activeBrand.logo : `/storage/${activeBrand.logo}`}
+                                    className="h-10 w-10 rounded-xl object-contain shadow bg-white border border-slate-100 p-1"
+                                    alt={activeBrand.nama_brand}
+                                />
+                            ) : (
+                                <div
+                                    className="flex h-10 w-10 items-center justify-center rounded-xl text-white font-extrabold shadow text-base uppercase transition-all duration-300"
+                                    style={{ backgroundColor: activeBrand.warna_primary || '#3B82F6' }}
+                                >
+                                    {activeBrand.nama_brand.substring(0, 2).toUpperCase()}
+                                </div>
+                            )
+                        ) : (
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow">
+                                <ShieldCheck className="h-5 w-5" />
+                            </div>
+                        )}
                         <div className="text-left">
-                            <div className="text-lg font-bold tracking-tight">NISReport</div>
-                            <div className="text-xs text-muted-foreground">Tracking PO</div>
+                            <div className="text-lg font-extrabold tracking-tight text-slate-800">
+                                {activeBrand?.nama_brand ? activeBrand.nama_brand : 'Secure Tracking'}
+                            </div>
+                            <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Tracking PO</div>
                         </div>
                     </div>
 
                     {!found && (
-                        <div className="rounded-2xl border bg-white p-8 text-center shadow-sm">
-                            <AlertTriangle className="mx-auto h-12 w-12 text-amber-500" />
-                            <h2 className="mt-4 text-xl font-bold">PO Tidak Ditemukan</h2>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                Nomor PO <span className="font-mono font-semibold">{po_number}</span> tidak ditemukan atau belum diterbitkan.
-                            </p>
+                        <div className="space-y-4">
+                            <div className="rounded-2xl border bg-white p-8 text-center shadow-sm">
+                                <AlertTriangle className="mx-auto h-12 w-12 text-amber-500" />
+                                <h2 className="mt-4 text-xl font-bold">PO Tidak Ditemukan</h2>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    Nomor PO <span className="font-mono font-semibold">{po_number}</span> tidak ditemukan atau belum diterbitkan.
+                                </p>
+                            </div>
+
+                            {activeBrand && (
+                                <div className="rounded-2xl border bg-white p-6 shadow-sm flex flex-col items-center text-center space-y-4">
+                                    <div className="space-y-1">
+                                        <h4 className="text-sm font-bold text-slate-800">Butuh Bantuan?</h4>
+                                        <p className="text-xs text-muted-foreground">Silakan hubungi customer service <strong>{activeBrand.nama_brand}</strong> di bawah ini:</p>
+                                    </div>
+                                    <div className="flex flex-wrap items-center justify-center gap-3 w-full sm:w-auto">
+                                        {whatsappUrl && (
+                                            <a
+                                                href={whatsappUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-white bg-emerald-500 hover:bg-emerald-600 px-5 py-2.5 h-10 shadow-sm transition-all hover:-translate-y-0.5 duration-200"
+                                            >
+                                                <svg className="h-5 w-5 fill-current text-white" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M12.031 2a9.965 9.965 0 0 0-9.96 9.96c0 1.603.38 3.123 1.106 4.479L2 22l5.733-1.503a9.92 9.92 0 0 0 4.298 1.002h.004a9.969 9.969 0 0 0 9.965-9.96c-.001-2.66-1.039-5.161-2.925-7.047A9.924 9.924 0 0 0 12.03 2Zm6.417 14.185c-.279.782-1.408 1.433-1.954 1.547-.488.102-.977.195-2.738-.492-2.257-.88-3.71-3.175-3.824-3.327-.113-.151-.925-1.227-.925-2.33 0-1.104.577-1.644.782-1.87.205-.226.45-.282.602-.282.15 0 .301 0 .432.007.136.006.32.016.49.424.173.418.594 1.45.647 1.557.052.106.088.23.017.371-.07.142-.106.23-.212.353-.106.124-.223.277-.318.371-.106.103-.217.215-.094.425.122.21.54 1.001 1.157 1.55.797.708 1.467.927 1.674 1.03.208.103.33.085.45-.053.123-.138.528-.616.67-.827.14-.21.282-.177.472-.106.19.07 1.205.568 1.412.674.208.106.347.16.398.248.053.088.053.513-.173 1.295Z" />
+                                                </svg>
+                                                Hubungi via WhatsApp
+                                            </a>
+                                        )}
+                                        {instagramUrl && (
+                                            <a
+                                                href={instagramUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-white bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-600 hover:opacity-90 px-5 py-2.5 h-10 shadow-sm transition-all hover:-translate-y-0.5 duration-200"
+                                            >
+                                                <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                                                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+                                                </svg>
+                                                Instagram @{activeBrand.instagram.replace('@', '')}
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    )}
+                    ) }
 
                     {found && order && (
                         <div className="space-y-4">
@@ -73,6 +155,101 @@ export default function Track({ po_number, found, order }) {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Invoice Card */}
+                            {/* Invoice Card */}
+                            {invoices && invoices.length > 0 ? (
+                                <div className="space-y-3.5">
+                                    {invoices.map((inv, idx) => (
+                                        <div key={inv.invoice_number} className="rounded-2xl border border-blue-200 bg-blue-50/50 p-5 shadow-sm space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2 font-bold text-blue-900 text-sm">
+                                                    <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                    </svg>
+                                                    Invoice {idx === 0 ? 'Awal / DP' : 'Pelunasan / Final'}: <span className="font-mono text-blue-700 select-all font-extrabold">{inv.invoice_number}</span>
+                                                </div>
+                                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                                                    Ready to View
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-slate-600 leading-relaxed">
+                                                {idx === 0 
+                                                    ? "Invoice awal (DP) resmi untuk PO ini telah diterbitkan oleh bagian Keuangan." 
+                                                    : "Invoice pelunasan / final rekonsiliasi PO ini telah diterbitkan oleh bagian Keuangan."
+                                                } Anda dapat melihat rincian lengkap pembayaran atau mengunduh dokumen PDF secara langsung.
+                                            </p>
+                                            <div className="grid grid-cols-2 gap-3 pt-1">
+                                                <a
+                                                    href={`/invoice/${inv.invoice_number}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 py-3 px-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+                                                >
+                                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                    Detail Invoice
+                                                </a>
+                                                <a
+                                                    href={`/invoice/${inv.invoice_number}/pdf`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-blue-700 bg-white border border-blue-200 hover:bg-blue-50 active:bg-blue-100 py-3 px-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+                                                >
+                                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                    </svg>
+                                                    Unduh PDF
+                                                </a>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : invoice ? (
+                                <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-5 shadow-sm space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 font-bold text-blue-900 text-sm">
+                                            <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                            Invoice Terbit: <span className="font-mono text-blue-700 select-all font-extrabold">{invoice.invoice_number}</span>
+                                        </div>
+                                        <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                                            Ready to View
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-600 leading-relaxed">
+                                        Invoice resmi untuk PO ini telah diterbitkan oleh bagian Keuangan. Anda dapat melihat rincian lengkap pembayaran atau mengunduh dokumen PDF secara langsung.
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-3 pt-1">
+                                        <a
+                                            href={`/invoice/${invoice.invoice_number}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 py-3 px-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+                                        >
+                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                            Detail Invoice
+                                        </a>
+                                        <a
+                                            href={`/invoice/${invoice.invoice_number}/pdf`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-blue-700 bg-white border border-blue-200 hover:bg-blue-50 active:bg-blue-100 py-3 px-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+                                        >
+                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                            </svg>
+                                            Unduh PDF
+                                        </a>
+                                    </div>
+                                </div>
+                            ) : null}
 
                             {/* Ekspedisi & Resi */}
                             {(order.nama_ekspedisi || order.no_resi) && (
@@ -135,8 +312,40 @@ export default function Track({ po_number, found, order }) {
                                 </ol>
                             </div>
 
-                            <div className="rounded-2xl border bg-muted/40 p-4 text-center text-xs text-muted-foreground">
-                                Punya pertanyaan? Hubungi tim {order.brand?.nama_brand} via WhatsApp / Instagram.
+                            {/* Branded Contacts */}
+                            <div className="rounded-2xl border bg-white p-6 shadow-sm flex flex-col items-center text-center space-y-4">
+                                <div className="space-y-1">
+                                    <h4 className="text-sm font-bold text-slate-800">Ada Pertanyaan Mengenai PO Ini?</h4>
+                                    <p className="text-xs text-muted-foreground">Silakan hubungi customer service <strong>{order.brand?.nama_brand}</strong> di bawah ini:</p>
+                                </div>
+                                <div className="flex flex-wrap items-center justify-center gap-3 w-full sm:w-auto">
+                                    {whatsappUrl && (
+                                        <a
+                                            href={whatsappUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-white bg-emerald-500 hover:bg-emerald-600 px-5 py-2.5 h-10 shadow-sm transition-all hover:-translate-y-0.5 duration-200"
+                                        >
+                                            <svg className="h-5 w-5 fill-current text-white" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M12.031 2a9.965 9.965 0 0 0-9.96 9.96c0 1.603.38 3.123 1.106 4.479L2 22l5.733-1.503a9.92 9.92 0 0 0 4.298 1.002h.004a9.969 9.969 0 0 0 9.965-9.96c-.001-2.66-1.039-5.161-2.925-7.047A9.924 9.924 0 0 0 12.03 2Zm6.417 14.185c-.279.782-1.408 1.433-1.954 1.547-.488.102-.977.195-2.738-.492-2.257-.88-3.71-3.175-3.824-3.327-.113-.151-.925-1.227-.925-2.33 0-1.104.577-1.644.782-1.87.205-.226.45-.282.602-.282.15 0 .301 0 .432.007.136.006.32.016.49.424.173.418.594 1.45.647 1.557.052.106.088.23.017.371-.07.142-.106.23-.212.353-.106.124-.223.277-.318.371-.106.103-.217.215-.094.425.122.21.54 1.001 1.157 1.55.797.708 1.467.927 1.674 1.03.208.103.33.085.45-.053.123-.138.528-.616.67-.827.14-.21.282-.177.472-.106.19.07 1.205.568 1.412.674.208.106.347.16.398.248.053.088.053.513-.173 1.295Z" />
+                                            </svg>
+                                            Hubungi via WhatsApp
+                                        </a>
+                                    )}
+                                    {instagramUrl && (
+                                        <a
+                                            href={instagramUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-white bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-600 hover:opacity-90 px-5 py-2.5 h-10 shadow-sm transition-all hover:-translate-y-0.5 duration-200"
+                                        >
+                                            <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+                                            </svg>
+                                            Instagram @{order.brand.instagram.replace('@', '')}
+                                        </a>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}

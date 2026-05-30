@@ -189,20 +189,18 @@ class MasterRegistry
 
             'customer-type' => [
                 'slug' => 'customer-type',
-                'label' => 'Tipe Pelanggan',
+                'label' => 'Kategori Pelanggan',
                 'group' => 'order',
                 'icon' => 'UserCheck',
                 'model' => CustomerType::class,
                 'scope' => 'brand_nullable',
                 'fields' => [
-                    ['name' => 'nama', 'label' => 'Nama Tipe', 'type' => 'text', 'required' => true, 'max' => 100, 'placeholder' => 'VIP / Reguler / Reseller'],
-                    ['name' => 'diskon_default', 'label' => 'Diskon Default (%)', 'type' => 'number', 'default' => 0, 'step' => '0.01'],
+                    ['name' => 'nama', 'label' => 'Kategori Pelanggan', 'type' => 'text', 'required' => true, 'max' => 100, 'placeholder' => 'Sekolah / Perusahaan / Tim football / komunitas'],
                     ['name' => 'deskripsi', 'label' => 'Deskripsi', 'type' => 'textarea'],
                     ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
                 ],
                 'list_columns' => [
                     ['key' => 'nama', 'label' => 'Nama'],
-                    ['key' => 'diskon_default', 'label' => 'Diskon Default (%)', 'class' => 'font-mono'],
                     ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
                 ],
                 'search_fields' => ['nama'],

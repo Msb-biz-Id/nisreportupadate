@@ -42,6 +42,8 @@ class InvoiceTest extends TestCase
             'order_id' => $order->id, 'payment_type' => 'dp',
             'amount' => 300000, 'payment_date' => now()->toDateString(),
             'recorded_by' => $admin->id,
+            'verified_at' => now(),
+            'verified_by' => $finance->id,
         ]);
 
         $this->actingAsWithBrand($finance, $brand)
@@ -55,7 +57,7 @@ class InvoiceTest extends TestCase
         $this->assertEquals('draft', $inv->status);
     }
 
-    public function test_cannot_create_invoice_from_draft_po(): void
+    public function test_can_create_invoice_from_draft_po(): void
     {
         $brand = $this->makeBrand();
         $finance = $this->makeUser('admin_keuangan', [$brand]);
@@ -73,7 +75,7 @@ class InvoiceTest extends TestCase
 
         $this->actingAsWithBrand($finance, $brand)
             ->post(route('invoices.create-from-order', $order->id))
-            ->assertStatus(422);
+            ->assertRedirect();
     }
 
     public function test_publish_invoice(): void

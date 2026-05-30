@@ -111,12 +111,69 @@ class ProductionTest extends TestCase
                 'jenis' => 'jahit',
                 'tingkat' => 'ringan',
                 'kendala' => 'Jahitan miring',
-                'biaya_ganti' => 50000,
             ])
             ->assertRedirect();
 
         $this->assertDatabaseHas('rijeks', [
             'order_id' => $order->id, 'jumlah' => 3, 'jenis' => 'jahit',
+        ]);
+    }
+
+    public function test_admin_produksi_can_update_rijek(): void
+    {
+        [$brand, $user, $order] = $this->setupPublishedOrder();
+        $produksi = $this->makeUser('admin_produksi', [$brand]);
+        $progress = Progress::first();
+
+        $this->actingAsWithBrand($produksi, $brand)
+            ->post(route('produksi.rijek.store', $order->id), [
+                'progress_id' => $progress->id,
+                'jumlah' => 3,
+                'jenis' => 'jahit',
+                'tingkat' => 'ringan',
+                'kendala' => 'Jahitan miring',
+            ]);
+
+        $rijek = \App\Models\Order\Rijek::first();
+
+        $this->actingAsWithBrand($produksi, $brand)
+            ->put(route('produksi.rijek.update', ['order' => $order->id, 'rijek' => $rijek->id]), [
+                'progress_id' => $progress->id,
+                'jumlah' => 5,
+                'jenis' => 'sablon',
+                'tingkat' => 'sedang',
+                'kendala' => 'Sablon pecah',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('rijeks', [
+            'id' => $rijek->id, 'jumlah' => 5, 'jenis' => 'sablon',
+        ]);
+    }
+
+    public function test_admin_produksi_can_delete_rijek(): void
+    {
+        [$brand, $user, $order] = $this->setupPublishedOrder();
+        $produksi = $this->makeUser('admin_produksi', [$brand]);
+        $progress = Progress::first();
+
+        $this->actingAsWithBrand($produksi, $brand)
+            ->post(route('produksi.rijek.store', $order->id), [
+                'progress_id' => $progress->id,
+                'jumlah' => 3,
+                'jenis' => 'jahit',
+                'tingkat' => 'ringan',
+                'kendala' => 'Jahitan miring',
+            ]);
+
+        $rijek = \App\Models\Order\Rijek::first();
+
+        $this->actingAsWithBrand($produksi, $brand)
+            ->delete(route('produksi.rijek.destroy', ['order' => $order->id, 'rijek' => $rijek->id]))
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('rijeks', [
+            'id' => $rijek->id,
         ]);
     }
 }

@@ -1,4 +1,4 @@
-git branch -M main<?php
+<?php
 
 namespace Tests\Feature\Public;
 

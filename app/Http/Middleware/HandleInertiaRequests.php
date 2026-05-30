@@ -53,6 +53,8 @@ class HandleInertiaRequests extends Middleware
                     'roles' => $userRoles,
                     'permissions' => $userPermissions,
                     'is_superadmin' => $user->isSuperadmin(),
+                    'unread_notifications_count' => $user->notifications()->where('is_read', false)->count(),
+                    'recent_notifications' => $user->notifications()->take(10)->get(),
                 ] : null,
             ],
             'brandContext' => [
@@ -66,6 +68,9 @@ class HandleInertiaRequests extends Middleware
             ],
             'app' => [
                 'name' => config('app.name'),
+                'description' => \App\Models\Settings\SystemSetting::get('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.'),
+                'logo_url' => \App\Models\Settings\SystemSetting::get('seo', 'logo') ? \Illuminate\Support\Facades\Storage::disk('public')->url(\App\Models\Settings\SystemSetting::get('seo', 'logo')) : null,
+                'favicon_url' => \App\Models\Settings\SystemSetting::get('seo', 'favicon') ? \Illuminate\Support\Facades\Storage::disk('public')->url(\App\Models\Settings\SystemSetting::get('seo', 'favicon')) : null,
             ],
         ];
     }

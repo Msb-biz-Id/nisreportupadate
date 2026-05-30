@@ -27,8 +27,7 @@ class ReportRunner
             'refund' => $this->refund($brandId, $filters),
             'pemasukan' => $this->pemasukan($brandId, $filters),
             'pengeluaran' => $this->pengeluaran($brandId, $filters),
-            'laba-rugi' => $this->labaRugi($brandId, $filters),
-            'peak-hours' => $this->peakHours($brandId, $filters),
+            'analisis-marketing' => $this->analisisMarketing($brandId, $filters),
             default => ['rows' => [], 'summary' => []],
         };
     }
@@ -121,26 +120,61 @@ class ReportRunner
     private function wilayah(?string $brandId, array $filters): array
     {
         [$from, $to] = $this->dateRange($filters);
+        $level = $filters['level_wilayah'] ?? 'kabupaten';
 
-        $rows = DB::table('orders')
+        $query = DB::table('orders')
             ->join('customers', 'customers.id', '=', 'orders.pelanggan_id')
             ->when($brandId, fn ($q) => $q->where('orders.brand_id', $brandId))
             ->whereBetween('orders.tanggal_masuk', [$from, $to])
-            ->where('orders.status_po', '!=', 'draft')
-            ->whereNotNull('customers.kabupaten_nama')
-            ->select(
-                'customers.provinsi_nama as provinsi',
-                'customers.kabupaten_nama as kabupaten',
-                DB::raw('COUNT(DISTINCT customers.id) as total_pelanggan'),
-                DB::raw('COUNT(orders.id) as total_order'),
-                DB::raw('SUM(orders.total_tagihan) as total_value'),
-            )
-            ->groupBy('customers.provinsi_nama', 'customers.kabupaten_nama')
+            ->where('orders.status_po', '!=', 'draft');
+
+        $selects = [
+            DB::raw('COUNT(DISTINCT customers.id) as total_pelanggan'),
+            DB::raw('COUNT(orders.id) as total_order'),
+            DB::raw('SUM(orders.total_tagihan) as total_value'),
+        ];
+        
+        $groups = [];
+
+        if ($level === 'provinsi') {
+            $query->whereNotNull('customers.provinsi_nama');
+            $selects[] = 'customers.provinsi_nama as provinsi';
+            $groups[] = 'customers.provinsi_nama';
+        } elseif ($level === 'kabupaten') {
+            $query->whereNotNull('customers.kabupaten_nama');
+            $selects[] = 'customers.provinsi_nama as provinsi';
+            $selects[] = 'customers.kabupaten_nama as kabupaten';
+            $groups[] = 'customers.provinsi_nama';
+            $groups[] = 'customers.kabupaten_nama';
+        } elseif ($level === 'kecamatan') {
+            $query->whereNotNull('customers.kecamatan_nama');
+            $selects[] = 'customers.provinsi_nama as provinsi';
+            $selects[] = 'customers.kabupaten_nama as kabupaten';
+            $selects[] = 'customers.kecamatan_nama as kecamatan';
+            $groups[] = 'customers.provinsi_nama';
+            $groups[] = 'customers.kabupaten_nama';
+            $groups[] = 'customers.kecamatan_nama';
+        } elseif ($level === 'desa') {
+            $query->whereNotNull('customers.desa_nama');
+            $selects[] = 'customers.provinsi_nama as provinsi';
+            $selects[] = 'customers.kabupaten_nama as kabupaten';
+            $selects[] = 'customers.kecamatan_nama as kecamatan';
+            $selects[] = 'customers.desa_nama as desa';
+            $groups[] = 'customers.provinsi_nama';
+            $groups[] = 'customers.kabupaten_nama';
+            $groups[] = 'customers.kecamatan_nama';
+            $groups[] = 'customers.desa_nama';
+        }
+
+        $rows = $query->select($selects)
+            ->groupBy($groups)
             ->orderByDesc('total_order')
             ->get()
             ->map(fn ($r) => [
-                'provinsi' => $r->provinsi,
-                'kabupaten' => $r->kabupaten,
+                'provinsi' => $r->provinsi ?? null,
+                'kabupaten' => $r->kabupaten ?? null,
+                'kecamatan' => $r->kecamatan ?? null,
+                'desa' => $r->desa ?? null,
                 'total_pelanggan' => (int) $r->total_pelanggan,
                 'total_order' => (int) $r->total_order,
                 'total_value' => (float) $r->total_value,
@@ -264,15 +298,42 @@ class ReportRunner
                 'jenis' => $r->jenis,
                 'tingkat' => $r->tingkat,
                 'jumlah' => (int) $r->jumlah,
-                'biaya_ganti' => (float) $r->biaya_ganti,
                 'kendala' => $r->kendala,
                 'tanggal' => $r->created_at?->toDateString(),
             ])->all();
 
+        // PO terbanyak rijek
+        $poTerbanyak = Rijek::query()
+            ->when($brandId, fn ($q) => $q->whereHas('order', fn ($x) => $x->where('brand_id', $brandId)))
+            ->whereBetween('created_at', [$from, $to])
+            ->select('order_id', \Illuminate\Support\Facades\DB::raw('SUM(jumlah) as total'))
+            ->groupBy('order_id')
+            ->orderByDesc('total')
+            ->with('order:id,no_po')
+            ->first();
+        $poTerbanyakLabel = $poTerbanyak && $poTerbanyak->order 
+            ? "{$poTerbanyak->order->no_po} ({$poTerbanyak->total} pcs)" 
+            : '—';
+
+        // Tahapan terbanyak rijek
+        $tahapanTerbanyak = Rijek::query()
+            ->when($brandId, fn ($q) => $q->whereHas('order', fn ($x) => $x->where('brand_id', $brandId)))
+            ->whereBetween('created_at', [$from, $to])
+            ->whereNotNull('progress_id')
+            ->select('progress_id', \Illuminate\Support\Facades\DB::raw('SUM(jumlah) as total'))
+            ->groupBy('progress_id')
+            ->orderByDesc('total')
+            ->with('progress:id,nama_progress')
+            ->first();
+        $tahapanTerbanyakLabel = $tahapanTerbanyak && $tahapanTerbanyak->progress 
+            ? "{$tahapanTerbanyak->progress->nama_progress} ({$tahapanTerbanyak->total} pcs)" 
+            : '—';
+
         return ['rows' => $rows, 'summary' => [
             ['label' => 'Total Insiden Rijek', 'value' => count($rows)],
             ['label' => 'Total Item Rijek', 'value' => array_sum(array_column($rows, 'jumlah'))],
-            ['label' => 'Total Biaya Ganti', 'value' => array_sum(array_column($rows, 'biaya_ganti')), 'format' => 'currency'],
+            ['label' => 'PO Terbanyak Rijek', 'value' => $poTerbanyakLabel],
+            ['label' => 'Tahapan Terbanyak Rijek', 'value' => $tahapanTerbanyakLabel],
         ]];
     }
 
@@ -357,99 +418,51 @@ class ReportRunner
             ['label' => 'Total Transaksi', 'value' => count($rows)],
             ['label' => 'Total Pengeluaran', 'value' => array_sum(array_column($rows, 'nominal')), 'format' => 'currency'],
         ]];
-    }
+     }
 
-    private function labaRugi(?string $brandId, array $filters): array
+    private function analisisMarketing(?string $brandId, array $filters): array
     {
         [$from, $to] = $this->dateRange($filters);
 
-        $pemasukan = Pemasukan::query()
-            ->when($brandId, fn ($x) => $x->where('brand_id', $brandId))
-            ->whereBetween('tanggal', [$from, $to])
-            ->select(DB::raw('DATE_FORMAT(tanggal, "%Y-%m") as bulan'), DB::raw('SUM(nominal) as total'))
-            ->groupBy('bulan')
-            ->pluck('total', 'bulan')
-            ->toArray();
-
-        $pengeluaran = Pengeluaran::query()
-            ->when($brandId, fn ($x) => $x->where('brand_id', $brandId))
-            ->whereBetween('tanggal', [$from, $to])
-            ->select(DB::raw('DATE_FORMAT(tanggal, "%Y-%m") as bulan'), DB::raw('SUM(nominal) as total'))
-            ->groupBy('bulan')
-            ->pluck('total', 'bulan')
-            ->toArray();
-
-        $months = collect(array_keys($pemasukan + $pengeluaran))->unique()->sort()->values();
-
-        $rows = $months->map(function ($month) use ($pemasukan, $pengeluaran) {
-            $in = (float) ($pemasukan[$month] ?? 0);
-            $out = (float) ($pengeluaran[$month] ?? 0);
-            return [
-                'bulan' => Carbon::createFromFormat('Y-m', $month)->translatedFormat('F Y'),
-                'pemasukan' => $in,
-                'pengeluaran' => $out,
-                'laba_rugi' => $in - $out,
-            ];
-        })->all();
-
-        $totalIn = collect($rows)->sum('pemasukan');
-        $totalOut = collect($rows)->sum('pengeluaran');
-
-        return ['rows' => $rows, 'summary' => [
-            ['label' => 'Total Pemasukan', 'value' => $totalIn, 'format' => 'currency'],
-            ['label' => 'Total Pengeluaran', 'value' => $totalOut, 'format' => 'currency'],
-            ['label' => 'Laba/Rugi Bersih', 'value' => $totalIn - $totalOut, 'format' => 'currency'],
-        ]];
-    }
-
-    private function peakHours(?string $brandId, array $filters): array
-    {
-        [$from, $to] = $this->dateRange($filters);
-
-        $hariMap = [1 => 'Minggu', 2 => 'Senin', 3 => 'Selasa', 4 => 'Rabu', 5 => 'Kamis', 6 => 'Jumat', 7 => 'Sabtu'];
-
-        $raw = Order::query()
-            ->when($brandId, fn ($q) => $q->where('brand_id', $brandId))
-            ->where('status_po', '!=', 'draft')
-            ->whereBetween('created_at', [$from, $to])
+        $rawRows = DB::table('orders')
+            ->join('customers', 'customers.id', '=', 'orders.pelanggan_id')
+            ->leftJoin('customer_types', 'customer_types.id', '=', 'customers.type_pelanggan_id')
+            ->leftJoin('sumber_orders', 'sumber_orders.id', '=', 'orders.sumber_order_id')
+            ->leftJoin('order_items', 'order_items.order_id', '=', 'orders.id')
+            ->whereBetween('orders.tanggal_masuk', [$from, $to])
+            ->where('orders.status_po', '!=', 'draft')
+            ->when($brandId, fn ($x) => $x->where('orders.brand_id', $brandId))
+            ->when(! empty($filters['customer_type_id']), fn ($x) => $x->where('customers.type_pelanggan_id', $filters['customer_type_id']))
+            ->when(! empty($filters['sumber_order_id']), fn ($x) => $x->where('orders.sumber_order_id', $filters['sumber_order_id']))
             ->select(
-                DB::raw('DAYOFWEEK(created_at) as dow'),
-                DB::raw('HOUR(created_at) as hour'),
-                DB::raw('COUNT(*) as total'),
+                DB::raw('COALESCE(sumber_orders.nama, "— Tanpa Sumber —") as sumber_order'),
+                DB::raw('COALESCE(customer_types.nama, "— Tanpa Kategori —") as kategori_pelanggan'),
+                DB::raw('COUNT(DISTINCT orders.id) as total_order'),
+                DB::raw('COALESCE(SUM(order_items.quantity), 0) as total_qty'),
+                DB::raw('SUM(DISTINCT orders.total_tagihan) as total_value')
             )
-            ->groupBy(DB::raw('DAYOFWEEK(created_at)'), DB::raw('HOUR(created_at)'))
+            ->groupBy('sumber_order', 'kategori_pelanggan')
+            ->orderByDesc('total_value')
             ->get();
 
-        // Flat rows untuk tabel & export
-        $rows = $raw->map(fn ($r) => [
-            'hari'  => $hariMap[$r->dow] ?? "Hari {$r->dow}",
-            'jam'   => sprintf('%02d:00', $r->hour),
-            'total' => (int) $r->total,
-        ])->sortBy(['hari', 'jam'])->values()->all();
+        $totalOmset = $rawRows->sum('total_value');
 
-        // Heatmap series: 1 series per hari (urutan Senin–Minggu), 24 data points per jam
-        $orderedDays = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-        $matrix = collect($orderedDays)->map(function (string $day) use ($raw, $hariMap) {
-            $dowKey = array_search($day, $hariMap);
-            $data = collect(range(0, 23))->map(function (int $h) use ($raw, $dowKey) {
-                $found = $raw->first(fn ($r) => (int) $r->dow === $dowKey && (int) $r->hour === $h);
-                return ['x' => sprintf('%02d:00', $h), 'y' => $found ? (int) $found->total : 0];
-            })->values()->all();
-            return ['name' => $day, 'data' => $data];
-        })->values()->all();
-
-        $totalOrder = $raw->sum('total');
-        $peakRow = $raw->sortByDesc('total')->first();
-        $peakLabel = $peakRow
-            ? "{$hariMap[$peakRow->dow]} jam " . sprintf('%02d:00', $peakRow->hour) . " ({$peakRow->total} order)"
-            : '-';
+        $rows = $rawRows->map(fn ($r) => [
+            'sumber_order' => $r->sumber_order,
+            'kategori_pelanggan' => $r->kategori_pelanggan,
+            'total_order' => (int) $r->total_order,
+            'total_qty' => (int) $r->total_qty,
+            'total_value' => (float) $r->total_value,
+            'percentage' => $totalOmset > 0 ? round(($r->total_value / $totalOmset) * 100, 1) : 0,
+        ])->all();
 
         return [
-            'rows'        => $rows,
-            'heatmapSeries' => $matrix,
-            'summary'     => [
-                ['label' => 'Total Order dalam Periode', 'value' => $totalOrder, 'format' => 'number'],
-                ['label' => 'Jam Tersibuk', 'value' => $peakLabel, 'format' => 'text'],
+            'rows' => $rows,
+            'summary' => [
+                ['label' => 'Total Kombinasi', 'value' => count($rows)],
+                ['label' => 'Total Qty Terjual', 'value' => array_sum(array_column($rows, 'total_qty'))],
+                ['label' => 'Total Order', 'value' => array_sum(array_column($rows, 'total_order'))],
+                ['label' => 'Total Omset', 'value' => $totalOmset, 'format' => 'currency'],
             ],
         ];
     }

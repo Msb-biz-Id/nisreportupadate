@@ -20,6 +20,7 @@ class User extends Authenticatable
         'email',
         'password',
         'phone',
+        'telegram_chat_id',
         'avatar',
         'is_active',
         'last_brand_id',
@@ -75,5 +76,10 @@ class User extends Authenticatable
             return true;
         }
         return $this->brands()->where('brands.id', $brandId)->exists();
+    }
+
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(Notification::class)->latest();
     }
 }

@@ -1,6 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { Toaster, toast } from 'sonner';
+import axios from 'axios';
 import {
     LayoutDashboard,
     Building2,
@@ -34,6 +35,12 @@ import {
     Compass,
     UserCheck,
     Megaphone,
+    Trash2,
+    ExternalLink,
+    Volume2,
+    BellOff,
+    Inbox,
+    CheckSquare
 } from 'lucide-react';
 import { cn, initials, roleLabel } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/Components/ui/sheet';
@@ -48,6 +55,7 @@ import {
 import { Button } from '@/Components/ui/button';
 import { Avatar, AvatarFallback } from '@/Components/ui/avatar';
 import { Badge } from '@/Components/ui/badge';
+import { playNotificationSound } from '@/Services/audio';
 
 function hasPermission(user, perm) {
     if (!user) return false;
@@ -199,8 +207,6 @@ function buildMenu(user) {
             { slug: 'refund', name: 'Refund' },
             { slug: 'pemasukan', name: 'Pemasukan' },
             { slug: 'pengeluaran', name: 'Pengeluaran' },
-            { slug: 'laba-rugi', name: 'Laba Rugi' },
-            { slug: 'peak-hours', name: 'Peak Hours' },
         ];
         const currentSlug = route().params?.slug;
         const isReportActive = route().current('reports.*');
@@ -448,10 +454,273 @@ function UserMenu({ user }) {
     );
 }
 
+function formatTimeAgo(dateString) {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return 'Baru saja';
+        if (diffMins < 60) return `${diffMins}m lalu`;
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) return `${diffHours}j lalu`;
+        const diffDays = Math.floor(diffHours / 24);
+        return `${diffDays}h lalu`;
+    } catch (e) {
+        return '';
+    }
+}
+
+function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead, onDelete }) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <DropdownMenu open={open} onOpenChange={setOpen}>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-full hover:bg-muted transition-colors duration-200">
+                    <Bell className="h-5 w-5 text-gray-600 hover:text-gray-900" />
+                    {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-background animate-pulse">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                    )}
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80 sm:w-96 p-0 shadow-lg border rounded-xl overflow-hidden bg-white/95 backdrop-blur-md">
+                <div className="flex items-center justify-between border-b px-4 py-3 bg-muted/30">
+                    <div>
+                        <h3 className="font-semibold text-sm text-gray-800">Notifikasi Sistem</h3>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{unreadCount} belum dibaca</p>
+                    </div>
+                    {unreadCount > 0 && (
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-[11px] h-7 text-primary hover:text-primary-hover px-2 flex items-center gap-1"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onMarkAllAsRead();
+                            }}
+                        >
+                            <CheckSquare className="h-3 w-3" /> Tandai semua dibaca
+                        </Button>
+                    )}
+                </div>
+
+                <div className="max-h-[350px] overflow-y-auto divide-y divide-gray-100">
+                    {notifications.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+                            <div className="h-10 w-10 rounded-full bg-muted/40 flex items-center justify-center mb-2">
+                                <Inbox className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                            <p className="text-xs font-medium text-gray-500">Tidak ada notifikasi</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">Aktivitas sistem Anda akan muncul di sini</p>
+                        </div>
+                    ) : (
+                        notifications.map((notif) => (
+                            <div 
+                                key={notif.id} 
+                                className={cn(
+                                    "flex gap-3 p-3 transition-colors hover:bg-muted/30 cursor-pointer group relative",
+                                    !notif.is_read && "bg-blue-50/40 border-l-2 border-blue-500"
+                                )}
+                                onClick={() => {
+                                    onMarkAsRead(notif.id);
+                                    if (notif.action_url) {
+                                        setOpen(false);
+                                        router.visit(notif.action_url);
+                                    }
+                                }}
+                            >
+                                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white border shadow-sm">
+                                    <span className="text-sm">
+                                        {notif.type?.includes('refund') ? '🪙' : 
+                                         notif.type?.includes('rijek') ? '⚠️' : 
+                                         notif.type?.includes('progress') ? '⚙️' : '📦'}
+                                    </span>
+                                </div>
+                                <div className="flex-1 space-y-1 pr-6">
+                                    <div className="flex items-center justify-between gap-1">
+                                        <p className={cn("text-xs font-semibold text-gray-800 line-clamp-1", !notif.is_read && "text-blue-900")}>
+                                            {notif.title}
+                                        </p>
+                                        <span className="text-[9px] text-muted-foreground shrink-0 font-medium font-mono">
+                                            {formatTimeAgo(notif.created_at)}
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-gray-600 line-clamp-2 leading-relaxed">
+                                        {notif.body}
+                                    </p>
+                                </div>
+                                <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1">
+                                    {notif.action_url && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-gray-400 hover:text-gray-600"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onMarkAsRead(notif.id);
+                                                router.visit(notif.action_url);
+                                                setOpen(false);
+                                            }}
+                                            title="Buka Halaman"
+                                        >
+                                            <ExternalLink className="h-3 w-3" />
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-red-400 hover:text-red-600"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDelete(notif.id);
+                                        }}
+                                        title="Hapus"
+                                    >
+                                        <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}
+
 export default function AppLayout({ title, header, children }) {
     const { auth, brandContext, flash } = usePage().props;
     const user = auth?.user;
     const [mobileOpen, setMobileOpen] = useState(false);
+
+    const [notifications, setNotifications] = useState(user?.recent_notifications || []);
+    const [unreadCount, setUnreadCount] = useState(user?.unread_notifications_count || 0);
+
+    // Request Browser Desktop Notification permission
+    useEffect(() => {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }, []);
+
+    // Core function to execute dynamic sound and OS Native alert
+    const handleNewNotification = (notif) => {
+        if (notif.sound) {
+            playNotificationSound(notif.sound);
+        }
+
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(notif.title, {
+                body: notif.body,
+                icon: '/favicon.ico'
+            });
+        }
+
+        setNotifications((prev) => {
+            if (prev.some(existing => existing.id === notif.id)) return prev;
+            return [notif, ...prev.slice(0, 9)];
+        });
+        setUnreadCount((prev) => prev + 1);
+
+        toast.info(notif.title, {
+            description: notif.body,
+            action: notif.action_url ? {
+                label: 'Lihat',
+                onClick: () => router.visit(notif.action_url)
+            } : null
+        });
+    };
+
+    // WebSocket broadcaster listener + Polling Sync
+    useEffect(() => {
+        if (!user) return;
+
+        // Sync initial state if it changes in Inertia
+        setNotifications(user.recent_notifications || []);
+        setUnreadCount(user.unread_notifications_count || 0);
+
+        let channel = null;
+        if (window.Echo) {
+            channel = window.Echo.private(`notifications.user.${user.id}`)
+                .listen('.notification.sent', (e) => {
+                    if (e.notification) {
+                        handleNewNotification(e.notification);
+                    }
+                });
+        }
+
+        const interval = setInterval(() => {
+            axios.get(route('notifications.index'))
+                .then((res) => {
+                    const latest = res.data.notifications?.data || [];
+                    const serverUnread = res.data.notifications?.total - latest.filter(n => n.is_read).length || 0;
+                    
+                    if (latest.length > 0 && latest[0].id !== notifications[0]?.id) {
+                        const newNotifs = latest.filter(n => !notifications.some(existing => existing.id === n.id));
+                        if (newNotifs.length > 0) {
+                            newNotifs.reverse().forEach((n) => {
+                                handleNewNotification(n);
+                            });
+                        }
+                    } else {
+                        setNotifications(latest.slice(0, 10));
+                        setUnreadCount(serverUnread);
+                    }
+                })
+                .catch((err) => console.debug('Polling notifications skipped or offline:', err));
+        }, 30000);
+
+        return () => {
+            if (channel && window.Echo) {
+                window.Echo.leave(`notifications.user.${user.id}`);
+            }
+            clearInterval(interval);
+        };
+    }, [user, notifications]);
+
+    const markAsRead = (id) => {
+        axios.post(route('notifications.read', id))
+            .then((res) => {
+                setNotifications((prev) => 
+                    prev.map((n) => n.id === id ? { ...n, is_read: true } : n)
+                );
+                if (res.data.unread_count !== undefined) {
+                    setUnreadCount(res.data.unread_count);
+                } else {
+                    setUnreadCount((prev) => Math.max(0, prev - 1));
+                }
+            })
+            .catch((err) => console.error('Failed to mark notification as read:', err));
+    };
+
+    const markAllAsRead = () => {
+        axios.post(route('notifications.read-all'))
+            .then(() => {
+                setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+                setUnreadCount(0);
+                toast.success('Semua notifikasi ditandai telah dibaca.');
+            })
+            .catch((err) => console.error('Failed to mark all as read:', err));
+    };
+
+    const deleteNotification = (id) => {
+        axios.delete(route('notifications.destroy', id))
+            .then((res) => {
+                const wasUnread = !notifications.find(n => n.id === id)?.is_read;
+                setNotifications((prev) => prev.filter((n) => n.id !== id));
+                if (res.data.unread_count !== undefined) {
+                    setUnreadCount(res.data.unread_count);
+                } else if (wasUnread) {
+                    setUnreadCount((prev) => Math.max(0, prev - 1));
+                }
+                toast.success('Notifikasi berhasil dihapus.');
+            })
+            .catch((err) => console.error('Failed to delete notification:', err));
+    };
 
     useEffect(() => {
         if (flash?.success) toast.success(flash.success);
@@ -508,7 +777,18 @@ export default function AppLayout({ title, header, children }) {
                         )}
                     </div>
 
-                    <UserMenu user={user} />
+                    <div className="flex items-center gap-1.5">
+                        {user && (
+                            <NotificationDropdown 
+                                notifications={notifications}
+                                unreadCount={unreadCount}
+                                onMarkAsRead={markAsRead}
+                                onMarkAllAsRead={markAllAsRead}
+                                onDelete={deleteNotification}
+                            />
+                        )}
+                        <UserMenu user={user} />
+                    </div>
                 </header>
 
                 <main className="px-4 py-6 md:px-6 lg:px-8">{children}</main>

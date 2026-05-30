@@ -47,6 +47,32 @@ class ActivityLogTest extends TestCase
         // Init at least one progress so publish doesn't fail
         \App\Models\Master\Progress::create(['nama_progress' => 'Test', 'urutan' => 1, 'is_active' => true, 'warna' => '#3B82F6', 'is_skippable' => false]);
 
+        // Create verified DP payment (50,000, which is 50% DP)
+        \App\Models\Order\OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'dp',
+            'amount' => 50000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $user->id,
+            'verified_by' => $user->id,
+            'verified_at' => now(),
+        ]);
+
+        // Create validated invoice
+        \App\Models\Order\Invoice::create([
+            'brand_id' => $brand->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-TEST-002',
+            'tanggal_terbit' => now()->toDateString(),
+            'jatuh_tempo' => now()->addDays(7)->toDateString(),
+            'status' => 'validated',
+            'total_tagihan' => 100000,
+            'total_bayar' => 50000,
+            'dp_amount' => 50000,
+            'sisa_pembayaran' => 50000,
+            'created_by' => $user->id,
+        ]);
+
         $this->actingAsWithBrand($user, $brand)
             ->post(route('orders.publish', $order->id))
             ->assertRedirect();

@@ -24,6 +24,7 @@ use App\Models\Order\OrderNameset;
 use App\Models\Order\OrderPayment;
 use App\Services\NumberGenerator;
 use App\Services\POStatusManager;
+use App\Services\Notifications\DynamicNotificationService;
 use App\Support\BrandContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -197,7 +198,7 @@ class OrderController extends Controller
             $invoice = Invoice::create([
                 'brand_id'        => $order->brand_id,
                 'order_id'        => $order->id,
-                'invoice_number'  => $this->numbers->generateInvoiceNumber($brand),
+                'invoice_number'  => $this->numbers->generateInvoiceNumber($brand, $order),
                 'tanggal_terbit'  => now()->toDateString(),
                 'jatuh_tempo'     => now()->addDays(14)->toDateString(),
                 'status'          => 'draft',
@@ -236,7 +237,7 @@ class OrderController extends Controller
         $user = $request->user();
 
         DB::transaction(function () use ($order, $data, $user) {
-            $order->update([
+            $updateData = [
                 'nama_po' => $data['nama_po'],
                 'is_special_order' => $data['is_special_order'] ?? false,
                 'tanggal_masuk' => $data['tanggal_masuk'],
@@ -248,7 +249,22 @@ class OrderController extends Controller
                 'iklan_id' => $data['iklan_id'] ?? null,
                 'catatan' => $data['catatan'] ?? null,
                 'updated_by' => $user->id,
-            ]);
+            ];
+
+            if ($order->isDraft()) {
+                $newSlug = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $data['nama_po']));
+                $newSlug = substr($newSlug, 0, 12);
+                if ($newSlug === '') {
+                    $newSlug = 'ORDER';
+                }
+                $newPrefix = "PO-{$order->brand->kode}-{$newSlug}";
+
+                if (!str_starts_with($order->no_po, $newPrefix)) {
+                    $updateData['no_po'] = $this->numbers->generateOrderNumber($order->brand, $data['nama_po']);
+                }
+            }
+
+            $order->update($updateData);
 
             $this->syncItems($order, $data['items'] ?? []);
             $this->syncPayments($order, $data['payments'] ?? [], $user->id);
@@ -302,9 +318,31 @@ class OrderController extends Controller
         abort_unless($order->isDraft(), 422, 'PO sudah diterbitkan.');
         abort_if($order->items()->count() === 0, 422, 'PO tanpa produk tidak bisa diterbitkan.');
 
+        // Enforce Keuangan validation before PO can be published to production
+        $invoice = $order->invoices()->first();
+        if (!$invoice || !in_array($invoice->status, ['validated', 'published', 'paid'], true)) {
+            return back()->with('error', 'PO tidak bisa diterbitkan karena invoice belum divalidasi oleh Admin Keuangan.');
+        }
+
+        // Enforce 50% DP payment before PO can be published
+        $totalTagihan = (float) $order->totalTagihan();
+        $totalPaid = (float) $order->totalPaid();
+        $minDp = $totalTagihan * 0.5;
+
+        if ($totalPaid < $minDp) {
+            return back()->with('error', 'PO tidak bisa diterbitkan karena total pembayaran terverifikasi (Rp ' . number_format($totalPaid, 0, ',', '.') . ') belum mencapai minimal 50% DP dari total tagihan (Rp ' . number_format($totalTagihan, 0, ',', '.') . ').');
+        }
+
         $this->statusManager->publish($order, $request->user());
 
         \App\Services\ActivityLogger::log('publish', 'order', $order, "Publish PO {$order->no_po}");
+
+        DynamicNotificationService::dispatch('order_published', [
+            'no_po' => $order->no_po,
+            'brand_id' => $order->brand_id,
+            'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
+            'action_url' => "/orders/{$order->id}"
+        ]);
 
         return back()->with('success', 'PO berhasil diterbitkan dan masuk ke dashboard produksi.');
     }
@@ -391,20 +429,44 @@ class OrderController extends Controller
         $this->guardBrandOwnership($request, $order);
 
         $data = $request->validate([
-            'payment_type' => ['required', Rule::in(['dp', 'pelunasan', 'lainnya'])],
+            'payment_type' => ['required', Rule::in(['dp', 'pelunasan', 'ongkir', 'cashback', 'tambahan_produk', 'return', 'lainnya'])],
             'amount' => ['required', 'numeric', 'min:0'],
             'payment_date' => ['required', 'date'],
             'bank_id' => ['nullable', 'uuid', 'exists:bank_accounts,id'],
             'notes' => ['nullable', 'string'],
         ]);
 
-        OrderPayment::create([
+        $user = $request->user();
+        $isFinanceOrAdmin = $user->hasRole('superadmin') || $user->hasRole('owner') || $user->hasRole('admin_keuangan');
+
+        $payment = OrderPayment::create([
             ...$data,
             'order_id' => $order->id,
-            'recorded_by' => $request->user()->id,
+            'recorded_by' => $user->id,
+            'verified_by' => $isFinanceOrAdmin ? $user->id : null,
+            'verified_at' => $isFinanceOrAdmin ? now() : null,
         ]);
 
-        return back()->with('success', 'Pembayaran berhasil dicatat.');
+        // Also dynamically recalculate/update order's total_tagihan field to match dynamic totalTagihan()
+        if ($payment->verified_at !== null) {
+            $order->update(['total_tagihan' => $order->totalTagihan()]);
+        }
+
+        if (!$isFinanceOrAdmin) {
+            \App\Services\Notifications\DynamicNotificationService::dispatch('payment_submitted', [
+                'no_po' => $order->no_po,
+                'brand_id' => $order->brand_id,
+                'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
+                'nominal' => 'Rp ' . number_format($payment->amount, 0, ',', '.'),
+                'action_url' => "/invoices"
+            ]);
+            return back()->with('success', 'Transaksi berhasil dicatat. Menunggu validasi dari Admin Keuangan.');
+        }
+
+        // For verified ones, immediately update the order total_tagihan
+        $order->update(['total_tagihan' => $order->totalTagihan()]);
+
+        return back()->with('success', 'Transaksi berhasil dicatat dan diverifikasi.');
     }
 
     public function spkPdf(Request $request, Order $order)
@@ -501,7 +563,7 @@ class OrderController extends Controller
             'items.*.namesets.*.size_label' => ['nullable', 'string', 'max:50'],
             'items.*.namesets.*.keterangan' => ['nullable', 'string'],
             'payments' => ['array'],
-            'payments.*.payment_type' => ['required', Rule::in(['dp', 'pelunasan', 'lainnya'])],
+            'payments.*.payment_type' => ['required', Rule::in(['dp', 'pelunasan', 'ongkir', 'cashback', 'tambahan_produk', 'return', 'lainnya'])],
             'payments.*.amount' => ['required', 'numeric', 'min:0'],
             'payments.*.payment_date' => ['required', 'date'],
             'payments.*.bank_id' => ['nullable', 'uuid'],
@@ -537,11 +599,16 @@ class OrderController extends Controller
     {
         // Untuk simplicity, payment hanya ditambah (tidak overwrite existing).
         // CRUD pembayaran lengkap tersedia via addPayment().
+        $user = auth()->user();
+        $isFinanceOrAdmin = $user && ($user->hasRole('superadmin') || $user->hasRole('owner') || $user->hasRole('admin_keuangan'));
+
         foreach ($payments as $p) {
             OrderPayment::create([
                 ...$p,
                 'order_id' => $order->id,
                 'recorded_by' => $userId,
+                'verified_by' => $isFinanceOrAdmin ? $userId : null,
+                'verified_at' => $isFinanceOrAdmin ? now() : null,
             ]);
         }
     }

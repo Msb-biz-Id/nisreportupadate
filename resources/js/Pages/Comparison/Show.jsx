@@ -1,255 +1,437 @@
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
-import { Trophy, TrendingUp, Package, Users, AlertTriangle, RotateCcw, Filter } from 'lucide-react';
+import { Trophy, TrendingUp, Package, Users, Filter, Calendar, BarChart3, LineChart, Table2, Layers } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
-import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
 import Chart from '@/Components/Chart';
 import { formatRupiah } from '@/lib/utils';
 
-function MetricRow({ icon: Icon, label, brands, valueKey, formatter, winnerKey }) {
-    return (
-        <div className="grid grid-cols-1 gap-2 rounded-lg border bg-card/60 p-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="flex items-center gap-2 font-medium">
-                <Icon className="h-4 w-4 text-primary" />
-                {label}
-            </div>
-            {brands.map((b) => {
-                const value = b[valueKey];
-                const isWinner = winnerKey && b[winnerKey];
-                return (
-                    <div key={b.brand_id} className={`flex items-center justify-between rounded px-2 py-1 ${isWinner ? 'bg-emerald-50 ring-1 ring-emerald-300' : 'bg-muted/30'}`}>
-                        <div className="flex items-center gap-2">
-                            <span className="h-3 w-3 rounded-full" style={{ background: b.warna || '#3B82F6' }} />
-                            <span className="text-xs font-mono">{b.kode}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            {isWinner && <Trophy className="h-3.5 w-3.5 text-amber-500" />}
-                            <span className="font-mono text-sm font-semibold">
-                                {formatter ? formatter(value) : (value ?? '—')}
-                            </span>
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
-    );
-}
+export default function ComparisonShow({
+    availableBrands,
+    selectedBrandIds,
+    selectedYears,
+    singleBrandId,
+    singleYear,
+    mode,
+    result
+}) {
+    // Mode State
+    const [currentMode, setCurrentMode] = useState(mode || 'brands');
+    
+    // Filters States
+    const [selBrands, setSelBrands] = useState(selectedBrandIds || []);
+    const [selYears, setSelYears] = useState(selectedYears || [new Date().getFullYear(), new Date().getFullYear() - 1]);
+    const [selSingleBrand, setSelSingleBrand] = useState(singleBrandId || (availableBrands[0]?.id ?? ''));
+    const [selSingleYear, setSelSingleYear] = useState(singleYear || new Date().getFullYear());
+    
+    // Metric state for chart & highlight ('omset', 'po', 'pcs')
+    const [activeMetric, setActiveMetric] = useState('omset');
 
-export default function ComparisonShow({ availableBrands, selectedBrandIds, filters, result }) {
-    const [sel, setSel] = useState(selectedBrandIds || []);
-    const [from, setFrom] = useState(filters?.from || '');
-    const [to, setTo] = useState(filters?.to || '');
+    const monthsKeys = Array.from({ length: 12 }, (_, i) => i + 1);
+    const monthsNames = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
 
-    function toggle(id) {
-        setSel((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+    function toggleBrand(id) {
+        setSelBrands((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+    }
+
+    function toggleYear(year) {
+        setSelYears((cur) => cur.includes(year) ? cur.filter((x) => x !== year) : [...cur, year]);
+    }
+
+    function handleModeChange(newMode) {
+        setCurrentMode(newMode);
+        // Clean default arrays if needed
     }
 
     function apply() {
-        if (sel.length < 2) {
-            alert('Pilih minimal 2 brand untuk comparison.');
-            return;
+        const params = { mode: currentMode };
+        
+        if (currentMode === 'brands') {
+            if (selBrands.length === 0) {
+                alert('Pilih minimal 1 brand untuk dianalisis.');
+                return;
+            }
+            params.brand_ids = selBrands;
+            params.year = selSingleYear;
+        } else {
+            if (selYears.length === 0) {
+                alert('Pilih minimal 1 tahun untuk perbandingan.');
+                return;
+            }
+            params.brand_id = selSingleBrand;
+            params.years = selYears;
         }
-        router.get(route('comparison.show'), { brand_ids: sel, from, to }, { preserveScroll: true });
+        
+        router.get(route('comparison.show'), params, { preserveScroll: true });
     }
 
-    const brands = result?.brands ?? [];
+    // Chart Series and Options Setup
+    let chartSeries = [];
+    let chartCategories = monthsNames.map(m => m.substring(0, 3));
+    let colorPalette = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EC4899', '#06B6D4'];
+
+    if (currentMode === 'brands') {
+        const brandData = result?.data ?? {};
+        chartSeries = Object.entries(brandData).map(([id, b]) => {
+            const dataPoints = monthsKeys.map(k => {
+                const monthInfo = b.months[k] ?? {};
+                return activeMetric === 'omset' ? monthInfo.total_omset ?? 0 :
+                       activeMetric === 'po' ? monthInfo.total_po ?? 0 :
+                       monthInfo.total_pcs ?? 0;
+            });
+            return {
+                name: b.brand_name,
+                data: dataPoints,
+                color: b.warna || '#3B82F6'
+            };
+        });
+    } else {
+        const yearData = result?.data ?? {};
+        chartSeries = Object.entries(yearData).map(([year, info], idx) => {
+            const dataPoints = monthsKeys.map(k => {
+                const monthInfo = info.months[k] ?? {};
+                return activeMetric === 'omset' ? monthInfo.total_omset ?? 0 :
+                       activeMetric === 'po' ? monthInfo.total_po ?? 0 :
+                       monthInfo.total_pcs ?? 0;
+            });
+            return {
+                name: `Tahun ${year}`,
+                data: dataPoints,
+                color: colorPalette[idx % colorPalette.length]
+            };
+        });
+    }
+
+    const chartOptions = {
+        chart: {
+            toolbar: { show: true },
+            zoom: { enabled: false }
+        },
+        xaxis: { categories: chartCategories },
+        yaxis: {
+            labels: {
+                formatter: (val) => activeMetric === 'omset' ? formatRupiah(val) : val
+            }
+        },
+        stroke: { curve: 'smooth', width: 3 },
+        fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0 } },
+        tooltip: {
+            y: {
+                formatter: (val) => activeMetric === 'omset' ? formatRupiah(val) : `${val} unit`
+            }
+        }
+    };
 
     return (
-        <AppLayout title="Comparison Report">
-            <Head title="Comparison Report" />
+        <AppLayout title="Pertumbuhan & Perbandingan Kinerja">
+            <Head title="Analisis Pertumbuhan & Kinerja" />
 
-            <div className="space-y-5">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Comparison Report</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Bandingkan performa antar brand head-to-head pada periode yang sama.
-                    </p>
+            <div className="space-y-6">
+                {/* Header Section */}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
+                            Analisis Pertumbuhan & Perbandingan Multi-Tahun
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            Lacak grafik pertumbuhan bulanan, perbandingan lintas tahun, dan bandingkan antar brand secara dinamis.
+                        </p>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button asChild variant="outline" size="sm" className="border-indigo-200 hover:border-indigo-300 text-indigo-700 bg-indigo-50/50 flex items-center gap-1.5 font-semibold">
+                            <a href={route('comparison.export.excel', {
+                                mode: currentMode,
+                                brand_ids: selBrands,
+                                brand_id: selSingleBrand,
+                                year: selSingleYear,
+                                years: selYears
+                            })}>
+                                <svg className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                Excel
+                            </a>
+                        </Button>
+                        <Button asChild variant="outline" size="sm" className="border-indigo-200 hover:border-indigo-300 text-indigo-700 bg-indigo-50/50 flex items-center gap-1.5 font-semibold">
+                            <a href={route('comparison.export.pdf', {
+                                mode: currentMode,
+                                brand_ids: selBrands,
+                                brand_id: selSingleBrand,
+                                year: selSingleYear,
+                                years: selYears
+                            })}>
+                                <svg className="h-4 w-4 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                PDF
+                            </a>
+                        </Button>
+                    </div>
                 </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-base"><Filter className="h-4 w-4" /> Filter</CardTitle>
+                {/* Mode Selector Tab Container */}
+                <div className="flex bg-muted/70 p-1.5 rounded-xl border max-w-lg">
+                    <button
+                        onClick={() => handleModeChange('brands')}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition ${currentMode === 'brands' ? 'bg-background shadow text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        <Layers className="h-4 w-4" /> Perbandingan Lintas Brand
+                    </button>
+                    <button
+                        onClick={() => handleModeChange('years')}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition ${currentMode === 'years' ? 'bg-background shadow text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        <TrendingUp className="h-4 w-4" /> Perbandingan Multi-Tahun
+                    </button>
+                </div>
+
+                {/* Interactive Dynamic Filters Panel */}
+                <Card className="border-indigo-100 shadow-sm">
+                    <CardHeader className="pb-3 border-b bg-slate-50/50">
+                        <CardTitle className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                            <Filter className="h-4 w-4 text-violet-500" /> Filter Parameter Analisis
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                        <div>
-                            <Label className="mb-1.5 block">Pilih Brand (min. 2)</Label>
-                            <div className="flex flex-wrap gap-2">
-                                {availableBrands.map((b) => {
-                                    const active = sel.includes(b.id);
-                                    return (
-                                        <button
-                                            key={b.id}
-                                            type="button"
-                                            onClick={() => toggle(b.id)}
-                                            className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition ${active ? 'border-primary bg-primary text-primary-foreground' : 'bg-background hover:bg-accent'}`}
-                                        >
-                                            <span className="h-2.5 w-2.5 rounded-full" style={{ background: b.warna_primary || '#3B82F6' }} />
-                                            {b.nama_brand}
-                                        </button>
-                                    );
-                                })}
+                    <CardContent className="pt-4 space-y-4">
+                        {currentMode === 'brands' ? (
+                            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                                <div className="lg:col-span-2 space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground font-semibold">Pilih Brand untuk Dibandingkan</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {availableBrands.map((b) => {
+                                            const active = selBrands.includes(b.id);
+                                            return (
+                                                <button
+                                                    key={b.id}
+                                                    type="button"
+                                                    onClick={() => toggleBrand(b.id)}
+                                                    className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold shadow-sm transition ${active ? 'border-violet-600 bg-violet-50 text-violet-700 ring-2 ring-violet-200' : 'bg-background hover:bg-slate-50 text-slate-600'}`}
+                                                >
+                                                    <span className="h-2 w-2 rounded-full" style={{ background: b.warna_primary || '#3B82F6' }} />
+                                                    {b.nama_brand}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground font-semibold">Tahun Analisis</Label>
+                                    <select
+                                        value={selSingleYear}
+                                        onChange={(e) => setSelSingleYear(Number(e.target.value))}
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                    >
+                                        {[2026, 2025, 2024, 2023].map((y) => (
+                                            <option key={y} value={y}>Tahun {y}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
-                        </div>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            <div>
-                                <Label>Dari Tanggal</Label>
-                                <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="mt-1.5" />
+                        ) : (
+                            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground font-semibold">Pilih Brand</Label>
+                                    <select
+                                        value={selSingleBrand}
+                                        onChange={(e) => setSelSingleBrand(Number(e.target.value))}
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                    >
+                                        {availableBrands.map((b) => (
+                                            <option key={b.id} value={b.id}>{b.nama_brand} ({b.kode})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="lg:col-span-2 space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground font-semibold font-semibold">Tahun untuk Dibandingkan</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {[2026, 2025, 2024, 2023].map((y) => {
+                                            const active = selYears.includes(y);
+                                            return (
+                                                <button
+                                                    key={y}
+                                                    type="button"
+                                                    onClick={() => toggleYear(y)}
+                                                    className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold shadow-sm transition ${active ? 'border-violet-600 bg-violet-50 text-violet-700 ring-2 ring-violet-200' : 'bg-background hover:bg-slate-50 text-slate-600'}`}
+                                                >
+                                                    <Calendar className="h-3 w-3 text-violet-500" />
+                                                    Tahun {y}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <Label>Sampai Tanggal</Label>
-                                <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="mt-1.5" />
-                            </div>
-                            <div className="flex items-end">
-                                <Button onClick={apply} className="w-full"><Filter className="h-4 w-4" /> Terapkan</Button>
-                            </div>
+                        )}
+
+                        <div className="flex justify-end pt-2 border-t">
+                            <Button onClick={apply} className="bg-indigo-600 hover:bg-indigo-700 flex items-center gap-2">
+                                <Filter className="h-4 w-4" /> Proses Analisis
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>
 
-                {brands.length < 2 ? (
-                    <Card>
-                        <CardContent className="py-12 text-center text-muted-foreground">
-                            Pilih minimal 2 brand untuk melihat comparison.
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-base">Periode: {result.periode}</CardTitle>
-                                <CardDescription>
-                                    Membandingkan {brands.length} brand. <Trophy className="inline h-3.5 w-3.5 text-amber-500" /> = winner per metric.
-                                </CardDescription>
-                            </CardHeader>
-                        </Card>
+                {/* Metric Selection Switcher */}
+                <div className="flex justify-between items-center bg-card p-3 rounded-lg border shadow-sm">
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Fokus Grafik Metric:</span>
+                    <div className="flex bg-muted/80 p-0.5 rounded-lg border">
+                        <button
+                            onClick={() => setActiveMetric('omset')}
+                            className={`px-3 py-1 text-xs font-semibold rounded-md transition ${activeMetric === 'omset' ? 'bg-background shadow text-violet-700 font-bold' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            Omset (Rupiah)
+                        </button>
+                        <button
+                            onClick={() => setActiveMetric('po')}
+                            className={`px-3 py-1 text-xs font-semibold rounded-md transition ${activeMetric === 'po' ? 'bg-background shadow text-blue-700 font-bold' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            Jumlah PO
+                        </button>
+                        <button
+                            onClick={() => setActiveMetric('pcs')}
+                            className={`px-3 py-1 text-xs font-semibold rounded-md transition ${activeMetric === 'pcs' ? 'bg-background shadow text-emerald-700 font-bold' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            Total Pcs
+                        </button>
+                    </div>
+                </div>
 
-                        <div className={`grid grid-cols-1 gap-4 ${brands.length === 2 ? 'sm:grid-cols-2' : brands.length === 3 ? 'lg:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-4'}`}>
-                            {brands.map((b) => (
-                                <Card key={b.brand_id} className="overflow-hidden">
-                                    <div className="h-1.5" style={{ background: b.warna || '#3B82F6' }} />
-                                    <CardHeader>
-                                        <CardTitle className="text-base">{b.brand_name}</CardTitle>
-                                        <Badge variant="outline" className="font-mono text-[10px]">{b.kode}</Badge>
-                                    </CardHeader>
-                                    <CardContent className="space-y-2 text-sm">
-                                        <div className="flex justify-between border-b pb-1">
-                                            <span className="text-muted-foreground">Revenue</span>
-                                            <span className="font-mono font-semibold flex items-center gap-1">
-                                                {b.is_winner_revenue && <Trophy className="h-3 w-3 text-amber-500" />}
-                                                {formatRupiah(b.revenue)}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between border-b pb-1">
-                                            <span className="text-muted-foreground">Total PO</span>
-                                            <span className="font-mono flex items-center gap-1">
-                                                {b.is_winner_po && <Trophy className="h-3 w-3 text-amber-500" />}
-                                                {b.po_count}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between border-b pb-1">
-                                            <span className="text-muted-foreground">Avg PO Value</span>
-                                            <span className="font-mono text-xs">{formatRupiah(b.avg_po_value)}</span>
-                                        </div>
-                                        <div className="flex justify-between border-b pb-1">
-                                            <span className="text-muted-foreground">Pelanggan Unik</span>
-                                            <span className="font-mono">{b.customer_count}</span>
-                                        </div>
-                                        <div className="flex justify-between border-b pb-1">
-                                            <span className="text-muted-foreground">Total Qty Produksi</span>
-                                            <span className="font-mono">{b.total_qty}</span>
-                                        </div>
-                                        <div className="flex justify-between border-b pb-1">
-                                            <span className="text-muted-foreground">Rijek Rate</span>
-                                            <span className={`font-mono flex items-center gap-1 ${b.rijek_rate > 5 ? 'text-destructive' : ''}`}>
-                                                {b.is_winner_rijek && <Trophy className="h-3 w-3 text-amber-500" />}
-                                                {b.rijek_rate !== null ? `${b.rijek_rate}%` : '—'}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between border-b pb-1">
-                                            <span className="text-muted-foreground">Refund</span>
-                                            <span className="font-mono text-xs">{formatRupiah(b.refund_amount)}</span>
-                                        </div>
-                                        <div className="pt-1">
-                                            <div className="text-xs text-muted-foreground">Top Produk</div>
-                                            <div className="text-sm font-medium">
-                                                {b.top_product ? `${b.top_product.nama} (${b.top_product.qty}x)` : '—'}
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
+                {/* Main Interactive Chart */}
+                <Card className="shadow-sm border-indigo-100">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
+                            <LineChart className="h-4 w-4 text-indigo-500" /> Visualisasi Grafik Kinerja
+                        </CardTitle>
+                        <CardDescription>
+                            Grafik perbandingan {activeMetric === 'omset' ? 'omset' : activeMetric === 'po' ? 'jumlah po' : 'total pcs'} per bulan.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {chartSeries.length === 0 ? (
+                            <div className="py-12 text-center text-muted-foreground">Belum ada data untuk ditampilkan. Silakan pilih parameter di atas.</div>
+                        ) : (
+                            <Chart
+                                type="area"
+                                height={350}
+                                series={chartSeries}
+                                options={chartOptions}
+                            />
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Comprehensive Tabular Data Numbers per Month to Full-Year Totals */}
+                <Card className="shadow-sm border-indigo-100">
+                    <CardHeader className="border-b bg-slate-50/50 pb-3 flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
+                                <Table2 className="h-4 w-4 text-violet-500" /> Data Angka Pertumbuhan & Kinerja Detil
+                            </CardTitle>
+                            <CardDescription>
+                                Jumlah PO, total quantity (pcs), dan nilai pendapatan per bulan hingga total tahun.
+                            </CardDescription>
                         </div>
-
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-base">Revenue Comparison</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <Chart
-                                        type="bar"
-                                        height={Math.max(240, brands.length * 50)}
-                                        series={[{ name: 'Revenue', data: brands.map((b) => Math.round(b.revenue)) }]}
-                                        options={{
-                                            plotOptions: { bar: { horizontal: true, borderRadius: 6, distributed: true, barHeight: '65%' } },
-                                            xaxis: { categories: brands.map((b) => b.brand_name), labels: { formatter: (v) => formatRupiah(v) } },
-                                            colors: brands.map((b) => b.warna || '#3B82F6'),
-                                            legend: { show: false },
-                                            tooltip: { y: { formatter: (v) => formatRupiah(v) } },
-                                        }}
-                                    />
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-base">PO Count Comparison</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <Chart
-                                        type="bar"
-                                        height={Math.max(240, brands.length * 50)}
-                                        series={[{ name: 'Total PO', data: brands.map((b) => b.po_count) }]}
-                                        options={{
-                                            plotOptions: { bar: { horizontal: true, borderRadius: 6, distributed: true, barHeight: '65%' } },
-                                            xaxis: { categories: brands.map((b) => b.brand_name) },
-                                            colors: brands.map((b) => b.warna || '#10B981'),
-                                            legend: { show: false },
-                                        }}
-                                    />
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-base">Ringkasan Gabungan</CardTitle>
-                            </CardHeader>
-                            <CardContent className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                                <div className="rounded-lg bg-muted/40 p-3">
-                                    <div className="text-xs uppercase tracking-wider text-muted-foreground">Total Revenue</div>
-                                    <div className="font-mono text-lg font-bold">{formatRupiah(result.summary.total_revenue)}</div>
-                                </div>
-                                <div className="rounded-lg bg-muted/40 p-3">
-                                    <div className="text-xs uppercase tracking-wider text-muted-foreground">Total PO</div>
-                                    <div className="font-mono text-lg font-bold">{result.summary.total_po}</div>
-                                </div>
-                                <div className="rounded-lg bg-muted/40 p-3">
-                                    <div className="text-xs uppercase tracking-wider text-muted-foreground">Total Pelanggan</div>
-                                    <div className="font-mono text-lg font-bold">{result.summary.total_customers}</div>
-                                </div>
-                                <div className="rounded-lg bg-muted/40 p-3">
-                                    <div className="text-xs uppercase tracking-wider text-muted-foreground">Avg Rijek Rate</div>
-                                    <div className="font-mono text-lg font-bold">{result.summary.avg_rijek_rate}%</div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </>
-                )}
+                    </CardHeader>
+                    <CardContent className="p-0 overflow-x-auto">
+                        <table className="w-full text-sm text-left border-collapse min-w-[700px]">
+                            <thead className="text-xs uppercase bg-slate-50 text-slate-600 font-semibold border-b">
+                                <tr>
+                                    <th className="px-4 py-3 font-semibold border-r">Bulan</th>
+                                    {currentMode === 'brands' ? (
+                                        Object.entries(result?.data ?? {}).map(([id, b]) => (
+                                            <th key={id} colSpan={3} className="px-4 py-3 text-center border-r font-bold" style={{ borderTop: `4px solid ${b.warna || '#3B82F6'}` }}>
+                                                {b.brand_name} ({b.kode})
+                                            </th>
+                                        ))
+                                    ) : (
+                                        selectedYears.map((year) => (
+                                            <th key={year} colSpan={3} className="px-4 py-3 text-center border-r font-bold border-t-4 border-indigo-500">
+                                                Tahun {year}
+                                            </th>
+                                        ))
+                                    )}
+                                </tr>
+                                <tr className="border-b bg-slate-100/50 text-[10px] text-slate-500">
+                                    <th className="px-4 py-2 border-r"></th>
+                                    {currentMode === 'brands' ? (
+                                        Object.keys(result?.data ?? {}).map((id) => (
+                                            <>
+                                                <th key={`${id}-po`} className="px-2 py-2 text-right">PO</th>
+                                                <th key={`${id}-pcs`} className="px-2 py-2 text-right">Pcs</th>
+                                                <th key={`${id}-omset`} className="px-2 py-2 text-right border-r">Omset</th>
+                                            </>
+                                        ))
+                                    ) : (
+                                        selectedYears.map((year) => (
+                                            <>
+                                                <th key={`${year}-po`} className="px-2 py-2 text-right">PO</th>
+                                                <th key={`${year}-pcs`} className="px-2 py-2 text-right">Pcs</th>
+                                                <th key={`${year}-omset`} className="px-2 py-2 text-right border-r">Omset</th>
+                                            </>
+                                        ))
+                                    )}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y text-slate-700">
+                                {monthsKeys.map((k) => (
+                                    <tr key={k} className="hover:bg-slate-50/50 transition">
+                                        <td className="px-4 py-3 font-medium border-r">{monthsNames[k-1]}</td>
+                                        {currentMode === 'brands' ? (
+                                            Object.entries(result?.data ?? {}).map(([id, b]) => {
+                                                const m = b.months[k] ?? { total_po: 0, total_pcs: 0, total_omset: 0 };
+                                                return (
+                                                    <>
+                                                        <td className="px-2 py-3 text-right font-mono">{m.total_po}</td>
+                                                        <td className="px-2 py-3 text-right font-mono">{m.total_pcs}</td>
+                                                        <td className="px-2 py-3 text-right font-mono border-r font-medium text-slate-900">{formatRupiah(m.total_omset)}</td>
+                                                    </>
+                                                );
+                                            })
+                                        ) : (
+                                            selectedYears.map((year) => {
+                                                const m = result?.data[year]?.months[k] ?? { total_po: 0, total_pcs: 0, total_omset: 0 };
+                                                return (
+                                                    <>
+                                                        <td className="px-2 py-3 text-right font-mono">{m.total_po}</td>
+                                                        <td className="px-2 py-3 text-right font-mono">{m.total_pcs}</td>
+                                                        <td className="px-2 py-3 text-right font-mono border-r font-medium text-slate-900">{formatRupiah(m.total_omset)}</td>
+                                                    </>
+                                                );
+                                            })
+                                        )}
+                                    </tr>
+                                ))}
+                                
+                                {/* Bottom Total Row */}
+                                <tr className="bg-slate-100/80 font-bold border-t-2 text-slate-900 border-slate-300">
+                                    <td className="px-4 py-3.5 border-r font-extrabold text-indigo-700 uppercase tracking-wide">TOTAL TAHUNAN</td>
+                                    {currentMode === 'brands' ? (
+                                        Object.entries(result?.data ?? {}).map(([id, b]) => (
+                                            <>
+                                                <td className="px-2 py-3.5 text-right font-mono text-blue-700">{b.totals.total_po}</td>
+                                                <td className="px-2 py-3.5 text-right font-mono text-emerald-700">{b.totals.total_pcs}</td>
+                                                <td className="px-2 py-3.5 text-right font-mono border-r text-violet-700">{formatRupiah(b.totals.total_omset)}</td>
+                                            </>
+                                        ))
+                                    ) : (
+                                        selectedYears.map((year) => {
+                                            const totals = result?.data[year]?.totals ?? { total_po: 0, total_pcs: 0, total_omset: 0 };
+                                            return (
+                                                <>
+                                                    <td className="px-2 py-3.5 text-right font-mono text-blue-700">{totals.total_po}</td>
+                                                    <td className="px-2 py-3.5 text-right font-mono text-emerald-700">{totals.total_pcs}</td>
+                                                    <td className="px-2 py-3.5 text-right font-mono border-r text-violet-700">{formatRupiah(totals.total_omset)}</td>
+                                                </>
+                                            );
+                                        })
+                                    )}
+                                </tr>
+                            </tbody>
+                        </table>
+                    </CardContent>
+                </Card>
             </div>
         </AppLayout>
     );

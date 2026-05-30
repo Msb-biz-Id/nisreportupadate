@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import Chart from '@/Components/Chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { StatGrid, StatusBreakdown, POListWidget, TopList } from '@/Components/Widgets';
+import { formatRupiah } from '@/lib/utils';
 
 export default function AdminBrand({ stats }) {
+    const [metric, setMetric] = useState('omset');
     const trend = stats.trend_harian ?? [];
     const trendDates = trend.map((t) => new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }));
     const trendValues = trend.map((t) => t.count);
@@ -11,6 +14,13 @@ export default function AdminBrand({ stats }) {
 
     const kategori = stats.kategori_distribusi ?? [];
     const sumber = stats.sumber_distribusi ?? [];
+    const kategoriPelanggan = stats.kategori_pelanggan_distribusi ?? [];
+
+    const trendBulanan = stats.trend_bulanan ?? [];
+    const trendBulananMonths = trendBulanan.map((tb) => tb.bulan.substring(0, 3));
+    const trendBulananPO = trendBulanan.map((tb) => tb.total_po);
+    const trendBulananOmset = trendBulanan.map((tb) => tb.total_omset);
+    const trendBulananPcs = trendBulanan.map((tb) => tb.total_pcs);
 
     return (
         <div className="space-y-6">
@@ -40,6 +50,81 @@ export default function AdminBrand({ stats }) {
                 <StatusBreakdown items={stats.status_breakdown ?? []} />
             </div>
 
+            <Card>
+                <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-2">
+                    <div>
+                        <CardTitle className="text-base">Grafik Pertumbuhan & Kinerja Bulanan ({new Date().getFullYear()})</CardTitle>
+                        <CardDescription>Visualisasi jumlah PO, pcs diproduksi, dan nilai omset per bulan.</CardDescription>
+                    </div>
+                    <div className="flex bg-muted/80 p-0.5 rounded-lg border">
+                        <button
+                            onClick={() => setMetric('omset')}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${metric === 'omset' ? 'bg-background shadow text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            Omset
+                        </button>
+                        <button
+                            onClick={() => setMetric('po')}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${metric === 'po' ? 'bg-background shadow text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            Jumlah PO
+                        </button>
+                        <button
+                            onClick={() => setMetric('pcs')}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${metric === 'pcs' ? 'bg-background shadow text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            Total Pcs
+                        </button>
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Chart
+                        type="area"
+                        height={300}
+                        series={[{
+                            name: metric === 'omset' ? 'Omset' : metric === 'po' ? 'Jumlah PO' : 'Total Pcs',
+                            data: metric === 'omset' ? trendBulananOmset : metric === 'po' ? trendBulananPO : trendBulananPcs
+                        }]}
+                        options={{
+                            xaxis: { categories: trendBulananMonths },
+                            yaxis: {
+                                labels: {
+                                    formatter: (v) => metric === 'omset' ? formatRupiah(v) : v
+                                }
+                            },
+                            colors: [metric === 'omset' ? '#8B5CF6' : metric === 'po' ? '#3B82F6' : '#10B981'],
+                            fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0 } },
+                            tooltip: {
+                                y: {
+                                    formatter: (v) => metric === 'omset' ? formatRupiah(v) : `${v} ${metric === 'po' ? 'PO' : 'pcs'}`
+                                }
+                            }
+                        }}
+                    />
+                    
+                    <div className="grid grid-cols-3 gap-3 pt-2 text-center border-t">
+                        <div className="p-2">
+                            <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Total Omset Setahun</div>
+                            <div className="font-mono text-sm sm:text-lg font-bold text-violet-600">
+                                {formatRupiah(trendBulananOmset.reduce((a, b) => a + b, 0))}
+                            </div>
+                        </div>
+                        <div className="p-2">
+                            <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Total PO Setahun</div>
+                            <div className="font-mono text-sm sm:text-lg font-bold text-blue-600">
+                                {trendBulananPO.reduce((a, b) => a + b, 0)} PO
+                            </div>
+                        </div>
+                        <div className="p-2">
+                            <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Total Pcs Setahun</div>
+                            <div className="font-mono text-sm sm:text-lg font-bold text-emerald-600">
+                                {trendBulananPcs.reduce((a, b) => a + b, 0)} pcs
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Card>
                     <CardHeader>
@@ -65,27 +150,51 @@ export default function AdminBrand({ stats }) {
                 </Card>
 
                 <div className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">Kategori Favorit</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {kategori.length === 0 ? (
-                                <p className="py-6 text-center text-sm text-muted-foreground">Belum ada data.</p>
-                            ) : (
-                                <Chart
-                                    type="donut"
-                                    height={240}
-                                    series={kategori.map((k) => k.count)}
-                                    options={{
-                                        labels: kategori.map((k) => k.label),
-                                        colors: ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#EF4444'],
-                                        legend: { position: 'bottom' },
-                                    }}
-                                />
-                            )}
-                        </CardContent>
-                    </Card>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-semibold">Kategori Favorit</CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex flex-col justify-center min-h-[220px]">
+                                {kategori.length === 0 ? (
+                                    <p className="text-center text-xs text-muted-foreground">Belum ada data.</p>
+                                ) : (
+                                    <Chart
+                                        type="donut"
+                                        height={200}
+                                        series={kategori.map((k) => k.count)}
+                                        options={{
+                                            labels: kategori.map((k) => k.label),
+                                            colors: ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#EF4444'],
+                                            legend: { show: false },
+                                        }}
+                                    />
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-semibold">Kategori Pelanggan</CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex flex-col justify-center min-h-[220px]">
+                                {kategoriPelanggan.length === 0 ? (
+                                    <p className="text-center text-xs text-muted-foreground">Belum ada data.</p>
+                                ) : (
+                                    <Chart
+                                        type="donut"
+                                        height={200}
+                                        series={kategoriPelanggan.map((kp) => kp.count)}
+                                        options={{
+                                            labels: kategoriPelanggan.map((kp) => kp.label),
+                                            colors: ['#EC4899', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4', '#EF4444'],
+                                            legend: { show: false },
+                                        }}
+                                    />
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
 
                     <Card>
                         <CardHeader>

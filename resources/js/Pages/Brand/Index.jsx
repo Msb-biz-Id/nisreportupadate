@@ -21,6 +21,7 @@ function BrandForm({ open, onOpenChange, brand, onSuccess }) {
         kode: brand?.kode ?? '',
         tagline: brand?.tagline ?? '',
         deskripsi: brand?.deskripsi ?? '',
+        logo: null,
         email: brand?.email ?? '',
         no_hp: brand?.no_hp ?? '',
         alamat: brand?.alamat ?? '',
@@ -45,7 +46,10 @@ function BrandForm({ open, onOpenChange, brand, onSuccess }) {
             },
         };
         if (isEdit) {
-            put(route('brands.update', brand.id), opts);
+            router.post(route('brands.update', brand.id), {
+                ...data,
+                _method: 'PUT'
+            }, opts);
         } else {
             post(route('brands.store'), opts);
         }
@@ -104,6 +108,53 @@ function BrandForm({ open, onOpenChange, brand, onSuccess }) {
                                     placeholder="#3B82F6"
                                 />
                             </div>
+                        </div>
+
+                        {/* Logo Upload Field */}
+                        <div className="sm:col-span-2 space-y-2">
+                            <Label>Logo Brand</Label>
+                            <div className="flex items-center gap-4 p-3 rounded-lg border bg-slate-50/50">
+                                {brand?.logo && !data.logo && (
+                                    <div className="relative h-16 w-16 overflow-hidden rounded-lg border bg-white flex items-center justify-center p-1 shadow-sm">
+                                        <img 
+                                            src={`/storage/${brand.logo}`} 
+                                            alt="Current Logo" 
+                                            className="h-full w-full object-contain"
+                                        />
+                                    </div>
+                                )}
+                                {data.logo && (
+                                    <div className="relative h-16 w-16 overflow-hidden rounded-lg border bg-white flex items-center justify-center p-1 shadow-sm">
+                                        <img 
+                                            src={URL.createObjectURL(data.logo)} 
+                                            alt="New Logo Preview" 
+                                            className="h-full w-full object-contain"
+                                        />
+                                    </div>
+                                )}
+                                {!brand?.logo && !data.logo && (
+                                    <div className="h-16 w-16 rounded-lg border-2 border-dashed border-slate-200 bg-white flex items-center justify-center text-slate-400">
+                                        <Building2 className="h-6 w-6" />
+                                    </div>
+                                )}
+                                <div className="flex-1 space-y-1">
+                                    <input 
+                                        type="file" 
+                                        id="logo-upload"
+                                        accept="image/*"
+                                        onChange={(e) => setData('logo', e.target.files[0])}
+                                        className="hidden" 
+                                    />
+                                    <Label 
+                                        htmlFor="logo-upload"
+                                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                                    >
+                                        Pilih Gambar Logo
+                                    </Label>
+                                    <p className="text-[10px] text-muted-foreground">Format PNG, JPG, JPEG. Maksimal 2MB.</p>
+                                </div>
+                            </div>
+                            {errors.logo && <p className="text-xs text-destructive">{errors.logo}</p>}
                         </div>
 
                         <div className="sm:col-span-2">
@@ -340,12 +391,22 @@ export default function BrandIndex({ brands, filters, can }) {
                                     {brands.data.map((brand) => (
                                         <TableRow key={brand.id}>
                                             <TableCell>
-                                                <span
-                                                    className="flex h-9 w-9 items-center justify-center rounded-lg text-xs font-bold text-white shadow-sm"
-                                                    style={{ background: brand.warna_primary || '#3B82F6' }}
-                                                >
-                                                    {brand.kode}
-                                                </span>
+                                                {brand.logo ? (
+                                                    <div className="h-9 w-9 overflow-hidden rounded-lg border bg-white flex items-center justify-center p-1 shadow-sm">
+                                                        <img 
+                                                            src={`/storage/${brand.logo}`} 
+                                                            alt={brand.nama_brand} 
+                                                            className="h-full w-full object-contain"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <span
+                                                        className="flex h-9 w-9 items-center justify-center rounded-lg text-xs font-bold text-white shadow-sm"
+                                                        style={{ background: brand.warna_primary || '#3B82F6' }}
+                                                    >
+                                                        {brand.kode}
+                                                    </span>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="font-medium">{brand.nama_brand}</div>
@@ -410,11 +471,12 @@ export default function BrandIndex({ brands, filters, can }) {
             </div>
 
             <BrandForm
-                open={openForm}
-                onOpenChange={setOpenForm}
-                brand={editing}
-                onSuccess={() => setOpenForm(false)}
-            />
+                                key={editing?.id ?? 'create'}
+                                open={openForm}
+                                onOpenChange={setOpenForm}
+                                brand={editing}
+                                onSuccess={() => setOpenForm(false)}
+                            />
 
             <Dialog open={!!confirmDelete} onOpenChange={(v) => !v && setConfirmDelete(null)}>
                 <DialogContent>

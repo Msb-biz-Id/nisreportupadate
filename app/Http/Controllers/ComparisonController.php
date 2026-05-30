@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Brand;
 use App\Services\Reports\ComparisonRunner;
+use App\Exports\ComparisonReportExport;
+use Maatwebsite\Excel\Facades\Excel;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -21,30 +24,172 @@ class ComparisonController extends Controller
             ? Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary'])
             : $user->brands()->where('is_active', true)->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode', 'warna_primary']);
 
-        // Hanya superadmin/owner yang punya akses ≥2 brand bisa comparison
         if ($availableBrands->count() < 2) {
             return Inertia::render('Comparison/NotEligible', [
-                'reason' => 'Comparison report butuh minimal 2 brand. User Anda hanya memiliki akses ke ' . $availableBrands->count() . ' brand.',
+                'reason' => 'Anda harus memiliki minimal 2 brand untuk melakukan perbandingan.',
                 'availableBrands' => $availableBrands,
             ]);
         }
 
-        $selectedBrandIds = (array) $request->input('brand_ids', $availableBrands->pluck('id')->take(2)->toArray());
-        // Filter agar hanya brand yang user punya akses
+        // Mode: 'brands' (cross brand same year), 'years' (multi year same brand)
+        $mode = $request->string('mode', 'brands')->toString();
+
+        $singleBrandId = $request->string('brand_id', $availableBrands->first()->id)->toString();
+        $singleYear = $request->integer('year', (int) now()->year);
+
+        $selectedBrandIds = (array) $request->input('brand_ids', $availableBrands->pluck('id')->take(3)->toArray());
         $selectedBrandIds = array_values(array_intersect($selectedBrandIds, $availableBrands->pluck('id')->toArray()));
 
-        $from = $request->string('from')->toString() ?: now()->subMonth()->toDateString();
-        $to = $request->string('to')->toString() ?: now()->toDateString();
+        $defaultYears = [now()->year, now()->subYear()->year];
+        $selectedYears = (array) $request->input('years', $defaultYears);
+        $selectedYears = array_map('intval', $selectedYears);
+        sort($selectedYears);
 
-        $result = count($selectedBrandIds) >= 2
-            ? $this->runner->run($selectedBrandIds, $from, $to)
-            : ['brands' => [], 'summary' => [], 'periode' => '', 'from' => $from, 'to' => $to];
+        $from = $request->input('from');
+        $to = $request->input('to');
+        if ($from || $to) {
+            $result = $this->runner->run($selectedBrandIds, $from, $to);
+            $mode = 'range';
+        } else {
+            $result = $this->runner->runAdvanced($mode, $selectedBrandIds, $selectedYears, $singleBrandId, $singleYear);
+        }
 
         return Inertia::render('Comparison/Show', [
             'availableBrands' => $availableBrands,
             'selectedBrandIds' => $selectedBrandIds,
-            'filters' => ['from' => $from, 'to' => $to],
+            'selectedYears' => $selectedYears,
+            'singleBrandId' => $singleBrandId,
+            'singleYear' => $singleYear,
+            'mode' => $mode,
             'result' => $result,
         ]);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        Gate::authorize('report.export');
+
+        $user = $request->user();
+        $availableBrands = $user->isSuperadmin()
+            ? Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary'])
+            : $user->brands()->where('is_active', true)->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode', 'warna_primary']);
+
+        $mode = $request->string('mode', 'brands')->toString();
+        $singleBrandId = $request->string('brand_id', $availableBrands->first()->id)->toString();
+        $singleYear = $request->integer('year', (int) now()->year);
+
+        $selectedBrandIds = (array) $request->input('brand_ids', $availableBrands->pluck('id')->toArray());
+        $selectedBrandIds = array_values(array_intersect($selectedBrandIds, $availableBrands->pluck('id')->toArray()));
+
+        $selectedYears = (array) $request->input('years', [now()->year, now()->subYear()->year]);
+        $selectedYears = array_map('intval', $selectedYears);
+        sort($selectedYears);
+
+        $result = $this->runner->runAdvanced($mode, $selectedBrandIds, $selectedYears, $singleBrandId, $singleYear);
+
+        $headings = ['Bulan'];
+        $rows = [];
+        $monthsNames = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+
+        if ($mode === 'brands') {
+            foreach ($result['data'] as $b) {
+                $headings[] = $b['brand_name'] . ' (PO)';
+                $headings[] = $b['brand_name'] . ' (Pcs)';
+                $headings[] = $b['brand_name'] . ' (Omset)';
+            }
+            foreach ($monthsNames as $num => $name) {
+                $row = [$name];
+                foreach ($result['data'] as $b) {
+                    $m = $b['months'][$num] ?? ['total_po' => 0, 'total_pcs' => 0, 'total_omset' => 0];
+                    $row[] = $m['total_po'];
+                    $row[] = $m['total_pcs'];
+                    $row[] = $m['total_omset'];
+                }
+                $rows[] = $row;
+            }
+            $totalRow = ['TOTAL'];
+            foreach ($result['data'] as $b) {
+                $totalRow[] = $b['totals']['total_po'];
+                $totalRow[] = $b['totals']['total_pcs'];
+                $totalRow[] = $b['totals']['total_omset'];
+            }
+            $rows[] = $totalRow;
+
+            $title = "Perbandingan Lintas Brand {$singleYear}";
+        } else {
+            $brandName = Brand::find($singleBrandId)?->nama_brand ?? 'Brand';
+            foreach ($selectedYears as $y) {
+                $headings[] = 'Tahun ' . $y . ' (PO)';
+                $headings[] = 'Tahun ' . $y . ' (Pcs)';
+                $headings[] = 'Tahun ' . $y . ' (Omset)';
+            }
+            foreach ($monthsNames as $num => $name) {
+                $row = [$name];
+                foreach ($selectedYears as $y) {
+                    $m = $result['data'][$y]['months'][$num] ?? ['total_po' => 0, 'total_pcs' => 0, 'total_omset' => 0];
+                    $row[] = $m['total_po'];
+                    $row[] = $m['total_pcs'];
+                    $row[] = $m['total_omset'];
+                }
+                $rows[] = $row;
+            }
+            $totalRow = ['TOTAL'];
+            foreach ($selectedYears as $y) {
+                $totals = $result['data'][$y]['totals'] ?? ['total_po' => 0, 'total_pcs' => 0, 'total_omset' => 0];
+                $totalRow[] = $totals['total_po'];
+                $totalRow[] = $totals['total_pcs'];
+                $totalRow[] = $totals['total_omset'];
+            }
+            $rows[] = $totalRow;
+
+            $title = "Perbandingan Multi Tahun - {$brandName}";
+        }
+
+        $filename = 'laporan-perbandingan-' . now()->format('Ymd-His') . '.xlsx';
+        return Excel::download(
+            new ComparisonReportExport($title, $mode, $headings, $rows),
+            $filename
+        );
+    }
+
+    public function exportPdf(Request $request)
+    {
+        Gate::authorize('report.export');
+
+        $user = $request->user();
+        $availableBrands = $user->isSuperadmin()
+            ? Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary'])
+            : $user->brands()->where('is_active', true)->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode', 'warna_primary']);
+
+        $mode = $request->string('mode', 'brands')->toString();
+        $singleBrandId = $request->string('brand_id', $availableBrands->first()->id)->toString();
+        $singleYear = $request->integer('year', (int) now()->year);
+
+        $selectedBrandIds = (array) $request->input('brand_ids', $availableBrands->pluck('id')->toArray());
+        $selectedBrandIds = array_values(array_intersect($selectedBrandIds, $availableBrands->pluck('id')->toArray()));
+
+        $selectedYears = (array) $request->input('years', [now()->year, now()->subYear()->year]);
+        $selectedYears = array_map('intval', $selectedYears);
+        sort($selectedYears);
+
+        $result = $this->runner->runAdvanced($mode, $selectedBrandIds, $selectedYears, $singleBrandId, $singleYear);
+        $brand = $mode === 'years' ? Brand::find($singleBrandId) : null;
+
+        $pdf = Pdf::loadView('pdf.comparison', [
+            'mode' => $mode,
+            'result' => $result,
+            'brand' => $brand,
+            'year' => $singleYear,
+            'years' => $selectedYears,
+            'generated_at' => now(),
+            'user' => $user,
+        ])->setPaper('a4', 'landscape');
+
+        $filename = 'laporan-perbandingan-' . now()->format('Ymd-His') . '.pdf';
+        return $pdf->download($filename);
     }
 }

@@ -73,14 +73,34 @@ class Order extends Model
     public function isDraft(): bool { return $this->status_po === 'draft'; }
     public function isPublished(): bool { return ! $this->isDraft(); }
 
+    public function totalTagihan(): float
+    {
+        $subtotal = (float) $this->items()->sum('subtotal');
+        $ongkir = (float) $this->payments()->where('payment_type', 'ongkir')->whereNotNull('verified_at')->sum('amount');
+        $tambahan = (float) $this->payments()->where('payment_type', 'tambahan_produk')->whereNotNull('verified_at')->sum('amount');
+        $cashback = (float) $this->payments()->where('payment_type', 'cashback')->whereNotNull('verified_at')->sum('amount');
+        $return = (float) $this->payments()->where('payment_type', 'return')->whereNotNull('verified_at')->sum('amount');
+        
+        return max(0, $subtotal + $ongkir + $tambahan - $cashback - $return);
+    }
+
     public function totalPaid(): float
     {
-        return (float) $this->payments()->sum('amount');
+        $dp = (float) $this->payments()->where('payment_type', 'dp')->whereNotNull('verified_at')->sum('amount');
+        $pelunasan = (float) $this->payments()->where('payment_type', 'pelunasan')->whereNotNull('verified_at')->sum('amount');
+        $ongkir = (float) $this->payments()->where('payment_type', 'ongkir')->whereNotNull('verified_at')->sum('amount');
+        $tambahan = (float) $this->payments()->where('payment_type', 'tambahan_produk')->whereNotNull('verified_at')->sum('amount');
+        $lainnya = (float) $this->payments()->where('payment_type', 'lainnya')->whereNotNull('verified_at')->sum('amount');
+        
+        $return = (float) $this->payments()->where('payment_type', 'return')->whereNotNull('verified_at')->sum('amount');
+        $cashback = (float) $this->payments()->where('payment_type', 'cashback')->whereNotNull('verified_at')->sum('amount');
+        
+        return max(0, $dp + $pelunasan + $ongkir + $tambahan + $lainnya - $return - $cashback);
     }
 
     public function sisaTagihan(): float
     {
-        return max(0, (float) $this->total_tagihan - $this->totalPaid());
+        return max(0, $this->totalTagihan() - $this->totalPaid());
     }
 
     public function scopeForBrand($q, $brandId)

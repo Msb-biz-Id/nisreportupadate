@@ -1,6 +1,6 @@
-import { Head, Link, useForm } from '@inertiajs/react';
-import { useState } from 'react';
-import { ArrowLeft, AlertTriangle, Play, CheckCircle2, SkipForward, Plus } from 'lucide-react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, AlertTriangle, Play, CheckCircle2, SkipForward, Plus, Edit, Trash2 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -103,18 +103,49 @@ function UpdateModal({ order, detail, open, onOpenChange }) {
     );
 }
 
-function RijekModal({ order, open, onOpenChange, progressOptions }) {
-    const { data, setData, post, processing, errors, reset } = useForm({
+function RijekModal({ order, open, onOpenChange, progressOptions, rijek = null }) {
+    const { data, setData, post, put, processing, errors, reset } = useForm({
         progress_id: '', jumlah: 1, jenis: 'jahit', tingkat: 'ringan',
-        kendala: '', penanganan: '', biaya_ganti: 0,
+        kendala: '', penanganan: '',
     });
+
+    useEffect(() => {
+        if (open) {
+            if (rijek) {
+                setData({
+                    progress_id: rijek.progress_id || '',
+                    jumlah: rijek.jumlah || 1,
+                    jenis: rijek.jenis || 'jahit',
+                    tingkat: rijek.tingkat || 'ringan',
+                    kendala: rijek.kendala || '',
+                    penanganan: rijek.penanganan || '',
+                });
+            } else {
+                setData({
+                    progress_id: '',
+                    jumlah: 1,
+                    jenis: 'jahit',
+                    tingkat: 'ringan',
+                    kendala: '',
+                    penanganan: '',
+                });
+            }
+        }
+    }, [open, rijek]);
 
     function submit(e) {
         e.preventDefault();
-        post(route('produksi.rijek.store', order.id), {
-            preserveScroll: true,
-            onSuccess: () => { reset(); onOpenChange(false); },
-        });
+        if (rijek) {
+            put(route('produksi.rijek.update', { order: order.id, rijek: rijek.id }), {
+                preserveScroll: true,
+                onSuccess: () => { onOpenChange(false); },
+            });
+        } else {
+            post(route('produksi.rijek.store', order.id), {
+                preserveScroll: true,
+                onSuccess: () => { reset(); onOpenChange(false); },
+            });
+        }
     }
 
     return (
@@ -122,8 +153,10 @@ function RijekModal({ order, open, onOpenChange, progressOptions }) {
             <DialogContent>
                 <form onSubmit={submit}>
                     <DialogHeader>
-                        <DialogTitle>Tambah Rijek</DialogTitle>
-                        <DialogDescription>Catat barang rijek/cacat untuk PO ini.</DialogDescription>
+                        <DialogTitle>{rijek ? 'Edit Rijek' : 'Tambah Rijek'}</DialogTitle>
+                        <DialogDescription>
+                            {rijek ? 'Ubah data barang rijek/cacat.' : 'Catat barang rijek/cacat untuk PO ini.'}
+                        </DialogDescription>
                     </DialogHeader>
                     <div className="grid grid-cols-1 gap-3 py-4 sm:grid-cols-2">
                         <div className="sm:col-span-2">
@@ -153,7 +186,7 @@ function RijekModal({ order, open, onOpenChange, progressOptions }) {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div>
+                        <div className="sm:col-span-2">
                             <Label>Tingkat</Label>
                             <Select value={data.tingkat} onValueChange={(v) => setData('tingkat', v)}>
                                 <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
@@ -163,10 +196,6 @@ function RijekModal({ order, open, onOpenChange, progressOptions }) {
                                     <SelectItem value="berat">Berat</SelectItem>
                                 </SelectContent>
                             </Select>
-                        </div>
-                        <div>
-                            <Label>Biaya Ganti</Label>
-                            <Input type="number" min={0} value={data.biaya_ganti} onChange={(e) => setData('biaya_ganti', Number(e.target.value))} className="mt-1.5" />
                         </div>
                         <div className="sm:col-span-2">
                             <Label>Kendala <span className="text-destructive">*</span></Label>
@@ -180,7 +209,7 @@ function RijekModal({ order, open, onOpenChange, progressOptions }) {
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
-                        <Button type="submit" disabled={processing}>Catat</Button>
+                        <Button type="submit" disabled={processing}>{rijek ? 'Simpan Perubahan' : 'Catat Rijek'}</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
@@ -191,12 +220,14 @@ function RijekModal({ order, open, onOpenChange, progressOptions }) {
 export default function ProgressPage({ order, can }) {
     const [updating, setUpdating] = useState(null);
     const [openRijek, setOpenRijek] = useState(false);
+    const [editingRijek, setEditingRijek] = useState(null);
 
     const sortedDetails = (order.progress_details ?? []).slice().sort(
         (a, b) => (a.progress?.urutan ?? 0) - (b.progress?.urutan ?? 0)
     );
 
     const progressOptions = sortedDetails.map((d) => d.progress).filter(Boolean);
+    const isSent = order.status_po === 'sudah_dikirim';
 
     return (
         <AppLayout title={`Progress ${order.no_po}`}>
@@ -207,8 +238,8 @@ export default function ProgressPage({ order, can }) {
                     <Button asChild variant="outline" size="sm">
                         <Link href={route('orders.show', order.id)}><ArrowLeft className="h-4 w-4" /> Preview PO</Link>
                     </Button>
-                    {can?.addReject && (
-                        <Button variant="outline" size="sm" onClick={() => setOpenRijek(true)}>
+                    {can?.addReject && !isSent && (
+                        <Button variant="outline" size="sm" onClick={() => { setEditingRijek(null); setOpenRijek(true); }}>
                             <AlertTriangle className="h-4 w-4" /> Catat Rijek
                         </Button>
                     )}
@@ -251,6 +282,90 @@ export default function ProgressPage({ order, can }) {
                         )}
                     </CardContent>
                 </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                        <div>
+                            <CardTitle>Daftar Rijek PO</CardTitle>
+                            <CardDescription>Cacat produksi yang tercatat pada PO ini.</CardDescription>
+                        </div>
+                        {can?.addReject && !isSent && (
+                            <Button size="sm" onClick={() => { setEditingRijek(null); setOpenRijek(true); }}>
+                                <Plus className="mr-1 h-4 w-4" /> Catat Rijek
+                            </Button>
+                        )}
+                    </CardHeader>
+                    <CardContent>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead>
+                                    <tr className="border-b text-muted-foreground">
+                                        <th className="py-2">Tahapan</th>
+                                        <th className="py-2">Jenis / Tingkat</th>
+                                        <th className="py-2 text-right">Jumlah</th>
+                                        <th className="py-2">Kendala</th>
+                                        <th className="py-2">Penanganan</th>
+                                        <th className="py-2">Oleh</th>
+                                        {can?.addReject && !isSent && <th className="py-2 text-right">Aksi</th>}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(order.rijeks ?? []).map((r) => (
+                                        <tr key={r.id} className="border-b hover:bg-muted/50">
+                                            <td className="py-2.5 font-medium">{r.progress?.nama_progress ?? '—'}</td>
+                                            <td className="py-2.5">
+                                                <div className="flex gap-1.5 items-center">
+                                                    <span className="capitalize">{r.jenis}</span>
+                                                    <Badge variant={
+                                                        r.tingkat === 'berat' ? 'destructive' :
+                                                        r.tingkat === 'sedang' ? 'warning' : 'outline'
+                                                    } className="text-[10px] py-0 px-1.5 uppercase font-semibold">
+                                                        {r.tingkat}
+                                                    </Badge>
+                                                </div>
+                                            </td>
+                                            <td className="py-2.5 text-right font-mono font-bold text-amber-600">{r.jumlah} pcs</td>
+                                            <td className="py-2.5 text-muted-foreground max-w-xs truncate" title={r.kendala}>{r.kendala}</td>
+                                            <td className="py-2.5 text-muted-foreground max-w-xs truncate" title={r.penanganan}>{r.penanganan || '—'}</td>
+                                            <td className="py-2.5 text-xs text-muted-foreground">
+                                                <div>{r.creator?.name || 'Sistem'}</div>
+                                                {r.created_at && <div className="text-[10px] opacity-75">{formatDateTime(r.created_at)}</div>}
+                                            </td>
+                                            {can?.addReject && !isSent && (
+                                                <td className="py-2.5 text-right">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:text-blue-700" onClick={() => {
+                                                            setEditingRijek(r);
+                                                            setOpenRijek(true);
+                                                        }}>
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive/90" onClick={() => {
+                                                            if (confirm('Apakah Anda yakin ingin menghapus data rijek ini?')) {
+                                                                router.delete(route('produksi.rijek.destroy', { order: order.id, rijek: r.id }), {
+                                                                    preserveScroll: true
+                                                                });
+                                                            }
+                                                        }}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    ))}
+                                    {(order.rijeks ?? []).length === 0 && (
+                                        <tr>
+                                            <td colSpan={can?.addReject && !isSent ? 7 : 6} className="py-8 text-center text-muted-foreground text-sm">
+                                                Tidak ada rijek tercatat.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
             {updating && (
@@ -262,7 +377,16 @@ export default function ProgressPage({ order, can }) {
                     onOpenChange={(v) => !v && setUpdating(null)}
                 />
             )}
-            <RijekModal order={order} open={openRijek} onOpenChange={setOpenRijek} progressOptions={progressOptions} />
+            <RijekModal
+                order={order}
+                open={openRijek}
+                onOpenChange={(v) => {
+                    setOpenRijek(v);
+                    if (!v) setEditingRijek(null);
+                }}
+                progressOptions={progressOptions}
+                rijek={editingRijek}
+            />
         </AppLayout>
     );
 }

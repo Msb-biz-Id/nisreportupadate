@@ -16,6 +16,62 @@ class SettingsController extends Controller
     {
         Gate::authorize('settings.system');
 
+        // Fetch or Seed Notification Matrix
+        $matrix = SystemSetting::getGroup('notification_matrix');
+        if (empty($matrix)) {
+            $defaults = [
+                'order_published' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_produksi', 'owner'],
+                    'sound' => 'success-tada'
+                ],
+                'progress_updated' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'reseller', 'owner'],
+                    'sound' => 'bell-chime'
+                ],
+                'rijek_reported' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'owner'],
+                    'sound' => 'warning-alert'
+                ],
+                'refund_submitted' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_keuangan', 'owner'],
+                    'sound' => 'cash-register'
+                ],
+                'refund_processed' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'reseller', 'owner'],
+                    'sound' => 'bell-chime'
+                ]
+            ];
+            foreach ($defaults as $key => $val) {
+                SystemSetting::set('notification_matrix', $key, json_encode($val));
+            }
+            $matrix = SystemSetting::getGroup('notification_matrix');
+        }
+
+        $decodedMatrix = [];
+        foreach ($matrix as $key => $val) {
+            $decodedMatrix[$key] = is_string($val) ? json_decode($val, true) : $val;
+        }
+
         return Inertia::render('Settings/Integrations', [
             'ai' => [
                 'gemini_api_keys_masked' => $this->maskCsv(SystemSetting::get('ai', 'gemini_api_keys')),
@@ -43,7 +99,83 @@ class SettingsController extends Controller
                 'whatsapp_enabled' => (bool) SystemSetting::get('system', 'whatsapp_enabled', true),
                 'telegram_enabled' => (bool) SystemSetting::get('system', 'telegram_enabled', false),
             ],
+            'seo' => [
+                'site_name' => SystemSetting::get('seo', 'site_name', 'Circle Sportwear - Tracking PO'),
+                'site_description' => SystemSetting::get('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.'),
+                'logo' => SystemSetting::get('seo', 'logo'),
+                'logo_url' => SystemSetting::get('seo', 'logo') ? \Illuminate\Support\Facades\Storage::disk('public')->url(SystemSetting::get('seo', 'logo')) : null,
+                'favicon' => SystemSetting::get('seo', 'favicon'),
+                'favicon_url' => SystemSetting::get('seo', 'favicon') ? \Illuminate\Support\Facades\Storage::disk('public')->url(SystemSetting::get('seo', 'favicon')) : null,
+            ],
+            'mail' => [
+                'mail_host' => SystemSetting::get('mail', 'mail_host', 'smtp.mailtrap.io'),
+                'mail_port' => SystemSetting::get('mail', 'mail_port', '2525'),
+                'mail_username' => SystemSetting::get('mail', 'mail_username'),
+                'mail_password_masked' => SystemSetting::maskedValue(SystemSetting::get('mail', 'mail_password')),
+                'has_password' => ! empty(SystemSetting::get('mail', 'mail_password')),
+                'mail_encryption' => SystemSetting::get('mail', 'mail_encryption', 'tls'),
+                'mail_from_address' => SystemSetting::get('mail', 'mail_from_address', 'no-reply@circlesportwear.com'),
+                'mail_from_name' => SystemSetting::get('mail', 'mail_from_name', 'Circle Sportwear'),
+            ],
+            'notification_matrix' => $decodedMatrix,
+            'available_roles' => ['superadmin', 'owner', 'admin_brand', 'reseller', 'admin_produksi', 'admin_keuangan']
         ]);
+    }
+
+    public function updateSeo(Request $request)
+    {
+        Gate::authorize('settings.system');
+
+        $data = $request->validate([
+            'site_name' => ['required', 'string', 'max:255'],
+            'site_description' => ['nullable', 'string', 'max:1000'],
+            'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:2048'],
+            'favicon' => ['nullable', 'image', 'mimes:png,jpg,jpeg,ico,svg,webp', 'max:1028'],
+        ]);
+
+        SystemSetting::set('seo', 'site_name', $data['site_name']);
+        SystemSetting::set('seo', 'site_description', $data['site_description'] ?? '');
+
+        if ($request->hasFile('logo')) {
+            $logoPath = $request->file('logo')->store('system', 'public');
+            SystemSetting::set('seo', 'logo', $logoPath);
+        }
+
+        if ($request->hasFile('favicon')) {
+            $faviconPath = $request->file('favicon')->store('system', 'public');
+            SystemSetting::set('seo', 'favicon', $faviconPath);
+        }
+
+        return back()->with('success', 'Pengaturan SEO & Branding berhasil disimpan.');
+    }
+
+    public function updateMail(Request $request)
+    {
+        Gate::authorize('settings.system');
+
+        $data = $request->validate([
+            'mail_host' => ['required', 'string', 'max:255'],
+            'mail_port' => ['required', 'integer', 'between:1,65535'],
+            'mail_username' => ['nullable', 'string', 'max:255'],
+            'mail_password' => ['nullable', 'string', 'max:500'],
+            'mail_encryption' => ['nullable', 'string', 'max:10'],
+            'mail_from_address' => ['required', 'email', 'max:255'],
+            'mail_from_name' => ['required', 'string', 'max:255'],
+        ]);
+
+        SystemSetting::set('mail', 'mail_host', $data['mail_host']);
+        SystemSetting::set('mail', 'mail_port', (string) $data['mail_port']);
+        SystemSetting::set('mail', 'mail_username', $data['mail_username'] ?? '');
+        
+        if ($request->filled('mail_password')) {
+            SystemSetting::set('mail', 'mail_password', $data['mail_password'], encrypted: true);
+        }
+        
+        SystemSetting::set('mail', 'mail_encryption', $data['mail_encryption'] ?? '');
+        SystemSetting::set('mail', 'mail_from_address', $data['mail_from_address']);
+        SystemSetting::set('mail', 'mail_from_name', $data['mail_from_name']);
+
+        return back()->with('success', 'Pengaturan Mail Server berhasil disimpan.');
     }
 
     public function updateAi(Request $request)
@@ -118,6 +250,28 @@ class SettingsController extends Controller
         SystemSetting::set('system', 'telegram_enabled', $data['telegram_enabled'] ? '1' : '0');
 
         return back()->with('success', 'Pengaturan sistem tersimpan.');
+    }
+
+    public function updateMatrix(Request $request)
+    {
+        Gate::authorize('settings.system');
+
+        $data = $request->validate([
+            'matrix' => ['required', 'array'],
+            'matrix.*.in_app' => ['required', 'boolean'],
+            'matrix.*.whatsapp' => ['required', 'boolean'],
+            'matrix.*.telegram' => ['required', 'boolean'],
+            'matrix.*.os_desktop' => ['required', 'boolean'],
+            'matrix.*.roles' => ['nullable', 'array'],
+            'matrix.*.roles.*' => ['string', 'in:superadmin,owner,admin_brand,reseller,admin_produksi,admin_keuangan'],
+            'matrix.*.sound' => ['required', 'string', 'max:50'],
+        ]);
+
+        foreach ($data['matrix'] as $key => $val) {
+            SystemSetting::set('notification_matrix', $key, json_encode($val));
+        }
+
+        return back()->with('success', 'Pengaturan matriks notifikasi dinamis berhasil disimpan.');
     }
 
     public function testAi(Request $request)

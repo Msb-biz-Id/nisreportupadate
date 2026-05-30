@@ -19,7 +19,7 @@ class ReportController extends Controller
     public function show(Request $request, string $slug)
     {
         Gate::authorize('report.view');
-        $config = $this->resolveConfig($slug);
+        $config = $this->resolveConfig($slug, $request);
         $brandId = BrandContext::current($request);
 
         $filters = $this->extractFilters($request, $config);
@@ -32,14 +32,24 @@ class ReportController extends Controller
             'summary' => $result['summary'],
             'heatmapSeries' => $result['heatmapSeries'] ?? null,
             'groups' => ReportRegistry::groups(),
-            'allReports' => collect(ReportRegistry::all())->values()->all(),
+            'allReports' => collect(ReportRegistry::all())->values()->map(function($r) use ($request) {
+                return $r['slug'] === 'wilayah' ? $this->resolveConfig('wilayah', $request) : $r;
+            })->all(),
+            'customerTypes' => \App\Models\Master\CustomerType::query()
+                ->when($brandId, fn($q) => $q->where('brand_id', $brandId)->orWhereNull('brand_id'))
+                ->get(['id', 'nama'])
+                ->all(),
+            'sumberOrders' => \App\Models\Master\SumberOrder::query()
+                ->when($brandId, fn($q) => $q->where('brand_id', $brandId)->orWhereNull('brand_id'))
+                ->get(['id', 'nama'])
+                ->all(),
         ]);
     }
 
     public function exportExcel(Request $request, string $slug)
     {
         Gate::authorize('report.export');
-        $config = $this->resolveConfig($slug);
+        $config = $this->resolveConfig($slug, $request);
         $brandId = BrandContext::current($request);
         $filters = $this->extractFilters($request, $config);
 
@@ -55,7 +65,7 @@ class ReportController extends Controller
     public function exportPdf(Request $request, string $slug)
     {
         Gate::authorize('report.export');
-        $config = $this->resolveConfig($slug);
+        $config = $this->resolveConfig($slug, $request);
         $brandId = BrandContext::current($request);
         $filters = $this->extractFilters($request, $config);
 
@@ -73,10 +83,41 @@ class ReportController extends Controller
         return $pdf->download("report-{$slug}-" . now()->format('Ymd-His') . '.pdf');
     }
 
-    private function resolveConfig(string $slug): array
+    private function resolveConfig(string $slug, Request $request = null): array
     {
         $config = ReportRegistry::find($slug);
         abort_if(! $config, 404, "Laporan '{$slug}' tidak ditemukan.");
+
+        if ($slug === 'wilayah' && $request) {
+            $level = $request->string('level_wilayah', 'kabupaten')->toString();
+            $cols = [];
+            if ($level === 'provinsi') {
+                $cols[] = ['key' => 'provinsi', 'label' => 'Provinsi'];
+            } elseif ($level === 'kabupaten') {
+                $cols[] = ['key' => 'provinsi', 'label' => 'Provinsi'];
+                $cols[] = ['key' => 'kabupaten', 'label' => 'Kabupaten/Kota'];
+            } elseif ($level === 'kecamatan') {
+                $cols[] = ['key' => 'provinsi', 'label' => 'Provinsi'];
+                $cols[] = ['key' => 'kabupaten', 'label' => 'Kabupaten/Kota'];
+                $cols[] = ['key' => 'kecamatan', 'label' => 'Kecamatan'];
+            } elseif ($level === 'desa') {
+                $cols[] = ['key' => 'provinsi', 'label' => 'Provinsi'];
+                $cols[] = ['key' => 'kabupaten', 'label' => 'Kabupaten/Kota'];
+                $cols[] = ['key' => 'kecamatan', 'label' => 'Kecamatan'];
+                $cols[] = ['key' => 'desa', 'label' => 'Desa/Kelurahan'];
+            }
+            $cols[] = ['key' => 'total_pelanggan', 'label' => 'Pelanggan', 'format' => 'number'];
+            $cols[] = ['key' => 'total_order', 'label' => 'Total Order', 'format' => 'number'];
+            $cols[] = ['key' => 'total_value', 'label' => 'Total Nilai', 'format' => 'currency'];
+
+            $config['columns'] = $cols;
+
+            $config['chart']['x'] = $level === 'provinsi' ? 'provinsi' : 
+                                    ($level === 'kabupaten' ? 'kabupaten' : 
+                                    ($level === 'kecamatan' ? 'kecamatan' : 'desa'));
+            $config['chart']['title'] = 'Top Wilayah by Order (' . ucfirst($level) . ')';
+        }
+
         return $config;
     }
 
@@ -103,6 +144,15 @@ class ReportController extends Controller
                     break;
                 case 'is_auto':
                     $filters['is_auto'] = $request->string('is_auto')->toString();
+                    break;
+                case 'customer_type':
+                    $filters['customer_type_id'] = $request->string('customer_type_id')->toString();
+                    break;
+                case 'sumber_order':
+                    $filters['sumber_order_id'] = $request->string('sumber_order_id')->toString();
+                    break;
+                case 'level_wilayah':
+                    $filters['level_wilayah'] = $request->string('level_wilayah', 'kabupaten')->toString();
                     break;
             }
         }

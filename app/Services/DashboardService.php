@@ -50,11 +50,13 @@ class DashboardService
             'produk_terpopuler' => $this->produkTerpopuler($brandId, 10),
             'kategori_distribusi' => $this->kategoriDistribusi($brandId),
             'sumber_distribusi' => $this->sumberDistribusi($brandId),
+            'kategori_pelanggan_distribusi' => $this->kategoriPelangganDistribusi($brandId),
             'wilayah_top' => $this->wilayahTop($brandId, 8),
             'top_pelanggan' => $this->topPelanggan($brandId, 5),
             'po_terbaru' => $this->poTerbaru($brandId, 10),
             'deadline_mendekat' => $this->deadlineMendekat($brandId, 5),
             'po_terlambat' => $this->poTerlambat($brandId, 5),
+            'trend_bulanan' => $this->trendBulanan($brandId),
         ];
     }
 
@@ -342,6 +344,19 @@ class DashboardService
             ->all();
     }
 
+    private function kategoriPelangganDistribusi(?string $brandId): array
+    {
+        return Order::query()
+            ->when($brandId, fn ($q) => $q->where('orders.brand_id', $brandId))
+            ->join('customers', 'customers.id', '=', 'orders.pelanggan_id')
+            ->leftJoin('customer_types', 'customer_types.id', '=', 'customers.type_pelanggan_id')
+            ->select(DB::raw('COALESCE(customer_types.nama, "Tanpa Kategori") as label'), DB::raw('COUNT(*) as cnt'))
+            ->groupBy('label')
+            ->get()
+            ->map(fn ($r) => ['label' => $r->label, 'count' => (int) $r->cnt])
+            ->all();
+    }
+
     private function wilayahTop(?string $brandId, int $limit): array
     {
         return Order::query()
@@ -499,6 +514,64 @@ class DashboardService
             ['label' => 'Partial', 'value' => (int) ($row->partial ?? 0)],
             ['label' => 'Belum Bayar', 'value' => (int) ($row->belum_bayar ?? 0)],
         ];
+    }
+
+    public function trendBulanan(?string $brandId, ?int $year = null): array
+    {
+        $year = $year ?: (int) now()->year;
+        
+        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+        $monthExpr = $isSqlite ? 'CAST(strftime("%m", tanggal_masuk) AS INTEGER)' : 'MONTH(tanggal_masuk)';
+        $orderMonthExpr = $isSqlite ? 'CAST(strftime("%m", orders.tanggal_masuk) AS INTEGER)' : 'MONTH(orders.tanggal_masuk)';
+
+        $orders = Order::query()
+            ->when($brandId, fn ($q) => $q->where('brand_id', $brandId))
+            ->whereYear('tanggal_masuk', $year)
+            ->where('status_po', '!=', 'draft')
+            ->select(
+                DB::raw("$monthExpr as bulan"),
+                DB::raw('COUNT(*) as total_po'),
+                DB::raw('SUM(total_tagihan) as total_omset')
+            )
+            ->groupBy('bulan')
+            ->get()
+            ->keyBy('bulan');
+
+        $items = OrderItem::query()
+            ->whereHas('order', function ($q) use ($brandId, $year) {
+                $q->when($brandId, fn ($x) => $x->where('brand_id', $brandId))
+                  ->whereYear('tanggal_masuk', $year)
+                  ->where('status_po', '!=', 'draft');
+            })
+            ->select(
+                DB::raw("$orderMonthExpr as bulan"),
+                DB::raw('SUM(order_items.quantity) as total_pcs')
+            )
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->groupBy('bulan')
+            ->get()
+            ->keyBy('bulan');
+
+        $months = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+
+        $out = [];
+        foreach ($months as $num => $name) {
+            $o = $orders->get($num);
+            $item = $items->get($num);
+            $out[] = [
+                'bulan_num' => $num,
+                'bulan' => $name,
+                'total_po' => (int) ($o ? $o->total_po : 0),
+                'total_omset' => (float) ($o ? $o->total_omset : 0),
+                'total_pcs' => (int) ($item ? $item->total_pcs : 0),
+            ];
+        }
+
+        return $out;
     }
 
     private function calculateRejectRate(array $brandIds): float

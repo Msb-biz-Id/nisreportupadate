@@ -58,6 +58,7 @@ class BrandController extends Controller
             'kode' => ['required', 'string', 'max:20', 'alpha_dash', Rule::unique('brands', 'kode')],
             'tagline' => ['nullable', 'string', 'max:255'],
             'deskripsi' => ['nullable', 'string'],
+            'logo' => ['nullable', 'image', 'max:2048'],
             'email' => ['nullable', 'email', 'max:255'],
             'no_hp' => ['nullable', 'string', 'max:20'],
             'alamat' => ['nullable', 'string'],
@@ -71,6 +72,10 @@ class BrandController extends Controller
             'currency' => ['nullable', 'string', 'max:10'],
             'is_active' => ['boolean'],
         ]);
+
+        if ($request->hasFile('logo')) {
+            $data['logo'] = $request->file('logo')->store('brand_logos', 'public');
+        }
 
         $data['kode'] = Str::upper($data['kode']);
         $data['created_by'] = $request->user()->id;
@@ -89,11 +94,14 @@ class BrandController extends Controller
             abort(403);
         }
 
+        $logoRule = $request->hasFile('logo') ? ['image', 'max:2048'] : ['nullable', 'string'];
+
         $data = $request->validate([
             'nama_brand' => ['required', 'string', 'max:100'],
             'kode' => ['required', 'string', 'max:20', 'alpha_dash', Rule::unique('brands', 'kode')->ignore($brand->id)],
             'tagline' => ['nullable', 'string', 'max:255'],
             'deskripsi' => ['nullable', 'string'],
+            'logo' => ['nullable', 'sometimes', $logoRule],
             'email' => ['nullable', 'email', 'max:255'],
             'no_hp' => ['nullable', 'string', 'max:20'],
             'alamat' => ['nullable', 'string'],
@@ -107,6 +115,13 @@ class BrandController extends Controller
             'currency' => ['nullable', 'string', 'max:10'],
             'is_active' => ['boolean'],
         ]);
+
+        if ($request->hasFile('logo')) {
+            if ($brand->logo) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($brand->logo);
+            }
+            $data['logo'] = $request->file('logo')->store('brand_logos', 'public');
+        }
 
         $data['kode'] = Str::upper($data['kode']);
         $brand->update($data);

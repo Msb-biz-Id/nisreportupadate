@@ -92,16 +92,16 @@ function CustomerForm({ open, onOpenChange, customer, customerTypes, sumberOrder
                                     <Input id="email" type="email" value={data.email ?? ''} onChange={(e) => setData('email', e.target.value)} className="mt-1.5" />
                                 </div>
                                 <div>
-                                    <Label htmlFor="type_pelanggan_id">Tipe Pelanggan</Label>
+                                    <Label htmlFor="type_pelanggan_id">Kategori Pelanggan</Label>
                                     <Select
                                         value={data.type_pelanggan_id || NONE}
                                         onValueChange={(v) => setData('type_pelanggan_id', v === NONE ? '' : v)}
                                     >
-                                        <SelectTrigger id="type_pelanggan_id" className="mt-1.5"><SelectValue placeholder="Pilih" /></SelectTrigger>
+                                        <SelectTrigger id="type_pelanggan_id" className="mt-1.5"><SelectValue placeholder="Pilih Kategori" /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value={NONE}>— Tidak ada —</SelectItem>
                                             {customerTypes.map((t) => (
-                                                <SelectItem key={t.id} value={t.id}>{t.nama} ({t.diskon_default}%)</SelectItem>
+                                                <SelectItem key={t.id} value={t.id}>{t.nama}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>

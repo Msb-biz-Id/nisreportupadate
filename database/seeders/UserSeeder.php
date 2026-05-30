@@ -12,8 +12,9 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        $brandShu = Brand::where('kode', 'SHU')->first();
-        $brandNis = Brand::where('kode', 'NIS')->first();
+        $brandAlg = Brand::where('kode', 'ALG')->first();
+        $brandCrl = Brand::where('kode', 'CRL')->first();
+        $brandDrv = Brand::where('kode', 'DRV')->first();
 
         // Superadmin (akses semua brand)
         $super = User::updateOrCreate(
@@ -28,11 +29,12 @@ class UserSeeder extends Seeder
         );
         $super->syncRoles(['superadmin']);
         $super->brands()->syncWithoutDetaching([
-            $brandShu->id => ['is_default' => true, 'assigned_at' => now()],
-            $brandNis->id => ['is_default' => false, 'assigned_at' => now()],
+            $brandAlg->id => ['is_default' => true, 'assigned_at' => now()],
+            $brandCrl->id => ['is_default' => false, 'assigned_at' => now()],
+            $brandDrv->id => ['is_default' => false, 'assigned_at' => now()],
         ]);
 
-        // Owner multi-brand (akses SHU & NIS, default SHU)
+        // Owner multi-brand (akses ALG, CRL, DRV, default ALG)
         $owner = User::updateOrCreate(
             ['email' => 'owner@nisreport.local'],
             [
@@ -45,40 +47,57 @@ class UserSeeder extends Seeder
         );
         $owner->syncRoles(['owner']);
         $owner->brands()->syncWithoutDetaching([
-            $brandShu->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
-            $brandNis->id => ['is_default' => false, 'assigned_at' => now(), 'assigned_by' => $super->id],
+            $brandAlg->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
+            $brandCrl->id => ['is_default' => false, 'assigned_at' => now(), 'assigned_by' => $super->id],
+            $brandDrv->id => ['is_default' => false, 'assigned_at' => now(), 'assigned_by' => $super->id],
         ]);
 
-        // Admin Brand SHU
-        $adminShu = User::updateOrCreate(
-            ['email' => 'admin.shu@nisreport.local'],
+        // Admin Brand ALG (Apparel Aleegiant)
+        $adminAlg = User::updateOrCreate(
+            ['email' => 'admin.aleegiant@nisreport.local'],
             [
-                'name' => 'Admin Brand Shubuh',
+                'name' => 'Admin Brand Aleegiant',
                 'password' => Hash::make('password'),
                 'phone' => '081333333333',
                 'is_active' => true,
                 'email_verified_at' => now(),
             ]
         );
-        $adminShu->syncRoles(['admin_brand']);
-        $adminShu->brands()->syncWithoutDetaching([
-            $brandShu->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
+        $adminAlg->syncRoles(['admin_brand']);
+        $adminAlg->brands()->syncWithoutDetaching([
+            $brandAlg->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
         ]);
 
-        // Admin Brand NIS
-        $adminNis = User::updateOrCreate(
-            ['email' => 'admin.nis@nisreport.local'],
+        // Admin Brand CRL (Circle Sportwear)
+        $adminCrl = User::updateOrCreate(
+            ['email' => 'admin.circle@nisreport.local'],
             [
-                'name' => 'Admin Brand Nisha',
+                'name' => 'Admin Brand Circle',
                 'password' => Hash::make('password'),
                 'phone' => '081444444444',
                 'is_active' => true,
                 'email_verified_at' => now(),
             ]
         );
-        $adminNis->syncRoles(['admin_brand']);
-        $adminNis->brands()->syncWithoutDetaching([
-            $brandNis->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
+        $adminCrl->syncRoles(['admin_brand']);
+        $adminCrl->brands()->syncWithoutDetaching([
+            $brandCrl->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
+        ]);
+
+        // Admin Brand DRV (Drive Sportwear)
+        $adminDrv = User::updateOrCreate(
+            ['email' => 'admin.drive@nisreport.local'],
+            [
+                'name' => 'Admin Brand Drive',
+                'password' => Hash::make('password'),
+                'phone' => '081888888888',
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ]
+        );
+        $adminDrv->syncRoles(['admin_brand']);
+        $adminDrv->brands()->syncWithoutDetaching([
+            $brandDrv->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
         ]);
 
         // Reseller (terhubung ke salah satu brand; di Phase berikutnya master data reseller global)
@@ -94,7 +113,7 @@ class UserSeeder extends Seeder
         );
         $reseller->syncRoles(['reseller']);
         $reseller->brands()->syncWithoutDetaching([
-            $brandShu->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
+            $brandAlg->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
         ]);
 
         // Admin Produksi
@@ -110,7 +129,7 @@ class UserSeeder extends Seeder
         );
         $produksi->syncRoles(['admin_produksi']);
         $produksi->brands()->syncWithoutDetaching([
-            $brandShu->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
+            $brandAlg->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
         ]);
 
         // Admin Keuangan
@@ -126,8 +145,9 @@ class UserSeeder extends Seeder
         );
         $keuangan->syncRoles(['admin_keuangan']);
         $keuangan->brands()->syncWithoutDetaching([
-            $brandShu->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
-            $brandNis->id => ['is_default' => false, 'assigned_at' => now(), 'assigned_by' => $super->id],
+            $brandAlg->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
+            $brandCrl->id => ['is_default' => false, 'assigned_at' => now(), 'assigned_by' => $super->id],
+            $brandDrv->id => ['is_default' => false, 'assigned_at' => now(), 'assigned_by' => $super->id],
         ]);
     }
 }

@@ -61,7 +61,7 @@ class OrderLifecycleTest extends TestCase
 
         $this->assertDatabaseHas('orders', ['nama_po' => 'PO Test', 'status_po' => 'draft', 'total_tagihan' => 1000000]);
         $order = Order::where('nama_po', 'PO Test')->first();
-        $this->assertMatchesRegularExpression('/^PO-[A-Z0-9]+-\d{8}-\d{3}$/', $order->no_po);
+        $this->assertMatchesRegularExpression('/^PO-[A-Z0-9]+-[A-Z0-9]+-\d{3}$/', $order->no_po);
     }
 
     public function test_publish_po_creates_progress_details_and_auto_pemasukan(): void
@@ -83,6 +83,32 @@ class OrderLifecycleTest extends TestCase
         OrderItem::create([
             'order_id' => $order->id, 'nama_produk' => 'X',
             'quantity' => 5, 'harga_satuan' => 100000, 'subtotal' => 500000,
+        ]);
+
+        // Create verified DP payment (500,000)
+        \App\Models\Order\OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'dp',
+            'amount' => 500000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $user->id,
+            'verified_by' => $user->id,
+            'verified_at' => now(),
+        ]);
+
+        // Create validated invoice
+        \App\Models\Order\Invoice::create([
+            'brand_id' => $brand->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-TEST-001',
+            'tanggal_terbit' => now()->toDateString(),
+            'jatuh_tempo' => now()->addDays(14)->toDateString(),
+            'status' => 'validated',
+            'total_tagihan' => 500000,
+            'total_bayar' => 500000,
+            'dp_amount' => 500000,
+            'sisa_pembayaran' => 0,
+            'created_by' => $user->id,
         ]);
 
         $this->actingAsWithBrand($user, $brand)

@@ -27,6 +27,33 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
+        // Load Dynamic System Settings for Mail and SEO
+        try {
+            if (\Schema::hasTable('system_settings')) {
+                // Dynamic Mail config
+                $mailHost = \App\Models\Settings\SystemSetting::get('mail', 'mail_host');
+                if ($mailHost) {
+                    config([
+                        'mail.mailers.smtp.host' => $mailHost,
+                        'mail.mailers.smtp.port' => (int) \App\Models\Settings\SystemSetting::get('mail', 'mail_port', 2525),
+                        'mail.mailers.smtp.username' => \App\Models\Settings\SystemSetting::get('mail', 'mail_username'),
+                        'mail.mailers.smtp.password' => \App\Models\Settings\SystemSetting::get('mail', 'mail_password'),
+                        'mail.mailers.smtp.encryption' => \App\Models\Settings\SystemSetting::get('mail', 'mail_encryption', 'tls'),
+                        'mail.from.address' => \App\Models\Settings\SystemSetting::get('mail', 'mail_from_address', 'no-reply@circlesportwear.com'),
+                        'mail.from.name' => \App\Models\Settings\SystemSetting::get('mail', 'mail_from_name', 'Circle Sportwear'),
+                    ]);
+                }
+
+                // Dynamic APP/SEO config
+                $siteName = \App\Models\Settings\SystemSetting::get('seo', 'site_name');
+                if ($siteName) {
+                    config(['app.name' => $siteName]);
+                }
+            }
+        } catch (\Exception $e) {
+            // Prevent boot failures during migration or setup
+        }
+
         Vite::prefetch(concurrency: 3);
 
         Gate::before(function ($user) {

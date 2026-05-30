@@ -17,12 +17,15 @@ class OrderPayment extends Model
         'order_id', 'payment_type', 'amount', 'payment_date',
         'bank_id', 'proof_file', 'notes',
         'recorded_by', 'verified_by', 'verified_at',
+        'dp_sequence', 'is_debit',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'payment_date' => 'date',
         'verified_at' => 'datetime',
+        'dp_sequence' => 'integer',
+        'is_debit' => 'boolean',
     ];
 
     public function order(): BelongsTo { return $this->belongsTo(Order::class); }

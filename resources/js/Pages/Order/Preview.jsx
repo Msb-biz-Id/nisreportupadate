@@ -92,6 +92,10 @@ function AddPaymentDialog({ order, open, onOpenChange, banks }) {
                                 <SelectContent>
                                     <SelectItem value="dp">DP</SelectItem>
                                     <SelectItem value="pelunasan">Pelunasan</SelectItem>
+                                    <SelectItem value="ongkir">Ongkir</SelectItem>
+                                    <SelectItem value="cashback">Cashback</SelectItem>
+                                    <SelectItem value="tambahan_produk">Tambahan Produk</SelectItem>
+                                    <SelectItem value="return">Return</SelectItem>
                                     <SelectItem value="lainnya">Lainnya</SelectItem>
                                 </SelectContent>
                             </Select>
@@ -168,10 +172,28 @@ export default function OrderPreview({ order, can }) {
     const banks = []; // banks fetched separately in real impl; here we accept what backend provides via payments
 
     const st = STATUS_LABEL[order.status_po] ?? { label: order.status_po, variant: 'outline' };
-    const totalPaid = (order.payments ?? []).reduce((s, p) => s + Number(p.amount), 0);
+    const verifiedPayments = (order.payments ?? []).filter(p => p.verified_at);
+    const pendingPayments = (order.payments ?? []).filter(p => !p.verified_at);
+    const totalPaid = Math.max(0, verifiedPayments.reduce((s, p) => s + (['cashback', 'return'].includes(p.payment_type) ? -Number(p.amount) : Number(p.amount)), 0));
+    const pendingPaid = Math.max(0, pendingPayments.reduce((s, p) => s + (['cashback', 'return'].includes(p.payment_type) ? -Number(p.amount) : Number(p.amount)), 0));
     const sisaTagihan = Math.max(0, Number(order.total_tagihan) - totalPaid);
 
+    const invoice = order.invoices?.[0];
+    const isInvoiceValidated = invoice && ['validated', 'published', 'paid'].includes(invoice.status);
+
+    const totalTagihan = Number(order.total_tagihan || 0);
+    const minDp = totalTagihan * 0.5;
+    const isDpSufficient = totalPaid >= minDp;
+
     function publish() {
+        if (!isInvoiceValidated) {
+            alert('PO tidak bisa diterbitkan karena invoice belum divalidasi oleh Admin Keuangan.');
+            return;
+        }
+        if (!isDpSufficient) {
+            alert(`PO tidak bisa diterbitkan karena total pembayaran terverifikasi (${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalPaid)}) belum mencapai minimal 50% DP (${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(minDp)}).`);
+            return;
+        }
         if (!confirm('Terbitkan PO sekarang? Setelah dipublish, PO masuk dashboard produksi dan tidak bisa dihapus.')) return;
         router.post(route('orders.publish', order.id), {}, { preserveScroll: true });
     }
@@ -212,7 +234,14 @@ export default function OrderPreview({ order, can }) {
                                     </Button>
                                 )}
                                 {can?.publish && (
-                                    <Button onClick={publish} size="sm"><Send className="h-4 w-4" /> Terbitkan</Button>
+                                    <Button 
+                                        onClick={publish} 
+                                        size="sm"
+                                        className={(!isInvoiceValidated || !isDpSufficient) ? "opacity-60 cursor-not-allowed bg-slate-400 hover:bg-slate-400 text-white" : ""}
+                                        title={!isInvoiceValidated ? "Menunggu validasi keuangan" : !isDpSufficient ? "Pembayaran DP kurang dari 50%" : "Terbitkan PO"}
+                                    >
+                                        <Send className="h-4 w-4" /> Terbitkan
+                                    </Button>
                                 )}
                                 {can?.repeat && (
                                     <Button onClick={repeatOrder} variant="outline" size="sm"><RotateCw className="h-4 w-4" /> Repeat Order</Button>
@@ -251,6 +280,34 @@ export default function OrderPreview({ order, can }) {
                         </div>
                     </CardHeader>
                 </Card>
+
+                {order.status_po === 'draft' && !isInvoiceValidated && (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 flex items-start gap-3 text-amber-800 shadow-sm">
+                        <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                            <h4 className="text-sm font-bold">Menunggu Validasi Keuangan 💸</h4>
+                            <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                                PO ini belum dapat diterbitkan ke bagian produksi karena invoice belum divalidasi oleh Admin Keuangan. 
+                                Silakan hubungi tim Finance untuk melakukan verifikasi pembayaran/invoice agar pesanan dapat segera dikerjakan.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {order.status_po === 'draft' && isInvoiceValidated && !isDpSufficient && (
+                    <div className="rounded-2xl border border-red-200 bg-red-50/50 p-4 flex items-start gap-3 text-red-800 shadow-sm">
+                        <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                            <h4 className="text-sm font-bold">Menunggu Pembayaran DP Minimal 50% ⚠️</h4>
+                            <p className="text-xs text-red-700 leading-relaxed font-medium">
+                                PO ini belum dapat diterbitkan ke bagian produksi karena total pembayaran masuk terverifikasi sebesar 
+                                <strong> {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalPaid)}</strong> belum mencapai syarat minimal 50% DP 
+                                (<strong>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(minDp)}</strong> dari total tagihan <strong>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalTagihan)}</strong>).
+                                Silakan minta pelanggan melakukan pembayaran DP terlebih dahulu dan konfirmasi pembayaran agar diverifikasi Keuangan.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Info Grid */}
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -307,11 +364,36 @@ export default function OrderPreview({ order, can }) {
                         </CardHeader>
                         <CardContent className="space-y-1.5 text-sm">
                             <div className="flex justify-between"><span className="text-muted-foreground">Total Tagihan</span><span className="font-mono font-semibold">{formatRupiah(order.total_tagihan)}</span></div>
-                            <div className="flex justify-between"><span className="text-muted-foreground">Sudah Dibayar</span><span className="font-mono text-emerald-600">{formatRupiah(totalPaid)}</span></div>
+                            <div className="flex justify-between"><span className="text-muted-foreground">Sudah Diverifikasi</span><span className="font-mono text-emerald-600">{formatRupiah(totalPaid)}</span></div>
+                            {pendingPaid > 0 && (
+                                <div className="flex justify-between"><span className="text-muted-foreground">Menunggu Validasi</span><span className="font-mono text-amber-600">{formatRupiah(pendingPaid)}</span></div>
+                            )}
                             <div className="flex justify-between"><span className="text-muted-foreground">Sisa Tagihan</span><span className="font-mono font-bold text-destructive">{formatRupiah(sisaTagihan)}</span></div>
                             <Separator className="my-2" />
+
+                            {/* Payment History */}
+                            {(order.payments ?? []).length > 0 && (
+                                <div className="space-y-2 pt-1">
+                                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Riwayat Pembayaran</span>
+                                    {(order.payments ?? []).map((p) => (
+                                        <div key={p.id} className={`flex items-center justify-between rounded-md border px-3 py-2 text-xs ${p.verified_at ? 'bg-emerald-50/50 border-emerald-200' : 'bg-amber-50/50 border-amber-200'}`}>
+                                            <div className="space-y-0.5">
+                                                <div className="font-medium">{p.payment_type?.toUpperCase()} — {formatDate(p.payment_date)}</div>
+                                                {p.notes && <div className="text-muted-foreground">{p.notes}</div>}
+                                            </div>
+                                            <div className="text-right space-y-0.5">
+                                                <div className="font-mono font-semibold">{formatRupiah(p.amount)}</div>
+                                                <Badge variant={p.verified_at ? 'success' : 'warning'} className="text-[10px] px-1.5 py-0">
+                                                    {p.verified_at ? '✓ Verified' : '⏳ Pending'}
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
                             {can?.add_payment && (
-                                <Button size="sm" variant="outline" className="w-full" onClick={() => setOpenPayment(true)}>
+                                <Button size="sm" variant="outline" className="w-full mt-2" onClick={() => setOpenPayment(true)}>
                                     <CreditCard className="h-4 w-4" /> Tambah Pembayaran
                                 </Button>
                             )}
@@ -392,28 +474,122 @@ export default function OrderPreview({ order, can }) {
                     </Card>
                 )}
 
-                {/* Refunds */}
-                {order.refunds?.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base"><Receipt className="h-4 w-4 text-primary" /> Riwayat Refund ({order.refunds.length})</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            {order.refunds.map((r) => (
-                                <div key={r.id} className="flex items-center justify-between rounded border p-2 text-sm">
-                                    <div>
-                                        <div className="font-mono text-xs">{r.refund_number}</div>
-                                        <div className="text-xs text-muted-foreground">{r.alasan}</div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="font-mono font-semibold">{formatRupiah(r.nominal_refund)}</div>
-                                        <Badge variant={r.status === 'published' ? 'success' : r.status === 'rejected' ? 'destructive' : 'warning'}>{r.status}</Badge>
-                                    </div>
+                {/* Rijek & Refund Detailing */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-base">
+                            <AlertTriangle className="h-4 w-4 text-amber-500" />
+                            Detailing & Total Laporan Rijek & Refund
+                        </CardTitle>
+                        <CardDescription>
+                            Ringkasan cacat produksi (rijek) dan pengembalian dana (refund) untuk PO ini.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        {/* Summary Grid */}
+                        <div className="grid grid-cols-2 gap-4 rounded-lg bg-muted/40 p-4">
+                            <div className="text-center sm:text-left">
+                                <div className="text-xs text-muted-foreground">Total Item Rijek</div>
+                                <div className="mt-1 text-2xl font-bold text-amber-600 font-mono">
+                                    {(order.rijeks ?? []).reduce((sum, r) => sum + Number(r.jumlah), 0)} pcs
                                 </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-                )}
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                    Dari {(order.rijeks ?? []).length} insiden produksi
+                                </div>
+                            </div>
+                            <div className="text-center sm:text-left border-l pl-4">
+                                <div className="text-xs text-muted-foreground">Total Refund Dana</div>
+                                <div className="mt-1 text-2xl font-bold text-emerald-600 font-mono">
+                                    {formatRupiah((order.refunds ?? []).reduce((sum, r) => sum + Number(r.nominal_refund), 0))}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                    Dari {(order.refunds ?? []).length} pengajuan refund
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Rijek Detail Table */}
+                        <div>
+                            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Rincian Rijek Produksi ({(order.rijeks ?? []).length})
+                            </h4>
+                            {order.rijeks?.length > 0 ? (
+                                <div className="overflow-x-auto rounded-md border">
+                                    <table className="w-full text-left text-xs">
+                                        <thead>
+                                            <tr className="bg-muted/50 border-b text-muted-foreground">
+                                                <th className="p-2">Tahapan</th>
+                                                <th className="p-2">Jenis / Tingkat</th>
+                                                <th className="p-2 text-right">Jumlah</th>
+                                                <th className="p-2">Kendala</th>
+                                                <th className="p-2">Penanganan</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {order.rijeks.map((r) => (
+                                                <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
+                                                    <td className="p-2 font-medium">{r.progress?.nama_progress ?? '—'}</td>
+                                                    <td className="p-2">
+                                                        <span className="capitalize">{r.jenis}</span>
+                                                        <Badge variant={r.tingkat === 'berat' ? 'destructive' : r.tingkat === 'sedang' ? 'warning' : 'outline'} className="ml-1 text-[9px] py-0 px-1 font-semibold uppercase">
+                                                            {r.tingkat}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="p-2 text-right font-mono font-semibold text-amber-600">{r.jumlah} pcs</td>
+                                                    <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.kendala}>{r.kendala}</td>
+                                                    <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.penanganan}>{r.penanganan || '—'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <p className="text-xs text-muted-foreground italic pl-1">Belum ada rijek tercatat pada PO ini.</p>
+                            )}
+                        </div>
+
+                        {/* Refund Detail Table */}
+                        <div>
+                            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Rincian Refund Dana ({(order.refunds ?? []).length})
+                            </h4>
+                            {order.refunds?.length > 0 ? (
+                                <div className="overflow-x-auto rounded-md border">
+                                    <table className="w-full text-left text-xs">
+                                        <thead>
+                                            <tr className="bg-muted/50 border-b text-muted-foreground">
+                                                <th className="p-2">No Refund</th>
+                                                <th className="p-2">Jenis Masalah</th>
+                                                <th className="p-2">Alasan</th>
+                                                <th className="p-2 text-right">Qty Item</th>
+                                                <th className="p-2 text-right">Nominal</th>
+                                                <th className="p-2">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {order.refunds.map((r) => (
+                                                <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
+                                                    <td className="p-2 font-mono font-medium">{r.refund_number}</td>
+                                                    <td className="p-2 capitalize">{r.jenis_masalah?.replace('_', ' ') || '—'}</td>
+                                                    <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.alasan}>{r.alasan}</td>
+                                                    <td className="p-2 text-right font-mono">{r.jumlah_item} pcs</td>
+                                                    <td className="p-2 text-right font-mono font-semibold text-emerald-600">{formatRupiah(r.nominal_refund)}</td>
+                                                    <td className="p-2">
+                                                        <Badge variant={r.status === 'published' ? 'success' : r.status === 'rejected' ? 'destructive' : 'warning'} className="text-[9px] py-0 px-1 font-semibold uppercase">
+                                                            {r.status}
+                                                        </Badge>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <p className="text-xs text-muted-foreground italic pl-1">Belum ada pengajuan refund pada PO ini.</p>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
 
                 {/* Change Log */}
                 {order.change_logs?.length > 0 && (

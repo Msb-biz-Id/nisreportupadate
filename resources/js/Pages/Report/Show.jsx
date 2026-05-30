@@ -40,7 +40,7 @@ function FormatCell({ value, format }) {
     return value;
 }
 
-function FilterBar({ config, filters, onApply }) {
+function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders = [] }) {
     const [local, setLocal] = useState(filters);
 
     function patch(k, v) { setLocal({ ...local, [k]: v }); }
@@ -89,6 +89,20 @@ function FilterBar({ config, filters, onApply }) {
                         </Select>
                     </div>
                 )}
+                {config.filters?.includes('level_wilayah') && (
+                    <div>
+                        <Label className="text-xs">Tingkat Wilayah</Label>
+                        <Select value={local.level_wilayah || 'kabupaten'} onValueChange={(v) => patch('level_wilayah', v)}>
+                            <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="Pilih Tingkat" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="provinsi">Provinsi</SelectItem>
+                                <SelectItem value="kabupaten">Kabupaten / Kota</SelectItem>
+                                <SelectItem value="kecamatan">Kecamatan</SelectItem>
+                                <SelectItem value="desa">Desa / Kelurahan</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
                 {config.filters?.includes('threshold') && (
                     <div>
                         <Label className="text-xs">Threshold (hari)</Label>
@@ -104,6 +118,34 @@ function FilterBar({ config, filters, onApply }) {
                                 <SelectItem value="__all__">Semua</SelectItem>
                                 <SelectItem value="1">Otomatis</SelectItem>
                                 <SelectItem value="0">Manual</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+                {config.filters?.includes('customer_type') && (
+                    <div>
+                        <Label className="text-xs">Kategori Pelanggan</Label>
+                        <Select value={local.customer_type_id || '__all__'} onValueChange={(v) => patch('customer_type_id', v === '__all__' ? '' : v)}>
+                            <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="Semua" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__all__">Semua Kategori</SelectItem>
+                                {customerTypes.map((t) => (
+                                    <SelectItem key={t.id} value={String(t.id)}>{t.nama}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+                {config.filters?.includes('sumber_order') && (
+                    <div>
+                        <Label className="text-xs">Sumber Order</Label>
+                        <Select value={local.sumber_order_id || '__all__'} onValueChange={(v) => patch('sumber_order_id', v === '__all__' ? '' : v)}>
+                            <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="Semua" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__all__">Semua Sumber</SelectItem>
+                                {sumberOrders.map((s) => (
+                                    <SelectItem key={s.id} value={String(s.id)}>{s.nama}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>
@@ -207,7 +249,7 @@ function ReportChart({ config, rows, heatmapSeries }) {
     );
 }
 
-export default function ReportShow({ config, filters, rows, summary, heatmapSeries, groups, allReports }) {
+export default function ReportShow({ config, filters, rows, summary, heatmapSeries, groups, allReports, customerTypes = [], sumberOrders = [] }) {
     const Icon = Icons[config.icon] ?? Icons.BarChart3;
 
     function applyFilters(newFilters) {
@@ -242,7 +284,7 @@ export default function ReportShow({ config, filters, rows, summary, heatmapSeri
                     </CardHeader>
                 </Card>
 
-                <FilterBar config={config} filters={filters} onApply={applyFilters} />
+                <FilterBar config={config} filters={filters} onApply={applyFilters} customerTypes={customerTypes} sumberOrders={sumberOrders} />
 
                 <SummaryCards items={summary} />
 

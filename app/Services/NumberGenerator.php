@@ -34,8 +34,15 @@ class NumberGenerator
         return $prefix . '-' . str_pad((string) $seq, 3, '0', STR_PAD_LEFT);
     }
 
-    public function generateInvoiceNumber(Brand $brand): string
+    public function generateInvoiceNumber(Brand $brand, ?Order $order = null): string
     {
+        if ($order && $order->no_po) {
+            if (str_starts_with($order->no_po, 'PO-')) {
+                return 'INV-' . substr($order->no_po, 3);
+            }
+            return 'INV-' . $order->no_po;
+        }
+
         $date = Carbon::now()->format('Ymd');
         $prefix = "INV-{$brand->kode}-{$date}";
 
@@ -68,6 +75,26 @@ class NumberGenerator
         $seq = 1;
         if ($last) {
             $parts = explode('-', $last->refund_number);
+            $seq = ((int) end($parts)) + 1;
+        }
+
+        return $prefix . '-' . str_pad((string) $seq, 3, '0', STR_PAD_LEFT);
+    }
+
+    public function generateDepositNumber(Brand $brand): string
+    {
+        $date = Carbon::now()->format('Ymd');
+        $prefix = "TJ-{$brand->kode}-{$date}";
+
+        $last = \App\Models\Order\DesignDeposit::where('brand_id', $brand->id)
+            ->where('deposit_number', 'like', "{$prefix}-%")
+            ->withTrashed()
+            ->orderByDesc('deposit_number')
+            ->first();
+
+        $seq = 1;
+        if ($last) {
+            $parts = explode('-', $last->deposit_number);
             $seq = ((int) end($parts)) + 1;
         }
 

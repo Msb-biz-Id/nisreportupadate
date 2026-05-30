@@ -69,7 +69,7 @@ class OrderSeeder extends Seeder
     private function seedOrders(): void
     {
         $numbers = app(NumberGenerator::class);
-        $admin = User::where('email', 'admin.shu@nisreport.local')->first();
+        $admin = User::where('email', 'admin.aleegiant@nisreport.local')->first();
         $superadmin = User::where('email', 'superadmin@nisreport.local')->first();
 
         foreach (Brand::all() as $brand) {
@@ -108,7 +108,7 @@ class OrderSeeder extends Seeder
 
                 $order = Order::create([
                     'brand_id' => $brand->id,
-                    'no_po' => $numbers->generateOrderNumber($brand),
+                    'no_po' => $numbers->generateOrderNumber($brand, "PO {$customer->nama} #" . ($idx + 1)),
                     'nama_po' => "PO {$customer->nama} #" . ($idx + 1),
                     'status_po' => 'draft',
                     'is_special_order' => $idx === 1,
