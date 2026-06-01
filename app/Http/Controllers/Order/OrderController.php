@@ -286,7 +286,7 @@ class OrderController extends Controller
         $order->load([
             'pelanggan', 'kategoriOrder', 'sumberOrder',
             'items.namesets.size', 'items.bahanKain', 'items.logo', 'items.printing',
-            'payments.bank', 'payments.recorder',
+            'payments.bank', 'payments.recorder', 'payments.verifier',
             'progressDetails.progress', 'progressDetails.updater',
             'rijeks.progress', 'rijeks.creator',
             'lockStatus.lockedBy',

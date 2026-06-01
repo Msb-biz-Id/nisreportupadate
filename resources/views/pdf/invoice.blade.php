@@ -21,7 +21,7 @@
         .info-card strong { font-size: 10pt; }
 
         table.items { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-        table.items th { background: {{ $invoice->brand->warna_primary ?? '#1E40AF' }}; color: white; padding: 8px; text-align: left; font-size: 9pt; }
+        table.items th { background: {{ $invoice->brand?->warna_primary ?? '#1E40AF' }}; color: white; padding: 8px; text-align: left; font-size: 9pt; }
         table.items td { border-bottom: 1px solid #E5E7EB; padding: 7px 8px; }
         table.items .right { text-align: right; }
 
@@ -46,38 +46,58 @@
     <div class="header">
         <div>
             @if (!empty($logoData))
-            <div style="margin-bottom: 8px;">
-                <img src="{{ $logoData }}" alt="{{ $invoice->brand->nama_brand }}" style="max-height: 58px; max-width: 180px; object-fit: contain;">
-            </div>
-            @elseif ($invoice->brand->logo)
-            <div style="margin-bottom: 8px;">
-                <img src="{{ public_path('storage/' . $invoice->brand->logo) }}" alt="{{ $invoice->brand->nama_brand }}" style="max-height: 58px; max-width: 180px; object-fit: contain;">
-            </div>
+                <div style="margin-bottom: 8px;">
+                    <img src="{{ $logoData }}" alt="{{ $invoice->brand?->nama_brand ?? 'Brand Logo' }}" style="max-height: 58px; max-width: 180px; object-fit: contain;">
+                </div>
+            @elseif ($invoice->brand?->logo)
+                <div style="margin-bottom: 8px;">
+                    <img src="{{ public_path('storage/' . $invoice->brand->logo) }}" alt="{{ $invoice->brand?->nama_brand ?? 'Brand Logo' }}" style="max-height: 58px; max-width: 180px; object-fit: contain;">
+                </div>
             @else
-            <div class="brand">{{ $invoice->brand->nama_brand }}</div>
+                <div class="brand">{{ $invoice->brand?->nama_brand ?? 'Circle Sportwear' }}</div>
             @endif
-            @if ($invoice->brand->tagline)
-            <div class="brand-tagline">{{ $invoice->brand->tagline }}</div>
+
+            @if ($invoice->brand?->tagline)
+                <div class="brand-tagline">{{ $invoice->brand->tagline }}</div>
             @endif
-            @if ($invoice->brand->deskripsi)
-            <div style="font-size: 8pt; color: #000000; font-weight: 600; margin-top: 3px;">{{ $invoice->brand->deskripsi }}</div>
+
+            @if ($invoice->brand?->deskripsi)
+                <div style="font-size: 8pt; color: #000000; font-weight: 600; margin-top: 3px;">{{ $invoice->brand->deskripsi }}</div>
             @endif
+
             <div style="font-size: 8pt; color: #000000; font-weight: 600; margin-top: 4px; line-height: 1.3;">
-                @if ($invoice->brand->alamat){{ $invoice->brand->alamat }}<br>@endif
-                @if ($invoice->brand->no_hp || $invoice->brand->email)
-                WA/Telp: {{ $invoice->brand->no_hp ?? '' }}@if ($invoice->brand->no_hp && $invoice->brand->email) · @endifEmail: {{ $invoice->brand->email ?? '' }}
+                @if ($invoice->brand?->alamat)
+                    {{ $invoice->brand->alamat }}<br>
+                @endif
+                @if ($invoice->brand?->no_hp || $invoice->brand?->email)
+                    WA/Telp: {{ $invoice->brand?->no_hp ?? '' }}
+                    @if ($invoice->brand?->no_hp && $invoice->brand?->email)
+                         · 
+                    @endif
+                    Email: {{ $invoice->brand?->email ?? '' }}
                 @endif
             </div>
+
             @php
-                $medsos = array_filter([
-                    $invoice->brand->instagram ? 'IG: @' . ltrim($invoice->brand->instagram, '@') : null,
-                    $invoice->brand->tiktok    ? 'TikTok: @' . ltrim($invoice->brand->tiktok, '@') : null,
-                    $invoice->brand->facebook  ? 'FB: ' . $invoice->brand->facebook : null,
-                    $invoice->brand->website   ? $invoice->brand->website : null,
-                ]);
+                $medsos = [];
+                if ($invoice->brand) {
+                    if ($invoice->brand->instagram) {
+                        $medsos[] = 'IG: @' . ltrim($invoice->brand->instagram, '@');
+                    }
+                    if ($invoice->brand->tiktok) {
+                        $medsos[] = 'TikTok: @' . ltrim($invoice->brand->tiktok, '@');
+                    }
+                    if ($invoice->brand->facebook) {
+                        $medsos[] = 'FB: ' . $invoice->brand->facebook;
+                    }
+                    if ($invoice->brand->website) {
+                        $medsos[] = $invoice->brand->website;
+                    }
+                }
             @endphp
+
             @if (!empty($medsos))
-            <div style="font-size: 7.5pt; color: #000000; font-weight: 600; margin-top: 3px;">{{ implode('  ·  ', $medsos) }}</div>
+                <div style="font-size: 7.5pt; color: #000000; font-weight: 600; margin-top: 3px;">{{ implode('  ·  ', $medsos) }}</div>
             @endif
         </div>
         <div>
@@ -86,7 +106,7 @@
             <div style="text-align: right; font-size: 8.5pt; color: #000000; font-weight: 600; margin-top: 8px;">
                 <div>Tgl Terbit: <strong>{{ \Carbon\Carbon::parse($invoice->tanggal_terbit)->translatedFormat('d M Y') }}</strong></div>
                 @if ($invoice->jatuh_tempo)
-                <div>Jatuh Tempo: <strong>{{ \Carbon\Carbon::parse($invoice->jatuh_tempo)->translatedFormat('d M Y') }}</strong></div>
+                    <div>Jatuh Tempo: <strong>{{ \Carbon\Carbon::parse($invoice->jatuh_tempo)->translatedFormat('d M Y') }}</strong></div>
                 @endif
             </div>
         </div>
@@ -96,15 +116,17 @@
         <div>
             <div class="info-label">Tagihan kepada</div>
             <div class="info-card">
-                <strong>{{ $invoice->order->pelanggan->nama ?? '-' }}</strong><br>
-                {{ $invoice->order->pelanggan->nomor_hp ?? '' }}<br>
-                @if ($invoice->order->pelanggan->email) {{ $invoice->order->pelanggan->email }}<br> @endif
+                <strong>{{ $invoice->order?->pelanggan?->nama ?? '-' }}</strong><br>
+                {{ $invoice->order?->pelanggan?->nomor_hp ?? '' }}<br>
+                @if ($invoice->order?->pelanggan?->email ?? '')
+                    {{ $invoice->order->pelanggan->email }}<br>
+                @endif
                 <span style="color:#6B7280; font-size: 8pt;">
                     {{ trim(implode(', ', array_filter([
-                        $invoice->order->pelanggan->detail_alamat,
-                        $invoice->order->pelanggan->kabupaten_nama,
-                        $invoice->order->pelanggan->provinsi_nama,
-                        $invoice->order->pelanggan->kodepos,
+                        $invoice->order?->pelanggan?->detail_alamat ?? '',
+                        $invoice->order?->pelanggan?->kabupaten_nama ?? '',
+                        $invoice->order?->pelanggan?->provinsi_nama ?? '',
+                        $invoice->order?->pelanggan?->kodepos ?? '',
                     ])), ', ') }}
                 </span>
             </div>
@@ -112,9 +134,9 @@
         <div>
             <div class="info-label">Referensi PO</div>
             <div class="info-card">
-                <strong style="font-family: monospace;">{{ $invoice->order->no_po }}</strong><br>
-                {{ $invoice->order->nama_po }}<br>
-                <span style="color:#6B7280; font-size: 8pt;">Tgl Order: {{ \Carbon\Carbon::parse($invoice->order->tanggal_masuk)->translatedFormat('d M Y') }}</span>
+                <strong style="font-family: monospace;">{{ $invoice->order?->no_po ?? '—' }}</strong><br>
+                {{ $invoice->order?->nama_po ?? '—' }}<br>
+                <span style="color:#6B7280; font-size: 8pt;">Tgl Order: {{ $invoice->order?->tanggal_masuk ? \Carbon\Carbon::parse($invoice->order->tanggal_masuk)->translatedFormat('d M Y') : '—' }}</span>
             </div>
         </div>
     </div>
@@ -146,35 +168,36 @@
         <table>
             <tr><td class="label">Subtotal</td><td class="value">Rp {{ number_format($invoice->total_tagihan, 0, ',', '.') }}</td></tr>
             @if ($invoice->diskon_value > 0)
-            <tr><td class="label">Diskon @if($invoice->diskon_type === 'persen') ({{ $invoice->diskon_value }}%) @endif</td>
-                <td class="value">- Rp {{ number_format($invoice->diskon_type === 'persen' ? ($invoice->total_tagihan * $invoice->diskon_value / 100) : $invoice->diskon_value, 0, ',', '.') }}</td>
-            </tr>
+                <tr>
+                    <td class="label">Diskon @if($invoice->diskon_type === 'persen') ({{ $invoice->diskon_value }}%) @endif</td>
+                    <td class="value">- Rp {{ number_format($invoice->diskon_type === 'persen' ? ($invoice->total_tagihan * $invoice->diskon_value / 100) : $invoice->diskon_value, 0, ',', '.') }}</td>
+                </tr>
             @endif
             @if ($invoice->biaya_pengiriman > 0)
-            <tr><td class="label">Ongkir ({{ $invoice->jasa_pengiriman ?? '' }})</td><td class="value">Rp {{ number_format($invoice->biaya_pengiriman, 0, ',', '.') }}</td></tr>
+                <tr><td class="label">Ongkir ({{ $invoice->jasa_pengiriman ?? '' }})</td><td class="value">Rp {{ number_format($invoice->biaya_pengiriman, 0, ',', '.') }}</td></tr>
             @endif
             @if ($invoice->dp_amount > 0)
-            <tr><td class="label">DP Diterima</td><td class="value">- Rp {{ number_format($invoice->dp_amount, 0, ',', '.') }}</td></tr>
+                <tr><td class="label">DP Diterima</td><td class="value">- Rp {{ number_format($invoice->dp_amount, 0, ',', '.') }}</td></tr>
             @endif
             <tr class="grand"><td>SISA TAGIHAN</td><td class="value">Rp {{ number_format($invoice->sisa_pembayaran, 0, ',', '.') }}</td></tr>
         </table>
     </div>
 
     @if (!empty($invoice->bank))
-    <div class="qr-section">
-        <div>
-            <div class="info-label">Transfer ke</div>
-            <strong>{{ $invoice->bank->bank ?? '' }}</strong><br>
-            {{ $invoice->bank->atas_nama ?? '' }}<br>
-            <span style="font-family: monospace; font-size: 11pt;">{{ $invoice->bank->nomor_rekening ?? '' }}</span>
+        <div class="qr-section">
+            <div>
+                <div class="info-label">Transfer ke</div>
+                <strong>{{ $invoice->bank->bank ?? '' }}</strong><br>
+                {{ $invoice->bank->atas_nama ?? '' }}<br>
+                <span style="font-family: monospace; font-size: 11pt;">{{ $invoice->bank->nomor_rekening ?? '' }}</span>
+            </div>
+            @if (!empty($qrCodeData))
+                <div style="text-align: right;">
+                    <img class="qr-image" src="{{ $qrCodeData }}" alt="QR Code">
+                    <div style="font-size: 7pt; color: #6B7280; margin-top: 4px;">Scan untuk tracking</div>
+                </div>
+            @endif
         </div>
-        @if (!empty($qrCodeData))
-        <div style="text-align: right;">
-            <img class="qr-image" src="{{ $qrCodeData }}" alt="QR Code">
-            <div style="font-size: 7pt; color: #6B7280; margin-top: 4px;">Scan untuk tracking</div>
-        </div>
-        @endif
-    </div>
     @endif
 
     <div class="footer">
@@ -183,7 +206,7 @@
             <div style="margin-top: 6px;">{{ $invoice->peraturan }}</div>
         @endif
         <ol class="faq">
-            <li><strong>Cara tracking pesanan?</strong> Scan QR code di atas atau kunjungi /track/{{ $invoice->order->no_po }}.</li>
+            <li><strong>Cara tracking pesanan?</strong> Scan QR code di atas atau kunjungi /track/{{ $invoice->order?->no_po ?? '' }}.</li>
             <li><strong>Pembayaran:</strong> Transfer via rekening di atas, kirim bukti ke WA admin.</li>
             <li><strong>Komplain:</strong> Hubungi admin melalui WhatsApp resmi dalam 3x24 jam setelah barang diterima.</li>
         </ol>

@@ -373,20 +373,65 @@ export default function OrderPreview({ order, can }) {
 
                             {/* Payment History */}
                             {(order.payments ?? []).length > 0 && (
-                                <div className="space-y-2 pt-1">
+                                <div className="space-y-3 pt-1">
                                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Riwayat Pembayaran</span>
                                     {(order.payments ?? []).map((p) => (
-                                        <div key={p.id} className={`flex items-center justify-between rounded-md border px-3 py-2 text-xs ${p.verified_at ? 'bg-emerald-50/50 border-emerald-200' : 'bg-amber-50/50 border-amber-200'}`}>
-                                            <div className="space-y-0.5">
-                                                <div className="font-medium">{p.payment_type?.toUpperCase()} — {formatDate(p.payment_date)}</div>
-                                                {p.notes && <div className="text-muted-foreground">{p.notes}</div>}
+                                        <div key={p.id} className={`flex flex-col gap-2 rounded-xl border p-3 text-xs ${p.verified_at ? 'bg-slate-50/70 border-slate-200' : 'bg-amber-50/50 border-amber-200'}`}>
+                                            <div className="flex items-center justify-between">
+                                                <div className="space-y-0.5">
+                                                    <div className="font-bold text-slate-800 text-xs">{p.payment_type?.toUpperCase()} — {formatDate(p.payment_date)}</div>
+                                                    {p.notes && <div className="text-slate-500 font-medium text-[11px]">Memo: "{p.notes}"</div>}
+                                                    {p.bank && <div className="text-slate-400 text-[10px] font-mono">{p.bank.bank} · {p.bank.nomor_rekening}</div>}
+                                                </div>
+                                                <div className="text-right space-y-1">
+                                                    <div className="font-mono font-bold text-slate-900">{formatRupiah(p.amount)}</div>
+                                                    <Badge variant={p.verified_at ? 'success' : 'warning'} className="text-[9px] px-1.5 py-0 font-bold">
+                                                        {p.verified_at ? '✓ VERIFIED' : '⏳ PENDING'}
+                                                    </Badge>
+                                                </div>
                                             </div>
-                                            <div className="text-right space-y-0.5">
-                                                <div className="font-mono font-semibold">{formatRupiah(p.amount)}</div>
-                                                <Badge variant={p.verified_at ? 'success' : 'warning'} className="text-[10px] px-1.5 py-0">
-                                                    {p.verified_at ? '✓ Verified' : '⏳ Pending'}
-                                                </Badge>
-                                            </div>
+                                            
+                                            {p.verified_at && (
+                                                <div className="mt-1.5 rounded-lg border border-slate-100 bg-white p-2.5 space-y-2 shadow-sm">
+                                                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-700">
+                                                        <span className="flex items-center gap-1 text-slate-600">
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                                                            Diverifikasi oleh:
+                                                        </span>
+                                                        <span className="text-slate-900 font-bold bg-slate-100 px-1.5 py-0.5 rounded text-[9px]">{p.verifier?.name ?? 'Finance Admin'}</span>
+                                                    </div>
+                                                    
+                                                    {p.verification_checks && (
+                                                        <div className="grid grid-cols-3 gap-1 pt-1 border-t border-slate-50">
+                                                            <div className="flex items-center gap-1 text-[9px] font-semibold">
+                                                                <span className={p.verification_checks.bank_mutasi ? "text-emerald-600" : "text-slate-400"}>
+                                                                    {p.verification_checks.bank_mutasi ? '✓ Mutasi Koran' : '✗ Mutasi Koran'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 text-[9px] font-semibold">
+                                                                <span className={p.verification_checks.nominal_cocok ? "text-emerald-600" : "text-slate-400"}>
+                                                                    {p.verification_checks.nominal_cocok ? '✓ Nominal Cocok' : '✗ Nominal Cocok'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 text-[9px] font-semibold">
+                                                                <span className={p.verification_checks.bukti_valid ? "text-emerald-600" : "text-slate-400"}>
+                                                                    {p.verification_checks.bukti_valid ? '✓ Bukti Valid' : '✗ Bukti Valid'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {p.verification_notes ? (
+                                                        <div className="text-[10px] text-slate-600 bg-slate-50 p-1.5 rounded-md border border-slate-100 font-medium italic">
+                                                            "{p.verification_notes}"
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-[10px] text-slate-400 italic">
+                                                            Tidak ada catatan verifikasi.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

@@ -246,7 +246,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                                             </div>
                                                         </td>
                                                         <td className="py-3 px-4 font-medium text-slate-600">
-                                                            {p.bank ? `${p.bank.bank_name} — ${p.bank.account_number}` : '—'}
+                                                            {p.bank ? `${p.bank.bank} — ${p.bank.nomor_rekening}` : '—'}
                                                         </td>
                                                         <td className={`py-3 px-4 text-right font-mono font-bold ${isDebit ? 'text-emerald-600' : 'text-red-600'}`}>
                                                             {isDebit ? '+' : '-'} {formatRupiah(p.amount)}
@@ -329,8 +329,9 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                 )}
 
                                 <div 
-                                    className="flex justify-between items-center border-t border-slate-200 pt-3 text-lg font-black"
-                                    style={{ color: brand.warna_primary || '#4F46E5' }}
+                                    className={`flex justify-between items-center border-t border-slate-200 pt-3 text-lg font-black ${
+                                        invoice.sisa_pembayaran > 0 ? 'text-rose-600' : 'text-emerald-600'
+                                    }`}
                                 >
                                     <span>Sisa Pembayaran</span>
                                     <span className="font-mono">{formatRupiah(invoice.sisa_pembayaran)}</span>

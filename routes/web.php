@@ -114,6 +114,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Phase 3: Finance — Invoice
     Route::prefix('invoices')->name('invoices.')->group(function () {
         Route::get('/', [InvoiceController::class, 'index'])->name('index');
+        Route::get('/list', [InvoiceController::class, 'list'])->name('list');
+        Route::get('/payments/pending', [InvoiceController::class, 'paymentsPending'])->name('payments.pending');
+        Route::post('/payments/{payment}/verify', [InvoiceController::class, 'verifyPayment'])->name('payments.verify');
         Route::post('/from-order/{order}', [InvoiceController::class, 'createFromOrder'])->name('create-from-order');
         Route::post('/{invoice}/validate', [InvoiceController::class, 'validateInvoice'])->name('validate');
         Route::post('/{invoice}/publish', [InvoiceController::class, 'publish'])->name('publish');
@@ -152,6 +155,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::prefix('settings')->name('settings.')->group(function () {
         Route::get('/integrasi', [SettingsController::class, 'index'])->name('integrasi');
+        Route::get('/notifikasi', [SettingsController::class, 'notifications'])->name('notifikasi');
         Route::put('/integrasi/ai', [SettingsController::class, 'updateAi'])->name('integrasi.ai');
         Route::put('/integrasi/whatsapp', [SettingsController::class, 'updateWhatsapp'])->name('integrasi.whatsapp');
         Route::put('/integrasi/telegram', [SettingsController::class, 'updateTelegram'])->name('integrasi.telegram');

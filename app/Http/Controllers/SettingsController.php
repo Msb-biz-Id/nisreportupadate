@@ -120,9 +120,74 @@ class SettingsController extends Controller
             'notification_matrix' => $decodedMatrix,
             'available_roles' => ['superadmin', 'owner', 'admin_brand', 'reseller', 'admin_produksi', 'admin_keuangan']
         ]);
-    }
-
-    public function updateSeo(Request $request)
+     }
+ 
+     public function notifications(Request $request)
+     {
+         Gate::authorize('settings.system');
+ 
+         $matrix = SystemSetting::getGroup('notification_matrix');
+         if (empty($matrix)) {
+             $defaults = [
+                 'order_published' => [
+                     'in_app' => true,
+                     'whatsapp' => false,
+                     'telegram' => false,
+                     'os_desktop' => true,
+                     'roles' => ['admin_produksi', 'owner'],
+                     'sound' => 'success-tada'
+                 ],
+                 'progress_updated' => [
+                     'in_app' => true,
+                     'whatsapp' => false,
+                     'telegram' => false,
+                     'os_desktop' => true,
+                     'roles' => ['admin_brand', 'reseller', 'owner'],
+                     'sound' => 'bell-chime'
+                 ],
+                 'rijek_reported' => [
+                     'in_app' => true,
+                     'whatsapp' => false,
+                     'telegram' => false,
+                     'os_desktop' => true,
+                     'roles' => ['admin_brand', 'owner'],
+                     'sound' => 'warning-alert'
+                 ],
+                 'refund_submitted' => [
+                     'in_app' => true,
+                     'whatsapp' => false,
+                     'telegram' => false,
+                     'os_desktop' => true,
+                     'roles' => ['admin_keuangan', 'owner'],
+                     'sound' => 'cash-register'
+                 ],
+                 'refund_processed' => [
+                     'in_app' => true,
+                     'whatsapp' => false,
+                     'telegram' => false,
+                     'os_desktop' => true,
+                     'roles' => ['admin_brand', 'reseller', 'owner'],
+                     'sound' => 'bell-chime'
+                 ]
+             ];
+             foreach ($defaults as $key => $val) {
+                 SystemSetting::set('notification_matrix', $key, json_encode($val));
+             }
+             $matrix = SystemSetting::getGroup('notification_matrix');
+         }
+ 
+         $decodedMatrix = [];
+         foreach ($matrix as $key => $val) {
+             $decodedMatrix[$key] = is_string($val) ? json_decode($val, true) : $val;
+         }
+ 
+         return Inertia::render('Settings/Notifications', [
+             'notification_matrix' => $decodedMatrix,
+             'available_roles' => ['superadmin', 'owner', 'admin_brand', 'reseller', 'admin_produksi', 'admin_keuangan']
+         ]);
+     }
+ 
+     public function updateSeo(Request $request)
     {
         Gate::authorize('settings.system');
 

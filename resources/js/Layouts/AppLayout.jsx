@@ -175,10 +175,30 @@ function buildMenu(user) {
     }
     if (hasPermission(user, 'finance.view') || hasPermission(user, 'finance.manage-invoice')) {
         opsItems.push({
-            name: 'Invoice',
-            href: route('invoices.index'),
+            name: 'Keuangan & Invoice',
             icon: Wallet,
+            defaultOpen: route().current('invoices.*'),
             active: route().current('invoices.*'),
+            children: [
+                {
+                    name: 'Ringkasan Keuangan',
+                    href: route('invoices.index'),
+                    icon: BarChart3,
+                    active: route().current('invoices.index'),
+                },
+                {
+                    name: 'List Invoice',
+                    href: route('invoices.list'),
+                    icon: Wallet,
+                    active: route().current('invoices.list') || route().current('invoices.pdf') || route().current('invoices.validate') || route().current('invoices.publish'),
+                },
+                {
+                    name: 'Validasi Pembayaran',
+                    href: route('invoices.payments.pending'),
+                    icon: ShieldCheck,
+                    active: route().current('invoices.payments.pending') || route().current('invoices.payments.verify'),
+                }
+            ]
         });
     }
     if (hasPermission(user, 'order.refund') || hasPermission(user, 'finance.manage-refund')) {
@@ -258,7 +278,14 @@ function buildMenu(user) {
             active: route().current('audit.*'),
         });
     }
-    settingItems.push({ name: 'Notifikasi', href: '#', icon: Bell, soon: true });
+    if (user.is_superadmin || hasPermission(user, 'settings.system')) {
+        settingItems.push({
+            name: 'Notifikasi',
+            href: route('settings.notifikasi'),
+            icon: Bell,
+            active: route().current('settings.notifikasi*'),
+        });
+    }
     sections.push({ title: 'Pengaturan', items: settingItems });
 
     return sections;
@@ -472,17 +499,18 @@ function formatTimeAgo(dateString) {
     }
 }
 
-function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead, onDelete }) {
+function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead, onDelete, onNavigate }) {
     const [open, setOpen] = useState(false);
 
     return (
         <DropdownMenu open={open} onOpenChange={setOpen}>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-full hover:bg-muted transition-colors duration-200">
-                    <Bell className="h-5 w-5 text-gray-600 hover:text-gray-900" />
+                <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-lg">
+                    <Bell className="h-5 w-5 text-gray-600" />
                     {unreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-background animate-pulse">
-                            {unreadCount > 99 ? '99+' : unreadCount}
+                        <span className="absolute right-1.5 top-1.5 flex h-2.5 w-2.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
                         </span>
                     )}
                 </Button>
@@ -529,6 +557,7 @@ function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMark
                                     onMarkAsRead(notif.id);
                                     if (notif.action_url) {
                                         setOpen(false);
+                                        onNavigate?.();
                                         router.visit(notif.action_url);
                                     }
                                 }}
@@ -562,6 +591,7 @@ function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMark
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 onMarkAsRead(notif.id);
+                                                onNavigate?.();
                                                 router.visit(notif.action_url);
                                                 setOpen(false);
                                             }}
@@ -734,7 +764,10 @@ export default function AppLayout({ title, header, children }) {
 
             {/* Sidebar desktop */}
             <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:block">
-                <SidebarContent user={user} brandContext={brandContext} />
+                <SidebarContent 
+                    user={user} 
+                    brandContext={brandContext} 
+                />
             </aside>
 
             {/* Mobile sidebar */}
@@ -742,7 +775,11 @@ export default function AppLayout({ title, header, children }) {
                 <SheetContent side="left" className="w-72 border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground">
                     <SheetTitle className="sr-only">Navigasi</SheetTitle>
                     <SheetDescription className="sr-only">Menu navigasi utama</SheetDescription>
-                    <SidebarContent user={user} brandContext={brandContext} onNavigate={() => setMobileOpen(false)} />
+                    <SidebarContent 
+                        user={user} 
+                        brandContext={brandContext} 
+                        onNavigate={() => setMobileOpen(false)} 
+                    />
                 </SheetContent>
             </Sheet>
 

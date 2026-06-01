@@ -18,6 +18,7 @@ class OrderPayment extends Model
         'bank_id', 'proof_file', 'notes',
         'recorded_by', 'verified_by', 'verified_at',
         'dp_sequence', 'is_debit',
+        'verification_checks', 'verification_notes',
     ];
 
     protected $casts = [
@@ -26,6 +27,7 @@ class OrderPayment extends Model
         'verified_at' => 'datetime',
         'dp_sequence' => 'integer',
         'is_debit' => 'boolean',
+        'verification_checks' => 'array',
     ];
 
     public function order(): BelongsTo { return $this->belongsTo(Order::class); }

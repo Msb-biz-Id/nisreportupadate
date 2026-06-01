@@ -24,9 +24,9 @@ class InvoiceController extends Controller
     public function pdf(Request $request, Invoice $invoice)
     {
         $invoice->load(['brand', 'bank', 'items', 'order.pelanggan']);
-        $trackingUrl = url('/track/' . $invoice->order->no_po);
+        $trackingUrl = url('/track/' . ($invoice->order?->no_po ?? ''));
         $qrCodeData = $this->qrCodeDataUri($trackingUrl);
-        $logoData = $this->logoDataUri($invoice->brand->logo);
+        $logoData = $this->logoDataUri($invoice->brand?->logo);
 
         $pdf = Pdf::loadView('pdf.invoice', [
             'invoice' => $invoice,
@@ -44,7 +44,7 @@ class InvoiceController extends Controller
             ->with(['brand', 'bank', 'items', 'order.pelanggan', 'order.payments.bank', 'order.progressDetails.progress'])
             ->firstOrFail();
 
-        $trackingUrl = url('/track/' . $invoice->order->no_po);
+        $trackingUrl = url('/track/' . ($invoice->order?->no_po ?? ''));
 
         return Inertia::render('Public/Invoice', [
             'invoice' => $invoice,
@@ -60,9 +60,9 @@ class InvoiceController extends Controller
             ->with(['brand', 'bank', 'items', 'order.pelanggan'])
             ->firstOrFail();
 
-        $trackingUrl = url('/track/' . $invoice->order->no_po);
+        $trackingUrl = url('/track/' . ($invoice->order?->no_po ?? ''));
         $qrCodeData = $this->qrCodeDataUri($trackingUrl);
-        $logoData = $this->logoDataUri($invoice->brand->logo);
+        $logoData = $this->logoDataUri($invoice->brand?->logo);
 
         $pdf = Pdf::loadView('pdf.invoice', [
             'invoice' => $invoice,
@@ -102,8 +102,84 @@ class InvoiceController extends Controller
     public function index(Request $request)
     {
         Gate::authorize('finance.view');
-        $brandId = BrandContext::current($request);
-        $selectedBrandId = $request->input('brand_id', $brandId);
+        $selectedBrandId = $request->input('brand_id', 'all');
+
+        $user = $request->user();
+        $brands = $user->isSuperadmin()
+            ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
+            : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);
+
+        // Aggregate Financial Metrics
+        $totalTagihanLunas = Invoice::where('status', 'paid')
+            ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
+            ->sum('total_tagihan');
+
+        $totalTagihanBelumLunas = Invoice::where('status', '!=', 'paid')
+            ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
+            ->sum('sisa_pembayaran');
+
+        $totalTJ = \App\Models\Order\DesignDeposit::whereIn('status', ['pending', 'verified'])
+            ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
+            ->sum('amount');
+
+        $totalPending = OrderPayment::whereNull('verified_at')
+            ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->whereHas('order', fn($o) => $o->where('brand_id', $selectedBrandId)))
+            ->sum('amount');
+
+        // Brand-wise breakdowns
+        $brandBreakdown = [];
+        foreach ($brands as $b) {
+            $brandBreakdown[] = [
+                'id' => $b->id,
+                'nama' => $b->nama_brand,
+                'kode' => $b->kode,
+                'lunas' => (float) Invoice::where('status', 'paid')->where('brand_id', $b->id)->sum('total_tagihan'),
+                'belum_lunas' => (float) Invoice::where('status', '!=', 'paid')->where('brand_id', $b->id)->sum('sisa_pembayaran'),
+                'tanda_jadi' => (float) \App\Models\Order\DesignDeposit::whereIn('status', ['pending', 'verified'])->where('brand_id', $b->id)->sum('amount'),
+                'pending' => (float) OrderPayment::whereNull('verified_at')->whereHas('order', fn($o) => $o->where('brand_id', $b->id))->sum('amount'),
+            ];
+        }
+
+        // Recent Invoices / PO lists (unpaid & paid)
+        $unpaidInvoices = Invoice::where('status', '!=', 'paid')
+            ->where('sisa_pembayaran', '>', 0)
+            ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
+            ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'brand'])
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        $paidInvoices = Invoice::where('status', 'paid')
+            ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
+            ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'brand'])
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
+        return Inertia::render('Finance/InvoiceIndex', [
+            'brands' => $brands,
+            'total_lunas' => (float) $totalTagihanLunas,
+            'total_belum_lunas' => (float) $totalTagihanBelumLunas,
+            'total_tanda_jadi' => (float) $totalTJ,
+            'total_pending' => (float) $totalPending,
+            'brand_breakdown' => $brandBreakdown,
+            'unpaid_invoices' => $unpaidInvoices,
+            'paid_invoices' => $paidInvoices,
+            'filters' => [
+                'brand_id' => $request->string('brand_id', $selectedBrandId)->toString(),
+            ],
+            'can' => [
+                'create' => $request->user()->can('finance.manage-invoice'),
+                'validate' => $request->user()->can('finance.manage-invoice'),
+                'publish' => $request->user()->can('finance.manage-invoice'),
+            ],
+        ]);
+    }
+
+    public function list(Request $request)
+    {
+        Gate::authorize('finance.view');
+        $selectedBrandId = $request->input('brand_id', 'all');
 
         $query = Invoice::query()
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
@@ -142,16 +218,10 @@ class InvoiceController extends Controller
             ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
             : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);
 
-        $pendingPayments = OrderPayment::query()
-            ->whereNull('verified_at')
-            ->with(['order:id,no_po,nama_po,brand_id', 'order.brand:id,nama_brand,kode', 'recorder:id,name', 'bank:id,account_name,account_number,bank_name'])
-            ->orderByDesc('created_at')
-            ->get();
-
         // Fetch Design Deposits (Tanda Jadi)
         $depositsQuery = \App\Models\Order\DesignDeposit::query()
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
-            ->with(['brand:id,nama_brand,kode', 'recorder:id,name', 'verifier:id,name', 'bank:id,account_name,account_number,bank_name', 'order:id,no_po'])
+            ->with(['brand:id,nama_brand,kode', 'recorder:id,name', 'verifier:id,name', 'bank:id,atas_nama,nomor_rekening,bank', 'order:id,no_po'])
             ->orderByDesc('created_at');
 
         if ($search = $request->string('q')->toString()) {
@@ -170,13 +240,12 @@ class InvoiceController extends Controller
             ->get(['id', 'no_po', 'nama_po', 'total_tagihan']);
 
         $bankAccounts = \App\Models\Master\BankAccount::where('is_active', true)
-            ->get(['id', 'bank_name', 'account_name', 'account_number']);
+            ->get(['id', 'bank', 'atas_nama', 'nomor_rekening', 'brand_id']);
 
-        return Inertia::render('Finance/InvoiceIndex', [
+        return Inertia::render('Finance/InvoiceList', [
             'invoices' => $invoices,
             'all_filtered_invoices' => $allFiltered,
             'brands' => $brands,
-            'pending_payments' => $pendingPayments,
             'design_deposits' => $designDeposits,
             'available_orders' => $availableOrders,
             'bank_accounts' => $bankAccounts,
@@ -192,6 +261,35 @@ class InvoiceController extends Controller
                 'create' => $request->user()->can('finance.manage-invoice'),
                 'validate' => $request->user()->can('finance.manage-invoice'),
                 'publish' => $request->user()->can('finance.manage-invoice'),
+            ],
+        ]);
+    }
+
+    public function paymentsPending(Request $request)
+    {
+        Gate::authorize('finance.view');
+        $selectedBrandId = $request->input('brand_id', 'all');
+
+        $pendingPayments = OrderPayment::query()
+            ->whereNull('verified_at')
+            ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->whereHas('order', fn ($o) => $o->where('brand_id', $selectedBrandId)))
+            ->with(['order:id,no_po,nama_po,brand_id', 'order.brand:id,nama_brand,kode', 'recorder:id,name', 'bank:id,atas_nama,nomor_rekening,bank'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $user = $request->user();
+        $brands = $user->isSuperadmin()
+            ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
+            : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);
+
+        return Inertia::render('Finance/PaymentsPending', [
+            'pending_payments' => $pendingPayments,
+            'brands' => $brands,
+            'filters' => [
+                'brand_id' => $request->string('brand_id', $selectedBrandId)->toString(),
+            ],
+            'can' => [
+                'validate' => $request->user()->can('finance.manage-invoice'),
             ],
         ]);
     }
@@ -234,7 +332,7 @@ class InvoiceController extends Controller
             return $invoice;
         });
 
-        return redirect()->route('invoices.index')
+        return redirect()->route('invoices.list')
             ->with('success', "Invoice {$invoice->invoice_number} dibuat sebagai draft.");
     }
 
@@ -282,10 +380,23 @@ class InvoiceController extends Controller
     {
         Gate::authorize('finance.manage-invoice');
 
-        DB::transaction(function () use ($payment, $request) {
+        $data = $request->validate([
+            'bank_mutasi' => ['required', 'boolean'],
+            'nominal_cocok' => ['required', 'boolean'],
+            'bukti_valid' => ['required', 'boolean'],
+            'verification_notes' => ['nullable', 'string'],
+        ]);
+
+        DB::transaction(function () use ($payment, $request, $data) {
             $payment->update([
                 'verified_by' => $request->user()->id,
                 'verified_at' => now(),
+                'verification_checks' => [
+                    'bank_mutasi' => (bool)$data['bank_mutasi'],
+                    'nominal_cocok' => (bool)$data['nominal_cocok'],
+                    'bukti_valid' => (bool)$data['bukti_valid'],
+                ],
+                'verification_notes' => $data['verification_notes'],
             ]);
 
             // Automatically update the associated invoice's remaining balance

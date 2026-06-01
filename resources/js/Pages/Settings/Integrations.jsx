@@ -772,10 +772,9 @@ function MailSection({ mail }) {
 
 export default function Integrations({ ai, whatsapp, telegram, system, notification_matrix, available_roles, seo, mail }) {
     const roles = available_roles || ['superadmin', 'owner', 'admin_brand', 'reseller', 'admin_produksi', 'admin_keuangan'];
-    const [activeTab, setActiveTab] = useState('matrix');
+    const [activeTab, setActiveTab] = useState('seo');
 
     const tabs = [
-        { id: 'matrix', name: 'Matriks Notifikasi', icon: Bell, badge: '5 Events' },
         { id: 'seo', name: 'SEO & Branding', icon: Settings, badge: 'App' },
         { id: 'mail', name: 'SMTP Mail Server', icon: Mail, badge: 'SMTP' },
         { id: 'whatsapp', name: 'WhatsApp Gateway', icon: MessageCircle, badge: wa => wa.is_configured ? 'ON' : 'Mock' },
@@ -846,12 +845,6 @@ export default function Integrations({ ai, whatsapp, telegram, system, notificat
 
                 {/* Tab Content Panes on the Right */}
                 <div className="lg:col-span-3 transition-all duration-250 ease-out">
-                    {activeTab === 'matrix' && (
-                        <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
-                            <NotificationMatrixSection matrix={notification_matrix} availableRoles={roles} />
-                        </div>
-                    )}
-
                     {activeTab === 'seo' && (
                         <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
                             <SeoSection seo={seo} />

@@ -111,4 +111,155 @@ class InvoiceTest extends TestCase
 
         $this->assertEquals('published', $invoice->fresh()->status);
     }
+
+    public function test_invoice_pdf_generation_as_admin_keuangan(): void
+    {
+        $brand = $this->makeBrand([
+            'alamat' => 'Jalan Test No. 123',
+            'no_hp' => '08123456789',
+            'email' => 'brand@test.com',
+            'tagline' => 'Tagline Brand',
+            'deskripsi' => 'Deskripsi Brand',
+        ]);
+        $finance = $this->makeUser('admin_keuangan', [$brand]);
+        $customer = Customer::create([
+            'brand_id' => $brand->id,
+            'kode' => 'C1',
+            'nama' => 'John Doe',
+            'nomor_hp' => '08123456',
+            'email' => 'john@doe.com',
+            'detail_alamat' => 'Jalan Customer 45',
+            'kabupaten_nama' => 'Bandung',
+            'provinsi_nama' => 'Jawa Barat',
+            'kodepos' => '40123',
+            'is_active' => true
+        ]);
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-PDF-001',
+            'nama_po' => 'Order Seragam',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 1000000,
+            'published_at' => now(),
+            'created_by' => $finance->id,
+        ]);
+
+        $invoice = Invoice::create([
+            'brand_id' => $brand->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-PDF-001',
+            'tanggal_terbit' => now()->toDateString(),
+            'status' => 'published',
+            'total_tagihan' => 1000000,
+            'sisa_pembayaran' => 1000000,
+            'created_by' => $finance->id,
+        ]);
+
+        $response = $this->actingAsWithBrand($finance, $brand)
+            ->get(route('invoices.pdf', $invoice->id));
+
+        $response->assertStatus(200);
+        $response->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_invoice_pdf_generation_with_missing_relations(): void
+    {
+        $brand = $this->makeBrand([
+            'alamat' => null,
+            'no_hp' => null,
+            'email' => null,
+            'tagline' => null,
+            'deskripsi' => null,
+            'logo' => null,
+        ]);
+        $finance = $this->makeUser('admin_keuangan', [$brand]);
+
+        $customer = Customer::create([
+            'brand_id' => $brand->id,
+            'kode' => 'C_MIN',
+            'nama' => 'Minimal Customer',
+            'nomor_hp' => '00000',
+            'email' => null,
+            'detail_alamat' => null,
+            'kabupaten_nama' => null,
+            'provinsi_nama' => null,
+            'kodepos' => null,
+            'is_active' => true,
+        ]);
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-NULL-001',
+            'nama_po' => 'Minimal Order',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 0,
+            'created_by' => $finance->id,
+        ]);
+
+        $invoice = Invoice::create([
+            'brand_id' => $brand->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-NULL-001',
+            'tanggal_terbit' => now()->toDateString(),
+            'status' => 'published',
+            'total_tagihan' => 0,
+            'sisa_pembayaran' => 0,
+            'created_by' => $finance->id,
+        ]);
+
+        $response = $this->actingAsWithBrand($finance, $brand)
+            ->get(route('invoices.pdf', $invoice->id));
+
+        $response->assertStatus(200);
+        $response->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_public_invoice_pdf_generation(): void
+    {
+        $brand = $this->makeBrand();
+        $finance = $this->makeUser('admin_keuangan', [$brand]);
+        $customer = Customer::create([
+            'brand_id' => $brand->id,
+            'kode' => 'C2',
+            'nama' => 'Public Cust',
+            'nomor_hp' => '08222',
+            'is_active' => true
+        ]);
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-PUBLIC-01',
+            'nama_po' => 'Public Order',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 200000,
+            'published_at' => now(),
+            'created_by' => $finance->id,
+        ]);
+
+        $invoice = Invoice::create([
+            'brand_id' => $brand->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-PUB-01',
+            'tanggal_terbit' => now()->toDateString(),
+            'status' => 'published', // publicPdf route requires published/sent/paid status
+            'total_tagihan' => 200000,
+            'sisa_pembayaran' => 200000,
+            'created_by' => $finance->id,
+        ]);
+
+        $response = $this->get(route('invoice.public.pdf', $invoice->invoice_number));
+
+        $response->assertStatus(200);
+        $response->assertHeader('content-type', 'application/pdf');
+    }
 }
