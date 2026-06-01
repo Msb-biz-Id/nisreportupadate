@@ -14,6 +14,7 @@ class OrderNameset extends Model
 
     protected $fillable = [
         'order_item_id', 'nama_punggung', 'nomor_punggung',
+        'nama_dada', 'nomor_dada', 'nama_lengan', 'nomor_lengan', 'nomor_punggung_2',
         'size_id', 'size_label', 'keterangan', 'urutan',
     ];
 

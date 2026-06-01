@@ -8,6 +8,7 @@ use App\Models\Master\BahanKain;
 use App\Models\Master\BankAccount;
 use App\Models\Master\Customer;
 use App\Models\Master\Iklan;
+use App\Models\Master\JenisOrder;
 use App\Models\Master\KategoriOrder;
 use App\Models\Master\Logo;
 use App\Models\Master\PolaJahitan;
@@ -46,7 +47,7 @@ class OrderController extends Controller
 
         $user      = $request->user();
         $brandId   = BrandContext::current($request);
-        $canSeeMultiBrand = $user->isSuperadmin() || $user->hasRole('owner');
+        $canSeeMultiBrand = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
 
         $query = Order::query()
             ->forBrand($brandId)
@@ -150,7 +151,7 @@ class OrderController extends Controller
                 ->with('error', 'PO sudah ter-lock. Untuk edit, lakukan unlock dengan alasan dari halaman preview.');
         }
 
-        $order->load(['items.namesets', 'payments.bank']);
+        $order->load(['items.namesets', 'items.polaJahitan', 'payments.bank']);
 
         return Inertia::render('Order/Form', [
             'mode' => 'edit',
@@ -179,9 +180,10 @@ class OrderController extends Controller
                 'tanggal_masuk' => $data['tanggal_masuk'],
                 'deadline_customer' => $data['deadline_customer'],
                 'kategori_order_id' => $data['kategori_order_id'] ?? null,
+                'jenis_order_id' => $data['jenis_order_id'] ?? null,
                 'sumber_order_id' => $data['sumber_order_id'] ?? null,
                 'pelanggan_id' => $data['pelanggan_id'],
-                'printing_id' => $data['printing_id'] ?? null,
+                'printing_ids' => $data['printing_ids'] ?? null,
                 'iklan_id' => $data['iklan_id'] ?? null,
                 'catatan' => $data['catatan'] ?? null,
                 'created_by' => $user->id,
@@ -243,26 +245,15 @@ class OrderController extends Controller
                 'tanggal_masuk' => $data['tanggal_masuk'],
                 'deadline_customer' => $data['deadline_customer'],
                 'kategori_order_id' => $data['kategori_order_id'] ?? null,
+                'jenis_order_id' => $data['jenis_order_id'] ?? null,
                 'sumber_order_id' => $data['sumber_order_id'] ?? null,
                 'pelanggan_id' => $data['pelanggan_id'],
-                'printing_id' => $data['printing_id'] ?? null,
+                'printing_ids' => $data['printing_ids'] ?? null,
                 'iklan_id' => $data['iklan_id'] ?? null,
                 'catatan' => $data['catatan'] ?? null,
                 'updated_by' => $user->id,
             ];
 
-            if ($order->isDraft()) {
-                $newSlug = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $data['nama_po']));
-                $newSlug = substr($newSlug, 0, 12);
-                if ($newSlug === '') {
-                    $newSlug = 'ORDER';
-                }
-                $newPrefix = "PO-{$order->brand->kode}-{$newSlug}";
-
-                if (!str_starts_with($order->no_po, $newPrefix)) {
-                    $updateData['no_po'] = $this->numbers->generateOrderNumber($order->brand, $data['nama_po']);
-                }
-            }
 
             $order->update($updateData);
 
@@ -284,8 +275,8 @@ class OrderController extends Controller
         }
 
         $order->load([
-            'pelanggan', 'kategoriOrder', 'sumberOrder',
-            'items.namesets.size', 'items.bahanKain', 'items.logo', 'items.printing',
+            'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'iklan',
+            'items.namesets.size', 'items.bahanKain', 'items.logo', 'items.printing', 'items.resleting', 'items.polaJahitan',
             'payments.bank', 'payments.recorder', 'payments.verifier',
             'progressDetails.progress', 'progressDetails.updater',
             'rijeks.progress', 'rijeks.creator',
@@ -296,8 +287,14 @@ class OrderController extends Controller
             'repeats', 'repeatFrom',
         ]);
 
+        $printings = collect();
+        if (!empty($order->printing_ids)) {
+            $printings = \App\Models\Master\Printing::whereIn('id', $order->printing_ids)->get(['id', 'nama']);
+        }
+
         return Inertia::render('Order/Preview', [
             'order' => $order,
+            'printings' => $printings,
             'can' => [
                 'edit' => $request->user()->can('order.update') && ($order->isDraft() || ! $order->isLocked()),
                 'delete' => $request->user()->can('order.delete') && $order->isDraft(),
@@ -307,6 +304,7 @@ class OrderController extends Controller
                 'manage_invoice' => $request->user()->can('finance.manage-invoice'),
                 'add_payment' => ! $request->user()->hasRole('admin_produksi'),
                 'edit_timeline' => $request->user()->hasRole('admin_produksi'),
+                'mark_lunas' => $request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan'),
             ],
         ]);
     }
@@ -469,14 +467,53 @@ class OrderController extends Controller
         return back()->with('success', 'Transaksi berhasil dicatat dan diverifikasi.');
     }
 
+    public function draftPdf(Request $request): \Illuminate\Http\Response
+    {
+        abort_unless(auth()->check(), 401);
+
+        $brandId = BrandContext::current($request);
+        $brand   = Brand::findOrFail($brandId);
+        $raw     = $request->all();
+
+        $pelanggan  = !empty($raw['pelanggan_id'])      ? Customer::find($raw['pelanggan_id'])           : null;
+        $kategori   = !empty($raw['kategori_order_id']) ? KategoriOrder::find($raw['kategori_order_id']) : null;
+        $jenisOrder = !empty($raw['jenis_order_id'])    ? JenisOrder::find($raw['jenis_order_id'])       : null;
+        $sumber     = !empty($raw['sumber_order_id'])   ? SumberOrder::find($raw['sumber_order_id'])     : null;
+
+        $items = collect($raw['items'] ?? [])->map(function ($item) {
+            $item['_bahan_kain']   = !empty($item['bahan_kain_id'])   ? BahanKain::find($item['bahan_kain_id'])?->nama   : null;
+            $item['_logo']         = !empty($item['logo_id'])         ? Logo::find($item['logo_id'])?->nama             : null;
+            $item['_resleting']    = !empty($item['resleting_id'])    ? Resleting::find($item['resleting_id'])?->nama    : null;
+            $item['_pola_jahitan'] = !empty($item['pola_jahitan_id']) ? PolaJahitan::find($item['pola_jahitan_id'])      : null;
+
+            $item['namesets'] = collect($item['namesets'] ?? [])->map(function ($ns) {
+                if (!empty($ns['size_id'])) {
+                    $sz = Size::find($ns['size_id']);
+                    $ns['_size_label'] = $sz ? "{$sz->kategori_size} - {$sz->ukuran}" : ($ns['size_label'] ?? '-');
+                } else {
+                    $ns['_size_label'] = $ns['size_label'] ?? '-';
+                }
+                return $ns;
+            })->all();
+
+            return $item;
+        });
+
+        $pdf = Pdf::loadView('pdf.spk_draft', compact('brand', 'raw', 'pelanggan', 'kategori', 'jenisOrder', 'sumber', 'items'))
+            ->setPaper('a4', 'portrait');
+
+        $filename = 'SPK-DRAFT-' . $brand->kode . '-' . now()->format('YmdHis') . '.pdf';
+        return $pdf->download($filename);
+    }
+
     public function spkPdf(Request $request, Order $order)
     {
         Gate::authorize('order.view');
         $this->guardBrandOwnership($request, $order);
 
         $order->load([
-            'brand', 'pelanggan', 'kategoriOrder', 'sumberOrder',
-            'items.bahanKain', 'items.logo', 'items.printing', 'items.resleting',
+            'brand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder',
+            'items.bahanKain', 'items.logo', 'items.resleting', 'items.polaJahitan',
             'items.namesets.size',
         ]);
 
@@ -500,6 +537,25 @@ class OrderController extends Controller
         return back()->with('success', 'Timeline produksi berhasil diperbarui.');
     }
 
+    public function markLunas(Request $request, Order $order)
+    {
+        abort_unless(
+            $request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan'),
+            403
+        );
+        $this->guardBrandOwnership($request, $order);
+
+        $toggle = ! $order->is_lunas;
+
+        $order->update([
+            'is_lunas'  => $toggle,
+            'lunas_at'  => $toggle ? now() : null,
+            'lunas_by'  => $toggle ? $request->user()->id : null,
+        ]);
+
+        return back()->with('success', $toggle ? 'Order ditandai LUNAS.' : 'Status lunas dibatalkan.');
+    }
+
     private function mastersForForm(string $brandId): array
     {
         $brandQ = fn ($q) => $q->where(function ($w) use ($brandId) {
@@ -508,6 +564,7 @@ class OrderController extends Controller
 
         return [
             'kategori_orders' => KategoriOrder::active()->where($brandQ)->orderBy('nama')->get(['id', 'nama']),
+            'jenis_orders' => JenisOrder::active()->where($brandQ)->orderBy('nama')->get(['id', 'nama']),
             'sumber_orders' => SumberOrder::active()->where($brandQ)->orderBy('nama')->get(['id', 'nama']),
             'iklans' => Iklan::active()->where($brandQ)->orderBy('nama')->get(['id', 'nama', 'platform']),
             'pelanggan' => Customer::active()->where('brand_id', $brandId)->orderBy('nama')->limit(500)->get(['id', 'kode', 'nama', 'nomor_hp']),
@@ -531,9 +588,11 @@ class OrderController extends Controller
             'tanggal_masuk' => ['required', 'date'],
             'deadline_customer' => ['required', 'date', 'after_or_equal:tanggal_masuk'],
             'kategori_order_id' => ['nullable', 'uuid'],
+            'jenis_order_id' => ['nullable', 'uuid'],
             'sumber_order_id' => ['nullable', 'uuid'],
             'pelanggan_id' => ['required', 'uuid', 'exists:customers,id'],
-            'printing_id' => ['nullable', 'uuid', 'exists:printings,id'],
+            'printing_ids' => ['nullable', 'array'],
+            'printing_ids.*' => ['uuid', 'exists:printings,id'],
             'iklan_id' => ['nullable', 'uuid', 'exists:iklans,id'],
             'catatan' => ['nullable', 'string'],
             'items' => ['array'],
@@ -544,21 +603,39 @@ class OrderController extends Controller
             'items.*.harga_satuan' => ['required', 'numeric', 'min:0'],
             'items.*.bahan_kain_id' => ['nullable', 'uuid'],
             'items.*.jenis_setelan' => ['nullable', Rule::in(['stell', 'non_stell', 'atasan_saja', 'bawahan_saja'])],
+            'items.*.pola' => ['nullable', 'string', 'max:50'],
             'items.*.logo_id' => ['nullable', 'uuid'],
             'items.*.printing_id' => ['nullable', 'uuid'],
             'items.*.resleting_id' => ['nullable', 'uuid'],
+            'items.*.jenis_rib' => ['nullable', 'string', 'max:100'],
+            'items.*.tutup_kerah' => ['nullable', 'string', 'max:100'],
+            'items.*.list_kerah' => ['nullable', 'string', 'max:100'],
+            'items.*.list_lengan' => ['nullable', 'string', 'max:100'],
+            'items.*.list_samping_celana' => ['nullable', 'string', 'max:100'],
+            'items.*.list_bawah_celana' => ['nullable', 'string', 'max:100'],
             'items.*.pola_jahitan_lengan_id' => ['nullable', 'uuid'],
             'items.*.pola_jahitan_kerah_id' => ['nullable', 'uuid'],
             'items.*.pola_jahitan_bawah_id' => ['nullable', 'uuid'],
             'items.*.pola_jahitan_pundak_id' => ['nullable', 'uuid'],
+            'items.*.pola_jahitan_id' => ['nullable', 'uuid'],
+            'items.*.jahitan_list_lengan' => ['nullable', Rule::in(['overdeck', 'stick'])],
             'items.*.warna' => ['nullable', 'string', 'max:100'],
+            'items.*.jml_atasan' => ['nullable', 'string', 'max:100'],
+            'items.*.jml_bawahan' => ['nullable', 'string', 'max:100'],
             'items.*.jenis_kerah' => ['nullable', 'string', 'max:100'],
             'items.*.catatan' => ['nullable', 'string'],
             'items.*.gambar_desain' => ['nullable', 'string', 'max:255'],
+            'items.*.ket_atasan' => ['nullable', 'string'],
+            'items.*.ket_bawahan' => ['nullable', 'string'],
             'items.*.gambar_kerah' => ['nullable', 'string', 'max:255'],
             'items.*.namesets' => ['array'],
             'items.*.namesets.*.nama_punggung' => ['nullable', 'string', 'max:100'],
             'items.*.namesets.*.nomor_punggung' => ['nullable', 'string', 'max:20'],
+            'items.*.namesets.*.nama_dada' => ['nullable', 'string', 'max:100'],
+            'items.*.namesets.*.nomor_dada' => ['nullable', 'string', 'max:20'],
+            'items.*.namesets.*.nama_lengan' => ['nullable', 'string', 'max:100'],
+            'items.*.namesets.*.nomor_lengan' => ['nullable', 'string', 'max:20'],
+            'items.*.namesets.*.nomor_punggung_2' => ['nullable', 'string', 'max:20'],
             'items.*.namesets.*.size_id' => ['nullable', 'uuid'],
             'items.*.namesets.*.size_label' => ['nullable', 'string', 'max:50'],
             'items.*.namesets.*.keterangan' => ['nullable', 'string'],

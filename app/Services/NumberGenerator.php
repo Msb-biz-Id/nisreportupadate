@@ -12,12 +12,8 @@ class NumberGenerator
 {
     public function generateOrderNumber(Brand $brand, string $namaPo = ''): string
     {
-        // Slug dari nama PO: huruf & angka saja, max 12 karakter
-        $slug = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $namaPo));
-        $slug = substr($slug, 0, 12);
-        if ($slug === '') $slug = 'ORDER';
-
-        $prefix = "PO-{$brand->kode}-{$slug}";
+        $year = Carbon::now()->year;
+        $prefix = "PO-{$brand->kode}-{$year}";
 
         $last = Order::where('brand_id', $brand->id)
             ->where('no_po', 'like', "{$prefix}-%")

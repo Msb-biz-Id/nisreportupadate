@@ -1,6 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
-import { Save, Plus, Trash2, ChevronDown, ChevronUp, Settings2, Users, CreditCard, ClipboardPaste, Package2 } from 'lucide-react';
+import { Save, Plus, Trash2, ChevronDown, ChevronUp, Settings2, Users, CreditCard, ClipboardPaste, Package2, FileDown } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -8,6 +8,8 @@ import { Label } from '@/Components/ui/label';
 import { Textarea } from '@/Components/ui/textarea';
 import { Switch } from '@/Components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
+import { SearchableSelect } from '@/Components/ui/searchable-select';
+import { MultiSelect } from '@/Components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/Components/ui/dialog';
 import ImageUploader from '@/Components/ImageUploader';
@@ -25,24 +27,43 @@ function newItem() {
         harga_satuan: 0,
         bahan_kain_id: '',
         jenis_setelan: '',
+        pola: '',
         logo_id: '',
         printing_id: '',
         resleting_id: '',
+        jenis_rib: '',
+        tutup_kerah: '',
+        list_kerah: '',
+        list_lengan: '',
+        list_samping_celana: '',
+        list_bawah_celana: '',
         pola_jahitan_lengan_id: '',
         pola_jahitan_kerah_id: '',
         pola_jahitan_bawah_id: '',
         pola_jahitan_pundak_id: '',
+        pola_jahitan_id: '',
+        jahitan_list_lengan: '',
         warna: '',
+        jml_atasan: '',
+        jml_bawahan: '',
         jenis_kerah: '',
         catatan: '',
         gambar_desain: '',
+        ket_atasan: '',
+        ket_bawahan: '',
         gambar_kerah: '',
         namesets: [],
     };
 }
 
 function newNameset() {
-    return { nama_punggung: '', nomor_punggung: '', size_id: '', size_label: '', keterangan: '' };
+    return {
+        nama_punggung: '', nomor_punggung: '',
+        nama_dada: '', nomor_dada: '',
+        nama_lengan: '', nomor_lengan: '',
+        nomor_punggung_2: '',
+        size_id: '', size_label: '', keterangan: '',
+    };
 }
 
 function newPayment() {
@@ -318,17 +339,8 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
 
                     {specOpen && (
                         <div className="border-t border-slate-200 p-4 space-y-4">
+                            {/* Spesifikasi Produk */}
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                                <div className="flex flex-col">
-                                    <FieldLabel>Bahan Kain</FieldLabel>
-                                    <Select value={item.bahan_kain_id || NONE} onValueChange={(v) => patch('bahan_kain_id', v === NONE ? '' : v)}>
-                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>— Tidak diset —</SelectItem>
-                                            {masters.bahan_kains.map((b) => (<SelectItem key={b.id} value={b.id}>{b.nama}</SelectItem>))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
                                 <div className="flex flex-col">
                                     <FieldLabel>Jenis Setelan</FieldLabel>
                                     <Select value={item.jenis_setelan || NONE} onValueChange={(v) => patch('jenis_setelan', v === NONE ? '' : v)}>
@@ -343,8 +355,37 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
                                     </Select>
                                 </div>
                                 <div className="flex flex-col">
+                                    <FieldLabel>Pola</FieldLabel>
+                                    <Select value={item.pola || NONE} onValueChange={(v) => patch('pola', v === NONE ? '' : v)}>
+                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={NONE}>— Tidak diset —</SelectItem>
+                                            <SelectItem value="standart">Standart</SelectItem>
+                                            <SelectItem value="perempuan">Perempuan</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex flex-col">
+                                    <FieldLabel>Bahan Kain</FieldLabel>
+                                    <Select value={item.bahan_kain_id || NONE} onValueChange={(v) => patch('bahan_kain_id', v === NONE ? '' : v)}>
+                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={NONE}>— Tidak diset —</SelectItem>
+                                            {masters.bahan_kains.map((b) => (<SelectItem key={b.id} value={b.id}>{b.nama}</SelectItem>))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex flex-col">
                                     <FieldLabel>Warna</FieldLabel>
                                     <Input value={item.warna} onChange={(e) => patch('warna', e.target.value)} className="h-8 text-xs uppercase" placeholder="Merah / Biru / Mix" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <FieldLabel>Jml Atasan</FieldLabel>
+                                    <Input value={item.jml_atasan} onChange={(e) => patch('jml_atasan', e.target.value)} className="h-8 text-xs" placeholder="Jumlah atasan" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <FieldLabel>Jml Bawahan</FieldLabel>
+                                    <Input value={item.jml_bawahan} onChange={(e) => patch('jml_bawahan', e.target.value)} className="h-8 text-xs" placeholder="Jumlah bawahan" />
                                 </div>
                                 <div className="flex flex-col">
                                     <FieldLabel>Logo</FieldLabel>
@@ -357,59 +398,98 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
                                     </Select>
                                 </div>
                                 <div className="flex flex-col">
-                                    <FieldLabel>Jenis Printing</FieldLabel>
-                                    <Select value={item.printing_id || NONE} onValueChange={(v) => patch('printing_id', v === NONE ? '' : v)}>
-                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>— Tidak diset —</SelectItem>
-                                            {masters.printings.map((l) => (<SelectItem key={l.id} value={l.id}>{l.nama}</SelectItem>))}
-                                        </SelectContent>
-                                    </Select>
+                                    <FieldLabel>Jenis RIB</FieldLabel>
+                                    <Input value={item.jenis_rib} onChange={(e) => patch('jenis_rib', e.target.value)} className="h-8 text-xs" placeholder="Jenis RIB" />
                                 </div>
                                 <div className="flex flex-col">
-                                    <FieldLabel>Resleting</FieldLabel>
-                                    <Select value={item.resleting_id || NONE} onValueChange={(v) => patch('resleting_id', v === NONE ? '' : v)}>
-                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>— Tidak diset —</SelectItem>
-                                            {masters.resletings.map((l) => (<SelectItem key={l.id} value={l.id}>{l.nama}</SelectItem>))}
-                                        </SelectContent>
-                                    </Select>
+                                    <FieldLabel>Tutup Kerah</FieldLabel>
+                                    <Input value={item.tutup_kerah} onChange={(e) => patch('tutup_kerah', e.target.value)} className="h-8 text-xs" placeholder="Tutup kerah" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <FieldLabel>List Kerah</FieldLabel>
+                                    <Input value={item.list_kerah} onChange={(e) => patch('list_kerah', e.target.value)} className="h-8 text-xs" placeholder="List kerah" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <FieldLabel>List Lengan</FieldLabel>
+                                    <Input value={item.list_lengan} onChange={(e) => patch('list_lengan', e.target.value)} className="h-8 text-xs" placeholder="List lengan" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <FieldLabel>List Samping Celana</FieldLabel>
+                                    <Input value={item.list_samping_celana} onChange={(e) => patch('list_samping_celana', e.target.value)} className="h-8 text-xs" placeholder="List samping celana" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <FieldLabel>List Bawah Celana</FieldLabel>
+                                    <Input value={item.list_bawah_celana} onChange={(e) => patch('list_bawah_celana', e.target.value)} className="h-8 text-xs" placeholder="List bawah celana" />
                                 </div>
                             </div>
 
+                            {/* Keterangan Jahitan */}
                             <div className="border-t border-slate-100 pt-3">
                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider bg-slate-100 p-1.5 rounded text-center mb-3">Keterangan Jahitan</p>
-                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                    {polaSelect('Lengan', 'pola_jahitan_lengan_id')}
-                                    {polaSelect('Kerah', 'pola_jahitan_kerah_id')}
-                                    {polaSelect('Bawah', 'pola_jahitan_bawah_id')}
-                                    {polaSelect('Pundak', 'pola_jahitan_pundak_id')}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex flex-col">
+                                        <FieldLabel>Pola Jahitan</FieldLabel>
+                                        <Select value={item.pola_jahitan_id || NONE} onValueChange={(v) => patch('pola_jahitan_id', v === NONE ? '' : v)}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value={NONE}>— Tidak diset —</SelectItem>
+                                                {masters.pola_jahitans.map((p) => (<SelectItem key={p.id} value={p.id}>{p.jenis_pola} — {p.nama}</SelectItem>))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <FieldLabel>Jahitan List Lengan</FieldLabel>
+                                        <Select value={item.jahitan_list_lengan || NONE} onValueChange={(v) => patch('jahitan_list_lengan', v === NONE ? '' : v)}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value={NONE}>— Tidak diset —</SelectItem>
+                                                <SelectItem value="overdeck">Overdeck</SelectItem>
+                                                <SelectItem value="stick">Stick</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
                             </div>
 
+                            {/* Keterangan Resleting */}
                             <div className="border-t border-slate-100 pt-3">
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider bg-slate-100 p-1.5 rounded text-center mb-3">Keterangan Resleting</p>
                                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     <div className="flex flex-col">
-                                        <FieldLabel>Jenis Kerah (catatan)</FieldLabel>
-                                        <Input value={item.jenis_kerah} onChange={(e) => patch('jenis_kerah', e.target.value)} className="h-8 text-xs uppercase" />
-                                    </div>
-                                    <div className="flex flex-col sm:col-span-2">
-                                        <FieldLabel>Catatan Item</FieldLabel>
-                                        <Textarea value={item.catatan} onChange={(e) => patch('catatan', e.target.value)} rows={2} className="text-xs resize-none" />
+                                        <FieldLabel>Resleting</FieldLabel>
+                                        <Select value={item.resleting_id || NONE} onValueChange={(v) => patch('resleting_id', v === NONE ? '' : v)}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value={NONE}>— Tidak diset —</SelectItem>
+                                                {masters.resletings.map((r) => (<SelectItem key={r.id} value={r.id}>{r.nama}</SelectItem>))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                 </div>
                             </div>
 
+                            {/* Referensi Desain */}
                             <div className="border-t border-slate-100 pt-3">
                                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                    <div>
+                                    <div className="space-y-2">
                                         <FieldLabel>Referensi Desain</FieldLabel>
                                         <ImageUploader value={item.gambar_desain || null} onChange={(p) => patch('gambar_desain', p || '')} purpose="orders" aspect={4 / 3} />
+                                        <div className="flex flex-col">
+                                            <FieldLabel>Ket. Atasan</FieldLabel>
+                                            <Input value={item.ket_atasan} onChange={(e) => patch('ket_atasan', e.target.value)} className="h-8 text-xs" placeholder="Keterangan atasan" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <FieldLabel>Ket. Bawahan</FieldLabel>
+                                            <Input value={item.ket_bawahan} onChange={(e) => patch('ket_bawahan', e.target.value)} className="h-8 text-xs" placeholder="Keterangan bawahan" />
+                                        </div>
                                     </div>
-                                    <div>
+                                    <div className="space-y-2">
                                         <FieldLabel>Referensi Kerah</FieldLabel>
                                         <ImageUploader value={item.gambar_kerah || null} onChange={(p) => patch('gambar_kerah', p || '')} purpose="orders" aspect={1} />
+                                        <div className="flex flex-col">
+                                            <FieldLabel>Jenis Kerah</FieldLabel>
+                                            <Input value={item.jenis_kerah} onChange={(e) => patch('jenis_kerah', e.target.value)} className="h-8 text-xs uppercase" placeholder="Jenis kerah" />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -455,32 +535,52 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider">
-                                            <th className="p-3 border-b font-bold w-10 text-center">No</th>
-                                            <th className="p-3 border-b font-bold">Nama Punggung</th>
-                                            <th className="p-3 border-b font-bold w-28 text-center">No. Punggung</th>
-                                            <th className="p-3 border-b font-bold w-40 text-center">Size</th>
-                                            <th className="p-3 border-b font-bold">Keterangan</th>
-                                            <th className="p-3 border-b font-bold w-10 text-center">X</th>
+                                            <th className="p-2 border-b font-bold w-8 text-center">No</th>
+                                            <th className="p-2 border-b font-bold min-w-[120px]">Nama Punggung</th>
+                                            <th className="p-2 border-b font-bold w-20 text-center">No. Punggung</th>
+                                            <th className="p-2 border-b font-bold min-w-[120px]">Nama Dada</th>
+                                            <th className="p-2 border-b font-bold w-20 text-center">No. Dada</th>
+                                            <th className="p-2 border-b font-bold min-w-[120px]">Nama Lengan</th>
+                                            <th className="p-2 border-b font-bold w-20 text-center">No. Lengan</th>
+                                            <th className="p-2 border-b font-bold w-20 text-center">No. Punggung 2</th>
+                                            <th className="p-2 border-b font-bold w-36 text-center">Size</th>
+                                            <th className="p-2 border-b font-bold min-w-[100px]">Keterangan</th>
+                                            <th className="p-2 border-b font-bold w-8 text-center">X</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {item.namesets.length === 0 && (
                                             <tr>
-                                                <td colSpan={6} className="p-6 text-center text-xs text-slate-400 italic">
+                                                <td colSpan={11} className="p-6 text-center text-xs text-slate-400 italic">
                                                     Belum ada nameset. Klik "Tambah Baris" untuk mulai.
                                                 </td>
                                             </tr>
                                         )}
                                         {item.namesets.map((ns, i) => (
                                             <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                                                <td className="p-2 text-center text-xs font-bold text-slate-500">{i + 1}</td>
-                                                <td className="p-2">
+                                                <td className="p-1.5 text-center text-xs font-bold text-slate-500">{i + 1}</td>
+                                                <td className="p-1.5">
                                                     <Input value={ns.nama_punggung} onChange={(e) => patchNameset(i, 'nama_punggung', e.target.value)} className="h-7 text-xs font-medium uppercase" />
                                                 </td>
-                                                <td className="p-2 text-center">
+                                                <td className="p-1.5">
                                                     <Input value={ns.nomor_punggung} onChange={(e) => patchNameset(i, 'nomor_punggung', e.target.value)} className="h-7 text-xs font-black text-center" />
                                                 </td>
-                                                <td className="p-2">
+                                                <td className="p-1.5">
+                                                    <Input value={ns.nama_dada} onChange={(e) => patchNameset(i, 'nama_dada', e.target.value)} className="h-7 text-xs font-medium uppercase" />
+                                                </td>
+                                                <td className="p-1.5">
+                                                    <Input value={ns.nomor_dada} onChange={(e) => patchNameset(i, 'nomor_dada', e.target.value)} className="h-7 text-xs font-black text-center" />
+                                                </td>
+                                                <td className="p-1.5">
+                                                    <Input value={ns.nama_lengan} onChange={(e) => patchNameset(i, 'nama_lengan', e.target.value)} className="h-7 text-xs font-medium uppercase" />
+                                                </td>
+                                                <td className="p-1.5">
+                                                    <Input value={ns.nomor_lengan} onChange={(e) => patchNameset(i, 'nomor_lengan', e.target.value)} className="h-7 text-xs font-black text-center" />
+                                                </td>
+                                                <td className="p-1.5">
+                                                    <Input value={ns.nomor_punggung_2} onChange={(e) => patchNameset(i, 'nomor_punggung_2', e.target.value)} className="h-7 text-xs font-black text-center" />
+                                                </td>
+                                                <td className="p-1.5">
                                                     <Select value={ns.size_id || NONE} onValueChange={(v) => patchNameset(i, 'size_id', v === NONE ? '' : v)}>
                                                         <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Pilih" /></SelectTrigger>
                                                         <SelectContent>
@@ -491,10 +591,10 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
                                                         </SelectContent>
                                                     </Select>
                                                 </td>
-                                                <td className="p-2">
+                                                <td className="p-1.5">
                                                     <Input value={ns.keterangan} onChange={(e) => patchNameset(i, 'keterangan', e.target.value)} className="h-7 text-xs" />
                                                 </td>
-                                                <td className="p-2 text-center">
+                                                <td className="p-1.5 text-center">
                                                     <button
                                                         type="button"
                                                         onClick={() => removeNameset(i)}
@@ -592,9 +692,10 @@ export default function OrderForm({ mode, masters, order }) {
         tanggal_masuk: order?.tanggal_masuk?.slice?.(0, 10) ?? new Date().toISOString().slice(0, 10),
         deadline_customer: order?.deadline_customer?.slice?.(0, 10) ?? '',
         kategori_order_id: order?.kategori_order_id ?? '',
+        jenis_order_id: order?.jenis_order_id ?? '',
         sumber_order_id: order?.sumber_order_id ?? '',
         pelanggan_id: order?.pelanggan_id ?? '',
-        printing_id: order?.printing_id ?? '',
+        printing_ids: order?.printing_ids ?? [],
         iklan_id: order?.iklan_id ?? '',
         catatan: order?.catatan ?? '',
         items: (order?.items ?? []).map((i) => ({
@@ -660,6 +761,31 @@ export default function OrderForm({ mode, masters, order }) {
 
     const pageTitle = isEdit ? `Edit PO ${order.no_po}` : 'Buat PO Baru';
 
+    const [pdfLoading, setPdfLoading] = useState(false);
+    async function downloadDraftPdf() {
+        setPdfLoading(true);
+        try {
+            const xsrf = document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='))?.split('=')[1] ?? '';
+            const res = await fetch(route('orders.pdf-draft'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(xsrf) },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) { alert('Gagal generate PDF'); return; }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `SPK-DRAFT-${new Date().toISOString().slice(0,10)}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } finally {
+            setPdfLoading(false);
+        }
+    }
+
     return (
         <AppLayout title={pageTitle}>
             <Head title={isEdit ? `Edit ${order.no_po}` : 'Buat PO'} />
@@ -680,6 +806,15 @@ export default function OrderForm({ mode, masters, order }) {
                         </div>
                     </div>
                     <div className="mt-3 md:mt-0 flex gap-2">
+                        <button
+                            type="button"
+                            onClick={downloadDraftPdf}
+                            disabled={pdfLoading}
+                            className="flex items-center gap-2 bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition uppercase tracking-wide disabled:opacity-50"
+                        >
+                            <FileDown className="h-4 w-4" />
+                            {pdfLoading ? 'Loading...' : 'Download PDF'}
+                        </button>
                         <Link
                             href={isEdit ? route('orders.show', order.id) : route('orders.index')}
                             className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold rounded-lg transition uppercase tracking-wide"
@@ -718,72 +853,70 @@ export default function OrderForm({ mode, masters, order }) {
                                     {errors.deadline_customer && <p className="mt-1 text-xs text-red-500">{errors.deadline_customer}</p>}
                                 </div>
                                 <div className="flex flex-col col-span-2">
-                                    <FieldLabel>Nama PO (Tim / Order) <span className="text-red-500">*</span></FieldLabel>
+                                    <FieldLabel>Nama Order (Tim / PO) <span className="text-red-500">*</span></FieldLabel>
                                     <Input value={data.nama_po} onChange={(e) => setData('nama_po', e.target.value)} className="h-8 text-sm font-bold uppercase" placeholder="Contoh: PO Klub Garuda Mei" />
                                     {errors.nama_po && <p className="mt-1 text-xs text-red-500">{errors.nama_po}</p>}
                                 </div>
 
                                 <div className="flex flex-col col-span-2">
                                     <FieldLabel>Pelanggan <span className="text-red-500">*</span></FieldLabel>
-                                    <Select value={data.pelanggan_id || NONE} onValueChange={(v) => setData('pelanggan_id', v === NONE ? '' : v)}>
-                                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Pilih pelanggan" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>— Pilih —</SelectItem>
-                                            {masters.pelanggan.map((p) => (
-                                                <SelectItem key={p.id} value={p.id}>{p.kode} — {p.nama}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <SearchableSelect
+                                        value={data.pelanggan_id}
+                                        onValueChange={(v) => setData('pelanggan_id', v)}
+                                        options={masters.pelanggan.map((p) => ({ value: p.id, label: `${p.kode} — ${p.nama}` }))}
+                                        placeholder="Pilih pelanggan"
+                                    />
                                     {errors.pelanggan_id && <p className="mt-1 text-xs text-red-500">{errors.pelanggan_id}</p>}
                                 </div>
                                 <div className="flex flex-col col-span-1">
                                     <FieldLabel>Kategori Order</FieldLabel>
-                                    <Select value={data.kategori_order_id || NONE} onValueChange={(v) => setData('kategori_order_id', v === NONE ? '' : v)}>
-                                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>— Tidak diset —</SelectItem>
-                                            {masters.kategori_orders.map((k) => (<SelectItem key={k.id} value={k.id}>{k.nama}</SelectItem>))}
-                                        </SelectContent>
-                                    </Select>
+                                    <SearchableSelect
+                                        value={data.kategori_order_id}
+                                        onValueChange={(v) => setData('kategori_order_id', v)}
+                                        options={masters.kategori_orders.map((k) => ({ value: k.id, label: k.nama }))}
+                                        placeholder="— Tidak diset —"
+                                    />
+                                </div>
+                                <div className="flex flex-col col-span-1">
+                                    <FieldLabel>Jenis Order</FieldLabel>
+                                    <SearchableSelect
+                                        value={data.jenis_order_id}
+                                        onValueChange={(v) => setData('jenis_order_id', v)}
+                                        options={(masters.jenis_orders ?? []).map((j) => ({ value: j.id, label: j.nama }))}
+                                        placeholder="— Tidak diset —"
+                                    />
                                 </div>
                                 <div className="flex flex-col col-span-1">
                                     <FieldLabel>Sumber Order</FieldLabel>
-                                    <Select value={data.sumber_order_id || NONE} onValueChange={(v) => setData('sumber_order_id', v === NONE ? '' : v)}>
-                                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>— Tidak diset —</SelectItem>
-                                            {masters.sumber_orders.map((s) => (<SelectItem key={s.id} value={s.id}>{s.nama}</SelectItem>))}
-                                        </SelectContent>
-                                    </Select>
+                                    <SearchableSelect
+                                        value={data.sumber_order_id}
+                                        onValueChange={(v) => setData('sumber_order_id', v)}
+                                        options={masters.sumber_orders.map((s) => ({ value: s.id, label: s.nama }))}
+                                        placeholder="— Tidak diset —"
+                                    />
                                 </div>
                                 <div className="flex flex-col col-span-1">
                                     <FieldLabel>Jenis Printing</FieldLabel>
-                                    <Select value={data.printing_id || NONE} onValueChange={(v) => setData('printing_id', v === NONE ? '' : v)}>
-                                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>— Tidak diset —</SelectItem>
-                                            {masters.printings.map((p) => (<SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>))}
-                                        </SelectContent>
-                                    </Select>
+                                    <MultiSelect
+                                        value={data.printing_ids}
+                                        onChange={(v) => setData('printing_ids', v)}
+                                        options={masters.printings.map((p) => ({ value: p.id, label: p.nama }))}
+                                        placeholder="— Tidak diset —"
+                                    />
                                 </div>
                                 <div className="flex flex-col col-span-1">
                                     <FieldLabel>Iklan / Kampanye</FieldLabel>
-                                    <Select value={data.iklan_id || NONE} onValueChange={(v) => setData('iklan_id', v === NONE ? '' : v)}>
-                                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>— Tidak diset —</SelectItem>
-                                            {(masters.iklans ?? []).map((k) => (
-                                                <SelectItem key={k.id} value={k.id}>
-                                                    {k.nama}{k.platform ? ` (${k.platform})` : ''}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <SearchableSelect
+                                        value={data.iklan_id}
+                                        onValueChange={(v) => setData('iklan_id', v)}
+                                        options={(masters.iklans ?? []).map((k) => ({ value: k.id, label: k.nama + (k.platform ? ` (${k.platform})` : '') }))}
+                                        placeholder="— Tidak diset —"
+                                    />
                                 </div>
 
                                 <div className="flex flex-col col-span-4">
                                     <FieldLabel>Catatan PO</FieldLabel>
-                                    <Textarea value={data.catatan} onChange={(e) => setData('catatan', e.target.value)} rows={2} className="text-sm resize-none" />
+                                    <Textarea value={data.catatan} placeholder="Catatan Khusus Pelanggan.." onChange={(e) => setData('catatan', e.target.value)} rows={2} className="text-sm resize-none" />
                                 </div>
 
                                 <div className="col-span-4">

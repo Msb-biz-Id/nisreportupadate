@@ -29,14 +29,14 @@ x - Perubahan Nomor PO : PO-NAMABRAND-NAMAPO-NUMBERORDER.
 - Lotto ekonomis
 - bahan atasan dan bawahan beda
 - logo printing belum ada
-- jahitan pundak dihapus
+x - jahitan pundak dihapus
 - keterangan data harus bisa di kasih gambar 
 - tambah kategori tunik
 - size celana beda (kolom)
 - nopung 2 diubah Nama punggung (napung 2).
 
 25 Mei Produksi & Brand
-- kesepakatan jahitan pundak dihapus di PO.
+x - kesepakatan jahitan pundak dihapus di PO.
 - kesepakatan repeat order PO.
 - kesepakatan No PO: PO-NAMABRAND-NAMAPO-NUMBERORDER.
 - kesepakatan penambahan form upload gambar Keterangan Tambahan dan outputnya pdfnya di bawah gambar kerah, jadi semua gambar menjadi 1.

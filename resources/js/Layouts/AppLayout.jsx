@@ -37,6 +37,7 @@ import {
     Megaphone,
     Trash2,
     ExternalLink,
+    LayoutList,
     Volume2,
     BellOff,
     Inbox,
@@ -75,6 +76,7 @@ const MASTER_ITEMS = [
     { slug: 'progress', name: 'Tahapan Progress', icon: ListChecks, group: 'global' },
     { slug: 'kategori-order', name: 'Kategori Order', icon: Tag, group: 'brand' },
     { slug: 'sumber-order', name: 'Sumber Order', icon: Compass, group: 'brand' },
+    { slug: 'jenis-order', name: 'Jenis Order', icon: LayoutList, group: 'brand' },
     { slug: 'iklan', name: 'Iklan', icon: Megaphone, group: 'brand' },
     { slug: 'customer-type', name: 'Tipe Pelanggan', icon: UserCheck, group: 'brand' },
     { slug: 'produk', name: 'Produk', icon: Package, group: 'brand' },
@@ -366,7 +368,7 @@ function SidebarContent({ user, brandContext, onNavigate }) {
                 </div>
             </div>
 
-            {!user?.roles?.includes('admin_produksi') && <BrandSwitcher brandContext={brandContext} />}
+            {!user?.roles?.includes('admin_produksi') && !user?.roles?.includes('admin_keuangan') && <BrandSwitcher brandContext={brandContext} />}
 
             <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4 scrollbar-thin">
                 {sections.map((section) => (

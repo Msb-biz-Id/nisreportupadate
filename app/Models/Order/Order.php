@@ -5,8 +5,9 @@ namespace App\Models\Order;
 use App\Models\Brand;
 use App\Models\Concerns\HasUuidAndSoftDeletes;
 use App\Models\Master\Customer;
+use App\Models\Master\Iklan;
+use App\Models\Master\JenisOrder;
 use App\Models\Master\KategoriOrder;
-use App\Models\Master\Printing;
 use App\Models\Master\SumberOrder;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -27,11 +28,12 @@ class Order extends Model
     protected $fillable = [
         'brand_id', 'no_po', 'nama_po', 'status_po', 'is_special_order',
         'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date',
-        'kategori_order_id', 'sumber_order_id', 'pelanggan_id', 'printing_id', 'iklan_id',
+        'kategori_order_id', 'jenis_order_id', 'sumber_order_id', 'pelanggan_id', 'printing_ids', 'iklan_id',
         'nama_ekspedisi', 'no_resi',
         'repeat_from_po_id', 'is_repeat_order',
         'published_at', 'published_by',
         'total_tagihan', 'catatan',
+        'is_lunas', 'lunas_at', 'lunas_by',
         'created_by', 'updated_by',
     ];
 
@@ -43,14 +45,18 @@ class Order extends Model
         'published_at' => 'datetime',
         'is_special_order' => 'boolean',
         'is_repeat_order' => 'boolean',
+        'is_lunas' => 'boolean',
+        'lunas_at' => 'datetime',
         'total_tagihan' => 'decimal:2',
+        'printing_ids' => 'array',
     ];
 
     public function brand(): BelongsTo { return $this->belongsTo(Brand::class); }
     public function pelanggan(): BelongsTo { return $this->belongsTo(Customer::class, 'pelanggan_id'); }
     public function kategoriOrder(): BelongsTo { return $this->belongsTo(KategoriOrder::class, 'kategori_order_id'); }
+    public function jenisOrder(): BelongsTo { return $this->belongsTo(JenisOrder::class, 'jenis_order_id'); }
     public function sumberOrder(): BelongsTo { return $this->belongsTo(SumberOrder::class, 'sumber_order_id'); }
-    public function printing(): BelongsTo { return $this->belongsTo(Printing::class, 'printing_id'); }
+    public function iklan(): BelongsTo { return $this->belongsTo(Iklan::class, 'iklan_id'); }
     public function repeatFrom(): BelongsTo { return $this->belongsTo(Order::class, 'repeat_from_po_id'); }
     public function repeats(): HasMany { return $this->hasMany(Order::class, 'repeat_from_po_id'); }
     public function creator(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }

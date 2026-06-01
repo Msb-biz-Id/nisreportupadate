@@ -148,6 +148,10 @@ class ProductionController extends Controller
 
         $isSending = strtoupper($detail->progress->nama_progress ?? '') === 'SENDING';
 
+        if ($isSending && ! $order->is_lunas) {
+            return back()->with('error', 'Tahap Sending belum bisa diupdate. Konfirmasi LUNAS dari Keuangan diperlukan terlebih dahulu.');
+        }
+
         $data = $request->validate([
             'status'         => ['required', Rule::in(OrderProgressDetail::STATUSES)],
             'catatan'        => ['required_unless:status,pending', 'nullable', 'string'],

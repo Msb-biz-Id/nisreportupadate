@@ -22,11 +22,16 @@ class OrderItem extends Model
     protected $fillable = [
         'order_id', 'product_id', 'nama_produk', 'varian_label',
         'quantity', 'harga_satuan', 'subtotal',
-        'bahan_kain_id', 'jenis_setelan',
+        'bahan_kain_id', 'jenis_setelan', 'pola',
         'logo_id', 'printing_id', 'resleting_id',
+        'jenis_rib', 'tutup_kerah', 'list_kerah', 'list_lengan',
+        'list_samping_celana', 'list_bawah_celana',
         'pola_jahitan_lengan_id', 'pola_jahitan_kerah_id',
         'pola_jahitan_bawah_id', 'pola_jahitan_pundak_id',
-        'warna', 'gambar_desain', 'gambar_kerah', 'jenis_kerah', 'catatan',
+        'pola_jahitan_id', 'jahitan_list_lengan',
+        'warna', 'jml_atasan', 'jml_bawahan',
+        'gambar_desain', 'ket_atasan', 'ket_bawahan',
+        'gambar_kerah', 'jenis_kerah', 'catatan',
     ];
 
     protected $casts = [
@@ -41,5 +46,6 @@ class OrderItem extends Model
     public function logo(): BelongsTo { return $this->belongsTo(Logo::class); }
     public function printing(): BelongsTo { return $this->belongsTo(Printing::class); }
     public function resleting(): BelongsTo { return $this->belongsTo(Resleting::class); }
+    public function polaJahitan(): BelongsTo { return $this->belongsTo(PolaJahitan::class, 'pola_jahitan_id'); }
     public function namesets(): HasMany { return $this->hasMany(OrderNameset::class); }
 }

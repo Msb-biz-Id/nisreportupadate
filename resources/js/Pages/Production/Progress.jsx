@@ -1,6 +1,6 @@
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, AlertTriangle, Play, CheckCircle2, SkipForward, Plus, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Play, CheckCircle2, SkipForward, Plus, Edit, Trash2, Lock } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -256,8 +256,10 @@ export default function ProgressPage({ order, can }) {
                     <CardContent className="space-y-2">
                         {sortedDetails.map((d) => {
                             const variant = STATUS_VARIANT[d.status] ?? 'outline';
+                            const isSendingRow = d.progress?.nama_progress?.toUpperCase() === 'SENDING';
+                            const sendingLocked = isSendingRow && !order.is_lunas;
                             return (
-                                <div key={d.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
+                                <div key={d.id} className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 ${sendingLocked ? 'bg-amber-50/50 border-amber-200' : ''}`}>
                                     <div className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white" style={{ background: d.progress?.warna || '#3B82F6' }}>
                                         {d.progress?.urutan}
                                     </div>
@@ -266,10 +268,15 @@ export default function ProgressPage({ order, can }) {
                                         {d.catatan && <p className="text-xs text-muted-foreground">{d.catatan}</p>}
                                         {d.kendala && <p className="text-xs text-destructive">⚠ {d.kendala}</p>}
                                         {d.completed_at && <p className="text-[10px] text-muted-foreground">Selesai {formatDateTime(d.completed_at)}</p>}
+                                        {sendingLocked && (
+                                            <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-amber-700">
+                                                <Lock className="h-3 w-3" /> Menunggu konfirmasi lunas dari Keuangan
+                                            </p>
+                                        )}
                                     </div>
                                     <Badge variant={variant}>{d.status}</Badge>
                                     {d.has_reject && <Badge variant="destructive"><AlertTriangle className="mr-1 h-3 w-3" />Reject</Badge>}
-                                    {can?.update && (
+                                    {can?.update && !sendingLocked && (
                                         <Button size="sm" variant="outline" onClick={() => setUpdating(d)}>Update</Button>
                                     )}
                                 </div>

@@ -2,7 +2,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import {
     Package, User, MapPin, CalendarClock, Pencil, Send, RotateCw, Trash2, Lock, Unlock,
-    CreditCard, ListChecks, AlertTriangle, Receipt, FileText, ExternalLink,
+    CreditCard, ListChecks, AlertTriangle, Receipt, FileText, ExternalLink, CheckCircle2, XCircle,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
@@ -163,7 +163,7 @@ function TimelineForm({ order, onDone }) {
     );
 }
 
-export default function OrderPreview({ order, can }) {
+export default function OrderPreview({ order, can, printings = [] }) {
     const [openUnlock, setOpenUnlock] = useState(false);
     const [openPayment, setOpenPayment] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
@@ -371,6 +371,32 @@ export default function OrderPreview({ order, can }) {
                             <div className="flex justify-between"><span className="text-muted-foreground">Sisa Tagihan</span><span className="font-mono font-bold text-destructive">{formatRupiah(sisaTagihan)}</span></div>
                             <Separator className="my-2" />
 
+                            {/* Status Lunas */}
+                            <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+                                <div className="flex items-center gap-2">
+                                    {order.is_lunas
+                                        ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                        : <XCircle className="h-4 w-4 text-rose-400" />
+                                    }
+                                    <span className="text-sm font-semibold">
+                                        {order.is_lunas ? 'Lunas' : 'Belum Lunas'}
+                                    </span>
+                                    {order.is_lunas && order.lunas_at && (
+                                        <span className="text-[10px] text-muted-foreground">{formatDate(order.lunas_at)}</span>
+                                    )}
+                                </div>
+                                {can?.mark_lunas && (
+                                    <Button
+                                        size="xs"
+                                        variant={order.is_lunas ? 'outline' : 'default'}
+                                        className={order.is_lunas ? 'text-xs h-7' : 'text-xs h-7 bg-emerald-600 hover:bg-emerald-700'}
+                                        onClick={() => router.post(route('orders.mark-lunas', order.id), {}, { preserveScroll: true })}
+                                    >
+                                        {order.is_lunas ? 'Batalkan' : 'Tandai Lunas'}
+                                    </Button>
+                                )}
+                            </div>
+
                             {/* Payment History */}
                             {(order.payments ?? []).length > 0 && (
                                 <div className="space-y-3 pt-1">
@@ -446,42 +472,170 @@ export default function OrderPreview({ order, can }) {
                     </Card>
                 </div>
 
+                {/* Detail PO */}
+                {(() => {
+                    const fields = [
+                        order.kategoriOrder?.nama && { label: 'Kategori Order', value: order.kategoriOrder.nama },
+                        order.jenisOrder?.nama && { label: 'Jenis Order', value: order.jenisOrder.nama },
+                        order.sumberOrder?.nama && { label: 'Sumber Order', value: order.sumberOrder.nama },
+                        printings.length > 0 && { label: 'Jenis Printing', value: printings.map(p => p.nama).join(', ') },
+                        order.iklan?.nama && { label: 'Iklan / Kampanye', value: order.iklan.nama + (order.iklan.platform ? ` (${order.iklan.platform})` : '') },
+                        (order.nama_ekspedisi || order.no_resi) && { label: 'Ekspedisi', value: [order.nama_ekspedisi, order.no_resi].filter(Boolean).join(' · ') },
+                        order.catatan && { label: 'Catatan PO', value: order.catatan, full: true },
+                    ].filter(Boolean);
+
+                    if (fields.length === 0) return null;
+
+                    return (
+                        <Card>
+                            <CardContent className="pt-4">
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
+                                    {fields.map((f) => (
+                                        <div key={f.label} className={f.full ? 'col-span-2 sm:col-span-3 lg:col-span-4' : ''}>
+                                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{f.label}</span>
+                                            <p className="mt-0.5 text-sm font-medium">{f.value}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                })()}
+
                 {/* Items */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-base"><Package className="h-4 w-4 text-primary" /> Item Produk ({order.items?.length ?? 0})</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        {(order.items ?? []).map((item, idx) => (
-                            <div key={item.id} className="rounded-lg border p-3">
-                                <div className="flex flex-wrap items-start justify-between gap-2">
-                                    <div>
-                                        <div className="font-medium">{idx + 1}. {item.nama_produk} {item.varian_label && <Badge variant="outline" className="ml-1">{item.varian_label}</Badge>}</div>
-                                        <div className="text-xs text-muted-foreground">Qty: <span className="font-mono font-semibold">{item.quantity}</span> × {formatRupiah(item.harga_satuan)}</div>
+                        {(order.items ?? []).map((item, idx) => {
+                            const SETELAN_LABEL = { stell: 'Stell', non_stell: 'Non-Stell', atasan_saja: 'Atasan Saja', bawahan_saja: 'Bawahan Saja' };
+                            const specFields = [
+                                item.jenis_setelan && { label: 'Setelan', value: SETELAN_LABEL[item.jenis_setelan] ?? item.jenis_setelan },
+                                item.pola && { label: 'Pola', value: item.pola === 'perempuan' ? 'Perempuan' : 'Standart' },
+                                item.bahan_kain?.nama && { label: 'Bahan Kain', value: item.bahan_kain.nama },
+                                item.warna && { label: 'Warna', value: item.warna },
+                                item.jml_atasan && { label: 'Jml Atasan', value: item.jml_atasan },
+                                item.jml_bawahan && { label: 'Jml Bawahan', value: item.jml_bawahan },
+                                item.logo?.nama && { label: 'Logo', value: item.logo.nama },
+                                item.jenis_rib && { label: 'Jenis RIB', value: item.jenis_rib },
+                                item.tutup_kerah && { label: 'Tutup Kerah', value: item.tutup_kerah },
+                                item.list_kerah && { label: 'List Kerah', value: item.list_kerah },
+                                item.list_lengan && { label: 'List Lengan', value: item.list_lengan },
+                                item.list_samping_celana && { label: 'List Samping Celana', value: item.list_samping_celana },
+                                item.list_bawah_celana && { label: 'List Bawah Celana', value: item.list_bawah_celana },
+                            ].filter(Boolean);
+                            const jahitanFields = [
+                                item.pola_jahitan?.nama && { label: 'Pola Jahitan', value: `${item.pola_jahitan.jenis_pola} — ${item.pola_jahitan.nama}` },
+                                item.jahitan_list_lengan && { label: 'Jahitan List Lengan', value: item.jahitan_list_lengan === 'overdeck' ? 'Overdeck' : 'Stick' },
+                            ].filter(Boolean);
+                            const hasImages = item.gambar_desain || item.gambar_kerah || item.ket_atasan || item.ket_bawahan || item.jenis_kerah;
+
+                            return (
+                                <div key={item.id} className="rounded-lg border p-3 space-y-3">
+                                    {/* Header item */}
+                                    <div className="flex flex-wrap items-start justify-between gap-2">
+                                        <div>
+                                            <div className="font-medium">{idx + 1}. {item.nama_produk} {item.varian_label && <Badge variant="outline" className="ml-1">{item.varian_label}</Badge>}</div>
+                                            <div className="text-xs text-muted-foreground">Qty: <span className="font-mono font-semibold">{item.quantity}</span> × {formatRupiah(item.harga_satuan)}</div>
+                                        </div>
+                                        <div className="text-right font-mono font-semibold">{formatRupiah(item.subtotal)}</div>
                                     </div>
-                                    <div className="text-right font-mono font-semibold">{formatRupiah(item.subtotal)}</div>
-                                </div>
-                                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground sm:grid-cols-4">
-                                    {item.bahan_kain && <div><span className="font-medium">Bahan:</span> {item.bahan_kain.nama}</div>}
-                                    {item.jenis_setelan && <div><span className="font-medium">Setelan:</span> {item.jenis_setelan}</div>}
-                                    {item.logo && <div><span className="font-medium">Logo:</span> {item.logo.nama}</div>}
-                                    {item.printing && <div><span className="font-medium">Printing:</span> {item.printing.nama}</div>}
-                                    {item.warna && <div><span className="font-medium">Warna:</span> {item.warna}</div>}
-                                </div>
-                                {item.namesets?.length > 0 && (
-                                    <details className="mt-2">
-                                        <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Nameset ({item.namesets.length})</summary>
-                                        <div className="mt-2 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2 lg:grid-cols-3">
-                                            {item.namesets.map((ns) => (
-                                                <div key={ns.id} className="rounded border px-2 py-1">
-                                                    <span className="font-medium">{ns.nama_punggung || '-'}</span> #{ns.nomor_punggung || '-'} · {ns.size?.kategori_size}-{ns.size?.ukuran || ns.size_label || '-'}
+
+                                    {/* Spesifikasi */}
+                                    {specFields.length > 0 && (
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md bg-slate-50 p-2.5 text-xs sm:grid-cols-3 lg:grid-cols-4">
+                                            {specFields.map((f) => (
+                                                <div key={f.label}>
+                                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{f.label}</span>
+                                                    <p className="font-medium text-slate-800">{f.value}</p>
                                                 </div>
                                             ))}
                                         </div>
-                                    </details>
-                                )}
-                            </div>
-                        ))}
+                                    )}
+
+                                    {/* Jahitan & Resleting */}
+                                    {(jahitanFields.length > 0 || item.resleting?.nama) && (
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md border border-slate-100 p-2.5 text-xs sm:grid-cols-3">
+                                            {jahitanFields.map((f) => (
+                                                <div key={f.label}>
+                                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{f.label}</span>
+                                                    <p className="font-medium text-slate-800">{f.value}</p>
+                                                </div>
+                                            ))}
+                                            {item.resleting?.nama && (
+                                                <div>
+                                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Resleting</span>
+                                                    <p className="font-medium text-slate-800">{item.resleting.nama}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Referensi */}
+                                    {hasImages && (
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                            {(item.gambar_desain || item.ket_atasan || item.ket_bawahan) && (
+                                                <div className="space-y-1.5">
+                                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Referensi Desain</p>
+                                                    {item.gambar_desain && <img src={`/storage/${item.gambar_desain}`} alt="Desain" className="max-h-36 rounded border object-contain" />}
+                                                    {item.ket_atasan && <p className="text-xs"><span className="font-semibold">Atasan:</span> {item.ket_atasan}</p>}
+                                                    {item.ket_bawahan && <p className="text-xs"><span className="font-semibold">Bawahan:</span> {item.ket_bawahan}</p>}
+                                                </div>
+                                            )}
+                                            {(item.gambar_kerah || item.jenis_kerah) && (
+                                                <div className="space-y-1.5">
+                                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Referensi Kerah</p>
+                                                    {item.gambar_kerah && <img src={`/storage/${item.gambar_kerah}`} alt="Kerah" className="max-h-36 rounded border object-contain" />}
+                                                    {item.jenis_kerah && <p className="text-xs"><span className="font-semibold">Jenis Kerah:</span> {item.jenis_kerah}</p>}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Nameset */}
+                                    {item.namesets?.length > 0 && (
+                                        <details className="mt-1">
+                                            <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Nameset ({item.namesets.length})</summary>
+                                            <div className="mt-2 overflow-x-auto">
+                                                <table className="w-full border-collapse text-xs">
+                                                    <thead>
+                                                        <tr className="bg-slate-100 text-slate-600 uppercase tracking-wide">
+                                                            <th className="px-2 py-1.5 border font-semibold w-8 text-center">No</th>
+                                                            <th className="px-2 py-1.5 border font-semibold">Nama Punggung</th>
+                                                            <th className="px-2 py-1.5 border font-semibold text-center">No. Punggung</th>
+                                                            <th className="px-2 py-1.5 border font-semibold">Nama Dada</th>
+                                                            <th className="px-2 py-1.5 border font-semibold text-center">No. Dada</th>
+                                                            <th className="px-2 py-1.5 border font-semibold">Nama Lengan</th>
+                                                            <th className="px-2 py-1.5 border font-semibold text-center">No. Lengan</th>
+                                                            <th className="px-2 py-1.5 border font-semibold text-center">No. Punggung 2</th>
+                                                            <th className="px-2 py-1.5 border font-semibold text-center">Size</th>
+                                                            <th className="px-2 py-1.5 border font-semibold">Keterangan</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {item.namesets.map((ns, ni) => (
+                                                            <tr key={ns.id} className="border-b hover:bg-slate-50">
+                                                                <td className="px-2 py-1 border text-center font-bold text-slate-500">{ni + 1}</td>
+                                                                <td className="px-2 py-1 border font-medium uppercase">{ns.nama_punggung || '—'}</td>
+                                                                <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung || '—'}</td>
+                                                                <td className="px-2 py-1 border font-medium uppercase">{ns.nama_dada || '—'}</td>
+                                                                <td className="px-2 py-1 border text-center font-mono">{ns.nomor_dada || '—'}</td>
+                                                                <td className="px-2 py-1 border font-medium uppercase">{ns.nama_lengan || '—'}</td>
+                                                                <td className="px-2 py-1 border text-center font-mono">{ns.nomor_lengan || '—'}</td>
+                                                                <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung_2 || '—'}</td>
+                                                                <td className="px-2 py-1 border text-center">{ns.size ? `${ns.size.kategori_size}-${ns.size.ukuran}` : (ns.size_label || '—')}</td>
+                                                                <td className="px-2 py-1 border text-muted-foreground">{ns.keterangan || '—'}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </details>
+                                    )}
+                                </div>
+                            );
+                        })}
                         {order.items?.length === 0 && <p className="text-center text-sm text-muted-foreground">Belum ada item.</p>}
                     </CardContent>
                 </Card>
