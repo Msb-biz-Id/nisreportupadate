@@ -53,9 +53,9 @@ function CreateRefundDialog({ open, onOpenChange, jenisOptions }) {
                     </DialogHeader>
                     <div className="space-y-3 py-4">
                         <div>
-                            <Label>ID PO (UUID) <span className="text-destructive">*</span></Label>
-                            <Input value={data.order_id} onChange={(e) => setData('order_id', e.target.value)} className="mt-1.5 font-mono text-xs" placeholder="Tempel UUID PO" />
-                            <p className="mt-1 text-xs text-muted-foreground">Dari halaman preview PO, copy UUID dari URL.</p>
+                            <Label>Nomor PO / Link PO / UUID PO <span className="text-destructive">*</span></Label>
+                            <Input value={data.order_id} onChange={(e) => setData('order_id', e.target.value)} className="mt-1.5" placeholder="Contoh: PO-2026-0001 atau link/UUID PO" />
+                            <p className="mt-1 text-xs text-muted-foreground">Sistem otomatis mensinkronkan data PO baik dari nomor PO, URL halaman PO, maupun UUID PO.</p>
                             {errors.order_id && <p className="text-xs text-destructive">{errors.order_id}</p>}
                         </div>
                         <div className="grid grid-cols-2 gap-3">

@@ -26,7 +26,6 @@ function CustomerForm({ open, onOpenChange, customer, customerTypes, sumberOrder
         nomor_hp: customer?.nomor_hp ?? '',
         email: customer?.email ?? '',
         type_pelanggan_id: customer?.type_pelanggan_id ?? '',
-        sumber_daftar_id: customer?.sumber_daftar_id ?? '',
         provinsi_code: customer?.provinsi_code ?? '',
         provinsi_nama: customer?.provinsi_nama ?? '',
         kabupaten_code: customer?.kabupaten_code ?? '',
@@ -102,21 +101,6 @@ function CustomerForm({ open, onOpenChange, customer, customerTypes, sumberOrder
                                             <SelectItem value={NONE}>— Tidak ada —</SelectItem>
                                             {customerTypes.map((t) => (
                                                 <SelectItem key={t.id} value={t.id}>{t.nama}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label htmlFor="sumber_daftar_id">Sumber Daftar</Label>
-                                    <Select
-                                        value={data.sumber_daftar_id || NONE}
-                                        onValueChange={(v) => setData('sumber_daftar_id', v === NONE ? '' : v)}
-                                    >
-                                        <SelectTrigger id="sumber_daftar_id" className="mt-1.5"><SelectValue placeholder="Pilih" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>— Tidak ada —</SelectItem>
-                                            {sumberOrders.map((s) => (
-                                                <SelectItem key={s.id} value={s.id}>{s.nama}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>

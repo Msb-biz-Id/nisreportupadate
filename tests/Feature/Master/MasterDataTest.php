@@ -3,7 +3,7 @@
 namespace Tests\Feature\Master;
 
 use App\Models\Master\BahanKain;
-use App\Models\Master\KategoriOrder;
+use App\Models\Master\SumberOrder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -17,7 +17,7 @@ class MasterDataTest extends TestCase
         $user = $this->makeUser('admin_brand', [$brand]);
 
         $this->actingAsWithBrand($user, $brand)
-            ->get(route('master.index', 'kategori-order'))
+            ->get(route('master.index', 'sumber-order'))
             ->assertOk();
     }
 
@@ -37,15 +37,15 @@ class MasterDataTest extends TestCase
         $user = $this->makeUser('admin_brand', [$brand]);
 
         $this->actingAsWithBrand($user, $brand)
-            ->post(route('master.store', 'kategori-order'), [
-                'nama' => 'Kategori Tim',
+            ->post(route('master.store', 'sumber-order'), [
+                'nama' => 'Sumber Toko',
                 'is_active' => true,
             ])
             ->assertRedirect();
 
-        $kategori = KategoriOrder::where('nama', 'Kategori Tim')->first();
-        $this->assertNotNull($kategori);
-        $this->assertEquals($brand->id, $kategori->brand_id);
+        $sumber = SumberOrder::where('nama', 'Sumber Toko')->first();
+        $this->assertNotNull($sumber);
+        $this->assertEquals($brand->id, $sumber->brand_id);
     }
 
     public function test_admin_brand_cannot_create_global_master(): void

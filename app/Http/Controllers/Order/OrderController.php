@@ -17,6 +17,7 @@ use App\Models\Master\Product;
 use App\Models\Master\Resleting;
 use App\Models\Master\Size;
 use App\Models\Master\SumberOrder;
+use App\Models\Master\Reseller;
 use App\Models\Order\Invoice;
 use App\Models\Order\InvoiceItem;
 use App\Models\Order\Order;
@@ -183,6 +184,7 @@ class OrderController extends Controller
                 'jenis_order_id' => $data['jenis_order_id'] ?? null,
                 'sumber_order_id' => $data['sumber_order_id'] ?? null,
                 'pelanggan_id' => $data['pelanggan_id'],
+                'reseller_id' => $data['reseller_id'] ?? null,
                 'printing_ids' => $data['printing_ids'] ?? null,
                 'iklan_id' => $data['iklan_id'] ?? null,
                 'catatan' => $data['catatan'] ?? null,
@@ -217,6 +219,7 @@ class OrderController extends Controller
                     'jumlah'       => $item->quantity,
                     'harga_satuan' => $item->harga_satuan,
                     'subtotal'     => $item->subtotal,
+                    'is_addon'     => (bool) $item->is_addon,
                 ]);
             }
 
@@ -248,6 +251,7 @@ class OrderController extends Controller
                 'jenis_order_id' => $data['jenis_order_id'] ?? null,
                 'sumber_order_id' => $data['sumber_order_id'] ?? null,
                 'pelanggan_id' => $data['pelanggan_id'],
+                'reseller_id' => $data['reseller_id'] ?? null,
                 'printing_ids' => $data['printing_ids'] ?? null,
                 'iklan_id' => $data['iklan_id'] ?? null,
                 'catatan' => $data['catatan'] ?? null,
@@ -258,8 +262,34 @@ class OrderController extends Controller
             $order->update($updateData);
 
             $this->syncItems($order, $data['items'] ?? []);
-            $this->syncPayments($order, $data['payments'] ?? [], $user->id);
             $order->update(['total_tagihan' => $order->items()->sum('subtotal')]);
+
+            // Sync invoice
+            $invoice = $order->invoices()->first();
+            if ($invoice) {
+                $invoice->items()->delete();
+                foreach ($order->items as $item) {
+                    InvoiceItem::create([
+                        'invoice_id'   => $invoice->id,
+                        'produk'       => $item->nama_produk . ($item->varian_label ? " ({$item->varian_label})" : ''),
+                        'jumlah'       => $item->quantity,
+                        'harga_satuan' => $item->harga_satuan,
+                        'subtotal'     => $item->subtotal,
+                        'is_addon'     => (bool) $item->is_addon,
+                    ]);
+                }
+
+                $totalTagihan = $order->totalTagihan();
+                $totalPaid = $order->totalPaid();
+                $newSisa = max(0, $totalTagihan - $totalPaid);
+
+                $invoice->update([
+                    'total_tagihan' => $totalTagihan,
+                    'total_bayar' => $totalPaid,
+                    'sisa_pembayaran' => $newSisa,
+                    'status' => $newSisa <= 0 ? 'paid' : $invoice->status,
+                ]);
+            }
         });
 
         return redirect()->route('orders.show', $order->id)->with('success', 'PO berhasil diperbarui.');
@@ -275,7 +305,7 @@ class OrderController extends Controller
         }
 
         $order->load([
-            'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'iklan',
+            'brand', 'pelanggan', 'reseller', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'iklan',
             'items.namesets.size', 'items.bahanKain', 'items.logo', 'items.printing', 'items.resleting', 'items.polaJahitan',
             'payments.bank', 'payments.recorder', 'payments.verifier',
             'progressDetails.progress', 'progressDetails.updater',
@@ -287,14 +317,24 @@ class OrderController extends Controller
             'repeats', 'repeatFrom',
         ]);
 
+        foreach ($order->items as $item) {
+            $item->logo_names = !empty($item->logo_ids)
+                ? \App\Models\Master\Logo::whereIn('id', $item->logo_ids)->pluck('nama')->toArray()
+                : [];
+        }
+
         $printings = collect();
         if (!empty($order->printing_ids)) {
             $printings = \App\Models\Master\Printing::whereIn('id', $order->printing_ids)->get(['id', 'nama']);
         }
 
+        $brandId = $order->brand_id;
+        $banks = BankAccount::active()->where('brand_id', $brandId)->orderBy('bank')->get(['id', 'bank', 'atas_nama', 'nomor_rekening']);
+
         return Inertia::render('Order/Preview', [
             'order' => $order,
             'printings' => $printings,
+            'banks' => $banks,
             'can' => [
                 'edit' => $request->user()->can('order.update') && ($order->isDraft() || ! $order->isLocked()),
                 'delete' => $request->user()->can('order.delete') && $order->isDraft(),
@@ -322,13 +362,17 @@ class OrderController extends Controller
             return back()->with('error', 'PO tidak bisa diterbitkan karena invoice belum divalidasi oleh Admin Keuangan.');
         }
 
-        // Enforce 50% DP payment before PO can be published
+        // Enforce brand-specific DP percentage before PO can be published
+        $brand = $order->brand;
+        $minDpPercentage = $brand ? (float) ($brand->min_dp_percentage ?? 0.50) : 0.50;
+
         $totalTagihan = (float) $order->totalTagihan();
         $totalPaid = (float) $order->totalPaid();
-        $minDp = $totalTagihan * 0.5;
+        $minDp = $totalTagihan * $minDpPercentage;
+        $minDpFormattedPercent = number_format($minDpPercentage * 100, 0) . '%';
 
         if ($totalPaid < $minDp) {
-            return back()->with('error', 'PO tidak bisa diterbitkan karena total pembayaran terverifikasi (Rp ' . number_format($totalPaid, 0, ',', '.') . ') belum mencapai minimal 50% DP dari total tagihan (Rp ' . number_format($totalTagihan, 0, ',', '.') . ').');
+            return back()->with('error', 'PO tidak bisa diterbitkan karena total pembayaran terverifikasi (Rp ' . number_format($totalPaid, 0, ',', '.') . ') belum mencapai minimal ' . $minDpFormattedPercent . ' DP dari total tagihan (Rp ' . number_format($totalTagihan, 0, ',', '.') . ').');
         }
 
         $this->statusManager->publish($order, $request->user());
@@ -482,7 +526,9 @@ class OrderController extends Controller
 
         $items = collect($raw['items'] ?? [])->map(function ($item) {
             $item['_bahan_kain']   = !empty($item['bahan_kain_id'])   ? BahanKain::find($item['bahan_kain_id'])?->nama   : null;
+            $item['_bahan_kain_bawahan'] = !empty($item['bahan_kain_bawahan_id']) ? BahanKain::find($item['bahan_kain_bawahan_id'])?->nama : null;
             $item['_logo']         = !empty($item['logo_id'])         ? Logo::find($item['logo_id'])?->nama             : null;
+            $item['_logos']        = !empty($item['logo_ids'])        ? Logo::whereIn('id', $item['logo_ids'])->pluck('nama')->toArray() : [];
             $item['_resleting']    = !empty($item['resleting_id'])    ? Resleting::find($item['resleting_id'])?->nama    : null;
             $item['_pola_jahitan'] = !empty($item['pola_jahitan_id']) ? PolaJahitan::find($item['pola_jahitan_id'])      : null;
 
@@ -492,6 +538,13 @@ class OrderController extends Controller
                     $ns['_size_label'] = $sz ? "{$sz->kategori_size} - {$sz->ukuran}" : ($ns['size_label'] ?? '-');
                 } else {
                     $ns['_size_label'] = $ns['size_label'] ?? '-';
+                }
+
+                if (!empty($ns['size_celana_id'])) {
+                    $szc = Size::find($ns['size_celana_id']);
+                    $ns['_size_celana_label'] = $szc ? "{$szc->kategori_size} - {$szc->ukuran}" : ($ns['size_celana_label'] ?? '-');
+                } else {
+                    $ns['_size_celana_label'] = $ns['size_celana_label'] ?? '-';
                 }
                 return $ns;
             })->all();
@@ -513,8 +566,8 @@ class OrderController extends Controller
 
         $order->load([
             'brand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder',
-            'items.bahanKain', 'items.logo', 'items.resleting', 'items.polaJahitan',
-            'items.namesets.size',
+            'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'items.resleting', 'items.polaJahitan',
+            'items.namesets.size', 'items.namesets.sizeCelana',
         ]);
 
         $pdf = Pdf::loadView('pdf.spk', ['order' => $order])->setPaper('a4', 'portrait');
@@ -576,7 +629,8 @@ class OrderController extends Controller
             'pola_jahitans' => PolaJahitan::active()->orderBy('jenis_pola')->orderBy('nama')
                 ->get(['id', 'jenis_pola', 'nama']),
             'sizes' => Size::active()->orderBy('kategori_size')->orderBy('urutan')->get(['id', 'kategori_size', 'ukuran']),
-            'banks' => BankAccount::active()->where($brandQ)->orderBy('bank')->get(['id', 'bank', 'atas_nama', 'nomor_rekening']),
+            'banks' => BankAccount::active()->where('brand_id', $brandId)->orderBy('bank')->get(['id', 'bank', 'atas_nama', 'nomor_rekening']),
+            'resellers' => Reseller::active()->orderBy('nama')->get(['id', 'nama']),
         ];
     }
 
@@ -591,20 +645,25 @@ class OrderController extends Controller
             'jenis_order_id' => ['nullable', 'uuid'],
             'sumber_order_id' => ['nullable', 'uuid'],
             'pelanggan_id' => ['required', 'uuid', 'exists:customers,id'],
+            'reseller_id' => ['nullable', 'uuid', 'exists:resellers,id'],
             'printing_ids' => ['nullable', 'array'],
             'printing_ids.*' => ['uuid', 'exists:printings,id'],
             'iklan_id' => ['nullable', 'uuid', 'exists:iklans,id'],
             'catatan' => ['nullable', 'string'],
             'items' => ['array'],
+            'items.*.is_addon' => ['nullable', 'boolean'],
             'items.*.product_id' => ['nullable', 'uuid'],
             'items.*.nama_produk' => ['required', 'string', 'max:255'],
             'items.*.varian_label' => ['nullable', 'string', 'max:100'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.harga_satuan' => ['required', 'numeric', 'min:0'],
             'items.*.bahan_kain_id' => ['nullable', 'uuid'],
+            'items.*.bahan_kain_bawahan_id' => ['nullable', 'uuid'],
             'items.*.jenis_setelan' => ['nullable', Rule::in(['stell', 'non_stell', 'atasan_saja', 'bawahan_saja'])],
             'items.*.pola' => ['nullable', 'string', 'max:50'],
             'items.*.logo_id' => ['nullable', 'uuid'],
+            'items.*.logo_ids' => ['nullable', 'array'],
+            'items.*.logo_ids.*' => ['uuid', 'exists:logos,id'],
             'items.*.printing_id' => ['nullable', 'uuid'],
             'items.*.resleting_id' => ['nullable', 'uuid'],
             'items.*.jenis_rib' => ['nullable', 'string', 'max:100'],
@@ -628,6 +687,7 @@ class OrderController extends Controller
             'items.*.ket_atasan' => ['nullable', 'string'],
             'items.*.ket_bawahan' => ['nullable', 'string'],
             'items.*.gambar_kerah' => ['nullable', 'string', 'max:255'],
+            'items.*.gambar_ket_tambahan' => ['nullable', 'string', 'max:255'],
             'items.*.namesets' => ['array'],
             'items.*.namesets.*.nama_punggung' => ['nullable', 'string', 'max:100'],
             'items.*.namesets.*.nomor_punggung' => ['nullable', 'string', 'max:20'],
@@ -636,10 +696,13 @@ class OrderController extends Controller
             'items.*.namesets.*.nama_lengan' => ['nullable', 'string', 'max:100'],
             'items.*.namesets.*.nomor_lengan' => ['nullable', 'string', 'max:20'],
             'items.*.namesets.*.nomor_punggung_2' => ['nullable', 'string', 'max:20'],
+            'items.*.namesets.*.nama_punggung_2' => ['nullable', 'string', 'max:100'],
             'items.*.namesets.*.size_id' => ['nullable', 'uuid'],
             'items.*.namesets.*.size_label' => ['nullable', 'string', 'max:50'],
+            'items.*.namesets.*.size_celana_id' => ['nullable', 'uuid'],
+            'items.*.namesets.*.size_celana_label' => ['nullable', 'string', 'max:50'],
             'items.*.namesets.*.keterangan' => ['nullable', 'string'],
-            'payments' => ['array'],
+            'payments' => ['nullable', 'array'],
             'payments.*.payment_type' => ['required', Rule::in(['dp', 'pelunasan', 'ongkir', 'cashback', 'tambahan_produk', 'return', 'lainnya'])],
             'payments.*.amount' => ['required', 'numeric', 'min:0'],
             'payments.*.payment_date' => ['required', 'date'],

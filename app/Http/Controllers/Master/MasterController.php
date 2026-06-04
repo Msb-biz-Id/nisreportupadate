@@ -124,7 +124,7 @@ class MasterController extends Controller
     {
         $user = request()->user();
         if ($user->can('master.manage')) return;
-        if ($user->can('master.brand') && $config['group'] === 'order') return;
+        if ($user->can('master.brand') && ($config['group'] === 'order' || $config['slug'] === 'bank')) return;
         if ($user->can('master.produk') && $config['slug'] === 'produk') return;
         abort(403);
     }
@@ -132,7 +132,7 @@ class MasterController extends Controller
     private function canManageConfig($user, array $config): bool
     {
         if ($user->can('master.manage')) return true;
-        if ($user->can('master.brand') && $config['group'] === 'order') return true;
+        if ($user->can('master.brand') && ($config['group'] === 'order' || $config['slug'] === 'bank')) return true;
         return $user->can('master.produk') && $config['slug'] === 'produk';
     }
 

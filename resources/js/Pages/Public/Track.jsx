@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { CheckCircle2, Circle, Clock, AlertTriangle, Package, ShieldCheck } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import usePublicSecurity from '@/hooks/usePublicSecurity';
 
 const STATUS_BADGE = {
     draft: { label: 'Draft', class: 'bg-gray-100 text-gray-700' },
@@ -20,6 +21,7 @@ function ProgressIcon({ status }) {
     return <Circle className="h-5 w-5 text-gray-300" />;
 }
 export default function Track({ po_number, found, order, brand, invoice, invoices = [] }) {
+    usePublicSecurity();
     const activeBrand = order?.brand || brand;
 
     // Helper to format WhatsApp API link

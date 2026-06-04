@@ -25,8 +25,6 @@ class BankAccount extends Model
 
     public function scopeForBrand($q, $brandId)
     {
-        return $q->where(function ($w) use ($brandId) {
-            $w->where('brand_id', $brandId)->orWhereNull('brand_id');
-        });
+        return $q->where('brand_id', $brandId);
     }
 }

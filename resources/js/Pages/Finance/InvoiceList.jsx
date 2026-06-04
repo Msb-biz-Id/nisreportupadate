@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { 
     Search, Receipt, CheckCircle2, ExternalLink, Copy, Calendar, 
@@ -41,10 +41,16 @@ export default function InvoiceList({
     design_deposits = [], 
     available_orders = [], 
     bank_accounts = [], 
+    customers = [],
     filters = {}, 
     statuses = [], 
     can = {} 
 }) {
+    const { auth } = usePage().props;
+    const user = auth?.user;
+    const hasFinanceView = user?.permissions?.includes('finance.view') || user?.roles?.includes('superadmin') || user?.roles?.includes('owner') || user?.roles?.includes('admin_keuangan');
+    const dashboardUrl = hasFinanceView ? route('invoices.index') : route('dashboard');
+
     const [activeTab, setActiveTab] = useState('belum_lunas');
     
     // Dialogs & Modals state
@@ -75,6 +81,7 @@ export default function InvoiceList({
     // Design Deposit Form State
     const [newDeposit, setNewDeposit] = useState({
         brand_id: initialBrandId,
+        customer_id: '',
         customer_name: '',
         description: '',
         amount: '',
@@ -212,6 +219,7 @@ export default function InvoiceList({
                 setIsSubmitting(false);
                 setNewDeposit({
                     brand_id: initialBrandId,
+                    customer_id: '',
                     customer_name: '',
                     description: '',
                     amount: '',
@@ -354,7 +362,7 @@ export default function InvoiceList({
                                 Catat Tanda Jadi
                             </Button>
                             <Button asChild variant="outline" className="bg-slate-800/40 text-slate-200 border-slate-700 hover:bg-slate-800/80 hover:text-white rounded-xl">
-                                <Link href={route('invoices.index')}>
+                                <Link href={dashboardUrl}>
                                     <Receipt className="h-4 w-4 mr-2" />
                                     Kembali ke Dashboard
                                 </Link>
@@ -934,7 +942,9 @@ export default function InvoiceList({
                                             setNewDeposit({ 
                                                 ...newDeposit, 
                                                 brand_id: v,
-                                                bank_id: firstBank?.id || '' 
+                                                bank_id: firstBank?.id || '',
+                                                customer_id: '',
+                                                customer_name: ''
                                             });
                                         }}
                                     >
@@ -949,13 +959,27 @@ export default function InvoiceList({
 
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-bold text-slate-700">Nama Customer *</label>
-                                    <Input 
-                                        required 
-                                        placeholder="Nama Pelanggan" 
-                                        value={newDeposit.customer_name} 
-                                        onChange={(e) => setNewDeposit({ ...newDeposit, customer_name: e.target.value })}
-                                        className="bg-white rounded-xl"
-                                    />
+                                    <Select
+                                        value={newDeposit.customer_id}
+                                        onValueChange={(v) => {
+                                            const cust = customers.find(c => c.id === v);
+                                            setNewDeposit({
+                                                ...newDeposit,
+                                                customer_id: v,
+                                                customer_name: cust ? cust.nama : ''
+                                            });
+                                        }}
+                                        required
+                                    >
+                                        <SelectTrigger className="bg-white rounded-xl">
+                                            <SelectValue placeholder={newDeposit.brand_id ? "Pilih Customer" : "Pilih Brand Terlebih Dahulu"} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {customers.filter(c => c.brand_id === newDeposit.brand_id).map(cust => (
+                                                <SelectItem key={cust.id} value={cust.id}>{cust.nama}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
 

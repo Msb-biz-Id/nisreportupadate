@@ -23,6 +23,12 @@ class InvoiceController extends Controller
 
     public function pdf(Request $request, Invoice $invoice)
     {
+        $user = $request->user();
+        if ($user && !$user->isSuperadmin() && !$user->hasRole('owner')) {
+            $userBrandIds = $user->brands()->pluck('brands.id')->toArray();
+            abort_unless(in_array($invoice->brand_id, $userBrandIds), 403, 'Unauthorized brand context.');
+        }
+
         $invoice->load(['brand', 'bank', 'items', 'order.pelanggan']);
         $trackingUrl = url('/track/' . ($invoice->order?->no_po ?? ''));
         $qrCodeData = $this->qrCodeDataUri($trackingUrl);
@@ -34,15 +40,39 @@ class InvoiceController extends Controller
             'logoData' => $logoData,
         ])->setPaper('a4', 'portrait');
 
-        return $pdf->download("Invoice-{$invoice->invoice_number}.pdf");
+        return response($pdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="Invoice-' . $invoice->invoice_number . '.pdf"',
+            'X-Robots-Tag' => 'noindex, nofollow, noarchive, nosnippet',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+        ]);
     }
 
     public function publicShow(string $invoiceNumber)
     {
-        $invoice = Invoice::where('invoice_number', $invoiceNumber)
-            ->whereIn('status', ['published', 'sent', 'paid'])
-            ->with(['brand', 'bank', 'items', 'order.pelanggan', 'order.payments.bank', 'order.progressDetails.progress'])
+        $query = Invoice::where('invoice_number', $invoiceNumber);
+
+        $user = auth()->user();
+        $isAuthorized = $user && (
+            $user->isSuperadmin() ||
+            $user->hasRole('owner') ||
+            $user->hasPermissionTo('finance.view') ||
+            $user->hasPermissionTo('finance.manage-invoice') ||
+            $user->hasPermissionTo('order.view')
+        );
+
+        if (!$isAuthorized) {
+            $query->whereIn('status', ['published', 'sent', 'paid']);
+        }
+
+        $invoice = $query->with(['brand', 'bank', 'items', 'order.pelanggan', 'order.payments.bank', 'order.progressDetails.progress'])
             ->firstOrFail();
+
+        if ($user && !$user->isSuperadmin() && !$user->hasRole('owner')) {
+            $userBrandIds = $user->brands()->pluck('brands.id')->toArray();
+            abort_unless(in_array($invoice->brand_id, $userBrandIds), 403, 'Unauthorized brand context.');
+        }
 
         $trackingUrl = url('/track/' . ($invoice->order?->no_po ?? ''));
 
@@ -50,15 +80,37 @@ class InvoiceController extends Controller
             'invoice' => $invoice,
             'qr_code' => $this->qrCodeDataUri($trackingUrl),
             'tracking_url' => $trackingUrl,
+        ])->toResponse(request())->withHeaders([
+            'X-Robots-Tag' => 'noindex, nofollow, noarchive, nosnippet',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
         ]);
     }
 
     public function publicPdf(string $invoiceNumber)
     {
-        $invoice = Invoice::where('invoice_number', $invoiceNumber)
-            ->whereIn('status', ['published', 'sent', 'paid'])
-            ->with(['brand', 'bank', 'items', 'order.pelanggan'])
+        $query = Invoice::where('invoice_number', $invoiceNumber);
+
+        $user = auth()->user();
+        $isAuthorized = $user && (
+            $user->isSuperadmin() ||
+            $user->hasRole('owner') ||
+            $user->hasPermissionTo('finance.view') ||
+            $user->hasPermissionTo('finance.manage-invoice') ||
+            $user->hasPermissionTo('order.view')
+        );
+
+        if (!$isAuthorized) {
+            $query->whereIn('status', ['published', 'sent', 'paid']);
+        }
+
+        $invoice = $query->with(['brand', 'bank', 'items', 'order.pelanggan'])
             ->firstOrFail();
+
+        if ($user && !$user->isSuperadmin() && !$user->hasRole('owner')) {
+            $userBrandIds = $user->brands()->pluck('brands.id')->toArray();
+            abort_unless(in_array($invoice->brand_id, $userBrandIds), 403, 'Unauthorized brand context.');
+        }
 
         $trackingUrl = url('/track/' . ($invoice->order?->no_po ?? ''));
         $qrCodeData = $this->qrCodeDataUri($trackingUrl);
@@ -70,7 +122,13 @@ class InvoiceController extends Controller
             'logoData' => $logoData,
         ])->setPaper('a4', 'portrait');
 
-        return $pdf->download("Invoice-{$invoice->invoice_number}.pdf");
+        return response($pdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="Invoice-' . $invoice->invoice_number . '.pdf"',
+            'X-Robots-Tag' => 'noindex, nofollow, noarchive, nosnippet',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+        ]);
     }
 
     private function logoDataUri(?string $logoPath): string
@@ -101,29 +159,43 @@ class InvoiceController extends Controller
 
     public function index(Request $request)
     {
-        Gate::authorize('finance.view');
+        $user = $request->user();
+        if (!$user->can('finance.view')) {
+            abort(403);
+        }
+
         $selectedBrandId = $request->input('brand_id', 'all');
 
-        $user = $request->user();
-        $brands = $user->isSuperadmin()
+        $brands = ($user->isSuperadmin() || $user->hasRole('owner'))
             ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
             : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);
+
+        $userBrandIds = $brands->pluck('id')->toArray();
+        if ($selectedBrandId && $selectedBrandId !== 'all') {
+            if (!in_array($selectedBrandId, $userBrandIds)) {
+                abort(403, 'Unauthorized brand context.');
+            }
+        }
 
         // Aggregate Financial Metrics
         $totalTagihanLunas = Invoice::where('status', 'paid')
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
+            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn($q) => $q->whereIn('brand_id', $userBrandIds))
             ->sum('total_tagihan');
 
         $totalTagihanBelumLunas = Invoice::where('status', '!=', 'paid')
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
+            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn($q) => $q->whereIn('brand_id', $userBrandIds))
             ->sum('sisa_pembayaran');
 
         $totalTJ = \App\Models\Order\DesignDeposit::whereIn('status', ['pending', 'verified'])
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
+            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn($q) => $q->whereIn('brand_id', $userBrandIds))
             ->sum('amount');
 
         $totalPending = OrderPayment::whereNull('verified_at')
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->whereHas('order', fn($o) => $o->where('brand_id', $selectedBrandId)))
+            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn($q) => $q->whereHas('order', fn($o) => $o->whereIn('brand_id', $userBrandIds)))
             ->sum('amount');
 
         // Brand-wise breakdowns
@@ -144,6 +216,7 @@ class InvoiceController extends Controller
         $unpaidInvoices = Invoice::where('status', '!=', 'paid')
             ->where('sisa_pembayaran', '>', 0)
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
+            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn($q) => $q->whereIn('brand_id', $userBrandIds))
             ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'brand'])
             ->orderByDesc('created_at')
             ->limit(10)
@@ -151,6 +224,7 @@ class InvoiceController extends Controller
 
         $paidInvoices = Invoice::where('status', 'paid')
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
+            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn($q) => $q->whereIn('brand_id', $userBrandIds))
             ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'brand'])
             ->orderByDesc('created_at')
             ->limit(10)
@@ -178,11 +252,27 @@ class InvoiceController extends Controller
 
     public function list(Request $request)
     {
-        Gate::authorize('finance.view');
+        $user = $request->user();
+        if (!$user->can('finance.view') && !$user->can('finance.manage-invoice')) {
+            abort(403);
+        }
+
         $selectedBrandId = $request->input('brand_id', 'all');
+
+        $brands = ($user->isSuperadmin() || $user->hasRole('owner'))
+            ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
+            : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);
+
+        $userBrandIds = $brands->pluck('id')->toArray();
+        if ($selectedBrandId && $selectedBrandId !== 'all') {
+            if (!in_array($selectedBrandId, $userBrandIds)) {
+                abort(403, 'Unauthorized brand context.');
+            }
+        }
 
         $query = Invoice::query()
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
+            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn ($q) => $q->whereIn('brand_id', $userBrandIds))
             ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama']);
 
         if ($status = $request->string('status')->toString()) {
@@ -213,14 +303,10 @@ class InvoiceController extends Controller
 
         $invoices = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
 
-        $user = $request->user();
-        $brands = $user->isSuperadmin()
-            ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
-            : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);
-
         // Fetch Design Deposits (Tanda Jadi)
         $depositsQuery = \App\Models\Order\DesignDeposit::query()
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
+            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn ($q) => $q->whereIn('brand_id', $userBrandIds))
             ->with(['brand:id,nama_brand,kode', 'recorder:id,name', 'verifier:id,name', 'bank:id,atas_nama,nomor_rekening,bank', 'order:id,no_po'])
             ->orderByDesc('created_at');
 
@@ -235,12 +321,19 @@ class InvoiceController extends Controller
 
         $availableOrders = Order::query()
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
+            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn ($q) => $q->whereIn('brand_id', $userBrandIds))
             ->whereDoesntHave('invoices')
             ->orderByDesc('created_at')
             ->get(['id', 'no_po', 'nama_po', 'total_tagihan']);
 
         $bankAccounts = \App\Models\Master\BankAccount::where('is_active', true)
+            ->whereIn('brand_id', $userBrandIds)
             ->get(['id', 'bank', 'atas_nama', 'nomor_rekening', 'brand_id']);
+
+        $customers = \App\Models\Master\Customer::where('is_active', true)
+            ->whereIn('brand_id', $userBrandIds)
+            ->orderBy('nama')
+            ->get(['id', 'nama', 'brand_id']);
 
         return Inertia::render('Finance/InvoiceList', [
             'invoices' => $invoices,
@@ -249,6 +342,7 @@ class InvoiceController extends Controller
             'design_deposits' => $designDeposits,
             'available_orders' => $availableOrders,
             'bank_accounts' => $bankAccounts,
+            'customers' => $customers,
             'filters' => [
                 'q' => $request->string('q')->toString(),
                 'status' => $request->string('status')->toString(),
@@ -259,7 +353,7 @@ class InvoiceController extends Controller
             'statuses' => Invoice::STATUSES,
             'can' => [
                 'create' => $request->user()->can('finance.manage-invoice'),
-                'validate' => $request->user()->can('finance.manage-invoice'),
+                'validate' => $request->user()->can('finance.view'),
                 'publish' => $request->user()->can('finance.manage-invoice'),
             ],
         ]);
@@ -267,20 +361,31 @@ class InvoiceController extends Controller
 
     public function paymentsPending(Request $request)
     {
-        Gate::authorize('finance.view');
+        $user = $request->user();
+        if (!$user->can('finance.view')) {
+            abort(403);
+        }
+
         $selectedBrandId = $request->input('brand_id', 'all');
+
+        $brands = ($user->isSuperadmin() || $user->hasRole('owner'))
+            ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
+            : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);
+
+        $userBrandIds = $brands->pluck('id')->toArray();
+        if ($selectedBrandId && $selectedBrandId !== 'all') {
+            if (!in_array($selectedBrandId, $userBrandIds)) {
+                abort(403, 'Unauthorized brand context.');
+            }
+        }
 
         $pendingPayments = OrderPayment::query()
             ->whereNull('verified_at')
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->whereHas('order', fn ($o) => $o->where('brand_id', $selectedBrandId)))
+            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn ($q) => $q->whereHas('order', fn ($o) => $o->whereIn('brand_id', $userBrandIds)))
             ->with(['order:id,no_po,nama_po,brand_id', 'order.brand:id,nama_brand,kode', 'recorder:id,name', 'bank:id,atas_nama,nomor_rekening,bank'])
             ->orderByDesc('created_at')
             ->get();
-
-        $user = $request->user();
-        $brands = $user->isSuperadmin()
-            ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
-            : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);
 
         return Inertia::render('Finance/PaymentsPending', [
             'pending_payments' => $pendingPayments,

@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
  *  aspect: number - aspect ratio crop, default 1
  *  className: string
  */
-export default function ImageUploader({ value, onChange, purpose = 'products', aspect = 1, className }) {
+export default function ImageUploader({ value, onChange, purpose = 'products', aspect = 1, className, namaPo }) {
     const inputRef = useRef(null);
     const [sourceImage, setSourceImage] = useState(null);
     const [cropOpen, setCropOpen] = useState(false);
@@ -60,6 +60,9 @@ export default function ImageUploader({ value, onChange, purpose = 'products', a
             const form = new FormData();
             form.append('file', blob, `crop-${Date.now()}.jpg`);
             form.append('purpose', purpose);
+            if (namaPo) {
+                form.append('nama_po', namaPo);
+            }
 
             const { data } = await axios.post(route('uploads.image'), form, {
                 headers: { 'Content-Type': 'multipart/form-data' },

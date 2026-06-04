@@ -15,7 +15,13 @@ class TrackingController extends Controller
     public function index()
     {
         return Inertia::render('Public/TrackIndex')
-            ->withViewData(['title' => 'Lacak Progress Pesanan']);
+            ->withViewData(['title' => 'Lacak Progress Pesanan'])
+            ->toResponse(request())
+            ->withHeaders([
+                'X-Robots-Tag' => 'noindex, nofollow, noarchive, nosnippet',
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+                'Pragma' => 'no-cache',
+            ]);
     }
 
     /**
@@ -69,7 +75,13 @@ class TrackingController extends Controller
                 'instagram' => $brand->instagram,
                 'whatsapp' => $brand->whatsapp ?? $brand->no_hp,
             ] : null,
-        ])->withViewData(['title' => "Tracking $noPo"]);
+        ])->withViewData(['title' => "Tracking $noPo"])
+          ->toResponse(request())
+          ->withHeaders([
+              'X-Robots-Tag' => 'noindex, nofollow, noarchive, nosnippet',
+              'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+              'Pragma' => 'no-cache',
+          ]);
     }
 
     private function maskOrder(Order $order): array

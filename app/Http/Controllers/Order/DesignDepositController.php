@@ -25,7 +25,7 @@ class DesignDepositController extends Controller
     {
         $data = $request->validate([
             'brand_id' => ['required', 'uuid', 'exists:brands,id'],
-            'customer_name' => ['required', 'string', 'max:255'],
+            'customer_id' => ['required', 'uuid', 'exists:customers,id'],
             'description' => ['nullable', 'string', 'max:1000'],
             'amount' => ['required', 'numeric', 'min:0'],
             'payment_date' => ['required', 'date'],
@@ -33,44 +33,44 @@ class DesignDepositController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
+        $customer = \App\Models\Master\Customer::where('id', $data['customer_id'])
+            ->where('brand_id', $data['brand_id'])
+            ->firstOrFail();
+
+        $data['customer_name'] = $customer->nama;
+
         $brand = \App\Models\Brand::findOrFail($data['brand_id']);
         $user = $request->user();
-        $isFinanceOrAdmin = $user->hasRole('superadmin') || $user->hasRole('owner') || $user->hasRole('admin_keuangan');
 
-        $deposit = DB::transaction(function () use ($data, $brand, $user, $isFinanceOrAdmin) {
+        $deposit = DB::transaction(function () use ($data, $brand, $user) {
             $deposit = DesignDeposit::create([
                 ...$data,
                 'deposit_number' => $this->numbers->generateDepositNumber($brand),
-                'status' => $isFinanceOrAdmin ? 'verified' : 'pending',
+                'status' => 'pending',
                 'recorded_by' => $user->id,
-                'verified_by' => $isFinanceOrAdmin ? $user->id : null,
-                'verified_at' => $isFinanceOrAdmin ? now() : null,
+                'verified_by' => null,
+                'verified_at' => null,
             ]);
-
-            if ($isFinanceOrAdmin) {
-                $this->recordLedgerPemasukan($deposit);
-            }
 
             return $deposit;
         });
 
-        if (!$isFinanceOrAdmin) {
-            \App\Services\Notifications\DynamicNotificationService::dispatch('payment_submitted', [
-                'no_po' => 'Tanda Jadi ' . $deposit->deposit_number,
-                'brand_id' => $deposit->brand_id,
-                'brand_nama' => $brand->nama_brand,
-                'nominal' => 'Rp ' . number_format($deposit->amount, 0, ',', '.'),
-                'action_url' => "/invoices"
-            ]);
-            return back()->with('success', 'Tanda Jadi (Design Deposit) berhasil disimpan. Menunggu validasi Admin Keuangan.');
-        }
+        \App\Services\Notifications\DynamicNotificationService::dispatch('payment_submitted', [
+            'no_po' => 'Tanda Jadi ' . $deposit->deposit_number,
+            'brand_id' => $deposit->brand_id,
+            'brand_nama' => $brand->nama_brand,
+            'nominal' => 'Rp ' . number_format($deposit->amount, 0, ',', '.'),
+            'action_url' => "/invoices"
+        ]);
 
-        return back()->with('success', 'Tanda Jadi (Design Deposit) berhasil disimpan dan diverifikasi.');
+        return back()->with('success', 'Tanda Jadi (Design Deposit) berhasil disimpan. Menunggu validasi Admin Keuangan.');
     }
 
     public function verify(Request $request, DesignDeposit $deposit)
     {
-        Gate::authorize('finance.manage-invoice');
+        if (!$request->user()->can('finance.view')) {
+            abort(403, 'Hanya Admin Keuangan yang dapat memverifikasi Tanda Jadi.');
+        }
         abort_unless($deposit->status === 'pending', 422, 'Hanya status pending yang bisa diverifikasi.');
 
         DB::transaction(function () use ($deposit, $request) {
@@ -141,7 +141,9 @@ class DesignDepositController extends Controller
 
     public function refund(Request $request, DesignDeposit $deposit)
     {
-        Gate::authorize('finance.manage-invoice');
+        if (!$request->user()->can('finance.view')) {
+            abort(403, 'Hanya Admin Keuangan yang dapat melakukan refund Tanda Jadi.');
+        }
         abort_unless(in_array($deposit->status, ['pending', 'verified']), 422, 'Hanya Tanda Jadi pending atau verified yang bisa direfund.');
 
         DB::transaction(function () use ($deposit, $request) {

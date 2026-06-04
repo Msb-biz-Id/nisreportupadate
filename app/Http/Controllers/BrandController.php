@@ -81,7 +81,15 @@ class BrandController extends Controller
         $data['created_by'] = $request->user()->id;
         $data['is_active'] = $data['is_active'] ?? true;
 
-        Brand::create($data);
+        $brand = Brand::create($data);
+
+        \App\Models\Master\BankAccount::create([
+            'brand_id' => $brand->id,
+            'bank' => 'CASH',
+            'atas_nama' => 'Cash',
+            'nomor_rekening' => 'CASH',
+            'is_active' => true,
+        ]);
 
         return redirect()->route('brands.index')->with('success', 'Brand berhasil dibuat.');
     }

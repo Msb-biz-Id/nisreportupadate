@@ -11,11 +11,11 @@ class BrandSeeder extends Seeder
     {
         $brands = [
             [
-                'nama_brand' => 'Apparel Aleegiant',
+                'nama_brand' => 'Apparel Allegiant',
                 'kode' => 'ALG',
                 'tagline' => 'Premium Athletic & Lifestyle Wear',
                 'deskripsi' => 'Brand fashion & apparel olahraga premium dengan fokus pada kenyamanan dan performa terbaik.',
-                'email' => 'hello@aleegiant.id',
+                'email' => 'hello@allegiant.id',
                 'no_hp' => '081223344556',
                 'alamat' => 'Sudirman Central Business District, Jakarta Selatan',
                 'warna_primary' => '#000000ff', // Indigo modern

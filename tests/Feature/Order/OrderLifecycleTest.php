@@ -128,6 +128,110 @@ class OrderLifecycleTest extends TestCase
         ]);
     }
 
+    public function test_publish_po_enforces_brand_specific_min_dp(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $brand->update(['min_dp_percentage' => 0.30]);
+        $user = $this->makeUser('owner', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => app(NumberGenerator::class)->generateOrderNumber($brand),
+            'nama_po' => 'DP 30 Percent Test', 'status_po' => 'draft',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(14)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 1000000,
+            'created_by' => $user->id,
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id, 'nama_produk' => 'Y',
+            'quantity' => 10, 'harga_satuan' => 100000, 'subtotal' => 1000000,
+        ]);
+
+        // Create validated invoice
+        \App\Models\Order\Invoice::create([
+            'brand_id' => $brand->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-TEST-002',
+            'tanggal_terbit' => now()->toDateString(),
+            'jatuh_tempo' => now()->addDays(14)->toDateString(),
+            'status' => 'validated',
+            'total_tagihan' => 1000000,
+            'total_bayar' => 0,
+            'dp_amount' => 0,
+            'sisa_pembayaran' => 1000000,
+            'created_by' => $user->id,
+        ]);
+
+        // Try publishing without any payment - should fail (since 30% DP is required)
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('orders.publish', $order->id))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        // Add 20% payment - should still fail
+        $payment = \App\Models\Order\OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'dp',
+            'amount' => 200000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $user->id,
+            'verified_by' => $user->id,
+            'verified_at' => now(),
+        ]);
+
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('orders.publish', $order->id))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        // Update payment to 30% (300,000) - should succeed
+        $payment->update(['amount' => 300000]);
+
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('orders.publish', $order->id))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertEquals('published', $order->fresh()->status_po);
+    }
+
+    public function test_bank_accounts_are_strictly_isolated_by_brand(): void
+    {
+        $brandA = $this->setupBrandWithMasters();
+        $brandB = \App\Models\Brand::create(['nama_brand' => 'Brand B', 'kode' => 'BRB', 'is_active' => true]);
+
+        // Clean up seeder bank accounts to test isolatedly
+        \App\Models\Master\BankAccount::query()->forceDelete();
+
+        $bankA = \App\Models\Master\BankAccount::create([
+            'brand_id' => $brandA->id,
+            'bank' => 'BCA A',
+            'atas_nama' => 'AN Brand A',
+            'nomor_rekening' => '11111',
+            'is_active' => true,
+        ]);
+
+        $bankB = \App\Models\Master\BankAccount::create([
+            'brand_id' => $brandB->id,
+            'bank' => 'BCA B',
+            'atas_nama' => 'AN Brand B',
+            'nomor_rekening' => '22222',
+            'is_active' => true,
+        ]);
+
+        // Assert model scope works
+        $banksForA = \App\Models\Master\BankAccount::forBrand($brandA->id)->get();
+        $this->assertTrue($banksForA->contains($bankA));
+        $this->assertFalse($banksForA->contains($bankB));
+
+        $banksForB = \App\Models\Master\BankAccount::forBrand($brandB->id)->get();
+        $this->assertTrue($banksForB->contains($bankB));
+        $this->assertFalse($banksForB->contains($bankA));
+    }
+
     public function test_cannot_publish_po_without_items(): void
     {
         $brand = $this->setupBrandWithMasters();
@@ -248,4 +352,277 @@ class OrderLifecycleTest extends TestCase
             'is_auto' => true,
         ]);
     }
+
+    public function test_end_to_end_order_fulfillment_workflow_lifecycle(): void
+    {
+        // 1. Setup brand and users
+        $brand = $this->makeBrand();
+        Customer::create([
+            'id' => '019e2969-0000-0000-0000-000000000002',
+            'brand_id' => $brand->id,
+            'kode' => 'CUST-002', 'nama' => 'Test Pelanggan 2', 'nomor_hp' => '082222',
+            'is_active' => true,
+        ]);
+        Product::create([
+            'brand_id' => $brand->id,
+            'nama' => 'Jersey Premium', 'harga' => 100000, 'is_active' => true,
+        ]);
+
+        // Recreate the progresses exactly as needed for status recalculation and is_lunas sending validation
+        \App\Models\Master\Progress::query()->delete();
+        $progress1 = \App\Models\Master\Progress::create([
+            'nama_progress' => 'Tahap 1', 'urutan' => 1, 'is_active' => true,
+            'warna' => '#3B82F6', 'is_skippable' => false,
+        ]);
+        $progressPacking = \App\Models\Master\Progress::create([
+            'nama_progress' => 'PACKING', 'urutan' => 2, 'is_active' => true,
+            'warna' => '#06B6D4', 'is_skippable' => false,
+        ]);
+        $progressSending = \App\Models\Master\Progress::create([
+            'nama_progress' => 'SENDING', 'urutan' => 3, 'is_active' => true,
+            'warna' => '#8B5CF6', 'is_skippable' => false,
+        ]);
+
+        $adminBrand = $this->makeUser('admin_brand', [$brand]);
+        $adminFinance = $this->makeUser('admin_keuangan', [$brand]);
+        $adminProduction = $this->makeUser('admin_produksi', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+
+        // Step 1: Admin Brand membuat draft order
+        $this->actingAsWithBrand($adminBrand, $brand)
+            ->post(route('orders.store'), [
+                'nama_po' => 'PO Workflow Test',
+                'tanggal_masuk' => now()->toDateString(),
+                'deadline_customer' => now()->addDays(14)->toDateString(),
+                'pelanggan_id' => $customer->id,
+                'items' => [[
+                    'nama_produk' => 'Jersey Premium',
+                    'quantity' => 10,
+                    'harga_satuan' => 100000,
+                ]],
+            ])
+            ->assertRedirect();
+
+        $order = Order::where('nama_po', 'PO Workflow Test')->first();
+        $this->assertNotNull($order);
+        $this->assertEquals('draft', $order->status_po);
+        $this->assertEquals(1000000, $order->total_tagihan);
+
+        $invoice = $order->invoices()->first();
+        $this->assertNotNull($invoice);
+        $this->assertEquals('draft', $invoice->status);
+
+        // Step 2: Request pembayaran DP (50%) di-validasi oleh Admin Keuangan
+        $paymentDp = \App\Models\Order\OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'dp',
+            'amount' => 500000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $adminBrand->id,
+        ]);
+
+        // Finance Admin validates the invoice
+        $this->actingAsWithBrand($adminFinance, $brand)
+            ->post(route('invoices.validate', $invoice->id), [
+                'diskon_type' => 'nominal',
+                'diskon_value' => 0,
+                'biaya_pengiriman' => 0,
+                'jasa_pengiriman' => 'Self Pickup',
+                'catatan' => 'Validation OK',
+            ])
+            ->assertRedirect();
+        
+        $this->assertEquals('validated', $invoice->fresh()->status);
+
+        // Finance Admin verifies the payment
+        $this->actingAsWithBrand($adminFinance, $brand)
+            ->post(route('invoices.payments.verify', $paymentDp->id), [
+                'bank_mutasi' => true,
+                'nominal_cocok' => true,
+                'bukti_valid' => true,
+                'verification_notes' => 'Pembayaran DP diverifikasi',
+            ])
+            ->assertRedirect();
+        
+        $this->assertNotNull($paymentDp->fresh()->verified_at);
+
+        // Step 3: Masuk Produksi (Publish PO by Admin Brand)
+        $this->actingAsWithBrand($adminBrand, $brand)
+            ->post(route('orders.publish', $order->id))
+            ->assertRedirect();
+
+        $order = $order->fresh();
+        $this->assertEquals('published', $order->status_po);
+        $this->assertCount(3, $order->progressDetails);
+
+        // Step 4: Tracking progress oleh Admin Produksi & "Lunas" Status Enforcement
+        $details = $order->progressDetails()->with('progress')->get();
+        $stage1Detail = $details->first(fn($d) => $d->progress->nama_progress === 'Tahap 1');
+        $packingDetail = $details->first(fn($d) => $d->progress->nama_progress === 'PACKING');
+        $sendingDetail = $details->first(fn($d) => $d->progress->nama_progress === 'SENDING');
+
+        // Update Tahap 1 to on_progress
+        $this->actingAsWithBrand($adminProduction, $brand)
+            ->put(route('produksi.progress.update', [$order->id, $stage1Detail->id]), [
+                'status' => 'on_progress',
+                'catatan' => 'Tahap 1 in progress',
+            ])
+            ->assertRedirect();
+
+        $order = $order->fresh();
+        $this->assertEquals('on_progress', $order->status_po);
+
+        // Update Tahap 1 to selesai
+        $this->actingAsWithBrand($adminProduction, $brand)
+            ->put(route('produksi.progress.update', [$order->id, $stage1Detail->id]), [
+                'status' => 'selesai',
+                'catatan' => 'Tahap 1 completed',
+            ])
+            ->assertRedirect();
+
+        $order = $order->fresh();
+        $this->assertEquals('published', $order->status_po);
+
+        // Update PACKING to selesai
+        $this->actingAsWithBrand($adminProduction, $brand)
+            ->put(route('produksi.progress.update', [$order->id, $packingDetail->id]), [
+                'status' => 'selesai',
+                'catatan' => 'Packing completed',
+            ])
+            ->assertRedirect();
+
+        $order = $order->fresh();
+        $this->assertEquals('siap_dikirim', $order->status_po);
+
+        // Try to update SENDING to selesai before fully paid (lunas). It must fail.
+        $this->actingAsWithBrand($adminProduction, $brand)
+            ->put(route('produksi.progress.update', [$order->id, $sendingDetail->id]), [
+                'status' => 'selesai',
+                'catatan' => 'Kirim barang',
+                'nama_ekspedisi' => 'J&T',
+                'no_resi' => 'JT998877',
+            ])
+            ->assertSessionHas('error');
+
+        $this->assertNotEquals('sudah_dikirim', $order->fresh()->status_po);
+
+        // Step 5: Finance Admin melakukan validasi pelunasan & menandai Lunas
+        $paymentPelunasan = \App\Models\Order\OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'pelunasan',
+            'amount' => 500000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $adminBrand->id,
+        ]);
+
+        $this->actingAsWithBrand($adminFinance, $brand)
+            ->post(route('invoices.payments.verify', $paymentPelunasan->id), [
+                'bank_mutasi' => true,
+                'nominal_cocok' => true,
+                'bukti_valid' => true,
+                'verification_notes' => 'Pembayaran Pelunasan diverifikasi',
+            ])
+            ->assertRedirect();
+
+        $this->actingAsWithBrand($adminFinance, $brand)
+            ->post(route('orders.mark-lunas', $order->id))
+            ->assertRedirect();
+
+        $order = $order->fresh();
+        $this->assertTrue($order->is_lunas);
+
+        // Step 6: Kirim barang (SENDING status update becomes possible now)
+        $this->actingAsWithBrand($adminProduction, $brand)
+            ->put(route('produksi.progress.update', [$order->id, $sendingDetail->id]), [
+                'status' => 'selesai',
+                'catatan' => 'Dikirim lewat J&T',
+                'nama_ekspedisi' => 'J&T',
+                'no_resi' => 'JT998877',
+            ])
+            ->assertRedirect();
+
+        $order = $order->fresh();
+        $this->assertEquals('sudah_dikirim', $order->status_po);
+        $this->assertEquals('J&T', $order->nama_ekspedisi);
+        $this->assertEquals('JT998877', $order->no_resi);
+
+        // Step 7: Admin Brand validasi refund & request refund, Finance Admin validasi/publish refund
+        $this->actingAsWithBrand($adminBrand, $brand)
+            ->post(route('refunds.store'), [
+                'order_id' => $order->id,
+                'alasan' => 'Ada item robek minor',
+                'jenis_masalah' => 'produk_cacat',
+                'jumlah_item' => 1,
+                'nominal_refund' => 100000,
+            ])
+            ->assertRedirect();
+
+        $refund = Refund::where('order_id', $order->id)->first();
+        $this->assertNotNull($refund);
+        $this->assertEquals('pending_review', $refund->status);
+
+        // Finance Admin approves the refund
+        $this->actingAsWithBrand($adminFinance, $brand)
+            ->post(route('refunds.publish', $refund->id))
+            ->assertRedirect();
+
+        $this->assertEquals('published', $refund->fresh()->status);
+        $this->assertDatabaseHas('pengeluaran', [
+            'refund_id' => $refund->id,
+            'nominal' => 100000,
+            'is_auto' => true,
+        ]);
+
+        $this->assertEquals('sudah_dikirim', $order->fresh()->status_po);
+    }
+
+    public function test_refund_can_be_created_using_po_number_or_link(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $user = $this->makeUser('owner', [$brand]);
+        $customer = \App\Models\Master\Customer::where('brand_id', $brand->id)->first();
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => app(NumberGenerator::class)->generateOrderNumber($brand),
+            'nama_po' => 'Refund Test PO', 'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(14)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 500000,
+            'created_by' => $user->id,
+        ]);
+
+        // Submit refund using PO number (no_po)
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('refunds.store'), [
+                'order_id' => $order->no_po,
+                'alasan' => 'Ada item cacat produksi',
+                'jenis_masalah' => 'produk_cacat',
+                'jumlah_item' => 1,
+                'nominal_refund' => 50000,
+            ])
+            ->assertRedirect();
+
+        $refund = Refund::where('nominal_refund', 50000)->first();
+        $this->assertNotNull($refund);
+        $this->assertEquals($order->id, $refund->order_id);
+
+        // Submit refund using PO link URL
+        $poUrl = "http://127.0.0.1:8181/track/{$order->no_po}";
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('refunds.store'), [
+                'order_id' => $poUrl,
+                'alasan' => 'Item cacat produksi lain',
+                'jenis_masalah' => 'produk_cacat',
+                'jumlah_item' => 1,
+                'nominal_refund' => 25000,
+            ])
+            ->assertRedirect();
+
+        $refund2 = Refund::where('nominal_refund', 25000)->first();
+        $this->assertNotNull($refund2);
+        $this->assertEquals($order->id, $refund2->order_id);
+    }
 }
+

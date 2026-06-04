@@ -18,6 +18,7 @@ class UploadController extends Controller
         $data = $request->validate([
             'file' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'], // 5MB
             'purpose' => ['required', 'string', 'in:products,orders,brands'],
+            'nama_po' => ['nullable', 'string', 'max:255'],
         ]);
 
         // Authorization sederhana: butuh login. Validasi role detail di controller pemanggil.
@@ -26,7 +27,13 @@ class UploadController extends Controller
         $file = $data['file'];
         $purpose = $data['purpose'];
         $filename = Str::ulid() . '.' . $file->getClientOriginalExtension();
-        $path = $file->storeAs($purpose, $filename, 'public');
+
+        if ($purpose === 'orders' && !empty($data['nama_po'])) {
+            $folderName = Str::slug($data['nama_po']);
+            $path = $file->storeAs("{$purpose}/{$folderName}", $filename, 'public');
+        } else {
+            $path = $file->storeAs($purpose, $filename, 'public');
+        }
 
         return response()->json([
             'success' => true,
@@ -38,7 +45,7 @@ class UploadController extends Controller
     public function destroy(Request $request)
     {
         $data = $request->validate([
-            'path' => ['required', 'string', 'regex:#^(products|orders|brands)/[A-Za-z0-9_.-]+$#'],
+            'path' => ['required', 'string', 'regex:#^(products|orders|brands)/[A-Za-z0-9_/.-]+$#'],
         ]);
         abort_unless($request->user(), 401);
 

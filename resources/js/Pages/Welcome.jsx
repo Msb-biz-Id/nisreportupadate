@@ -1,8 +1,10 @@
 import { Head, Link } from '@inertiajs/react';
 import { ShieldCheck, ArrowRight, Layers, BarChart3, Users } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
+import usePublicSecurity from '@/hooks/usePublicSecurity';
 
 export default function Welcome({ auth, canLogin }) {
+    usePublicSecurity();
     return (
         <>
             <Head title="Selamat Datang" />

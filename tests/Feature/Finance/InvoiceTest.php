@@ -262,4 +262,67 @@ class InvoiceTest extends TestCase
         $response->assertStatus(200);
         $response->assertHeader('content-type', 'application/pdf');
     }
+
+    public function test_public_routes_allow_authorized_users_when_draft(): void
+    {
+        $brand = $this->makeBrand();
+        $finance = $this->makeUser('admin_keuangan', [$brand]);
+        $brandAdmin = $this->makeUser('admin_brand', [$brand]);
+        $unauthorizedUser = $this->makeUser('reseller', [$brand]); // resellers only have order.view, wait, reseller has order.view, let's see. Or let's make a new brand and user from different brand.
+        $otherBrand = $this->makeBrand();
+        $otherBrandAdmin = $this->makeUser('admin_brand', [$otherBrand]);
+
+        $customer = Customer::create([
+            'brand_id' => $brand->id,
+            'kode' => 'C3',
+            'nama' => 'Draft Cust',
+            'nomor_hp' => '08333',
+            'is_active' => true
+        ]);
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-DRAFT-01',
+            'nama_po' => 'Draft Order',
+            'status_po' => 'draft',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 150000,
+            'created_by' => $finance->id,
+        ]);
+
+        $invoice = Invoice::create([
+            'brand_id' => $brand->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-DFT-01',
+            'tanggal_terbit' => now()->toDateString(),
+            'status' => 'draft',
+            'total_tagihan' => 150000,
+            'sisa_pembayaran' => 150000,
+            'created_by' => $finance->id,
+        ]);
+
+        // 1. Guest access should return 404 (Not Found)
+        $this->get(route('invoice.public', $invoice->invoice_number))->assertStatus(404);
+        $this->get(route('invoice.public.pdf', $invoice->invoice_number))->assertStatus(404);
+
+        // 2. Authorized Finance user should succeed
+        $this->actingAsWithBrand($finance, $brand)
+            ->get(route('invoice.public', $invoice->invoice_number))->assertStatus(200);
+        $this->actingAsWithBrand($finance, $brand)
+            ->get(route('invoice.public.pdf', $invoice->invoice_number))->assertStatus(200);
+
+        // 3. Authorized Brand Admin user should succeed
+        $this->actingAsWithBrand($brandAdmin, $brand)
+            ->get(route('invoice.public', $invoice->invoice_number))->assertStatus(200);
+        $this->actingAsWithBrand($brandAdmin, $brand)
+            ->get(route('invoice.public.pdf', $invoice->invoice_number))->assertStatus(200);
+
+        // 4. User from another brand should be forbidden (403)
+        $this->actingAsWithBrand($otherBrandAdmin, $otherBrand)
+            ->get(route('invoice.public', $invoice->invoice_number))->assertStatus(403);
+        $this->actingAsWithBrand($otherBrandAdmin, $otherBrand)
+            ->get(route('invoice.public.pdf', $invoice->invoice_number))->assertStatus(403);
+    }
 }

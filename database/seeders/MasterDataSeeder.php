@@ -6,6 +6,8 @@ use App\Models\Brand;
 use App\Models\Master\BahanKain;
 use App\Models\Master\BankAccount;
 use App\Models\Master\CustomerType;
+use App\Models\Master\Iklan;
+use App\Models\Master\JenisOrder;
 use App\Models\Master\KategoriOrder;
 use App\Models\Master\Logo;
 use App\Models\Master\PaketOrder;
@@ -13,6 +15,7 @@ use App\Models\Master\PolaJahitan;
 use App\Models\Master\Printing;
 use App\Models\Master\Product;
 use App\Models\Master\Progress;
+use App\Models\Master\Reseller;
 use App\Models\Master\Resleting;
 use App\Models\Master\Size;
 use App\Models\Master\SumberOrder;
@@ -33,10 +36,13 @@ class MasterDataSeeder extends Seeder
         $this->seedPolaJahitan();
         $this->seedProgress();
         $this->seedKategoriOrder();
+        $this->seedJenisOrder();
         $this->seedSumberOrder();
+        $this->seedIklan();
         $this->seedCustomerType();
         $this->seedBank();
         $this->seedProduct();
+        $this->seedReseller();
     }
 
     private function seedBahanKain(): void
@@ -273,6 +279,7 @@ class MasterDataSeeder extends Seeder
     {
         foreach (Brand::all() as $brand) {
             $banks = [
+                ['bank' => 'CASH', 'atas_nama' => 'Cash', 'nomor_rekening' => 'CASH'],
                 ['bank' => 'BCA', 'atas_nama' => $brand->nama_brand, 'nomor_rekening' => '1234567890'],
                 ['bank' => 'Mandiri', 'atas_nama' => $brand->nama_brand, 'nomor_rekening' => '9876543210'],
                 ['bank' => 'BRI', 'atas_nama' => $brand->nama_brand, 'nomor_rekening' => '0987654321'],
@@ -308,6 +315,64 @@ class MasterDataSeeder extends Seeder
                     ['harga' => rand(80, 250) * 1000, 'is_active' => true]
                 );
             }
+        }
+    }
+
+    private function seedJenisOrder(): void
+    {
+        $globals = [
+            ['nama' => 'Baru'],
+            ['nama' => 'Repeat Order'],
+            ['nama' => 'Revisi'],
+            ['nama' => 'Sample'],
+        ];
+        foreach ($globals as $g) {
+            JenisOrder::firstOrCreate(
+                ['brand_id' => null, 'nama' => $g['nama']],
+                $g + ['is_active' => true]
+            );
+        }
+        foreach (Brand::all() as $brand) {
+            foreach (['Baru', 'Repeat Order', 'Revisi'] as $nama) {
+                JenisOrder::firstOrCreate(
+                    ['brand_id' => $brand->id, 'nama' => $nama],
+                    ['is_active' => true]
+                );
+            }
+        }
+    }
+
+    private function seedIklan(): void
+    {
+        foreach (Brand::all() as $brand) {
+            $ads = [
+                ['nama' => 'FB Ads - Jersey Promo', 'platform' => 'Facebook'],
+                ['nama' => 'IG Ads - Jaket Custom', 'platform' => 'Instagram'],
+                ['nama' => 'Google Ads - Konveksi', 'platform' => 'Google'],
+                ['nama' => 'TikTok Ads - Sport Wear', 'platform' => 'TikTok'],
+            ];
+            foreach ($ads as $a) {
+                Iklan::firstOrCreate(
+                    ['brand_id' => $brand->id, 'nama' => $a['nama']],
+                    $a + ['is_active' => true]
+                );
+            }
+        }
+    }
+
+    private function seedReseller(): void
+    {
+        $resellers = [
+            ['nama' => 'Toko Sport Jaya', 'deskripsi' => 'Reseller wilayah Jakarta & sekitarnya'],
+            ['nama' => 'CV Mitra Garment', 'deskripsi' => 'Reseller jaket dan jersey Bandung Raya'],
+            ['nama' => 'Galeri Sport Surabaya', 'deskripsi' => 'Distributor apparel olahraga Jawa Timur'],
+            ['nama' => 'Konveksi Nusantara', 'deskripsi' => 'Reseller multi-kota nasional'],
+        ];
+        foreach ($resellers as $r) {
+            Reseller::firstOrCreate(
+                ['nama' => $r['nama']],
+                $r + ['is_active' => true]
+            );
         }
     }
 }

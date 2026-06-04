@@ -14,10 +14,11 @@ class OrderNameset extends Model
 
     protected $fillable = [
         'order_item_id', 'nama_punggung', 'nomor_punggung',
-        'nama_dada', 'nomor_dada', 'nama_lengan', 'nomor_lengan', 'nomor_punggung_2',
-        'size_id', 'size_label', 'keterangan', 'urutan',
+        'nama_dada', 'nomor_dada', 'nama_lengan', 'nomor_lengan', 'nomor_punggung_2', 'nama_punggung_2',
+        'size_id', 'size_label', 'size_celana_id', 'size_celana_label', 'keterangan', 'urutan',
     ];
 
     public function orderItem(): BelongsTo { return $this->belongsTo(OrderItem::class); }
     public function size(): BelongsTo { return $this->belongsTo(Size::class); }
+    public function sizeCelana(): BelongsTo { return $this->belongsTo(Size::class, 'size_celana_id'); }
 }

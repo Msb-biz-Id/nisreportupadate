@@ -5,7 +5,6 @@ namespace App\Support;
 use App\Models\Master\BahanKain;
 use App\Models\Master\BankAccount;
 use App\Models\Master\CustomerType;
-use App\Models\Master\KategoriOrder;
 use App\Models\Master\Logo;
 use App\Models\Master\PaketOrder;
 use App\Models\Master\PolaJahitan;
@@ -18,6 +17,7 @@ use App\Models\Master\Iklan;
 use App\Models\Master\JenisOrder;
 use App\Models\Master\SumberOrder;
 use App\Models\Master\TipeOrder;
+use App\Models\Master\Reseller;
 
 /**
  * Konfigurasi terpusat untuk semua master data.
@@ -60,6 +60,7 @@ class MasterRegistry
             'printing' => self::simpleConfig('printing', 'Jenis Printing', 'Printer', Printing::class),
             'paket-order' => self::simpleConfig('paket-order', 'Paket Order', 'PackageOpen', PaketOrder::class),
             'tipe-order' => self::simpleConfig('tipe-order', 'Tipe Order', 'Boxes', TipeOrder::class),
+            'reseller' => self::simpleConfig('reseller', 'Nama Reseller', 'Users', Reseller::class),
 
             'size' => [
                 'slug' => 'size',
@@ -120,7 +121,7 @@ class MasterRegistry
                 'group' => 'finance',
                 'icon' => 'Landmark',
                 'model' => BankAccount::class,
-                'scope' => 'brand_nullable',
+                'scope' => 'brand',
                 'fields' => [
                     ['name' => 'bank', 'label' => 'Nama Bank', 'type' => 'text', 'required' => true, 'max' => 100, 'placeholder' => 'BCA / Mandiri / BRI'],
                     ['name' => 'atas_nama', 'label' => 'Atas Nama', 'type' => 'text', 'required' => true, 'max' => 255],
@@ -162,25 +163,24 @@ class MasterRegistry
                 'order_by' => 'urutan',
             ],
 
-            'kategori-order' => self::brandScopedSimple('kategori-order', 'Kategori Order', 'Tag', KategoriOrder::class),
             'sumber-order' => self::brandScopedSimple('sumber-order', 'Sumber Order', 'Compass', SumberOrder::class),
             'jenis-order' => self::brandScopedSimple('jenis-order', 'Jenis Order', 'LayoutList', JenisOrder::class),
 
             'iklan' => [
                 'slug' => 'iklan',
-                'label' => 'Iklan',
+                'label' => 'Promo',
                 'group' => 'order',
-                'icon' => 'Megaphone',
+                'icon' => 'Tag',
                 'model' => Iklan::class,
                 'scope' => 'brand_nullable',
                 'fields' => [
-                    ['name' => 'nama', 'label' => 'Nama Iklan / Kampanye', 'type' => 'text', 'required' => true, 'max' => 150, 'placeholder' => 'Contoh: Promo Ramadan IG'],
+                    ['name' => 'nama', 'label' => 'Nama Promo / Kampanye', 'type' => 'text', 'required' => true, 'max' => 150, 'placeholder' => 'Contoh: Promo Ramadan IG'],
                     ['name' => 'platform', 'label' => 'Platform', 'type' => 'text', 'max' => 100, 'placeholder' => 'Instagram / TikTok / Facebook / dll'],
                     ['name' => 'deskripsi', 'label' => 'Deskripsi', 'type' => 'textarea'],
                     ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
                 ],
                 'list_columns' => [
-                    ['key' => 'nama', 'label' => 'Nama Iklan'],
+                    ['key' => 'nama', 'label' => 'Nama Promo'],
                     ['key' => 'platform', 'label' => 'Platform', 'class' => 'text-xs text-muted-foreground'],
                     ['key' => 'deskripsi', 'label' => 'Deskripsi', 'class' => 'text-xs text-muted-foreground'],
                     ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],

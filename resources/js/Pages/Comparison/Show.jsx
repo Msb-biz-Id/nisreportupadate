@@ -11,6 +11,7 @@ import { formatRupiah } from '@/lib/utils';
 
 export default function ComparisonShow({
     availableBrands,
+    availableYears = [2026, 2025, 2024, 2023],
     selectedBrandIds,
     selectedYears,
     singleBrandId,
@@ -41,7 +42,14 @@ export default function ComparisonShow({
     }
 
     function toggleYear(year) {
-        setSelYears((cur) => cur.includes(year) ? cur.filter((x) => x !== year) : [...cur, year]);
+        setSelYears((cur) => {
+            if (cur.includes(year)) {
+                // Prevent deselecting below 2 years
+                if (cur.length <= 2) return cur;
+                return cur.filter((x) => x !== year);
+            }
+            return [...cur, year];
+        });
     }
 
     function handleModeChange(newMode) {
@@ -60,8 +68,8 @@ export default function ComparisonShow({
             params.brand_ids = selBrands;
             params.year = selSingleYear;
         } else {
-            if (selYears.length === 0) {
-                alert('Pilih minimal 1 tahun untuk perbandingan.');
+            if (selYears.length < 2) {
+                alert('Pilih minimal 2 tahun untuk perbandingan.');
                 return;
             }
             params.brand_id = selSingleBrand;
@@ -76,7 +84,7 @@ export default function ComparisonShow({
     let chartCategories = monthsNames.map(m => m.substring(0, 3));
     let colorPalette = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EC4899', '#06B6D4'];
 
-    if (currentMode === 'brands') {
+    if (mode === 'brands') {
         const brandData = result?.data ?? {};
         chartSeries = Object.entries(brandData).map(([id, b]) => {
             const dataPoints = monthsKeys.map(k => {
@@ -223,7 +231,7 @@ export default function ComparisonShow({
                                         onChange={(e) => setSelSingleYear(Number(e.target.value))}
                                         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                                     >
-                                        {[2026, 2025, 2024, 2023].map((y) => (
+                                        {availableYears.map((y) => (
                                             <option key={y} value={y}>Tahun {y}</option>
                                         ))}
                                     </select>
@@ -232,21 +240,22 @@ export default function ComparisonShow({
                         ) : (
                             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs text-muted-foreground font-semibold">Pilih Brand</Label>
+                                    <Label className="text-xs text-muted-foreground font-semibold">Brand yang Dianalisis</Label>
                                     <select
                                         value={selSingleBrand}
-                                        onChange={(e) => setSelSingleBrand(Number(e.target.value))}
+                                        onChange={(e) => setSelSingleBrand(e.target.value)}
                                         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                                     >
                                         {availableBrands.map((b) => (
                                             <option key={b.id} value={b.id}>{b.nama_brand} ({b.kode})</option>
                                         ))}
                                     </select>
+                                    <p className="text-[10px] text-muted-foreground">Pilih 1 brand, lalu bandingkan kinerjanya antar tahun.</p>
                                 </div>
                                 <div className="lg:col-span-2 space-y-1.5">
-                                    <Label className="text-xs text-muted-foreground font-semibold font-semibold">Tahun untuk Dibandingkan</Label>
+                                    <Label className="text-xs text-muted-foreground font-semibold">Tahun untuk Dibandingkan</Label>
                                     <div className="flex flex-wrap gap-2">
-                                        {[2026, 2025, 2024, 2023].map((y) => {
+                                        {availableYears.map((y) => {
                                             const active = selYears.includes(y);
                                             return (
                                                 <button
@@ -261,6 +270,7 @@ export default function ComparisonShow({
                                             );
                                         })}
                                     </div>
+                                    <p className="text-[10px] text-muted-foreground">Pilih minimal 2 tahun. Hanya tahun yang memiliki data order yang ditampilkan.</p>
                                 </div>
                             </div>
                         )}
@@ -339,7 +349,7 @@ export default function ComparisonShow({
                             <thead className="text-xs uppercase bg-slate-50 text-slate-600 font-semibold border-b">
                                 <tr>
                                     <th className="px-4 py-3 font-semibold border-r">Bulan</th>
-                                    {currentMode === 'brands' ? (
+                                    {mode === 'brands' ? (
                                         Object.entries(result?.data ?? {}).map(([id, b]) => (
                                             <th key={id} colSpan={3} className="px-4 py-3 text-center border-r font-bold" style={{ borderTop: `4px solid ${b.warna || '#3B82F6'}` }}>
                                                 {b.brand_name} ({b.kode})
@@ -355,7 +365,7 @@ export default function ComparisonShow({
                                 </tr>
                                 <tr className="border-b bg-slate-100/50 text-[10px] text-slate-500">
                                     <th className="px-4 py-2 border-r"></th>
-                                    {currentMode === 'brands' ? (
+                                    {mode === 'brands' ? (
                                         Object.keys(result?.data ?? {}).map((id) => (
                                             <>
                                                 <th key={`${id}-po`} className="px-2 py-2 text-right">PO</th>
@@ -378,7 +388,7 @@ export default function ComparisonShow({
                                 {monthsKeys.map((k) => (
                                     <tr key={k} className="hover:bg-slate-50/50 transition">
                                         <td className="px-4 py-3 font-medium border-r">{monthsNames[k-1]}</td>
-                                        {currentMode === 'brands' ? (
+                                        {mode === 'brands' ? (
                                             Object.entries(result?.data ?? {}).map(([id, b]) => {
                                                 const m = b.months[k] ?? { total_po: 0, total_pcs: 0, total_omset: 0 };
                                                 return (
@@ -407,7 +417,7 @@ export default function ComparisonShow({
                                 {/* Bottom Total Row */}
                                 <tr className="bg-slate-100/80 font-bold border-t-2 text-slate-900 border-slate-300">
                                     <td className="px-4 py-3.5 border-r font-extrabold text-indigo-700 uppercase tracking-wide">TOTAL TAHUNAN</td>
-                                    {currentMode === 'brands' ? (
+                                    {mode === 'brands' ? (
                                         Object.entries(result?.data ?? {}).map(([id, b]) => (
                                             <>
                                                 <td className="px-2 py-3.5 text-right font-mono text-blue-700">{b.totals.total_po}</td>

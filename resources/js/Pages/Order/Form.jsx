@@ -25,6 +25,7 @@ function newItem() {
         varian_label: '',
         quantity: 1,
         harga_satuan: 0,
+        is_addon: false,
         bahan_kain_id: '',
         jenis_setelan: '',
         pola: '',
@@ -195,10 +196,12 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
     }
 
     function addNameset() {
-        onChange(index, { ...item, namesets: [...item.namesets, newNameset()] });
+        const nextNamesets = [...item.namesets, newNameset()];
+        onChange(index, { ...item, namesets: nextNamesets, quantity: nextNamesets.length });
     }
     function removeNameset(i) {
-        onChange(index, { ...item, namesets: item.namesets.filter((_, idx) => idx !== i) });
+        const nextNamesets = item.namesets.filter((_, idx) => idx !== i);
+        onChange(index, { ...item, namesets: nextNamesets, quantity: nextNamesets.length });
     }
     function patchNameset(i, field, value) {
         const next = [...item.namesets];
@@ -211,7 +214,7 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
     }
 
     const subtotal = (Number(item.quantity) || 0) * (Number(item.harga_satuan) || 0);
-    const totalPcs = item.namesets.length;
+    const totalPcs = item.is_addon ? (Number(item.quantity) || 0) : item.namesets.length;
 
     const polaByJenis = useMemo(() => {
         const groups = {};
@@ -255,7 +258,7 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
             <div className="bg-slate-800 p-4 flex justify-between items-center">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                     <span className="text-white font-black text-sm uppercase tracking-widest whitespace-nowrap">
-                        PRODUK #{index + 1}
+                        {item.is_addon ? `ADD-ON #${index + 1}` : `PRODUK #${index + 1}`}
                     </span>
                     {item.nama_produk && (
                         <span className="text-slate-300 text-xs font-bold uppercase truncate">
@@ -282,7 +285,18 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
             <div className="p-5 space-y-5 bg-slate-50">
                 {/* Info Dasar Produk */}
                 <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                    <SectionHeader>Identitas Produk</SectionHeader>
+                    <div className="flex items-center justify-between border-b-2 border-slate-200 pb-2 mb-4">
+                        <span className="text-sm font-black text-slate-800 uppercase tracking-wide">Identitas Produk</span>
+                        <label className="flex items-center gap-1.5 cursor-pointer select-none text-[11px] font-black text-slate-700 uppercase">
+                            <input
+                                type="checkbox"
+                                className="w-3.5 h-3.5 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                                checked={!!item.is_addon}
+                                onChange={(e) => patch('is_addon', e.target.checked)}
+                            />
+                            Add-on Produk
+                        </label>
+                    </div>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
                         <div className="sm:col-span-5">
                             <FieldLabel>Produk dari Master</FieldLabel>
@@ -308,11 +322,11 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mt-3">
                         <div>
                             <FieldLabel>Qty <span className="text-red-500">*</span></FieldLabel>
-                            <Input type="number" min={1} value={item.quantity} onChange={(e) => patch('quantity', Number(e.target.value))} className="h-8 text-xs font-bold" />
+                            <Input type="number" min={1} value={item.quantity === 0 ? '' : item.quantity} onChange={(e) => patch('quantity', e.target.value === '' ? 0 : Number(e.target.value))} className="h-8 text-xs font-bold" />
                         </div>
                         <div>
                             <FieldLabel>Harga Satuan</FieldLabel>
-                            <Input type="number" min={0} value={item.harga_satuan} onChange={(e) => patch('harga_satuan', Number(e.target.value))} className="h-8 text-xs" />
+                            <Input type="number" min={0} value={item.harga_satuan === 0 ? '' : item.harga_satuan} onChange={(e) => patch('harga_satuan', e.target.value === '' ? 0 : Number(e.target.value))} className="h-8 text-xs" />
                         </div>
                         <div className="col-span-2 flex items-end justify-end">
                             <div className="rounded-lg border-2 border-slate-200 bg-slate-100 px-4 py-1.5 text-right">
@@ -321,10 +335,18 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
                             </div>
                         </div>
                     </div>
+                    {item.is_addon && (
+                        <div className="mt-3 border-t border-slate-100 pt-3">
+                            <FieldLabel>Keterangan Add-on</FieldLabel>
+                            <Input value={item.catatan || ''} onChange={(e) => patch('catatan', e.target.value)} className="h-8 text-xs" placeholder="Misal: Nameset Polyflex, upgrade bahan, dll..." />
+                        </div>
+                    )}
                 </div>
 
-                {/* Spesifikasi (collapsible) */}
-                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                {!item.is_addon && (
+                    <>
+                        {/* Spesifikasi (collapsible) */}
+                        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                     <button
                         type="button"
                         onClick={() => setSpecOpen((v) => !v)}
@@ -618,13 +640,18 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
                         </div>
                     )}
                 </div>
+                    </>
+                )}
             </div>
 
             <PasteNamesetDialog
                 open={pasteOpen}
                 onClose={() => setPasteOpen(false)}
                 sizes={masters.sizes}
-                onConfirm={(rows) => onChange(index, { ...item, namesets: [...item.namesets, ...rows] })}
+                onConfirm={(rows) => {
+                    const nextNamesets = [...item.namesets, ...rows];
+                    onChange(index, { ...item, namesets: nextNamesets, quantity: nextNamesets.length });
+                }}
             />
         </div>
     );
@@ -650,7 +677,7 @@ function PaymentRow({ index, payment, banks, onChange, onRemove }) {
             </div>
             <div className="sm:col-span-3">
                 <FieldLabel>Nominal</FieldLabel>
-                <Input type="number" min={0} value={payment.amount} onChange={(e) => onChange(index, { ...payment, amount: Number(e.target.value) })} className="mt-1 h-8 text-xs font-mono font-bold" />
+                <Input type="number" min={0} value={payment.amount === 0 ? '' : payment.amount} onChange={(e) => onChange(index, { ...payment, amount: e.target.value === '' ? 0 : Number(e.target.value) })} className="mt-1 h-8 text-xs font-mono font-bold" />
             </div>
             <div className="sm:col-span-2">
                 <FieldLabel>Tanggal</FieldLabel>
@@ -691,10 +718,10 @@ export default function OrderForm({ mode, masters, order }) {
         is_special_order: order?.is_special_order ?? false,
         tanggal_masuk: order?.tanggal_masuk?.slice?.(0, 10) ?? new Date().toISOString().slice(0, 10),
         deadline_customer: order?.deadline_customer?.slice?.(0, 10) ?? '',
-        kategori_order_id: order?.kategori_order_id ?? '',
         jenis_order_id: order?.jenis_order_id ?? '',
         sumber_order_id: order?.sumber_order_id ?? '',
         pelanggan_id: order?.pelanggan_id ?? '',
+        reseller_id: order?.reseller_id ?? '',
         printing_ids: order?.printing_ids ?? [],
         iklan_id: order?.iklan_id ?? '',
         catatan: order?.catatan ?? '',
@@ -756,8 +783,16 @@ export default function OrderForm({ mode, masters, order }) {
         }
     }
 
-    const totalHarga = data.items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.harga_satuan) || 0), 0);
-    const totalPcs = useMemo(() => data.items.reduce((s, i) => s + i.namesets.length, 0), [data.items]);
+    const coreItems = useMemo(() => data.items.filter(i => !i.is_addon), [data.items]);
+    const addonItems = useMemo(() => data.items.filter(i => i.is_addon), [data.items]);
+
+    const totalCorePcs = useMemo(() => coreItems.reduce((s, i) => s + i.namesets.length, 0), [coreItems]);
+    const totalAddonPcs = useMemo(() => addonItems.reduce((s, i) => s + (Number(i.quantity) || 0), 0), [addonItems]);
+    const totalPcs = totalCorePcs + totalAddonPcs;
+
+    const totalCoreHarga = useMemo(() => coreItems.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.harga_satuan) || 0), 0), [coreItems]);
+    const totalAddonHarga = useMemo(() => addonItems.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.harga_satuan) || 0), 0), [addonItems]);
+    const totalHarga = totalCoreHarga + totalAddonHarga;
 
     const pageTitle = isEdit ? `Edit PO ${order.no_po}` : 'Buat PO Baru';
 
@@ -868,14 +903,15 @@ export default function OrderForm({ mode, masters, order }) {
                                     />
                                     {errors.pelanggan_id && <p className="mt-1 text-xs text-red-500">{errors.pelanggan_id}</p>}
                                 </div>
-                                <div className="flex flex-col col-span-1">
-                                    <FieldLabel>Kategori Order</FieldLabel>
+                                <div className="flex flex-col col-span-2">
+                                    <FieldLabel>Reseller (Brand Mitra)</FieldLabel>
                                     <SearchableSelect
-                                        value={data.kategori_order_id}
-                                        onValueChange={(v) => setData('kategori_order_id', v)}
-                                        options={masters.kategori_orders.map((k) => ({ value: k.id, label: k.nama }))}
-                                        placeholder="— Tidak diset —"
+                                        value={data.reseller_id}
+                                        onValueChange={(v) => setData('reseller_id', v)}
+                                        options={(masters.resellers ?? []).map((r) => ({ value: r.id, label: r.nama }))}
+                                        placeholder="— Pilih Reseller (Jika Ada) —"
                                     />
+                                    {errors.reseller_id && <p className="mt-1 text-xs text-red-500">{errors.reseller_id}</p>}
                                 </div>
                                 <div className="flex flex-col col-span-1">
                                     <FieldLabel>Jenis Order</FieldLabel>
@@ -993,33 +1029,6 @@ export default function OrderForm({ mode, masters, order }) {
                             </div>
                         </div>
 
-                        {/* Section: Pembayaran */}
-                        <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                            <div className="bg-slate-800 px-5 py-3.5 flex justify-between items-center">
-                                <h2 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
-                                    <CreditCard className="h-4 w-4 text-slate-400" />
-                                    Pembayaran ({data.payments.length})
-                                </h2>
-                                <button
-                                    type="button"
-                                    onClick={addPayment}
-                                    className="flex items-center gap-1 bg-slate-600 hover:bg-slate-500 text-white px-3 py-1.5 rounded text-xs font-bold transition uppercase"
-                                >
-                                    <Plus className="h-3.5 w-3.5" /> Tambah Pembayaran
-                                </button>
-                            </div>
-                            <div className="p-4 space-y-3 bg-slate-50">
-                                {data.payments.length === 0 && (
-                                    <div className="rounded-xl border border-dashed border-slate-300 py-6 text-center">
-                                        <p className="text-xs font-bold text-slate-400 uppercase">Belum ada pembayaran</p>
-                                        <p className="text-xs text-slate-400 mt-1">PO tanpa DP tetap bisa diterbitkan.</p>
-                                    </div>
-                                )}
-                                {data.payments.map((p, idx) => (
-                                    <PaymentRow key={idx} index={idx} payment={p} banks={masters.banks} onChange={patchPayment} onRemove={removePayment} />
-                                ))}
-                            </div>
-                        </div>
                     </div>
 
                     {/* ===== SIDEBAR RINGKASAN ===== */}
@@ -1037,26 +1046,61 @@ export default function OrderForm({ mode, masters, order }) {
                             </div>
                         </div>
 
-                        {/* Per produk */}
-                        {data.items.length > 0 && (
+                        {/* Produk Inti */}
+                        {coreItems.length > 0 && (
                             <div className="space-y-2">
-                                {data.items.map((item, idx) => {
-                                    const color = ACCENT_COLORS[idx % ACCENT_COLORS.length];
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-wide">Produk Inti ({totalCorePcs} pcs)</p>
+                                {coreItems.map((item) => {
+                                    const origIdx = data.items.indexOf(item);
+                                    const color = ACCENT_COLORS[origIdx % ACCENT_COLORS.length];
                                     const dotMap = { red: 'bg-red-500', blue: 'bg-blue-500', emerald: 'bg-emerald-500', amber: 'bg-amber-500', purple: 'bg-purple-500', pink: 'bg-pink-500', teal: 'bg-teal-500' };
                                     return (
-                                        <div key={idx} className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
+                                        <div key={origIdx} className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
                                             <div className="flex items-center gap-2 min-w-0">
                                                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotMap[color]}`} />
                                                 <span className="text-xs font-bold text-slate-700 uppercase truncate">
-                                                    {item.nama_produk || `Produk #${idx + 1}`}
+                                                    {item.nama_produk || `Produk #${origIdx + 1}`}
                                                 </span>
                                             </div>
-                                            <span className="text-xs font-black text-slate-600 ml-2 whitespace-nowrap">
-                                                {item.namesets.length} pcs
-                                            </span>
+                                            <div className="text-right ml-2 whitespace-nowrap">
+                                                <p className="text-xs font-black text-slate-600">{item.namesets.length} pcs</p>
+                                                <p className="text-[10px] font-mono text-slate-400">{formatRupiah((Number(item.quantity) || 0) * (Number(item.harga_satuan) || 0))}</p>
+                                            </div>
                                         </div>
                                     );
                                 })}
+                                <div className="text-right pr-2 pb-1">
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase">Subtotal Produk: <span className="font-mono font-black text-slate-700">{formatRupiah(totalCoreHarga)}</span></p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Add-ons */}
+                        {addonItems.length > 0 && (
+                            <div className="space-y-2 pt-2 border-t border-dashed border-slate-200">
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-wide">Add-ons ({totalAddonPcs} pcs)</p>
+                                {addonItems.map((item) => {
+                                    const origIdx = data.items.indexOf(item);
+                                    const color = ACCENT_COLORS[origIdx % ACCENT_COLORS.length];
+                                    const dotMap = { red: 'bg-red-500', blue: 'bg-blue-500', emerald: 'bg-emerald-500', amber: 'bg-amber-500', purple: 'bg-purple-500', pink: 'bg-pink-500', teal: 'bg-teal-500' };
+                                    return (
+                                        <div key={origIdx} className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotMap[color]}`} />
+                                                <span className="text-xs font-bold text-slate-700 uppercase truncate">
+                                                    {item.nama_produk || `Add-on #${origIdx + 1}`}
+                                                </span>
+                                            </div>
+                                            <div className="text-right ml-2 whitespace-nowrap">
+                                                <p className="text-xs font-black text-slate-600">{item.quantity} pcs</p>
+                                                <p className="text-[10px] font-mono text-slate-400">{formatRupiah((Number(item.quantity) || 0) * (Number(item.harga_satuan) || 0))}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                <div className="text-right pr-2">
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase">Subtotal Add-on: <span className="font-mono font-black text-slate-700">{formatRupiah(totalAddonHarga)}</span></p>
+                                </div>
                             </div>
                         )}
 

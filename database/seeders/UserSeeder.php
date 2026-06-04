@@ -52,11 +52,11 @@ class UserSeeder extends Seeder
             $brandDrv->id => ['is_default' => false, 'assigned_at' => now(), 'assigned_by' => $super->id],
         ]);
 
-        // Admin Brand ALG (Apparel Aleegiant)
+        // Admin Brand ALG (Apparel Allegiant)
         $adminAlg = User::updateOrCreate(
-            ['email' => 'admin.aleegiant@nisreport.local'],
+            ['email' => 'admin.allegiant@nisreport.local'],
             [
-                'name' => 'Admin Brand Aleegiant',
+                'name' => 'Admin Brand Allegiant',
                 'password' => Hash::make('password'),
                 'phone' => '081333333333',
                 'is_active' => true,

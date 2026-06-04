@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { Search, ShieldCheck, MapPin, Truck, Calendar, Clock, ArrowRight } from 'lucide-react';
+import usePublicSecurity from '@/hooks/usePublicSecurity';
 
 export default function TrackIndex() {
+    usePublicSecurity();
     const [noPo, setNoPo] = useState('');
     const [error, setError] = useState('');
 

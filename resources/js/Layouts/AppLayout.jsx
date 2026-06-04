@@ -74,10 +74,10 @@ const MASTER_ITEMS = [
     { slug: 'size', name: 'Size / Ukuran', icon: Ruler, group: 'global' },
     { slug: 'pola-jahitan', name: 'Pola Jahitan', icon: Scissors, group: 'global' },
     { slug: 'progress', name: 'Tahapan Progress', icon: ListChecks, group: 'global' },
-    { slug: 'kategori-order', name: 'Kategori Order', icon: Tag, group: 'brand' },
+    { slug: 'reseller', name: 'Reseller', icon: Users, group: 'global' },
     { slug: 'sumber-order', name: 'Sumber Order', icon: Compass, group: 'brand' },
     { slug: 'jenis-order', name: 'Jenis Order', icon: LayoutList, group: 'brand' },
-    { slug: 'iklan', name: 'Iklan', icon: Megaphone, group: 'brand' },
+    { slug: 'iklan', name: 'Promo', icon: Megaphone, group: 'brand' },
     { slug: 'customer-type', name: 'Tipe Pelanggan', icon: UserCheck, group: 'brand' },
     { slug: 'produk', name: 'Produk', icon: Package, group: 'brand' },
     { slug: 'bank', name: 'Bank', icon: Landmark, group: 'brand' },
@@ -175,7 +175,7 @@ function buildMenu(user) {
             ],
         });
     }
-    if (hasPermission(user, 'finance.view') || hasPermission(user, 'finance.manage-invoice')) {
+    if (hasPermission(user, 'finance.view')) {
         opsItems.push({
             name: 'Keuangan & Invoice',
             icon: Wallet,
@@ -201,6 +201,13 @@ function buildMenu(user) {
                     active: route().current('invoices.payments.pending') || route().current('invoices.payments.verify'),
                 }
             ]
+        });
+    } else if (hasPermission(user, 'finance.manage-invoice')) {
+        opsItems.push({
+            name: 'Invoice',
+            href: route('invoices.list'),
+            icon: Wallet,
+            active: route().current('invoices.list') || route().current('invoices.pdf') || route().current('invoices.validate') || route().current('invoices.publish'),
         });
     }
     if (hasPermission(user, 'order.refund') || hasPermission(user, 'finance.manage-refund')) {

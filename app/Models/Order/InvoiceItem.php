@@ -11,12 +11,13 @@ class InvoiceItem extends Model
 {
     use HasFactory, HasUuids;
 
-    protected $fillable = ['invoice_id', 'produk', 'jumlah', 'harga_satuan', 'subtotal'];
+    protected $fillable = ['invoice_id', 'produk', 'jumlah', 'harga_satuan', 'subtotal', 'is_addon'];
 
     protected $casts = [
         'jumlah' => 'integer',
         'harga_satuan' => 'decimal:2',
         'subtotal' => 'decimal:2',
+        'is_addon' => 'boolean',
     ];
 
     public function invoice(): BelongsTo { return $this->belongsTo(Invoice::class); }

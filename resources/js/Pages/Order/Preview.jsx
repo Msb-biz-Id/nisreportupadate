@@ -102,7 +102,7 @@ function AddPaymentDialog({ order, open, onOpenChange, banks }) {
                         </div>
                         <div>
                             <Label>Nominal</Label>
-                            <Input type="number" min={0} value={data.amount} onChange={(e) => setData('amount', Number(e.target.value))} className="mt-1.5" />
+                            <Input type="number" min={0} value={data.amount === 0 ? '' : data.amount} onChange={(e) => setData('amount', e.target.value === '' ? 0 : Number(e.target.value))} className="mt-1.5" />
                             {errors.amount && <p className="text-xs text-destructive">{errors.amount}</p>}
                         </div>
                         <div>
@@ -163,13 +163,11 @@ function TimelineForm({ order, onDone }) {
     );
 }
 
-export default function OrderPreview({ order, can, printings = [] }) {
+export default function OrderPreview({ order, can, printings = [], banks = [] }) {
     const [openUnlock, setOpenUnlock] = useState(false);
     const [openPayment, setOpenPayment] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [editTimeline, setEditTimeline] = useState(false);
-
-    const banks = []; // banks fetched separately in real impl; here we accept what backend provides via payments
 
     const st = STATUS_LABEL[order.status_po] ?? { label: order.status_po, variant: 'outline' };
     const verifiedPayments = (order.payments ?? []).filter(p => p.verified_at);
@@ -182,7 +180,10 @@ export default function OrderPreview({ order, can, printings = [] }) {
     const isInvoiceValidated = invoice && ['validated', 'published', 'paid'].includes(invoice.status);
 
     const totalTagihan = Number(order.total_tagihan || 0);
-    const minDp = totalTagihan * 0.5;
+    const minDpPercentage = order.brand?.min_dp_percentage !== undefined && order.brand?.min_dp_percentage !== null
+        ? Number(order.brand.min_dp_percentage)
+        : 0.50;
+    const minDp = totalTagihan * minDpPercentage;
     const isDpSufficient = totalPaid >= minDp;
 
     function publish() {
@@ -191,7 +192,7 @@ export default function OrderPreview({ order, can, printings = [] }) {
             return;
         }
         if (!isDpSufficient) {
-            alert(`PO tidak bisa diterbitkan karena total pembayaran terverifikasi (${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalPaid)}) belum mencapai minimal 50% DP (${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(minDp)}).`);
+            alert(`PO tidak bisa diterbitkan karena total pembayaran terverifikasi (${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalPaid)}) belum mencapai minimal ${(minDpPercentage * 100).toFixed(0)}% DP (${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(minDp)}).`);
             return;
         }
         if (!confirm('Terbitkan PO sekarang? Setelah dipublish, PO masuk dashboard produksi dan tidak bisa dihapus.')) return;
@@ -238,7 +239,7 @@ export default function OrderPreview({ order, can, printings = [] }) {
                                         onClick={publish} 
                                         size="sm"
                                         className={(!isInvoiceValidated || !isDpSufficient) ? "opacity-60 cursor-not-allowed bg-slate-400 hover:bg-slate-400 text-white" : ""}
-                                        title={!isInvoiceValidated ? "Menunggu validasi keuangan" : !isDpSufficient ? "Pembayaran DP kurang dari 50%" : "Terbitkan PO"}
+                                        title={!isInvoiceValidated ? "Menunggu validasi keuangan" : !isDpSufficient ? `Pembayaran DP kurang dari ${(minDpPercentage * 100).toFixed(0)}%` : "Terbitkan PO"}
                                     >
                                         <Send className="h-4 w-4" /> Terbitkan
                                     </Button>
@@ -298,10 +299,10 @@ export default function OrderPreview({ order, can, printings = [] }) {
                     <div className="rounded-2xl border border-red-200 bg-red-50/50 p-4 flex items-start gap-3 text-red-800 shadow-sm">
                         <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
                         <div className="space-y-1">
-                            <h4 className="text-sm font-bold">Menunggu Pembayaran DP Minimal 50% ⚠️</h4>
+                            <h4 className="text-sm font-bold">Menunggu Pembayaran DP Minimal {(minDpPercentage * 100).toFixed(0)}% ⚠️</h4>
                             <p className="text-xs text-red-700 leading-relaxed font-medium">
                                 PO ini belum dapat diterbitkan ke bagian produksi karena total pembayaran masuk terverifikasi sebesar 
-                                <strong> {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalPaid)}</strong> belum mencapai syarat minimal 50% DP 
+                                <strong> {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalPaid)}</strong> belum mencapai syarat minimal {(minDpPercentage * 100).toFixed(0)}% DP 
                                 (<strong>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(minDp)}</strong> dari total tagihan <strong>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalTagihan)}</strong>).
                                 Silakan minta pelanggan melakukan pembayaran DP terlebih dahulu dan konfirmasi pembayaran agar diverifikasi Keuangan.
                             </p>
@@ -324,6 +325,12 @@ export default function OrderPreview({ order, can, printings = [] }) {
                                 <div className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
                                     <MapPin className="mt-0.5 h-3 w-3" />
                                     <span>{order.pelanggan.kabupaten_nama}, {order.pelanggan.provinsi_nama}</span>
+                                </div>
+                            )}
+                            {order.reseller && (
+                                <div className="mt-2 pt-2 border-t border-slate-100">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Reseller</span>
+                                    <div className="font-semibold text-blue-600">{order.reseller.nama}</div>
                                 </div>
                             )}
                         </CardContent>
@@ -475,11 +482,10 @@ export default function OrderPreview({ order, can, printings = [] }) {
                 {/* Detail PO */}
                 {(() => {
                     const fields = [
-                        order.kategoriOrder?.nama && { label: 'Kategori Order', value: order.kategoriOrder.nama },
                         order.jenisOrder?.nama && { label: 'Jenis Order', value: order.jenisOrder.nama },
                         order.sumberOrder?.nama && { label: 'Sumber Order', value: order.sumberOrder.nama },
                         printings.length > 0 && { label: 'Jenis Printing', value: printings.map(p => p.nama).join(', ') },
-                        order.iklan?.nama && { label: 'Iklan / Kampanye', value: order.iklan.nama + (order.iklan.platform ? ` (${order.iklan.platform})` : '') },
+                        order.iklan?.nama && { label: 'Promo', value: order.iklan.nama + (order.iklan.platform ? ` (${order.iklan.platform})` : '') },
                         (order.nama_ekspedisi || order.no_resi) && { label: 'Ekspedisi', value: [order.nama_ekspedisi, order.no_resi].filter(Boolean).join(' · ') },
                         order.catatan && { label: 'Catatan PO', value: order.catatan, full: true },
                     ].filter(Boolean);
@@ -517,7 +523,9 @@ export default function OrderPreview({ order, can, printings = [] }) {
                                 item.warna && { label: 'Warna', value: item.warna },
                                 item.jml_atasan && { label: 'Jml Atasan', value: item.jml_atasan },
                                 item.jml_bawahan && { label: 'Jml Bawahan', value: item.jml_bawahan },
-                                item.logo?.nama && { label: 'Logo', value: item.logo.nama },
+                                item.logo_names && item.logo_names.length > 0
+                                    ? { label: 'Logo', value: item.logo_names.join(', ') }
+                                    : (item.logo?.nama ? { label: 'Logo', value: item.logo.nama } : null),
                                 item.jenis_rib && { label: 'Jenis RIB', value: item.jenis_rib },
                                 item.tutup_kerah && { label: 'Tutup Kerah', value: item.tutup_kerah },
                                 item.list_kerah && { label: 'List Kerah', value: item.list_kerah },

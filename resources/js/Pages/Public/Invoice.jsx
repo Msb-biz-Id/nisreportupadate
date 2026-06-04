@@ -3,6 +3,7 @@ import { Download, ExternalLink, ShieldCheck, CheckCircle2, AlertCircle, ArrowDo
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { formatDate, formatRupiah } from '@/lib/utils';
+import usePublicSecurity from '@/hooks/usePublicSecurity';
 
 const STATUS_BADGE = {
     draft: { label: 'Draft', class: 'bg-slate-100 text-slate-700' },
@@ -12,7 +13,24 @@ const STATUS_BADGE = {
     overdue: { label: 'Lewat Jatuh Tempo', class: 'bg-red-100 text-red-700 border-red-200' },
 };
 
+const maskPhone = (phone) => {
+    if (!phone) return '—';
+    const clean = phone.trim();
+    if (clean.length < 8) return clean.replace(/./g, '*');
+    return clean.slice(0, 4) + '*'.repeat(clean.length - 8) + clean.slice(-4);
+};
+
+const maskEmail = (email) => {
+    if (!email) return '—';
+    const parts = email.split('@');
+    if (parts.length !== 2) return email;
+    const [local, domain] = parts;
+    if (local.length <= 2) return local[0] + '***@' + domain;
+    return local.slice(0, 2) + '*'.repeat(local.length - 4) + local.slice(-2) + '@' + domain;
+};
+
 export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
+    usePublicSecurity();
     const brand = invoice.brand ?? {};
     const status = STATUS_BADGE[invoice.status] ?? { label: invoice.status, class: 'bg-slate-100 text-slate-700' };
 
@@ -31,7 +49,10 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
 
     return (
         <>
-            <Head title={`Invoice ${invoice.invoice_number} - ${brand.nama_brand}`} />
+            <Head title={`Invoice ${invoice.invoice_number} - ${brand.nama_brand}`}>
+                <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+                <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
+            </Head>
             <div className="min-h-screen bg-slate-50/50 px-4 py-8 md:py-12">
                 <div className="mx-auto max-w-4xl space-y-6">
                     
@@ -151,8 +172,8 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                             <div className="space-y-1">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">DIBAYAR OLEH</span>
                                 <h4 className="font-bold text-slate-800 text-base">{invoice.order?.pelanggan?.nama || '—'}</h4>
-                                <div className="text-xs text-slate-600 font-medium">{invoice.order?.pelanggan?.nomor_hp || '—'}</div>
-                                <div className="text-xs text-slate-500 font-medium">{invoice.order?.pelanggan?.email || '—'}</div>
+                                <div className="text-xs text-slate-600 font-medium">{maskPhone(invoice.order?.pelanggan?.nomor_hp)}</div>
+                                <div className="text-xs text-slate-500 font-medium">{maskEmail(invoice.order?.pelanggan?.email)}</div>
                             </div>
 
                             <div className="space-y-1 md:text-right">
@@ -271,6 +292,17 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                         <div className="font-mono font-black text-indigo-700 text-base select-all bg-indigo-50/50 py-1.5 px-3 rounded-lg border border-indigo-100/50 inline-block">
                                             {invoice.bank.nomor_rekening}
                                         </div>
+                                    </div>
+                                )}
+                                {invoice.bank && (
+                                    <div className="space-y-2 p-4 bg-amber-50/75 rounded-2xl border border-amber-100 shadow-sm text-amber-800 text-[11px] leading-relaxed">
+                                        <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                                            <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                                            ⚠️ Himbauan Keamanan Pembayaran
+                                        </div>
+                                        <p>
+                                            Mohon <strong>TIDAK MELAKUKAN</strong> scan barcode/QR atau transfer ke rekening mana pun selain rekening resmi atas nama <strong>{invoice.bank.atas_nama}</strong> yang tertera di atas. Jangan percayai pihak lain yang menghubungi Anda atas nama brand kami selain kontak resmi yang tercantum pada identitas brand di invoice ini.
+                                        </p>
                                     </div>
                                 )}
                             </div>

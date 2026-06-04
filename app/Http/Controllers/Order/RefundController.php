@@ -82,6 +82,34 @@ class RefundController extends Controller
     {
         Gate::authorize('order.refund');
 
+        // Resolve order_id from PO Number, Link (URL), or raw UUID
+        $orderInput = trim($request->input('order_id'));
+        $resolvedOrderId = null;
+
+        if ($orderInput) {
+            // 1. If it's a URL, parse it and extract the last segment
+            if (filter_var($orderInput, FILTER_VALIDATE_URL)) {
+                $path = parse_url($orderInput, PHP_URL_PATH);
+                $segments = explode('/', trim($path, '/'));
+                $orderInput = end($segments);
+            }
+
+            // 2. Try to find by UUID directly
+            if (\Illuminate\Support\Str::isUuid($orderInput)) {
+                $resolvedOrderId = Order::where('id', $orderInput)->value('id');
+            } else {
+                // 3. Search by exact or partial PO Number
+                $resolvedOrderId = Order::where('no_po', $orderInput)->value('id');
+                if (!$resolvedOrderId) {
+                    $resolvedOrderId = Order::where('no_po', 'like', "%{$orderInput}%")->value('id');
+                }
+            }
+
+            if ($resolvedOrderId) {
+                $request->merge(['order_id' => $resolvedOrderId]);
+            }
+        }
+
         $data = $request->validate([
             'order_id' => ['required', 'uuid', 'exists:orders,id'],
             'alasan' => ['required', 'string', 'min:5'],
@@ -89,6 +117,10 @@ class RefundController extends Controller
             'jumlah_item' => ['required', 'integer', 'min:1'],
             'nominal_refund' => ['required', 'numeric', 'min:0'],
             'catatan' => ['nullable', 'string'],
+        ], [
+            'order_id.exists' => 'Nomor PO, Link PO, atau UUID PO tidak ditemukan dalam sistem.',
+            'order_id.required' => 'Nomor PO, Link PO, atau UUID PO wajib diisi.',
+            'order_id.uuid' => 'Format PO ID tidak valid.',
         ]);
 
         $order = Order::findOrFail($data['order_id']);

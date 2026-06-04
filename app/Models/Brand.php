@@ -33,6 +33,7 @@ class Brand extends Model
         'currency',
         'warna_primary',
         'is_active',
+        'min_dp_percentage',
         'created_by',
     ];
 
@@ -40,6 +41,7 @@ class Brand extends Model
     {
         return [
             'is_active' => 'boolean',
+            'min_dp_percentage' => 'float',
         ];
     }
 

@@ -54,7 +54,26 @@ class ComparisonController extends Controller
             $result = $this->runner->runAdvanced($mode, $selectedBrandIds, $selectedYears, $singleBrandId, $singleYear);
         }
 
+        // Only include years that actually have order data
+        $isSqlite = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite';
+        $yearExpr = $isSqlite ? "CAST(strftime('%Y', tanggal_masuk) AS INTEGER)" : "YEAR(tanggal_masuk)";
+        $dataYears = \App\Models\Order\Order::where('status_po', '!=', 'draft')
+            ->selectRaw("DISTINCT {$yearExpr} as yr")
+            ->orderByDesc('yr')
+            ->pluck('yr')
+            ->map(fn ($v) => (int) $v)
+            ->toArray();
+
+        // Always include the current year even if no data yet
+        $currentYear = (int) now()->year;
+        if (!in_array($currentYear, $dataYears)) {
+            array_unshift($dataYears, $currentYear);
+        }
+        rsort($dataYears);
+        $availableYears = array_values($dataYears);
+
         return Inertia::render('Comparison/Show', [
+            'availableYears' => $availableYears,
             'availableBrands' => $availableBrands,
             'selectedBrandIds' => $selectedBrandIds,
             'selectedYears' => $selectedYears,
