@@ -76,8 +76,6 @@ class RolePermissionSeeder extends Seeder
                 'user.assign-brand',
                 'master.brand',
                 'order.view', 'order.create', 'order.update', 'order.delete', 'order.publish', 'order.refund',
-                'finance.view', 'finance.manage-invoice', 'finance.manage-refund',
-                'finance.manage-pemasukan', 'finance.manage-pengeluaran',
                 'report.view', 'report.export',
                 'settings.brand', 'settings.notification',
                 'dashboard.view-brand',
