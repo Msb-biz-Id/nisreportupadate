@@ -18,6 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        // Exclude Sidobe webhook dari CSRF — endpoint public yang diakses server Sidobe
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/sidobe',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

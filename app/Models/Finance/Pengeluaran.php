@@ -17,7 +17,7 @@ class Pengeluaran extends Model
     protected $table = 'pengeluaran';
 
     protected $fillable = [
-        'brand_id', 'kategori_pengeluaran_id', 'refund_id',
+        'brand_id', 'kategori_pengeluaran_id', 'refund_id', 'source_payment_id',
         'tanggal', 'nominal', 'keterangan', 'bukti', 'is_auto', 'created_by',
     ];
 

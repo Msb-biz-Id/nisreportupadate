@@ -13,9 +13,11 @@ use App\Models\Master\Logo;
 use App\Models\Master\PaketOrder;
 use App\Models\Master\PolaJahitan;
 use App\Models\Master\Printing;
+use App\Models\Master\JenisProduk;
+use App\Models\Master\JenisSetelan;
+use App\Models\Master\PolaProduksi;
 use App\Models\Master\Product;
 use App\Models\Master\Progress;
-use App\Models\Master\Reseller;
 use App\Models\Master\Resleting;
 use App\Models\Master\Size;
 use App\Models\Master\SumberOrder;
@@ -26,6 +28,8 @@ class MasterDataSeeder extends Seeder
 {
     public function run(): void
     {
+        $isMysql = \Illuminate\Support\Facades\DB::getDriverName() !== 'sqlite';
+        if ($isMysql) \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=0');
         $this->seedBahanKain();
         $this->seedLogo();
         $this->seedResleting();
@@ -35,42 +39,36 @@ class MasterDataSeeder extends Seeder
         $this->seedSize();
         $this->seedPolaJahitan();
         $this->seedProgress();
+        $this->seedJenisSetelan();
+        $this->seedPolaProduksi();
+        $this->seedJenisProduk();
         $this->seedKategoriOrder();
         $this->seedJenisOrder();
         $this->seedSumberOrder();
-        $this->seedIklan();
         $this->seedCustomerType();
         $this->seedBank();
         $this->seedProduct();
-        $this->seedReseller();
+        if ($isMysql) \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=1');
     }
 
     private function seedBahanKain(): void
     {
+        \Illuminate\Support\Facades\DB::table('bahan_kains')->delete();
         $items = [
-            ['nama' => 'Polyester Drifit', 'deskripsi' => 'Bahan ringan, cepat kering, breathable'],
-            ['nama' => 'Microfiber', 'deskripsi' => 'Halus, anti-tembus tinta, cocok untuk jersey'],
-            ['nama' => 'Hyget Adidas', 'deskripsi' => 'Bahan tipis ringan, harga ekonomis'],
-            ['nama' => 'Honeycomb', 'deskripsi' => 'Tekstur sarang lebah, sirkulasi udara baik'],
-            ['nama' => 'Tactel', 'deskripsi' => 'Premium, anti-mengembang, fit di badan'],
-            ['nama' => 'Cotton Combed 30s', 'deskripsi' => 'Bahan kaos standar, nyaman dipakai'],
-            ['nama' => 'Dryfit Sport', 'deskripsi' => 'Dryfit grade sport, anti-bakteri'],
-            ['nama' => 'Lotto Original', 'deskripsi' => 'Bahan premium import'],
+            'Milano Collmax', 'Milano Premium', 'Topo', 'Airwalk', 'Smash',
+            'Teraria', 'Lotto Alle Halus', 'Lotto Drive Kasar', 'Waffle', 'Straw',
+            'Curly', 'Pique', 'Senna', 'Olino', 'Century',
+            'Scuba', 'Dropnidel', 'Jaquard Tripel S', 'Parasut', 'Mikro Dk Lite',
+            'Monochrome', 'Rib', 'Evistra (Kemeja)', 'Pales (Bendera)', 'Satin (Bendera)',
         ];
-        foreach ($items as $i) BahanKain::firstOrCreate(['nama' => $i['nama']], $i + ['is_active' => true]);
+        foreach ($items as $nama) BahanKain::firstOrCreate(['nama' => $nama], ['is_active' => true]);
     }
 
     private function seedLogo(): void
     {
-        $items = [
-            ['nama' => 'Bordir Komputer', 'deskripsi' => 'Logo bordir presisi tinggi'],
-            ['nama' => 'Polyflex', 'deskripsi' => 'Sablon polyflex tahan lama'],
-            ['nama' => 'Rubber', 'deskripsi' => 'Sablon karet timbul'],
-            ['nama' => 'Polyflex Reflective', 'deskripsi' => 'Polyflex memantul cahaya'],
-            ['nama' => 'Print Sublim', 'deskripsi' => 'Logo terprint langsung pada bahan'],
-            ['nama' => 'Patch Velcro', 'deskripsi' => 'Logo patch bisa dilepas pasang'],
-        ];
-        foreach ($items as $i) Logo::firstOrCreate(['nama' => $i['nama']], $i + ['is_active' => true]);
+        \Illuminate\Support\Facades\DB::table('logos')->delete();
+        $items = ['Pvc', 'Pvc Hologram', 'Flock Tatami', 'Dtf', 'Bordir', 'Woven', 'Rubber', 'Chameleon'];
+        foreach ($items as $nama) Logo::firstOrCreate(['nama' => $nama], ['is_active' => true]);
     }
 
     private function seedResleting(): void
@@ -87,25 +85,43 @@ class MasterDataSeeder extends Seeder
 
     private function seedPrinting(): void
     {
+        \Illuminate\Support\Facades\DB::table('printings')->delete();
         $items = [
-            ['nama' => 'Sublimasi Penuh', 'deskripsi' => 'Print sublimasi seluruh permukaan'],
-            ['nama' => 'Sublimasi Parsial', 'deskripsi' => 'Print sublimasi pada area tertentu'],
-            ['nama' => 'DTF', 'deskripsi' => 'Direct to Film printing'],
-            ['nama' => 'DTG', 'deskripsi' => 'Direct to Garment printing'],
-            ['nama' => 'Sablon Manual', 'deskripsi' => 'Sablon manual screen printing'],
+            'Non Print',
+            'Non Print + Polyflex',
+            'Full Printing Atasan + Polyflex',
+            'Printing Depan Belakang',
+            'Full Printing Atasan',
+            'Full Printing Sampai Celana',
+            'Full Printing Celana',
         ];
-        foreach ($items as $i) Printing::firstOrCreate(['nama' => $i['nama']], $i + ['is_active' => true]);
+        foreach ($items as $nama) Printing::firstOrCreate(['nama' => $nama], ['is_active' => true]);
     }
 
     private function seedPaketOrder(): void
     {
+        \Illuminate\Support\Facades\DB::table('paket_orders')->delete();
+        // [nama, warna, prioritas] — warna tampil di Kanban badge
         $items = [
-            ['nama' => 'Reguler', 'deskripsi' => 'Pengerjaan standar 7-14 hari'],
-            ['nama' => 'Express', 'deskripsi' => 'Pengerjaan kilat 3-5 hari, biaya +20%'],
-            ['nama' => 'Premium', 'deskripsi' => 'Pengerjaan + bahan premium'],
-            ['nama' => 'Bulk Order', 'deskripsi' => 'Order > 100 pcs, harga grosir'],
+            ['Normal',      '#10B981', 0],  // hijau — normal
+            ['Ekspress 1',  '#F59E0B', 1],  // kuning
+            ['Ekspress 2',  '#F59E0B', 1],
+            ['Ekspress 3',  '#F59E0B', 1],
+            ['Ekspress 4',  '#F97316', 1],  // oranye
+            ['Ekspress 5',  '#F97316', 1],
+            ['Ekspress 6',  '#F97316', 1],
+            ['Ekspress 7',  '#EF4444', 1],  // merah
+            ['Ekspress 8',  '#EF4444', 1],
+            ['Ekspress 9',  '#EF4444', 1],
+            ['Ekspress 10', '#DC2626', 1],  // merah gelap
+            ['Urgent',      '#7C3AED', 2],  // ungu — kritis
         ];
-        foreach ($items as $i) PaketOrder::firstOrCreate(['nama' => $i['nama']], $i + ['is_active' => true]);
+        foreach ($items as [$nama, $warna, $prioritas]) {
+            PaketOrder::firstOrCreate(
+                ['nama' => $nama],
+                ['warna' => $warna, 'prioritas' => $prioritas, 'is_active' => true]
+            );
+        }
     }
 
     private function seedTipeOrder(): void
@@ -143,23 +159,26 @@ class MasterDataSeeder extends Seeder
 
     private function seedPolaJahitan(): void
     {
-        $items = [
-            ['jenis_pola' => 'Lengan', 'nama' => 'Lengan Panjang'],
-            ['jenis_pola' => 'Lengan', 'nama' => 'Lengan Pendek'],
-            ['jenis_pola' => 'Lengan', 'nama' => 'Lengan 3/4'],
-            ['jenis_pola' => 'Kerah', 'nama' => 'Kerah O-Neck'],
-            ['jenis_pola' => 'Kerah', 'nama' => 'Kerah V-Neck'],
-            ['jenis_pola' => 'Kerah', 'nama' => 'Kerah Polo'],
-            ['jenis_pola' => 'Kerah', 'nama' => 'Kerah Henley'],
-            ['jenis_pola' => 'Bawah', 'nama' => 'Potongan Lurus'],
-            ['jenis_pola' => 'Bawah', 'nama' => 'Potongan Slim Fit'],
-            ['jenis_pola' => 'Pundak', 'nama' => 'Pundak Drop'],
-            ['jenis_pola' => 'Pundak', 'nama' => 'Pundak Standar'],
+        \Illuminate\Support\Facades\DB::table('pola_jahitans')->delete();
+        // Pola Jahitan Utama — untuk field "Pola Jahitan" di form
+        $polaUtama = [
+            'Standart', 'Raglan 1.0', 'Raglan 2.0', 'Pecah Pola Custom', 'Reglan Stick',
         ];
-        foreach ($items as $i) PolaJahitan::firstOrCreate(
-            ['jenis_pola' => $i['jenis_pola'], 'nama' => $i['nama']],
-            $i + ['is_active' => true]
-        );
+        foreach ($polaUtama as $nama) {
+            PolaJahitan::firstOrCreate(
+                ['jenis_pola' => 'Pola', 'nama' => $nama],
+                ['is_active' => true]
+            );
+        }
+
+        // Pola Jahitan List Lengan — untuk field "Jahitan List Lengan" di form
+        $polaLengan = ['Overdeck', 'Stick'];
+        foreach ($polaLengan as $nama) {
+            PolaJahitan::firstOrCreate(
+                ['jenis_pola' => 'Lengan', 'nama' => $nama],
+                ['is_active' => true]
+            );
+        }
     }
 
     private function seedProgress(): void
@@ -187,91 +206,33 @@ class MasterDataSeeder extends Seeder
 
     private function seedKategoriOrder(): void
     {
-        // Master global reseller (brand_id NULL) + sampel per brand
-        $globals = [
-            ['nama' => 'Jersey'],
-            ['nama' => 'Jaket'],
-            ['nama' => 'Celana'],
-            ['nama' => 'Kaos Polos'],
-            ['nama' => 'Seragam'],
-        ];
-        foreach ($globals as $g) KategoriOrder::firstOrCreate(
-            ['brand_id' => null, 'nama' => $g['nama']],
-            $g + ['is_active' => true]
+        // Global only — brand bisa tambah sendiri via UI
+        $globals = ['Jersey', 'Jaket', 'Celana', 'Kaos Polos', 'Seragam', 'Hoodie', 'Polo Shirt'];
+        foreach ($globals as $nama) KategoriOrder::firstOrCreate(
+            ['brand_id' => null, 'nama' => $nama],
+            ['is_active' => true]
         );
-
-        foreach (Brand::all() as $brand) {
-            foreach (['Jersey', 'Jaket', 'Hoodie', 'Polo Shirt'] as $nama) {
-                KategoriOrder::firstOrCreate(
-                    ['brand_id' => $brand->id, 'nama' => $nama],
-                    ['is_active' => true]
-                );
-            }
-        }
     }
 
     private function seedSumberOrder(): void
     {
-        $sources = [
-            ['nama' => 'Instagram'],
-            ['nama' => 'WhatsApp'],
-            ['nama' => 'Marketplace (Shopee/Tokopedia)'],
-            ['nama' => 'Website'],
-            ['nama' => 'Referral'],
-            ['nama' => 'Walk-in'],
-        ];
-        foreach ($sources as $s) SumberOrder::firstOrCreate(
-            ['brand_id' => null, 'nama' => $s['nama']],
-            $s + ['is_active' => true]
+        // Global only
+        $sources = ['Instagram', 'WhatsApp', 'TikTok', 'Marketplace (Shopee/Tokopedia)', 'Website', 'Referral', 'Walk-in'];
+        foreach ($sources as $nama) SumberOrder::firstOrCreate(
+            ['brand_id' => null, 'nama' => $nama],
+            ['is_active' => true]
         );
-
-        foreach (Brand::all() as $brand) {
-            foreach (['Instagram', 'WhatsApp', 'Marketplace'] as $nama) {
-                SumberOrder::firstOrCreate(
-                    ['brand_id' => $brand->id, 'nama' => $nama],
-                    ['is_active' => true]
-                );
-            }
-        }
     }
 
     private function seedCustomerType(): void
     {
-        // Global reseller defaults
-        foreach (
-            [
-                ['nama' => 'Reguler', 'diskon_default' => 0],
-                ['nama' => 'VIP', 'diskon_default' => 0],
-                ['nama' => 'Reseller', 'diskon_default' => 0],
-                ['nama' => 'Sekolah', 'diskon_default' => 0],
-                ['nama' => 'Perusahaan', 'diskon_default' => 0],
-                ['nama' => 'Tim football', 'diskon_default' => 0],
-                ['nama' => 'komunitas', 'diskon_default' => 0],
-            ] as $type
-        ) {
+        // Global only
+        $types = ['Reguler', 'Member', 'VIP', 'Reseller', 'Sekolah', 'Perusahaan', 'Tim / Komunitas'];
+        foreach ($types as $nama) {
             CustomerType::firstOrCreate(
-                ['brand_id' => null, 'nama' => $type['nama']],
-                $type + ['is_active' => true]
+                ['brand_id' => null, 'nama' => $nama],
+                ['diskon_default' => 0, 'is_active' => true]
             );
-        }
-
-        foreach (Brand::all() as $brand) {
-            foreach (
-                [
-                    ['nama' => 'Reguler', 'diskon_default' => 0],
-                    ['nama' => 'Member', 'diskon_default' => 0],
-                    ['nama' => 'Reseller', 'diskon_default' => 0],
-                    ['nama' => 'Sekolah', 'diskon_default' => 0],
-                    ['nama' => 'Perusahaan', 'diskon_default' => 0],
-                    ['nama' => 'Tim football', 'diskon_default' => 0],
-                    ['nama' => 'komunitas', 'diskon_default' => 0],
-                ] as $type
-            ) {
-                CustomerType::firstOrCreate(
-                    ['brand_id' => $brand->id, 'nama' => $type['nama']],
-                    $type + ['is_active' => true]
-                );
-            }
         }
     }
 
@@ -291,9 +252,58 @@ class MasterDataSeeder extends Seeder
         }
     }
 
+    private function seedJenisSetelan(): void
+    {
+        $items = [
+            ['nama' => 'Stell (Atasan + Bawahan)', 'deskripsi' => 'Setelan lengkap atas + bawah'],
+            ['nama' => 'Non-Stell (Atasan Saja)',  'deskripsi' => 'Hanya bagian atasan'],
+            ['nama' => 'Atasan Saja',              'deskripsi' => 'Khusus atasan'],
+            ['nama' => 'Bawahan Saja',             'deskripsi' => 'Khusus bawahan / celana'],
+        ];
+        foreach ($items as $i) JenisSetelan::firstOrCreate(['nama' => $i['nama']], $i + ['is_active' => true]);
+    }
+
+    private function seedPolaProduksi(): void
+    {
+        $items = [
+            ['nama' => 'Standart',   'deskripsi' => 'Pola produksi standar'],
+            ['nama' => 'Perempuan',  'deskripsi' => 'Pola khusus perempuan (lebih slim)'],
+            ['nama' => 'Slim Fit',   'deskripsi' => 'Pola body fit'],
+            ['nama' => 'Oversize',   'deskripsi' => 'Pola longgar / oversize'],
+        ];
+        foreach ($items as $i) PolaProduksi::firstOrCreate(['nama' => $i['nama']], $i + ['is_active' => true]);
+    }
+
+    private function seedJenisProduk(): void
+    {
+        \Illuminate\Support\Facades\DB::table('jenis_produks')->delete();
+        // Jenis Produk global — dikelola admin produksi, tanpa harga
+        $items = [
+            'Jersey',
+            'Jersey Running',
+            'Jersey Running Lekbong',
+            'Jersey Padel/Tenis',
+            'Jersey Basket',
+            'Jersey Tanpa Lengan / Lekbong',
+            'Jaket',
+            'Celana Panjang',
+            'Celana Pendek',
+            'Celana Cewek',
+            'Tunik',
+            'Celana Panjang Slim',
+            'Celana Panjang Non Slim',
+            'Celana Rok Slim',
+            'Celana Rok Non Slim',
+            'Bendera',
+        ];
+        foreach ($items as $nama) {
+            JenisProduk::firstOrCreate(['nama' => $nama], ['is_active' => true]);
+        }
+    }
+
     private function seedProduct(): void
     {
-        // Master global reseller
+        // Global catalog — brand bisa tambah produk spesifik via UI
         $globalProducts = [
             ['nama' => 'Jersey Custom Full Sublim', 'harga' => 95000],
             ['nama' => 'Jersey Polos', 'harga' => 65000],
@@ -307,72 +317,19 @@ class MasterDataSeeder extends Seeder
                 $p + ['is_active' => true, 'is_featured' => true]
             );
         }
-
-        foreach (Brand::all() as $brand) {
-            foreach (['Jersey ' . $brand->kode . ' Original', 'Jaket ' . $brand->kode . ' Premium'] as $nama) {
-                Product::firstOrCreate(
-                    ['brand_id' => $brand->id, 'nama' => $nama],
-                    ['harga' => rand(80, 250) * 1000, 'is_active' => true]
-                );
-            }
-        }
     }
 
     private function seedJenisOrder(): void
     {
-        $globals = [
-            ['nama' => 'Baru'],
-            ['nama' => 'Repeat Order'],
-            ['nama' => 'Revisi'],
-            ['nama' => 'Sample'],
-        ];
-        foreach ($globals as $g) {
-            JenisOrder::firstOrCreate(
-                ['brand_id' => null, 'nama' => $g['nama']],
-                $g + ['is_active' => true]
-            );
-        }
-        foreach (Brand::all() as $brand) {
-            foreach (['Baru', 'Repeat Order', 'Revisi'] as $nama) {
-                JenisOrder::firstOrCreate(
-                    ['brand_id' => $brand->id, 'nama' => $nama],
-                    ['is_active' => true]
-                );
-            }
-        }
+        // Global only
+        $globals = ['Baru', 'Repeat Order', 'Revisi', 'Sample'];
+        foreach ($globals as $nama) JenisOrder::firstOrCreate(
+            ['brand_id' => null, 'nama' => $nama],
+            ['is_active' => true]
+        );
     }
 
-    private function seedIklan(): void
-    {
-        foreach (Brand::all() as $brand) {
-            $ads = [
-                ['nama' => 'FB Ads - Jersey Promo', 'platform' => 'Facebook'],
-                ['nama' => 'IG Ads - Jaket Custom', 'platform' => 'Instagram'],
-                ['nama' => 'Google Ads - Konveksi', 'platform' => 'Google'],
-                ['nama' => 'TikTok Ads - Sport Wear', 'platform' => 'TikTok'],
-            ];
-            foreach ($ads as $a) {
-                Iklan::firstOrCreate(
-                    ['brand_id' => $brand->id, 'nama' => $a['nama']],
-                    $a + ['is_active' => true]
-                );
-            }
-        }
-    }
 
-    private function seedReseller(): void
-    {
-        $resellers = [
-            ['nama' => 'Toko Sport Jaya', 'deskripsi' => 'Reseller wilayah Jakarta & sekitarnya'],
-            ['nama' => 'CV Mitra Garment', 'deskripsi' => 'Reseller jaket dan jersey Bandung Raya'],
-            ['nama' => 'Galeri Sport Surabaya', 'deskripsi' => 'Distributor apparel olahraga Jawa Timur'],
-            ['nama' => 'Konveksi Nusantara', 'deskripsi' => 'Reseller multi-kota nasional'],
-        ];
-        foreach ($resellers as $r) {
-            Reseller::firstOrCreate(
-                ['nama' => $r['nama']],
-                $r + ['is_active' => true]
-            );
-        }
-    }
+
+
 }

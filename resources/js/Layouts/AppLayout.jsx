@@ -31,6 +31,7 @@ import {
     Scissors,
     Landmark,
     ListChecks,
+    Layers,
     Tag,
     Compass,
     UserCheck,
@@ -73,8 +74,10 @@ const MASTER_ITEMS = [
     { slug: 'tipe-order', name: 'Tipe Order', icon: Boxes, group: 'global' },
     { slug: 'size', name: 'Size / Ukuran', icon: Ruler, group: 'global' },
     { slug: 'pola-jahitan', name: 'Pola Jahitan', icon: Scissors, group: 'global' },
-    { slug: 'progress', name: 'Tahapan Progress', icon: ListChecks, group: 'global' },
-    { slug: 'reseller', name: 'Reseller', icon: Users, group: 'global' },
+    { slug: 'jenis-setelan',  name: 'Jenis Setelan',  icon: Layers,    group: 'production' },
+    { slug: 'pola-produksi',  name: 'Pola Produksi',  icon: Scissors,  group: 'production' },
+    { slug: 'jenis-produk',   name: 'Jenis Produk',   icon: Layers,    group: 'production' },
+    { slug: 'progress',       name: 'Tahapan Progress', icon: ListChecks, group: 'production' },
     { slug: 'sumber-order', name: 'Sumber Order', icon: Compass, group: 'brand' },
     { slug: 'jenis-order', name: 'Jenis Order', icon: LayoutList, group: 'brand' },
     { slug: 'iklan', name: 'Promo', icon: Megaphone, group: 'brand' },
@@ -94,18 +97,24 @@ function buildMenu(user) {
     });
 
     const adminItems = [];
-    if (hasPermission(user, 'brand.view')) {
+    const isAdminReseller = user?.roles?.includes('admin_reseller');
+    if (hasPermission(user, 'brand.view') && !isAdminReseller) {
         adminItems.push({ name: 'Brand', href: route('brands.index'), icon: Building2, active: route().current('brands.*') });
+    }
+    if (isAdminReseller) {
+        adminItems.push({ name: 'Brand Reseller', href: route('brands.index'), icon: Building2, active: route().current('brands.*') });
     }
     if (hasPermission(user, 'user.view')) {
         adminItems.push({ name: 'User', href: route('users.index'), icon: Users, active: route().current('users.*') });
     }
     if (adminItems.length) sections.push({ title: 'Administrasi', items: adminItems });
 
-    const canManageAll = hasPermission(user, 'master.manage');
-    const canManageBrand = canManageAll || hasPermission(user, 'master.brand');
-    const canManageProduk = hasPermission(user, 'master.produk');
-    if (canManageBrand || canManageProduk) {
+    const canManageAll        = hasPermission(user, 'master.manage');
+    const canManageBrand      = canManageAll || hasPermission(user, 'master.brand');
+    const canManageProduk     = hasPermission(user, 'master.produk');
+    const canManageProduction = hasPermission(user, 'master.production');
+
+    if (canManageBrand || canManageProduk || canManageProduction) {
         const isMasterActive = route().current('master.*');
         const customerActive = route().current('master.pelanggan.*');
         const currentSlug = route().params?.slug;
@@ -114,8 +123,11 @@ function buildMenu(user) {
             if (canManageAll) return true;
             if (canManageBrand && m.group === 'brand') return true;
             if (canManageProduk && m.slug === 'produk') return true;
+            // admin_produksi: lihat semua master produksi (global = bahan, size, logo, pola, dll) + tahapan progress
+            if (canManageProduction && (m.group === 'production' || m.group === 'global')) return true;
             return false;
         });
+
         const masterChildren = [
             ...visibleItems.map((m) => ({
                 name: m.name,
@@ -123,12 +135,13 @@ function buildMenu(user) {
                 icon: m.icon,
                 active: route().current('master.index') && currentSlug === m.slug,
             })),
-            {
+            // Pelanggan hanya tampil jika bukan role produksi murni
+            ...(canManageBrand || canManageProduk ? [{
                 name: 'Pelanggan',
                 href: route('master.pelanggan.index'),
                 icon: Users,
                 active: customerActive,
-            },
+            }] : []),
         ];
 
         sections.push({
@@ -199,6 +212,12 @@ function buildMenu(user) {
                     href: route('invoices.payments.pending'),
                     icon: ShieldCheck,
                     active: route().current('invoices.payments.pending') || route().current('invoices.payments.verify'),
+                },
+                {
+                    name: 'Master Pembayaran',
+                    href: route('master-pembayaran.index'),
+                    icon: Boxes,
+                    active: route().current('master-pembayaran.*'),
                 }
             ]
         });
@@ -226,16 +245,20 @@ function buildMenu(user) {
     const analyticsItems = [];
     if (hasPermission(user, 'report.view')) {
         const REPORT_ITEMS = [
-            { slug: 'penjualan-produk', name: 'Penjualan & Produk' },
-            { slug: 'pelanggan', name: 'Pelanggan' },
-            { slug: 'wilayah', name: 'Wilayah' },
-            { slug: 'kategori', name: 'Kategori Order' },
-            { slug: 'status-po', name: 'Status PO' },
+            // Marketing & Pasar
+            { slug: 'analisis-marketing', name: '🎯 Analisis Pasar' },
+            { slug: 'penjualan-produk',   name: 'Penjualan & Produk' },
+            { slug: 'pelanggan',          name: 'Pelanggan' },
+            { slug: 'wilayah',            name: 'Wilayah' },
+            { slug: 'kategori',           name: 'Kategori Order' },
+            // Operasional
+            { slug: 'status-po',          name: 'Status PO' },
             { slug: 'monitoring-deadline', name: 'Monitoring Deadline' },
-            { slug: 'rijek', name: 'Rijek Produksi' },
-            { slug: 'refund', name: 'Refund' },
-            { slug: 'pemasukan', name: 'Pemasukan' },
-            { slug: 'pengeluaran', name: 'Pengeluaran' },
+            { slug: 'rijek',              name: 'Rijek Produksi' },
+            { slug: 'refund',             name: 'Refund' },
+            // Keuangan
+            { slug: 'pemasukan',          name: 'Pemasukan' },
+            { slug: 'pengeluaran',        name: 'Pengeluaran' },
         ];
         const currentSlug = route().params?.slug;
         const isReportActive = route().current('reports.*');
@@ -370,12 +393,14 @@ function SidebarContent({ user, brandContext, onNavigate }) {
                     <ShieldCheck className="h-5 w-5" />
                 </div>
                 <div className="leading-tight">
-                    <div className="text-sm font-semibold text-sidebar-foreground">NISReport</div>
-                    <div className="text-[11px] text-sidebar-foreground/60">Multi-Brand Order Mgmt</div>
+                    <div className="text-sm font-semibold text-sidebar-foreground">{app?.name ?? 'NISReport'}</div>
+                    <div className="text-[11px] text-sidebar-foreground/60">{app?.description ?? 'Multi-Brand Order Mgmt'}</div>
                 </div>
             </div>
 
-            {!user?.roles?.includes('admin_produksi') && !user?.roles?.includes('admin_keuangan') && <BrandSwitcher brandContext={brandContext} />}
+            {!user?.roles?.includes('admin_produksi') && !user?.roles?.includes('admin_keuangan') && (
+                <BrandSwitcher brandContext={brandContext} userRoles={user?.roles} />
+            )}
 
             <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4 scrollbar-thin">
                 {sections.map((section) => (
@@ -409,9 +434,10 @@ function SidebarContent({ user, brandContext, onNavigate }) {
     );
 }
 
-function BrandSwitcher({ brandContext }) {
+function BrandSwitcher({ brandContext, userRoles = [] }) {
     const current = brandContext?.current;
     const available = brandContext?.available ?? [];
+    const isAdminReseller = userRoles.includes('admin_reseller');
 
     if (!current) return null;
 
@@ -420,9 +446,11 @@ function BrandSwitcher({ brandContext }) {
         router.post(route('brand.switch', id), {}, { preserveScroll: true });
     }
 
+    const switcherLabel = isAdminReseller ? 'Brand Reseller Aktif' : 'Brand Aktif';
+
     return (
         <div className="px-3 py-3">
-            <div className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">Brand Aktif</div>
+            <div className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">{switcherLabel}</div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <button
@@ -440,7 +468,7 @@ function BrandSwitcher({ brandContext }) {
                     </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-64">
-                    <DropdownMenuLabel>Pilih Brand</DropdownMenuLabel>
+                    <DropdownMenuLabel>{isAdminReseller ? 'Pilih Brand Reseller' : 'Pilih Brand'}</DropdownMenuLabel>
                     {available.map((b) => (
                         <DropdownMenuItem key={b.id} onSelect={() => switchBrand(b.id)} className="cursor-pointer">
                             <span className="flex flex-1 items-center gap-2">
@@ -632,7 +660,7 @@ function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMark
 }
 
 export default function AppLayout({ title, header, children }) {
-    const { auth, brandContext, flash } = usePage().props;
+    const { auth, brandContext, flash, app } = usePage().props;
     const user = auth?.user;
     const [mobileOpen, setMobileOpen] = useState(false);
 

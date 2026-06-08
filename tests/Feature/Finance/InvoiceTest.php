@@ -268,7 +268,7 @@ class InvoiceTest extends TestCase
         $brand = $this->makeBrand();
         $finance = $this->makeUser('admin_keuangan', [$brand]);
         $brandAdmin = $this->makeUser('admin_brand', [$brand]);
-        $unauthorizedUser = $this->makeUser('reseller', [$brand]); // resellers only have order.view, wait, reseller has order.view, let's see. Or let's make a new brand and user from different brand.
+        $unauthorizedUser = $this->makeUser('admin_produksi', [$brand]);
         $otherBrand = $this->makeBrand();
         $otherBrandAdmin = $this->makeUser('admin_brand', [$otherBrand]);
 

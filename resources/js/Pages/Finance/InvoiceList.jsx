@@ -1,10 +1,11 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-import { 
-    Search, Receipt, CheckCircle2, ExternalLink, Copy, Calendar, 
-    ShieldCheck, Clock, Banknote, AlertTriangle, Plus, Sparkles, 
+import {
+    Search, Receipt, CheckCircle2, ExternalLink, Copy, Calendar,
+    ShieldCheck, Clock, Banknote, AlertTriangle, Plus, Sparkles,
     Layers, RefreshCw, FileText, ChevronRight, CheckCircle, HelpCircle, XCircle,
-    Info, Percent, Truck, Wallet, FileSpreadsheet, CheckCircle2 as CheckedIcon
+    Info, Percent, Truck, Wallet, FileSpreadsheet, CheckCircle2 as CheckedIcon,
+    MessageCircle, Send
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
@@ -25,6 +26,51 @@ const STATUS_VARIANT = {
     overdue: 'destructive', 
     cancel: 'secondary',
 };
+
+/** Tombol dropdown "Kirim WA" dengan 3 pilihan kondisi */
+function WaDropdownButton({ invoice, onSend }) {
+    const [open, setOpen] = useState(false);
+    const alreadySent = !!invoice.sent_at;
+    const options = [
+        { key: 'new_invoice', label: '📄 Invoice Baru',         desc: 'Informasi invoice & link' },
+        { key: 'reminder',    label: '⏰ Pengingat Jatuh Tempo', desc: 'Reminder sebelum/saat jatuh tempo' },
+        { key: 'overdue',     label: '⚠️ Jatuh Tempo',           desc: 'Notifikasi sudah melewati jatuh tempo' },
+    ];
+    return (
+        <div className="relative">
+            <button
+                type="button"
+                onClick={() => setOpen(v => !v)}
+                onBlur={() => setTimeout(() => setOpen(false), 150)}
+                className={`flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-bold transition shadow-sm ${
+                    alreadySent
+                        ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
+                        : 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                }`}
+                title={alreadySent ? `Terkirim ${invoice.sent_at ? new Date(invoice.sent_at).toLocaleString('id-ID') : ''}` : 'Kirim via WhatsApp'}
+            >
+                <MessageCircle className="h-3.5 w-3.5" />
+                {alreadySent ? 'Kirim Ulang' : 'Kirim WA'}
+                <span className="text-[10px] opacity-60">▾</span>
+            </button>
+            {open && (
+                <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-xl border border-slate-200 bg-white shadow-xl">
+                    {options.map(opt => (
+                        <button
+                            key={opt.key}
+                            type="button"
+                            className="flex w-full flex-col px-3 py-2.5 text-left hover:bg-slate-50 first:rounded-t-xl last:rounded-b-xl transition"
+                            onClick={() => { setOpen(false); onSend(invoice, opt.key); }}
+                        >
+                            <span className="text-xs font-bold text-slate-800">{opt.label}</span>
+                            <span className="text-[10px] text-slate-400">{opt.desc}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
 
 const DEPOSIT_STATUS_VARIANT = {
     pending: 'warning',
@@ -280,6 +326,16 @@ export default function InvoiceList({
             },
             onError: () => setIsSubmitting(false)
         });
+    }
+
+    function sendInvoiceWa(invoice, condition = 'new_invoice') {
+        const labels = {
+            new_invoice: 'Kirim invoice baru ke WhatsApp pelanggan?',
+            reminder: 'Kirim pengingat jatuh tempo ke WhatsApp pelanggan?',
+            overdue: 'Kirim notifikasi jatuh tempo ke WhatsApp pelanggan?',
+        };
+        if (!confirm(labels[condition] ?? 'Kirim WA?')) return;
+        router.post(route('invoices.send-wa', invoice.id), { condition }, { preserveScroll: true });
     }
 
     function handleOpenValidateModal(invoice) {
@@ -599,13 +655,16 @@ export default function InvoiceList({
                                                             </Button>
                                                         )}
                                                         {can?.publish && iv.status === 'validated' && (
-                                                            <Button 
-                                                                size="xs" 
-                                                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-1 rounded-lg shadow-sm" 
+                                                            <Button
+                                                                size="xs"
+                                                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-1 rounded-lg shadow-sm"
                                                                 onClick={() => setConfirmPublish(iv)}
                                                             >
                                                                 Publish
                                                             </Button>
+                                                        )}
+                                                        {can?.publish && ['published', 'sent', 'overdue'].includes(iv.status) && (
+                                                            <WaDropdownButton invoice={iv} onSend={sendInvoiceWa} />
                                                         )}
                                                     </div>
                                                 </TableCell>
@@ -733,6 +792,20 @@ export default function InvoiceList({
                                                                 onClick={() => setConfirmDepositRefund(dep)}
                                                             >
                                                                 Refund
+                                                            </Button>
+                                                        )}
+                                                        {dep.status === 'pending' && can?.validate && (
+                                                            <Button 
+                                                                size="xs" 
+                                                                variant="destructive"
+                                                                className="font-bold text-[11px] py-1 px-2.5 rounded-lg ml-1"
+                                                                onClick={() => {
+                                                                    if (confirm('Yakin ingin menghapus record tanda jadi ini?')) {
+                                                                        router.delete(route('design-deposits.destroy', dep.id));
+                                                                    }
+                                                                }}
+                                                            >
+                                                                Hapus
                                                             </Button>
                                                         )}
                                                     </div>

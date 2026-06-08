@@ -172,6 +172,7 @@ export default function PaymentsPending({
                                     <TableHead className="font-semibold text-xs text-slate-600">Pelanggan / PO</TableHead>
                                     <TableHead className="font-semibold text-xs text-slate-600">Brand</TableHead>
                                     <TableHead className="font-semibold text-xs text-slate-600">Metode / Bank</TableHead>
+                                    <TableHead className="font-semibold text-xs text-slate-600">Jenis</TableHead>
                                     <TableHead className="font-semibold text-xs text-slate-600">Petugas Input</TableHead>
                                     <TableHead className="font-semibold text-xs text-slate-600">Tanggal Bayar</TableHead>
                                     <TableHead className="font-semibold text-xs text-slate-600 text-right">Nominal</TableHead>
@@ -182,7 +183,7 @@ export default function PaymentsPending({
                             <TableBody>
                                 {pending_payments.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="py-16 text-center text-sm text-slate-500 italic">
+                                        <TableCell colSpan={9} className="py-16 text-center text-sm text-slate-500 italic">
                                             Tidak ada transaksi pending yang perlu divalidasi.
                                         </TableCell>
                                     </TableRow>
@@ -192,6 +193,21 @@ export default function PaymentsPending({
                                             <TableCell>
                                                 <div className="font-bold text-slate-800">{p.order?.no_po ?? '—'}</div>
                                                 <div className="text-[10px] text-slate-400">{p.order?.nama_po ?? '—'}</div>
+                                                {/* DP progress indicator */}
+                                                {p.dp_info && p.dp_info.order_status === 'draft' && (
+                                                    <div className={`mt-1.5 flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold w-fit ${
+                                                        p.dp_info.will_be_sufficient
+                                                            ? 'bg-emerald-100 text-emerald-700'
+                                                            : 'bg-amber-100 text-amber-700'
+                                                    }`}>
+                                                        {p.dp_info.will_be_sufficient
+                                                            ? <Check className="h-3 w-3" />
+                                                            : <AlertCircle className="h-3 w-3" />
+                                                        }
+                                                        DP {p.dp_info.current_pct}% → {p.dp_info.after_pct}%
+                                                        {p.dp_info.will_be_sufficient && !p.dp_info.already_sufficient && ' ✓ Cukup'}
+                                                    </div>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge variant="outline" className="font-bold text-indigo-700 bg-indigo-50">
@@ -207,6 +223,11 @@ export default function PaymentsPending({
                                                 ) : (
                                                     <span className="font-mono text-slate-400 italic">CASH / MANUAL</span>
                                                 )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline" className="text-[10px] font-bold uppercase">
+                                                    {p.master_jenis_pembayaran?.nama ?? (p.payment_type ?? 'Lainnya')}
+                                                </Badge>
                                             </TableCell>
                                             <TableCell className="font-semibold text-slate-600">
                                                 <div className="flex items-center gap-1">
@@ -236,13 +257,27 @@ export default function PaymentsPending({
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 {can.validate ? (
-                                                    <Button 
-                                                        onClick={() => handleOpenVerify(p)} 
-                                                        size="sm" 
-                                                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm"
-                                                    >
-                                                        <ShieldCheck className="h-4 w-4 mr-1" /> Validasi
-                                                    </Button>
+                                                    <div className="flex justify-end gap-1.5">
+                                                        <Button 
+                                                            onClick={() => handleOpenVerify(p)} 
+                                                            size="sm" 
+                                                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm"
+                                                        >
+                                                            <ShieldCheck className="h-4 w-4 mr-1" /> Validasi
+                                                        </Button>
+                                                        <Button 
+                                                            onClick={() => {
+                                                                if (confirm('Yakin ingin menghapus record pembayaran ini?')) {
+                                                                    router.delete(route('invoices.payments.destroy', p.id));
+                                                                }
+                                                            }} 
+                                                            size="sm" 
+                                                            variant="destructive"
+                                                            className="font-bold rounded-lg shadow-sm"
+                                                        >
+                                                            <Trash2 className="h-4 w-4 mr-1" /> Hapus
+                                                        </Button>
+                                                    </div>
                                                 ) : (
                                                     <Badge variant="secondary">No Permission</Badge>
                                                 )}

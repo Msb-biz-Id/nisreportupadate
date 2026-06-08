@@ -15,6 +15,8 @@ class UserSeeder extends Seeder
         $brandAlg = Brand::where('kode', 'ALG')->first();
         $brandCrl = Brand::where('kode', 'CRL')->first();
         $brandDrv = Brand::where('kode', 'DRV')->first();
+        // Demo reseller account — pakai Telulas (TLS) sebagai contoh
+        $brandTelulas = Brand::where('kode', 'TLS')->first();
 
         // Superadmin (akses semua brand)
         $super = User::updateOrCreate(
@@ -100,21 +102,23 @@ class UserSeeder extends Seeder
             $brandDrv->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
         ]);
 
-        // Reseller (terhubung ke salah satu brand; di Phase berikutnya master data reseller global)
-        $reseller = User::updateOrCreate(
-            ['email' => 'reseller@nisreport.local'],
-            [
-                'name' => 'Reseller Demo',
-                'password' => Hash::make('password'),
-                'phone' => '081555555555',
-                'is_active' => true,
-                'email_verified_at' => now(),
-            ]
-        );
-        $reseller->syncRoles(['reseller']);
-        $reseller->brands()->syncWithoutDetaching([
-            $brandAlg->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
-        ]);
+        // Admin Reseller demo — diarahkan ke brand Telulas (TLS)
+        if ($brandTelulas) {
+            $adminReseller = User::updateOrCreate(
+                ['email' => 'reseller@nisreport.local'],
+                [
+                    'name' => 'Admin Reseller (Demo)',
+                    'password' => Hash::make('password'),
+                    'phone' => '081555555555',
+                    'is_active' => true,
+                    'email_verified_at' => now(),
+                ]
+            );
+            $adminReseller->syncRoles(['admin_reseller']);
+            $adminReseller->brands()->sync([
+                $brandTelulas->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
+            ]);
+        }
 
         // Admin Produksi
         $produksi = User::updateOrCreate(

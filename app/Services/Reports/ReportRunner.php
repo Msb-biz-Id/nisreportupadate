@@ -14,7 +14,21 @@ use Illuminate\Support\Facades\DB;
 
 class ReportRunner
 {
-    public function run(string $slug, ?string $brandId, array $filters): array
+    private function bf(string|array|null $brandId): \Closure
+    {
+        return fn ($q) => is_array($brandId)
+            ? $q->whereIn('brand_id', $brandId)
+            : $q->where('brand_id', $brandId);
+    }
+
+    private function obf(string|array|null $brandId): \Closure
+    {
+        return fn ($q) => is_array($brandId)
+            ? $q->whereIn('orders.brand_id', $brandId)
+            : $q->where('orders.brand_id', $brandId);
+    }
+
+    public function run(string $slug, string|array|null $brandId, array $filters): array
     {
         return match ($slug) {
             'penjualan-produk' => $this->penjualanProduk($brandId, $filters),
@@ -39,13 +53,13 @@ class ReportRunner
         return [$from, $to];
     }
 
-    private function penjualanProduk(?string $brandId, array $filters): array
+    private function penjualanProduk(string|array|null $brandId, array $filters): array
     {
         [$from, $to] = $this->dateRange($filters);
 
         $rows = OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->when($brandId, fn ($q) => $q->where('orders.brand_id', $brandId))
+            ->when($brandId, $this->obf($brandId))
             ->whereBetween('orders.tanggal_masuk', [$from, $to])
             ->where('orders.status_po', '!=', 'draft')
             ->select(
@@ -77,7 +91,7 @@ class ReportRunner
         ];
     }
 
-    private function pelanggan(?string $brandId, array $filters): array
+    private function pelanggan(string|array|null $brandId, array $filters): array
     {
         [$from, $to] = $this->dateRange($filters);
 
@@ -87,7 +101,9 @@ class ReportRunner
                   ->whereBetween('orders.tanggal_masuk', [$from, $to])
                   ->where('orders.status_po', '!=', 'draft');
             })
-            ->when($brandId, fn ($q) => $q->where('customers.brand_id', $brandId))
+            // Array = reseller hub context → filter via orders.brand_id (customers live at hub, orders at branch)
+            ->when(is_array($brandId), fn ($q) => $q->whereIn('orders.brand_id', $brandId))
+            ->when(! is_array($brandId) && $brandId, fn ($q) => $q->where('customers.brand_id', $brandId))
             ->select(
                 'customers.kode', 'customers.nama', 'customers.nomor_hp',
                 DB::raw('COUNT(orders.id) as total_order'),
@@ -117,14 +133,14 @@ class ReportRunner
         ];
     }
 
-    private function wilayah(?string $brandId, array $filters): array
+    private function wilayah(string|array|null $brandId, array $filters): array
     {
         [$from, $to] = $this->dateRange($filters);
         $level = $filters['level_wilayah'] ?? 'kabupaten';
 
         $query = DB::table('orders')
             ->join('customers', 'customers.id', '=', 'orders.pelanggan_id')
-            ->when($brandId, fn ($q) => $q->where('orders.brand_id', $brandId))
+            ->when($brandId, $this->obf($brandId))
             ->whereBetween('orders.tanggal_masuk', [$from, $to])
             ->where('orders.status_po', '!=', 'draft');
 
@@ -187,14 +203,14 @@ class ReportRunner
         ]];
     }
 
-    private function kategori(?string $brandId, array $filters): array
+    private function kategori(string|array|null $brandId, array $filters): array
     {
         [$from, $to] = $this->dateRange($filters);
 
         $rows = DB::table('orders')
             ->leftJoin('kategori_orders', 'kategori_orders.id', '=', 'orders.kategori_order_id')
             ->leftJoin('order_items', 'order_items.order_id', '=', 'orders.id')
-            ->when($brandId, fn ($q) => $q->where('orders.brand_id', $brandId))
+            ->when($brandId, $this->obf($brandId))
             ->whereBetween('orders.tanggal_masuk', [$from, $to])
             ->where('orders.status_po', '!=', 'draft')
             ->select(
@@ -219,12 +235,12 @@ class ReportRunner
         ]];
     }
 
-    private function statusPo(?string $brandId, array $filters): array
+    private function statusPo(string|array|null $brandId, array $filters): array
     {
         [$from, $to] = $this->dateRange($filters);
 
         $q = Order::query()
-            ->when($brandId, fn ($x) => $x->where('brand_id', $brandId))
+            ->when($brandId, $this->bf($brandId))
             ->whereBetween('tanggal_masuk', [$from, $to])
             ->with(['pelanggan:id,nama']);
 
@@ -249,12 +265,12 @@ class ReportRunner
         return ['rows' => $rows, 'summary' => $breakdown->map(fn ($cnt, $st) => ['label' => $st, 'value' => $cnt])->values()->all()];
     }
 
-    private function monitoringDeadline(?string $brandId, array $filters): array
+    private function monitoringDeadline(string|array|null $brandId, array $filters): array
     {
         $threshold = (int) ($filters['threshold'] ?? 7);
 
         $orders = Order::query()
-            ->when($brandId, fn ($q) => $q->where('brand_id', $brandId))
+            ->when($brandId, $this->bf($brandId))
             ->whereNotIn('status_po', ['draft', 'sudah_dikirim'])
             ->where('deadline_customer', '<=', Carbon::now()->addDays($threshold))
             ->with(['pelanggan:id,nama'])
@@ -282,12 +298,12 @@ class ReportRunner
         ]];
     }
 
-    private function rijek(?string $brandId, array $filters): array
+    private function rijek(string|array|null $brandId, array $filters): array
     {
         [$from, $to] = $this->dateRange($filters);
 
         $rows = Rijek::query()
-            ->when($brandId, fn ($q) => $q->whereHas('order', fn ($x) => $x->where('brand_id', $brandId)))
+            ->when($brandId, fn ($q) => $q->whereHas('order', $this->bf($brandId)))
             ->whereBetween('created_at', [$from, $to])
             ->with(['order:id,no_po', 'progress:id,nama_progress'])
             ->orderByDesc('created_at')
@@ -304,7 +320,7 @@ class ReportRunner
 
         // PO terbanyak rijek
         $poTerbanyak = Rijek::query()
-            ->when($brandId, fn ($q) => $q->whereHas('order', fn ($x) => $x->where('brand_id', $brandId)))
+            ->when($brandId, fn ($q) => $q->whereHas('order', $this->bf($brandId)))
             ->whereBetween('created_at', [$from, $to])
             ->select('order_id', \Illuminate\Support\Facades\DB::raw('SUM(jumlah) as total'))
             ->groupBy('order_id')
@@ -317,7 +333,7 @@ class ReportRunner
 
         // Tahapan terbanyak rijek
         $tahapanTerbanyak = Rijek::query()
-            ->when($brandId, fn ($q) => $q->whereHas('order', fn ($x) => $x->where('brand_id', $brandId)))
+            ->when($brandId, fn ($q) => $q->whereHas('order', $this->bf($brandId)))
             ->whereBetween('created_at', [$from, $to])
             ->whereNotNull('progress_id')
             ->select('progress_id', \Illuminate\Support\Facades\DB::raw('SUM(jumlah) as total'))
@@ -337,12 +353,12 @@ class ReportRunner
         ]];
     }
 
-    private function refund(?string $brandId, array $filters): array
+    private function refund(string|array|null $brandId, array $filters): array
     {
         [$from, $to] = $this->dateRange($filters);
 
         $q = Refund::query()
-            ->when($brandId, fn ($x) => $x->where('brand_id', $brandId))
+            ->when($brandId, $this->bf($brandId))
             ->whereBetween('created_at', [$from, $to])
             ->with('order:id,no_po');
 
@@ -366,12 +382,12 @@ class ReportRunner
         ]];
     }
 
-    private function pemasukan(?string $brandId, array $filters): array
+    private function pemasukan(string|array|null $brandId, array $filters): array
     {
         [$from, $to] = $this->dateRange($filters);
 
         $q = Pemasukan::query()
-            ->when($brandId, fn ($x) => $x->where('brand_id', $brandId))
+            ->when($brandId, $this->bf($brandId))
             ->whereBetween('tanggal', [$from, $to])
             ->with('kategori:id,nama_kategori');
 
@@ -393,12 +409,12 @@ class ReportRunner
         ]];
     }
 
-    private function pengeluaran(?string $brandId, array $filters): array
+    private function pengeluaran(string|array|null $brandId, array $filters): array
     {
         [$from, $to] = $this->dateRange($filters);
 
         $q = Pengeluaran::query()
-            ->when($brandId, fn ($x) => $x->where('brand_id', $brandId))
+            ->when($brandId, $this->bf($brandId))
             ->whereBetween('tanggal', [$from, $to])
             ->with('kategori:id,nama_kategori');
 
@@ -420,7 +436,7 @@ class ReportRunner
         ]];
      }
 
-    private function analisisMarketing(?string $brandId, array $filters): array
+    private function analisisMarketing(string|array|null $brandId, array $filters): array
     {
         [$from, $to] = $this->dateRange($filters);
 
@@ -431,7 +447,7 @@ class ReportRunner
             ->leftJoin('order_items', 'order_items.order_id', '=', 'orders.id')
             ->whereBetween('orders.tanggal_masuk', [$from, $to])
             ->where('orders.status_po', '!=', 'draft')
-            ->when($brandId, fn ($x) => $x->where('orders.brand_id', $brandId))
+            ->when($brandId, $this->obf($brandId))
             ->when(! empty($filters['customer_type_id']), fn ($x) => $x->where('customers.type_pelanggan_id', $filters['customer_type_id']))
             ->when(! empty($filters['sumber_order_id']), fn ($x) => $x->where('orders.sumber_order_id', $filters['sumber_order_id']))
             ->select(

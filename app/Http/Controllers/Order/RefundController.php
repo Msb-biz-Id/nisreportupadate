@@ -19,11 +19,29 @@ class RefundController extends Controller
 
     public function index(Request $request)
     {
-        $brandId = BrandContext::current($request);
-        $selectedBrandId = $request->input('brand_id', $brandId);
+        $user = $request->user();
+        $selectedBrandId = $request->input('brand_id', 'all');
+
+        // Brand authorization — validate selected brand is accessible
+        $accessibleBrandIds = $user->isSuperadmin() || $user->hasRole('owner')
+            ? null // null = no restriction
+            : $user->brands()->pluck('brands.id')->toArray();
+
+        if ($selectedBrandId && $selectedBrandId !== 'all' && $accessibleBrandIds !== null) {
+            abort_unless(in_array($selectedBrandId, $accessibleBrandIds), 403, 'Anda tidak memiliki akses ke brand tersebut.');
+        }
+
+        // admin_reseller on hub context: expand to hub + all branch IDs
+        $effectiveIds = null;
+        if ($user->hasRole('admin_reseller') && ($selectedBrandId === 'all' || empty($selectedBrandId))) {
+            $effectiveIds = BrandContext::effectiveBrandIds($request);
+        }
 
         $query = Refund::query()
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
+            ->when($effectiveIds, fn ($q) => $q->whereIn('brand_id', $effectiveIds))
+            ->when(! $effectiveIds && (! $selectedBrandId || $selectedBrandId === 'all') && $accessibleBrandIds !== null,
+                fn ($q) => $q->whereIn('brand_id', $accessibleBrandIds))
             ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'creator:id,name']);
 
         if ($status = $request->string('status')->toString()) {
@@ -53,7 +71,6 @@ class RefundController extends Controller
 
         $refunds = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
 
-        $user = $request->user();
         $brands = $user->isSuperadmin()
             ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
             : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);

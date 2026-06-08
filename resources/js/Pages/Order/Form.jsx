@@ -21,16 +21,22 @@ const ACCENT_COLORS = ['red', 'blue', 'emerald', 'amber', 'purple', 'pink', 'tea
 function newItem() {
     return {
         product_id: '',
+        jenis_produk_id: '',
         nama_produk: '',
         varian_label: '',
         quantity: 1,
         harga_satuan: 0,
         is_addon: false,
+        jenis_setelan_id: '',
+        pola_produksi_id: '',
         bahan_kain_id: '',
+        bahan_kain_ids: [],           // multiple bahan atasan
+        bahan_kain_bawahan_id: '',
+        bahan_kain_bawahan_ids: [],   // multiple bahan bawahan
         jenis_setelan: '',
         pola: '',
         logo_id: '',
-        printing_id: '',
+        logo_ids: [],                 // multiple logo (dari MultiSelect)
         resleting_id: '',
         jenis_rib: '',
         tutup_kerah: '',
@@ -38,12 +44,9 @@ function newItem() {
         list_lengan: '',
         list_samping_celana: '',
         list_bawah_celana: '',
-        pola_jahitan_lengan_id: '',
-        pola_jahitan_kerah_id: '',
-        pola_jahitan_bawah_id: '',
-        pola_jahitan_pundak_id: '',
-        pola_jahitan_id: '',
-        jahitan_list_lengan: '',
+        pola_jahitan_lengan_id: '',   // Jahitan List Lengan (dari master)
+        pola_jahitan_id: '',          // Pola Jahitan (dari master)
+        jahitan_list_lengan: '',      // fallback string lama
         warna: '',
         jml_atasan: '',
         jml_bawahan: '',
@@ -53,6 +56,7 @@ function newItem() {
         ket_atasan: '',
         ket_bawahan: '',
         gambar_kerah: '',
+        gambar_ket_tambahan: '',
         namesets: [],
     };
 }
@@ -177,7 +181,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes }) {
     );
 }
 
-function ItemCard({ index, item, masters, onChange, onRemove }) {
+function ItemCard({ index, item, masters, onChange, onRemove, namaPo = '' }) {
     const [specOpen, setSpecOpen] = useState(false);
     const [namesetOpen, setNamesetOpen] = useState(true);
     const [pasteOpen, setPasteOpen] = useState(false);
@@ -365,37 +369,43 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                                 <div className="flex flex-col">
                                     <FieldLabel>Jenis Setelan</FieldLabel>
-                                    <Select value={item.jenis_setelan || NONE} onValueChange={(v) => patch('jenis_setelan', v === NONE ? '' : v)}>
-                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>— Tidak diset —</SelectItem>
-                                            <SelectItem value="stell">Stell (Atasan + Bawahan)</SelectItem>
-                                            <SelectItem value="non_stell">Non-Stell</SelectItem>
-                                            <SelectItem value="atasan_saja">Atasan Saja</SelectItem>
-                                            <SelectItem value="bawahan_saja">Bawahan Saja</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    <SearchableSelect
+                                        value={item.jenis_setelan_id || ''}
+                                        onValueChange={(v) => patch('jenis_setelan_id', v)}
+                                        options={(masters.jenis_setelan ?? []).map((j) => ({ value: j.id, label: j.nama }))}
+                                        placeholder="— Pilih jenis setelan —"
+                                        className="h-8 text-xs"
+                                    />
                                 </div>
                                 <div className="flex flex-col">
-                                    <FieldLabel>Pola</FieldLabel>
-                                    <Select value={item.pola || NONE} onValueChange={(v) => patch('pola', v === NONE ? '' : v)}>
-                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>— Tidak diset —</SelectItem>
-                                            <SelectItem value="standart">Standart</SelectItem>
-                                            <SelectItem value="perempuan">Perempuan</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    <FieldLabel>Pola Produksi</FieldLabel>
+                                    <SearchableSelect
+                                        value={item.pola_produksi_id || ''}
+                                        onValueChange={(v) => patch('pola_produksi_id', v)}
+                                        options={(masters.pola_produksi ?? []).map((p) => ({ value: p.id, label: p.nama }))}
+                                        placeholder="— Pilih pola —"
+                                        className="h-8 text-xs"
+                                    />
                                 </div>
                                 <div className="flex flex-col">
-                                    <FieldLabel>Bahan Kain</FieldLabel>
-                                    <Select value={item.bahan_kain_id || NONE} onValueChange={(v) => patch('bahan_kain_id', v === NONE ? '' : v)}>
-                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>— Tidak diset —</SelectItem>
-                                            {masters.bahan_kains.map((b) => (<SelectItem key={b.id} value={b.id}>{b.nama}</SelectItem>))}
-                                        </SelectContent>
-                                    </Select>
+                                    <FieldLabel>Bahan Atasan</FieldLabel>
+                                    <MultiSelect
+                                        value={item.bahan_kain_ids || []}
+                                        onChange={(ids) => patch('bahan_kain_ids', ids)}
+                                        options={masters.bahan_kains.map((b) => ({ value: b.id, label: b.nama }))}
+                                        placeholder="— Pilih bahan atasan —"
+                                        className="text-xs"
+                                    />
+                                </div>
+                                <div className="flex flex-col">
+                                    <FieldLabel>Bahan Bawahan</FieldLabel>
+                                    <MultiSelect
+                                        value={item.bahan_kain_bawahan_ids || []}
+                                        onChange={(ids) => patch('bahan_kain_bawahan_ids', ids)}
+                                        options={masters.bahan_kains.map((b) => ({ value: b.id, label: b.nama }))}
+                                        placeholder="— Pilih bahan bawahan —"
+                                        className="text-xs"
+                                    />
                                 </div>
                                 <div className="flex flex-col">
                                     <FieldLabel>Warna</FieldLabel>
@@ -411,13 +421,13 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
                                 </div>
                                 <div className="flex flex-col">
                                     <FieldLabel>Logo</FieldLabel>
-                                    <Select value={item.logo_id || NONE} onValueChange={(v) => patch('logo_id', v === NONE ? '' : v)}>
-                                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>— Tidak diset —</SelectItem>
-                                            {masters.logos.map((l) => (<SelectItem key={l.id} value={l.id}>{l.nama}</SelectItem>))}
-                                        </SelectContent>
-                                    </Select>
+                                    <MultiSelect
+                                        value={item.logo_ids || []}
+                                        onChange={(ids) => patch('logo_ids', ids)}
+                                        options={masters.logos.map((l) => ({ value: l.id, label: l.nama }))}
+                                        placeholder="— Pilih logo —"
+                                        className="text-xs"
+                                    />
                                 </div>
                                 <div className="flex flex-col">
                                     <FieldLabel>Jenis RIB</FieldLabel>
@@ -445,30 +455,29 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
                                 </div>
                             </div>
 
-                            {/* Keterangan Jahitan */}
+                            {/* Keterangan Jahitan — 2 field dari Master Pola Jahitan */}
                             <div className="border-t border-slate-100 pt-3">
                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider bg-slate-100 p-1.5 rounded text-center mb-3">Keterangan Jahitan</p>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="flex flex-col">
                                         <FieldLabel>Pola Jahitan</FieldLabel>
-                                        <Select value={item.pola_jahitan_id || NONE} onValueChange={(v) => patch('pola_jahitan_id', v === NONE ? '' : v)}>
-                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value={NONE}>— Tidak diset —</SelectItem>
-                                                {masters.pola_jahitans.map((p) => (<SelectItem key={p.id} value={p.id}>{p.jenis_pola} — {p.nama}</SelectItem>))}
-                                            </SelectContent>
-                                        </Select>
+                                        <SearchableSelect
+                                            value={item.pola_jahitan_id || ''}
+                                            onValueChange={(v) => patch('pola_jahitan_id', v)}
+                                            options={masters.pola_jahitans.map((p) => ({ value: p.id, label: `[${p.jenis_pola}] ${p.nama}` }))}
+                                            placeholder="— Cari pola jahitan —"
+                                            className="text-xs"
+                                        />
                                     </div>
                                     <div className="flex flex-col">
                                         <FieldLabel>Jahitan List Lengan</FieldLabel>
-                                        <Select value={item.jahitan_list_lengan || NONE} onValueChange={(v) => patch('jahitan_list_lengan', v === NONE ? '' : v)}>
-                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value={NONE}>— Tidak diset —</SelectItem>
-                                                <SelectItem value="overdeck">Overdeck</SelectItem>
-                                                <SelectItem value="stick">Stick</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        <SearchableSelect
+                                            value={item.pola_jahitan_lengan_id || ''}
+                                            onValueChange={(v) => patch('pola_jahitan_lengan_id', v)}
+                                            options={(masters.pola_jahitans_lengan ?? masters.pola_jahitans).map((p) => ({ value: p.id, label: p.nama }))}
+                                            placeholder="— Cari jahitan lengan —"
+                                            className="text-xs"
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -490,28 +499,54 @@ function ItemCard({ index, item, masters, onChange, onRemove }) {
                                 </div>
                             </div>
 
-                            {/* Referensi Desain */}
+                            {/* Referensi Desain & Kerah */}
                             <div className="border-t border-slate-100 pt-3">
-                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    {/* Kolom kiri: Desain */}
                                     <div className="space-y-2">
-                                        <FieldLabel>Referensi Desain</FieldLabel>
-                                        <ImageUploader value={item.gambar_desain || null} onChange={(p) => patch('gambar_desain', p || '')} purpose="orders" aspect={4 / 3} />
+                                        <FieldLabel>1. Referensi Desain</FieldLabel>
+                                        <ImageUploader
+                                            value={item.gambar_desain || null}
+                                            onChange={(p) => patch('gambar_desain', p || '')}
+                                            purpose="orders"
+                                            aspect={4 / 3}
+                                            namaPo={namaPo || null}
+                                            label="Upload Gambar Desain"
+                                        />
                                         <div className="flex flex-col">
                                             <FieldLabel>Ket. Atasan</FieldLabel>
-                                            <Input value={item.ket_atasan} onChange={(e) => patch('ket_atasan', e.target.value)} className="h-8 text-xs" placeholder="Keterangan atasan" />
+                                            <Input value={item.ket_atasan} onChange={(e) => patch('ket_atasan', e.target.value)} className="h-8 text-xs uppercase" placeholder="Keterangan atasan" />
                                         </div>
                                         <div className="flex flex-col">
                                             <FieldLabel>Ket. Bawahan</FieldLabel>
-                                            <Input value={item.ket_bawahan} onChange={(e) => patch('ket_bawahan', e.target.value)} className="h-8 text-xs" placeholder="Keterangan bawahan" />
+                                            <Input value={item.ket_bawahan} onChange={(e) => patch('ket_bawahan', e.target.value)} className="h-8 text-xs uppercase" placeholder="Keterangan bawahan" />
                                         </div>
                                     </div>
+
+                                    {/* Kolom kanan: Kerah + Ket Tambahan */}
                                     <div className="space-y-2">
-                                        <FieldLabel>Referensi Kerah</FieldLabel>
-                                        <ImageUploader value={item.gambar_kerah || null} onChange={(p) => patch('gambar_kerah', p || '')} purpose="orders" aspect={1} />
+                                        <FieldLabel>2. Referensi Kerah</FieldLabel>
+                                        <ImageUploader
+                                            value={item.gambar_kerah || null}
+                                            onChange={(p) => patch('gambar_kerah', p || '')}
+                                            purpose="orders"
+                                            aspect={1}
+                                            namaPo={namaPo || null}
+                                            label="Upload Gambar Kerah"
+                                        />
                                         <div className="flex flex-col">
                                             <FieldLabel>Jenis Kerah</FieldLabel>
                                             <Input value={item.jenis_kerah} onChange={(e) => patch('jenis_kerah', e.target.value)} className="h-8 text-xs uppercase" placeholder="Jenis kerah" />
                                         </div>
+                                        <FieldLabel className="mt-2">3. Keterangan Tambahan Gambar</FieldLabel>
+                                        <ImageUploader
+                                            value={item.gambar_ket_tambahan || null}
+                                            onChange={(p) => patch('gambar_ket_tambahan', p || '')}
+                                            purpose="orders"
+                                            aspect={4 / 3}
+                                            namaPo={namaPo || null}
+                                            label="Upload Gambar Ket. Tambahan (Opsional)"
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -710,7 +745,7 @@ function PaymentRow({ index, payment, banks, onChange, onRemove }) {
     );
 }
 
-export default function OrderForm({ mode, masters, order }) {
+export default function OrderForm({ mode, masters, order, reseller_branches = [], is_reseller_hub = false }) {
     const isEdit = mode === 'edit';
 
     const { data, setData, post, put, processing, errors } = useForm({
@@ -720,8 +755,9 @@ export default function OrderForm({ mode, masters, order }) {
         deadline_customer: order?.deadline_customer?.slice?.(0, 10) ?? '',
         jenis_order_id: order?.jenis_order_id ?? '',
         sumber_order_id: order?.sumber_order_id ?? '',
+        paket_order_id: order?.paket_order_id ?? '',
         pelanggan_id: order?.pelanggan_id ?? '',
-        reseller_id: order?.reseller_id ?? '',
+        branch_brand_id: '',
         printing_ids: order?.printing_ids ?? [],
         iklan_id: order?.iklan_id ?? '',
         catatan: order?.catatan ?? '',
@@ -745,19 +781,19 @@ export default function OrderForm({ mode, masters, order }) {
         setData('items', items);
     }
 
-    // Toggle produk dari master — centang = tambah modul, uncentang = hapus modul
-    function toggleProduct(produk) {
-        const existingIdx = data.items.findIndex((i) => i.product_id === produk.id);
+    // Toggle jenis produk — centang = tambah modul produksi, uncentang = hapus modul
+    function toggleProduct(jenisProduk) {
+        const existingIdx = data.items.findIndex((i) => i.jenis_produk_id === jenisProduk.id);
         if (existingIdx >= 0) {
             const item = data.items[existingIdx];
-            if (item.namesets.length > 0 && !confirm(`Hapus modul "${produk.nama}"? Data nameset akan hilang.`)) return;
+            if (item.namesets.length > 0 && !confirm(`Hapus modul "${jenisProduk.nama}"? Data nameset akan hilang.`)) return;
             setData('items', data.items.filter((_, i) => i !== existingIdx));
         } else {
             setData('items', [...data.items, {
                 ...newItem(),
-                product_id: produk.id,
-                nama_produk: produk.nama,
-                harga_satuan: Number(produk.harga) || 0,
+                jenis_produk_id: jenisProduk.id,
+                nama_produk: jenisProduk.nama,
+                // harga_satuan: 0 — diisi manual atau pilih dari dropdown Produk Brand
             }]);
         }
     }
@@ -903,16 +939,22 @@ export default function OrderForm({ mode, masters, order }) {
                                     />
                                     {errors.pelanggan_id && <p className="mt-1 text-xs text-red-500">{errors.pelanggan_id}</p>}
                                 </div>
-                                <div className="flex flex-col col-span-2">
-                                    <FieldLabel>Reseller (Brand Mitra)</FieldLabel>
-                                    <SearchableSelect
-                                        value={data.reseller_id}
-                                        onValueChange={(v) => setData('reseller_id', v)}
-                                        options={(masters.resellers ?? []).map((r) => ({ value: r.id, label: r.nama }))}
-                                        placeholder="— Pilih Reseller (Jika Ada) —"
-                                    />
-                                    {errors.reseller_id && <p className="mt-1 text-xs text-red-500">{errors.reseller_id}</p>}
-                                </div>
+                                {/* Selector Brand Reseller: tampil ketika admin_reseller punya multiple brands */}
+                                {is_reseller_hub && !isEdit && reseller_branches.length > 0 && (
+                                    <div className="flex flex-col col-span-2">
+                                        <FieldLabel>
+                                            Brand Reseller
+                                            <span className="ml-1 text-[10px] text-muted-foreground font-normal">(kosongkan = pakai brand aktif saat ini)</span>
+                                        </FieldLabel>
+                                        <SearchableSelect
+                                            value={data.branch_brand_id}
+                                            onValueChange={(v) => setData('branch_brand_id', v)}
+                                            options={reseller_branches.map((b) => ({ value: b.id, label: `${b.kode} — ${b.nama_brand}` }))}
+                                            placeholder="— Pakai brand aktif (default) —"
+                                        />
+                                        {errors.branch_brand_id && <p className="mt-1 text-xs text-red-500">{errors.branch_brand_id}</p>}
+                                    </div>
+                                )}
                                 <div className="flex flex-col col-span-1">
                                     <FieldLabel>Jenis Order</FieldLabel>
                                     <SearchableSelect
@@ -929,6 +971,25 @@ export default function OrderForm({ mode, masters, order }) {
                                         onValueChange={(v) => setData('sumber_order_id', v)}
                                         options={masters.sumber_orders.map((s) => ({ value: s.id, label: s.nama }))}
                                         placeholder="— Tidak diset —"
+                                    />
+                                </div>
+                                <div className="flex flex-col col-span-1">
+                                    <FieldLabel>Paket Order</FieldLabel>
+                                    <SearchableSelect
+                                        value={data.paket_order_id}
+                                        onValueChange={(v) => setData('paket_order_id', v)}
+                                        options={(masters.paket_orders ?? []).map((p) => ({
+                                            value: p.id,
+                                            label: p.nama,
+                                            // warna ditampilkan sebagai dot di label
+                                        }))}
+                                        placeholder="— Normal (default) —"
+                                        renderOption={(p) => (
+                                            <span className="flex items-center gap-2">
+                                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: p.warna || '#6B7280' }} />
+                                                {p.label}
+                                            </span>
+                                        )}
                                     />
                                 </div>
                                 <div className="flex flex-col col-span-1">
@@ -966,18 +1027,18 @@ export default function OrderForm({ mode, masters, order }) {
                             </div>
 
                             {/* Checkbox Pilih Produk */}
-                            {masters.produk.length > 0 && (
+                            {(masters.jenis_produk ?? []).length > 0 && (
                                 <div className="mt-5 border-t border-slate-200 pt-5">
                                     <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
                                         <p className="text-xs font-black text-blue-900 uppercase tracking-wide mb-3">
-                                            Kategori Order / Produk (Pilih Untuk Membuka Modul)
+                                            Jenis Produk / Kategori Order (Pilih Untuk Membuka Modul)
                                         </p>
                                         <div className="flex flex-wrap gap-2">
-                                            {masters.produk.map((p) => {
-                                                const isChecked = data.items.some((i) => i.product_id === p.id);
+                                            {(masters.jenis_produk ?? []).map((jp) => {
+                                                const isChecked = data.items.some((i) => i.jenis_produk_id === jp.id);
                                                 return (
                                                     <label
-                                                        key={p.id}
+                                                        key={jp.id}
                                                         className={`flex items-center gap-1.5 cursor-pointer border px-3 py-2 rounded-lg text-[11px] font-bold transition-all shadow-sm select-none ${
                                                             isChecked
                                                                 ? 'bg-blue-600 border-blue-700 text-white'
@@ -988,9 +1049,9 @@ export default function OrderForm({ mode, masters, order }) {
                                                             type="checkbox"
                                                             className="w-4 h-4 rounded"
                                                             checked={isChecked}
-                                                            onChange={() => toggleProduct(p)}
+                                                            onChange={() => toggleProduct(jp)}
                                                         />
-                                                        {p.nama.toUpperCase()}
+                                                        {jp.nama.toUpperCase()}
                                                     </label>
                                                 );
                                             })}
@@ -1024,7 +1085,7 @@ export default function OrderForm({ mode, masters, order }) {
                                     </div>
                                 )}
                                 {data.items.map((item, idx) => (
-                                    <ItemCard key={idx} index={idx} item={item} masters={masters} onChange={patchItem} onRemove={removeItem} />
+                                    <ItemCard key={idx} index={idx} item={item} masters={masters} onChange={patchItem} onRemove={removeItem} namaPo={data.nama_po} />
                                 ))}
                             </div>
                         </div>

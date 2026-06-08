@@ -4,369 +4,561 @@
     <meta charset="utf-8">
     <title>SPK {{ $order->no_po }}</title>
     <style>
+        /* === CSS TEMPLATE DASAR PDF A4 (sesuai po/index.php) === */
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'DejaVu Sans', sans-serif; font-size: 9pt; color: #000; }
-        @page { margin: 12mm 14mm 18mm 14mm; }
+        @page { margin: 60px 30px 60px 30px; }
 
-        /* Title */
-        .main-title { text-align: center; font-size: 14pt; font-weight: 700; text-decoration: underline; padding: 8px 0 10px; color: #C00000; }
+        header { position: fixed; top: -45px; left: 0; right: 0; height: 35px;
+                 text-align: center; font-size: 18pt; font-weight: 900;
+                 text-decoration: underline; border-bottom: 4px solid #000; padding-bottom: 8px; }
+        footer { position: fixed; bottom: -45px; left: 0; right: 0; height: 30px;
+                 border-top: 2px solid #000; padding-top: 8px; }
+        main   { margin-top: 15px; margin-bottom: 10px; }
 
-        /* Header info box */
-        .header-box { border: 1.5px solid #000; padding: 10px 12px; margin-bottom: 14px; }
-        .header-row { display: table; width: 100%; margin-bottom: 2px; }
-        .header-row > div { display: table-cell; vertical-align: top; }
-        .hdr-left { width: 50%; }
-        .hdr-right { width: 50%; }
-        .hdr-item { font-size: 8.5pt; line-height: 1.8; }
-        .hdr-label { font-weight: 700; display: inline-block; width: 130px; text-transform: uppercase; }
-        .hdr-sep { display: inline-block; width: 12px; text-align: center; font-weight: 700; }
-        .hdr-val { font-weight: 400; }
+        body { font-family: 'DejaVu Sans', 'Helvetica', sans-serif;
+               font-size: 11pt; color: #000; line-height: 1.3; text-transform: uppercase; }
 
-        /* Product section band */
-        .product-band { background: #333; color: #fff; text-align: center; font-size: 11pt; font-weight: 700; padding: 7px 10px; margin: 14px 0 8px; letter-spacing: 0.5px; }
+        table { width: 100%; border-collapse: collapse; }
+        td, th { padding: 5px; vertical-align: top; }
+
+        /* Info header box */
+        .info-table { margin-bottom: 15px; border: 2px solid #000; }
+        .info-table td { padding: 7px 10px; font-weight: 900; font-size: 12pt; }
+        .colon { width: 12px; text-align: center; }
+
+        /* Title boxes */
+        .title-box        { font-weight: 900; font-size: 11pt; background: #d4d4d4; color: #000;
+                            padding: 7px 10px; text-align: left;
+                            border: 1px solid #000; border-bottom: none; text-transform: uppercase; }
+        .title-box-center { font-weight: 900; font-size: 11pt; background: #d4d4d4; color: #000;
+                            padding: 7px 10px; text-align: center;
+                            border: 1px solid #000; border-bottom: none; text-transform: uppercase; }
+
+        /* Product band */
+        .product-band { background: #000; color: #fff; text-align: center; font-size: 13pt;
+                        font-weight: 900; padding: 7px 10px; margin: 12px 0 0; letter-spacing: 0.5px; }
 
         /* Spec table */
-        .spec-box { border: 1px solid #000; margin-bottom: 6px; }
-        .spec-header { background: #E8E8E8; font-weight: 700; font-size: 8.5pt; padding: 5px 8px; border-bottom: 1px solid #000; }
-        .spec-row { display: table; width: 100%; border-bottom: 1px solid #ccc; }
-        .spec-row:last-child { border-bottom: none; }
-        .spec-lbl { display: table-cell; width: 35%; font-weight: 700; font-size: 8pt; padding: 4px 8px; text-transform: uppercase; vertical-align: middle; }
-        .spec-val { display: table-cell; width: 65%; font-size: 8.5pt; padding: 4px 8px; text-align: center; font-weight: 600; vertical-align: middle; }
-
-        /* Section divider */
-        .section-divider { text-align: center; font-weight: 700; font-size: 9pt; padding: 6px 0; letter-spacing: 1px; }
-
-        /* Desain & Kerah sections */
-        .ref-section { border: 1px solid #000; margin-bottom: 8px; }
-        .ref-header { background: #333; color: #fff; font-weight: 700; font-size: 8.5pt; padding: 5px 8px; text-align: center; }
-        .ref-body { padding: 6px; }
-        .ref-img { max-width: 100%; max-height: 350px; display: block; margin: 4px auto; }
-        .ket-box { display: table; width: 100%; border: 1px solid #000; margin-bottom: 8px; }
-        .ket-cell { display: table-cell; width: 50%; border: 1px solid #000; text-align: center; vertical-align: top; }
-        .ket-cell-head { background: #333; color: #fff; font-weight: 700; font-size: 8pt; padding: 4px 6px; }
-        .ket-cell-val { font-size: 8.5pt; padding: 5px 6px; font-weight: 600; }
-        .kerah-section { border: 1px solid #000; margin-bottom: 8px; }
-        .kerah-title { text-align: center; font-weight: 700; font-size: 9pt; padding: 5px 0; }
-        .kerah-body { display: table; width: 100%; }
-        .kerah-left { display: table-cell; width: 50%; border: 1px solid #000; vertical-align: top; }
-        .kerah-right { display: table-cell; width: 50%; border: 1px solid #000; vertical-align: top; text-align: center; padding: 4px; }
-        .kerah-lbl-head { background: #333; color: #fff; font-weight: 700; font-size: 8pt; padding: 4px 8px; }
-        .kerah-lbl-val { font-size: 8.5pt; padding: 5px 8px; font-weight: 600; text-align: center; }
+        .spec-table { border: 1px solid #000; margin-bottom: 5px; }
+        .spec-table th, .spec-table td { border: 1px solid #000; padding: 6px 8px; font-size: 11pt; text-align: center; font-weight: bold; }
+        .spec-table th { background: #d4d4d4; }
+        .spec-row-head { width: 28%; text-align: left !important; background: #f9f9f9; font-weight: 900; }
+        .sub-header { background: #d4d4d4; text-align: center !important; padding: 7px 8px !important; font-weight: 900; letter-spacing: 1px; }
 
         /* Nameset table */
-        .ns-table { width: 100%; border-collapse: collapse; border: 1.5px solid #000; margin-top: 8px; font-size: 8pt; }
-        .ns-table .ns-title { background: #E8E8E8; text-align: center; font-weight: 700; font-size: 9.5pt; padding: 6px; border: 1px solid #000; color: #000; letter-spacing: 0.5px; }
-        .ns-table th { background: #E8E8E8; border: 1px solid #000; padding: 5px 6px; font-weight: 700; text-align: center; color: #000; }
-        .ns-table th.left { text-align: left; }
-        .ns-table td { border: 1px solid #000; padding: 4px 6px; text-align: center; }
-        .ns-table td.left { text-align: left; }
+        .ns-table { border: 1px solid #000; margin-bottom: 5px; }
+        .ns-table th, .ns-table td { border: 1px solid #000; padding: 7px 8px; font-size: 11pt; text-align: center; font-weight: bold; }
+        .ns-table th { background: #d4d4d4; font-size: 12pt; }
+        .t-left { text-align: left !important; padding-left: 10px !important; }
 
-        /* Size recap */
-        .recap-title { font-weight: 700; text-decoration: underline; text-align: center; font-size: 10pt; margin: 12px 0 8px; }
-        .recap-table { margin: 0 auto; border-collapse: collapse; font-size: 9pt; border: 1.5px solid #000; }
-        .recap-table th { background: #E8E8E8; border: 1px solid #000; padding: 5px 12px; font-weight: 700; }
-        .recap-table td { border: 1px solid #000; padding: 5px 12px; font-weight: 700; text-align: center; }
-        .recap-label { font-size: 8pt; font-weight: 700; margin-bottom: 3px; text-align: center; }
+        /* Rekap size */
+        .rekap-container { margin-top: 15px; font-size: 12pt; font-weight: bold; text-align: center; }
+        .rekap-tabel { border: 2px solid #000; width: auto; margin: 8px auto 0; }
+        .rekap-tabel td { border: 1px solid #000; padding: 7px 18px; text-align: center; font-size: 12pt; font-weight: 900; }
+        .rekap-tabel th { border: 1px solid #000; padding: 7px 18px; text-align: center; font-size: 12pt; background: #d4d4d4; font-weight: 900; }
 
-        /* Footer */
-        .page-footer { position: fixed; bottom: 0; left: 0; right: 0; height: 20px; border-top: 2px solid #C00000; padding: 4px 14mm 0; font-size: 7.5pt; }
-        .page-footer .left { float: left; }
-        .page-footer .right { float: right; color: #C00000; font-weight: 700; }
+        /* Image wrapper */
+        .img-wrapper { border: 2px solid #000; padding: 8px; margin: 0 0 10px; background: #fff; }
+        .img-box { text-align: center; border: 1px solid #000; padding: 4px; margin-bottom: 5px; background: #fff; }
+        .img-box img { max-width: 100%; object-fit: contain; }
 
-        /* Lampiran */
-        .lampiran-header { background: #333; color: #fff; font-weight: 700; font-size: 9pt; padding: 5px 8px; margin-bottom: 4px; }
-        .lampiran-sub { font-weight: 700; font-size: 8pt; padding: 3px 0; }
-
-        .page-break { page-break-before: always; }
+        /* Misc */
+        .page-break   { page-break-before: always; }
+        .page-num:after { content: counter(page); }
+        .lampiran-sub { font-weight: 900; font-size: 10pt; margin-bottom: 4px; }
     </style>
 </head>
 <body>
-    <div class="page-footer">
-        <span class="right">NAMA ORDER: {{ strtoupper($order->nama_po) }}</span>
-    </div>
 
-    {{-- ==================== PAGE 1: TITLE + HEADER + FIRST ITEM SPEC ==================== --}}
-    <div class="main-title">FORMAT ORDER {{ strtoupper($order->brand->nama_brand ?? 'INDOWAREHOUSE') }}</div>
+    <header>FORMAT ORDER {{ strtoupper($order->brand->nama_brand ?? 'BRAND') }}</header>
 
-    <div class="header-box">
-        <div class="header-row">
-            <div class="hdr-left">
-                <div class="hdr-item"><span class="hdr-label">Tanggal Masuk</span><span class="hdr-sep">:</span><span class="hdr-val">{{ \Carbon\Carbon::parse($order->tanggal_masuk)->format('Y-m-d') }}</span></div>
-                <div class="hdr-item"><span class="hdr-label">Dateline</span><span class="hdr-sep">:</span><span class="hdr-val">{{ \Carbon\Carbon::parse($order->deadline_customer)->format('Y-m-d') }}</span></div>
-                <div class="hdr-item"><span class="hdr-label">Nama Order</span><span class="hdr-sep">:</span><span class="hdr-val">{{ strtoupper($order->nama_po) }}</span></div>
-                <div class="hdr-item"><span class="hdr-label">Grand Total</span><span class="hdr-sep">:</span><span class="hdr-val">{{ $order->items->sum('quantity') }} PCS</span></div>
-            </div>
-            <div class="hdr-right">
-                <div class="hdr-item"><span class="hdr-label">Tipe Order</span><span class="hdr-sep">:</span><span class="hdr-val">{{ strtoupper($order->jenisOrder->nama ?? '-') }}</span></div>
-                <div class="hdr-item"><span class="hdr-label">Jenis Order</span><span class="hdr-sep">:</span><span class="hdr-val">{{ $order->is_special_order ? 'SPECIAL' : 'NORMAL' }}</span></div>
-                <div class="hdr-item"><span class="hdr-label">Kategori Item</span><span class="hdr-sep">:</span><span class="hdr-val">{{ strtoupper($order->items->pluck('nama_produk')->implode(', ')) }}</span></div>
-                @php
-                    $printingNames = collect();
-                    if (!empty($order->printing_ids)) {
-                        $printingNames = \App\Models\Master\Printing::whereIn('id', $order->printing_ids)->pluck('nama');
-                    }
-                @endphp
-                <div class="hdr-item"><span class="hdr-label">Jenis Printing</span><span class="hdr-sep">:</span><span class="hdr-val">{{ $printingNames->isNotEmpty() ? strtoupper($printingNames->implode(', ')) : '-' }}</span></div>
-                <div class="hdr-item"><span class="hdr-label">Nama Brand</span><span class="hdr-sep">:</span><span class="hdr-val">{{ strtoupper($order->brand->nama_brand ?? '-') }}</span></div>
-            </div>
-        </div>
-    </div>
+    <footer>
+        <table style="width:100%; border:none; font-size:9pt; font-weight:bold;">
+            <tr>
+                <td style="text-align:left; width:40%;">HALAMAN <span class="page-num"></span></td>
+                <td style="text-align:right; width:60%; color:#b91c1c;">NAMA ORDER: {{ strtoupper($order->nama_po) }}</td>
+            </tr>
+        </table>
+    </footer>
 
-    @foreach ($order->items as $idx => $item)
-        @if($idx > 0)<div class="page-break"></div>@endif
+    <main>
 
-        @if(!empty($item->is_addon))
-            {{-- Addon band --}}
-            <div class="product-band">ADD-ON: {{ strtoupper($item->nama_produk) }}</div>
-            <div class="spec-box">
-                <div class="spec-header">DETAIL ADD-ON</div>
-                <div class="spec-row">
-                    <div class="spec-lbl" style="width: 25%;">Harga Satuan</div>
-                    <div class="spec-val" style="width: 25%;">Rp {{ number_format($item->harga_satuan, 0, ',', '.') }}</div>
-                    <div class="spec-lbl" style="width: 25%;">Jumlah (Qty)</div>
-                    <div class="spec-val" style="width: 25%;">{{ $item->quantity }}</div>
-                </div>
-                <div class="spec-row">
-                    <div class="spec-lbl" style="width: 25%;">Keterangan</div>
-                    <div class="spec-val" style="width: 25%;">{{ $item->catatan ?? '-' }}</div>
-                    <div class="spec-lbl" style="width: 25%;">Jumlah Total</div>
-                    <div class="spec-val" style="width: 25%;"><strong>Rp {{ number_format($item->subtotal, 0, ',', '.') }}</strong></div>
-                </div>
-            </div>
-        @else
-
-        {{-- Product band --}}
-        <div class="product-band">PRODUK: {{ strtoupper($item->nama_produk) }}</div>
-
+        {{-- ===== INFO BOX ===== --}}
         @php
-            $jenisSetelanMap = ['stell'=>'STELL (ATASAN + BAWAHAN)','non_stell'=>'NON-STELL (ATASAN SAJA)','atasan_saja'=>'ATASAN SAJA','bawahan_saja'=>'BAWAHAN SAJA'];
-            $itemLogos = collect();
-            if (!empty($item->logo_ids)) {
-                $itemLogos = \App\Models\Master\Logo::whereIn('id', $item->logo_ids)->pluck('nama');
+            $printingNames = collect();
+            if (!empty($order->printing_ids)) {
+                $printingNames = \App\Models\Master\Printing::whereIn('id', $order->printing_ids)->pluck('nama');
             }
         @endphp
+        <table class="info-table">
+            <tr>
+                <td style="width:50%; border-right:2px solid #000;">
+                    <table style="width:100%;">
+                        <tr>
+                            <td style="width:155px;">TANGGAL MASUK</td>
+                            <td class="colon">:</td>
+                            <td>{{ \Carbon\Carbon::parse($order->tanggal_masuk)->format('d/m/Y') }}</td>
+                        </tr>
+                        <tr>
+                            <td>DATELINE</td>
+                            <td class="colon">:</td>
+                            <td>{{ \Carbon\Carbon::parse($order->deadline_customer)->format('d/m/Y') }}</td>
+                        </tr>
+                        <tr>
+                            <td>NAMA ORDER</td>
+                            <td class="colon">:</td>
+                            <td style="color:#b91c1c;">{{ strtoupper($order->nama_po) }}</td>
+                        </tr>
+                        <tr>
+                            <td>GRAND TOTAL</td>
+                            <td class="colon">:</td>
+                            <td style="color:#b91c1c;">{{ $order->items->sum('quantity') }} PCS</td>
+                        </tr>
+                    </table>
+                </td>
+                <td style="width:50%; vertical-align:top; padding-left:15px;">
+                    <table style="width:100%;">
+                        <tr>
+                            <td style="width:155px;">TIPE ORDER</td>
+                            <td class="colon">:</td>
+                            <td>{{ strtoupper($order->jenisOrder->nama ?? '.......') }}</td>
+                        </tr>
+                        <tr>
+                            <td>JENIS ORDER</td>
+                            <td class="colon">:</td>
+                            <td>{{ $order->is_special_order ? 'SPECIAL' : 'NORMAL' }}</td>
+                        </tr>
+                        <tr>
+                            <td>KATEGORI ITEM</td>
+                            <td class="colon">:</td>
+                            <td>{{ strtoupper($order->items->pluck('nama_produk')->filter()->implode(', ')) ?: '.......' }}</td>
+                        </tr>
+                        <tr>
+                            <td>JENIS PRINTING</td>
+                            <td class="colon">:</td>
+                            <td>{{ $printingNames->isNotEmpty() ? strtoupper($printingNames->implode(', ')) : '.......' }}</td>
+                        </tr>
+                        <tr>
+                            <td>NAMA BRAND</td>
+                            <td class="colon">:</td>
+                            <td>{{ strtoupper($order->brand->nama_brand ?? '.......') }}</td>
+                        </tr>
+                        @if($order->paketOrder)
+                        <tr>
+                            <td>PAKET ORDER</td>
+                            <td class="colon">:</td>
+                            <td style="color: {{ $order->paketOrder->warna ?? '#000' }}; font-weight: 900;">
+                                {{ strtoupper($order->paketOrder->nama) }}
+                                @if($order->paketOrder->prioritas >= 2) ⚡⚡ @elseif($order->paketOrder->prioritas >= 1) ⚡ @endif
+                            </td>
+                        </tr>
+                        @endif
+                    </table>
+                </td>
+            </tr>
+        </table>
 
-        {{-- Spesifikasi --}}
-        <div class="spec-box">
-            <div class="spec-header">SPESIFIKASI ({{ strtoupper($item->nama_produk) }})</div>
-            <div class="spec-row"><div class="spec-lbl">Jenis Pesanan</div><div class="spec-val">{{ strtoupper($item->varian_label ?? '-') }}</div></div>
-            <div class="spec-row"><div class="spec-lbl">Jenis Setelan</div><div class="spec-val">{{ $jenisSetelanMap[$item->jenis_setelan ?? ''] ?? strtoupper($item->jenis_setelan ?? '-') }}</div></div>
-            <div class="spec-row"><div class="spec-lbl">Pola</div><div class="spec-val">{{ strtoupper($item->pola ?? '-') }}</div></div>
-            <div class="spec-row"><div class="spec-lbl">Bahan</div><div class="spec-val">{{ strtoupper($item->bahanKain->nama ?? '-') }}</div></div>
-            @if($item->bahanKainBawahan)
-            <div class="spec-row"><div class="spec-lbl">Bahan Bawahan</div><div class="spec-val">{{ strtoupper($item->bahanKainBawahan->nama) }}</div></div>
+        @if($order->catatan)
+        <div class="title-box" style="margin-top:0;">CATATAN ORDER</div>
+        <div style="border:1px solid #000; padding:8px 10px; font-weight:bold; margin-bottom:15px;">{{ strtoupper($order->catatan) }}</div>
+        @endif
+
+        {{-- ===== PER ITEM ===== --}}
+        @foreach ($order->items as $idx => $item)
+            @if($idx > 0)<div class="page-break"></div>@endif
+
+            @if(!empty($item->is_addon))
+                {{-- ADD-ON --}}
+                <div class="product-band">ADD-ON: {{ strtoupper($item->nama_produk) }}</div>
+                <table class="spec-table" style="margin-top:0;">
+                    <tr>
+                        <td class="spec-row-head">HARGA SATUAN</td>
+                        <td>RP {{ number_format($item->harga_satuan, 0, ',', '.') }}</td>
+                        <td class="spec-row-head">JUMLAH (QTY)</td>
+                        <td>{{ $item->quantity }}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">KETERANGAN</td>
+                        <td>{{ strtoupper($item->catatan ?? '') ?: '.......' }}</td>
+                        <td class="spec-row-head">JUMLAH TOTAL</td>
+                        <td style="font-weight:900;">RP {{ number_format($item->subtotal, 0, ',', '.') }}</td>
+                    </tr>
+                </table>
+            @else
+
+            @php
+                $jenisSetelanMap = [
+                    'stell'        => 'STELL (ATASAN + BAWAHAN)',
+                    'non_stell'    => 'NON-STELL (ATASAN SAJA)',
+                    'atasan_saja'  => 'ATASAN SAJA',
+                    'bawahan_saja' => 'BAWAHAN SAJA',
+                ];
+                // Logo: dari logo_ids (multi) atau logo_id (single, fallback)
+                $itemLogos = collect();
+                if (!empty($item->logo_ids)) {
+                    $itemLogos = \App\Models\Master\Logo::whereIn('id', $item->logo_ids)->pluck('nama');
+                } elseif ($item->logo_id) {
+                    $itemLogos = collect([$item->logo?->nama])->filter();
+                }
+                $logoStr = $itemLogos->isNotEmpty()
+                    ? strtoupper($itemLogos->implode(', '))
+                    : '.......';
+            @endphp
+
+            <div class="product-band">
+                PRODUK: {{ strtoupper($item->nama_produk) }}@if($item->varian_label) — {{ strtoupper($item->varian_label) }}@endif
+            </div>
+
+            {{-- SPESIFIKASI --}}
+            <div class="title-box" style="margin-top:0;">SPESIFIKASI ({{ strtoupper($item->nama_produk) }})</div>
+            <table class="spec-table" style="margin-top:0;">
+                <tr>
+                    <td class="spec-row-head">JENIS PESANAN</td>
+                    <td>{{ strtoupper($item->varian_label ?? '') ?: '.......' }}</td>
+                    <td class="spec-row-head">JENIS SETELAN</td>
+                    <td>{{ $item->jenisSetelan ? strtoupper($item->jenisSetelan->nama) : strtoupper($item->jenis_setelan ?? '.......') }}</td>
+                </tr>
+                <tr>
+                    <td class="spec-row-head">POLA</td>
+                    <td>{{ $item->polaProduksi ? strtoupper($item->polaProduksi->nama) : (strtoupper($item->pola ?? '') ?: '.......') }}</td>
+                    <td class="spec-row-head">BAHAN ATASAN</td>
+                    @php
+                        $bahanAtasanStr = !empty($item->bahan_kain_ids)
+                            ? strtoupper(\App\Models\Master\BahanKain::whereIn('id', $item->bahan_kain_ids)->pluck('nama')->implode(', '))
+                            : strtoupper($item->bahanKain->nama ?? '.......');
+                    @endphp
+                    <td>{{ $bahanAtasanStr }}</td>
+                </tr>
+                @php
+                    $bahanBawahanStr = !empty($item->bahan_kain_bawahan_ids)
+                        ? strtoupper(\App\Models\Master\BahanKain::whereIn('id', $item->bahan_kain_bawahan_ids)->pluck('nama')->implode(', '))
+                        : strtoupper($item->bahanKainBawahan?->nama ?? '');
+                @endphp
+                @if(!empty($bahanBawahanStr))
+                <tr>
+                    <td class="spec-row-head">BAHAN BAWAHAN</td>
+                    <td colspan="3">{{ $bahanBawahanStr }}</td>
+                </tr>
+                @endif
+                <tr>
+                    <td class="spec-row-head">WARNA</td>
+                    <td>{{ strtoupper($item->warna ?? '') ?: '.......' }}</td>
+                    <td class="spec-row-head">JENIS LOGO</td>
+                    <td>{{ $logoStr }}</td>
+                </tr>
+                <tr>
+                    <td class="spec-row-head">JUMLAH ATASAN</td>
+                    <td>{{ $item->jml_atasan ?: $item->quantity }}</td>
+                    <td class="spec-row-head">JUMLAH BAWAHAN</td>
+                    <td>{{ $item->jml_bawahan ?: '.......' }}</td>
+                </tr>
+                <tr>
+                    <td class="spec-row-head">JENIS RIB</td>
+                    <td>{{ strtoupper($item->jenis_rib ?? '') ?: '.......' }}</td>
+                    <td class="spec-row-head">TUTUP KERAH</td>
+                    <td>{{ strtoupper($item->tutup_kerah ?? '') ?: '.......' }}</td>
+                </tr>
+                <tr>
+                    <td class="spec-row-head">LIST KERAH</td>
+                    <td>{{ strtoupper($item->list_kerah ?? '') ?: '.......' }}</td>
+                    <td class="spec-row-head">LIST LENGAN</td>
+                    <td>{{ strtoupper($item->list_lengan ?? '') ?: '.......' }}</td>
+                </tr>
+                <tr>
+                    <td class="spec-row-head">LIST SAMPING CELANA</td>
+                    <td>{{ strtoupper($item->list_samping_celana ?? '') ?: '.......' }}</td>
+                    <td class="spec-row-head">LIST BAWAH CELANA</td>
+                    <td>{{ strtoupper($item->list_bawah_celana ?? '') ?: '.......' }}</td>
+                </tr>
+                <tr><td class="sub-header" colspan="4">KETERANGAN JAHITAN</td></tr>
+                <tr>
+                    <td class="spec-row-head">POLA JAHITAN</td>
+                    <td>{{ $item->polaJahitan ? strtoupper($item->polaJahitan->jenis_pola . ' — ' . $item->polaJahitan->nama) : '.......' }}</td>
+                    <td class="spec-row-head">JAHITAN LIST LENGAN</td>
+                    <td>{{ $item->polaJahitanLengan ? strtoupper($item->polaJahitanLengan->nama) : (strtoupper($item->jahitan_list_lengan ?? '') ?: '.......') }}</td>
+                </tr>
+                <tr><td class="sub-header" colspan="4">KETERANGAN RESLETING</td></tr>
+                <tr>
+                    <td class="spec-row-head">JENIS RESLETING</td>
+                    <td colspan="3">{{ strtoupper($item->resleting->nama ?? '.......') }}</td>
+                </tr>
+            </table>
+
+            {{-- REFERENSI DESAIN & KERAH --}}
+            @if($item->gambar_desain || $item->ket_atasan || $item->ket_bawahan || $item->jenis_kerah || $item->gambar_kerah || $item->gambar_ket_tambahan)
+            <div class="page-break"></div>
+
+            <div class="img-wrapper" style="padding:6px; margin-bottom:0;">
+                <div class="title-box-center" style="margin-top:0;">
+                    REFERENSI DESAIN {{ strtoupper($item->nama_produk) }} — {{ strtoupper($item->varian_label ?? '') }}
+                </div>
+
+                @if($item->gambar_desain)
+                    @php $dPath = storage_path('app/public/' . $item->gambar_desain); @endphp
+                    @if(file_exists($dPath))
+                    <div class="img-box" style="border-top:none; padding:2px; margin-bottom:6px;">
+                        <img src="{{ $dPath }}" style="max-width:100%; max-height:850px; object-fit:contain;">
+                    </div>
+                    @else
+                    <div class="img-box" style="border-top:none; height:300px; line-height:300px; color:#999; font-weight:bold;">[ GAMBAR DESAIN TIDAK DITEMUKAN ]</div>
+                    @endif
+                @else
+                <div class="img-box" style="border-top:none; height:250px; line-height:250px; color:#999; font-weight:bold;">[ GAMBAR DESAIN BELUM DIUNGGAH ]</div>
+                @endif
+
+                <table style="width:100%; border-collapse:collapse; border:1px solid #000; font-size:11pt; margin-bottom:8px;">
+                    <tr>
+                        <td style="width:50%; vertical-align:top; padding:8px; border-right:1px solid #000;">
+                            <div style="background:#d4d4d4; font-weight:900; padding:4px; text-align:center; margin-bottom:4px; border:1px solid #000;">KETERANGAN ATASAN</div>
+                            <div style="padding:2px; text-align:center; font-weight:bold;">{{ strtoupper($item->ket_atasan ?? '') ?: '.......' }}</div>
+                        </td>
+                        <td style="width:50%; vertical-align:top; padding:8px;">
+                            <div style="background:#d4d4d4; font-weight:900; padding:4px; text-align:center; margin-bottom:4px; border:1px solid #000;">KETERANGAN BAWAHAN</div>
+                            <div style="padding:2px; text-align:center; font-weight:bold;">{{ strtoupper($item->ket_bawahan ?? '') ?: '.......' }}</div>
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="title-box-center">
+                    REFERENSI KERAH {{ strtoupper($item->nama_produk) }} — {{ strtoupper($item->varian_label ?? '') }}
+                </div>
+                <table style="width:100%; border-collapse:collapse; border:1px solid #000; border-top:none; font-size:11pt;">
+                    <tr>
+                        <td style="width:45%; vertical-align:middle; padding:10px; border-right:1px solid #000;">
+                            <div style="background:#d4d4d4; font-weight:900; padding:6px; text-align:center; margin-bottom:8px; border:1px solid #000;">JENIS KERAH</div>
+                            <div style="padding:4px; text-align:center; font-weight:900; font-size:13pt;">{{ strtoupper($item->jenis_kerah ?? '') ?: '.......' }}</div>
+                        </td>
+                        <td style="width:55%; vertical-align:middle; padding:4px; text-align:center;">
+                            @if($item->gambar_kerah)
+                                @php $kPath = storage_path('app/public/' . $item->gambar_kerah); @endphp
+                                @if(file_exists($kPath))
+                                <img src="{{ $kPath }}" style="max-width:95%; max-height:150px; object-fit:contain;">
+                                @endif
+                            @endif
+                            @if($item->gambar_ket_tambahan)
+                                @php $ktPath = storage_path('app/public/' . $item->gambar_ket_tambahan); @endphp
+                                @if(file_exists($ktPath))
+                                <img src="{{ $ktPath }}" style="max-width:95%; max-height:150px; object-fit:contain; margin-top:4px;">
+                                @endif
+                            @endif
+                            @if(!$item->gambar_kerah && !$item->gambar_ket_tambahan)
+                            <div style="height:100px; line-height:100px; color:#999; font-weight:bold;">[ GAMBAR KERAH BELUM DIUNGGAH ]</div>
+                            @endif
+                        </td>
+                    </tr>
+                </table>
+            </div>
             @endif
-            <div class="spec-row"><div class="spec-lbl">Jumlah Atasan</div><div class="spec-val">{{ $item->jml_atasan ?: $item->quantity }}</div></div>
-            <div class="spec-row"><div class="spec-lbl">Jumlah Bawahan</div><div class="spec-val">{{ $item->jml_bawahan ?: '-' }}</div></div>
-            <div class="spec-row"><div class="spec-lbl">Warna</div><div class="spec-val">{{ strtoupper($item->warna ?? '-') }}</div></div>
-            <div class="spec-row"><div class="spec-lbl">Jenis Logo</div><div class="spec-val">{{ $itemLogos->isNotEmpty() ? strtoupper($itemLogos->implode(', ')) : strtoupper($item->logo->nama ?? '-') }}</div></div>
-            <div class="spec-row"><div class="spec-lbl">Jenis RIB</div><div class="spec-val">{{ strtoupper($item->jenis_rib ?? '-') }}</div></div>
-            <div class="spec-row"><div class="spec-lbl">List Kerah</div><div class="spec-val">{{ strtoupper($item->list_kerah ?? '-') }}</div></div>
-            <div class="spec-row"><div class="spec-lbl">List Lengan</div><div class="spec-val">{{ strtoupper($item->list_lengan ?? '-') }}</div></div>
-            <div class="spec-row"><div class="spec-lbl">List Samping Celana</div><div class="spec-val">{{ strtoupper($item->list_samping_celana ?? '-') }}</div></div>
-            <div class="spec-row"><div class="spec-lbl">List Bawah Celana</div><div class="spec-val">{{ strtoupper($item->list_bawah_celana ?? '-') }}</div></div>
-            <div class="spec-row"><div class="spec-lbl">Tutup Kerah</div><div class="spec-val">{{ strtoupper($item->tutup_kerah ?? '-') }}</div></div>
 
-            {{-- Keterangan Jahitan section --}}
-            <div class="section-divider">KETERANGAN JAHITAN</div>
-            <div class="spec-row"><div class="spec-lbl">Pola Jahitan</div><div class="spec-val">{{ $item->polaJahitan ? strtoupper($item->polaJahitan->nama) : '-' }}</div></div>
-            <div class="spec-row"><div class="spec-lbl">Jenis Jahitan List Lengan</div><div class="spec-val">{{ strtoupper($item->jahitan_list_lengan ?? '-') }}</div></div>
-            @if($item->pola_jahitan_bawah_id)
-            <div class="spec-row"><div class="spec-lbl">Jenis Jahitan Bawah</div><div class="spec-val">{{ strtoupper(optional(\App\Models\Master\PolaJahitan::find($item->pola_jahitan_bawah_id))->nama ?? '-') }}</div></div>
-            @endif
-            @if($item->pola_jahitan_pundak_id)
-            <div class="spec-row"><div class="spec-lbl">Jenis Jahitan Pundak</div><div class="spec-val">{{ strtoupper(optional(\App\Models\Master\PolaJahitan::find($item->pola_jahitan_pundak_id))->nama ?? '-') }}</div></div>
-            @endif
+            {{-- NAMESET TABLE --}}
+            @php
+                $filled = $item->namesets->filter(fn($ns) =>
+                    !empty($ns->nama_punggung) || !empty($ns->nomor_punggung) ||
+                    !empty($ns->nama_dada)     || !empty($ns->nomor_dada)     ||
+                    !empty($ns->size_id)       || !empty($ns->size_label)     || !empty($ns->keterangan)
+                );
 
-            {{-- Keterangan Resleting section --}}
-            <div class="section-divider">KETERANGAN RESLETING</div>
-            <div class="spec-row"><div class="spec-lbl">Jenis Resleting</div><div class="spec-val">{{ strtoupper($item->resleting->nama ?? '-') }}</div></div>
-        </div>
+                $hasNamaPunggung = $filled->contains(fn($ns) => !empty($ns->nama_punggung) || !empty($ns->nomor_punggung));
+                $hasNamaDada     = $filled->contains(fn($ns) => !empty($ns->nama_dada)     || !empty($ns->nomor_dada));
+                $hasSizeAtasan   = $filled->contains(fn($ns) => !empty($ns->size_id)       || !empty($ns->size_label));
+                $hasSizeBawahan  = $filled->contains(fn($ns) => !empty($ns->size_celana_id)|| !empty($ns->size_celana_label));
+                $hasKeterangan   = $filled->contains(fn($ns) => !empty($ns->keterangan));
 
-        {{-- Referensi Desain --}}
-        @if($item->gambar_desain)
-        <div class="page-break"></div>
-        <div class="ref-section">
-            <div class="ref-header">REFERENSI DESAIN {{ strtoupper($item->nama_produk) }} - {{ strtoupper($item->varian_label ?? '') }}</div>
-            <div class="ref-body">
-                @php $desainPath = storage_path('app/public/' . $item->gambar_desain); @endphp
-                @if(file_exists($desainPath))
-                    <img src="{{ $desainPath }}" class="ref-img" alt="Desain">
+                $standarSizes = ['XS ANAK','S ANAK','M ANAK','L ANAK','XL ANAK',
+                                 'XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL','7XL','8XL','9XL','10XL'];
+                $sizeAtasanRaw = [];
+                $sizeBawahanRaw = [];
+                foreach ($filled as $ns) {
+                    if (!empty($ns->size_id) || !empty($ns->size_label)) {
+                        $sz = $ns->size ? $ns->size->ukuran : trim(last(explode('-', $ns->size_label ?? '')));
+                        if ($sz) $sizeAtasanRaw[$sz] = ($sizeAtasanRaw[$sz] ?? 0) + 1;
+                    }
+                    if (!empty($ns->size_celana_id) || !empty($ns->size_celana_label)) {
+                        $sz = $ns->sizeCelana ? $ns->sizeCelana->ukuran : trim(last(explode('-', $ns->size_celana_label ?? '')));
+                        if ($sz) $sizeBawahanRaw[$sz] = ($sizeBawahanRaw[$sz] ?? 0) + 1;
+                    }
+                }
+                // Sort by standard order
+                $sizeAtasanRecap = [];
+                foreach ($standarSizes as $s) { if (isset($sizeAtasanRaw[$s])) $sizeAtasanRecap[$s] = $sizeAtasanRaw[$s]; }
+                foreach ($sizeAtasanRaw as $s => $c) { if (!in_array($s, $standarSizes)) $sizeAtasanRecap[$s] = $c; }
+
+                $sizeBawahanRecap = [];
+                foreach ($standarSizes as $s) { if (isset($sizeBawahanRaw[$s])) $sizeBawahanRecap[$s] = $sizeBawahanRaw[$s]; }
+                foreach ($sizeBawahanRaw as $s => $c) { if (!in_array($s, $standarSizes)) $sizeBawahanRecap[$s] = $c; }
+            @endphp
+
+            @if($filled->count())
+            <div class="page-break"></div>
+
+            <div class="title-box" style="text-align:center; font-size:13pt;">
+                DATA PESANAN {{ strtoupper($item->nama_produk) }} — {{ strtoupper($item->varian_label ?? '') }}
+            </div>
+            <table class="ns-table" style="border-top:none;">
+                <thead>
+                    <tr>
+                        <th width="40">NO.</th>
+                        @if($hasNamaPunggung)
+                        <th class="t-left">NAMA PUNGGUNG</th>
+                        <th width="90">NO. PUNGGUNG</th>
+                        @endif
+                        @if($hasNamaDada)
+                        <th class="t-left">NAMA DADA</th>
+                        <th width="90">NO. DADA</th>
+                        @endif
+                        @if($hasSizeAtasan)<th width="75">SIZE</th>@endif
+                        @if($hasSizeBawahan)<th width="85">SIZE CELANA</th>@endif
+                        @if($hasKeterangan)<th class="t-left">KETERANGAN</th>@endif
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($filled as $i => $ns)
+                    <tr>
+                        <td>{{ $i + 1 }}.</td>
+                        @if($hasNamaPunggung)
+                        <td class="t-left">{{ strtoupper($ns->nama_punggung ?? '') ?: '.......' }}</td>
+                        <td style="font-weight:900;">{{ $ns->nomor_punggung ?: '.......' }}</td>
+                        @endif
+                        @if($hasNamaDada)
+                        <td class="t-left">{{ strtoupper($ns->nama_dada ?? '') ?: '.......' }}</td>
+                        <td style="font-weight:900;">{{ $ns->nomor_dada ?: '.......' }}</td>
+                        @endif
+                        @if($hasSizeAtasan)
+                        @php $sv = $ns->size ? $ns->size->ukuran : trim(last(explode('-', $ns->size_label ?? ''))); @endphp
+                        <td style="font-weight:900;">{{ $sv ?: '.......' }}</td>
+                        @endif
+                        @if($hasSizeBawahan)
+                        @php $svc = $ns->sizeCelana ? $ns->sizeCelana->ukuran : trim(last(explode('-', $ns->size_celana_label ?? ''))); @endphp
+                        <td style="font-weight:900;">{{ $svc ?: '.......' }}</td>
+                        @endif
+                        @if($hasKeterangan)
+                        <td class="t-left">{{ $ns->keterangan ?: '.......' }}</td>
+                        @endif
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+
+            {{-- REKAP SIZE --}}
+            <div class="rekap-container">
+                <div style="margin-bottom:5px; text-decoration:underline;">JUMLAH KESELURUHAN: {{ $filled->count() }} PCS</div>
+
+                @if(count($sizeAtasanRecap))
+                    @if($hasSizeBawahan)<div style="font-size:9pt; margin:5px 0 3px;">REKAP SIZE ATASAN</div>@endif
+                    @foreach(array_chunk($sizeAtasanRecap, 10, true) as $chunk)
+                    <table class="rekap-tabel">
+                        <thead><tr>@foreach($chunk as $sz => $c)<th>{{ $sz }}</th>@endforeach</tr></thead>
+                        <tbody><tr>@foreach($chunk as $c)<td>{{ $c }}</td>@endforeach</tr></tbody>
+                    </table>
+                    @endforeach
+                @endif
+
+                @if(count($sizeBawahanRecap))
+                    <div style="font-size:9pt; margin:10px 0 3px;">REKAP SIZE BAWAHAN</div>
+                    @foreach(array_chunk($sizeBawahanRecap, 10, true) as $chunk)
+                    <table class="rekap-tabel">
+                        <thead><tr>@foreach($chunk as $sz => $c)<th>{{ $sz }}</th>@endforeach</tr></thead>
+                        <tbody><tr>@foreach($chunk as $c)<td>{{ $c }}</td>@endforeach</tr></tbody>
+                    </table>
+                    @endforeach
                 @endif
             </div>
-        </div>
-        @endif
+            @endif
 
-        {{-- Keterangan Atasan/Bawahan --}}
-        @if($item->ket_atasan || $item->ket_bawahan)
-        <div class="ket-box">
-            <div class="ket-cell">
-                <div class="ket-cell-head">KETERANGAN ATASAN</div>
-                <div class="ket-cell-val">{{ strtoupper($item->ket_atasan ?? '-') }}</div>
-            </div>
-            <div class="ket-cell">
-                <div class="ket-cell-head">KETERANGAN BAWAHAN</div>
-                <div class="ket-cell-val">{{ strtoupper($item->ket_bawahan ?? '-') }}</div>
-            </div>
-        </div>
-        @endif
+            @endif {{-- end non-addon --}}
+        @endforeach
 
-        {{-- Referensi Kerah --}}
-        @if($item->jenis_kerah || $item->gambar_kerah || $item->gambar_ket_tambahan)
-        <div class="kerah-title">REFERENSI KERAH {{ strtoupper($item->nama_produk) }} - {{ strtoupper($item->varian_label ?? '') }}</div>
-        <div class="kerah-section">
-            <div class="kerah-body">
-                <div class="kerah-left">
-                    <div class="kerah-lbl-head">JENIS KERAH</div>
-                    <div class="kerah-lbl-val">{{ strtoupper($item->jenis_kerah ?? '-') }}</div>
-                </div>
-                <div class="kerah-right">
-                    @if($item->gambar_kerah)
-                        @php $kerahPath = storage_path('app/public/' . $item->gambar_kerah); @endphp
-                        @if(file_exists($kerahPath))
-                            <img src="{{ $kerahPath }}" style="max-width: 95%; max-height: 140px;" alt="Kerah">
-                        @endif
-                    @endif
-                    @if($item->gambar_ket_tambahan)
-                        @php $ktPath = storage_path('app/public/' . $item->gambar_ket_tambahan); @endphp
-                        @if(file_exists($ktPath))
-                            <img src="{{ $ktPath }}" style="max-width: 95%; max-height: 140px; margin-top: 4px;" alt="Ket Tambahan">
-                        @endif
-                    @endif
-                </div>
-            </div>
-        </div>
-        @endif
-
-        {{-- Nameset Table --}}
+        {{-- ===== CHECKLIST PRODUKSI ===== --}}
         @php
-            $filledNamesets = $item->namesets->filter(function ($ns) {
-                return !empty($ns->nama_punggung) || !empty($ns->nomor_punggung) ||
-                       !empty($ns->nama_dada) || !empty($ns->nomor_dada) ||
-                       !empty($ns->size_id) || !empty($ns->size_label) || !empty($ns->keterangan);
-            });
+            $progresses   = \App\Models\Master\Progress::active()->ordered()->get();
+            $produkItems  = $order->items->filter(fn($i) => empty($i->is_addon))->values();
         @endphp
-
-        @if($filledNamesets->count())
-        @php
-            $hasNamaPunggung = $filledNamesets->contains(fn($ns) => !empty($ns->nama_punggung) || !empty($ns->nomor_punggung));
-            $hasSizeAtasan = $filledNamesets->contains(fn($ns) => !empty($ns->size_id) || !empty($ns->size_label));
-            $hasSizeBawahan = $filledNamesets->contains(fn($ns) => !empty($ns->size_celana_id) || !empty($ns->size_celana_label));
-            $hasKeterangan = $filledNamesets->contains(fn($ns) => !empty($ns->keterangan));
-
-            $sizeAtasanRecap = [];
-            $sizeBawahanRecap = [];
-            foreach ($filledNamesets as $ns) {
-                if (!empty($ns->size_id) || !empty($ns->size_label)) {
-                    $sz = $ns->size ? $ns->size->ukuran : trim(last(explode('-', $ns->size_label ?? '')));
-                    if ($sz !== '') $sizeAtasanRecap[$sz] = ($sizeAtasanRecap[$sz] ?? 0) + 1;
-                }
-                if (!empty($ns->size_celana_id) || !empty($ns->size_celana_label)) {
-                    $sz = $ns->sizeCelana ? $ns->sizeCelana->ukuran : trim(last(explode('-', $ns->size_celana_label ?? '')));
-                    if ($sz !== '') $sizeBawahanRecap[$sz] = ($sizeBawahanRecap[$sz] ?? 0) + 1;
-                }
-            }
-        @endphp
-
+        @if($progresses->count() && $produkItems->count())
         <div class="page-break"></div>
 
-        <table class="ns-table">
+        <div style="font-size:13pt; font-weight:900; text-decoration:underline; margin-bottom:10px; border-bottom:2px solid #000; padding-bottom:4px; text-align:center;">
+            CHECKLIST PRODUKSI — {{ strtoupper($order->nama_po) }}
+        </div>
+
+        <table style="width:100%; border-collapse:collapse; font-size:10pt;">
             <thead>
-                <tr><td class="ns-title" colspan="{{ 2 + ($hasNamaPunggung ? 1 : 0) + ($hasSizeAtasan ? 1 : 0) + ($hasSizeBawahan ? 1 : 0) + ($hasKeterangan ? 1 : 0) }}">DATA PESANAN {{ strtoupper($item->nama_produk) }} - {{ strtoupper($item->varian_label ?? '') }}</td></tr>
-                <tr>
-                    <th width="35">NO.</th>
-                    @if($hasNamaPunggung)<th class="left">NAMA PUNGGUNG</th><th width="90">NO. PUNGGUNG</th>@endif
-                    @if($hasSizeAtasan)<th width="70">SIZE</th>@endif
-                    @if($hasSizeBawahan)<th width="80">SIZE CELANA</th>@endif
-                    @if($hasKeterangan)<th class="left">KETERANGAN</th>@endif
+                <tr style="background:#000; color:#fff; font-weight:900;">
+                    <th style="border:1.5px solid #000; padding:6px 8px; text-align:center; width:35px;">NO</th>
+                    <th style="border:1.5px solid #000; padding:6px 8px; text-align:left; width:180px;">PROSES</th>
+                    @foreach($produkItems as $pi)
+                    <th style="border:1.5px solid #000; padding:6px 8px; text-align:center; font-size:9pt;">
+                        {{ strtoupper($pi->varian_label ?: $pi->nama_produk) }}
+                        @if($pi->varian_label && $pi->varian_label !== $pi->nama_produk)
+                        <div style="font-size:7.5pt; font-weight:400; opacity:0.8;">{{ strtoupper($pi->nama_produk) }}</div>
+                        @endif
+                    </th>
+                    @endforeach
                 </tr>
             </thead>
             <tbody>
-                @foreach ($filledNamesets as $i => $ns)
-                <tr>
-                    <td>{{ $i + 1 }}.</td>
-                    @if($hasNamaPunggung)
-                        <td class="left">{{ strtoupper($ns->nama_punggung ?? '') ?: '-' }}</td>
-                        <td style="font-weight:700">{{ $ns->nomor_punggung ?: '-' }}</td>
-                    @endif
-                    @if($hasSizeAtasan)
-                        @php $szVal = $ns->size ? $ns->size->ukuran : trim(last(explode('-', $ns->size_label ?? ''))); @endphp
-                        <td style="font-weight:700">{{ $szVal ?: '-' }}</td>
-                    @endif
-                    @if($hasSizeBawahan)
-                        @php $szValC = $ns->sizeCelana ? $ns->sizeCelana->ukuran : trim(last(explode('-', $ns->size_celana_label ?? ''))); @endphp
-                        <td style="font-weight:700">{{ $szValC ?: '-' }}</td>
-                    @endif
-                    @if($hasKeterangan)
-                        <td class="left">{{ $ns->keterangan ?: '.......' }}</td>
-                    @endif
+                @foreach($progresses as $idx => $prog)
+                <tr style="{{ $idx % 2 === 0 ? 'background:#f9f9f9;' : 'background:#fff;' }}">
+                    <td style="border:1px solid #000; padding:6px 8px; text-align:center; font-weight:bold;">{{ $idx + 1 }}</td>
+                    <td style="border:1px solid #000; padding:6px 8px; font-weight:900; font-size:10pt;">
+                        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{{ $prog->warna ?? '#6B7280' }}; margin-right:5px; vertical-align:middle;"></span>
+                        {{ strtoupper($prog->nama_progress) }}
+                    </td>
+                    @foreach($produkItems as $pi)
+                    <td style="border:1px solid #000; padding:6px 8px; text-align:center; min-width:80px;">&nbsp;</td>
+                    @endforeach
                 </tr>
                 @endforeach
             </tbody>
         </table>
 
-        <div class="recap-title">JUMLAH KESELURUHAN: {{ $filledNamesets->count() }} PCS</div>
-
-        @if(count($sizeAtasanRecap))
-            @if($hasSizeBawahan)<div class="recap-label">REKAP SIZE ATASAN</div>@endif
-            <table class="recap-table">
-                <thead><tr>@foreach($sizeAtasanRecap as $size => $cnt)<th>{{ $size }}</th>@endforeach</tr></thead>
-                <tbody><tr>@foreach($sizeAtasanRecap as $cnt)<td>{{ $cnt }}</td>@endforeach</tr></tbody>
-            </table>
+        <div style="margin-top:8px; font-size:8.5pt; color:#555; text-align:right;">
+            Dicetak: {{ now()->translatedFormat('d M Y, H:i') }} · {{ strtoupper($order->brand->nama_brand ?? '') }}
+        </div>
         @endif
 
-        @if(count($sizeBawahanRecap))
-            <div class="recap-label" style="margin-top:8px">REKAP SIZE BAWAHAN</div>
-            <table class="recap-table">
-                <thead><tr>@foreach($sizeBawahanRecap as $size => $cnt)<th>{{ $size }}</th>@endforeach</tr></thead>
-                <tbody><tr>@foreach($sizeBawahanRecap as $cnt)<td>{{ $cnt }}</td>@endforeach</tr></tbody>
-            </table>
-        @endif
-        @endif
-        @endif
+        {{-- ===== LAMPIRAN: DATA PESANAN SEMUA PRODUK ===== --}}
+        <div class="page-break"></div>
+        <div style="font-size:12pt; font-weight:900; text-decoration:underline; margin-bottom:10px; border-bottom:2px solid #000; padding-bottom:4px;">
+            LAMPIRAN: DATA PESANAN
+        </div>
 
-    @endforeach
-
-    {{-- ==================== LAST PAGE: LAMPIRAN DATA PESANAN (all items combined) ==================== --}}
-    <div class="page-break"></div>
-    <div class="lampiran-header">LAMPIRAN: DATA PESANAN</div>
-
-    @foreach ($order->items as $item)
-        @if(empty($item->is_addon))
-            @php
-                $filledNamesets = $item->namesets->filter(function ($ns) {
-                    return !empty($ns->nama_punggung) || !empty($ns->nomor_punggung) ||
-                           !empty($ns->size_id) || !empty($ns->size_label);
-                });
-            @endphp
-            @if($filledNamesets->count())
-            <div class="lampiran-sub">DATA PESANAN: {{ strtoupper($item->nama_produk) }} - {{ strtoupper($item->varian_label ?? '') }}</div>
-            <table class="ns-table" style="margin-bottom: 12px;">
-                <thead>
-                    <tr>
-                        <th width="35">NO.</th>
-                        <th class="left">NAMA PUNGGUNG</th>
-                        <th width="90">NO. PUNGGUNG</th>
-                        <th width="70">SIZE</th>
-                        <th class="left">KETERANGAN</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($filledNamesets as $i => $ns)
-                    <tr>
-                        <td>{{ $i + 1 }}.</td>
-                        <td class="left">{{ strtoupper($ns->nama_punggung ?? '') ?: '-' }}</td>
-                        <td style="font-weight:700">{{ $ns->nomor_punggung ?: '-' }}</td>
-                        @php $szVal = $ns->size ? $ns->size->ukuran : trim(last(explode('-', $ns->size_label ?? ''))); @endphp
-                        <td style="font-weight:700">{{ $szVal ?: '-' }}</td>
-                        <td class="left">{{ $ns->keterangan ?: '.......' }}</td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
+        @foreach ($order->items as $item)
+            @if(empty($item->is_addon))
+                @php
+                    $lampFilled = $item->namesets->filter(fn($ns) =>
+                        !empty($ns->nama_punggung) || !empty($ns->nomor_punggung) ||
+                        !empty($ns->size_id)       || !empty($ns->size_label)
+                    );
+                @endphp
+                @if($lampFilled->count())
+                <div class="lampiran-sub">DATA PESANAN: {{ strtoupper($item->nama_produk) }} — {{ strtoupper($item->varian_label ?? '') }}</div>
+                <table class="ns-table" style="margin-bottom:12px;">
+                    <thead>
+                        <tr>
+                            <th width="40">NO.</th>
+                            <th class="t-left">NAMA PUNGGUNG</th>
+                            <th width="90">NO. PUNGGUNG</th>
+                            <th width="75">SIZE</th>
+                            <th class="t-left">KETERANGAN</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($lampFilled as $i => $ns)
+                        <tr>
+                            <td>{{ $i + 1 }}.</td>
+                            <td class="t-left">{{ strtoupper($ns->nama_punggung ?? '') ?: '.......' }}</td>
+                            <td style="font-weight:900;">{{ $ns->nomor_punggung ?: '.......' }}</td>
+                            @php $sv = $ns->size ? $ns->size->ukuran : trim(last(explode('-', $ns->size_label ?? ''))); @endphp
+                            <td style="font-weight:900;">{{ $sv ?: '.......' }}</td>
+                            <td class="t-left">{{ $ns->keterangan ?: '.......' }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+                @endif
             @endif
-        @endif
-    @endforeach
+        @endforeach
 
+    </main>
 </body>
 </html>

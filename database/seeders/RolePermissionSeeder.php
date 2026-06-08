@@ -13,7 +13,7 @@ class RolePermissionSeeder extends Seeder
         'superadmin',
         'owner',
         'admin_brand',
-        'reseller',
+        'admin_reseller',
         'admin_produksi',
         'admin_keuangan',
     ];
@@ -29,7 +29,7 @@ class RolePermissionSeeder extends Seeder
             'audit.view',
             'dashboard.view-global',
             'dashboard.view-brand',
-            'master.manage', 'master.brand', 'master.produk',
+            'master.manage', 'master.brand', 'master.produk', 'master.production',
             'order.view', 'order.create', 'order.update', 'order.delete', 'order.publish', 'order.refund',
             'production.update-progress', 'production.add-reject',
             'finance.view', 'finance.manage-invoice', 'finance.manage-refund',
@@ -37,6 +37,7 @@ class RolePermissionSeeder extends Seeder
             'report.view', 'report.export',
             'settings.brand', 'settings.system', 'settings.ai', 'settings.notification',
             'tools.ai',
+            'reseller.manage-branches',
         ];
 
         foreach ($permissions as $perm) {
@@ -60,7 +61,7 @@ class RolePermissionSeeder extends Seeder
                 'tools.ai',
             ],
             'admin_brand' => [
-                'master.brand',
+                'master.brand', 'master.produk',
                 'order.view', 'order.create', 'order.update', 'order.publish', 'order.refund',
                 'finance.manage-invoice',
                 'report.view', 'report.export',
@@ -68,17 +69,24 @@ class RolePermissionSeeder extends Seeder
                 'dashboard.view-brand',
                 'tools.ai',
             ],
-            'reseller' => [
-                'order.view', 'order.create', 'order.update', 'order.publish', 'order.refund',
+            'admin_reseller' => [
+                'reseller.manage-branches',
+                'brand.view', 'brand.create', 'brand.update', 'brand.delete',
+                'user.view', 'user.create', 'user.update', 'user.delete',
+                'user.assign-brand',
+                'master.brand',
+                'order.view', 'order.create', 'order.update', 'order.delete', 'order.publish', 'order.refund',
+                'finance.view', 'finance.manage-invoice', 'finance.manage-refund',
+                'finance.manage-pemasukan', 'finance.manage-pengeluaran',
                 'report.view', 'report.export',
-                'settings.notification',
+                'settings.brand', 'settings.notification',
                 'dashboard.view-brand',
                 'tools.ai',
             ],
             'admin_produksi' => [
                 'order.view',
                 'production.update-progress', 'production.add-reject',
-                'master.produk',
+                'master.production',   // hanya tahapan progress, bukan katalog produk
                 'report.view', 'report.export',
                 'dashboard.view-brand',
             ],

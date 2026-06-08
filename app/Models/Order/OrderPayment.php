@@ -14,7 +14,7 @@ class OrderPayment extends Model
     use HasFactory, HasUuids;
 
     protected $fillable = [
-        'order_id', 'payment_type', 'amount', 'payment_date',
+        'order_id', 'payment_type', 'master_jenis_pembayaran_id', 'amount', 'payment_date',
         'bank_id', 'proof_file', 'notes',
         'recorded_by', 'verified_by', 'verified_at',
         'dp_sequence', 'is_debit',
@@ -34,4 +34,5 @@ class OrderPayment extends Model
     public function bank(): BelongsTo { return $this->belongsTo(BankAccount::class, 'bank_id'); }
     public function recorder(): BelongsTo { return $this->belongsTo(User::class, 'recorded_by'); }
     public function verifier(): BelongsTo { return $this->belongsTo(User::class, 'verified_by'); }
+    public function masterJenisPembayaran(): BelongsTo { return $this->belongsTo(\App\Models\Finance\MasterJenisPembayaran::class, 'master_jenis_pembayaran_id'); }
 }

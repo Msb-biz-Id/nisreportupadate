@@ -15,7 +15,7 @@ class Invoice extends Model
 {
     use HasFactory, HasUuidAndSoftDeletes;
 
-    public const STATUSES = ['draft', 'validated', 'published', 'sent', 'paid', 'overdue', 'cancel'];
+    public const STATUSES = ['draft', 'validated', 'published', 'sent', 'overdue', 'paid', 'cancel'];
 
     protected $fillable = [
         'brand_id', 'order_id', 'invoice_number',

@@ -6,8 +6,11 @@ use App\Models\Master\BahanKain;
 use App\Models\Master\BankAccount;
 use App\Models\Master\CustomerType;
 use App\Models\Master\Logo;
+use App\Models\Master\JenisSetelan;
+use App\Models\Master\JenisProduk;
 use App\Models\Master\PaketOrder;
 use App\Models\Master\PolaJahitan;
+use App\Models\Master\PolaProduksi;
 use App\Models\Master\Printing;
 use App\Models\Master\Product;
 use App\Models\Master\Progress;
@@ -17,7 +20,6 @@ use App\Models\Master\Iklan;
 use App\Models\Master\JenisOrder;
 use App\Models\Master\SumberOrder;
 use App\Models\Master\TipeOrder;
-use App\Models\Master\Reseller;
 
 /**
  * Konfigurasi terpusat untuk semua master data.
@@ -28,7 +30,7 @@ use App\Models\Master\Reseller;
  * - group: kategori sidebar (global | order | finance | production)
  * - icon: nama icon lucide-react
  * - model: class FQDN model
- * - scope: 'global' (no brand_id) | 'brand' (brand_id required) | 'brand_nullable' (brand_id nullable — global utk reseller)
+ * - scope: 'global' (no brand_id) | 'brand' (brand_id required) | 'brand_nullable' (brand_id nullable)
  * - fields: definisi field untuk form & validation
  * - list_columns: kolom yang ditampilkan di list view
  * - search_fields: field DB yang bisa di-search
@@ -58,9 +60,38 @@ class MasterRegistry
             'logo' => self::simpleConfig('logo', 'Logo', 'Sparkles', Logo::class),
             'resleting' => self::simpleConfig('resleting', 'Resleting', 'Move3D', Resleting::class),
             'printing' => self::simpleConfig('printing', 'Jenis Printing', 'Printer', Printing::class),
-            'paket-order' => self::simpleConfig('paket-order', 'Paket Order', 'PackageOpen', PaketOrder::class),
+            'paket-order' => [
+                'slug'  => 'paket-order',
+                'label' => 'Paket Order',
+                'group' => 'global',
+                'icon'  => 'PackageOpen',
+                'model' => PaketOrder::class,
+                'scope' => 'global',
+                'fields' => [
+                    ['name' => 'nama',      'label' => 'Nama Paket',   'type' => 'text',   'required' => true, 'max' => 100],
+                    ['name' => 'deskripsi', 'label' => 'Deskripsi',    'type' => 'textarea'],
+                    ['name' => 'warna',     'label' => 'Warna Badge',  'type' => 'color',  'default' => '#6B7280',
+                     'help' => 'Warna badge yang tampil di Kanban & Order. Contoh: Normal=#10B981, Ekspress=#F59E0B, Urgent=#EF4444'],
+                    ['name' => 'prioritas', 'label' => 'Level Prioritas', 'type' => 'select', 'default' => 0,
+                     'options' => [
+                         ['value' => 0, 'label' => '0 — Normal'],
+                         ['value' => 1, 'label' => '1 — Ekspress'],
+                         ['value' => 2, 'label' => '2 — Urgent / Kritis'],
+                     ]],
+                    ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
+                ],
+                'list_columns' => [
+                    ['key' => 'nama',      'label' => 'Nama Paket'],
+                    ['key' => 'warna',     'label' => 'Warna',    'type' => 'color_badge'],
+                    ['key' => 'prioritas', 'label' => 'Prioritas', 'type' => 'badge',
+                     'map' => [0 => 'Normal', 1 => 'Ekspress', 2 => 'Urgent']],
+                    ['key' => 'is_active', 'label' => 'Status',  'type' => 'badge_active'],
+                ],
+                'search_fields' => ['nama'],
+                'order_by' => 'prioritas',
+                'secondary_order' => 'nama',
+            ],
             'tipe-order' => self::simpleConfig('tipe-order', 'Tipe Order', 'Boxes', TipeOrder::class),
-            'reseller' => self::simpleConfig('reseller', 'Nama Reseller', 'Users', Reseller::class),
 
             'size' => [
                 'slug' => 'size',
@@ -203,6 +234,71 @@ class MasterRegistry
                 ],
                 'list_columns' => [
                     ['key' => 'nama', 'label' => 'Nama'],
+                    ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+                ],
+                'search_fields' => ['nama'],
+                'order_by' => 'nama',
+            ],
+
+            'jenis-setelan' => [
+                'slug'  => 'jenis-setelan',
+                'label' => 'Jenis Setelan',
+                'group' => 'production',
+                'icon'  => 'Layers',
+                'model' => JenisSetelan::class,
+                'scope' => 'global',
+                'fields' => [
+                    ['name' => 'nama',      'label' => 'Nama Jenis Setelan', 'type' => 'text', 'required' => true, 'max' => 100,
+                     'placeholder' => 'Contoh: Stell (Atasan + Bawahan)'],
+                    ['name' => 'deskripsi', 'label' => 'Deskripsi', 'type' => 'textarea'],
+                    ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
+                ],
+                'list_columns' => [
+                    ['key' => 'nama',      'label' => 'Jenis Setelan'],
+                    ['key' => 'deskripsi', 'label' => 'Deskripsi', 'class' => 'text-muted-foreground text-xs'],
+                    ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+                ],
+                'search_fields' => ['nama'],
+                'order_by' => 'nama',
+            ],
+
+            'pola-produksi' => [
+                'slug'  => 'pola-produksi',
+                'label' => 'Pola Produksi',
+                'group' => 'production',
+                'icon'  => 'Scissors',
+                'model' => PolaProduksi::class,
+                'scope' => 'global',
+                'fields' => [
+                    ['name' => 'nama',      'label' => 'Nama Pola', 'type' => 'text', 'required' => true, 'max' => 100,
+                     'placeholder' => 'Contoh: Standart, Perempuan, Slim Fit'],
+                    ['name' => 'deskripsi', 'label' => 'Deskripsi', 'type' => 'textarea'],
+                    ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
+                ],
+                'list_columns' => [
+                    ['key' => 'nama',      'label' => 'Nama Pola'],
+                    ['key' => 'deskripsi', 'label' => 'Deskripsi', 'class' => 'text-muted-foreground text-xs'],
+                    ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+                ],
+                'search_fields' => ['nama'],
+                'order_by' => 'nama',
+            ],
+
+            'jenis-produk' => [
+                'slug' => 'jenis-produk',
+                'label' => 'Jenis Produk',
+                'group' => 'production',
+                'icon' => 'Layers',
+                'model' => \App\Models\Master\JenisProduk::class,
+                'scope' => 'global',
+                'fields' => [
+                    ['name' => 'nama', 'label' => 'Nama Jenis Produk', 'type' => 'text', 'required' => true, 'max' => 100],
+                    ['name' => 'deskripsi', 'label' => 'Deskripsi', 'type' => 'textarea'],
+                    ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
+                ],
+                'list_columns' => [
+                    ['key' => 'nama', 'label' => 'Jenis Produk'],
+                    ['key' => 'deskripsi', 'label' => 'Deskripsi', 'class' => 'text-muted-foreground text-xs'],
                     ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
                 ],
                 'search_fields' => ['nama'],

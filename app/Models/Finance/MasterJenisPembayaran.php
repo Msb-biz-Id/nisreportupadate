@@ -1,18 +1,19 @@
 <?php
 
-namespace App\Models\Master;
+namespace App\Models\Finance;
 
 use App\Models\Concerns\HasUuidAndSoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Reseller extends Model
+class MasterJenisPembayaran extends Model
 {
     use HasFactory, HasUuidAndSoftDeletes;
 
     protected $fillable = [
         'nama',
-        'deskripsi',
+        'tipe_keuangan',
+        'efek_tagihan',
         'is_active',
     ];
 
@@ -20,13 +21,8 @@ class Reseller extends Model
         'is_active' => 'boolean',
     ];
 
-    public function orders()
+    public function scopeActive($query)
     {
-        return $this->hasMany(\App\Models\Order\Order::class, 'reseller_id');
-    }
-
-    public function scopeActive($q)
-    {
-        return $q->where('is_active', true);
+        return $query->where('is_active', true);
     }
 }

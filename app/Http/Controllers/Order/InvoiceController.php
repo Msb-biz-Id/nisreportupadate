@@ -7,7 +7,13 @@ use App\Models\Order\Invoice;
 use App\Models\Order\InvoiceItem;
 use App\Models\Order\Order;
 use App\Models\Order\OrderPayment;
+use App\Models\Finance\Pemasukan;
+use App\Models\Finance\Pengeluaran;
+use App\Models\Finance\KategoriPemasukan;
+use App\Models\Finance\KategoriPengeluaran;
 use App\Services\NumberGenerator;
+use App\Services\Notifications\InvoiceWhatsappService;
+use App\Services\Notifications\SidobeClient;
 use App\Support\BrandContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +30,7 @@ class InvoiceController extends Controller
     public function pdf(Request $request, Invoice $invoice)
     {
         $user = $request->user();
-        if ($user && !$user->isSuperadmin() && !$user->hasRole('owner')) {
+        if ($user && !$user->isSuperadmin() && !$user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])) {
             $userBrandIds = $user->brands()->pluck('brands.id')->toArray();
             abort_unless(in_array($invoice->brand_id, $userBrandIds), 403, 'Unauthorized brand context.');
         }
@@ -69,7 +75,7 @@ class InvoiceController extends Controller
         $invoice = $query->with(['brand', 'bank', 'items', 'order.pelanggan', 'order.payments.bank', 'order.progressDetails.progress'])
             ->firstOrFail();
 
-        if ($user && !$user->isSuperadmin() && !$user->hasRole('owner')) {
+        if ($user && !$user->isSuperadmin() && !$user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])) {
             $userBrandIds = $user->brands()->pluck('brands.id')->toArray();
             abort_unless(in_array($invoice->brand_id, $userBrandIds), 403, 'Unauthorized brand context.');
         }
@@ -107,7 +113,7 @@ class InvoiceController extends Controller
         $invoice = $query->with(['brand', 'bank', 'items', 'order.pelanggan'])
             ->firstOrFail();
 
-        if ($user && !$user->isSuperadmin() && !$user->hasRole('owner')) {
+        if ($user && !$user->isSuperadmin() && !$user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])) {
             $userBrandIds = $user->brands()->pluck('brands.id')->toArray();
             abort_unless(in_array($invoice->brand_id, $userBrandIds), 403, 'Unauthorized brand context.');
         }
@@ -166,36 +172,37 @@ class InvoiceController extends Controller
 
         $selectedBrandId = $request->input('brand_id', 'all');
 
-        $brands = ($user->isSuperadmin() || $user->hasRole('owner'))
+        // admin_keuangan & admin_produksi = lintas-brand (lihat semua brand + reseller)
+        $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+
+        $brands = $isAllBrandsRole
             ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
             : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);
 
         $userBrandIds = $brands->pluck('id')->toArray();
-        if ($selectedBrandId && $selectedBrandId !== 'all') {
-            if (!in_array($selectedBrandId, $userBrandIds)) {
-                abort(403, 'Unauthorized brand context.');
-            }
+        if ($selectedBrandId && $selectedBrandId !== 'all' && ! $isAllBrandsRole) {
+            abort_unless(in_array($selectedBrandId, $userBrandIds), 403, 'Unauthorized brand context.');
         }
 
         // Aggregate Financial Metrics
         $totalTagihanLunas = Invoice::where('status', 'paid')
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
-            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn($q) => $q->whereIn('brand_id', $userBrandIds))
+            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn($q) => $q->whereIn('brand_id', $userBrandIds))
             ->sum('total_tagihan');
 
         $totalTagihanBelumLunas = Invoice::where('status', '!=', 'paid')
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
-            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn($q) => $q->whereIn('brand_id', $userBrandIds))
+            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn($q) => $q->whereIn('brand_id', $userBrandIds))
             ->sum('sisa_pembayaran');
 
         $totalTJ = \App\Models\Order\DesignDeposit::whereIn('status', ['pending', 'verified'])
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
-            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn($q) => $q->whereIn('brand_id', $userBrandIds))
+            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn($q) => $q->whereIn('brand_id', $userBrandIds))
             ->sum('amount');
 
         $totalPending = OrderPayment::whereNull('verified_at')
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->whereHas('order', fn($o) => $o->where('brand_id', $selectedBrandId)))
-            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn($q) => $q->whereHas('order', fn($o) => $o->whereIn('brand_id', $userBrandIds)))
+            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn($q) => $q->whereHas('order', fn($o) => $o->whereIn('brand_id', $userBrandIds)))
             ->sum('amount');
 
         // Brand-wise breakdowns
@@ -216,7 +223,7 @@ class InvoiceController extends Controller
         $unpaidInvoices = Invoice::where('status', '!=', 'paid')
             ->where('sisa_pembayaran', '>', 0)
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
-            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn($q) => $q->whereIn('brand_id', $userBrandIds))
+            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn($q) => $q->whereIn('brand_id', $userBrandIds))
             ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'brand'])
             ->orderByDesc('created_at')
             ->limit(10)
@@ -224,7 +231,7 @@ class InvoiceController extends Controller
 
         $paidInvoices = Invoice::where('status', 'paid')
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
-            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn($q) => $q->whereIn('brand_id', $userBrandIds))
+            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn($q) => $q->whereIn('brand_id', $userBrandIds))
             ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'brand'])
             ->orderByDesc('created_at')
             ->limit(10)
@@ -259,20 +266,20 @@ class InvoiceController extends Controller
 
         $selectedBrandId = $request->input('brand_id', 'all');
 
-        $brands = ($user->isSuperadmin() || $user->hasRole('owner'))
+        $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+
+        $brands = $isAllBrandsRole
             ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
             : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);
 
         $userBrandIds = $brands->pluck('id')->toArray();
-        if ($selectedBrandId && $selectedBrandId !== 'all') {
-            if (!in_array($selectedBrandId, $userBrandIds)) {
-                abort(403, 'Unauthorized brand context.');
-            }
+        if ($selectedBrandId && $selectedBrandId !== 'all' && ! $isAllBrandsRole) {
+            abort_unless(in_array($selectedBrandId, $userBrandIds), 403, 'Unauthorized brand context.');
         }
 
         $query = Invoice::query()
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
-            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn ($q) => $q->whereIn('brand_id', $userBrandIds))
+            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn ($q) => $q->whereIn('brand_id', $userBrandIds))
             ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama']);
 
         if ($status = $request->string('status')->toString()) {
@@ -306,7 +313,7 @@ class InvoiceController extends Controller
         // Fetch Design Deposits (Tanda Jadi)
         $depositsQuery = \App\Models\Order\DesignDeposit::query()
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
-            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn ($q) => $q->whereIn('brand_id', $userBrandIds))
+            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn ($q) => $q->whereIn('brand_id', $userBrandIds))
             ->with(['brand:id,nama_brand,kode', 'recorder:id,name', 'verifier:id,name', 'bank:id,atas_nama,nomor_rekening,bank', 'order:id,no_po'])
             ->orderByDesc('created_at');
 
@@ -321,7 +328,7 @@ class InvoiceController extends Controller
 
         $availableOrders = Order::query()
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
-            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn ($q) => $q->whereIn('brand_id', $userBrandIds))
+            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn ($q) => $q->whereIn('brand_id', $userBrandIds))
             ->whereDoesntHave('invoices')
             ->orderByDesc('created_at')
             ->get(['id', 'no_po', 'nama_po', 'total_tagihan']);
@@ -368,27 +375,71 @@ class InvoiceController extends Controller
 
         $selectedBrandId = $request->input('brand_id', 'all');
 
-        $brands = ($user->isSuperadmin() || $user->hasRole('owner'))
+        $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+
+        $brands = $isAllBrandsRole
             ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
             : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);
 
         $userBrandIds = $brands->pluck('id')->toArray();
-        if ($selectedBrandId && $selectedBrandId !== 'all') {
-            if (!in_array($selectedBrandId, $userBrandIds)) {
-                abort(403, 'Unauthorized brand context.');
-            }
+        if ($selectedBrandId && $selectedBrandId !== 'all' && ! $isAllBrandsRole) {
+            abort_unless(in_array($selectedBrandId, $userBrandIds), 403, 'Unauthorized brand context.');
         }
 
         $pendingPayments = OrderPayment::query()
             ->whereNull('verified_at')
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->whereHas('order', fn ($o) => $o->where('brand_id', $selectedBrandId)))
-            ->when($selectedBrandId === 'all' && !$user->isSuperadmin() && !$user->hasRole('owner'), fn ($q) => $q->whereHas('order', fn ($o) => $o->whereIn('brand_id', $userBrandIds)))
-            ->with(['order:id,no_po,nama_po,brand_id', 'order.brand:id,nama_brand,kode', 'recorder:id,name', 'bank:id,atas_nama,nomor_rekening,bank'])
+            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn ($q) => $q->whereHas('order', fn ($o) => $o->whereIn('brand_id', $userBrandIds)))
+            ->with([
+                'order:id,no_po,nama_po,brand_id,status_po,total_tagihan,is_dp_bypassed',
+                'order.brand:id,nama_brand,kode,min_dp_percentage',
+                'recorder:id,name',
+                'bank:id,atas_nama,nomor_rekening,bank',
+                'masterJenisPembayaran:id,nama,tipe_keuangan',
+            ])
             ->orderByDesc('created_at')
             ->get();
 
+        // Attach DP status per payment so frontend can show "X% DP setelah diverifikasi"
+        // Use batch query to avoid N+1
+        $orderIds = $pendingPayments->pluck('order_id')->filter()->unique()->values();
+        $dpPaidPerOrder = [];
+        if ($orderIds->isNotEmpty()) {
+            foreach (\App\Models\Order\Order::whereIn('id', $orderIds)->get() as $ord) {
+                $dpPaidPerOrder[$ord->id] = [
+                    'total_tagihan' => (float) $ord->totalTagihan(),
+                    'total_paid'    => (float) $ord->totalPaid(),
+                    'min_dp_pct'    => $ord->brand ? (float) ($ord->brand->min_dp_percentage ?? 0.50) : 0.50,
+                    'is_bypassed'   => (bool) $ord->is_dp_bypassed,
+                    'status_po'     => $ord->status_po,
+                ];
+            }
+        }
+
+        $enrichedPayments = $pendingPayments->map(function ($p) use ($dpPaidPerOrder) {
+            $arr = $p->toArray();
+            $info = $dpPaidPerOrder[$p->order_id] ?? null;
+            if ($info) {
+                $afterVerify = $info['total_paid'] + (float) $p->amount;
+                $minDp       = $info['total_tagihan'] * $info['min_dp_pct'];
+                $arr['dp_info'] = [
+                    'current_paid'      => $info['total_paid'],
+                    'after_verify'      => $afterVerify,
+                    'total_tagihan'     => $info['total_tagihan'],
+                    'min_dp_pct'        => $info['min_dp_pct'],
+                    'min_dp'            => $minDp,
+                    'current_pct'       => $info['total_tagihan'] > 0 ? round(($info['total_paid'] / $info['total_tagihan']) * 100, 0) : 0,
+                    'after_pct'         => $info['total_tagihan'] > 0 ? round(($afterVerify / $info['total_tagihan']) * 100, 0) : 0,
+                    'will_be_sufficient' => $afterVerify >= $minDp || $info['is_bypassed'],
+                    'already_sufficient' => $info['total_paid'] >= $minDp || $info['is_bypassed'],
+                    'order_status'      => $info['status_po'],
+                ];
+            }
+            return $arr;
+        });
+
         return Inertia::render('Finance/PaymentsPending', [
-            'pending_payments' => $pendingPayments,
+            'pending_payments' => $enrichedPayments,
             'brands' => $brands,
             'filters' => [
                 'brand_id' => $request->string('brand_id', $selectedBrandId)->toString(),
@@ -419,7 +470,8 @@ class InvoiceController extends Controller
                 'status' => 'draft',
                 'total_tagihan' => $totalTagihan,
                 'total_bayar' => $totalPaid,
-                'dp_amount' => (float) $order->payments()->where('payment_type', 'dp')->whereNotNull('verified_at')->sum('amount'),
+                // dp_amount = total verified payments at invoice creation (supports both old payment_type and new master_jenis_pembayaran)
+                'dp_amount' => $totalPaid,
                 'sisa_pembayaran' => $order->sisaTagihan(),
                 'created_by' => auth()->id(),
             ]);
@@ -478,7 +530,55 @@ class InvoiceController extends Controller
 
         \App\Services\ActivityLogger::log('publish', 'invoice', $invoice, "Publish invoice {$invoice->invoice_number}");
 
+        // Auto-send WhatsApp jika dikonfigurasi dan pelanggan punya HP valid
+        $sidobe    = SidobeClient::fromSettings();
+        $waService = new InvoiceWhatsappService($sidobe);
+        $invoice->load(['order.pelanggan', 'brand']);
+
+        if ($sidobe->isConfigured()) {
+            $phone = $waService->phoneFromInvoice($invoice);
+            if ($phone !== '') {
+                $result = $waService->send($invoice, 'new_invoice');
+                if ($result['success'] && ! ($result['mock'] ?? false)) {
+                    $invoice->update(['status' => 'sent', 'sent_via' => 'whatsapp', 'sent_at' => now()]);
+                    return back()->with('success', "Invoice {$invoice->invoice_number} dipublish & dikirim ke WhatsApp {$phone}.");
+                }
+            }
+        }
+
         return back()->with('success', "Invoice {$invoice->invoice_number} dipublish. Siap dikirim ke customer.");
+    }
+
+    /**
+     * Kirim invoice via WhatsApp secara manual.
+     * Mendukung: new_invoice | reminder | overdue
+     */
+    public function sendWhatsapp(Request $request, Invoice $invoice)
+    {
+        Gate::authorize('finance.manage-invoice');
+        abort_unless(in_array($invoice->status, ['published', 'sent', 'overdue'], true), 422, 'Invoice harus berstatus published/sent/overdue untuk dikirim WA.');
+
+        $condition = $request->input('condition', 'new_invoice');
+        abort_unless(in_array($condition, ['new_invoice', 'reminder', 'overdue'], true), 422, 'Kondisi tidak valid.');
+
+        $invoice->load(['order.pelanggan', 'brand']);
+
+        $waService = new InvoiceWhatsappService(SidobeClient::fromSettings());
+        $phone     = $waService->phoneFromInvoice($invoice);
+
+        if ($phone === '') {
+            return back()->with('error', 'Nomor HP pelanggan tidak tersedia atau tidak valid. Perbarui data pelanggan terlebih dahulu.');
+        }
+
+        $result = $waService->send($invoice, $condition);
+
+        if ($result['success']) {
+            $invoice->update(['status' => 'sent', 'sent_via' => 'whatsapp', 'sent_at' => now()]);
+            $mockNote = ($result['mock'] ?? false) ? ' (Mock Mode — API belum dikonfigurasi)' : '';
+            return back()->with('success', "Invoice dikirim ke {$phone}{$mockNote}.");
+        }
+
+        return back()->with('error', 'Gagal mengirim WA: ' . ($result['error'] ?? 'Unknown error'));
     }
 
     public function verifyPayment(Request $request, OrderPayment $payment)
@@ -523,6 +623,53 @@ class InvoiceController extends Controller
                         'status' => $newSisa <= 0 ? 'paid' : $invoice->status,
                     ]);
                 }
+
+                // Sinkronisasi dengan sistem keuangan
+                $master = $payment->masterJenisPembayaran;
+                $paymentName = $master ? $master->nama : strtoupper($payment->payment_type ?? 'Pembayaran');
+                
+                if ($master && $master->tipe_keuangan === 'pemasukan' || (!$master && !in_array($payment->payment_type, ['cashback', 'return']))) {
+                    $kategori = KategoriPemasukan::firstOrCreate(
+                        ['brand_id' => $order->brand_id, 'nama_kategori' => 'Pembayaran PO'],
+                        [
+                            'deskripsi' => 'Pembayaran pesanan dari customer',
+                            'is_system'  => true,
+                            'is_active'  => true,
+                        ]
+                    );
+
+                    Pemasukan::create([
+                        'brand_id'             => $order->brand_id,
+                        'kategori_pemasukan_id' => $kategori->id,
+                        'order_id'             => $order->id,
+                        'source_payment_id'    => $payment->id,
+                        'tanggal'              => $payment->payment_date,
+                        'nominal'              => $payment->amount,
+                        'keterangan'           => "{$paymentName} PO {$order->no_po} — {$order->pelanggan?->nama}",
+                        'is_auto'              => true,
+                        'created_by'           => $request->user()->id,
+                    ]);
+                } elseif ($master && $master->tipe_keuangan === 'pengeluaran' || (!$master && in_array($payment->payment_type, ['cashback', 'return']))) {
+                    $kategori = KategoriPengeluaran::firstOrCreate(
+                        ['brand_id' => $order->brand_id, 'nama_kategori' => 'Refund / Cashback PO'],
+                        [
+                            'deskripsi' => 'Pengembalian dana atau cashback ke customer',
+                            'is_system'  => true,
+                            'is_active'  => true,
+                        ]
+                    );
+
+                    Pengeluaran::create([
+                        'brand_id'               => $order->brand_id,
+                        'kategori_pengeluaran_id' => $kategori->id,
+                        'source_payment_id'      => $payment->id,
+                        'tanggal'                => $payment->payment_date,
+                        'nominal'                => $payment->amount,
+                        'keterangan'             => "{$paymentName} PO {$order->no_po} — {$order->pelanggan?->nama}",
+                        'is_auto'                => true,
+                        'created_by'             => $request->user()->id,
+                    ]);
+                }
             }
         });
 
@@ -536,5 +683,64 @@ class InvoiceController extends Controller
         ]);
 
         return back()->with('success', 'Pembayaran berhasil diverifikasi.');
+    }
+
+    public function destroyPayment(Request $request, OrderPayment $payment)
+    {
+        Gate::authorize('finance.manage-invoice');
+
+        $order        = $payment->order;
+        $wasVerified  = $payment->verified_at !== null;
+        $paymentId    = $payment->id;
+
+        DB::transaction(function () use ($payment, $order, $wasVerified, $paymentId) {
+            // 1. Remove linked finance ledger entries created during verification.
+            // Primary: match by source_payment_id (entries created after migration).
+            // Fallback: match by order_id + tanggal + nominal for legacy entries (source_payment_id = NULL).
+            if ($wasVerified) {
+                $deletedPemasukan  = Pemasukan::where('source_payment_id', $paymentId)->delete();
+                $deletedPengeluaran = Pengeluaran::where('source_payment_id', $paymentId)->delete();
+
+                if ($deletedPemasukan === 0 && $order) {
+                    Pemasukan::where('order_id', $order->id)
+                        ->where('is_auto', true)
+                        ->whereNull('source_payment_id')
+                        ->where('nominal', $payment->amount)
+                        ->where('tanggal', $payment->payment_date)
+                        ->delete();
+                }
+                if ($deletedPengeluaran === 0 && $order) {
+                    Pengeluaran::where('is_auto', true)
+                        ->whereNull('source_payment_id')
+                        ->where('nominal', $payment->amount)
+                        ->where('tanggal', $payment->payment_date)
+                        ->whereHas('kategori', fn ($q) => $q->where('brand_id', $order->brand_id))
+                        ->delete();
+                }
+            }
+
+            // 2. Delete the payment record itself
+            $payment->delete();
+
+            // 3. Recalculate order total and invoice balance
+            if ($wasVerified && $order) {
+                $order->update(['total_tagihan' => $order->totalTagihan()]);
+
+                $invoice = $order->invoices()->first();
+                if ($invoice) {
+                    $newTotal = $order->totalTagihan();
+                    $newPaid  = $order->totalPaid();
+                    $newSisa  = max(0, $newTotal - $newPaid);
+                    $invoice->update([
+                        'total_tagihan'  => $newTotal,
+                        'total_bayar'    => $newPaid,
+                        'sisa_pembayaran' => $newSisa,
+                        'status' => $newSisa <= 0 ? 'paid' : ($invoice->status === 'paid' ? 'validated' : $invoice->status),
+                    ]);
+                }
+            }
+        });
+
+        return back()->with('success', 'Data pembayaran dan catatan keuangan terkait berhasil dihapus.');
     }
 }

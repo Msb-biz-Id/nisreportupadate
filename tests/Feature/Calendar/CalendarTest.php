@@ -116,7 +116,7 @@ class CalendarTest extends TestCase
 
     public function test_all_roles_with_order_view_can_access_calendar()
     {
-        foreach (['admin_brand', 'reseller', 'admin_produksi', 'admin_keuangan'] as $role) {
+        foreach (['admin_brand', 'admin_reseller', 'admin_produksi', 'admin_keuangan'] as $role) {
             $brand = $this->makeBrand();
             $user  = $this->makeUser($role, [$brand]);
 

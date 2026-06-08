@@ -82,9 +82,9 @@ class KanbanMoveTest extends TestCase
     public function test_non_production_user_forbidden(): void
     {
         $order = $this->makePoWithStatus('published');
-        $reseller = $this->makeUser('reseller', [$order->brand]);
+        $adminBrand = $this->makeUser('admin_brand', [$order->brand]);
 
-        $this->actingAsWithBrand($reseller, $order->brand)
+        $this->actingAsWithBrand($adminBrand, $order->brand)
             ->putJson(route('produksi.move-status', $order->id), ['to_status' => 'on_progress'])
             ->assertForbidden();
     }

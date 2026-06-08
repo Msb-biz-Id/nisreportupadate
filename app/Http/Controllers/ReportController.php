@@ -20,10 +20,12 @@ class ReportController extends Controller
     {
         Gate::authorize('report.view');
         $config = $this->resolveConfig($slug, $request);
-        $brandId = BrandContext::current($request);
+        $brandId    = BrandContext::current($request);
+        $effectiveId = $this->effectiveBrandId($request);
+        $masterBrandId = BrandContext::masterDataId($request);
 
         $filters = $this->extractFilters($request, $config);
-        $result = $this->runner->run($slug, $brandId, $filters);
+        $result = $this->runner->run($slug, $effectiveId, $filters);
 
         return Inertia::render('Report/Show', [
             'config' => $config,
@@ -36,11 +38,11 @@ class ReportController extends Controller
                 return $r['slug'] === 'wilayah' ? $this->resolveConfig('wilayah', $request) : $r;
             })->all(),
             'customerTypes' => \App\Models\Master\CustomerType::query()
-                ->when($brandId, fn($q) => $q->where('brand_id', $brandId)->orWhereNull('brand_id'))
+                ->when($masterBrandId, fn($q) => $q->where('brand_id', $masterBrandId)->orWhereNull('brand_id'))
                 ->get(['id', 'nama'])
                 ->all(),
             'sumberOrders' => \App\Models\Master\SumberOrder::query()
-                ->when($brandId, fn($q) => $q->where('brand_id', $brandId)->orWhereNull('brand_id'))
+                ->when($masterBrandId, fn($q) => $q->where('brand_id', $masterBrandId)->orWhereNull('brand_id'))
                 ->get(['id', 'nama'])
                 ->all(),
         ]);
@@ -50,10 +52,10 @@ class ReportController extends Controller
     {
         Gate::authorize('report.export');
         $config = $this->resolveConfig($slug, $request);
-        $brandId = BrandContext::current($request);
+        $effectiveId = $this->effectiveBrandId($request);
         $filters = $this->extractFilters($request, $config);
 
-        $result = $this->runner->run($slug, $brandId, $filters);
+        $result = $this->runner->run($slug, $effectiveId, $filters);
         $filename = "report-{$slug}-" . now()->format('Ymd-His') . '.xlsx';
 
         return Excel::download(
@@ -66,10 +68,10 @@ class ReportController extends Controller
     {
         Gate::authorize('report.export');
         $config = $this->resolveConfig($slug, $request);
-        $brandId = BrandContext::current($request);
+        $effectiveId = $this->effectiveBrandId($request);
         $filters = $this->extractFilters($request, $config);
 
-        $result = $this->runner->run($slug, $brandId, $filters);
+        $result = $this->runner->run($slug, $effectiveId, $filters);
 
         $pdf = Pdf::loadView('pdf.report', [
             'config' => $config,
@@ -81,6 +83,18 @@ class ReportController extends Controller
         ])->setPaper('a4', 'landscape');
 
         return $pdf->download("report-{$slug}-" . now()->format('Ymd-His') . '.pdf');
+    }
+
+    /** Returns effective brand ID(s) for report queries. admin_reseller on hub → array of branch IDs. */
+    private function effectiveBrandId(Request $request): string|array|null
+    {
+        $user = $request->user();
+        $role = $user?->getRoleNames()->first();
+        if ($role === 'admin_reseller') {
+            $ids = BrandContext::effectiveBrandIds($request);
+            return $ids ?: BrandContext::current($request);
+        }
+        return BrandContext::current($request);
     }
 
     private function resolveConfig(string $slug, Request $request = null): array

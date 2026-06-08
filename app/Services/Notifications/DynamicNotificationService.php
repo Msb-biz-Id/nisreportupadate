@@ -42,7 +42,7 @@ class DynamicNotificationService
                     'whatsapp' => false,
                     'telegram' => false,
                     'os_desktop' => true,
-                    'roles' => ['admin_brand', 'reseller', 'owner'],
+                    'roles' => ['admin_brand', 'admin_reseller', 'owner'],
                     'sound' => 'bell-chime'
                 ],
                 'rijek_reported' => [
@@ -66,7 +66,7 @@ class DynamicNotificationService
                     'whatsapp' => false,
                     'telegram' => false,
                     'os_desktop' => true,
-                    'roles' => ['admin_brand', 'reseller', 'owner'],
+                    'roles' => ['admin_brand', 'admin_reseller', 'owner'],
                     'sound' => 'bell-chime'
                 ],
                 'payment_submitted' => [

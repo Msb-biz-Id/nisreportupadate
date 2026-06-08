@@ -253,12 +253,12 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                     </SelectContent>
                                 </Select>
 
-                                {/* Brand Filter */}
+                                {/* Brand Filter — admin_brand bisa pilih semua brand atau satu */}
                                 {can?.filter_by_brand && brands?.length > 0 ? (
                                     <Select value={brandId || NONE} onValueChange={(v) => { const val = v === NONE ? '' : v; setBrandId(val); applyFilters({ brand_id: val }); }}>
-                                        <SelectTrigger className="bg-white"><SelectValue placeholder="Semua Brand" /></SelectTrigger>
+                                        <SelectTrigger className="bg-white"><SelectValue placeholder="📦 Semua Brand Saya" /></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value={NONE}>Semua Brand</SelectItem>
+                                            <SelectItem value={NONE}>📦 Semua Brand Saya</SelectItem>
                                             {brands.map((b) => (
                                                 <SelectItem key={b.id} value={b.id}>{b.nama_brand}</SelectItem>
                                             ))}
@@ -376,6 +376,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                         <TableHead>Tgl Masuk</TableHead>
                                         <TableHead>Deadline</TableHead>
                                         <TableHead className="text-right">Total</TableHead>
+                                        <TableHead>Paket</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead className="text-center">Items</TableHead>
                                         <TableHead className="text-right">Aksi</TableHead>
@@ -405,6 +406,17 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                                 <TableCell className="text-xs">{formatDate(o.tanggal_masuk)}</TableCell>
                                                 <TableCell className="text-xs">{formatDate(o.deadline_customer)}</TableCell>
                                                 <TableCell className="text-right font-mono text-xs">{formatRupiah(o.total_tagihan)}</TableCell>
+                                                <TableCell>
+                                                    {o.paket_order ? (
+                                                        <span
+                                                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+                                                            style={{ background: o.paket_order.warna || '#6B7280' }}
+                                                        >
+                                                            {o.paket_order.prioritas >= 2 ? '🚨' : o.paket_order.prioritas >= 1 ? '⚡' : ''}
+                                                            {o.paket_order.nama}
+                                                        </span>
+                                                    ) : <span className="text-xs text-muted-foreground">-</span>}
+                                                </TableCell>
                                                 <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
                                                 <TableCell className="text-center">
                                                     <Badge variant="outline">{o.items_count ?? 0}</Badge>

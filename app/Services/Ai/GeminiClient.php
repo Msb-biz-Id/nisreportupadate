@@ -44,13 +44,16 @@ class GeminiClient
         $keys = $this->apiKeys;
         shuffle($keys);
 
-        foreach ($keys as $key) {
+        $lastError  = 'Semua API key gagal merespons.';
+        $totalKeys  = count($keys);
+
+        foreach ($keys as $index => $key) {
             try {
                 $response = Http::timeout(30)
                     ->post(self::BASE_URL . "/models/{$this->model}:generateContent?key={$key}", [
-                        'contents' => [['parts' => [['text' => $prompt]]]],
+                        'contents'         => [['parts' => [['text' => $prompt]]]],
                         'generationConfig' => [
-                            'temperature' => $this->temperature,
+                            'temperature'     => $this->temperature,
                             'maxOutputTokens' => $this->maxOutputTokens,
                         ],
                         'safetySettings' => [
@@ -62,28 +65,61 @@ class GeminiClient
                 if ($response->successful()) {
                     $data = $response->json();
                     $text = $data['candidates'][0]['content']['parts'][0]['text'] ?? '';
+
+                    if (trim($text) === '') {
+                        // Kemungkinan diblokir safety filter — coba key berikutnya
+                        $lastError = 'Respons kosong (kemungkinan diblokir safety filter).';
+                        continue;
+                    }
+
                     return [
                         'success' => true,
-                        'text' => trim($text),
-                        'model' => $this->model,
-                        'tokens' => $data['usageMetadata']['totalTokenCount'] ?? null,
-                        'mock' => false,
+                        'text'    => trim($text),
+                        'model'   => $this->model,
+                        'tokens'  => $data['usageMetadata']['totalTokenCount'] ?? null,
+                        'mock'    => false,
                     ];
                 }
 
-                Log::warning('Gemini API call failed', ['status' => $response->status(), 'body' => $response->body()]);
+                $status = $response->status();
+
+                if ($status === 429) {
+                    // Rate limit — coba key berikutnya (normal behavior, bukan error)
+                    Log::info("Gemini key #{$index} rate limited (429), coba key berikutnya.");
+                    $lastError = 'Rate limit tercapai.';
+                    continue;
+                }
+
+                if ($status === 400) {
+                    // Bad request = masalah di prompt, bukan di key — tidak perlu coba key lain
+                    $errMsg = $response->json('error.message') ?? $response->body();
+                    Log::warning('Gemini 400 Bad Request (prompt issue)', ['error' => $errMsg]);
+                    return [
+                        'success' => false,
+                        'text'    => '',
+                        'error'   => "Prompt ditolak Gemini: {$errMsg}",
+                        'mock'    => false,
+                    ];
+                }
+
+                // Error lain (5xx, dll) — log dan coba key berikutnya
+                Log::warning("Gemini key #{$index} error {$status}", ['body' => $response->body()]);
+                $lastError = "HTTP {$status}: " . ($response->json('error.message') ?? 'Unknown error');
+
             } catch (ConnectionException $e) {
-                Log::warning('Gemini API timeout', ['error' => $e->getMessage()]);
+                Log::warning("Gemini key #{$index} timeout", ['error' => $e->getMessage()]);
+                $lastError = 'Connection timeout.';
             } catch (\Throwable $e) {
-                Log::warning('Gemini API exception', ['error' => $e->getMessage()]);
+                Log::warning("Gemini key #{$index} exception", ['error' => $e->getMessage()]);
+                $lastError = $e->getMessage();
             }
         }
 
         return [
             'success' => false,
-            'text' => '',
-            'error' => 'Semua API key gagal merespons. Coba lagi nanti atau periksa konfigurasi.',
-            'mock' => false,
+            'text'    => '',
+            'error'   => "Semua {$totalKeys} API key gagal. {$lastError} Periksa konfigurasi atau coba lagi nanti.",
+            'mock'    => false,
         ];
     }
 

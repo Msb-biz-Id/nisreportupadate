@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Sparkles, MessageCircle, Send, Settings, CheckCircle2, AlertTriangle, FlaskConical, Bell, Volume2, ShieldAlert, CheckSquare, Clock, Calendar, Mail } from 'lucide-react';
+import { Sparkles, MessageCircle, Send, Settings, CheckCircle2, AlertTriangle, FlaskConical, Bell, Volume2, ShieldAlert, CheckSquare, Clock, Calendar, Mail, Copy } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -101,9 +101,10 @@ function AiSection({ ai }) {
 
 function WhatsAppSection({ wa }) {
     const { data, setData, put, processing } = useForm({
-        api_url: wa.api_url || '',
-        api_key: '',
+        api_url:           wa.api_url           || 'https://api.sidobe.com/wa/v1',
+        api_key:           '',
         default_recipient: wa.default_recipient || '',
+        sender_phone:      wa.sender_phone      || '',
     });
 
     function submit(e) {
@@ -120,27 +121,51 @@ function WhatsAppSection({ wa }) {
             <CardHeader className="flex flex-row items-start justify-between gap-2 border-b pb-4">
                 <div>
                     <CardTitle className="flex items-center gap-2 text-base"><MessageCircle className="h-4.5 w-4.5 text-emerald-600" /> WhatsApp Gateway (Sidobe)</CardTitle>
-                    <CardDescription>Gateway WhatsApp untuk notifikasi real-time & laporan otomatis.</CardDescription>
+                    <CardDescription>
+                        Integrasi Sidobe API v1 — notifikasi real-time, kirim invoice, & laporan otomatis.{' '}
+                        <a href="https://docs.sidobe.com" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline text-xs">Docs ↗</a>
+                    </CardDescription>
                 </div>
                 <StatusBadge ok={wa.is_configured} />
             </CardHeader>
-            <CardContent className="pt-6">
+            <CardContent className="pt-6 space-y-6">
                 <form onSubmit={submit} className="space-y-4">
-                    <div>
-                        <Label className="text-xs font-semibold text-gray-700">API URL</Label>
-                        <Input value={data.api_url} onChange={(e) => setData('api_url', e.target.value)} placeholder="https://api.sidobe.com/v1" className="mt-1.5" />
+                    {/* Auth */}
+                    <div className="space-y-3">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Autentikasi Sidobe</p>
+                        <div>
+                            <Label className="text-xs font-semibold text-gray-700">Base URL API</Label>
+                            <Input value={data.api_url} onChange={(e) => setData('api_url', e.target.value)}
+                                placeholder="https://api.sidobe.com/wa/v1" className="mt-1.5 font-mono text-xs" />
+                            <p className="text-[10px] text-muted-foreground mt-1">Default: <code>https://api.sidobe.com/wa/v1</code></p>
+                        </div>
+                        <div>
+                            <Label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                                Secret Key (X-Secret-Key)
+                                {wa.has_key && <Badge variant="outline" className="font-mono text-[10px] bg-muted/40">{wa.api_key_masked}</Badge>}
+                            </Label>
+                            <Input type="password" value={data.api_key} onChange={(e) => setData('api_key', e.target.value)}
+                                placeholder={wa.has_key ? "Isi untuk mengganti" : "Dari Sidobe Dashboard → Developer Tools → Credential"}
+                                className="mt-1.5" />
+                        </div>
                     </div>
-                    <div>
-                        <Label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
-                            API Key
-                            {wa.has_key && <Badge variant="outline" className="font-mono text-[10px] bg-muted/40">{wa.api_key_masked}</Badge>}
-                        </Label>
-                        <Input type="password" value={data.api_key} onChange={(e) => setData('api_key', e.target.value)} placeholder={wa.has_key ? "Isi untuk mengganti" : "Masukkan API key"} className="mt-1.5" />
+
+                    {/* Nomor */}
+                    <div className="space-y-3">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Nomor & Pengirim</p>
+                        <div>
+                            <Label className="text-xs font-semibold text-gray-700">Sender Phone (Opsional)</Label>
+                            <Input value={data.sender_phone} onChange={(e) => setData('sender_phone', e.target.value)}
+                                placeholder="628123456789 (nomor WA yang terdaftar di Sidobe)" className="mt-1.5 font-mono text-xs" />
+                            <p className="text-[10px] text-muted-foreground mt-1">Kosongkan untuk pakai device default Sidobe.</p>
+                        </div>
+                        <div>
+                            <Label className="text-xs font-semibold text-gray-700">Default Recipient (fallback)</Label>
+                            <Input value={data.default_recipient} onChange={(e) => setData('default_recipient', e.target.value)}
+                                placeholder="628123456789 atau Group ID" className="mt-1.5 font-mono text-xs" />
+                        </div>
                     </div>
-                    <div>
-                        <Label className="text-xs font-semibold text-gray-700">Default Recipient (HP/Group ID)</Label>
-                        <Input value={data.default_recipient} onChange={(e) => setData('default_recipient', e.target.value)} placeholder="6281234567890" className="mt-1.5" />
-                    </div>
+
                     <div className="flex gap-2 pt-2 border-t">
                         <Button type="submit" disabled={processing} className="px-5">Simpan</Button>
                         <Button type="button" variant="outline" onClick={testConnection}>
@@ -148,6 +173,28 @@ function WhatsAppSection({ wa }) {
                         </Button>
                     </div>
                 </form>
+
+                {/* Webhook URL info */}
+                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 space-y-2">
+                    <p className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                        <ShieldAlert className="h-3.5 w-3.5" /> Webhook URL — daftarkan di Sidobe Dashboard
+                    </p>
+                    <p className="text-[10px] text-emerald-700">
+                        Sidobe Console → Developer Tools → Settings → Webhook WhatsApp → masukkan URL ini:
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <code className="flex-1 block rounded bg-emerald-100 border border-emerald-200 px-2 py-1.5 font-mono text-[11px] text-emerald-900 break-all">
+                            {wa.webhook_url}
+                        </code>
+                        <Button type="button" size="xs" variant="outline" className="shrink-0"
+                            onClick={() => navigator.clipboard.writeText(wa.webhook_url).then(() => alert('URL disalin!'))}>
+                            Copy
+                        </Button>
+                    </div>
+                    <p className="text-[10px] text-emerald-600">
+                        Event yang ditangani: <code>SEND_MESSAGE_STATUS</code> — update status pengiriman invoice WA.
+                    </p>
+                </div>
             </CardContent>
         </Card>
     );
@@ -493,41 +540,177 @@ function NotificationMatrixSection({ matrix, availableRoles }) {
     );
 }
 
-function ScheduledReportsSection() {
+function ScheduledReportsSection({ reports }) {
+    const { data, setData, put, processing } = useForm({
+        enable_auto_report:    reports.enable_auto_report,
+        daily_report_time:     reports.daily_report_time    || '08:00',
+        weekly_report_day:     reports.weekly_report_day    || 'monday',
+        monthly_report_date:   reports.monthly_report_date  || 1,
+        report_types:          reports.report_types         || 'brand,produksi',
+        superadmin_recipients: reports.superadmin_recipients || '',
+        produksi_recipients:   reports.produksi_recipients  || '',
+        brand_recipients:      reports.brand_recipients     || '',
+        owner_recipients:      reports.owner_recipients     || '',
+        keuangan_recipients:   reports.keuangan_recipients  || '',
+    });
+
+    const typeList = [
+        { key: 'superadmin', label: 'Superadmin (semua brand)', icon: '🌐' },
+        { key: 'brand',      label: 'Admin Brand (per brand)',  icon: '🏷️' },
+        { key: 'produksi',   label: 'Admin Produksi',           icon: '🏭' },
+        { key: 'owner',      label: 'Owner (per brand)',         icon: '👑' },
+        { key: 'keuangan',   label: 'Admin Keuangan',            icon: '💰' },
+    ];
+
+    const activeTypes = data.report_types ? data.report_types.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+    function toggleType(key) {
+        const current = new Set(activeTypes);
+        current.has(key) ? current.delete(key) : current.add(key);
+        setData('report_types', [...current].join(','));
+    }
+
+    function submit(e) {
+        e.preventDefault();
+        put(route('settings.integrasi.reports'), { preserveScroll: true });
+    }
+
+    const dayOptions = [
+        { value: 'monday', label: 'Senin' }, { value: 'tuesday', label: 'Selasa' },
+        { value: 'wednesday', label: 'Rabu' }, { value: 'thursday', label: 'Kamis' },
+        { value: 'friday', label: 'Jumat' }, { value: 'saturday', label: 'Sabtu' },
+        { value: 'sunday', label: 'Minggu' },
+    ];
+
     return (
         <Card className="shadow-md border-t-4 border-t-indigo-500">
             <CardHeader className="border-b pb-4">
-                <CardTitle className="flex items-center gap-2 text-base"><Calendar className="h-4.5 w-4.5 text-indigo-600" /> Automated Scheduled Reports</CardTitle>
-                <CardDescription>Jadwal pengiriman laporan berkala otomatis ke admin & owners.</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-3 text-sm">
-                <div className="flex justify-between items-center rounded border p-3 bg-muted/20">
-                    <span className="font-semibold text-gray-700">📊 Laporan Ringkasan Harian</span>
-                    <Badge variant="secondary">Setiap hari 08:00 WIB</Badge>
-                </div>
-                <div className="flex justify-between items-center rounded border p-3 bg-muted/20">
-                    <span className="font-semibold text-gray-700">📊 Laporan Mingguan</span>
-                    <Badge variant="secondary">Setiap Senin 08:00 WIB</Badge>
-                </div>
-                <div className="flex justify-between items-center rounded border p-3 bg-muted/20">
-                    <span className="font-semibold text-gray-700">📊 Laporan Bulanan</span>
-                    <Badge variant="secondary">Tanggal 1 setiap bulan 08:00 WIB</Badge>
-                </div>
-                <Separator className="my-4" />
-                <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs leading-relaxed flex gap-2">
-                    <Clock className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                <div className="flex items-center justify-between">
                     <div>
-                        <strong className="text-blue-900 block mb-1">Panduan Pengaturan Cron Job Server:</strong>
-                        Pastikan crontab server Anda sudah terdaftar agar command ini dapat tereksekusi terjadwal:
-                        <code className="block rounded bg-blue-100 border px-2 py-1 mt-1 font-mono text-[11px] text-blue-900">
-                            {"* * * * * php /path/to/project/artisan schedule:run >> /dev/null 2>&1"}
-                        </code>
-                        Atau jalankan instan via terminal:
-                        <code className="block rounded bg-blue-100 border px-2 py-1 mt-1 font-mono text-[11px] text-blue-900">
-                            php artisan reports:send harian
-                        </code>
+                        <CardTitle className="flex items-center gap-2 text-base"><Calendar className="h-4.5 w-4.5 text-indigo-600" /> Laporan Otomatis Terjadwal</CardTitle>
+                        <CardDescription>Konfigurasi pengiriman laporan berkala per-role ke WhatsApp/Telegram (BRD 17.2.1 & 17.2.2).</CardDescription>
                     </div>
+                    <Badge variant={data.enable_auto_report ? 'success' : 'secondary'}>
+                        {data.enable_auto_report ? '● Aktif' : '○ Nonaktif'}
+                    </Badge>
                 </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+                <form onSubmit={submit} className="space-y-6">
+
+                    {/* Enable toggle */}
+                    <div className="flex items-center justify-between rounded-lg border p-4 bg-muted/20">
+                        <div>
+                            <p className="font-semibold text-sm">Aktifkan Laporan Otomatis</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Jika diaktifkan, laporan akan dikirim sesuai jadwal cron terdaftar.</p>
+                        </div>
+                        <Switch checked={data.enable_auto_report} onCheckedChange={(v) => setData('enable_auto_report', v)} />
+                    </div>
+
+                    {/* Jadwal */}
+                    <div className="space-y-3">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Jadwal Pengiriman</p>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs">Waktu Harian</Label>
+                                <Input type="time" value={data.daily_report_time} onChange={(e) => setData('daily_report_time', e.target.value)} className="h-9 text-xs" />
+                                <p className="text-[10px] text-muted-foreground">Jam kirim laporan harian</p>
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs">Hari Mingguan</Label>
+                                <Select value={data.weekly_report_day} onValueChange={(v) => setData('weekly_report_day', v)}>
+                                    <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {dayOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs">Tanggal Bulanan</Label>
+                                <Input type="number" min={1} max={28} value={data.monthly_report_date} onChange={(e) => setData('monthly_report_date', parseInt(e.target.value) || 1)} className="h-9 text-xs" />
+                                <p className="text-[10px] text-muted-foreground">Tanggal 1–28 setiap bulan</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Jenis laporan */}
+                    <div className="space-y-3">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Jenis Laporan yang Dikirim</p>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {typeList.map(t => (
+                                <button
+                                    key={t.key}
+                                    type="button"
+                                    onClick={() => toggleType(t.key)}
+                                    className={cn(
+                                        "flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-semibold transition text-left",
+                                        activeTypes.includes(t.key)
+                                            ? "border-indigo-400 bg-indigo-50 text-indigo-800"
+                                            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                                    )}
+                                >
+                                    <span className="text-base">{t.icon}</span>
+                                    {t.label}
+                                    {activeTypes.includes(t.key) && <CheckCircle2 className="ml-auto h-3.5 w-3.5 text-indigo-600" />}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Recipients per role */}
+                    <div className="space-y-3">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Penerima Laporan per Role (nomor WA, pisah koma)</p>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {[
+                                { key: 'superadmin_recipients', label: '🌐 Superadmin', placeholder: '6281234,6285678' },
+                                { key: 'produksi_recipients',   label: '🏭 Admin Produksi', placeholder: '6281234,6285678' },
+                                { key: 'brand_recipients',      label: '🏷️ Admin Brand',   placeholder: '6281234,6285678' },
+                                { key: 'owner_recipients',      label: '👑 Owner',          placeholder: '6281234,6285678' },
+                                { key: 'keuangan_recipients',   label: '💰 Admin Keuangan', placeholder: '6281234,6285678' },
+                            ].map(f => (
+                                <div key={f.key} className="space-y-1">
+                                    <Label className="text-xs">{f.label}</Label>
+                                    <Input
+                                        value={data[f.key]}
+                                        onChange={(e) => setData(f.key, e.target.value)}
+                                        placeholder={f.placeholder}
+                                        className="h-9 text-xs font-mono"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">Kosongkan = pakai default WA/Telegram dari pengaturan di atas. Format: <code>628xxxxxxx</code> atau Group ID.</p>
+                    </div>
+
+                    <Separator />
+
+                    {/* Cron info */}
+                    <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs leading-relaxed space-y-2">
+                        <p className="font-bold text-blue-900 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Panduan Cron Job Server</p>
+                        <code className="block rounded bg-blue-100 border border-blue-200 px-2 py-1 font-mono text-[11px] text-blue-900">
+                            {"* * * * * php /path/to/artisan schedule:run >> /dev/null 2>&1"}
+                        </code>
+                        <p className="text-blue-700">Atau jalankan manual:</p>
+                        <div className="flex gap-2 flex-wrap">
+                            {['harian', 'mingguan', 'bulanan'].map(p => (
+                                <code key={p} className="rounded bg-blue-100 border border-blue-200 px-2 py-0.5 font-mono text-[11px] text-blue-900">
+                                    php artisan reports:send {p}
+                                </code>
+                            ))}
+                        </div>
+                        <p className="text-blue-700">Paksa kirim (abaikan enable toggle): tambahkan <code className="bg-blue-100 px-1 rounded">--force</code></p>
+                    </div>
+
+                    <div className="flex justify-end">
+                        <Button type="submit" disabled={processing} className="px-6">
+                            {processing ? 'Menyimpan…' : 'Simpan Pengaturan Laporan'}
+                        </Button>
+                    </div>
+                </form>
             </CardContent>
         </Card>
     );
@@ -770,7 +953,7 @@ function MailSection({ mail }) {
     );
 }
 
-export default function Integrations({ ai, whatsapp, telegram, system, notification_matrix, available_roles, seo, mail }) {
+export default function Integrations({ ai, whatsapp, telegram, system, notification_matrix, available_roles, seo, mail, reports }) {
     const roles = available_roles || ['superadmin', 'owner', 'admin_brand', 'reseller', 'admin_produksi', 'admin_keuangan'];
     const [activeTab, setActiveTab] = useState('seo');
 
@@ -878,7 +1061,7 @@ export default function Integrations({ ai, whatsapp, telegram, system, notificat
                     {activeTab === 'system' && (
                         <div className="grid grid-cols-1 gap-5 animate-in fade-in slide-in-from-bottom-2 duration-200">
                             <SystemSection sys={system} />
-                            <ScheduledReportsSection />
+                            <ScheduledReportsSection reports={reports ?? {}} />
                         </div>
                     )}
                 </div>

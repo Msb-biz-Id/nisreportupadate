@@ -50,7 +50,7 @@ export const ROLE_LABELS = {
     superadmin: 'Superadmin',
     owner: 'Owner',
     admin_brand: 'Admin Brand',
-    reseller: 'Reseller',
+    admin_reseller: 'Admin Reseller',
     admin_produksi: 'Admin Produksi',
     admin_keuangan: 'Admin Keuangan',
 };

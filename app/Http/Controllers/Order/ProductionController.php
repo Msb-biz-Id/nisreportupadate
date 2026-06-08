@@ -22,7 +22,12 @@ class ProductionController extends Controller
     public function gantt(Request $request)
     {
         Gate::authorize('order.view');
-        $brandId = BrandContext::current($request);
+        $user    = $request->user();
+        $brandId = match(true) {
+            $user->hasRole('admin_reseller') => BrandContext::effectiveBrandIds($request),
+            $user->hasRole('admin_produksi') => null, // lintas-brand: tampil semua
+            default                          => BrandContext::current($request),
+        };
 
         $orders = Order::query()
             ->forBrand($brandId)
@@ -87,36 +92,57 @@ class ProductionController extends Controller
     public function kanban(Request $request)
     {
         Gate::authorize('order.view');
-        $brandId = BrandContext::current($request);
+        $user    = $request->user();
+        $brandId = match(true) {
+            $user->hasRole('admin_reseller') => BrandContext::effectiveBrandIds($request),
+            $user->hasRole('admin_produksi') => null, // lintas-brand: tampil semua
+            default                          => BrandContext::current($request),
+        };
 
         $orders = Order::query()
             ->forBrand($brandId)
             ->published()
-            ->with(['pelanggan:id,nama', 'lockStatus'])
+            ->with(['pelanggan:id,nama', 'lockStatus', 'brand:id,kode,warna_primary', 'paketOrder:id,nama,warna,prioritas'])
+            ->withCount(['rijeks as has_rijek' => fn ($q) => $q->whereNull('resolved_at')])
             ->orderBy('deadline_customer')
             ->get();
 
         $columns = [
-            'published' => ['label' => 'Baru Masuk', 'color' => '#3B82F6', 'orders' => []],
-            'on_progress' => ['label' => 'Sedang Produksi', 'color' => '#F59E0B', 'orders' => []],
+            'published'        => ['label' => 'Baru Masuk',       'color' => '#3B82F6', 'orders' => []],
+            'on_progress'      => ['label' => 'Sedang Produksi',  'color' => '#F59E0B', 'orders' => []],
             'selesai_produksi' => ['label' => 'Selesai Produksi', 'color' => '#22C55E', 'orders' => []],
-            'siap_dikirim' => ['label' => 'Siap Dikirim', 'color' => '#06B6D4', 'orders' => []],
-            'sudah_dikirim' => ['label' => 'Sudah Dikirim', 'color' => '#8B5CF6', 'orders' => []],
-            'delay' => ['label' => 'Delay', 'color' => '#EF4444', 'orders' => []],
-            'hold' => ['label' => 'Hold', 'color' => '#F97316', 'orders' => []],
+            'siap_dikirim'     => ['label' => 'Siap Dikirim',     'color' => '#06B6D4', 'orders' => []],
+            'sudah_dikirim'    => ['label' => 'Sudah Dikirim',    'color' => '#8B5CF6', 'orders' => []],
+            'delay'            => ['label' => 'Delay',            'color' => '#EF4444', 'orders' => []],
+            'hold'             => ['label' => 'Hold',             'color' => '#F97316', 'orders' => []],
         ];
 
         foreach ($orders as $order) {
             $status = $order->status_po;
             if (! isset($columns[$status])) continue;
+
+            $daysRemaining = $order->deadline_customer
+                ? (int) now()->startOfDay()->diffInDays($order->deadline_customer, false)
+                : null;
+
             $columns[$status]['orders'][] = [
-                'id' => $order->id,
-                'no_po' => $order->no_po,
-                'nama_po' => $order->nama_po,
-                'pelanggan' => $order->pelanggan?->nama,
+                'id'                => $order->id,
+                'no_po'             => $order->no_po,
+                'nama_po'           => $order->nama_po,
+                'pelanggan'         => $order->pelanggan?->nama,
+                'brand_kode'        => $order->brand?->kode,
+                'brand_warna'       => $order->brand?->warna_primary,
                 'deadline_customer' => $order->deadline_customer?->toDateString(),
-                'is_locked' => $order->isLocked(),
-                'days_remaining' => $order->deadline_customer ? now()->startOfDay()->diffInDays($order->deadline_customer, false) : null,
+                'is_locked'         => $order->isLocked(),
+                'is_special_order'  => (bool) $order->is_special_order,
+                'has_rijek'         => $order->has_rijek > 0,
+                'total_items'       => $order->items()->sum('quantity'),
+                'days_remaining'    => $daysRemaining,
+                'paket_order'       => $order->paketOrder ? [
+                    'nama'      => $order->paketOrder->nama,
+                    'warna'     => $order->paketOrder->warna,
+                    'prioritas' => $order->paketOrder->prioritas,
+                ] : null,
             ];
         }
 
@@ -349,8 +375,8 @@ class ProductionController extends Controller
 
     private function guardBrandOwnership(Request $request, Order $order): void
     {
-        if ($request->user()->isSuperadmin()) return;
-        $brandId = BrandContext::current($request);
-        if ($order->brand_id !== $brandId) abort(403);
+        $user = $request->user();
+        if ($user->isSuperadmin()) return;
+        abort_unless($user->hasAccessToBrand($order->brand_id), 403);
     }
 }

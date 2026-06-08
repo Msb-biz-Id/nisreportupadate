@@ -78,14 +78,15 @@ class MasterDataTest extends TestCase
         $this->assertDatabaseHas('bahan_kains', ['nama' => 'Microfiber Owner']);
     }
 
-    public function test_reseller_cannot_manage_master_data(): void
+    public function test_admin_produksi_can_manage_global_master_data(): void
     {
+        // admin_produksi punya master.production → bisa akses group global (bahan kain, size, dll)
         $brand = $this->makeBrand();
-        $user = $this->makeUser('reseller', [$brand]);
+        $user = $this->makeUser('admin_produksi', [$brand]);
 
         $this->actingAsWithBrand($user, $brand)
-            ->post(route('master.store', 'bahan-kain'), ['nama' => 'Test'])
-            ->assertForbidden();
+            ->post(route('master.store', 'bahan-kain'), ['nama' => 'Test Bahan'])
+            ->assertRedirect();
     }
 
     public function test_invalid_master_slug_returns_404(): void

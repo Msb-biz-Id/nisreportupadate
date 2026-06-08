@@ -3,105 +3,136 @@
 namespace App\Console\Commands;
 
 use App\Models\Brand;
-use App\Services\DashboardService;
-use App\Services\Notifications\NotificationDispatcher;
 use App\Models\Settings\SystemSetting;
+use App\Services\Ai\GeminiClient;
+use App\Services\Notifications\NotificationDispatcher;
+use App\Services\Reports\ReportMessageBuilder;
 use Illuminate\Console\Command;
 
 class SendScheduledReport extends Command
 {
-    protected $signature = 'reports:send {periode=harian : harian|mingguan|bulanan} {--brand= : UUID brand spesifik}';
+    protected $signature = 'reports:send
+        {periode=harian : harian|mingguan|bulanan}
+        {--brand= : UUID brand spesifik}
+        {--force : Kirim meski enable_auto_report = false}';
 
-    protected $description = 'Kirim laporan otomatis ke WhatsApp/Telegram recipients';
+    protected $description = 'Kirim laporan otomatis per-role ke WhatsApp/Telegram (BRD 17.2.2)';
 
-    public function handle(DashboardService $dashboard, NotificationDispatcher $dispatcher): int
+    public function handle(NotificationDispatcher $dispatcher): int
     {
         $periode = $this->argument('periode');
-        $brandId = $this->option('brand');
+        $force   = $this->option('force');
 
-        $brands = $brandId
+        // Guard: cek apakah laporan otomatis diaktifkan
+        $enabled = (bool) SystemSetting::get('reports', 'enable_auto_report', false);
+        if (! $enabled && ! $force) {
+            $this->warn('Laporan otomatis tidak aktif. Gunakan --force untuk memaksa pengiriman.');
+            return self::SUCCESS;
+        }
+
+        // Builder dengan GeminiClient — AI insight opsional (skip jika key belum dikonfigurasi)
+        $ai      = GeminiClient::fromSettings();
+        $builder = new ReportMessageBuilder($ai);
+        if ($ai->isConfigured()) {
+            $this->info('Gemini terkonfigurasi — AI Insight akan disertakan dalam laporan.');
+        }
+
+        // Jenis laporan yang diaktifkan
+        $typesRaw = SystemSetting::get('reports', 'report_types', 'brand,produksi');
+        $types    = array_filter(array_map('trim', explode(',', $typesRaw)));
+
+        // Semua brand aktif diproses — hub, branch, dan regular diperlakukan sama.
+        $brandId = $this->option('brand');
+        $brands  = $brandId
             ? Brand::where('id', $brandId)->get()
             : Brand::active()->get();
 
-        foreach ($brands as $brand) {
-            $this->info("Generating $periode report for {$brand->kode}...");
+        $totalSent = 0;
 
-            $stats = $dashboard->adminBrandStats($brand->id);
-            $message = $this->formatMessage($brand, $periode, $stats);
-
-            $recipients = $this->getRecipients();
-            if (empty($recipients['whatsapp']) && empty($recipients['telegram'])) {
-                $this->warn("  Tidak ada recipient terkonfigurasi.");
-                continue;
+        // ── Superadmin report (satu pesan global, bukan per-brand)
+        if (in_array('superadmin', $types)) {
+            $recipients = $this->parseRecipients('superadmin_recipients');
+            if (! empty($recipients['whatsapp']) || ! empty($recipients['telegram'])) {
+                $message = $builder->superadmin($periode);
+                $results = $dispatcher->send($message, $recipients);
+                $sent    = collect($results)->where('success', true)->count();
+                $totalSent += $sent;
+                $this->info("[SUPERADMIN] Terkirim: {$sent}/" . count($results));
+            } else {
+                $this->warn('[SUPERADMIN] Tidak ada recipients terkonfigurasi.');
             }
-
-            $results = $dispatcher->send($message, $recipients);
-            $sent = collect($results)->where('success', true)->count();
-            $this->info("  Sent: {$sent}/" . count($results));
         }
 
+        // ── Per-brand reports
+        foreach ($brands as $brand) {
+            $this->info("── Brand: {$brand->kode} ──");
+
+            if (in_array('produksi', $types)) {
+                $r = $this->parseRecipients('produksi_recipients');
+                if (! empty($r['whatsapp']) || ! empty($r['telegram'])) {
+                    $msg     = $builder->adminProduksi($brand, $periode);
+                    $results = $dispatcher->send($msg, $r);
+                    $sent    = collect($results)->where('success', true)->count();
+                    $totalSent += $sent;
+                    $this->info("  [PRODUKSI] {$brand->kode}: {$sent}/" . count($results));
+                }
+            }
+
+            if (in_array('brand', $types)) {
+                $r = $this->parseRecipients('brand_recipients');
+                if (! empty($r['whatsapp']) || ! empty($r['telegram'])) {
+                    $msg     = $builder->adminBrand($brand, $periode);
+                    $results = $dispatcher->send($msg, $r);
+                    $sent    = collect($results)->where('success', true)->count();
+                    $totalSent += $sent;
+                    $this->info("  [BRAND] {$brand->kode}: {$sent}/" . count($results));
+                }
+            }
+
+            if (in_array('owner', $types)) {
+                $r = $this->parseRecipients('owner_recipients');
+                if (! empty($r['whatsapp']) || ! empty($r['telegram'])) {
+                    $msg     = $builder->owner($brand, $periode);
+                    $results = $dispatcher->send($msg, $r);
+                    $sent    = collect($results)->where('success', true)->count();
+                    $totalSent += $sent;
+                    $this->info("  [OWNER] {$brand->kode}: {$sent}/" . count($results));
+                }
+            }
+
+            if (in_array('keuangan', $types)) {
+                $r = $this->parseRecipients('keuangan_recipients');
+                if (! empty($r['whatsapp']) || ! empty($r['telegram'])) {
+                    $msg     = $builder->keuangan($brand, $periode);
+                    $results = $dispatcher->send($msg, $r);
+                    $sent    = collect($results)->where('success', true)->count();
+                    $totalSent += $sent;
+                    $this->info("  [KEUANGAN] {$brand->kode}: {$sent}/" . count($results));
+                }
+            }
+        }
+
+        $this->info("Selesai. Total terkirim: {$totalSent}");
         return self::SUCCESS;
     }
 
-    private function formatMessage(Brand $brand, string $periode, array $stats): string
+    /**
+     * Parse recipients dari settings ke format dispatcher.
+     * Fallback ke default_recipient / default_chat_id jika belum dikonfigurasi per-role.
+     */
+    private function parseRecipients(string $settingKey): array
     {
-        $lines = [
-            "📊 *LAPORAN " . strtoupper($periode) . " — {$brand->nama_brand}*",
-            "📅 " . now()->translatedFormat('d M Y, H:i'),
-            "",
-            "*RINGKASAN ORDER:*",
-        ];
+        $raw = SystemSetting::get('reports', $settingKey, '');
+        $wa  = array_filter(array_map('trim', explode(',', $raw ?? '')));
 
-        foreach (($stats['cards'] ?? []) as $card) {
-            $label = $card['label'];
-            $value = ! empty($card['currency'])
-                ? 'Rp ' . number_format((float) $card['value'], 0, ',', '.')
-                : $card['value'];
-            $lines[] = "• {$label}: *{$value}*";
+        if (empty($wa)) {
+            // Fallback ke default global
+            $defaultWa = SystemSetting::get('whatsapp', 'default_recipient');
+            if ($defaultWa) $wa = [$defaultWa];
         }
 
-        $lines[] = "";
-        $lines[] = "*STATUS PO:*";
-        foreach (($stats['status_breakdown'] ?? []) as $st) {
-            if ($st['count'] > 0) $lines[] = "• {$st['label']}: {$st['count']}";
-        }
-
-        $deadline = $stats['deadline_mendekat'] ?? [];
-        if (count($deadline)) {
-            $lines[] = "";
-            $lines[] = "*⏰ DEADLINE MENDEKAT:*";
-            foreach (array_slice($deadline, 0, 5) as $po) {
-                $lines[] = "• {$po['no_po']} — {$po['pelanggan']} (H-{$po['days_remaining']})";
-            }
-        }
-
-        $terlambat = $stats['po_terlambat'] ?? [];
-        if (count($terlambat)) {
-            $lines[] = "";
-            $lines[] = "*⚠️ PO TERLAMBAT:*";
-            foreach (array_slice($terlambat, 0, 5) as $po) {
-                $lines[] = "• {$po['no_po']} — {$po['pelanggan']} ({$po['days_late']} hari)";
-            }
-        }
-
-        $lines[] = "";
-        $lines[] = "_NISReport — Multi-Brand Order Management_";
-
-        return implode("\n", $lines);
-    }
-
-    private function getRecipients(): array
-    {
-        $waRaw = SystemSetting::get('whatsapp', 'recipients');
-        $tgRaw = SystemSetting::get('telegram', 'chat_ids');
-        $defaultWa = SystemSetting::get('whatsapp', 'default_recipient');
         $defaultTg = SystemSetting::get('telegram', 'default_chat_id');
-
-        $wa = array_filter(array_map('trim', explode(',', $waRaw ?? '')));
-        $tg = array_filter(array_map('trim', explode(',', $tgRaw ?? '')));
-
-        if (empty($wa) && $defaultWa) $wa = [$defaultWa];
-        if (empty($tg) && $defaultTg) $tg = [$defaultTg];
+        $tg = $defaultTg ? [$defaultTg] : [];
 
         return ['whatsapp' => $wa, 'telegram' => $tg];
     }

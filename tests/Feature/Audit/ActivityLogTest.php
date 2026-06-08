@@ -105,8 +105,8 @@ class ActivityLogTest extends TestCase
 
     public function test_audit_index_requires_audit_view_permission(): void
     {
-        $reseller = $this->makeUser('reseller', [$this->makeBrand()]);
-        $this->actingAs($reseller)->get(route('audit.index'))->assertForbidden();
+        $adminBrand = $this->makeUser('admin_brand', [$this->makeBrand()]);
+        $this->actingAs($adminBrand)->get(route('audit.index'))->assertForbidden();
     }
 
     public function test_superadmin_can_view_audit_index(): void

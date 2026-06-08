@@ -33,9 +33,19 @@ class CalendarController extends Controller
     public function index(Request $request)
     {
         Gate::authorize('order.view');
-        $brandId = BrandContext::current($request);
+        $user = $request->user();
 
-        $isProduksi = $request->user()->hasRole('admin_produksi');
+        // Resolusi brand:
+        // - admin_produksi & admin_keuangan: lintas-brand (null = semua)
+        // - admin_reseller: hub + semua branch
+        // - superadmin/owner/admin_brand: ikut brand context (punya brand switcher)
+        $brandId = match(true) {
+            $user->hasRole(['admin_produksi', 'admin_keuangan']) => null,
+            $user->hasRole('admin_reseller') => BrandContext::effectiveBrandIds($request),
+            default => BrandContext::current($request),
+        };
+
+        $isProduksi = $user->hasRole('admin_produksi');
 
         $orders = Order::query()
             ->forBrand($brandId)

@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { formatDate } from '@/lib/utils';
 
-function BrandForm({ open, onOpenChange, brand, onSuccess }) {
+function BrandForm({ open, onOpenChange, brand, onSuccess, isAdminReseller = false }) {
     const isEdit = !!brand;
     const { data, setData, post, put, processing, errors, reset } = useForm({
         nama_brand: brand?.nama_brand ?? '',
@@ -60,9 +60,17 @@ function BrandForm({ open, onOpenChange, brand, onSuccess }) {
             <DialogContent className="max-w-2xl">
                 <form onSubmit={submit}>
                     <DialogHeader>
-                        <DialogTitle>{isEdit ? 'Edit Brand' : 'Tambah Brand Baru'}</DialogTitle>
+                        <DialogTitle>
+                            {isEdit
+                                ? (isAdminReseller ? 'Edit Reseller' : 'Edit Brand')
+                                : (isAdminReseller ? '+ Tambah Reseller Baru' : 'Tambah Brand Baru')
+                            }
+                        </DialogTitle>
                         <DialogDescription>
-                            Brand bersifat terisolasi — semua master data, order, dan laporan dipisahkan per brand.
+                            {isAdminReseller
+                                ? 'Reseller baru akan ditambahkan ke daftar dan bisa langsung dikelola. Setiap reseller memiliki order, invoice, dan laporan terpisah.'
+                                : 'Brand bersifat terisolasi — semua master data, order, dan laporan dipisahkan per brand.'
+                            }
                         </DialogDescription>
                     </DialogHeader>
 
@@ -287,7 +295,7 @@ function BrandForm({ open, onOpenChange, brand, onSuccess }) {
     );
 }
 
-export default function BrandIndex({ brands, filters, can }) {
+export default function BrandIndex({ brands, filters, can, is_admin_reseller = false, accessible_brand_ids = [] }) {
     const [openForm, setOpenForm] = useState(false);
     const [editing, setEditing] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
@@ -334,11 +342,17 @@ export default function BrandIndex({ brands, filters, can }) {
                             <div className="flex items-center gap-2 text-xl font-semibold">
                                 <Building2 className="h-5 w-5 text-primary" /> Daftar Brand
                             </div>
-                            <p className="text-sm text-muted-foreground">Kelola brand yang beroperasi di sistem.</p>
+                            <p className="text-sm text-muted-foreground">
+                                {is_admin_reseller
+                                    ? 'Kelola reseller yang beroperasi di bawah manajemen Anda.'
+                                    : 'Kelola brand yang beroperasi di sistem.'
+                                }
+                            </p>
                         </div>
                         {can?.create && (
                             <Button onClick={openCreate}>
-                                <Plus className="h-4 w-4" /> Tambah Brand
+                                <Plus className="h-4 w-4" />
+                                {is_admin_reseller ? 'Tambah Reseller' : 'Tambah Brand'}
                             </Button>
                         )}
                     </CardHeader>
@@ -383,19 +397,30 @@ export default function BrandIndex({ brands, filters, can }) {
                                 <TableBody>
                                     {brands.data.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                                                Belum ada brand yang cocok dengan filter.
+                                            <TableCell colSpan={7} className="py-10 text-center">
+                                                {is_admin_reseller ? (
+                                                    <div className="space-y-2">
+                                                        <p className="text-sm font-semibold text-slate-600">Belum ada Branch Reseller</p>
+                                                        <p className="text-xs text-muted-foreground">Klik <strong>+ Tambah Reseller</strong> untuk mendaftarkan reseller baru yang akan Anda kelola.</p>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm text-muted-foreground">Belum ada brand yang cocok dengan filter.</p>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     )}
-                                    {brands.data.map((brand) => (
-                                        <TableRow key={brand.id}>
+                                    {brands.data.map((brand) => {
+                                        // admin_reseller: bisa kelola penuh brand yang mereka punya akses
+                                        // brand lain yang muncul = view only (bisa tambah akses nanti)
+                                        const isManaged = !is_admin_reseller || accessible_brand_ids.includes(brand.id);
+                                        return (
+                                        <TableRow key={brand.id} className={!isManaged ? 'opacity-70' : ''}>
                                             <TableCell>
                                                 {brand.logo ? (
                                                     <div className="h-9 w-9 overflow-hidden rounded-lg border bg-white flex items-center justify-center p-1 shadow-sm">
-                                                        <img 
-                                                            src={`/storage/${brand.logo}`} 
-                                                            alt={brand.nama_brand} 
+                                                        <img
+                                                            src={`/storage/${brand.logo}`}
+                                                            alt={brand.nama_brand}
                                                             className="h-full w-full object-contain"
                                                         />
                                                     </div>
@@ -411,6 +436,19 @@ export default function BrandIndex({ brands, filters, can }) {
                                             <TableCell>
                                                 <div className="font-medium">{brand.nama_brand}</div>
                                                 {brand.email && <div className="text-xs text-muted-foreground">{brand.email}</div>}
+                                                {is_admin_reseller && !isManaged && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (confirm(`Ambil alih pengelolaan "${brand.nama_brand}"? Brand akan ditambahkan ke daftar kelola Anda.`)) {
+                                                                router.post(route('brands.take-ownership', brand.id), {}, { preserveScroll: true });
+                                                            }
+                                                        }}
+                                                        className="mt-0.5 text-[10px] font-bold text-amber-600 hover:text-amber-800 hover:underline transition-colors"
+                                                    >
+                                                        ⚡ Belum dikelola — Klik untuk kelola
+                                                    </button>
+                                                )}
                                             </TableCell>
                                             <TableCell className="text-sm text-muted-foreground">{brand.tagline ?? '-'}</TableCell>
                                             <TableCell className="text-center">
@@ -424,7 +462,7 @@ export default function BrandIndex({ brands, filters, can }) {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-1">
-                                                    {can?.update && (
+                                                    {can?.update && isManaged && (
                                                         <>
                                                             <Button size="icon" variant="ghost" title={brand.is_active ? 'Nonaktifkan' : 'Aktifkan'} onClick={() => toggleActive(brand)}>
                                                                 <Power className="h-4 w-4" />
@@ -434,7 +472,7 @@ export default function BrandIndex({ brands, filters, can }) {
                                                             </Button>
                                                         </>
                                                     )}
-                                                    {can?.delete && (
+                                                    {can?.delete && isManaged && (
                                                         <Button size="icon" variant="ghost" title="Hapus" className="text-destructive hover:text-destructive" onClick={() => setConfirmDelete(brand)}>
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
@@ -442,7 +480,7 @@ export default function BrandIndex({ brands, filters, can }) {
                                                 </div>
                                             </TableCell>
                                         </TableRow>
-                                    ))}
+                                    );})}
                                 </TableBody>
                             </Table>
                         </div>
@@ -476,6 +514,7 @@ export default function BrandIndex({ brands, filters, can }) {
                                 onOpenChange={setOpenForm}
                                 brand={editing}
                                 onSuccess={() => setOpenForm(false)}
+                                isAdminReseller={is_admin_reseller}
                             />
 
             <Dialog open={!!confirmDelete} onOpenChange={(v) => !v && setConfirmDelete(null)}>

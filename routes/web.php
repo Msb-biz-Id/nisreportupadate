@@ -41,6 +41,11 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::get('/invoice/{invoiceNumber}/pdf', [InvoiceController::class, 'publicPdf'])->name('invoice.public.pdf');
 });
 
+// Webhook Sidobe — public endpoint, no auth, CSRF excluded via VerifyCsrfToken
+Route::post('/webhooks/sidobe', [\App\Http\Controllers\WebhookController::class, 'sidobe'])
+    ->name('webhooks.sidobe')
+    ->middleware('throttle:300,1');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
@@ -52,6 +57,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/brands/{brand}', [BrandController::class, 'update'])->name('brands.update');
     Route::delete('/brands/{brand}', [BrandController::class, 'destroy'])->name('brands.destroy');
     Route::post('/brands/{brand}/toggle', [BrandController::class, 'toggle'])->name('brands.toggle');
+    Route::post('/brands/{brand}/take-ownership', [BrandController::class, 'takeOwnership'])->name('brands.take-ownership');
 
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::post('/users', [UserController::class, 'store'])->name('users.store');
@@ -93,6 +99,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{order}/relock', [OrderController::class, 'relock'])->name('relock');
         Route::post('/{order}/payments', [OrderController::class, 'addPayment'])->name('payments.store');
         Route::patch('/{order}/timeline', [OrderController::class, 'updateTimeline'])->name('timeline.update');
+        Route::post('/{order}/bypass-dp', [OrderController::class, 'bypassDp'])->name('bypass-dp');
         Route::post('/{order}/mark-lunas', [OrderController::class, 'markLunas'])->name('mark-lunas');
         Route::post('/pdf-draft', [OrderController::class, 'draftPdf'])->name('pdf-draft');
         Route::get('/{order}/spk.pdf', [OrderController::class, 'spkPdf'])->name('spk.pdf');
@@ -113,16 +120,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/{order}/move-status', [ProductionController::class, 'moveStatus'])->name('move-status');
     });
 
+    // Phase 3: Finance — Master Data Pembayaran
+    Route::prefix('master-pembayaran')->name('master-pembayaran.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Finance\MasterJenisPembayaranController::class, 'index'])->name('index');
+        Route::post('/', [\App\Http\Controllers\Finance\MasterJenisPembayaranController::class, 'store'])->name('store');
+        Route::put('/{master}', [\App\Http\Controllers\Finance\MasterJenisPembayaranController::class, 'update'])->name('update');
+        Route::delete('/{master}', [\App\Http\Controllers\Finance\MasterJenisPembayaranController::class, 'destroy'])->name('destroy');
+    });
+
     // Phase 3: Finance — Invoice
     Route::prefix('invoices')->name('invoices.')->group(function () {
         Route::get('/', [InvoiceController::class, 'index'])->name('index');
         Route::get('/list', [InvoiceController::class, 'list'])->name('list');
         Route::get('/payments/pending', [InvoiceController::class, 'paymentsPending'])->name('payments.pending');
         Route::post('/payments/{payment}/verify', [InvoiceController::class, 'verifyPayment'])->name('payments.verify');
+        Route::delete('/payments/{payment}', [InvoiceController::class, 'destroyPayment'])->name('payments.destroy');
         Route::post('/from-order/{order}', [InvoiceController::class, 'createFromOrder'])->name('create-from-order');
         Route::post('/{invoice}/validate', [InvoiceController::class, 'validateInvoice'])->name('validate');
         Route::post('/{invoice}/publish', [InvoiceController::class, 'publish'])->name('publish');
         Route::get('/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('pdf');
+        Route::post('/{invoice}/send-wa', [InvoiceController::class, 'sendWhatsapp'])->name('send-wa');
     });
 
     // Phase 3: Finance — Design Deposits (Tanda Jadi)
@@ -168,6 +185,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/integrasi/test/ai', [SettingsController::class, 'testAi'])->name('integrasi.test.ai');
         Route::post('/integrasi/test/whatsapp', [SettingsController::class, 'testWhatsapp'])->name('integrasi.test.whatsapp');
         Route::post('/integrasi/test/telegram', [SettingsController::class, 'testTelegram'])->name('integrasi.test.telegram');
+        Route::put('/integrasi/reports', [SettingsController::class, 'updateReports'])->name('integrasi.reports');
     });
 
     // Polish A: Image upload

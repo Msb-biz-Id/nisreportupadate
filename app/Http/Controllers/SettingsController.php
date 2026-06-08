@@ -33,7 +33,7 @@ class SettingsController extends Controller
                     'whatsapp' => false,
                     'telegram' => false,
                     'os_desktop' => true,
-                    'roles' => ['admin_brand', 'reseller', 'owner'],
+                    'roles' => ['admin_brand', 'admin_reseller', 'owner'],
                     'sound' => 'bell-chime'
                 ],
                 'rijek_reported' => [
@@ -57,7 +57,7 @@ class SettingsController extends Controller
                     'whatsapp' => false,
                     'telegram' => false,
                     'os_desktop' => true,
-                    'roles' => ['admin_brand', 'reseller', 'owner'],
+                    'roles' => ['admin_brand', 'admin_reseller', 'owner'],
                     'sound' => 'bell-chime'
                 ]
             ];
@@ -82,11 +82,13 @@ class SettingsController extends Controller
                 'is_configured' => GeminiClient::fromSettings()->isConfigured(),
             ],
             'whatsapp' => [
-                'api_url' => SystemSetting::get('whatsapp', 'api_url'),
-                'api_key_masked' => SystemSetting::maskedValue(SystemSetting::get('whatsapp', 'api_key')),
-                'has_key' => ! empty(SystemSetting::get('whatsapp', 'api_key')),
+                'api_url'          => SystemSetting::get('whatsapp', 'api_url', 'https://api.sidobe.com/wa/v1'),
+                'api_key_masked'   => SystemSetting::maskedValue(SystemSetting::get('whatsapp', 'api_key')),
+                'has_key'          => ! empty(SystemSetting::get('whatsapp', 'api_key')),
                 'default_recipient' => SystemSetting::get('whatsapp', 'default_recipient'),
-                'is_configured' => SidobeClient::fromSettings()->isConfigured(),
+                'sender_phone'     => SystemSetting::get('whatsapp', 'sender_phone'),
+                'webhook_url'      => url('/webhooks/sidobe'),
+                'is_configured'    => SidobeClient::fromSettings()->isConfigured(),
             ],
             'telegram' => [
                 'bot_token_masked' => SystemSetting::maskedValue(SystemSetting::get('telegram', 'bot_token')),
@@ -118,8 +120,43 @@ class SettingsController extends Controller
                 'mail_from_name' => SystemSetting::get('mail', 'mail_from_name', 'Circle Sportwear'),
             ],
             'notification_matrix' => $decodedMatrix,
-            'available_roles' => ['superadmin', 'owner', 'admin_brand', 'reseller', 'admin_produksi', 'admin_keuangan']
+            'available_roles' => ['superadmin', 'owner', 'admin_brand', 'admin_reseller', 'admin_produksi', 'admin_keuangan'],
+            'reports' => [
+                'enable_auto_report'    => (bool)  SystemSetting::get('reports', 'enable_auto_report', false),
+                'daily_report_time'     => SystemSetting::get('reports', 'daily_report_time', '08:00'),
+                'weekly_report_day'     => SystemSetting::get('reports', 'weekly_report_day', 'monday'),
+                'monthly_report_date'   => (int)   SystemSetting::get('reports', 'monthly_report_date', 1),
+                'report_types'          => SystemSetting::get('reports', 'report_types', 'brand,produksi'),
+                'superadmin_recipients' => SystemSetting::get('reports', 'superadmin_recipients', ''),
+                'produksi_recipients'   => SystemSetting::get('reports', 'produksi_recipients', ''),
+                'brand_recipients'      => SystemSetting::get('reports', 'brand_recipients', ''),
+                'owner_recipients'      => SystemSetting::get('reports', 'owner_recipients', ''),
+                'keuangan_recipients'   => SystemSetting::get('reports', 'keuangan_recipients', ''),
+            ],
         ]);
+     }
+
+     public function updateReports(Request $request)
+     {
+         Gate::authorize('settings.system');
+         $data = $request->validate([
+             'enable_auto_report'    => ['boolean'],
+             'daily_report_time'     => ['string', 'regex:/^\d{2}:\d{2}$/'],
+             'weekly_report_day'     => ['string', 'in:monday,tuesday,wednesday,thursday,friday,saturday,sunday'],
+             'monthly_report_date'   => ['integer', 'min:1', 'max:28'],
+             'report_types'          => ['string'],
+             'superadmin_recipients' => ['nullable', 'string'],
+             'produksi_recipients'   => ['nullable', 'string'],
+             'brand_recipients'      => ['nullable', 'string'],
+             'owner_recipients'      => ['nullable', 'string'],
+             'keuangan_recipients'   => ['nullable', 'string'],
+         ]);
+
+         foreach ($data as $key => $value) {
+             SystemSetting::set('reports', $key, $value);
+         }
+
+         return back()->with('success', 'Pengaturan laporan otomatis berhasil disimpan.');
      }
  
      public function notifications(Request $request)
@@ -142,7 +179,7 @@ class SettingsController extends Controller
                      'whatsapp' => false,
                      'telegram' => false,
                      'os_desktop' => true,
-                     'roles' => ['admin_brand', 'reseller', 'owner'],
+                     'roles' => ['admin_brand', 'admin_reseller', 'owner'],
                      'sound' => 'bell-chime'
                  ],
                  'rijek_reported' => [
@@ -166,7 +203,7 @@ class SettingsController extends Controller
                      'whatsapp' => false,
                      'telegram' => false,
                      'os_desktop' => true,
-                     'roles' => ['admin_brand', 'reseller', 'owner'],
+                     'roles' => ['admin_brand', 'admin_reseller', 'owner'],
                      'sound' => 'bell-chime'
                  ]
              ];
@@ -183,7 +220,7 @@ class SettingsController extends Controller
  
          return Inertia::render('Settings/Notifications', [
              'notification_matrix' => $decodedMatrix,
-             'available_roles' => ['superadmin', 'owner', 'admin_brand', 'reseller', 'admin_produksi', 'admin_keuangan']
+             'available_roles' => ['superadmin', 'owner', 'admin_brand', 'admin_reseller', 'admin_produksi', 'admin_keuangan']
          ]);
      }
  
@@ -269,18 +306,20 @@ class SettingsController extends Controller
         Gate::authorize('settings.system');
 
         $data = $request->validate([
-            'api_url' => ['nullable', 'url', 'max:255'],
-            'api_key' => ['nullable', 'string', 'max:500'],
+            'api_url'           => ['nullable', 'url', 'max:255'],
+            'api_key'           => ['nullable', 'string', 'max:500'],
             'default_recipient' => ['nullable', 'string', 'max:100'],
+            'sender_phone'      => ['nullable', 'string', 'max:50'],
         ]);
 
-        SystemSetting::set('whatsapp', 'api_url', $data['api_url']);
+        SystemSetting::set('whatsapp', 'api_url', $data['api_url'] ?: 'https://api.sidobe.com/wa/v1');
         if (! empty($data['api_key'])) {
             SystemSetting::set('whatsapp', 'api_key', $data['api_key'], encrypted: true);
         }
         SystemSetting::set('whatsapp', 'default_recipient', $data['default_recipient']);
+        SystemSetting::set('whatsapp', 'sender_phone', $data['sender_phone']);
 
-        return back()->with('success', 'Pengaturan WhatsApp tersimpan.');
+        return back()->with('success', 'Pengaturan WhatsApp (Sidobe) tersimpan.');
     }
 
     public function updateTelegram(Request $request)
@@ -328,7 +367,7 @@ class SettingsController extends Controller
             'matrix.*.telegram' => ['required', 'boolean'],
             'matrix.*.os_desktop' => ['required', 'boolean'],
             'matrix.*.roles' => ['nullable', 'array'],
-            'matrix.*.roles.*' => ['string', 'in:superadmin,owner,admin_brand,reseller,admin_produksi,admin_keuangan'],
+            'matrix.*.roles.*' => ['string', 'in:superadmin,owner,admin_brand,admin_reseller,admin_produksi,admin_keuangan'],
             'matrix.*.sound' => ['required', 'string', 'max:50'],
         ]);
 

@@ -18,7 +18,7 @@ class Pemasukan extends Model
     protected $table = 'pemasukan';
 
     protected $fillable = [
-        'brand_id', 'kategori_pemasukan_id', 'order_id', 'invoice_id',
+        'brand_id', 'kategori_pemasukan_id', 'order_id', 'invoice_id', 'source_payment_id',
         'tanggal', 'nominal', 'keterangan', 'bukti', 'is_auto', 'created_by',
     ];
 

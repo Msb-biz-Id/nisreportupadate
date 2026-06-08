@@ -196,4 +196,16 @@ class DesignDepositController extends Controller
             'created_by'           => $deposit->recorded_by,
         ]);
     }
+
+    public function destroy(Request $request, DesignDeposit $deposit)
+    {
+        if (!$request->user()->can('finance.view')) {
+            abort(403, 'Hanya Admin Keuangan yang dapat menghapus Tanda Jadi.');
+        }
+        abort_unless($deposit->status === 'pending', 422, 'Hanya Tanda Jadi pending yang bisa dihapus.');
+        
+        $deposit->delete();
+
+        return back()->with('success', 'Tanda Jadi berhasil dihapus.');
+    }
 }

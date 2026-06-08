@@ -12,8 +12,9 @@
         @endphp
         <link rel="icon" type="image/x-icon" href="{{ $faviconUrl }}">
 
-        <meta name="app-name" content="{{ config('app.name', 'Laravel') }}">
-        <title inertia>{{ config('app.name', 'Laravel') }}</title>
+        @php $appName = \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'NISReport')); @endphp
+        <meta name="app-name" content="{{ $appName }}">
+        <title inertia>{{ $appName }}</title>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">

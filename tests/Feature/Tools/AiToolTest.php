@@ -71,10 +71,9 @@ class AiToolTest extends TestCase
         ]);
     }
 
-    public function test_reseller_cannot_access_ai_tools(): void
+    public function test_admin_reseller_can_access_ai_tools(): void
     {
-        // Per BRD, reseller juga punya tools.ai permission — verifikasi seeder
-        $user = $this->makeUser('reseller', [$this->makeBrand()]);
+        $user = $this->makeUser('admin_reseller', [$this->makeBrand()]);
         $this->actingAs($user)->get(route('tools.ai.index'))->assertOk();
     }
 

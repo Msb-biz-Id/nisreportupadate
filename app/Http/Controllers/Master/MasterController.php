@@ -19,7 +19,7 @@ class MasterController extends Controller
         $modelClass = $config['model'];
 
         $query = $modelClass::query();
-        $brandId = BrandContext::current($request);
+        $brandId = BrandContext::masterDataId($request);
 
         if ($config['scope'] === 'brand_nullable' && $brandId) {
             $query->where(function ($q) use ($brandId) {
@@ -70,7 +70,7 @@ class MasterController extends Controller
         $data = $this->validatePayload($request, $config);
 
         if (in_array($config['scope'], ['brand', 'brand_nullable'], true)) {
-            $brandId = BrandContext::current($request);
+            $brandId = BrandContext::masterDataId($request);
             if ($config['scope'] === 'brand' && ! $brandId) {
                 return back()->with('error', 'Brand aktif belum dipilih.');
             }
@@ -126,6 +126,8 @@ class MasterController extends Controller
         if ($user->can('master.manage')) return;
         if ($user->can('master.brand') && ($config['group'] === 'order' || $config['slug'] === 'bank')) return;
         if ($user->can('master.produk') && $config['slug'] === 'produk') return;
+        // admin_produksi: akses semua master global (bahan, size, logo, pola, dll) + production (progress)
+        if ($user->can('master.production') && in_array($config['group'], ['production', 'global'])) return;
         abort(403);
     }
 
@@ -133,7 +135,9 @@ class MasterController extends Controller
     {
         if ($user->can('master.manage')) return true;
         if ($user->can('master.brand') && ($config['group'] === 'order' || $config['slug'] === 'bank')) return true;
-        return $user->can('master.produk') && $config['slug'] === 'produk';
+        if ($user->can('master.produk') && $config['slug'] === 'produk') return true;
+        if ($user->can('master.production') && in_array($config['group'], ['production', 'global'])) return true;
+        return false;
     }
 
     private function guardBrandOwnership(Request $request, array $config, $record): void
@@ -141,7 +145,7 @@ class MasterController extends Controller
         if (! in_array($config['scope'], ['brand', 'brand_nullable'], true)) return;
         if (! isset($record->brand_id) || $record->brand_id === null) return;
 
-        $brandId = BrandContext::current($request);
+        $brandId = BrandContext::masterDataId($request);
         if ($record->brand_id !== $brandId && ! $request->user()->isSuperadmin()) {
             abort(403, 'Record ini milik brand lain.');
         }

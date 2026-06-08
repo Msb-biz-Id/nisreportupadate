@@ -20,9 +20,18 @@ class ScheduledReportTest extends TestCase
     {
         $this->makeBrand();
 
+        // Command sekarang cek enable_auto_report dulu (default false), langsung keluar dengan pesan warn
         $this->artisan('reports:send', ['periode' => 'harian'])
-            ->expectsOutputToContain('Generating harian report for')
-            ->expectsOutputToContain('Tidak ada recipient terkonfigurasi')
+            ->expectsOutputToContain('Laporan otomatis tidak aktif')
+            ->assertExitCode(0);
+    }
+
+    public function test_command_force_runs_with_brand(): void
+    {
+        $brand = $this->makeBrand(['kode' => 'TST']);
+
+        $this->artisan('reports:send', ['periode' => 'harian', '--force' => true])
+            ->expectsOutputToContain($brand->kode)
             ->assertExitCode(0);
     }
 

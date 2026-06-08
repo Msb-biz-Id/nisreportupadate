@@ -65,10 +65,13 @@ function UnlockDialog({ order, open, onOpenChange }) {
     );
 }
 
-function AddPaymentDialog({ order, open, onOpenChange, banks }) {
+function AddPaymentDialog({ order, open, onOpenChange, banks, jenis_pembayarans = [] }) {
     const { data, setData, post, processing, errors, reset } = useForm({
-        payment_type: 'dp', amount: 0, payment_date: new Date().toISOString().slice(0, 10),
-        bank_id: '', notes: '',
+        master_jenis_pembayaran_id: '',
+        amount: 0,
+        payment_date: new Date().toISOString().split('T')[0],
+        bank_id: '',
+        notes: '',
     });
     function submit(e) {
         e.preventDefault();
@@ -87,18 +90,15 @@ function AddPaymentDialog({ order, open, onOpenChange, banks }) {
                     <div className="grid grid-cols-1 gap-3 py-4 sm:grid-cols-2">
                         <div>
                             <Label>Tipe</Label>
-                            <Select value={data.payment_type} onValueChange={(v) => setData('payment_type', v)}>
+                            <Select value={data.master_jenis_pembayaran_id} onValueChange={(v) => setData('master_jenis_pembayaran_id', v)}>
                                 <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="dp">DP</SelectItem>
-                                    <SelectItem value="pelunasan">Pelunasan</SelectItem>
-                                    <SelectItem value="ongkir">Ongkir</SelectItem>
-                                    <SelectItem value="cashback">Cashback</SelectItem>
-                                    <SelectItem value="tambahan_produk">Tambahan Produk</SelectItem>
-                                    <SelectItem value="return">Return</SelectItem>
-                                    <SelectItem value="lainnya">Lainnya</SelectItem>
+                                    {jenis_pembayarans.map((jp) => (
+                                        <SelectItem key={jp.id} value={jp.id}>{jp.nama}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
+                            {errors.master_jenis_pembayaran_id && <p className="text-xs text-destructive">{errors.master_jenis_pembayaran_id}</p>}
                         </div>
                         <div>
                             <Label>Nominal</Label>
@@ -163,36 +163,44 @@ function TimelineForm({ order, onDone }) {
     );
 }
 
-export default function OrderPreview({ order, can, printings = [], banks = [] }) {
+export default function OrderPreview({ order, can, dp_info = null, printings = [], banks = [], jenis_pembayarans = [] }) {
     const [openUnlock, setOpenUnlock] = useState(false);
     const [openPayment, setOpenPayment] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [editTimeline, setEditTimeline] = useState(false);
 
     const st = STATUS_LABEL[order.status_po] ?? { label: order.status_po, variant: 'outline' };
-    const verifiedPayments = (order.payments ?? []).filter(p => p.verified_at);
     const pendingPayments = (order.payments ?? []).filter(p => !p.verified_at);
-    const totalPaid = Math.max(0, verifiedPayments.reduce((s, p) => s + (['cashback', 'return'].includes(p.payment_type) ? -Number(p.amount) : Number(p.amount)), 0));
-    const pendingPaid = Math.max(0, pendingPayments.reduce((s, p) => s + (['cashback', 'return'].includes(p.payment_type) ? -Number(p.amount) : Number(p.amount)), 0));
-    const sisaTagihan = Math.max(0, Number(order.total_tagihan) - totalPaid);
+    const isDeduction = (p) => {
+        if (p.master_jenis_pembayaran) return p.master_jenis_pembayaran.tipe_keuangan === 'pengeluaran';
+        return ['cashback', 'return'].includes(p.payment_type);
+    };
+    const pendingPaid = Math.max(0, pendingPayments.reduce((s, p) => s + (isDeduction(p) ? -Number(p.amount) : Number(p.amount)), 0));
 
     const invoice = order.invoices?.[0];
-    const isInvoiceValidated = invoice && ['validated', 'published', 'paid'].includes(invoice.status);
 
-    const totalTagihan = Number(order.total_tagihan || 0);
-    const minDpPercentage = order.brand?.min_dp_percentage !== undefined && order.brand?.min_dp_percentage !== null
-        ? Number(order.brand.min_dp_percentage)
-        : 0.50;
-    const minDp = totalTagihan * minDpPercentage;
-    const isDpSufficient = totalPaid >= minDp;
+    // Use server-computed values (dp_info) to stay in sync with backend publish logic.
+    // Falls back to client calculation if dp_info is absent (e.g., older cached page).
+    const totalTagihan    = dp_info ? Number(dp_info.total_tagihan)    : Number(order.total_tagihan || 0);
+    const totalPaid       = dp_info ? Number(dp_info.total_paid)       : Math.max(0, (order.payments ?? []).filter(p => p.verified_at).reduce((s, p) => s + (isDeduction(p) ? -Number(p.amount) : Number(p.amount)), 0));
+    const minDpPercentage = dp_info ? Number(dp_info.min_dp_percentage) : (order.brand?.min_dp_percentage != null ? Number(order.brand.min_dp_percentage) : 0.50);
+    const minDp           = dp_info ? Number(dp_info.min_dp)           : totalTagihan * minDpPercentage;
+    const isDpSufficient  = dp_info ? Boolean(dp_info.is_sufficient)   : (totalPaid >= minDp || order.is_dp_bypassed);
+    const sisaTagihan     = Math.max(0, totalTagihan - totalPaid);
+
+    function bypassDp() {
+        if (!confirm(order.is_dp_bypassed ? 'Nonaktifkan bypass DP?' : 'Bypass minimal DP untuk PO ini?')) return;
+        router.post(route('orders.bypass-dp', order.id), {}, { preserveScroll: true });
+    }
 
     function publish() {
-        if (!isInvoiceValidated) {
-            alert('PO tidak bisa diterbitkan karena invoice belum divalidasi oleh Admin Keuangan.');
-            return;
-        }
         if (!isDpSufficient) {
-            alert(`PO tidak bisa diterbitkan karena total pembayaran terverifikasi (${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalPaid)}) belum mencapai minimal ${(minDpPercentage * 100).toFixed(0)}% DP (${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(minDp)}).`);
+            alert(
+                `PO tidak bisa diterbitkan.\n\n` +
+                `Pembayaran terverifikasi: ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalPaid)}\n` +
+                `Minimal DP ${(minDpPercentage * 100).toFixed(0)}%: ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(minDp)}\n\n` +
+                `Pastikan Admin Keuangan telah memvalidasi pembayaran DP.`
+            );
             return;
         }
         if (!confirm('Terbitkan PO sekarang? Setelah dipublish, PO masuk dashboard produksi dan tidak bisa dihapus.')) return;
@@ -235,13 +243,18 @@ export default function OrderPreview({ order, can, printings = [], banks = [] })
                                     </Button>
                                 )}
                                 {can?.publish && (
-                                    <Button 
-                                        onClick={publish} 
+                                    <Button
+                                        onClick={publish}
                                         size="sm"
-                                        className={(!isInvoiceValidated || !isDpSufficient) ? "opacity-60 cursor-not-allowed bg-slate-400 hover:bg-slate-400 text-white" : ""}
-                                        title={!isInvoiceValidated ? "Menunggu validasi keuangan" : !isDpSufficient ? `Pembayaran DP kurang dari ${(minDpPercentage * 100).toFixed(0)}%` : "Terbitkan PO"}
+                                        className={!isDpSufficient ? "opacity-60 cursor-not-allowed bg-slate-400 hover:bg-slate-400 text-white" : ""}
+                                        title={!isDpSufficient ? `Pembayaran DP belum mencapai minimal ${(minDpPercentage * 100).toFixed(0)}%` : "Terbitkan PO ke Produksi"}
                                     >
                                         <Send className="h-4 w-4" /> Terbitkan
+                                    </Button>
+                                )}
+                                {can?.bypass_dp && order.status_po === 'draft' && (!isDpSufficient || order.is_dp_bypassed) && (
+                                    <Button onClick={bypassDp} variant={order.is_dp_bypassed ? "destructive" : "secondary"} size="sm">
+                                        {order.is_dp_bypassed ? 'Batalkan Bypass DP' : 'Bypass DP'}
                                     </Button>
                                 )}
                                 {can?.repeat && (
@@ -282,29 +295,22 @@ export default function OrderPreview({ order, can, printings = [], banks = [] })
                     </CardHeader>
                 </Card>
 
-                {order.status_po === 'draft' && !isInvoiceValidated && (
+                {order.status_po === 'draft' && !isDpSufficient && (
                     <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 flex items-start gap-3 text-amber-800 shadow-sm">
                         <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
                         <div className="space-y-1">
-                            <h4 className="text-sm font-bold">Menunggu Validasi Keuangan 💸</h4>
+                            <h4 className="text-sm font-bold">Menunggu DP Minimal {(minDpPercentage * 100).toFixed(0)}% 💸</h4>
                             <p className="text-xs text-amber-700 leading-relaxed font-medium">
-                                PO ini belum dapat diterbitkan ke bagian produksi karena invoice belum divalidasi oleh Admin Keuangan. 
-                                Silakan hubungi tim Finance untuk melakukan verifikasi pembayaran/invoice agar pesanan dapat segera dikerjakan.
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                {order.status_po === 'draft' && isInvoiceValidated && !isDpSufficient && (
-                    <div className="rounded-2xl border border-red-200 bg-red-50/50 p-4 flex items-start gap-3 text-red-800 shadow-sm">
-                        <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
-                        <div className="space-y-1">
-                            <h4 className="text-sm font-bold">Menunggu Pembayaran DP Minimal {(minDpPercentage * 100).toFixed(0)}% ⚠️</h4>
-                            <p className="text-xs text-red-700 leading-relaxed font-medium">
-                                PO ini belum dapat diterbitkan ke bagian produksi karena total pembayaran masuk terverifikasi sebesar 
-                                <strong> {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalPaid)}</strong> belum mencapai syarat minimal {(minDpPercentage * 100).toFixed(0)}% DP 
-                                (<strong>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(minDp)}</strong> dari total tagihan <strong>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalTagihan)}</strong>).
-                                Silakan minta pelanggan melakukan pembayaran DP terlebih dahulu dan konfirmasi pembayaran agar diverifikasi Keuangan.
+                                PO belum bisa diterbitkan ke produksi. Pembayaran terverifikasi saat ini{' '}
+                                <strong>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalPaid)}</strong>
+                                {' '}belum mencapai minimal {(minDpPercentage * 100).toFixed(0)}% DP
+                                {' '}(<strong>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(minDp)}</strong>).
+                                {pendingPaid > 0 && (
+                                    <span className="block mt-1">Terdapat{' '}
+                                        <strong>{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(pendingPaid)}</strong>
+                                        {' '}pembayaran menunggu validasi oleh Admin Keuangan.
+                                    </span>
+                                )}
                             </p>
                         </div>
                     </div>
@@ -325,12 +331,6 @@ export default function OrderPreview({ order, can, printings = [], banks = [] })
                                 <div className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
                                     <MapPin className="mt-0.5 h-3 w-3" />
                                     <span>{order.pelanggan.kabupaten_nama}, {order.pelanggan.provinsi_nama}</span>
-                                </div>
-                            )}
-                            {order.reseller && (
-                                <div className="mt-2 pt-2 border-t border-slate-100">
-                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Reseller</span>
-                                    <div className="font-semibold text-blue-600">{order.reseller.nama}</div>
                                 </div>
                             )}
                         </CardContent>
@@ -370,12 +370,44 @@ export default function OrderPreview({ order, can, printings = [], banks = [] })
                             <CardTitle className="flex items-center gap-2 text-base"><CreditCard className="h-4 w-4 text-primary" /> Pembayaran</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-1.5 text-sm">
-                            <div className="flex justify-between"><span className="text-muted-foreground">Total Tagihan</span><span className="font-mono font-semibold">{formatRupiah(order.total_tagihan)}</span></div>
+                            <div className="flex justify-between"><span className="text-muted-foreground">Total Tagihan</span><span className="font-mono font-semibold">{formatRupiah(totalTagihan)}</span></div>
                             <div className="flex justify-between"><span className="text-muted-foreground">Sudah Diverifikasi</span><span className="font-mono text-emerald-600">{formatRupiah(totalPaid)}</span></div>
                             {pendingPaid > 0 && (
                                 <div className="flex justify-between"><span className="text-muted-foreground">Menunggu Validasi</span><span className="font-mono text-amber-600">{formatRupiah(pendingPaid)}</span></div>
                             )}
                             <div className="flex justify-between"><span className="text-muted-foreground">Sisa Tagihan</span><span className="font-mono font-bold text-destructive">{formatRupiah(sisaTagihan)}</span></div>
+
+                            {/* DP Status for draft PO */}
+                            {order.status_po === 'draft' && (
+                                <div className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs ${
+                                    order.is_dp_bypassed
+                                        ? 'border-blue-200 bg-blue-50/60 text-blue-700'
+                                        : isDpSufficient
+                                            ? 'border-emerald-200 bg-emerald-50/60 text-emerald-700'
+                                            : 'border-amber-200 bg-amber-50/60 text-amber-700'
+                                }`}>
+                                    <div className="flex items-center gap-1.5">
+                                        {order.is_dp_bypassed
+                                            ? <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />
+                                            : isDpSufficient
+                                                ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                                : <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                                        }
+                                        <span className="font-semibold">
+                                            {order.is_dp_bypassed
+                                                ? `Bypass DP Aktif — diizinkan oleh Keuangan`
+                                                : isDpSufficient
+                                                    ? `DP ${(minDpPercentage * 100).toFixed(0)}%: Terpenuhi ✓`
+                                                    : `DP ${(minDpPercentage * 100).toFixed(0)}%: Belum Terpenuhi`
+                                            }
+                                        </span>
+                                    </div>
+                                    <span className="font-mono font-bold">
+                                        {totalTagihan > 0 ? ((totalPaid / totalTagihan) * 100).toFixed(0) : 0}%
+                                    </span>
+                                </div>
+                            )}
+
                             <Separator className="my-2" />
 
                             {/* Status Lunas */}
@@ -412,15 +444,35 @@ export default function OrderPreview({ order, can, printings = [], banks = [] })
                                         <div key={p.id} className={`flex flex-col gap-2 rounded-xl border p-3 text-xs ${p.verified_at ? 'bg-slate-50/70 border-slate-200' : 'bg-amber-50/50 border-amber-200'}`}>
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-0.5">
-                                                    <div className="font-bold text-slate-800 text-xs">{p.payment_type?.toUpperCase()} — {formatDate(p.payment_date)}</div>
+                                                    <div className="font-bold text-slate-800 text-xs">
+                                                        {p.master_jenis_pembayaran?.nama ?? (p.payment_type ? p.payment_type.toUpperCase() : '-')} — {formatDate(p.payment_date)}
+                                                    </div>
                                                     {p.notes && <div className="text-slate-500 font-medium text-[11px]">Memo: "{p.notes}"</div>}
                                                     {p.bank && <div className="text-slate-400 text-[10px] font-mono">{p.bank.bank} · {p.bank.nomor_rekening}</div>}
                                                 </div>
                                                 <div className="text-right space-y-1">
                                                     <div className="font-mono font-bold text-slate-900">{formatRupiah(p.amount)}</div>
-                                                    <Badge variant={p.verified_at ? 'success' : 'warning'} className="text-[9px] px-1.5 py-0 font-bold">
-                                                        {p.verified_at ? '✓ VERIFIED' : '⏳ PENDING'}
-                                                    </Badge>
+                                                    <div className="flex items-center gap-1 justify-end">
+                                                        <Badge variant={p.verified_at ? 'success' : 'warning'} className="text-[9px] px-1.5 py-0 font-bold">
+                                                            {p.verified_at ? '✓ VERIFIED' : '⏳ PENDING'}
+                                                        </Badge>
+                                                        {can?.manage_invoice && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    const msg = p.verified_at
+                                                                        ? `Hapus pembayaran ${p.master_jenis_pembayaran?.nama ?? p.payment_type} Rp ${Number(p.amount).toLocaleString('id-ID')}?\n\nPembayaran ini sudah diverifikasi. Catatan keuangan (pemasukan/pengeluaran) terkait juga akan dihapus.`
+                                                                        : `Hapus pembayaran ${p.master_jenis_pembayaran?.nama ?? p.payment_type} Rp ${Number(p.amount).toLocaleString('id-ID')}?`;
+                                                                    if (confirm(msg)) {
+                                                                        router.delete(route('invoices.payments.destroy', p.id), { preserveScroll: true });
+                                                                    }
+                                                                }}
+                                                                className="ml-1 p-0.5 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                                                                title="Hapus record pembayaran ini"
+                                                            >
+                                                                <XCircle className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                             
@@ -484,6 +536,11 @@ export default function OrderPreview({ order, can, printings = [], banks = [] })
                     const fields = [
                         order.jenisOrder?.nama && { label: 'Jenis Order', value: order.jenisOrder.nama },
                         order.sumberOrder?.nama && { label: 'Sumber Order', value: order.sumberOrder.nama },
+                        order.paketOrder?.nama && {
+                            label: 'Paket Order',
+                            value: order.paketOrder.nama,
+                            warna: order.paketOrder.warna,
+                        },
                         printings.length > 0 && { label: 'Jenis Printing', value: printings.map(p => p.nama).join(', ') },
                         order.iklan?.nama && { label: 'Promo', value: order.iklan.nama + (order.iklan.platform ? ` (${order.iklan.platform})` : '') },
                         (order.nama_ekspedisi || order.no_resi) && { label: 'Ekspedisi', value: [order.nama_ekspedisi, order.no_resi].filter(Boolean).join(' · ') },
@@ -499,7 +556,14 @@ export default function OrderPreview({ order, can, printings = [], banks = [] })
                                     {fields.map((f) => (
                                         <div key={f.label} className={f.full ? 'col-span-2 sm:col-span-3 lg:col-span-4' : ''}>
                                             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{f.label}</span>
-                                            <p className="mt-0.5 text-sm font-medium">{f.value}</p>
+                                            {f.warna ? (
+                                                <p className="mt-0.5 flex items-center gap-1.5 text-sm font-medium">
+                                                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: f.warna }} />
+                                                    {f.value}
+                                                </p>
+                                            ) : (
+                                                <p className="mt-0.5 text-sm font-medium">{f.value}</p>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -516,16 +580,28 @@ export default function OrderPreview({ order, can, printings = [], banks = [] })
                     <CardContent className="space-y-3">
                         {(order.items ?? []).map((item, idx) => {
                             const SETELAN_LABEL = { stell: 'Stell', non_stell: 'Non-Stell', atasan_saja: 'Atasan Saja', bawahan_saja: 'Bawahan Saja' };
+                            // Bahan Atasan: dari bahan_kain_ids (multi) atau bahan_kain (single)
+                            const bahanAtasanStr = item.bahan_kain_ids?.length
+                                ? (item.bahan_kains_names ?? item.bahan_kain?.nama ?? '')
+                                : item.bahan_kain?.nama ?? '';
+                            // Bahan Bawahan: dari bahan_kain_bawahan_ids atau bahan_kain_bawahan
+                            const bahanBawahanStr = item.bahan_kain_bawahan_ids?.length
+                                ? (item.bahan_kain_bawahan_names ?? item.bahan_kain_bawahan?.nama ?? '')
+                                : item.bahan_kain_bawahan?.nama ?? '';
+                            // Logo: dari logo_names (server-resolved) atau logo_ids atau single logo
+                            const logoStr = item.logo_names?.length
+                                ? item.logo_names.join(', ')
+                                : item.logo?.nama ?? '';
+
                             const specFields = [
                                 item.jenis_setelan && { label: 'Setelan', value: SETELAN_LABEL[item.jenis_setelan] ?? item.jenis_setelan },
                                 item.pola && { label: 'Pola', value: item.pola === 'perempuan' ? 'Perempuan' : 'Standart' },
-                                item.bahan_kain?.nama && { label: 'Bahan Kain', value: item.bahan_kain.nama },
+                                bahanAtasanStr && { label: 'Bahan Atasan', value: bahanAtasanStr },
+                                bahanBawahanStr && { label: 'Bahan Bawahan', value: bahanBawahanStr },
                                 item.warna && { label: 'Warna', value: item.warna },
                                 item.jml_atasan && { label: 'Jml Atasan', value: item.jml_atasan },
                                 item.jml_bawahan && { label: 'Jml Bawahan', value: item.jml_bawahan },
-                                item.logo_names && item.logo_names.length > 0
-                                    ? { label: 'Logo', value: item.logo_names.join(', ') }
-                                    : (item.logo?.nama ? { label: 'Logo', value: item.logo.nama } : null),
+                                logoStr && { label: 'Logo', value: logoStr },
                                 item.jenis_rib && { label: 'Jenis RIB', value: item.jenis_rib },
                                 item.tutup_kerah && { label: 'Tutup Kerah', value: item.tutup_kerah },
                                 item.list_kerah && { label: 'List Kerah', value: item.list_kerah },
@@ -534,10 +610,18 @@ export default function OrderPreview({ order, can, printings = [], banks = [] })
                                 item.list_bawah_celana && { label: 'List Bawah Celana', value: item.list_bawah_celana },
                             ].filter(Boolean);
                             const jahitanFields = [
-                                item.pola_jahitan?.nama && { label: 'Pola Jahitan', value: `${item.pola_jahitan.jenis_pola} — ${item.pola_jahitan.nama}` },
-                                item.jahitan_list_lengan && { label: 'Jahitan List Lengan', value: item.jahitan_list_lengan === 'overdeck' ? 'Overdeck' : 'Stick' },
+                                item.pola_jahitan?.nama && {
+                                    label: 'Pola Jahitan',
+                                    value: `${item.pola_jahitan.jenis_pola} — ${item.pola_jahitan.nama}`
+                                },
+                                // Jahitan List Lengan: dari relasi pola_jahitan_lengan (UUID) atau string lama
+                                (item.pola_jahitan_lengan?.nama || item.jahitan_list_lengan) && {
+                                    label: 'Jahitan List Lengan',
+                                    value: item.pola_jahitan_lengan?.nama ?? item.jahitan_list_lengan
+                                },
                             ].filter(Boolean);
-                            const hasImages = item.gambar_desain || item.gambar_kerah || item.ket_atasan || item.ket_bawahan || item.jenis_kerah;
+                            const hasImages = item.gambar_desain || item.gambar_kerah || item.gambar_ket_tambahan
+                                           || item.ket_atasan || item.ket_bawahan || item.jenis_kerah;
 
                             return (
                                 <div key={item.id} className="rounded-lg border p-3 space-y-3">
@@ -596,6 +680,12 @@ export default function OrderPreview({ order, can, printings = [], banks = [] })
                                                     <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Referensi Kerah</p>
                                                     {item.gambar_kerah && <img src={`/storage/${item.gambar_kerah}`} alt="Kerah" className="max-h-36 rounded border object-contain" />}
                                                     {item.jenis_kerah && <p className="text-xs"><span className="font-semibold">Jenis Kerah:</span> {item.jenis_kerah}</p>}
+                                                </div>
+                                            )}
+                                            {item.gambar_ket_tambahan && (
+                                                <div className="space-y-1.5">
+                                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Keterangan Tambahan</p>
+                                                    <img src={`/storage/${item.gambar_ket_tambahan}`} alt="Ket Tambahan" className="max-h-36 rounded border object-contain" />
                                                 </div>
                                             )}
                                         </div>
@@ -838,7 +928,7 @@ export default function OrderPreview({ order, can, printings = [], banks = [] })
             </div>
 
             <UnlockDialog order={order} open={openUnlock} onOpenChange={setOpenUnlock} />
-            <AddPaymentDialog order={order} open={openPayment} onOpenChange={setOpenPayment} banks={banks} />
+            <AddPaymentDialog order={order} open={openPayment} onOpenChange={setOpenPayment} banks={banks} jenis_pembayarans={jenis_pembayarans} />
 
             <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
                 <DialogContent>
