@@ -325,4 +325,74 @@ class InvoiceTest extends TestCase
         $this->actingAsWithBrand($otherBrandAdmin, $otherBrand)
             ->get(route('invoice.public.pdf', $invoice->invoice_number))->assertStatus(403);
     }
+
+    public function test_invoice_creation_retains_addon_flag(): void
+    {
+        $brand = $this->makeBrand();
+        $finance = $this->makeUser('admin_keuangan', [$brand]);
+        Customer::create(['brand_id' => $brand->id, 'kode' => 'C_ADDON', 'nama' => 'Test Addon', 'nomor_hp' => '0899', 'is_active' => true]);
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-ADDON-01',
+            'nama_po' => 'PO Addon',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => Customer::first()->id,
+            'total_tagihan' => 150000,
+            'published_at' => now(),
+            'created_by' => $finance->id,
+        ]);
+
+        // Create a regular item
+        $item1 = OrderItem::create([
+            'order_id' => $order->id,
+            'nama_produk' => 'Main Product',
+            'quantity' => 1,
+            'harga_satuan' => 100000,
+            'subtotal' => 100000,
+            'is_addon' => false,
+        ]);
+
+        // Create an add-on item
+        $item2 = OrderItem::create([
+            'order_id' => $order->id,
+            'nama_produk' => 'Keychain Addon',
+            'quantity' => 5,
+            'harga_satuan' => 10000,
+            'subtotal' => 50000,
+            'is_addon' => true,
+        ]);
+
+        // Calculate and verify total tagihan
+        $this->assertEquals(150000, $order->totalTagihan());
+
+        // Call the endpoint to create invoice
+        $response = $this->actingAsWithBrand($finance, $brand)
+            ->post(route('invoices.create-from-order', $order->id));
+        
+        $response->assertRedirect();
+
+        $invoice = Invoice::where('order_id', $order->id)->first();
+        $this->assertNotNull($invoice);
+
+        // Verify items were created and is_addon copied
+        $invoiceItems = $invoice->items;
+        $this->assertCount(2, $invoiceItems);
+
+        $mainItem = $invoiceItems->where('produk', 'Main Product')->first();
+        $this->assertNotNull($mainItem);
+        $this->assertFalse((bool)$mainItem->is_addon);
+
+        $addonItem = $invoiceItems->where('produk', 'Keychain Addon')->first();
+        $this->assertNotNull($addonItem);
+        $this->assertTrue((bool)$addonItem->is_addon);
+
+        // Verify invoice PDF generation with addons works without layout distortion/crashes
+        $response = $this->actingAsWithBrand($finance, $brand)
+            ->get(route('invoices.pdf', $invoice->id));
+        $response->assertStatus(200);
+        $response->assertHeader('content-type', 'application/pdf');
+    }
 }

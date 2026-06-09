@@ -12,6 +12,39 @@ class OrderPaymentObserver
 {
     public function creating(OrderPayment $payment): void
     {
+        if (empty($payment->payment_type) && !empty($payment->master_jenis_pembayaran_id)) {
+            $master = \App\Models\Finance\MasterJenisPembayaran::find($payment->master_jenis_pembayaran_id);
+            if ($master) {
+                $map = [
+                    'DP' => 'dp',
+                    'Pelunasan' => 'pelunasan',
+                    'Ongkir' => 'ongkir',
+                    'Tambahan Produk' => 'tambahan_produk',
+                    'Cashback' => 'cashback',
+                    'Return' => 'return',
+                    'Lainnya' => 'lainnya',
+                ];
+                $payment->payment_type = $map[$master->nama] ?? 'lainnya';
+            } else {
+                $payment->payment_type = 'lainnya';
+            }
+        } elseif (!empty($payment->payment_type) && empty($payment->master_jenis_pembayaran_id)) {
+            $map = [
+                'dp' => 'DP',
+                'pelunasan' => 'Pelunasan',
+                'ongkir' => 'Ongkir',
+                'tambahan_produk' => 'Tambahan Produk',
+                'cashback' => 'Cashback',
+                'return' => 'Return',
+                'lainnya' => 'Lainnya',
+            ];
+            $nama = $map[$payment->payment_type] ?? 'Lainnya';
+            $master = \App\Models\Finance\MasterJenisPembayaran::where('nama', $nama)->first();
+            if ($master) {
+                $payment->master_jenis_pembayaran_id = $master->id;
+            }
+        }
+
         // Automatically sequence DP
         if ($payment->payment_type === 'dp') {
             $lastDp = OrderPayment::where('order_id', $payment->order_id)

@@ -1,6 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
-import { Save, Plus, Trash2, ChevronDown, ChevronUp, Settings2, Users, CreditCard, ClipboardPaste, Package2, FileDown } from 'lucide-react';
+import { useMemo, useState, useEffect } from 'react';
+import { Save, Plus, Trash2, ChevronDown, ChevronUp, Settings2, Users, CreditCard, ClipboardPaste, Package2, FileDown, Copy, ArrowUp, ArrowDown } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -66,8 +66,10 @@ function newNameset() {
         nama_punggung: '', nomor_punggung: '',
         nama_dada: '', nomor_dada: '',
         nama_lengan: '', nomor_lengan: '',
-        nomor_punggung_2: '',
-        size_id: '', size_label: '', keterangan: '',
+        nomor_punggung_2: '', nama_punggung_2: '',
+        size_id: '', size_label: '',
+        size_celana_id: '', size_celana_label: '',
+        keterangan: '',
     };
 }
 
@@ -75,27 +77,338 @@ function newPayment() {
     return { payment_type: 'dp', amount: 0, payment_date: new Date().toISOString().slice(0, 10), bank_id: '', notes: '' };
 }
 
-function parseTsv(text, sizes) {
-    const rows = text.trim().split('\n').filter(Boolean);
-    const result = [];
-    for (const row of rows) {
-        const cols = row.split('\t').map((c) => c.trim());
-        const [nama = '', nomor = '', ukuranRaw = '', keterangan = ''] = cols;
-        const needle = ukuranRaw.toLowerCase();
-        const matched = sizes.find(
-            (s) =>
-                s.ukuran?.toLowerCase() === needle ||
-                `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle,
-        );
-        result.push({
-            nama_punggung: nama,
-            nomor_punggung: nomor,
-            size_id: matched?.id ?? '',
-            size_label: matched ? `${matched.kategori_size} - ${matched.ukuran}` : ukuranRaw,
-            keterangan,
-        });
+function PasteNamesetDialog({ open, onClose, onConfirm, sizes }) {
+    const [text, setText] = useState('');
+    const [hasHeaderRow, setHasHeaderRow] = useState(false);
+    const [mappings, setMappings] = useState([]);
+    const [prevMaxCols, setPrevMaxCols] = useState(0);
+
+    const MAPPING_OPTIONS = [
+        { value: 'ignore', label: 'Abaikan Kolom' },
+        { value: 'nama_punggung', label: 'Nama Punggung' },
+        { value: 'nomor_punggung', label: 'No. Punggung' },
+        { value: 'nama_dada', label: 'Nama Dada' },
+        { value: 'nomor_dada', label: 'No. Dada' },
+        { value: 'nama_lengan', label: 'Nama Lengan' },
+        { value: 'nomor_lengan', label: 'No. Lengan' },
+        { value: 'nomor_punggung_2', label: 'No. Punggung 2' },
+        { value: 'nama_punggung_2', label: 'Nama Punggung 2' },
+        { value: 'size_id', label: 'Size Atasan' },
+        { value: 'size_celana_id', label: 'Size Celana' },
+        { value: 'keterangan', label: 'Keterangan' },
+    ];
+
+    function splitLine(line) {
+        if (line.includes('\t')) {
+            return line.split('\t').map((c) => c.trim());
+        }
+        if (line.includes(';')) {
+            return line.split(';').map((c) => c.trim());
+        }
+        if (line.includes(',')) {
+            return line.split(',').map((c) => c.trim());
+        }
+        if (/\s{2,}/.test(line)) {
+            return line.split(/\s{2,}/).map((c) => c.trim());
+        }
+        return [line.trim()];
     }
-    return result;
+
+    function detectHeaders(firstRowCols) {
+        const matchedFields = [];
+        let matchCount = 0;
+        
+        for (let i = 0; i < firstRowCols.length; i++) {
+            const col = firstRowCols[i].toLowerCase();
+            let matched = 'ignore';
+            
+            if (col.includes('nama') && col.includes('punggung')) {
+                if (col.includes('2')) matched = 'nama_punggung_2';
+                else matched = 'nama_punggung';
+            }
+            else if (col.includes('nomor') && col.includes('punggung') || col.includes('no') && col.includes('punggung')) {
+                if (col.includes('2')) matched = 'nomor_punggung_2';
+                else matched = 'nomor_punggung';
+            }
+            else if (col.includes('nama') && col.includes('dada')) matched = 'nama_dada';
+            else if (col.includes('nomor') && col.includes('dada') || col.includes('no') && col.includes('dada')) matched = 'nomor_dada';
+            else if (col.includes('nama') && col.includes('lengan')) matched = 'nama_lengan';
+            else if (col.includes('nomor') && col.includes('lengan') || col.includes('no') && col.includes('lengan')) matched = 'nomor_lengan';
+            else if (col.includes('size celana') || col.includes('ukuran celana') || col.includes('sz celana') || col.includes('celana')) matched = 'size_celana_id';
+            else if (col.includes('size') || col.includes('ukuran') || col === 'sz') matched = 'size_id';
+            else if (col.includes('keterangan') || col.includes('ket') || col.includes('note') || col.includes('catatan')) matched = 'keterangan';
+            else if (col === 'nama') matched = 'nama_punggung';
+            else if (col === 'nomor' || col === 'no' || col === 'no.') matched = 'nomor_punggung';
+            
+            if (matched !== 'ignore') {
+                matchCount++;
+            }
+            matchedFields.push(matched);
+        }
+        
+        return {
+            isHeader: matchCount >= 2 || (firstRowCols.length === 1 && matchCount === 1),
+            fields: matchedFields
+        };
+    }
+
+    function getDefaultMappings(numCols) {
+        const defaults = [];
+        const fields = [
+            'nama_punggung',
+            'nomor_punggung',
+            'size_id',
+            'size_celana_id',
+            'keterangan',
+            'nama_dada',
+            'nomor_dada',
+            'nama_lengan',
+            'nomor_lengan',
+            'nomor_punggung_2',
+            'nama_punggung_2',
+        ];
+        
+        for (let i = 0; i < numCols; i++) {
+            defaults.push(fields[i] || 'ignore');
+        }
+        return defaults;
+    }
+
+    const parsedRows = useMemo(() => {
+        if (!text.trim()) return [];
+        return text.split('\n')
+            .map((line) => splitLine(line))
+            .filter((r) => r.length > 0 && r.some(Boolean));
+    }, [text]);
+
+    const maxCols = useMemo(() => {
+        return parsedRows.length > 0 ? Math.max(...parsedRows.map((r) => r.length)) : 0;
+    }, [parsedRows]);
+
+    useEffect(() => {
+        if (maxCols === 0) {
+            setMappings([]);
+            setHasHeaderRow(false);
+            setPrevMaxCols(0);
+            return;
+        }
+
+        if (maxCols !== prevMaxCols) {
+            const firstRow = parsedRows[0] || [];
+            const detection = detectHeaders(firstRow);
+            
+            if (detection.isHeader) {
+                setHasHeaderRow(true);
+                setMappings(detection.fields);
+            } else {
+                setHasHeaderRow(false);
+                setMappings(getDefaultMappings(maxCols));
+            }
+            setPrevMaxCols(maxCols);
+        }
+    }, [maxCols, parsedRows, prevMaxCols]);
+
+    const finalRows = useMemo(() => {
+        if (parsedRows.length === 0) return [];
+        const startIndex = hasHeaderRow ? 1 : 0;
+        const rowsToProcess = parsedRows.slice(startIndex);
+        
+        return rowsToProcess.map((cols) => {
+            const rowData = {
+                nama_punggung: '',
+                nomor_punggung: '',
+                nama_dada: '',
+                nomor_dada: '',
+                nama_lengan: '',
+                nomor_lengan: '',
+                nomor_punggung_2: '',
+                nama_punggung_2: '',
+                size_id: '',
+                size_label: '',
+                size_celana_id: '',
+                size_celana_label: '',
+                keterangan: '',
+            };
+            
+            cols.forEach((val, colIdx) => {
+                const field = mappings[colIdx];
+                if (!field || field === 'ignore') return;
+                
+                if (field === 'size_id') {
+                    const needle = val.toLowerCase();
+                    const matched = sizes.find(
+                        (s) =>
+                            s.ukuran?.toLowerCase() === needle ||
+                            `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle
+                    );
+                    rowData.size_id = matched?.id ?? '';
+                    rowData.size_label = matched ? `${matched.kategori_size} - ${matched.ukuran}` : val;
+                } else if (field === 'size_celana_id') {
+                    const needle = val.toLowerCase();
+                    const matched = sizes.find(
+                        (s) =>
+                            s.ukuran?.toLowerCase() === needle ||
+                            `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle
+                    );
+                    rowData.size_celana_id = matched?.id ?? '';
+                    rowData.size_celana_label = matched ? `${matched.kategori_size} - ${matched.ukuran}` : val;
+                } else {
+                    rowData[field] = val;
+                }
+            });
+            
+            return rowData;
+        });
+    }, [parsedRows, mappings, hasHeaderRow, sizes]);
+
+    function handleConfirm() {
+        if (!finalRows.length) return;
+        onConfirm(finalRows);
+        setText('');
+        setMappings([]);
+        setHasHeaderRow(false);
+        setPrevMaxCols(0);
+        onClose();
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={(v) => { if (!v) { setText(''); setMappings([]); setHasHeaderRow(false); setPrevMaxCols(0); onClose(); } }}>
+            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-6">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 uppercase text-sm font-black tracking-wide">
+                        <ClipboardPaste className="h-4 w-4 text-red-600" /> Paste Nameset dari Excel
+                    </DialogTitle>
+                </DialogHeader>
+                
+                <div className="space-y-4 flex-1 overflow-y-auto pr-1 py-1">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                        Copy kolom data nameset dari Excel atau spreadsheet Anda, lalu paste di area teks di bawah. Sistem akan mendeteksi kolom secara dinamis dan Anda dapat menyesuaikan pemetaannya.
+                    </p>
+                    
+                    <textarea
+                        className="w-full h-28 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none shadow-inner"
+                        placeholder={"Ahmad\t7\tS\tLengan Panjang\nBudi\t10\tM\tKeterangan tambahan"}
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        autoFocus
+                    />
+                    
+                    {parsedRows.length > 0 && (
+                        <div className="space-y-3 pt-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 border border-slate-200 p-3 rounded-xl">
+                                <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-700 uppercase">
+                                    <input
+                                        type="checkbox"
+                                        className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                                        checked={hasHeaderRow}
+                                        onChange={(e) => setHasHeaderRow(e.target.checked)}
+                                    />
+                                    Baris pertama adalah Header (Abaikan baris pertama)
+                                </label>
+                                <span className="text-xs font-black text-slate-500 bg-white px-2.5 py-1 border border-slate-200 rounded-lg shadow-sm">
+                                    DATA SIAP IMPORT: {finalRows.length} BARIS
+                                </span>
+                            </div>
+                            
+                            <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                <div className="overflow-x-auto max-h-60">
+                                    <Table className="min-w-[800px] relative">
+                                        <TableHeader className="sticky top-0 bg-slate-100 shadow-[0_1px_0_rgba(0,0,0,0.1)] z-10">
+                                            <TableRow>
+                                                <TableHead className="w-12 text-center text-xs font-bold uppercase text-slate-500">No</TableHead>
+                                                {Array.from({ length: maxCols }).map((_, colIdx) => (
+                                                    <TableHead key={colIdx} className="p-2 min-w-[150px] border-l border-slate-200">
+                                                        <div className="space-y-1 py-1">
+                                                            <span className="text-[10px] font-black text-slate-500 uppercase block">Kolom {colIdx + 1}</span>
+                                                            <Select
+                                                                value={mappings[colIdx] || 'ignore'}
+                                                                onValueChange={(val) => {
+                                                                    const next = [...mappings];
+                                                                    next[colIdx] = val;
+                                                                    setMappings(next);
+                                                                }}
+                                                            >
+                                                                <SelectTrigger className="h-7 text-[11px] bg-white border-slate-300 font-semibold focus:ring-1 focus:ring-red-500">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {MAPPING_OPTIONS.map((opt) => (
+                                                                        <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                                                            {opt.label}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    </TableHead>
+                                                ))}
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody className="bg-white">
+                                            {parsedRows.slice(hasHeaderRow ? 1 : 0).map((rowCols, rIdx) => (
+                                                <TableRow key={rIdx} className="hover:bg-slate-50/50">
+                                                    <TableCell className="p-2 text-center text-xs font-bold text-slate-400">{rIdx + 1}</TableCell>
+                                                    {Array.from({ length: maxCols }).map((_, cIdx) => {
+                                                        const val = rowCols[cIdx] || '';
+                                                        const field = mappings[cIdx] || 'ignore';
+                                                        
+                                                        if (field === 'ignore') {
+                                                            return (
+                                                                <TableCell key={cIdx} className="p-2 text-xs text-slate-400 bg-slate-50/30 italic border-l border-slate-100">
+                                                                    {val || '—'}
+                                                                </TableCell>
+                                                            );
+                                                        }
+                                                        
+                                                        if (field === 'size_id' || field === 'size_celana_id') {
+                                                            const needle = val.toLowerCase();
+                                                            const matched = sizes.find(
+                                                                (s) =>
+                                                                    s.ukuran?.toLowerCase() === needle ||
+                                                                    `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle
+                                                            );
+                                                            return (
+                                                                <TableCell key={cIdx} className="p-2 text-xs border-l border-slate-100">
+                                                                    {matched ? (
+                                                                        <span className="text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                                                            {matched.kategori_size} - {matched.ukuran}
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-orange-500 font-semibold bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
+                                                                            {val || '—'} (tidak cocok)
+                                                                        </span>
+                                                                    )}
+                                                                </TableCell>
+                                                            );
+                                                        }
+                                                        
+                                                        return (
+                                                            <TableCell key={cIdx} className="p-2 text-xs font-medium text-slate-800 border-l border-slate-100">
+                                                                {val || '—'}
+                                                            </TableCell>
+                                                        );
+                                                    })}
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+                
+                <DialogFooter className="mt-4 pt-4 border-t border-slate-100">
+                    <Button variant="outline" size="sm" onClick={() => { setText(''); setMappings([]); setHasHeaderRow(false); setPrevMaxCols(0); onClose(); }}>
+                        Batal
+                    </Button>
+                    <Button size="sm" className="bg-red-600 hover:bg-red-500 text-white font-bold" disabled={!finalRows.length} onClick={handleConfirm}>
+                        Impor {finalRows.length} Baris Nameset
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
 }
 
 function FieldLabel({ children }) {
@@ -110,78 +423,8 @@ function SectionHeader({ children }) {
     );
 }
 
-function PasteNamesetDialog({ open, onClose, onConfirm, sizes }) {
-    const [text, setText] = useState('');
-    const preview = useMemo(() => (text.trim() ? parseTsv(text, sizes) : []), [text, sizes]);
-
-    function handleConfirm() {
-        if (!preview.length) return;
-        onConfirm(preview);
-        setText('');
-        onClose();
-    }
-
-    return (
-        <Dialog open={open} onOpenChange={(v) => { if (!v) { setText(''); onClose(); } }}>
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 uppercase text-sm font-black tracking-wide">
-                        <ClipboardPaste className="h-4 w-4" /> Paste Nameset dari Excel
-                    </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-3">
-                    <p className="text-xs text-muted-foreground">
-                        Copy kolom dari Excel lalu paste di sini. Format: <span className="font-mono bg-muted px-1 rounded">Nama Punggung → No. Punggung → Ukuran → Keterangan</span>
-                    </p>
-                    <textarea
-                        className="w-full h-36 rounded-md border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-                        placeholder={"Ahmad\t7\tS\t\nBudi\t10\tM\tLengan panjang"}
-                        value={text}
-                        onChange={(e) => setText(e.target.value)}
-                        autoFocus
-                    />
-                    {preview.length > 0 && (
-                        <div className="rounded-md border overflow-auto max-h-48">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-gray-100">
-                                        <TableHead className="text-xs font-bold uppercase">Nama</TableHead>
-                                        <TableHead className="text-xs font-bold uppercase">No.</TableHead>
-                                        <TableHead className="text-xs font-bold uppercase">Ukuran</TableHead>
-                                        <TableHead className="text-xs font-bold uppercase">Keterangan</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {preview.map((r, i) => (
-                                        <TableRow key={i}>
-                                            <TableCell className="text-xs font-medium">{r.nama_punggung || '—'}</TableCell>
-                                            <TableCell className="text-xs font-bold">{r.nomor_punggung || '—'}</TableCell>
-                                            <TableCell className="text-xs">
-                                                {r.size_id
-                                                    ? <span className="text-emerald-600 font-bold">{r.size_label}</span>
-                                                    : <span className="text-orange-500">{r.size_label || '—'} (tidak cocok)</span>
-                                                }
-                                            </TableCell>
-                                            <TableCell className="text-xs">{r.keterangan || '—'}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    )}
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" size="sm" onClick={() => { setText(''); onClose(); }}>Batal</Button>
-                    <Button size="sm" disabled={!preview.length} onClick={handleConfirm}>
-                        Tambah {preview.length} baris
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function ItemCard({ index, item, masters, onChange, onRemove, namaPo = '' }) {
+function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMoveUp, onMoveDown, isFirst, isLast, namaPo = '' }) {
+    const [cardOpen, setCardOpen] = useState(true);
     const [specOpen, setSpecOpen] = useState(false);
     const [namesetOpen, setNamesetOpen] = useState(true);
     const [pasteOpen, setPasteOpen] = useState(false);
@@ -213,6 +456,10 @@ function ItemCard({ index, item, masters, onChange, onRemove, namaPo = '' }) {
         if (field === 'size_id') {
             const s = masters.sizes.find((x) => x.id === value);
             next[i].size_label = s ? `${s.kategori_size} - ${s.ukuran}` : '';
+        }
+        if (field === 'size_celana_id') {
+            const s = masters.sizes.find((x) => x.id === value);
+            next[i].size_celana_label = s ? `${s.kategori_size} - ${s.ukuran}` : '';
         }
         onChange(index, { ...item, namesets: next });
     }
@@ -259,8 +506,12 @@ function ItemCard({ index, item, masters, onChange, onRemove, namaPo = '' }) {
     return (
         <div className={`bg-white border-2 border-slate-300 rounded-2xl overflow-hidden shadow-xl border-t-4 ${c.border}`}>
             {/* Module Header */}
-            <div className="bg-slate-800 p-4 flex justify-between items-center">
+            <div 
+                className="bg-slate-800 p-4 flex justify-between items-center cursor-pointer select-none hover:bg-slate-700 transition"
+                onClick={() => setCardOpen((v) => !v)}
+            >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {cardOpen ? <ChevronUp className="h-4 w-4 text-slate-300 shrink-0" /> : <ChevronDown className="h-4 w-4 text-slate-300 shrink-0" />}
                     <span className="text-white font-black text-sm uppercase tracking-widest whitespace-nowrap">
                         {item.is_addon ? `ADD-ON #${index + 1}` : `PRODUK #${index + 1}`}
                     </span>
@@ -271,22 +522,51 @@ function ItemCard({ index, item, masters, onChange, onRemove, namaPo = '' }) {
                         </span>
                     )}
                     {totalPcs > 0 && (
-                        <span className="ml-auto bg-red-600 text-white text-xs font-black px-2 py-0.5 rounded-full whitespace-nowrap">
+                        <span className="ml-2 bg-red-600 text-white text-xs font-black px-2 py-0.5 rounded-full whitespace-nowrap">
                             {totalPcs} PCS
                         </span>
                     )}
                 </div>
-                <button
-                    type="button"
-                    onClick={() => onRemove(index)}
-                    className="ml-4 text-red-400 hover:text-red-300 bg-slate-700 hover:bg-slate-600 rounded p-1.5 transition"
-                    title="Hapus Produk"
-                >
-                    <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        type="button"
+                        onClick={() => onMoveUp(index)}
+                        disabled={isFirst}
+                        className="text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed rounded p-1.5 transition"
+                        title="Pindahkan ke Atas"
+                    >
+                        <ArrowUp className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onMoveDown(index)}
+                        disabled={isLast}
+                        className="text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed rounded p-1.5 transition"
+                        title="Pindahkan ke Bawah"
+                    >
+                        <ArrowDown className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onDuplicate(index)}
+                        className="text-blue-400 hover:text-blue-300 bg-slate-700 hover:bg-slate-600 rounded p-1.5 transition"
+                        title="Gandakan Produk"
+                    >
+                        <Copy className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onRemove(index)}
+                        className="text-red-400 hover:text-red-300 bg-slate-700 hover:bg-slate-600 rounded p-1.5 transition"
+                        title="Hapus Produk"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </button>
+                </div>
             </div>
 
-            <div className="p-5 space-y-5 bg-slate-50">
+            {cardOpen && (
+                <div className="p-5 space-y-5 bg-slate-50">
                 {/* Info Dasar Produk */}
                 <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                     <div className="flex items-center justify-between border-b-2 border-slate-200 pb-2 mb-4">
@@ -326,7 +606,34 @@ function ItemCard({ index, item, masters, onChange, onRemove, namaPo = '' }) {
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mt-3">
                         <div>
                             <FieldLabel>Qty <span className="text-red-500">*</span></FieldLabel>
-                            <Input type="number" min={1} value={item.quantity === 0 ? '' : item.quantity} onChange={(e) => patch('quantity', e.target.value === '' ? 0 : Number(e.target.value))} className="h-8 text-xs font-bold" />
+                            <Input 
+                                type="number" 
+                                min={1} 
+                                value={item.quantity === 0 ? '' : item.quantity} 
+                                onChange={(e) => {
+                                    const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                    if (item.is_addon) {
+                                        patch('quantity', val);
+                                    } else {
+                                        const currentLen = item.namesets.length;
+                                        let nextNamesets = [...item.namesets];
+                                        if (val > currentLen) {
+                                            const diff = val - currentLen;
+                                            for (let i = 0; i < diff; i++) {
+                                                nextNamesets.push(newNameset());
+                                            }
+                                        } else if (val < currentLen) {
+                                            nextNamesets = nextNamesets.slice(0, val);
+                                        }
+                                        onChange(index, { 
+                                            ...item, 
+                                            quantity: val, 
+                                            namesets: nextNamesets 
+                                        });
+                                    }
+                                }} 
+                                className="h-8 text-xs font-bold" 
+                            />
                         </div>
                         <div>
                             <FieldLabel>Harga Satuan</FieldLabel>
@@ -600,7 +907,9 @@ function ItemCard({ index, item, masters, onChange, onRemove, namaPo = '' }) {
                                             <th className="p-2 border-b font-bold min-w-[120px]">Nama Lengan</th>
                                             <th className="p-2 border-b font-bold w-20 text-center">No. Lengan</th>
                                             <th className="p-2 border-b font-bold w-20 text-center">No. Punggung 2</th>
-                                            <th className="p-2 border-b font-bold w-36 text-center">Size</th>
+                                            <th className="p-2 border-b font-bold min-w-[120px]">Nama Punggung 2</th>
+                                            <th className="p-2 border-b font-bold w-36 text-center">Size Atasan</th>
+                                            <th className="p-2 border-b font-bold w-36 text-center">Size Celana</th>
                                             <th className="p-2 border-b font-bold min-w-[100px]">Keterangan</th>
                                             <th className="p-2 border-b font-bold w-8 text-center">X</th>
                                         </tr>
@@ -608,7 +917,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, namaPo = '' }) {
                                     <tbody>
                                         {item.namesets.length === 0 && (
                                             <tr>
-                                                <td colSpan={11} className="p-6 text-center text-xs text-slate-400 italic">
+                                                <td colSpan={13} className="p-6 text-center text-xs text-slate-400 italic">
                                                     Belum ada nameset. Klik "Tambah Baris" untuk mulai.
                                                 </td>
                                             </tr>
@@ -617,25 +926,28 @@ function ItemCard({ index, item, masters, onChange, onRemove, namaPo = '' }) {
                                             <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
                                                 <td className="p-1.5 text-center text-xs font-bold text-slate-500">{i + 1}</td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nama_punggung} onChange={(e) => patchNameset(i, 'nama_punggung', e.target.value)} className="h-7 text-xs font-medium uppercase" />
+                                                    <Input value={ns.nama_punggung || ''} onChange={(e) => patchNameset(i, 'nama_punggung', e.target.value)} className="h-7 text-xs font-medium uppercase" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nomor_punggung} onChange={(e) => patchNameset(i, 'nomor_punggung', e.target.value)} className="h-7 text-xs font-black text-center" />
+                                                    <Input value={ns.nomor_punggung || ''} onChange={(e) => patchNameset(i, 'nomor_punggung', e.target.value)} className="h-7 text-xs font-black text-center" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nama_dada} onChange={(e) => patchNameset(i, 'nama_dada', e.target.value)} className="h-7 text-xs font-medium uppercase" />
+                                                    <Input value={ns.nama_dada || ''} onChange={(e) => patchNameset(i, 'nama_dada', e.target.value)} className="h-7 text-xs font-medium uppercase" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nomor_dada} onChange={(e) => patchNameset(i, 'nomor_dada', e.target.value)} className="h-7 text-xs font-black text-center" />
+                                                    <Input value={ns.nomor_dada || ''} onChange={(e) => patchNameset(i, 'nomor_dada', e.target.value)} className="h-7 text-xs font-black text-center" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nama_lengan} onChange={(e) => patchNameset(i, 'nama_lengan', e.target.value)} className="h-7 text-xs font-medium uppercase" />
+                                                    <Input value={ns.nama_lengan || ''} onChange={(e) => patchNameset(i, 'nama_lengan', e.target.value)} className="h-7 text-xs font-medium uppercase" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nomor_lengan} onChange={(e) => patchNameset(i, 'nomor_lengan', e.target.value)} className="h-7 text-xs font-black text-center" />
+                                                    <Input value={ns.nomor_lengan || ''} onChange={(e) => patchNameset(i, 'nomor_lengan', e.target.value)} className="h-7 text-xs font-black text-center" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nomor_punggung_2} onChange={(e) => patchNameset(i, 'nomor_punggung_2', e.target.value)} className="h-7 text-xs font-black text-center" />
+                                                    <Input value={ns.nomor_punggung_2 || ''} onChange={(e) => patchNameset(i, 'nomor_punggung_2', e.target.value)} className="h-7 text-xs font-black text-center" />
+                                                </td>
+                                                <td className="p-1.5">
+                                                    <Input value={ns.nama_punggung_2 || ''} onChange={(e) => patchNameset(i, 'nama_punggung_2', e.target.value)} className="h-7 text-xs font-medium uppercase" />
                                                 </td>
                                                 <td className="p-1.5">
                                                     <Select value={ns.size_id || NONE} onValueChange={(v) => patchNameset(i, 'size_id', v === NONE ? '' : v)}>
@@ -649,7 +961,18 @@ function ItemCard({ index, item, masters, onChange, onRemove, namaPo = '' }) {
                                                     </Select>
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.keterangan} onChange={(e) => patchNameset(i, 'keterangan', e.target.value)} className="h-7 text-xs" />
+                                                    <Select value={ns.size_celana_id || NONE} onValueChange={(v) => patchNameset(i, 'size_celana_id', v === NONE ? '' : v)}>
+                                                        <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Pilih" /></SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value={NONE}>— —</SelectItem>
+                                                            {masters.sizes.map((s) => (
+                                                                <SelectItem key={s.id} value={s.id}>{s.kategori_size} - {s.ukuran}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </td>
+                                                <td className="p-1.5">
+                                                    <Input value={ns.keterangan || ''} onChange={(e) => patchNameset(i, 'keterangan', e.target.value)} className="h-7 text-xs" />
                                                 </td>
                                                 <td className="p-1.5 text-center">
                                                     <button
@@ -678,6 +1001,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, namaPo = '' }) {
                     </>
                 )}
             </div>
+            )}
 
             <PasteNamesetDialog
                 open={pasteOpen}
@@ -801,6 +1125,35 @@ export default function OrderForm({ mode, masters, order, reseller_branches = []
     // Tambah item manual (tanpa produk dari master)
     function addItem() { setData('items', [...data.items, newItem()]); }
     function removeItem(i) { setData('items', data.items.filter((_, idx) => idx !== i)); }
+    function duplicateItem(index) {
+        const itemToCopy = data.items[index];
+        const copiedItem = {
+            ...itemToCopy,
+            namesets: itemToCopy.namesets.map((ns) => ({ ...ns })),
+        };
+        const nextItems = [...data.items];
+        nextItems.splice(index + 1, 0, copiedItem);
+        setData('items', nextItems);
+    }
+
+    function moveItemUp(index) {
+        if (index === 0) return;
+        const nextItems = [...data.items];
+        const temp = nextItems[index];
+        nextItems[index] = nextItems[index - 1];
+        nextItems[index - 1] = temp;
+        setData('items', nextItems);
+    }
+
+    // Move item down
+    function moveItemDown(index) {
+        if (index === data.items.length - 1) return;
+        const nextItems = [...data.items];
+        const temp = nextItems[index];
+        nextItems[index] = nextItems[index + 1];
+        nextItems[index + 1] = temp;
+        setData('items', nextItems);
+    }
 
     function patchPayment(index, next) {
         const ps = [...data.payments];
@@ -1085,7 +1438,20 @@ export default function OrderForm({ mode, masters, order, reseller_branches = []
                                     </div>
                                 )}
                                 {data.items.map((item, idx) => (
-                                    <ItemCard key={idx} index={idx} item={item} masters={masters} onChange={patchItem} onRemove={removeItem} namaPo={data.nama_po} />
+                                    <ItemCard
+                                        key={idx}
+                                        index={idx}
+                                        item={item}
+                                        masters={masters}
+                                        onChange={patchItem}
+                                        onRemove={removeItem}
+                                        onDuplicate={duplicateItem}
+                                        onMoveUp={moveItemUp}
+                                        onMoveDown={moveItemDown}
+                                        isFirst={idx === 0}
+                                        isLast={idx === data.items.length - 1}
+                                        namaPo={data.nama_po}
+                                    />
                                 ))}
                             </div>
                         </div>

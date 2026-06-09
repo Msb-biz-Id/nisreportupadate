@@ -201,15 +201,51 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {(invoice.items ?? []).map((item, i) => (
-                                            <tr key={item.id} className="hover:bg-slate-50/20">
-                                                <td className="py-3 px-4 text-xs font-medium text-slate-400">{i + 1}</td>
-                                                <td className="py-3 px-4 font-semibold text-slate-800">{item.produk}</td>
-                                                <td className="py-3 px-4 text-right font-mono font-medium">{item.jumlah} pcs</td>
-                                                <td className="py-3 px-4 text-right font-mono text-xs">{formatRupiah(item.harga_satuan)}</td>
-                                                <td className="py-3 px-4 text-right font-mono text-xs font-semibold text-slate-800">{formatRupiah(item.subtotal)}</td>
-                                            </tr>
-                                        ))}
+                                        {(() => {
+                                            const mainItems = (invoice.items ?? []).filter(item => !item.is_addon);
+                                            const addonItems = (invoice.items ?? []).filter(item => item.is_addon);
+                                            let rowNum = 1;
+                                            return (
+                                                <>
+                                                    {mainItems.length > 0 && (
+                                                        <>
+                                                            <tr className="bg-slate-50/50 font-bold">
+                                                                <td colSpan={5} className="py-2 px-4 text-xs text-slate-600 font-extrabold uppercase tracking-wide">
+                                                                    Produk Inti
+                                                                </td>
+                                                            </tr>
+                                                            {mainItems.map((item) => (
+                                                                <tr key={item.id} className="hover:bg-slate-50/20">
+                                                                    <td className="py-3 px-4 text-xs font-medium text-slate-400">{rowNum++}</td>
+                                                                    <td className="py-3 px-4 font-semibold text-slate-800">{item.produk}</td>
+                                                                    <td className="py-3 px-4 text-right font-mono font-medium">{item.jumlah} pcs</td>
+                                                                    <td className="py-3 px-4 text-right font-mono text-xs">{formatRupiah(item.harga_satuan)}</td>
+                                                                    <td className="py-3 px-4 text-right font-mono text-xs font-semibold text-slate-800">{formatRupiah(item.subtotal)}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </>
+                                                    )}
+                                                    {addonItems.length > 0 && (
+                                                        <>
+                                                            <tr className="bg-slate-50/50 font-bold">
+                                                                <td colSpan={5} className="py-2 px-4 text-xs text-slate-600 font-extrabold uppercase tracking-wide border-t">
+                                                                    Add-on
+                                                                </td>
+                                                            </tr>
+                                                            {addonItems.map((item) => (
+                                                                <tr key={item.id} className="hover:bg-slate-50/20">
+                                                                    <td className="py-3 px-4 text-xs font-medium text-slate-400">{rowNum++}</td>
+                                                                    <td className="py-3 px-4 font-semibold text-slate-800">{item.produk}</td>
+                                                                    <td className="py-3 px-4 text-right font-mono font-medium">{item.jumlah} pcs</td>
+                                                                    <td className="py-3 px-4 text-right font-mono text-xs">{formatRupiah(item.harga_satuan)}</td>
+                                                                    <td className="py-3 px-4 text-right font-mono text-xs font-semibold text-slate-800">{formatRupiah(item.subtotal)}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
                                     </tbody>
                                 </table>
                             </div>
@@ -308,10 +344,34 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                             </div>
 
                             <div className="w-full md:max-w-sm space-y-2.5 text-slate-700">
-                                <div className="flex justify-between items-center text-xs">
-                                    <span className="font-semibold text-slate-400">Total Harga Produk</span>
-                                    <span className="font-mono font-bold text-slate-700">{formatRupiah(invoice.items?.reduce((s, x) => s + Number(x.subtotal), 0) || 0)}</span>
-                                </div>
+                                {(() => {
+                                    const mainItems = (invoice.items ?? []).filter(item => !item.is_addon);
+                                    const addonItems = (invoice.items ?? []).filter(item => item.is_addon);
+                                    const mainSubtotal = mainItems.reduce((s, x) => s + Number(x.subtotal), 0);
+                                    const addonSubtotal = addonItems.reduce((s, x) => s + Number(x.subtotal), 0);
+
+                                    if (addonItems.length > 0) {
+                                        return (
+                                            <>
+                                                <div className="flex justify-between items-center text-xs">
+                                                    <span className="font-semibold text-slate-400">Subtotal Produk Inti</span>
+                                                    <span className="font-mono font-bold text-slate-700">{formatRupiah(mainSubtotal)}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-xs">
+                                                    <span className="font-semibold text-slate-400">Subtotal Add-on</span>
+                                                    <span className="font-mono font-bold text-slate-700">{formatRupiah(addonSubtotal)}</span>
+                                                </div>
+                                            </>
+                                        );
+                                    } else {
+                                        return (
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="font-semibold text-slate-400">Total Harga Produk</span>
+                                                <span className="font-mono font-bold text-slate-700">{formatRupiah(mainSubtotal)}</span>
+                                            </div>
+                                        );
+                                    }
+                                })()}
 
                                 {additionPayments.length > 0 && (
                                     <div className="flex justify-between items-center text-xs">

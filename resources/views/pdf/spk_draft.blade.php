@@ -6,10 +6,10 @@
     <style>
         /* === CSS TEMPLATE DASAR PDF A4 (sesuai po/index.php) === */
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        @page { margin: 60px 30px 60px 30px; }
+        @page { margin: 60px 45px 60px 45px; }
 
         header { position: fixed; top: -45px; left: 0; right: 0; height: 35px;
-                 text-align: center; font-size: 18pt; font-weight: 900;
+                 text-align: center; font-size: 18pt; font-weight: bold;
                  text-decoration: underline; border-bottom: 4px solid #000; padding-bottom: 8px; }
         footer { position: fixed; bottom: -45px; left: 0; right: 0; height: 30px;
                  border-top: 2px solid #000; padding-top: 8px; }
@@ -23,44 +23,45 @@
 
         /* Info header box */
         .info-table { margin-bottom: 15px; border: 2px solid #000; }
-        .info-table td { padding: 7px 10px; font-weight: 900; font-size: 12pt; }
-        .colon { width: 12px; text-align: center; }
+        .info-table td { padding: 5px 8px; font-weight: normal; font-size: 11pt; }
+        .info-table table td:first-child { font-weight: bold; }
+        .colon { width: 12px; text-align: center; font-weight: bold; }
 
         /* Draft badge */
         .draft-badge { display: inline-block; background: #FEF3C7; color: #92400E;
-                       border: 2px solid #F59E0B; font-size: 10pt; font-weight: 900;
+                       border: 2px solid #F59E0B; font-size: 10pt; font-weight: bold;
                        padding: 2px 10px; border-radius: 3px; vertical-align: middle; margin-left: 10px; }
 
         /* Title boxes */
-        .title-box        { font-weight: 900; font-size: 11pt; background: #d4d4d4; color: #000;
+        .title-box        { font-weight: bold; font-size: 11pt; background: #d4d4d4; color: #000;
                             padding: 7px 10px; text-align: left;
                             border: 1px solid #000; border-bottom: none; text-transform: uppercase; }
-        .title-box-center { font-weight: 900; font-size: 11pt; background: #d4d4d4; color: #000;
+        .title-box-center { font-weight: bold; font-size: 11pt; background: #d4d4d4; color: #000;
                             padding: 7px 10px; text-align: center;
                             border: 1px solid #000; border-bottom: none; text-transform: uppercase; }
 
         /* Product band */
         .product-band { background: #000; color: #fff; text-align: center; font-size: 13pt;
-                        font-weight: 900; padding: 7px 10px; margin: 12px 0 0; letter-spacing: 0.5px; }
+                        font-weight: bold; padding: 7px 10px; margin: 12px 0 0; letter-spacing: 0.5px; }
 
         /* Spec table */
         .spec-table { border: 1px solid #000; margin-bottom: 5px; }
-        .spec-table th, .spec-table td { border: 1px solid #000; padding: 6px 8px; font-size: 11pt; text-align: center; font-weight: bold; }
+        .spec-table th, .spec-table td { border: 1px solid #000; padding: 6px 8px; font-size: 11pt; text-align: center; font-weight: normal; }
         .spec-table th { background: #d4d4d4; }
-        .spec-row-head { width: 28%; text-align: left !important; background: #f9f9f9; font-weight: 900; }
-        .sub-header { background: #d4d4d4; text-align: center !important; padding: 7px 8px !important; font-weight: 900; letter-spacing: 1px; }
+        .spec-row-head { width: 30%; text-align: left !important; background: #fff; font-weight: bold; }
+        .sub-header { background: #d4d4d4; text-align: center !important; padding: 7px 8px !important; font-weight: bold; letter-spacing: 1px; }
 
         /* Nameset table */
         .ns-table { border: 1px solid #000; margin-bottom: 5px; }
-        .ns-table th, .ns-table td { border: 1px solid #000; padding: 7px 8px; font-size: 11pt; text-align: center; font-weight: bold; }
-        .ns-table th { background: #d4d4d4; font-size: 12pt; }
+        .ns-table th, .ns-table td { border: 1px solid #000; padding: 7px 8px; font-size: 11pt; text-align: center; font-weight: normal; }
+        .ns-table th { background: #d4d4d4; font-size: 11pt; font-weight: bold; }
         .t-left { text-align: left !important; padding-left: 10px !important; }
 
         /* Rekap size */
-        .rekap-container { margin-top: 15px; font-size: 12pt; font-weight: bold; text-align: center; }
+        .rekap-container { margin-top: 15px; font-size: 11pt; font-weight: bold; text-align: center; }
         .rekap-tabel { border: 2px solid #000; width: auto; margin: 8px auto 0; }
-        .rekap-tabel td { border: 1px solid #000; padding: 7px 18px; text-align: center; font-size: 12pt; font-weight: 900; }
-        .rekap-tabel th { border: 1px solid #000; padding: 7px 18px; text-align: center; font-size: 12pt; background: #d4d4d4; font-weight: 900; }
+        .rekap-tabel td { border: 1px solid #000; padding: 7px 18px; text-align: center; font-size: 11pt; font-weight: normal; }
+        .rekap-tabel th { border: 1px solid #000; padding: 7px 18px; text-align: center; font-size: 11pt; background: #d4d4d4; font-weight: bold; }
 
         /* Image wrapper */
         .img-wrapper { border: 2px solid #000; padding: 8px; margin: 0 0 10px; background: #fff; }
@@ -70,7 +71,7 @@
         /* Misc */
         .page-break   { page-break-before: always; }
         .page-num:after { content: counter(page); }
-        .lampiran-sub { font-weight: 900; font-size: 10pt; margin-bottom: 4px; }
+        .lampiran-sub { font-weight: bold; font-size: 10pt; margin-bottom: 4px; }
     </style>
 </head>
 <body>
@@ -213,75 +214,99 @@
             </div>
 
             {{-- SPESIFIKASI --}}
-            <div class="title-box" style="margin-top:0;">SPESIFIKASI ({{ strtoupper($item['nama_produk'] ?? '') }})</div>
             <table class="spec-table" style="margin-top:0;">
-                <tr>
-                    <td class="spec-row-head">JENIS PESANAN</td>
-                    <td>{{ $dv(strtoupper($item['varian_label'] ?? '')) }}</td>
-                    <td class="spec-row-head">JENIS SETELAN</td>
-                    <td>{{ $dv(strtoupper($item['_jenis_setelan'] ?? $item['jenis_setelan'] ?? '')) }}</td>
-                </tr>
-                <tr>
-                    <td class="spec-row-head">POLA</td>
-                    <td>{{ $dv(strtoupper($item['_pola_produksi'] ?? $item['pola'] ?? '')) }}</td>
-                    <td class="spec-row-head">BAHAN ATASAN</td>
-                    <td>{{ $dv(strtoupper($item['_bahan_kain_names'] ?? $item['_bahan_kain'] ?? '')) }}</td>
-                </tr>
-                @php $bahanBawahan = $item['_bahan_kain_bawahan_names'] ?? $item['_bahan_kain_bawahan'] ?? null; @endphp
-                @if(!empty($bahanBawahan))
-                <tr>
-                    <td class="spec-row-head">BAHAN BAWAHAN</td>
-                    <td colspan="3">{{ strtoupper($bahanBawahan) }}</td>
-                </tr>
-                @endif
-                <tr>
-                    <td class="spec-row-head">WARNA</td>
-                    <td>{{ $dv(strtoupper($item['warna'] ?? '')) }}</td>
-                    <td class="spec-row-head">JENIS LOGO</td>
-                    <td>{{ $logoDisplay }}</td>
-                </tr>
-                <tr>
-                    <td class="spec-row-head">JUMLAH ATASAN</td>
-                    <td>{{ $item['jml_atasan'] ?: ($item['quantity'] ?? '.......') }}</td>
-                    <td class="spec-row-head">JUMLAH BAWAHAN</td>
-                    <td>{{ $item['jml_bawahan'] ?: '.......' }}</td>
-                </tr>
-                <tr>
-                    <td class="spec-row-head">JENIS RIB</td>
-                    <td>{{ $dv(strtoupper($item['jenis_rib'] ?? '')) }}</td>
-                    <td class="spec-row-head">TUTUP KERAH</td>
-                    <td>{{ $dv(strtoupper($item['tutup_kerah'] ?? '')) }}</td>
-                </tr>
-                <tr>
-                    <td class="spec-row-head">LIST KERAH</td>
-                    <td>{{ $dv(strtoupper($item['list_kerah'] ?? '')) }}</td>
-                    <td class="spec-row-head">LIST LENGAN</td>
-                    <td>{{ $dv(strtoupper($item['list_lengan'] ?? '')) }}</td>
-                </tr>
-                <tr>
-                    <td class="spec-row-head">LIST SAMPING CELANA</td>
-                    <td>{{ $dv(strtoupper($item['list_samping_celana'] ?? '')) }}</td>
-                    <td class="spec-row-head">LIST BAWAH CELANA</td>
-                    <td>{{ $dv(strtoupper($item['list_bawah_celana'] ?? '')) }}</td>
-                </tr>
-                <tr><td class="sub-header" colspan="4">KETERANGAN JAHITAN</td></tr>
-                <tr>
+                <thead>
+                    <tr>
+                        <th class="sub-header" colspan="2" style="text-align: left !important; padding-left: 10px !important;">
+                            SPESIFIKASI ({{ strtoupper($item['nama_produk'] ?? '') }})
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="spec-row-head">JENIS SETELAN</td>
+                        <td>{{ $dv(strtoupper($item['_jenis_setelan'] ?? $item['jenis_setelan'] ?? '')) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">POLA</td>
+                        <td>{{ $dv(strtoupper($item['_pola_produksi'] ?? $item['pola'] ?? '')) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">BAHAN ATASAN</td>
+                        <td>{{ $dv(strtoupper($item['_bahan_kain_names'] ?? $item['_bahan_kain'] ?? '')) }}</td>
+                    </tr>
+                    @php $bahanBawahan = $item['_bahan_kain_bawahan_names'] ?? $item['_bahan_kain_bawahan'] ?? null; @endphp
+                    @if(!empty($bahanBawahan))
+                    <tr>
+                        <td class="spec-row-head">BAHAN BAWAHAN</td>
+                        <td>{{ strtoupper($bahanBawahan) }}</td>
+                    </tr>
+                    @endif
+                    <tr>
+                        <td class="spec-row-head">WARNA</td>
+                        <td>{{ $dv(strtoupper($item['warna'] ?? '')) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">JENIS LOGO</td>
+                        <td>{{ $logoDisplay }}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">JUMLAH ATASAN</td>
+                        <td>{{ $item['jml_atasan'] ?: ($item['quantity'] ?? '.......') }}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">JUMLAH BAWAHAN</td>
+                        <td>{{ $item['jml_bawahan'] ?: '.......' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">JENIS RIB</td>
+                        <td>{{ $dv(strtoupper($item['jenis_rib'] ?? '')) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">TUTUP KERAH</td>
+                        <td>{{ $dv(strtoupper($item['tutup_kerah'] ?? '')) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">LIST KERAH</td>
+                        <td>{{ $dv(strtoupper($item['list_kerah'] ?? '')) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">LIST LENGAN</td>
+                        <td>{{ $dv(strtoupper($item['list_lengan'] ?? '')) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">LIST SAMPING CELANA</td>
+                        <td>{{ $dv(strtoupper($item['list_samping_celana'] ?? '')) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">LIST BAWAH CELANA</td>
+                        <td>{{ $dv(strtoupper($item['list_bawah_celana'] ?? '')) }}</td>
+                    </tr>
+                    <tr>
+                        <th class="sub-header" colspan="2">KETERANGAN JAHITAN</th>
+                    </tr>
                     @php
                         $polaJ = $item['_pola_jahitan'];
                         $polaJStr = $polaJ ? strtoupper($polaJ->jenis_pola . ' — ' . $polaJ->nama) : '.......';
                         $polaJLengan = $item['_pola_jahitan_lengan'] ?? null;
                         $lenganStr = $polaJLengan ? strtoupper($polaJLengan->nama) : $dv(strtoupper($item['jahitan_list_lengan'] ?? ''));
                     @endphp
-                    <td class="spec-row-head">POLA JAHITAN</td>
-                    <td>{{ $polaJStr }}</td>
-                    <td class="spec-row-head">JAHITAN LIST LENGAN</td>
-                    <td>{{ $lenganStr }}</td>
-                </tr>
-                <tr><td class="sub-header" colspan="4">KETERANGAN RESLETING</td></tr>
-                <tr>
-                    <td class="spec-row-head">JENIS RESLETING</td>
-                    <td colspan="3">{{ $dv(strtoupper($item['_resleting'] ?? '')) }}</td>
-                </tr>
+                    <tr>
+                        <td class="spec-row-head">POLA JAHITAN</td>
+                        <td>{{ $polaJStr }}</td>
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">JAHITAN LIST LENGAN</td>
+                        <td>{{ $lenganStr }}</td>
+                    </tr>
+                    <tr>
+                        <th class="sub-header" colspan="2">KETERANGAN RESLETING</th>
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">JENIS RESLETING</td>
+                        <td>{{ $dv(strtoupper($item['_resleting'] ?? '')) }}</td>
+                    </tr>
+                </tbody>
             </table>
 
             {{-- REFERENSI DESAIN & KERAH --}}
@@ -292,7 +317,8 @@
             @if($hasDesain)
             <div class="page-break"></div>
 
-            <div class="img-wrapper" style="padding:6px; margin-bottom:0;">
+            @if(!empty($item['gambar_desain']) || !empty($item['ket_atasan']) || !empty($item['ket_bawahan']))
+            <div class="img-wrapper" style="padding:6px; margin-bottom:12px;">
                 <div class="title-box-center" style="margin-top:0;">
                     REFERENSI DESAIN {{ strtoupper($item['nama_produk'] ?? '') }} — {{ strtoupper($item['varian_label'] ?? '') }}
                 </div>
@@ -310,7 +336,7 @@
                 <div class="img-box" style="border-top:none; height:250px; line-height:250px; color:#999; font-weight:bold;">[ GAMBAR DESAIN BELUM DIUNGGAH ]</div>
                 @endif
 
-                <table style="width:100%; border-collapse:collapse; border:1px solid #000; font-size:11pt; margin-bottom:8px;">
+                <table style="width:100%; border-collapse:collapse; border:1px solid #000; font-size:11pt; margin-bottom:0;">
                     <tr>
                         <td style="width:50%; vertical-align:top; padding:8px; border-right:1px solid #000;">
                             <div style="background:#d4d4d4; font-weight:900; padding:4px; text-align:center; margin-bottom:4px; border:1px solid #000;">KETERANGAN ATASAN</div>
@@ -322,36 +348,51 @@
                         </td>
                     </tr>
                 </table>
+            </div>
+            @endif
 
-                <div class="title-box-center">
+            @if(!empty($item['jenis_kerah']) || !empty($item['gambar_kerah']))
+            <div class="img-wrapper" style="padding:6px; margin-bottom:12px;">
+                <div class="title-box-center" style="margin-top:0;">
                     REFERENSI KERAH {{ strtoupper($item['nama_produk'] ?? '') }} — {{ strtoupper($item['varian_label'] ?? '') }}
                 </div>
-                <table style="width:100%; border-collapse:collapse; border:1px solid #000; border-top:none; font-size:11pt;">
-                    <tr>
-                        <td style="width:45%; vertical-align:middle; padding:10px; border-right:1px solid #000;">
-                            <div style="background:#d4d4d4; font-weight:900; padding:6px; text-align:center; margin-bottom:8px; border:1px solid #000;">JENIS KERAH</div>
-                            <div style="padding:4px; text-align:center; font-weight:900; font-size:13pt;">{{ $dv(strtoupper($item['jenis_kerah'] ?? '')) }}</div>
-                        </td>
-                        <td style="width:55%; vertical-align:middle; padding:4px; text-align:center;">
-                            @if(!empty($item['gambar_kerah']))
-                                @php $kPath = storage_path('app/public/' . $item['gambar_kerah']); @endphp
-                                @if(file_exists($kPath))
-                                <img src="{{ $kPath }}" style="max-width:95%; max-height:150px; object-fit:contain;">
-                                @endif
-                            @endif
-                            @if(!empty($item['gambar_ket_tambahan']))
-                                @php $ktPath = storage_path('app/public/' . $item['gambar_ket_tambahan']); @endphp
-                                @if(file_exists($ktPath))
-                                <img src="{{ $ktPath }}" style="max-width:95%; max-height:150px; object-fit:contain; margin-top:4px;">
-                                @endif
-                            @endif
-                            @if(empty($item['gambar_kerah']) && empty($item['gambar_ket_tambahan']))
-                            <div style="height:100px; line-height:100px; color:#999; font-weight:bold;">[ GAMBAR KERAH BELUM DIUNGGAH ]</div>
-                            @endif
-                        </td>
-                    </tr>
-                </table>
+                <div style="border:1px solid #000; border-top:none; padding:10px; text-align:center; background:#fff;">
+                    <div style="font-size:12pt; font-weight:bold; margin-bottom:10px;">
+                        JENIS KERAH: <span style="font-weight:normal;">{{ strtoupper($item['jenis_kerah'] ?? '.......') }}</span>
+                    </div>
+                    @if(!empty($item['gambar_kerah']))
+                        @php $kPath = storage_path('app/public/' . $item['gambar_kerah']); @endphp
+                        @if(file_exists($kPath))
+                        <div style="text-align:center; margin-top:8px;">
+                            <img src="{{ $kPath }}" style="max-width:100%; max-height:350px; object-fit:contain;">
+                        </div>
+                        @else
+                        <div style="color:#999; font-weight:bold; padding:10px;">[ GAMBAR KERAH TIDAK DITEMUKAN ]</div>
+                        @endif
+                    @else
+                    <div style="color:#999; font-weight:bold; padding:10px;">[ GAMBAR KERAH BELUM DIUNGGAH ]</div>
+                    @endif
+                </div>
             </div>
+            @endif
+
+            @if(!empty($item['gambar_ket_tambahan']))
+            <div class="img-wrapper" style="padding:6px; margin-bottom:0;">
+                <div class="title-box-center" style="margin-top:0;">
+                    KETERANGAN TAMBAHAN GAMBAR {{ strtoupper($item['nama_produk'] ?? '') }} — {{ strtoupper($item['varian_label'] ?? '') }}
+                </div>
+                <div style="border:1px solid #000; border-top:none; padding:10px; text-align:center; background:#fff;">
+                    @php $ktPath = storage_path('app/public/' . $item['gambar_ket_tambahan']); @endphp
+                    @if(file_exists($ktPath))
+                    <div style="text-align:center;">
+                        <img src="{{ $ktPath }}" style="max-width:100%; max-height:450px; object-fit:contain;">
+                    </div>
+                    @else
+                    <div style="color:#999; font-weight:bold; padding:10px;">[ GAMBAR KETERANGAN TAMBAHAN TIDAK DITEMUKAN ]</div>
+                    @endif
+                </div>
+            </div>
+            @endif
             @endif
 
             {{-- NAMESET TABLE --}}
@@ -360,13 +401,17 @@
                 $filled   = $namesets->filter(fn($ns) =>
                     !empty($ns['nama_punggung']) || !empty($ns['nomor_punggung']) ||
                     !empty($ns['nama_dada'])     || !empty($ns['nomor_dada'])     ||
-                    !empty($ns['size_id'])       || !empty($ns['size_label'])     || !empty($ns['keterangan'])
+                    !empty($ns['nama_lengan'])   || !empty($ns['nomor_lengan'])   ||
+                    !empty($ns['nama_punggung_2']) || !empty($ns['nomor_punggung_2']) ||
+                    !empty($ns['size_id'])       || !empty($ns['size_label'])     ||
+                    !empty($ns['size_celana_id'])|| !empty($ns['size_celana_label']) ||
+                    !empty($ns['keterangan'])
                 );
 
                 $hasNamaPunggung = $filled->contains(fn($ns) => !empty($ns['nama_punggung']) || !empty($ns['nomor_punggung']));
                 $hasNamaDada     = $filled->contains(fn($ns) => !empty($ns['nama_dada'])     || !empty($ns['nomor_dada']));
-                $hasNamaPunggung2 = $filled->contains(fn($ns) => !empty($ns['nama_punggung_2']));
                 $hasNamaLengan   = $filled->contains(fn($ns) => !empty($ns['nama_lengan'])   || !empty($ns['nomor_lengan']));
+                $hasNamaPunggung2 = $filled->contains(fn($ns) => !empty($ns['nama_punggung_2']) || !empty($ns['nomor_punggung_2']));
                 $hasSizeAtasan   = $filled->contains(fn($ns) => !empty($ns['size_id'])       || !empty($ns['size_label']));
                 $hasSizeBawahan  = $filled->contains(fn($ns) => !empty($ns['size_celana_id'])|| !empty($ns['size_celana_label']));
                 $hasKeterangan   = $filled->contains(fn($ns) => !empty($ns['keterangan']));
@@ -419,7 +464,10 @@
                         <th class="t-left">NAMA LENGAN</th>
                         <th width="80">NO. LENGAN</th>
                         @endif
-                        @if($hasNamaPunggung2)<th class="t-left">NAMA PUNGGUNG 2</th>@endif
+                        @if($hasNamaPunggung2)
+                        <th class="t-left">NAMA PUNGGUNG 2</th>
+                        <th width="90">NO. PUNGGUNG 2</th>
+                        @endif
                         @if($hasSizeAtasan)<th width="75">SIZE</th>@endif
                         @if($hasSizeBawahan)<th width="85">SIZE CELANA</th>@endif
                         @if($hasKeterangan)<th class="t-left">KETERANGAN</th>@endif
@@ -431,32 +479,33 @@
                         <td>{{ $i + 1 }}.</td>
                         @if($hasNamaPunggung)
                         <td class="t-left">{{ strtoupper($ns['nama_punggung'] ?? '') ?: '.......' }}</td>
-                        <td style="font-weight:900;">{{ $ns['nomor_punggung'] ?? '.......' }}</td>
+                        <td>{{ $ns['nomor_punggung'] ?? '.......' }}</td>
                         @endif
                         @if($hasNamaDada)
                         <td class="t-left">{{ strtoupper($ns['nama_dada'] ?? '') ?: '.......' }}</td>
-                        <td style="font-weight:900;">{{ $ns['nomor_dada'] ?? '.......' }}</td>
+                        <td>{{ $ns['nomor_dada'] ?? '.......' }}</td>
                         @endif
                         @if($hasNamaLengan)
                         <td class="t-left">{{ strtoupper($ns['nama_lengan'] ?? '') ?: '.......' }}</td>
-                        <td style="font-weight:900;">{{ $ns['nomor_lengan'] ?? '.......' }}</td>
+                        <td>{{ $ns['nomor_lengan'] ?? '.......' }}</td>
                         @endif
                         @if($hasNamaPunggung2)
                         <td class="t-left">{{ strtoupper($ns['nama_punggung_2'] ?? '') ?: '.......' }}</td>
+                        <td>{{ $ns['nomor_punggung_2'] ?? '.......' }}</td>
                         @endif
                         @if($hasSizeAtasan)
                         @php
                             $parts = explode('-', $ns['_size_label'] ?? $ns['size_label'] ?? '');
                             $sv = trim(end($parts));
                         @endphp
-                        <td style="font-weight:900;">{{ $sv ?: '.......' }}</td>
+                        <td>{{ $sv ?: '.......' }}</td>
                         @endif
                         @if($hasSizeBawahan)
                         @php
                             $parts = explode('-', $ns['_size_celana_label'] ?? $ns['size_celana_label'] ?? '');
                             $svc = trim(end($parts));
                         @endphp
-                        <td style="font-weight:900;">{{ $svc ?: '.......' }}</td>
+                        <td>{{ $svc ?: '.......' }}</td>
                         @endif
                         @if($hasKeterangan)
                         <td class="t-left">{{ $ns['keterangan'] ?: '.......' }}</td>
@@ -506,8 +555,21 @@
                 @php
                     $lampFilled = collect($item['namesets'] ?? [])->filter(fn($ns) =>
                         !empty($ns['nama_punggung']) || !empty($ns['nomor_punggung']) ||
-                        !empty($ns['size_id'])       || !empty($ns['size_label'])
+                        !empty($ns['nama_dada'])     || !empty($ns['nomor_dada'])     ||
+                        !empty($ns['nama_lengan'])   || !empty($ns['nomor_lengan'])   ||
+                        !empty($ns['nama_punggung_2']) || !empty($ns['nomor_punggung_2']) ||
+                        !empty($ns['size_id'])       || !empty($ns['size_label'])     ||
+                        !empty($ns['size_celana_id'])|| !empty($ns['size_celana_label']) ||
+                        !empty($ns['keterangan'])
                     );
+
+                    $hasLampNamaPunggung = $lampFilled->contains(fn($ns) => !empty($ns['nama_punggung']) || !empty($ns['nomor_punggung']));
+                    $hasLampNamaDada     = $lampFilled->contains(fn($ns) => !empty($ns['nama_dada'])     || !empty($ns['nomor_dada']));
+                    $hasLampNamaLengan   = $lampFilled->contains(fn($ns) => !empty($ns['nama_lengan'])   || !empty($ns['nomor_lengan']));
+                    $hasLampNamaPunggung2 = $lampFilled->contains(fn($ns) => !empty($ns['nama_punggung_2']) || !empty($ns['nomor_punggung_2']));
+                    $hasLampSizeAtasan   = $lampFilled->contains(fn($ns) => !empty($ns['size_id'])       || !empty($ns['size_label']));
+                    $hasLampSizeBawahan  = $lampFilled->contains(fn($ns) => !empty($ns['size_celana_id'])|| !empty($ns['size_celana_label']));
+                    $hasLampKeterangan   = $lampFilled->contains(fn($ns) => !empty($ns['keterangan']));
                 @endphp
                 @if($lampFilled->count())
                 <div class="lampiran-sub">
@@ -517,24 +579,64 @@
                     <thead>
                         <tr>
                             <th width="40">NO.</th>
+                            @if($hasLampNamaPunggung)
                             <th class="t-left">NAMA PUNGGUNG</th>
                             <th width="90">NO. PUNGGUNG</th>
-                            <th width="75">SIZE</th>
-                            <th class="t-left">KETERANGAN</th>
+                            @endif
+                            @if($hasLampNamaDada)
+                            <th class="t-left">NAMA DADA</th>
+                            <th width="90">NO. DADA</th>
+                            @endif
+                            @if($hasLampNamaLengan)
+                            <th class="t-left">NAMA LENGAN</th>
+                            <th width="90">NO. LENGAN</th>
+                            @endif
+                            @if($hasLampNamaPunggung2)
+                            <th class="t-left">NAMA PUNGGUNG 2</th>
+                            <th width="90">NO. PUNGGUNG 2</th>
+                            @endif
+                            @if($hasLampSizeAtasan)<th width="75">SIZE</th>@endif
+                            @if($hasLampSizeBawahan)<th width="85">SIZE CELANA</th>@endif
+                            @if($hasLampKeterangan)<th class="t-left">KETERANGAN</th>@endif
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($lampFilled as $i => $ns)
                         <tr>
                             <td>{{ $i + 1 }}.</td>
+                            @if($hasLampNamaPunggung)
                             <td class="t-left">{{ strtoupper($ns['nama_punggung'] ?? '') ?: '.......' }}</td>
-                            <td style="font-weight:900;">{{ $ns['nomor_punggung'] ?? '.......' }}</td>
+                            <td>{{ $ns['nomor_punggung'] ?? '.......' }}</td>
+                            @endif
+                            @if($hasLampNamaDada)
+                            <td class="t-left">{{ strtoupper($ns['nama_dada'] ?? '') ?: '.......' }}</td>
+                            <td>{{ $ns['nomor_dada'] ?? '.......' }}</td>
+                            @endif
+                            @if($hasLampNamaLengan)
+                            <td class="t-left">{{ strtoupper($ns['nama_lengan'] ?? '') ?: '.......' }}</td>
+                            <td>{{ $ns['nomor_lengan'] ?? '.......' }}</td>
+                            @endif
+                            @if($hasLampNamaPunggung2)
+                            <td class="t-left">{{ strtoupper($ns['nama_punggung_2'] ?? '') ?: '.......' }}</td>
+                            <td>{{ $ns['nomor_punggung_2'] ?? '.......' }}</td>
+                            @endif
+                            @if($hasLampSizeAtasan)
                             @php
                                 $parts = explode('-', $ns['_size_label'] ?? $ns['size_label'] ?? '');
                                 $sv = trim(end($parts));
                             @endphp
-                            <td style="font-weight:900;">{{ $sv ?: '.......' }}</td>
+                            <td>{{ $sv ?: '.......' }}</td>
+                            @endif
+                            @if($hasLampSizeBawahan)
+                            @php
+                                $parts = explode('-', $ns['_size_celana_label'] ?? $ns['size_celana_label'] ?? '');
+                                $svc = trim(end($parts));
+                            @endphp
+                            <td>{{ $svc ?: '.......' }}</td>
+                            @endif
+                            @if($hasLampKeterangan)
                             <td class="t-left">{{ $ns['keterangan'] ?: '.......' }}</td>
+                            @endif
                         </tr>
                         @endforeach
                     </tbody>

@@ -624,5 +624,61 @@ class OrderLifecycleTest extends TestCase
         $this->assertNotNull($refund2);
         $this->assertEquals($order->id, $refund2->order_id);
     }
+
+    public function test_can_create_order_with_extended_nameset_fields(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $user = $this->makeUser('owner', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+        
+        $size = \App\Models\Master\Size::create([
+            'kategori_size' => 'Dewasa',
+            'ukuran' => 'L',
+            'urutan' => 1,
+            'is_active' => true,
+        ]);
+
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('orders.store'), [
+                'nama_po' => 'PO Nameset Test',
+                'tanggal_masuk' => now()->toDateString(),
+                'deadline_customer' => now()->addDays(14)->toDateString(),
+                'pelanggan_id' => $customer->id,
+                'items' => [[
+                    'nama_produk' => 'Jersey Test',
+                    'quantity' => 1,
+                    'harga_satuan' => 100000,
+                    'namesets' => [[
+                        'nama_punggung' => 'Ahmad',
+                        'nomor_punggung' => '7',
+                        'nama_dada' => 'AHMAD DADA',
+                        'nomor_dada' => '7D',
+                        'nama_lengan' => 'AHMAD LENGAN',
+                        'nomor_lengan' => '7L',
+                        'nomor_punggung_2' => '7-2',
+                        'nama_punggung_2' => 'AHMAD PUNGGUNG 2',
+                        'size_id' => $size->id,
+                        'size_label' => 'Dewasa - L',
+                        'size_celana_id' => $size->id,
+                        'size_celana_label' => 'Dewasa - L',
+                        'keterangan' => 'Keterangan Custom',
+                    ]]
+                ]],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('orders', ['nama_po' => 'PO Nameset Test']);
+        $order = Order::where('nama_po', 'PO Nameset Test')->first();
+        $this->assertNotNull($order);
+        
+        $item = $order->items()->first();
+        $this->assertNotNull($item);
+        
+        $nameset = $item->namesets()->first();
+        $this->assertNotNull($nameset);
+        $this->assertEquals('AHMAD PUNGGUNG 2', $nameset->nama_punggung_2);
+        $this->assertEquals($size->id, $nameset->size_celana_id);
+        $this->assertEquals('Dewasa - L', $nameset->size_celana_label);
+    }
 }
 

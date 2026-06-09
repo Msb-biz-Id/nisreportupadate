@@ -483,6 +483,7 @@ class InvoiceController extends Controller
                     'jumlah' => $item->quantity,
                     'harga_satuan' => $item->harga_satuan,
                     'subtotal' => $item->subtotal,
+                    'is_addon' => (bool) $item->is_addon,
                 ]);
             }
 
