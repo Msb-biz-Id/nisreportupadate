@@ -23,6 +23,7 @@ use App\Http\Controllers\Tools\AiToolsController;
 use App\Http\Controllers\UploadController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\BrandTargetController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -58,6 +59,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/brands/{brand}', [BrandController::class, 'destroy'])->name('brands.destroy');
     Route::post('/brands/{brand}/toggle', [BrandController::class, 'toggle'])->name('brands.toggle');
     Route::post('/brands/{brand}/take-ownership', [BrandController::class, 'takeOwnership'])->name('brands.take-ownership');
+
+    Route::get('/brand-targets', [BrandTargetController::class, 'index'])->name('brand-targets.index');
+    Route::post('/brand-targets', [BrandTargetController::class, 'store'])->name('brand-targets.store');
 
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::post('/users', [UserController::class, 'store'])->name('users.store');

@@ -12,19 +12,31 @@ class NumberGenerator
 {
     public function generateOrderNumber(Brand $brand, string $namaPo = ''): string
     {
-        $year = Carbon::now()->year;
-        $prefix = "PO-{$brand->kode}-{$year}";
+        $cleanName = (string) str($namaPo)->slug('-')->upper();
+        $cleanName = substr($cleanName, 0, 30);
+        $cleanName = rtrim($cleanName, '-');
+        if (empty($cleanName)) {
+            $cleanName = 'ORDER';
+        }
 
-        $last = Order::where('brand_id', $brand->id)
-            ->where('no_po', 'like', "{$prefix}-%")
+        $prefix = "PO-{$brand->kode}-{$cleanName}";
+
+        // Find the last sequence globally for this brand
+        $lastOrders = Order::where('brand_id', $brand->id)
             ->withTrashed()
-            ->orderByDesc('no_po')
-            ->first();
+            ->whereNotNull('no_po')
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get();
 
         $seq = 1;
-        if ($last) {
-            $parts = explode('-', $last->no_po);
-            $seq = ((int) end($parts)) + 1;
+        foreach ($lastOrders as $order) {
+            $parts = explode('-', $order->no_po);
+            $lastPart = end($parts);
+            if (is_numeric($lastPart)) {
+                $seq = ((int) $lastPart) + 1;
+                break;
+            }
         }
 
         return $prefix . '-' . str_pad((string) $seq, 3, '0', STR_PAD_LEFT);
@@ -39,19 +51,24 @@ class NumberGenerator
             return 'INV-' . $order->no_po;
         }
 
-        $date = Carbon::now()->format('Ymd');
-        $prefix = "INV-{$brand->kode}-{$date}";
+        $prefix = "INV-{$brand->kode}-ORDER";
 
-        $last = Invoice::where('brand_id', $brand->id)
-            ->where('invoice_number', 'like', "{$prefix}-%")
+        // Find the last sequence globally for this brand's invoices
+        $lastInvoices = Invoice::where('brand_id', $brand->id)
             ->withTrashed()
-            ->orderByDesc('invoice_number')
-            ->first();
+            ->whereNotNull('invoice_number')
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get();
 
         $seq = 1;
-        if ($last) {
-            $parts = explode('-', $last->invoice_number);
-            $seq = ((int) end($parts)) + 1;
+        foreach ($lastInvoices as $inv) {
+            $parts = explode('-', $inv->invoice_number);
+            $lastPart = end($parts);
+            if (is_numeric($lastPart)) {
+                $seq = ((int) $lastPart) + 1;
+                break;
+            }
         }
 
         return $prefix . '-' . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);

@@ -33,6 +33,7 @@ import {
     ListChecks,
     Layers,
     Tag,
+    Target,
     Compass,
     UserCheck,
     Megaphone,
@@ -103,6 +104,10 @@ function buildMenu(user) {
     }
     if (isAdminReseller) {
         adminItems.push({ name: 'Brand Reseller', href: route('brands.index'), icon: Building2, active: route().current('brands.*') });
+    }
+    const isOwnerOrSuper = user?.is_superadmin || user?.roles?.includes('owner');
+    if (isOwnerOrSuper || isAdminReseller) {
+        adminItems.push({ name: 'Target Penjualan', href: route('brand-targets.index'), icon: Target, active: route().current('brand-targets.*') });
     }
     if (hasPermission(user, 'user.view')) {
         adminItems.push({ name: 'User', href: route('users.index'), icon: Users, active: route().current('users.*') });

@@ -7,6 +7,7 @@ use App\Models\Finance\Pengeluaran;
 use App\Models\Master\Customer;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItem;
+use App\Models\Order\OrderPayment;
 use App\Models\Order\Refund;
 use App\Models\Order\Rijek;
 use Illuminate\Support\Carbon;
@@ -101,13 +102,15 @@ class ReportRunner
                   ->whereBetween('orders.tanggal_masuk', [$from, $to])
                   ->where('orders.status_po', '!=', 'draft');
             })
+            ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
             // Array = reseller hub context → filter via orders.brand_id (customers live at hub, orders at branch)
             ->when(is_array($brandId), fn ($q) => $q->whereIn('orders.brand_id', $brandId))
             ->when(! is_array($brandId) && $brandId, fn ($q) => $q->where('customers.brand_id', $brandId))
             ->select(
                 'customers.kode', 'customers.nama', 'customers.nomor_hp',
-                DB::raw('COUNT(orders.id) as total_order'),
+                DB::raw('COUNT(DISTINCT orders.id) as total_order'),
                 DB::raw('COALESCE(SUM(orders.total_tagihan), 0) as total_value'),
+                DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_qty'),
                 DB::raw('MAX(orders.tanggal_masuk) as last_order'),
             )
             ->groupBy('customers.id', 'customers.kode', 'customers.nama', 'customers.nomor_hp')
@@ -119,6 +122,7 @@ class ReportRunner
                 'nama' => $r->nama,
                 'nomor_hp' => $r->nomor_hp,
                 'total_order' => (int) $r->total_order,
+                'total_qty' => (int) $r->total_qty,
                 'total_value' => (float) $r->total_value,
                 'last_order' => $r->last_order,
             ])->all();
@@ -209,15 +213,15 @@ class ReportRunner
 
         $rows = DB::table('orders')
             ->leftJoin('kategori_orders', 'kategori_orders.id', '=', 'orders.kategori_order_id')
-            ->leftJoin('order_items', 'order_items.order_id', '=', 'orders.id')
+            ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
             ->when($brandId, $this->obf($brandId))
             ->whereBetween('orders.tanggal_masuk', [$from, $to])
             ->where('orders.status_po', '!=', 'draft')
             ->select(
                 DB::raw("COALESCE(kategori_orders.nama, '— Tanpa Kategori —') as kategori"),
                 DB::raw('COUNT(DISTINCT orders.id) as total_order'),
-                DB::raw('COALESCE(SUM(order_items.quantity), 0) as total_qty'),
-                DB::raw('SUM(DISTINCT orders.total_tagihan) as total_value'),
+                DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_qty'),
+                DB::raw('SUM(orders.total_tagihan) as total_value'),
             )
             ->groupBy('kategori')
             ->orderByDesc('total_order')
@@ -386,22 +390,55 @@ class ReportRunner
     {
         [$from, $to] = $this->dateRange($filters);
 
-        $q = Pemasukan::query()
-            ->when($brandId, $this->bf($brandId))
-            ->whereBetween('tanggal', [$from, $to])
-            ->with('kategori:id,nama_kategori');
-
         if (isset($filters['is_auto']) && $filters['is_auto'] !== '') {
-            $q->where('is_auto', (bool) $filters['is_auto']);
+            $isAuto = (bool) $filters['is_auto'];
+            if (!$isAuto) {
+                return ['rows' => [], 'summary' => [
+                    ['label' => 'Total Transaksi', 'value' => 0],
+                    ['label' => 'Total Pemasukan', 'value' => 0, 'format' => 'currency'],
+                ]];
+            }
         }
 
-        $rows = $q->orderByDesc('tanggal')->get()->map(fn ($p) => [
-            'tanggal' => $p->tanggal?->toDateString(),
-            'kategori' => $p->kategori?->nama_kategori,
-            'keterangan' => $p->keterangan,
-            'nominal' => (float) $p->nominal,
-            'sumber' => $p->is_auto ? 'Otomatis' : 'Manual',
-        ])->all();
+        // Fetch verified positive (debit) payments
+        $payments = OrderPayment::query()
+            ->join('orders', 'orders.id', '=', 'order_payments.order_id')
+            ->whereNotNull('order_payments.verified_at')
+            ->where('order_payments.is_debit', true)
+            ->whereBetween('order_payments.payment_date', [$from, $to])
+            ->when($brandId, function ($q) use ($brandId) {
+                return is_array($brandId)
+                    ? $q->whereIn('orders.brand_id', $brandId)
+                    : $q->where('orders.brand_id', $brandId);
+            })
+            ->select([
+                'order_payments.payment_date as tanggal',
+                'order_payments.payment_type',
+                'order_payments.dp_sequence',
+                'order_payments.amount as nominal',
+                'orders.no_po',
+                'orders.nama_po',
+            ])
+            ->orderByDesc('tanggal')
+            ->get();
+
+        $rows = $payments->map(function ($p) {
+            $label = match ($p->payment_type) {
+                'dp'               => 'DP ' . ($p->dp_sequence ?? 1),
+                'pelunasan'        => 'Pelunasan',
+                'ongkir'           => 'Ongkir',
+                'tambahan_produk'  => 'Tambahan Produk',
+                default            => 'Pembayaran Lainnya',
+            };
+
+            return [
+                'tanggal' => $p->tanggal?->toDateString(),
+                'kategori' => 'Pembayaran PO',
+                'keterangan' => "{$label} PO {$p->no_po} — {$p->nama_po}",
+                'nominal' => (float) $p->nominal,
+                'sumber' => 'Otomatis',
+            ];
+        })->all();
 
         return ['rows' => $rows, 'summary' => [
             ['label' => 'Total Transaksi', 'value' => count($rows)],
@@ -413,49 +450,129 @@ class ReportRunner
     {
         [$from, $to] = $this->dateRange($filters);
 
-        $q = Pengeluaran::query()
-            ->when($brandId, $this->bf($brandId))
-            ->whereBetween('tanggal', [$from, $to])
-            ->with('kategori:id,nama_kategori');
-
         if (isset($filters['is_auto']) && $filters['is_auto'] !== '') {
-            $q->where('is_auto', (bool) $filters['is_auto']);
+            $isAuto = (bool) $filters['is_auto'];
+            if (!$isAuto) {
+                return ['rows' => [], 'summary' => [
+                    ['label' => 'Total Transaksi', 'value' => 0],
+                    ['label' => 'Total Pengeluaran', 'value' => 0, 'format' => 'currency'],
+                ]];
+            }
         }
 
-        $rows = $q->orderByDesc('tanggal')->get()->map(fn ($p) => [
-            'tanggal' => $p->tanggal?->toDateString(),
-            'kategori' => $p->kategori?->nama_kategori,
-            'keterangan' => $p->keterangan,
-            'nominal' => (float) $p->nominal,
-            'sumber' => $p->is_auto ? 'Otomatis' : 'Manual',
-        ])->all();
+        // 1. Fetch published refunds
+        $refunds = Refund::query()
+            ->join('orders', 'orders.id', '=', 'refunds.order_id')
+            ->where('refunds.status', 'published')
+            ->whereBetween('refunds.published_at', [$from, $to])
+            ->when($brandId, function ($q) use ($brandId) {
+                return is_array($brandId)
+                    ? $q->whereIn('refunds.brand_id', $brandId)
+                    : $q->where('refunds.brand_id', $brandId);
+            })
+            ->select([
+                'refunds.published_at as tanggal',
+                'refunds.refund_number',
+                'refunds.nominal_refund as nominal',
+                'refunds.alasan',
+                'orders.no_po',
+            ])
+            ->get()
+            ->map(fn ($r) => [
+                'tanggal' => Carbon::parse($r->tanggal)->toDateString(),
+                'kategori' => 'Refund PO',
+                'keterangan' => "Refund {$r->refund_number} PO {$r->no_po} — {$r->alasan}",
+                'nominal' => (float) $r->nominal,
+                'sumber' => 'Otomatis',
+            ]);
+
+        // 2. Fetch negative verified payments (cashback/return)
+        $negativePayments = OrderPayment::query()
+            ->join('orders', 'orders.id', '=', 'order_payments.order_id')
+            ->whereNotNull('order_payments.verified_at')
+            ->where('order_payments.is_debit', false)
+            ->whereBetween('order_payments.payment_date', [$from, $to])
+            ->when($brandId, function ($q) use ($brandId) {
+                return is_array($brandId)
+                    ? $q->whereIn('orders.brand_id', $brandId)
+                    : $q->where('orders.brand_id', $brandId);
+            })
+            ->select([
+                'order_payments.payment_date as tanggal',
+                'order_payments.payment_type',
+                'order_payments.amount as nominal',
+                'orders.no_po',
+                'orders.nama_po',
+            ])
+            ->get()
+            ->map(function ($p) {
+                $label = match ($p->payment_type) {
+                    'cashback' => 'Cashback',
+                    'return'   => 'Refund/Return',
+                    default    => 'Pengeluaran Lainnya',
+                };
+                return [
+                    'tanggal' => $p->tanggal?->toDateString(),
+                    'kategori' => $p->payment_type === 'cashback' ? 'Cashback PO' : 'Refund/Return PO',
+                    'keterangan' => "{$label} PO {$p->no_po} — {$p->nama_po}",
+                    'nominal' => (float) $p->nominal,
+                    'sumber' => 'Otomatis',
+                ];
+            });
+
+        // Merge and sort by date descending
+        $rows = $refunds->concat($negativePayments)
+            ->sortByDesc('tanggal')
+            ->values()
+            ->all();
 
         return ['rows' => $rows, 'summary' => [
             ['label' => 'Total Transaksi', 'value' => count($rows)],
             ['label' => 'Total Pengeluaran', 'value' => array_sum(array_column($rows, 'nominal')), 'format' => 'currency'],
         ]];
-     }
+    }
 
     private function analisisMarketing(string|array|null $brandId, array $filters): array
     {
         [$from, $to] = $this->dateRange($filters);
 
+        $targetBrandId = !empty($filters['brand_id']) ? $filters['brand_id'] : $brandId;
+
         $rawRows = DB::table('orders')
             ->join('customers', 'customers.id', '=', 'orders.pelanggan_id')
             ->leftJoin('customer_types', 'customer_types.id', '=', 'customers.type_pelanggan_id')
             ->leftJoin('sumber_orders', 'sumber_orders.id', '=', 'orders.sumber_order_id')
-            ->leftJoin('order_items', 'order_items.order_id', '=', 'orders.id')
+            ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items ' .
+                (!empty($filters['product_id']) ? 'WHERE product_id = ' . DB::connection()->getPdo()->quote($filters['product_id']) : '') .
+                ' GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
             ->whereBetween('orders.tanggal_masuk', [$from, $to])
             ->where('orders.status_po', '!=', 'draft')
-            ->when($brandId, $this->obf($brandId))
+            ->when($targetBrandId && $targetBrandId !== 'all', $this->obf($targetBrandId))
             ->when(! empty($filters['customer_type_id']), fn ($x) => $x->where('customers.type_pelanggan_id', $filters['customer_type_id']))
             ->when(! empty($filters['sumber_order_id']), fn ($x) => $x->where('orders.sumber_order_id', $filters['sumber_order_id']))
+            ->when(! empty($filters['region']), function ($q) use ($filters) {
+                $term = "%{$filters['region']}%";
+                $q->where(function ($w) use ($term) {
+                    $w->where('customers.provinsi_nama', 'like', $term)
+                      ->orWhere('customers.kabupaten_nama', 'like', $term)
+                      ->orWhere('customers.kecamatan_nama', 'like', $term)
+                      ->orWhere('customers.desa_nama', 'like', $term);
+                });
+            })
+            ->when(! empty($filters['product_id']), function ($q) use ($filters) {
+                $q->whereExists(function ($w) use ($filters) {
+                    $w->select(DB::raw(1))
+                      ->from('order_items')
+                      ->whereColumn('order_items.order_id', 'orders.id')
+                      ->where('order_items.product_id', $filters['product_id']);
+                });
+            })
             ->select(
                 DB::raw('COALESCE(sumber_orders.nama, "— Tanpa Sumber —") as sumber_order'),
                 DB::raw('COALESCE(customer_types.nama, "— Tanpa Kategori —") as kategori_pelanggan'),
                 DB::raw('COUNT(DISTINCT orders.id) as total_order'),
-                DB::raw('COALESCE(SUM(order_items.quantity), 0) as total_qty'),
-                DB::raw('SUM(DISTINCT orders.total_tagihan) as total_value')
+                DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_qty'),
+                DB::raw('SUM(orders.total_tagihan) as total_value')
             )
             ->groupBy('sumber_order', 'kategori_pelanggan')
             ->orderByDesc('total_value')

@@ -40,7 +40,7 @@ function FormatCell({ value, format }) {
     return value;
 }
 
-function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders = [] }) {
+function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders = [], brands = [], products = [] }) {
     const [local, setLocal] = useState(filters);
 
     function patch(k, v) { setLocal({ ...local, [k]: v }); }
@@ -150,6 +150,46 @@ function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders 
                         </Select>
                     </div>
                 )}
+                {config.filters?.includes('brand') && brands.length > 0 && (
+                    <div>
+                        <Label className="text-xs">Brand</Label>
+                        <Select value={local.brand_id || '__all__'} onValueChange={(v) => patch('brand_id', v === '__all__' ? '' : v)}>
+                            <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="Semua Brand" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__all__">Semua Brand</SelectItem>
+                                {brands.map((b) => (
+                                    <SelectItem key={b.id} value={String(b.id)}>{b.nama_brand}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+                {config.filters?.includes('product') && products.length > 0 && (
+                    <div>
+                        <Label className="text-xs">Produk</Label>
+                        <Select value={local.product_id || '__all__'} onValueChange={(v) => patch('product_id', v === '__all__' ? '' : v)}>
+                            <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="Semua Produk" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__all__">Semua Produk</SelectItem>
+                                {products.map((p) => (
+                                    <SelectItem key={p.id} value={String(p.id)}>{p.nama}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+                {config.filters?.includes('region') && (
+                    <div>
+                        <Label className="text-xs">Pencarian Wilayah</Label>
+                        <Input 
+                            type="text" 
+                            placeholder="Cari Kota/Provinsi..." 
+                            value={local.region || ''} 
+                            onChange={(e) => patch('region', e.target.value)} 
+                            className="mt-1 h-9" 
+                        />
+                    </div>
+                )}
                 <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
                     <Button size="sm" onClick={apply}><Filter className="h-4 w-4" /> Terapkan Filter</Button>
                 </div>
@@ -249,7 +289,7 @@ function ReportChart({ config, rows, heatmapSeries }) {
     );
 }
 
-export default function ReportShow({ config, filters, rows, summary, heatmapSeries, groups, allReports, customerTypes = [], sumberOrders = [] }) {
+export default function ReportShow({ config, filters, rows, summary, heatmapSeries, groups, allReports, customerTypes = [], sumberOrders = [], brands = [], products = [] }) {
     const Icon = Icons[config.icon] ?? Icons.BarChart3;
 
     function applyFilters(newFilters) {
@@ -284,7 +324,7 @@ export default function ReportShow({ config, filters, rows, summary, heatmapSeri
                     </CardHeader>
                 </Card>
 
-                <FilterBar config={config} filters={filters} onApply={applyFilters} customerTypes={customerTypes} sumberOrders={sumberOrders} />
+                <FilterBar config={config} filters={filters} onApply={applyFilters} customerTypes={customerTypes} sumberOrders={sumberOrders} brands={brands} products={products} />
 
                 <SummaryCards items={summary} />
 

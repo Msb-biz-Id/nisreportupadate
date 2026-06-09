@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Com
 import { Badge } from '@/Components/ui/badge';
 import { StatGrid, StatusBreakdown, POListWidget } from '@/Components/Widgets';
 import { formatRupiah } from '@/lib/utils';
+import { Target } from 'lucide-react';
 
 export default function Superadmin({ stats }) {
     const trend = stats.trend_harian ?? [];
@@ -14,6 +15,81 @@ export default function Superadmin({ stats }) {
     return (
         <div className="space-y-6">
             <StatGrid cards={stats.cards ?? []} />
+
+            {/* Target Progress Cards */}
+            {stats.target_progress && (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <Card className="bg-gradient-to-br from-indigo-50/50 to-white border-l-4 border-indigo-600">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                                <Target className="h-4 w-4 text-indigo-600" /> Target Omset Global Bulan Ini ({stats.target_progress.month_name})
+                            </CardTitle>
+                            <CardDescription>Realisasi omset seluruh brand dibandingkan target.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="flex items-baseline justify-between">
+                                <span className="text-2xl font-black text-slate-800 font-mono">
+                                    {formatRupiah(stats.target_progress.actual_revenue)}
+                                </span>
+                                <span className="text-xs text-muted-foreground font-semibold">
+                                    dari target {formatRupiah(stats.target_progress.target_revenue)}
+                                </span>
+                            </div>
+                             <div className="space-y-1">
+                                <div className="flex justify-between text-xs font-bold text-indigo-700">
+                                    <span>Pencapaian</span>
+                                    <span>
+                                        {stats.target_progress.target_revenue > 0 
+                                            ? `${stats.target_progress.revenue_percentage}%` 
+                                            : 'Belum ada target'}
+                                    </span>
+                                </div>
+                                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
+                                    <div 
+                                        className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
+                                        style={{ width: `${stats.target_progress.target_revenue > 0 ? Math.min(100, stats.target_progress.revenue_percentage) : 0}%` }} 
+                                    />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-emerald-50/50 to-white border-l-4 border-emerald-500">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                                <Target className="h-4 w-4 text-emerald-500" /> Target Qty Global (Pcs) Bulan Ini ({stats.target_progress.month_name})
+                            </CardTitle>
+                            <CardDescription>Realisasi qty produk seluruh brand dibandingkan target.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="flex items-baseline justify-between">
+                                <span className="text-2xl font-black text-slate-800 font-mono">
+                                    {stats.target_progress.actual_pcs.toLocaleString('id-ID')} Pcs
+                                </span>
+                                <span className="text-xs text-muted-foreground font-semibold">
+                                    dari target {stats.target_progress.target_pcs.toLocaleString('id-ID')} Pcs
+                                </span>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="flex justify-between text-xs font-bold text-emerald-700">
+                                    <span>Pencapaian</span>
+                                    <span>
+                                        {stats.target_progress.target_pcs > 0 
+                                            ? `${stats.target_progress.pcs_percentage}%` 
+                                            : 'Belum ada target'}
+                                    </span>
+                                </div>
+                                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
+                                    <div 
+                                        className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+                                        style={{ width: `${stats.target_progress.target_pcs > 0 ? Math.min(100, stats.target_progress.pcs_percentage) : 0}%` }} 
+                                    />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <Card className="lg:col-span-2">
@@ -86,6 +162,35 @@ export default function Superadmin({ stats }) {
                 </Card>
             </div>
 
+            {/* Grafik Bulanan */}
+            {stats.trend_bulanan && stats.trend_bulanan.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base">Pertumbuhan & Perbandingan Target Bulanan Global ({new Date().getFullYear()})</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Chart
+                            type="bar" height={260}
+                            series={[
+                                { name: 'Omset (Rp)', data: stats.trend_bulanan.map(tb => tb.total_omset), type: 'bar' },
+                                { name: 'Target Omset (Rp)', data: stats.trend_bulanan.map(tb => tb.target_revenue), type: 'bar' },
+                                { name: 'PCS', data: stats.trend_bulanan.map(tb => tb.total_pcs), type: 'line' },
+                                { name: 'Target PCS', data: stats.trend_bulanan.map(tb => tb.target_pcs), type: 'line' },
+                            ]}
+                            options={{
+                                chart: { type: 'bar' },
+                                xaxis: { categories: stats.trend_bulanan.map(tb => tb.bulan.substring(0, 3)) },
+                                colors: ['#6366F1', '#A5B4FC', '#10B981', '#6EE7B7'],
+                                yaxis: [
+                                    { title: { text: 'Omset (Rp)' }, labels: { formatter: (v) => 'Rp ' + (v / 1000000).toFixed(1) + 'jt' } },
+                                    { opposite: true, title: { text: 'PCS' } },
+                                ],
+                            }}
+                        />
+                    </CardContent>
+                </Card>
+            )}
+
             <Card>
                 <CardHeader>
                     <CardTitle className="text-base">Ranking Brand</CardTitle>
@@ -99,6 +204,7 @@ export default function Superadmin({ stats }) {
                                     <th className="px-4 py-2 text-left">#</th>
                                     <th className="px-4 py-2 text-left">Brand</th>
                                     <th className="px-4 py-2 text-right">Total PO</th>
+                                    <th className="px-4 py-2 text-right">Total Pcs</th>
                                     <th className="px-4 py-2 text-right">Revenue</th>
                                 </tr>
                             </thead>
@@ -114,6 +220,7 @@ export default function Superadmin({ stats }) {
                                             </div>
                                         </td>
                                         <td className="px-4 py-2 text-right font-mono">{b.total}</td>
+                                        <td className="px-4 py-2 text-right font-mono">{b.total_pcs?.toLocaleString('id-ID') ?? 0}</td>
                                         <td className="px-4 py-2 text-right font-mono font-semibold">{formatRupiah(b.revenue)}</td>
                                     </tr>
                                 ))}

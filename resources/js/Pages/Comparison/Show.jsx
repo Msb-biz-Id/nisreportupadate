@@ -38,23 +38,65 @@ export default function ComparisonShow({
     ];
 
     function toggleBrand(id) {
-        setSelBrands((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+        const next = selBrands.includes(id) ? selBrands.filter((x) => x !== id) : [...selBrands, id];
+        setSelBrands(next);
+        
+        if (next.length === 0) return;
+        
+        router.get(route('comparison.show'), {
+            mode: currentMode,
+            brand_ids: next,
+            year: selSingleYear
+        }, { preserveScroll: true });
     }
 
     function toggleYear(year) {
-        setSelYears((cur) => {
-            if (cur.includes(year)) {
-                // Prevent deselecting below 2 years
-                if (cur.length <= 2) return cur;
-                return cur.filter((x) => x !== year);
-            }
-            return [...cur, year];
-        });
+        let next;
+        if (selYears.includes(year)) {
+            if (selYears.length <= 2) return;
+            next = selYears.filter((x) => x !== year);
+        } else {
+            next = [...selYears, year];
+        }
+        setSelYears(next);
+        
+        router.get(route('comparison.show'), {
+            mode: currentMode,
+            brand_id: selSingleBrand,
+            years: next
+        }, { preserveScroll: true });
+    }
+
+    function handleSingleYearChange(year) {
+        setSelSingleYear(year);
+        router.get(route('comparison.show'), {
+            mode: currentMode,
+            brand_ids: selBrands,
+            year: year
+        }, { preserveScroll: true });
+    }
+
+    function handleSingleBrandChange(brandId) {
+        setSelSingleBrand(brandId);
+        router.get(route('comparison.show'), {
+            mode: currentMode,
+            brand_id: brandId,
+            years: selYears
+        }, { preserveScroll: true });
     }
 
     function handleModeChange(newMode) {
         setCurrentMode(newMode);
-        // Clean default arrays if needed
+        
+        const params = { mode: newMode };
+        if (newMode === 'brands') {
+            params.brand_ids = selBrands;
+            params.year = selSingleYear;
+        } else {
+            params.brand_id = selSingleBrand;
+            params.years = selYears;
+        }
+        router.get(route('comparison.show'), params, { preserveScroll: true });
     }
 
     function apply() {
@@ -228,7 +270,7 @@ export default function ComparisonShow({
                                     <Label className="text-xs text-muted-foreground font-semibold">Tahun Analisis</Label>
                                     <select
                                         value={selSingleYear}
-                                        onChange={(e) => setSelSingleYear(Number(e.target.value))}
+                                        onChange={(e) => handleSingleYearChange(Number(e.target.value))}
                                         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                                     >
                                         {availableYears.map((y) => (
@@ -243,7 +285,7 @@ export default function ComparisonShow({
                                     <Label className="text-xs text-muted-foreground font-semibold">Brand yang Dianalisis</Label>
                                     <select
                                         value={selSingleBrand}
-                                        onChange={(e) => setSelSingleBrand(e.target.value)}
+                                        onChange={(e) => handleSingleBrandChange(e.target.value)}
                                         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                                     >
                                         {availableBrands.map((b) => (

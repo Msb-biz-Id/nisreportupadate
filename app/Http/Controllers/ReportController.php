@@ -45,6 +45,13 @@ class ReportController extends Controller
                 ->when($masterBrandId, fn($q) => $q->where('brand_id', $masterBrandId)->orWhereNull('brand_id'))
                 ->get(['id', 'nama'])
                 ->all(),
+            'brands' => $effectiveId 
+                ? \App\Models\Brand::whereIn('id', (array)$effectiveId)->get(['id', 'nama_brand', 'kode'])->all()
+                : \App\Models\Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])->all(),
+            'products' => \App\Models\Master\Product::query()
+                ->when($masterBrandId, fn($q) => $q->where('brand_id', $masterBrandId)->orWhereNull('brand_id'))
+                ->get(['id', 'nama'])
+                ->all(),
         ]);
     }
 
@@ -167,6 +174,15 @@ class ReportController extends Controller
                     break;
                 case 'level_wilayah':
                     $filters['level_wilayah'] = $request->string('level_wilayah', 'kabupaten')->toString();
+                    break;
+                case 'brand':
+                    $filters['brand_id'] = $request->string('brand_id')->toString();
+                    break;
+                case 'region':
+                    $filters['region'] = $request->string('region')->toString();
+                    break;
+                case 'product':
+                    $filters['product_id'] = $request->string('product_id')->toString();
                     break;
             }
         }

@@ -77,11 +77,15 @@ function newPayment() {
     return { payment_type: 'dp', amount: 0, payment_date: new Date().toISOString().slice(0, 10), bank_id: '', notes: '' };
 }
 
-function PasteNamesetDialog({ open, onClose, onConfirm, sizes }) {
+function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
     const [text, setText] = useState('');
     const [hasHeaderRow, setHasHeaderRow] = useState(false);
     const [mappings, setMappings] = useState([]);
     const [prevMaxCols, setPrevMaxCols] = useState(0);
+
+    const safeSizes = useMemo(() => {
+        return Array.isArray(sizes) ? sizes : [];
+    }, [sizes]);
 
     const MAPPING_OPTIONS = [
         { value: 'ignore', label: 'Abaikan Kolom' },
@@ -99,19 +103,24 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes }) {
     ];
 
     function splitLine(line) {
-        if (line.includes('\t')) {
-            return line.split('\t').map((c) => c.trim());
+        if (!line) return [];
+        const cleanedLine = line.replace(/\r$/, '').trim();
+        if (!cleanedLine) return [];
+
+        // Prioritize tab or double-spaces (common spreadsheet cell delimiters)
+        if (/\t|\s{2,}/.test(cleanedLine)) {
+            return cleanedLine.split(/\t|\s{2,}/).map((c) => c.trim());
         }
-        if (line.includes(';')) {
-            return line.split(';').map((c) => c.trim());
+        // Semicolon delimiter (fallback)
+        if (cleanedLine.includes(';')) {
+            return cleanedLine.split(';').map((c) => c.trim());
         }
-        if (line.includes(',')) {
-            return line.split(',').map((c) => c.trim());
+        // Comma delimiter (fallback)
+        if (cleanedLine.includes(',')) {
+            return cleanedLine.split(',').map((c) => c.trim());
         }
-        if (/\s{2,}/.test(line)) {
-            return line.split(/\s{2,}/).map((c) => c.trim());
-        }
-        return [line.trim()];
+        // Fallback to single column
+        return [cleanedLine];
     }
 
     function detectHeaders(firstRowCols) {
@@ -119,10 +128,13 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes }) {
         let matchCount = 0;
         
         for (let i = 0; i < firstRowCols.length; i++) {
-            const col = firstRowCols[i].toLowerCase();
+            const col = firstRowCols[i].toLowerCase().trim();
             let matched = 'ignore';
             
-            if (col.includes('nama') && col.includes('punggung')) {
+            if (col === 'no' || col === 'no.' || col === 'no_urut' || col === 'nomor urut' || col === 'number') {
+                matched = 'ignore';
+            }
+            else if (col.includes('nama') && col.includes('punggung')) {
                 if (col.includes('2')) matched = 'nama_punggung_2';
                 else matched = 'nama_punggung';
             }
@@ -157,15 +169,15 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes }) {
         const fields = [
             'nama_punggung',
             'nomor_punggung',
-            'size_id',
-            'size_celana_id',
-            'keterangan',
             'nama_dada',
             'nomor_dada',
             'nama_lengan',
             'nomor_lengan',
             'nomor_punggung_2',
             'nama_punggung_2',
+            'size_id',
+            'size_celana_id',
+            'keterangan',
         ];
         
         for (let i = 0; i < numCols; i++) {
@@ -175,10 +187,17 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes }) {
     }
 
     const parsedRows = useMemo(() => {
-        if (!text.trim()) return [];
-        return text.split('\n')
-            .map((line) => splitLine(line))
-            .filter((r) => r.length > 0 && r.some(Boolean));
+        try {
+            if (!text.trim()) return [];
+            const rows = text.split(/\r\n|\r|\n/)
+                .map((line) => splitLine(line))
+                .filter((r) => r && r.length > 0 && r.some(Boolean));
+            console.log('Parsed Excel Rows:', rows);
+            return rows;
+        } catch (e) {
+            console.error('Error parsing pasted text:', e);
+            return [];
+        }
     }, [text]);
 
     const maxCols = useMemo(() => {
@@ -209,57 +228,64 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes }) {
     }, [maxCols, parsedRows, prevMaxCols]);
 
     const finalRows = useMemo(() => {
-        if (parsedRows.length === 0) return [];
-        const startIndex = hasHeaderRow ? 1 : 0;
-        const rowsToProcess = parsedRows.slice(startIndex);
-        
-        return rowsToProcess.map((cols) => {
-            const rowData = {
-                nama_punggung: '',
-                nomor_punggung: '',
-                nama_dada: '',
-                nomor_dada: '',
-                nama_lengan: '',
-                nomor_lengan: '',
-                nomor_punggung_2: '',
-                nama_punggung_2: '',
-                size_id: '',
-                size_label: '',
-                size_celana_id: '',
-                size_celana_label: '',
-                keterangan: '',
-            };
+        try {
+            if (parsedRows.length === 0) return [];
+            const startIndex = hasHeaderRow ? 1 : 0;
+            const rowsToProcess = parsedRows.slice(startIndex);
             
-            cols.forEach((val, colIdx) => {
-                const field = mappings[colIdx];
-                if (!field || field === 'ignore') return;
+            const results = rowsToProcess.map((cols) => {
+                const rowData = {
+                    nama_punggung: '',
+                    nomor_punggung: '',
+                    nama_dada: '',
+                    nomor_dada: '',
+                    nama_lengan: '',
+                    nomor_lengan: '',
+                    nomor_punggung_2: '',
+                    nama_punggung_2: '',
+                    size_id: '',
+                    size_label: '',
+                    size_celana_id: '',
+                    size_celana_label: '',
+                    keterangan: '',
+                };
                 
-                if (field === 'size_id') {
-                    const needle = val.toLowerCase();
-                    const matched = sizes.find(
-                        (s) =>
-                            s.ukuran?.toLowerCase() === needle ||
-                            `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle
-                    );
-                    rowData.size_id = matched?.id ?? '';
-                    rowData.size_label = matched ? `${matched.kategori_size} - ${matched.ukuran}` : val;
-                } else if (field === 'size_celana_id') {
-                    const needle = val.toLowerCase();
-                    const matched = sizes.find(
-                        (s) =>
-                            s.ukuran?.toLowerCase() === needle ||
-                            `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle
-                    );
-                    rowData.size_celana_id = matched?.id ?? '';
-                    rowData.size_celana_label = matched ? `${matched.kategori_size} - ${matched.ukuran}` : val;
-                } else {
-                    rowData[field] = val;
-                }
+                cols.forEach((val, colIdx) => {
+                    const field = mappings[colIdx];
+                    if (!field || field === 'ignore') return;
+                    
+                    if (field === 'size_id') {
+                        const needle = val.toLowerCase();
+                        const matched = safeSizes.find(
+                            (s) =>
+                                s.ukuran?.toLowerCase() === needle ||
+                                `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle
+                        );
+                        rowData.size_id = matched?.id ?? '';
+                        rowData.size_label = matched ? `${matched.kategori_size} - ${matched.ukuran}` : val;
+                    } else if (field === 'size_celana_id') {
+                        const needle = val.toLowerCase();
+                        const matched = safeSizes.find(
+                            (s) =>
+                                s.ukuran?.toLowerCase() === needle ||
+                                `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle
+                        );
+                        rowData.size_celana_id = matched?.id ?? '';
+                        rowData.size_celana_label = matched ? `${matched.kategori_size} - ${matched.ukuran}` : val;
+                    } else {
+                        rowData[field] = val;
+                    }
+                });
+                
+                return rowData;
             });
-            
-            return rowData;
-        });
-    }, [parsedRows, mappings, hasHeaderRow, sizes]);
+            console.log('Final Prepared Rows:', results);
+            return results;
+        } catch (e) {
+            console.error('Error generating final rows:', e);
+            return [];
+        }
+    }, [parsedRows, mappings, hasHeaderRow, safeSizes]);
 
     function handleConfirm() {
         if (!finalRows.length) return;
@@ -287,7 +313,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes }) {
                     
                     <textarea
                         className="w-full h-28 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none shadow-inner"
-                        placeholder={"Ahmad\t7\tS\tLengan Panjang\nBudi\t10\tM\tKeterangan tambahan"}
+                        placeholder={"No\tNama Punggung\tNo. Punggung\tNama Dada\tNo. Dada\tNama Lengan\tNo. Lengan\tNo. Punggung 2\tNama Punggung 2\tSize Atasan\tSize Celana\tKeterangan\n1\tAhmad\t7\tAmd\t7\tAh\t7\t7B\tAhmad B\tS\tS\tLengan Panjang\n2\tBudi\t10\tBud\t10\tBu\t10\t10B\tBudi B\tM\tM\tKeterangan tambahan"}
                         value={text}
                         onChange={(e) => setText(e.target.value)}
                         autoFocus
@@ -362,11 +388,11 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes }) {
                                                         
                                                         if (field === 'size_id' || field === 'size_celana_id') {
                                                             const needle = val.toLowerCase();
-                                                            const matched = sizes.find(
-                                                                (s) =>
-                                                                    s.ukuran?.toLowerCase() === needle ||
-                                                                    `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle
-                                                            );
+                                                            const matched = safeSizes.find(
+                                                                 (s) =>
+                                                                     s.ukuran?.toLowerCase() === needle ||
+                                                                     `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle
+                                                             );
                                                             return (
                                                                 <TableCell key={cIdx} className="p-2 text-xs border-l border-slate-100">
                                                                     {matched ? (
@@ -1008,7 +1034,21 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                 onClose={() => setPasteOpen(false)}
                 sizes={masters.sizes}
                 onConfirm={(rows) => {
-                    const nextNamesets = [...item.namesets, ...rows];
+                    const currentFilled = item.namesets.filter(
+                        (ns) =>
+                            ns.nama_punggung ||
+                            ns.nomor_punggung ||
+                            ns.nama_dada ||
+                            ns.nomor_dada ||
+                            ns.nama_lengan ||
+                            ns.nomor_lengan ||
+                            ns.nomor_punggung_2 ||
+                            ns.nama_punggung_2 ||
+                            ns.size_id ||
+                            ns.size_celana_id ||
+                            ns.keterangan
+                    );
+                    const nextNamesets = [...currentFilled, ...rows];
                     onChange(index, { ...item, namesets: nextNamesets, quantity: nextNamesets.length });
                 }}
             />
@@ -1071,6 +1111,7 @@ function PaymentRow({ index, payment, banks, onChange, onRemove }) {
 
 export default function OrderForm({ mode, masters, order, reseller_branches = [], is_reseller_hub = false }) {
     const isEdit = mode === 'edit';
+    const [showSummaryDropdown, setShowSummaryDropdown] = useState(false);
 
     const { data, setData, post, put, processing, errors } = useForm({
         nama_po: order?.nama_po ?? '',
@@ -1215,40 +1256,116 @@ export default function OrderForm({ mode, masters, order, reseller_branches = []
             <Head title={isEdit ? `Edit ${order.no_po}` : 'Buat PO'} />
 
             <form onSubmit={submit} className="space-y-0">
-                {/* ===== HEADER BAR ===== */}
-                <div className="bg-slate-900 text-white px-6 py-4 flex flex-col md:flex-row justify-between items-center border-b-4 border-red-600 rounded-xl mb-5 shadow-xl">
-                    <div className="flex items-center gap-3">
-                        <Package2 className="h-6 w-6 text-red-500" />
+                {/* ===== STICKY HEADER BAR ===== */}
+                <div className="sticky top-16 z-30 bg-slate-900/95 text-white px-6 py-4 flex flex-col lg:flex-row justify-between items-center border-b-4 border-red-600 rounded-b-xl mb-6 shadow-xl backdrop-blur-sm">
+                    <div className="flex items-center gap-3 w-full lg:w-auto">
+                        <Package2 className="h-6 w-6 text-red-500 shrink-0" />
                         <div>
-                            <h1 className="text-xl font-black tracking-wider uppercase">
+                            <h1 className="text-base md:text-lg font-black tracking-wider uppercase flex items-center gap-2">
                                 {isEdit ? `Edit PO` : 'Buat PO Baru'}
-                                {isEdit && <span className="text-red-400 ml-2">{order.no_po}</span>}
+                                {isEdit && <span className="text-red-400 font-mono">{order.no_po}</span>}
                             </h1>
-                            <p className="text-xs text-slate-400 font-medium">
+                            <p className="text-[10px] md:text-xs text-slate-400 font-medium">
                                 {isEdit ? 'Perubahan hanya bisa dilakukan selama status masih draft.' : 'Isi informasi PO, produk & nameset, lalu simpan sebagai draft.'}
                             </p>
                         </div>
                     </div>
-                    <div className="mt-3 md:mt-0 flex gap-2">
+
+                    {/* ===== STICKY SUMMARY DETAILS ===== */}
+                    <div className="flex flex-wrap items-center gap-3 my-3 lg:my-0">
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setShowSummaryDropdown(!showSummaryDropdown)}
+                                onMouseEnter={() => setShowSummaryDropdown(true)}
+                                className="flex items-center gap-3 bg-slate-800 hover:bg-slate-700/80 px-4 py-2 rounded-xl border border-slate-700 transition select-none shadow-inner"
+                            >
+                                <div className="text-left">
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Total Tagihan ({totalPcs} Pcs)</p>
+                                    <p className="font-mono font-black text-sm text-emerald-400 mt-1 leading-none">{formatRupiah(totalHarga)}</p>
+                                </div>
+                                <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200 ${showSummaryDropdown ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {showSummaryDropdown && (
+                                <div 
+                                    className="absolute left-1/2 -translate-x-1/2 lg:left-0 lg:translate-x-0 mt-2 w-80 bg-white border border-slate-200 text-slate-800 rounded-2xl shadow-2xl p-4 z-50 space-y-3"
+                                    onMouseLeave={() => setShowSummaryDropdown(false)}
+                                >
+                                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                        <h3 className="text-xs font-black text-slate-800 uppercase tracking-wide">Rincian Modul</h3>
+                                        <span className="bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{totalPcs} PCS</span>
+                                    </div>
+                                    
+                                    <div className="max-h-60 overflow-y-auto space-y-3 pr-1">
+                                        {coreItems.length > 0 && (
+                                            <div className="space-y-1.5">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Produk Inti ({totalCorePcs} pcs)</p>
+                                                {coreItems.map((item, idx) => {
+                                                    const origIdx = data.items.indexOf(item);
+                                                    return (
+                                                        <div key={origIdx} className="flex justify-between items-center text-xs">
+                                                            <span className="font-bold text-slate-700 uppercase truncate max-w-[170px]" title={item.nama_produk}>
+                                                                {item.nama_produk || `Produk #${origIdx + 1}`}
+                                                            </span>
+                                                            <span className="font-mono font-bold text-slate-500 whitespace-nowrap ml-2">
+                                                                {item.namesets.length} pcs — {formatRupiah((Number(item.quantity) || 0) * (Number(item.harga_satuan) || 0))}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {addonItems.length > 0 && (
+                                            <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Add-ons ({totalAddonPcs} pcs)</p>
+                                                {addonItems.map((item, idx) => {
+                                                    const origIdx = data.items.indexOf(item);
+                                                    return (
+                                                        <div key={origIdx} className="flex justify-between items-center text-xs">
+                                                            <span className="font-bold text-slate-700 uppercase truncate max-w-[170px]" title={item.nama_produk}>
+                                                                {item.nama_produk || `Add-on #${origIdx + 1}`}
+                                                            </span>
+                                                            <span className="font-mono font-bold text-slate-500 whitespace-nowrap ml-2">
+                                                                {item.quantity} pcs — {formatRupiah((Number(item.quantity) || 0) * (Number(item.harga_satuan) || 0))}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="border-t border-slate-100 pt-2.5 flex justify-between items-center text-xs font-black">
+                                        <span className="uppercase text-slate-500">Total Keseluruhan</span>
+                                        <span className="font-mono text-red-600 text-sm">{formatRupiah(totalHarga)}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2 w-full lg:w-auto justify-end">
                         <button
                             type="button"
                             onClick={downloadDraftPdf}
                             disabled={pdfLoading}
-                            className="flex items-center gap-2 bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition uppercase tracking-wide disabled:opacity-50"
+                            className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition uppercase tracking-wide disabled:opacity-50 shadow-md"
                         >
                             <FileDown className="h-4 w-4" />
                             {pdfLoading ? 'Loading...' : 'Download PDF'}
                         </button>
                         <Link
                             href={isEdit ? route('orders.show', order.id) : route('orders.index')}
-                            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold rounded-lg transition uppercase tracking-wide"
+                            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition uppercase tracking-wide shadow-md border border-slate-700"
                         >
                             Batal
                         </Link>
                         <button
                             type="submit"
                             disabled={processing}
-                            className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white px-5 py-2 rounded-lg text-sm font-black transition shadow-lg shadow-red-600/30 uppercase tracking-wide disabled:opacity-50"
+                            className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-xl text-xs font-black transition shadow-lg shadow-red-600/30 uppercase tracking-wide disabled:opacity-50"
                         >
                             <Save className="h-4 w-4" />
                             {isEdit ? 'Simpan Perubahan' : 'Simpan Draft'}
@@ -1256,11 +1373,8 @@ export default function OrderForm({ mode, masters, order, reseller_branches = []
                     </div>
                 </div>
 
-                {/* ===== MAIN LAYOUT: CONTENT + SIDEBAR ===== */}
-                <div className="flex flex-col lg:flex-row gap-5 items-start">
-
-                    {/* ===== KONTEN UTAMA ===== */}
-                    <div className="flex-grow space-y-5 min-w-0">
+                {/* ===== MAIN LAYOUT: FULL WIDTH ===== */}
+                <div className="w-full space-y-5">
 
                         {/* Section: Informasi PO */}
                         <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-sm">
@@ -1457,99 +1571,6 @@ export default function OrderForm({ mode, masters, order, reseller_branches = []
                         </div>
 
                     </div>
-
-                    {/* ===== SIDEBAR RINGKASAN ===== */}
-                    <div className="lg:w-64 flex-shrink-0 space-y-4 lg:sticky lg:top-4">
-                        <h2 className="text-sm font-black text-slate-800 border-b-2 border-slate-200 pb-2 uppercase tracking-wide">Ringkasan Total</h2>
-
-                        {/* Total PCS */}
-                        <div className="bg-slate-900 text-white p-5 rounded-xl shadow-lg text-center border-b-4 border-red-600">
-                            <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">Total Keseluruhan</p>
-                            <p className="text-5xl font-black mt-2 tabular-nums">{totalPcs}</p>
-                            <p className="text-sm font-bold text-slate-400 mt-0.5">PCS</p>
-                            <div className="border-t border-slate-700 mt-3 pt-3">
-                                <p className="text-xs font-bold text-slate-400 uppercase">Total Tagihan</p>
-                                <p className="font-mono font-black text-sm text-white mt-0.5">{formatRupiah(totalHarga)}</p>
-                            </div>
-                        </div>
-
-                        {/* Produk Inti */}
-                        {coreItems.length > 0 && (
-                            <div className="space-y-2">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-wide">Produk Inti ({totalCorePcs} pcs)</p>
-                                {coreItems.map((item) => {
-                                    const origIdx = data.items.indexOf(item);
-                                    const color = ACCENT_COLORS[origIdx % ACCENT_COLORS.length];
-                                    const dotMap = { red: 'bg-red-500', blue: 'bg-blue-500', emerald: 'bg-emerald-500', amber: 'bg-amber-500', purple: 'bg-purple-500', pink: 'bg-pink-500', teal: 'bg-teal-500' };
-                                    return (
-                                        <div key={origIdx} className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotMap[color]}`} />
-                                                <span className="text-xs font-bold text-slate-700 uppercase truncate">
-                                                    {item.nama_produk || `Produk #${origIdx + 1}`}
-                                                </span>
-                                            </div>
-                                            <div className="text-right ml-2 whitespace-nowrap">
-                                                <p className="text-xs font-black text-slate-600">{item.namesets.length} pcs</p>
-                                                <p className="text-[10px] font-mono text-slate-400">{formatRupiah((Number(item.quantity) || 0) * (Number(item.harga_satuan) || 0))}</p>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                <div className="text-right pr-2 pb-1">
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase">Subtotal Produk: <span className="font-mono font-black text-slate-700">{formatRupiah(totalCoreHarga)}</span></p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Add-ons */}
-                        {addonItems.length > 0 && (
-                            <div className="space-y-2 pt-2 border-t border-dashed border-slate-200">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-wide">Add-ons ({totalAddonPcs} pcs)</p>
-                                {addonItems.map((item) => {
-                                    const origIdx = data.items.indexOf(item);
-                                    const color = ACCENT_COLORS[origIdx % ACCENT_COLORS.length];
-                                    const dotMap = { red: 'bg-red-500', blue: 'bg-blue-500', emerald: 'bg-emerald-500', amber: 'bg-amber-500', purple: 'bg-purple-500', pink: 'bg-pink-500', teal: 'bg-teal-500' };
-                                    return (
-                                        <div key={origIdx} className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotMap[color]}`} />
-                                                <span className="text-xs font-bold text-slate-700 uppercase truncate">
-                                                    {item.nama_produk || `Add-on #${origIdx + 1}`}
-                                                </span>
-                                            </div>
-                                            <div className="text-right ml-2 whitespace-nowrap">
-                                                <p className="text-xs font-black text-slate-600">{item.quantity} pcs</p>
-                                                <p className="text-[10px] font-mono text-slate-400">{formatRupiah((Number(item.quantity) || 0) * (Number(item.harga_satuan) || 0))}</p>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                <div className="text-right pr-2">
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase">Subtotal Add-on: <span className="font-mono font-black text-slate-700">{formatRupiah(totalAddonHarga)}</span></p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Sticky action */}
-                        <div className="pt-2 space-y-2">
-                            <button
-                                type="submit"
-                                disabled={processing}
-                                className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white py-2.5 rounded-lg text-sm font-black transition shadow-lg shadow-red-600/30 uppercase tracking-wide disabled:opacity-50"
-                            >
-                                <Save className="h-4 w-4" />
-                                {isEdit ? 'Simpan Perubahan' : 'Simpan Draft'}
-                            </button>
-                            <Link
-                                href={isEdit ? route('orders.show', order.id) : route('orders.index')}
-                                className="w-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-bold transition uppercase tracking-wide"
-                            >
-                                Batal
-                            </Link>
-                        </div>
-                    </div>
-                </div>
             </form>
         </AppLayout>
     );

@@ -97,6 +97,7 @@ class DashboardService
             'deadline_mendekat'             => $this->deadlineMendekat($brandId, 5),
             'po_terlambat'                  => $this->poTerlambat($brandId, 5),
             'trend_bulanan'                 => $this->trendBulanan($brandId),
+            'target_progress'               => $this->getTargetProgress($brandId),
         ];
     }
 
@@ -147,16 +148,18 @@ class DashboardService
         $totalRevenue    = Order::sum('total_tagihan');
 
         $perBrand = Order::query()
-            ->select('brand_id', DB::raw('COUNT(*) as total'), DB::raw('SUM(total_tagihan) as revenue'))
-            ->groupBy('brand_id')
+            ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
+            ->select('orders.brand_id', DB::raw('COUNT(orders.id) as total'), DB::raw('SUM(orders.total_tagihan) as revenue'), DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_pcs'))
+            ->groupBy('orders.brand_id')
             ->with('brand:id,nama_brand,kode,warna_primary')
             ->get()
             ->map(fn ($r) => [
-                'brand'   => $r->brand?->nama_brand ?? '-',
-                'kode'    => $r->brand?->kode,
-                'warna'   => $r->brand?->warna_primary,
-                'total'   => (int) $r->total,
-                'revenue' => (float) $r->revenue,
+                'brand'     => $r->brand?->nama_brand ?? '-',
+                'kode'      => $r->brand?->kode,
+                'warna'     => $r->brand?->warna_primary,
+                'total'     => (int) $r->total,
+                'revenue'   => (float) $r->revenue,
+                'total_pcs' => (int) $r->total_pcs,
             ]);
 
         return [
@@ -170,6 +173,8 @@ class DashboardService
             'status_breakdown'  => $this->statusBreakdown(null),
             'trend_harian'      => $this->trendHarian(null, 14),
             'po_terbaru'        => $this->poTerbaru(null, 10),
+            'trend_bulanan'     => $this->trendBulanan(null),
+            'target_progress'   => $this->getTargetProgress(Brand::active()->pluck('id')->toArray()),
         ];
     }
 
@@ -206,17 +211,19 @@ class DashboardService
             ],
             'owned_brands' => Brand::whereIn('id', $ownedBrandIds)->get(['id', 'nama_brand', 'kode', 'warna_primary']),
             'brand_performance' => Order::query()
-                ->whereIn('brand_id', $allOpIds)
-                ->select('brand_id', DB::raw('COUNT(*) as total'), DB::raw('SUM(total_tagihan) as revenue'))
-                ->groupBy('brand_id')
+                ->whereIn('orders.brand_id', $allOpIds)
+                ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
+                ->select('orders.brand_id', DB::raw('COUNT(orders.id) as total'), DB::raw('SUM(orders.total_tagihan) as revenue'), DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_pcs'))
+                ->groupBy('orders.brand_id')
                 ->with('brand:id,nama_brand,kode,warna_primary')
                 ->get()
                 ->map(fn ($r) => [
-                    'brand'   => $r->brand?->nama_brand,
-                    'kode'    => $r->brand?->kode,
-                    'warna'   => $r->brand?->warna_primary,
-                    'total'   => (int) $r->total,
-                    'revenue' => (float) $r->revenue,
+                    'brand'     => $r->brand?->nama_brand,
+                    'kode'      => $r->brand?->kode,
+                    'warna'     => $r->brand?->warna_primary,
+                    'total'     => (int) $r->total,
+                    'revenue'   => (float) $r->revenue,
+                    'total_pcs' => (int) $r->total_pcs,
                 ]),
             'status_breakdown'              => $this->statusBreakdown($opBrandIds),
             'trend_harian'                  => $this->trendHarian($opBrandIds, 14),
@@ -231,6 +238,7 @@ class DashboardService
             'po_terbaru'                    => $this->poTerbaru($opBrandIds, 10),
             'deadline_mendekat'             => $this->deadlineMendekat($opBrandIds, 5),
             'po_terlambat'                  => $this->poTerlambat($opBrandIds, 5),
+            'target_progress'               => $this->getTargetProgress($opBrandIds),
         ];
     }
 
@@ -575,6 +583,17 @@ class DashboardService
             ->groupBy('bulan')
             ->get()->keyBy('bulan');
 
+        $targets = DB::table('brand_targets')
+            ->when($brandId, function ($q) use ($brandId) {
+                return is_array($brandId)
+                    ? $q->whereIn('brand_id', $brandId)
+                    : $q->where('brand_id', $brandId);
+            })
+            ->where('year', $year)
+            ->select('month', DB::raw('SUM(target_revenue) as target_revenue'), DB::raw('SUM(target_pcs) as target_pcs'))
+            ->groupBy('month')
+            ->get()->keyBy('month');
+
         $months = [
             1 => 'Januari', 2 => 'Februari', 3 => 'Maret',    4 => 'April',
             5 => 'Mei',     6 => 'Juni',      7 => 'Juli',     8 => 'Agustus',
@@ -585,12 +604,15 @@ class DashboardService
         foreach ($months as $num => $name) {
             $o     = $orders->get($num);
             $item  = $items->get($num);
+            $tgt   = $targets->get($num);
             $out[] = [
                 'bulan_num'  => $num,
                 'bulan'      => $name,
                 'total_po'   => (int)   ($o    ? $o->total_po    : 0),
                 'total_omset' => (float) ($o    ? $o->total_omset : 0),
                 'total_pcs'  => (int)   ($item ? $item->total_pcs : 0),
+                'target_revenue' => (float) ($tgt ? $tgt->target_revenue : 0),
+                'target_pcs'  => (int)   ($tgt ? $tgt->target_pcs : 0),
             ];
         }
         return $out;
@@ -608,5 +630,54 @@ class DashboardService
             ->where('orders.status_po', '!=', 'draft')
             ->sum('order_items.quantity');
         return $totalProduksi > 0 ? round(($totalRijek / $totalProduksi) * 100, 2) : 0;
+    }
+
+    private function getTargetProgress(array|string $brandIds): array
+    {
+        $brandIds = (array) $brandIds;
+        $currentMonth = (int) now()->month;
+        $currentYear  = (int) now()->year;
+
+        $monthTarget = DB::table('brand_targets')
+            ->whereIn('brand_id', $brandIds)
+            ->where('year', $currentYear)
+            ->where('month', $currentMonth)
+            ->selectRaw('SUM(target_revenue) as revenue, SUM(target_pcs) as pcs')
+            ->first();
+
+        // Get actuals for the current month
+        $monthActualRevenue = Order::query()
+            ->whereIn('brand_id', $brandIds)
+            ->whereYear('tanggal_masuk', $currentYear)
+            ->whereMonth('tanggal_masuk', $currentMonth)
+            ->where('status_po', '!=', 'draft')
+            ->sum('total_tagihan');
+
+        $monthActualPcs = OrderItem::query()
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->whereIn('orders.brand_id', $brandIds)
+            ->whereYear('orders.tanggal_masuk', $currentYear)
+            ->whereMonth('orders.tanggal_masuk', $currentMonth)
+            ->where('orders.status_po', '!=', 'draft')
+            ->sum('order_items.quantity');
+
+        $targetRevenue = (float) ($monthTarget?->revenue ?? 0);
+        $targetPcs = (int) ($monthTarget?->pcs ?? 0);
+
+        $months = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+
+        return [
+            'month_name'         => $months[$currentMonth] ?? now()->format('F'),
+            'target_revenue'     => $targetRevenue,
+            'target_pcs'         => $targetPcs,
+            'actual_revenue'     => (float) $monthActualRevenue,
+            'actual_pcs'         => (int) $monthActualPcs,
+            'revenue_percentage' => $targetRevenue > 0 ? (int) round(($monthActualRevenue / $targetRevenue) * 100) : 0,
+            'pcs_percentage'     => $targetPcs > 0 ? (int) round(($monthActualPcs / $targetPcs) * 100) : 0,
+        ];
     }
 }

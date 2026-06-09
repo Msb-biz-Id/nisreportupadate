@@ -23,6 +23,21 @@ class ComparisonReportTest extends TestCase
             ->assertOk();
     }
 
+    public function test_dump_db_orders(): void
+    {
+        $res = [
+            'total_orders' => \App\Models\Order\Order::count(),
+            'statuses' => \App\Models\Order\Order::selectRaw('status_po, count(*) as count')->groupBy('status_po')->get()->toArray(),
+            'brands' => \App\Models\Order\Order::selectRaw('brand_id, count(*) as count')->groupBy('brand_id')->get()->toArray(),
+            'dates' => \App\Models\Order\Order::selectRaw('min(tanggal_masuk) as min_date, max(tanggal_masuk) as max_date')->get()->toArray(),
+            'customer_count' => \App\Models\Master\Customer::count(),
+            'order_items' => \App\Models\Order\OrderItem::count(),
+            'all_brands' => \App\Models\Brand::all()->toArray(),
+        ];
+        var_dump($res);
+        $this->fail('DUMPING DATA');
+    }
+
     public function test_owner_with_one_brand_sees_not_eligible(): void
     {
         $brand = $this->makeBrand();

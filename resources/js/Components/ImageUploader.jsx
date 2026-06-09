@@ -35,6 +35,8 @@ export default function ImageUploader({
     const [rotation, setRotation] = useState(0);
     const [croppedPx, setCroppedPx] = useState(null);
     const [uploading, setUploading] = useState(false);
+    const [imageAspect, setImageAspect] = useState(aspect);
+    const [cropAspect, setCropAspect] = useState(aspect);
 
     const onCropComplete = useCallback((_, px) => setCroppedPx(px), []);
 
@@ -57,12 +59,19 @@ export default function ImageUploader({
         }
         const reader = new FileReader();
         reader.onload = () => {
-            setSrc(reader.result);
-            setCrop({ x: 0, y: 0 });
-            setZoom(1);
-            setRotation(0);
-            setCroppedPx(null);
-            setOpen(true);
+            const img = new Image();
+            img.onload = () => {
+                const calculatedAspect = img.width / img.height;
+                setSrc(reader.result);
+                setImageAspect(calculatedAspect);
+                setCropAspect(calculatedAspect); // Default to full area/original aspect ratio
+                setCrop({ x: 0, y: 0 });
+                setZoom(1);
+                setRotation(0);
+                setCroppedPx(null);
+                setOpen(true);
+            };
+            img.src = reader.result;
         };
         reader.readAsDataURL(file);
         e.target.value = ''; // izinkan pilih file yang sama lagi
@@ -194,7 +203,7 @@ export default function ImageUploader({
                                     crop={crop}
                                     zoom={zoom}
                                     rotation={rotation}
-                                    aspect={aspect}
+                                    aspect={cropAspect}
                                     onCropChange={setCrop}
                                     onZoomChange={setZoom}
                                     onRotationChange={setRotation}
@@ -206,33 +215,123 @@ export default function ImageUploader({
                         </div>
 
                         {/* Controls */}
-                        <div className="bg-white px-5 py-4 space-y-3 border-t border-slate-100">
-                            {/* Zoom */}
-                            <div className="flex items-center gap-3">
-                                <ZoomOut className="h-4 w-4 text-slate-400 shrink-0" />
-                                <input
-                                    type="range"
-                                    min={1}
-                                    max={3}
-                                    step={0.05}
-                                    value={zoom}
-                                    onChange={(e) => setZoom(Number(e.target.value))}
-                                    className="flex-1 accent-slate-700"
-                                />
-                                <ZoomIn className="h-4 w-4 text-slate-400 shrink-0" />
-                                <span className="w-12 text-right text-xs font-mono text-slate-500">{zoom.toFixed(1)}×</span>
+                        <div className="bg-white px-5 py-4 space-y-4 border-t border-slate-100">
+                            {/* Aspect Ratio Presets */}
+                            <div className="flex flex-col gap-2">
+                                <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Rasio Potong (Bentuk Kotak)</span>
+                                <div className="flex flex-wrap gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setCropAspect(imageAspect)}
+                                        className={cn(
+                                            "rounded px-3 py-1.5 text-xs font-bold transition border",
+                                            Math.abs(cropAspect - imageAspect) < 0.01
+                                                ? "bg-slate-800 text-white border-slate-800"
+                                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                        )}
+                                    >
+                                        Asli / Full Area ({imageAspect.toFixed(2)})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCropAspect(1)}
+                                        className={cn(
+                                            "rounded px-3 py-1.5 text-xs font-bold transition border",
+                                            Math.abs(cropAspect - 1) < 0.01
+                                                ? "bg-slate-800 text-white border-slate-800"
+                                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                        )}
+                                    >
+                                        Kotak (1:1)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCropAspect(4 / 3)}
+                                        className={cn(
+                                            "rounded px-3 py-1.5 text-xs font-bold transition border",
+                                            Math.abs(cropAspect - 4/3) < 0.01
+                                                ? "bg-slate-800 text-white border-slate-800"
+                                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                        )}
+                                    >
+                                        Foto (4:3)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCropAspect(16 / 9)}
+                                        className={cn(
+                                            "rounded px-3 py-1.5 text-xs font-bold transition border",
+                                            Math.abs(cropAspect - 16/9) < 0.01
+                                                ? "bg-slate-800 text-white border-slate-800"
+                                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                        )}
+                                    >
+                                        Lebar (16:9)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCropAspect(2 / 3)}
+                                        className={cn(
+                                            "rounded px-3 py-1.5 text-xs font-bold transition border",
+                                            Math.abs(cropAspect - 2/3) < 0.01
+                                                ? "bg-slate-800 text-white border-slate-800"
+                                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                        )}
+                                    >
+                                        Tinggi (2:3)
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Aspect Ratio Slider & Zoom Slider */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                                {/* Aspect Ratio Slider */}
+                                <div className="flex flex-col gap-1.5">
+                                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Rasio Bebas (Geser Bebas)</span>
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="range"
+                                            min={0.3}
+                                            max={3.0}
+                                            step={0.05}
+                                            value={cropAspect}
+                                            onChange={(e) => setCropAspect(Number(e.target.value))}
+                                            className="flex-1 accent-slate-700 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                                        />
+                                        <span className="w-12 text-right text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{cropAspect.toFixed(2)}:1</span>
+                                    </div>
+                                </div>
+
+                                {/* Zoom */}
+                                <div className="flex flex-col gap-1.5">
+                                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Perbesar (Zoom)</span>
+                                    <div className="flex items-center gap-3">
+                                        <ZoomOut className="h-4 w-4 text-slate-400 shrink-0" />
+                                        <input
+                                            type="range"
+                                            min={1}
+                                            max={3}
+                                            step={0.05}
+                                            value={zoom}
+                                            onChange={(e) => setZoom(Number(e.target.value))}
+                                            className="flex-1 accent-slate-700 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                                        />
+                                        <ZoomIn className="h-4 w-4 text-slate-400 shrink-0" />
+                                        <span className="w-12 text-right text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{zoom.toFixed(1)}×</span>
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Rotation + Actions */}
-                            <div className="flex items-center justify-between gap-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
                                 <button
                                     type="button"
                                     onClick={() => setRotation((r) => (r + 90) % 360)}
-                                    className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
+                                    className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
                                 >
                                     <RotateCw className="h-4 w-4" /> Putar 90°
                                 </button>
-                                <div className="flex gap-2">
+                                <div className="flex justify-end gap-2">
                                     <button
                                         type="button"
                                         onClick={closeCrop}

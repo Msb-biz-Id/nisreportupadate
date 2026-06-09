@@ -35,6 +35,7 @@ class ReportRegistry
                     ['key' => 'nama', 'label' => 'Nama'],
                     ['key' => 'nomor_hp', 'label' => 'HP'],
                     ['key' => 'total_order', 'label' => 'Total Order', 'format' => 'number'],
+                    ['key' => 'total_qty', 'label' => 'Total Pcs', 'format' => 'number'],
                     ['key' => 'total_value', 'label' => 'Total Transaksi', 'format' => 'currency'],
                     ['key' => 'last_order', 'label' => 'Order Terakhir', 'format' => 'date'],
                 ],
@@ -177,7 +178,7 @@ class ReportRegistry
                 'icon' => 'TrendingUp',
                 'group' => 'penjualan',
                 'description' => 'Analisis gabungan Sumber Order dan Kategori Pelanggan untuk melacak omset.',
-                'filters' => ['date_range', 'customer_type', 'sumber_order'],
+                'filters' => ['date_range', 'customer_type', 'sumber_order', 'brand', 'region', 'product'],
                 'columns' => [
                     ['key' => 'sumber_order', 'label' => 'Sumber Order'],
                     ['key' => 'kategori_pelanggan', 'label' => 'Kategori Pelanggan'],

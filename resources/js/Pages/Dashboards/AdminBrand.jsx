@@ -3,6 +3,7 @@ import Chart from '@/Components/Chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { StatGrid, StatusBreakdown, POListWidget, TopList } from '@/Components/Widgets';
 import { formatRupiah } from '@/lib/utils';
+import { Target } from 'lucide-react';
 
 export default function AdminBrand({ stats }) {
     const [metric, setMetric] = useState('omset');
@@ -22,9 +23,108 @@ export default function AdminBrand({ stats }) {
     const trendBulananOmset = trendBulanan.map((tb) => tb.total_omset);
     const trendBulananPcs = trendBulanan.map((tb) => tb.total_pcs);
 
+    const getSeries = () => {
+        if (metric === 'omset') {
+            return [
+                { name: 'Omset', data: trendBulananOmset, type: 'area' },
+                { name: 'Target Omset', data: trendBulanan.map((tb) => tb.target_revenue), type: 'line' }
+            ];
+        }
+        if (metric === 'pcs') {
+            return [
+                { name: 'Total Pcs', data: trendBulananPcs, type: 'area' },
+                { name: 'Target Pcs', data: trendBulanan.map((tb) => tb.target_pcs), type: 'line' }
+            ];
+        }
+        return [
+            { name: 'Jumlah PO', data: trendBulananPO, type: 'area' }
+        ];
+    };
+
+    const getColors = () => {
+        if (metric === 'omset') return ['#8B5CF6', '#C4B5FD'];
+        if (metric === 'pcs') return ['#10B981', '#6EE7B7'];
+        return ['#3B82F6'];
+    };
+
     return (
         <div className="space-y-6">
             <StatGrid cards={stats.cards ?? []} />
+
+            {/* Target Progress Cards */}
+            {stats.target_progress && (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <Card className="bg-gradient-to-br from-indigo-50/50 to-white border-l-4 border-indigo-600">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                                <Target className="h-4 w-4 text-indigo-600" /> Target Omset Bulan Ini ({stats.target_progress.month_name})
+                            </CardTitle>
+                            <CardDescription>Realisasi omset penjualan dibandingkan target.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="flex items-baseline justify-between">
+                                <span className="text-2xl font-black text-slate-800 font-mono">
+                                    {formatRupiah(stats.target_progress.actual_revenue)}
+                                </span>
+                                <span className="text-xs text-muted-foreground font-semibold">
+                                    dari target {formatRupiah(stats.target_progress.target_revenue)}
+                                </span>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="flex justify-between text-xs font-bold text-indigo-700">
+                                    <span>Pencapaian</span>
+                                    <span>
+                                        {stats.target_progress.target_revenue > 0 
+                                            ? `${stats.target_progress.revenue_percentage}%` 
+                                            : 'Belum ada target'}
+                                    </span>
+                                </div>
+                                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
+                                    <div 
+                                        className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
+                                        style={{ width: `${stats.target_progress.target_revenue > 0 ? Math.min(100, stats.target_progress.revenue_percentage) : 0}%` }} 
+                                    />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-emerald-50/50 to-white border-l-4 border-emerald-500">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                                <Target className="h-4 w-4 text-emerald-500" /> Target Qty (Pcs) Bulan Ini ({stats.target_progress.month_name})
+                            </CardTitle>
+                            <CardDescription>Realisasi quantity produk terjual dibandingkan target.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="flex items-baseline justify-between">
+                                <span className="text-2xl font-black text-slate-800 font-mono">
+                                    {stats.target_progress.actual_pcs.toLocaleString('id-ID')} Pcs
+                                </span>
+                                <span className="text-xs text-muted-foreground font-semibold">
+                                    dari target {stats.target_progress.target_pcs.toLocaleString('id-ID')} Pcs
+                                </span>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="flex justify-between text-xs font-bold text-emerald-700">
+                                    <span>Pencapaian</span>
+                                    <span>
+                                        {stats.target_progress.target_pcs > 0 
+                                            ? `${stats.target_progress.pcs_percentage}%` 
+                                            : 'Belum ada target'}
+                                    </span>
+                                </div>
+                                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
+                                    <div 
+                                        className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+                                        style={{ width: `${stats.target_progress.target_pcs > 0 ? Math.min(100, stats.target_progress.pcs_percentage) : 0}%` }} 
+                                    />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <Card className="lg:col-span-2">
@@ -79,12 +179,9 @@ export default function AdminBrand({ stats }) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <Chart
-                        type="area"
+                        type="line"
                         height={300}
-                        series={[{
-                            name: metric === 'omset' ? 'Omset' : metric === 'po' ? 'Jumlah PO' : 'Total Pcs',
-                            data: metric === 'omset' ? trendBulananOmset : metric === 'po' ? trendBulananPO : trendBulananPcs
-                        }]}
+                        series={getSeries()}
                         options={{
                             xaxis: { categories: trendBulananMonths },
                             yaxis: {
@@ -92,8 +189,9 @@ export default function AdminBrand({ stats }) {
                                     formatter: (v) => metric === 'omset' ? formatRupiah(v) : v
                                 }
                             },
-                            colors: [metric === 'omset' ? '#8B5CF6' : metric === 'po' ? '#3B82F6' : '#10B981'],
-                            fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0 } },
+                            colors: getColors(),
+                            stroke: { curve: 'smooth', width: metric === 'po' ? [3] : [3, 2] },
+                            fill: { type: 'solid', opacity: metric === 'po' ? [0.15] : [0.15, 0.95] },
                             tooltip: {
                                 y: {
                                     formatter: (v) => metric === 'omset' ? formatRupiah(v) : `${v} ${metric === 'po' ? 'PO' : 'pcs'}`

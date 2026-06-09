@@ -61,7 +61,7 @@ class OrderLifecycleTest extends TestCase
 
         $this->assertDatabaseHas('orders', ['nama_po' => 'PO Test', 'status_po' => 'draft', 'total_tagihan' => 1000000]);
         $order = Order::where('nama_po', 'PO Test')->first();
-        $this->assertMatchesRegularExpression('/^PO-[A-Z0-9]+-[A-Z0-9]+-\d{3}$/', $order->no_po);
+        $this->assertMatchesRegularExpression('/^PO-[A-Z0-9]+-[A-Z0-9_-]+-\d{3}$/', $order->no_po);
     }
 
     public function test_publish_po_creates_progress_details_and_auto_pemasukan(): void
