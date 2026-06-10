@@ -68,6 +68,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
 
+    Route::prefix('roles')->name('roles.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\RoleController::class, 'index'])->name('index');
+        Route::post('/', [\App\Http\Controllers\RoleController::class, 'store'])->name('store');
+        Route::put('/{role}', [\App\Http\Controllers\RoleController::class, 'update'])->name('update');
+        Route::delete('/{role}', [\App\Http\Controllers\RoleController::class, 'destroy'])->name('destroy');
+    });
+
     // Phase 2: Master Data — Customer (dedicated)
     Route::get('/master/pelanggan', [CustomerController::class, 'index'])->name('master.pelanggan.index');
     Route::post('/master/pelanggan', [CustomerController::class, 'store'])->name('master.pelanggan.store');

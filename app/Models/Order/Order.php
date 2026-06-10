@@ -85,7 +85,13 @@ class Order extends Model
 
     public function isLocked(): bool
     {
-        return (bool) $this->lockStatus?->is_locked;
+        if ($this->isDraft()) {
+            return false;
+        }
+        if ($this->lockStatus === null) {
+            return true;
+        }
+        return (bool) $this->lockStatus->is_locked;
     }
 
     public function isDraft(): bool { return $this->status_po === 'draft'; }

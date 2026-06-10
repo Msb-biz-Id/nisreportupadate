@@ -36,6 +36,13 @@ class OrderLifecycleTest extends TestCase
                 'warna' => '#3B82F6', 'is_skippable' => false,
             ]);
         }
+        \App\Models\Master\BankAccount::create([
+            'brand_id' => $brand->id,
+            'bank' => 'BCA',
+            'atas_nama' => 'Test Acc',
+            'nomor_rekening' => '12345',
+            'is_active' => true,
+        ]);
         return $brand;
     }
 
@@ -45,12 +52,15 @@ class OrderLifecycleTest extends TestCase
         $user = $this->makeUser('owner', [$brand]);
         $customer = Customer::where('brand_id', $brand->id)->first();
 
+        $bank = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->first();
+
         $this->actingAsWithBrand($user, $brand)
             ->post(route('orders.store'), [
                 'nama_po' => 'PO Test',
                 'tanggal_masuk' => now()->toDateString(),
                 'deadline_customer' => now()->addDays(14)->toDateString(),
                 'pelanggan_id' => $customer->id,
+                'bank_id' => $bank->id,
                 'items' => [[
                     'nama_produk' => 'Jersey Test',
                     'quantity' => 10,
@@ -367,6 +377,13 @@ class OrderLifecycleTest extends TestCase
             'brand_id' => $brand->id,
             'nama' => 'Jersey Premium', 'harga' => 100000, 'is_active' => true,
         ]);
+        \App\Models\Master\BankAccount::create([
+            'brand_id' => $brand->id,
+            'bank' => 'BCA',
+            'atas_nama' => 'Test Acc Premium',
+            'nomor_rekening' => '54321',
+            'is_active' => true,
+        ]);
 
         // Recreate the progresses exactly as needed for status recalculation and is_lunas sending validation
         \App\Models\Master\Progress::query()->delete();
@@ -388,6 +405,8 @@ class OrderLifecycleTest extends TestCase
         $adminProduction = $this->makeUser('admin_produksi', [$brand]);
         $customer = Customer::where('brand_id', $brand->id)->first();
 
+        $bank = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->first();
+
         // Step 1: Admin Brand membuat draft order
         $this->actingAsWithBrand($adminBrand, $brand)
             ->post(route('orders.store'), [
@@ -395,6 +414,7 @@ class OrderLifecycleTest extends TestCase
                 'tanggal_masuk' => now()->toDateString(),
                 'deadline_customer' => now()->addDays(14)->toDateString(),
                 'pelanggan_id' => $customer->id,
+                'bank_id' => $bank->id,
                 'items' => [[
                     'nama_produk' => 'Jersey Premium',
                     'quantity' => 10,
@@ -638,12 +658,15 @@ class OrderLifecycleTest extends TestCase
             'is_active' => true,
         ]);
 
+        $bank = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->first();
+
         $this->actingAsWithBrand($user, $brand)
             ->post(route('orders.store'), [
                 'nama_po' => 'PO Nameset Test',
                 'tanggal_masuk' => now()->toDateString(),
                 'deadline_customer' => now()->addDays(14)->toDateString(),
                 'pelanggan_id' => $customer->id,
+                'bank_id' => $bank->id,
                 'items' => [[
                     'nama_produk' => 'Jersey Test',
                     'quantity' => 1,
@@ -679,6 +702,95 @@ class OrderLifecycleTest extends TestCase
         $this->assertEquals('AHMAD PUNGGUNG 2', $nameset->nama_punggung_2);
         $this->assertEquals($size->id, $nameset->size_celana_id);
         $this->assertEquals('Dewasa - L', $nameset->size_celana_label);
+    }
+
+    public function test_published_po_is_locked_by_default_and_cannot_be_edited_unless_unlocked(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $user = $this->makeUser('owner', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-LOCKED-TEST',
+            'nama_po' => 'Locked PO',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 100000,
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAsWithBrand($user, $brand)
+            ->get(route('orders.edit', $order->id))
+            ->assertRedirect(); // Should redirect because it's locked by default
+
+        // Let's unlock the PO
+        app(\App\Services\POStatusManager::class)->unlock($order, $user);
+
+        $this->actingAsWithBrand($user, $brand)
+            ->get(route('orders.edit', $order->id))
+            ->assertOk(); // Should succeed now that it's unlocked!
+    }
+
+    public function test_admin_brand_can_delete_draft_po(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $user = $this->makeUser('admin_brand', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-DRAFT-DEL',
+            'nama_po' => 'Draft PO to Delete',
+            'status_po' => 'draft',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 100000,
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAsWithBrand($user, $brand)
+            ->delete(route('orders.destroy', $order->id))
+            ->assertRedirect(route('orders.index'));
+
+        $this->assertSoftDeleted('orders', ['id' => $order->id]);
+    }
+
+    public function test_draft_po_with_payments_cannot_be_deleted(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $user = $this->makeUser('admin_brand', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-DRAFT-WITH-PAYMENT',
+            'nama_po' => 'Draft PO with Payment',
+            'status_po' => 'draft',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 100000,
+            'created_by' => $user->id,
+        ]);
+
+        \App\Models\Order\OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'dp',
+            'amount' => 50000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $user->id,
+        ]);
+
+        // Try deleting it
+        $this->actingAsWithBrand($user, $brand)
+            ->delete(route('orders.destroy', $order->id))
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'deleted_at' => null]);
     }
 }
 

@@ -74,7 +74,7 @@ function newNameset() {
 }
 
 function newPayment() {
-    return { payment_type: 'dp', amount: 0, payment_date: new Date().toISOString().slice(0, 10), bank_id: '', notes: '' };
+    return { master_jenis_pembayaran_id: '', amount: 0, payment_date: new Date().toISOString().slice(0, 10), bank_id: '', notes: '' };
 }
 
 function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
@@ -255,23 +255,53 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
                     if (!field || field === 'ignore') return;
                     
                     if (field === 'size_id') {
-                        const needle = val.toLowerCase();
-                        const matched = safeSizes.find(
+                        const needle = val.toLowerCase().trim();
+                        const matches = safeSizes.filter(
                             (s) =>
                                 s.ukuran?.toLowerCase() === needle ||
-                                `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle
+                                `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle ||
+                                `${s.kategori_size}-${s.ukuran}`.toLowerCase() === needle
                         );
-                        rowData.size_id = matched?.id ?? '';
-                        rowData.size_label = matched ? `${matched.kategori_size} - ${matched.ukuran}` : val;
+                        if (matches.length > 0) {
+                            const priority = ['LAKI-LAKI', 'UNISEX', 'PEREMPUAN', 'ANAK', 'CUSTOM'];
+                            matches.sort((a, b) => {
+                                let indexA = priority.indexOf(a.kategori_size?.toUpperCase());
+                                let indexB = priority.indexOf(b.kategori_size?.toUpperCase());
+                                if (indexA === -1) indexA = 999;
+                                if (indexB === -1) indexB = 999;
+                                return indexA - indexB;
+                            });
+                            const matched = matches[0];
+                            rowData.size_id = matched.id;
+                            rowData.size_label = `${matched.kategori_size} - ${matched.ukuran}`;
+                        } else {
+                            rowData.size_id = '';
+                            rowData.size_label = val;
+                        }
                     } else if (field === 'size_celana_id') {
-                        const needle = val.toLowerCase();
-                        const matched = safeSizes.find(
+                        const needle = val.toLowerCase().trim();
+                        const matches = safeSizes.filter(
                             (s) =>
                                 s.ukuran?.toLowerCase() === needle ||
-                                `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle
+                                `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle ||
+                                `${s.kategori_size}-${s.ukuran}`.toLowerCase() === needle
                         );
-                        rowData.size_celana_id = matched?.id ?? '';
-                        rowData.size_celana_label = matched ? `${matched.kategori_size} - ${matched.ukuran}` : val;
+                        if (matches.length > 0) {
+                            const priority = ['LAKI-LAKI', 'UNISEX', 'PEREMPUAN', 'ANAK', 'CUSTOM'];
+                            matches.sort((a, b) => {
+                                let indexA = priority.indexOf(a.kategori_size?.toUpperCase());
+                                let indexB = priority.indexOf(b.kategori_size?.toUpperCase());
+                                if (indexA === -1) indexA = 999;
+                                if (indexB === -1) indexB = 999;
+                                return indexA - indexB;
+                            });
+                            const matched = matches[0];
+                            rowData.size_celana_id = matched.id;
+                            rowData.size_celana_label = `${matched.kategori_size} - ${matched.ukuran}`;
+                        } else {
+                            rowData.size_celana_id = '';
+                            rowData.size_celana_label = val;
+                        }
                     } else {
                         rowData[field] = val;
                     }
@@ -1056,60 +1086,8 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
     );
 }
 
-function PaymentRow({ index, payment, banks, onChange, onRemove }) {
-    return (
-        <div className="grid grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-12 shadow-sm">
-            <div className="sm:col-span-2">
-                <FieldLabel>Tipe</FieldLabel>
-                <Select value={payment.payment_type} onValueChange={(v) => onChange(index, { ...payment, payment_type: v })}>
-                    <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="dp">DP</SelectItem>
-                        <SelectItem value="pelunasan">Pelunasan</SelectItem>
-                        <SelectItem value="ongkir">Ongkir</SelectItem>
-                        <SelectItem value="cashback">Cashback</SelectItem>
-                        <SelectItem value="tambahan_produk">Tambahan Produk</SelectItem>
-                        <SelectItem value="return">Return</SelectItem>
-                        <SelectItem value="lainnya">Lainnya</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className="sm:col-span-3">
-                <FieldLabel>Nominal</FieldLabel>
-                <Input type="number" min={0} value={payment.amount === 0 ? '' : payment.amount} onChange={(e) => onChange(index, { ...payment, amount: e.target.value === '' ? 0 : Number(e.target.value) })} className="mt-1 h-8 text-xs font-mono font-bold" />
-            </div>
-            <div className="sm:col-span-2">
-                <FieldLabel>Tanggal</FieldLabel>
-                <Input type="date" value={payment.payment_date} onChange={(e) => onChange(index, { ...payment, payment_date: e.target.value })} className="mt-1 h-8 text-xs" />
-            </div>
-            <div className="sm:col-span-3">
-                <FieldLabel>Bank</FieldLabel>
-                <Select value={payment.bank_id || NONE} onValueChange={(v) => onChange(index, { ...payment, bank_id: v === NONE ? '' : v })}>
-                    <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value={NONE}>— Tidak diset —</SelectItem>
-                        {banks.map((b) => (<SelectItem key={b.id} value={b.id}>{b.bank} {b.nomor_rekening}</SelectItem>))}
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className="sm:col-span-2 flex items-end justify-end">
-                <button
-                    type="button"
-                    onClick={() => onRemove(index)}
-                    className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded p-1.5 transition"
-                >
-                    <Trash2 className="h-4 w-4" />
-                </button>
-            </div>
-            <div className="sm:col-span-12">
-                <FieldLabel>Catatan</FieldLabel>
-                <Input value={payment.notes} onChange={(e) => onChange(index, { ...payment, notes: e.target.value })} className="mt-1 h-8 text-xs" />
-            </div>
-        </div>
-    );
-}
 
-export default function OrderForm({ mode, masters, order, reseller_branches = [], is_reseller_hub = false }) {
+export default function OrderForm({ mode, masters, order, current_brand_id, reseller_branches = [], is_reseller_hub = false }) {
     const isEdit = mode === 'edit';
     const [showSummaryDropdown, setShowSummaryDropdown] = useState(false);
 
@@ -1122,23 +1100,86 @@ export default function OrderForm({ mode, masters, order, reseller_branches = []
         sumber_order_id: order?.sumber_order_id ?? '',
         paket_order_id: order?.paket_order_id ?? '',
         pelanggan_id: order?.pelanggan_id ?? '',
-        branch_brand_id: '',
+        branch_brand_id: order?.branch_brand_id ?? '',
+        bank_id: order?.bank_id ?? '',
         printing_ids: order?.printing_ids ?? [],
         iklan_id: order?.iklan_id ?? '',
         catatan: order?.catatan ?? '',
         items: (order?.items ?? []).map((i) => ({
             ...newItem(),
-            ...i,
-            namesets: i.namesets ?? [],
-        })),
-        payments: (order?.payments ?? []).map((p) => ({
-            payment_type: p.payment_type,
-            amount: Number(p.amount),
-            payment_date: p.payment_date?.slice?.(0, 10) ?? '',
-            bank_id: p.bank_id ?? '',
-            notes: p.notes ?? '',
+            product_id: i.product_id ?? '',
+            jenis_produk_id: i.jenis_produk_id ?? '',
+            nama_produk: i.nama_produk ?? '',
+            varian_label: i.varian_label ?? '',
+            quantity: Number(i.quantity) || 1,
+            harga_satuan: Number(i.harga_satuan) || 0,
+            is_addon: i.is_addon ?? false,
+            jenis_setelan_id: i.jenis_setelan_id ?? '',
+            pola_produksi_id: i.pola_produksi_id ?? '',
+            bahan_kain_id: i.bahan_kain_id ?? '',
+            bahan_kain_ids: i.bahan_kain_ids ?? [],
+            bahan_kain_bawahan_id: i.bahan_kain_bawahan_id ?? '',
+            bahan_kain_bawahan_ids: i.bahan_kain_bawahan_ids ?? [],
+            jenis_setelan: i.jenis_setelan ?? '',
+            pola: i.pola ?? '',
+            logo_id: i.logo_id ?? '',
+            logo_ids: i.logo_ids ?? [],
+            resleting_id: i.resleting_id ?? '',
+            jenis_rib: i.jenis_rib ?? '',
+            tutup_kerah: i.tutup_kerah ?? '',
+            list_kerah: i.list_kerah ?? '',
+            list_lengan: i.list_lengan ?? '',
+            list_samping_celana: i.list_samping_celana ?? '',
+            list_bawah_celana: i.list_bawah_celana ?? '',
+            pola_jahitan_lengan_id: i.pola_jahitan_lengan_id ?? '',
+            pola_jahitan_id: i.pola_jahitan_id ?? '',
+            jahitan_list_lengan: i.jahitan_list_lengan ?? '',
+            warna: i.warna ?? '',
+            jml_atasan: i.jml_atasan ?? '',
+            jml_bawahan: i.jml_bawahan ?? '',
+            jenis_kerah: i.jenis_kerah ?? '',
+            catatan: i.catatan ?? '',
+            gambar_desain: i.gambar_desain ?? '',
+            ket_atasan: i.ket_atasan ?? '',
+            ket_bawahan: i.ket_bawahan ?? '',
+            gambar_kerah: i.gambar_kerah ?? '',
+            gambar_ket_tambahan: i.gambar_ket_tambahan ?? '',
+            acc: i.acc ?? '',
+            namesets: (i.namesets ?? []).map((ns) => ({
+                id: ns.id ?? undefined,
+                nama_punggung: ns.nama_punggung ?? '',
+                nomor_punggung: ns.nomor_punggung ?? '',
+                nama_dada: ns.nama_dada ?? '',
+                nomor_dada: ns.nomor_dada ?? '',
+                nama_lengan: ns.nama_lengan ?? '',
+                nomor_lengan: ns.nomor_lengan ?? '',
+                nomor_punggung_2: ns.nomor_punggung_2 ?? '',
+                nama_punggung_2: ns.nama_punggung_2 ?? '',
+                size_id: ns.size_id ?? '',
+                size_celana_id: ns.size_celana_id ?? '',
+                keterangan: ns.keterangan ?? '',
+            })),
         })),
     });
+
+    const filteredBanks = useMemo(() => {
+        if (!masters.banks) return [];
+        const activeId = data.branch_brand_id || current_brand_id;
+        const brandBanks = masters.banks.filter(b => b.brand_id === activeId);
+        if (brandBanks.length > 0) {
+            return brandBanks;
+        }
+        return masters.banks;
+    }, [masters.banks, data.branch_brand_id, current_brand_id]);
+
+    useEffect(() => {
+        if (data.bank_id && filteredBanks.length > 0) {
+            const exists = filteredBanks.some(b => b.id === data.bank_id);
+            if (!exists) {
+                setData('bank_id', '');
+            }
+        }
+    }, [filteredBanks]);
 
     function patchItem(index, next) {
         const items = [...data.items];
@@ -1196,13 +1237,7 @@ export default function OrderForm({ mode, masters, order, reseller_branches = []
         setData('items', nextItems);
     }
 
-    function patchPayment(index, next) {
-        const ps = [...data.payments];
-        ps[index] = next;
-        setData('payments', ps);
-    }
-    function addPayment() { setData('payments', [...data.payments, newPayment()]); }
-    function removePayment(i) { setData('payments', data.payments.filter((_, idx) => idx !== i)); }
+
 
     function submit(e) {
         e.preventDefault();
@@ -1406,6 +1441,17 @@ export default function OrderForm({ mode, masters, order, reseller_branches = []
                                     />
                                     {errors.pelanggan_id && <p className="mt-1 text-xs text-red-500">{errors.pelanggan_id}</p>}
                                 </div>
+
+                                <div className="flex flex-col col-span-2">
+                                    <FieldLabel>Target Rekening Pembayaran <span className="text-red-500">*</span></FieldLabel>
+                                    <SearchableSelect
+                                        value={data.bank_id}
+                                        onValueChange={(v) => setData('bank_id', v)}
+                                        options={filteredBanks.map((b) => ({ value: b.id, label: `${b.bank} — ${b.nomor_rekening} (${b.atas_nama})` }))}
+                                        placeholder="Pilih rekening target untuk invoice"
+                                    />
+                                    {errors.bank_id && <p className="mt-1 text-xs text-red-500">{errors.bank_id}</p>}
+                                </div>
                                 {/* Selector Brand Reseller: tampil ketika admin_reseller punya multiple brands */}
                                 {is_reseller_hub && !isEdit && reseller_branches.length > 0 && (
                                     <div className="flex flex-col col-span-2">
@@ -1527,6 +1573,7 @@ export default function OrderForm({ mode, masters, order, reseller_branches = []
                                 </div>
                             )}
                         </div>
+
 
                         {/* Section: Produk */}
                         <div>

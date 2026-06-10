@@ -166,6 +166,7 @@ class OrderController extends Controller
             'mode'    => 'create',
             'masters' => $this->mastersForForm($masterBrandId, $brandId),
             'order'   => null,
+            'current_brand_id' => $brandId,
             // Untuk admin_reseller: kirim brand lain yang mereka kelola sebagai opsi di form
             'reseller_branches' => $user->hasRole('admin_reseller')
                 ? $this->resolveResellerBrandsForForm($user, $brandId)
@@ -185,6 +186,7 @@ class OrderController extends Controller
         }
 
         $order->load(['items.namesets', 'items.polaJahitan', 'items.polaJahitanLengan', 'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'payments.bank']);
+        $order->bank_id = $order->invoices()->first()?->bank_id;
 
         $orderBrand = Brand::find($order->brand_id);
         $masterBrandId = $orderBrand?->isResellerBranch() && $orderBrand->parent_brand_id
@@ -195,6 +197,7 @@ class OrderController extends Controller
             'mode' => 'edit',
             'masters' => $this->mastersForForm($masterBrandId, $order->brand_id),
             'order' => $order,
+            'current_brand_id' => $order->brand_id,
             'reseller_branches' => [],
             'is_reseller_hub' => false,
         ]);
@@ -247,12 +250,11 @@ class OrderController extends Controller
             ]);
 
             $this->syncItems($order, $data['items'] ?? []);
-            $this->syncPayments($order, $data['payments'] ?? [], $user->id);
             $order->update(['total_tagihan' => $order->items()->sum('subtotal')]);
 
             $order->load('items');
             $totalTagihan = (float) $order->total_tagihan;
-            $dp = (float) $order->payments()->where('payment_type', 'dp')->sum('amount');
+            $dp = 0;
 
             $invoice = Invoice::create([
                 'brand_id'        => $order->brand_id,
@@ -262,6 +264,7 @@ class OrderController extends Controller
                 'jatuh_tempo'     => now()->addDays(14)->toDateString(),
                 'status'          => 'draft',
                 'total_tagihan'   => $totalTagihan,
+                'bank_id'         => $data['bank_id'],
                 'dp_amount'       => $dp,
                 'sisa_pembayaran' => max(0, $totalTagihan - $dp),
                 'created_by'      => $user->id,
@@ -345,6 +348,7 @@ class OrderController extends Controller
                     'total_bayar' => $totalPaid,
                     'sisa_pembayaran' => $newSisa,
                     'status' => $newSisa <= 0 ? 'paid' : $invoice->status,
+                    'bank_id' => $data['bank_id'],
                 ]);
             }
         });
@@ -421,10 +425,11 @@ class OrderController extends Controller
                 'edit' => $request->user()->can('order.update') && ($order->isDraft() || ! $order->isLocked()),
                 'delete' => $request->user()->can('order.delete') && $order->isDraft(),
                 'publish' => $request->user()->can('order.publish') && $order->isDraft(),
-                'unlock' => $request->user()->isSuperadmin() || $request->user()->hasRole(['owner', 'admin_brand', 'admin_reseller']),
+                'unlock' => $request->user()->can('order.unlock'),
                 'bypass_dp' => $request->user()->hasRole('superadmin') || $request->user()->hasRole('owner') || $request->user()->hasRole('admin_keuangan'),
                 'repeat' => $request->user()->can('order.create') && ! $order->isDraft(),
                 'manage_invoice' => $request->user()->can('finance.manage-invoice'),
+                'delete_payment' => $request->user()->can('finance.manage-invoice') && !$request->user()->hasRole('admin_brand'),
                 'add_payment' => ! $request->user()->hasRole('admin_produksi'),
                 'edit_timeline' => $request->user()->hasRole('admin_produksi'),
                 'mark_lunas' => $request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan'),
@@ -523,12 +528,17 @@ class OrderController extends Controller
         $this->guardBrandOwnership($request, $order);
         abort_unless($order->isDraft(), 422, 'Hanya PO draft yang bisa dihapus.');
 
+        if ($order->payments()->exists()) {
+            return back()->with('error', 'PO draft yang sudah memiliki transaksi pembayaran tidak dapat dihapus. Anda harus menyelesaikan transaksi pembayaran tersebut (misalnya, dengan menghapus pembayaran jika belum diverifikasi, atau memproses pengembalian dana/refund jika pembayaran sudah diverifikasi).');
+        }
+
         $order->delete();
         return redirect()->route('orders.index')->with('success', 'PO draft berhasil dihapus.');
     }
 
     public function unlock(Request $request, Order $order)
     {
+        abort_unless($request->user()->can('order.unlock'), 403, 'Anda tidak memiliki hak untuk meng-unlock PO.');
         $this->guardBrandOwnership($request, $order);
         abort_if($order->isDraft(), 422);
 
@@ -544,6 +554,7 @@ class OrderController extends Controller
 
     public function relock(Request $request, Order $order)
     {
+        abort_unless($request->user()->can('order.unlock'), 403, 'Anda tidak memiliki hak untuk me-relock PO.');
         $this->guardBrandOwnership($request, $order);
         $this->statusManager->relock($order, $request->user());
         return back()->with('success', 'PO kembali ter-lock.');
@@ -657,6 +668,7 @@ class OrderController extends Controller
                 }
             }
             $item['_resleting']    = !empty($item['resleting_id'])    ? Resleting::find($item['resleting_id'])?->nama    : null;
+            $item['_printing']     = !empty($item['printing_id'])     ? Printing::find($item['printing_id'])?->nama     : null;
             $item['_pola_jahitan'] = !empty($item['pola_jahitan_id']) ? PolaJahitan::find($item['pola_jahitan_id']) : null;
             $item['_pola_jahitan_lengan'] = !empty($item['pola_jahitan_lengan_id']) ? PolaJahitan::find($item['pola_jahitan_lengan_id']) : null;
             $item['_jenis_setelan']  = !empty($item['jenis_setelan_id'])  ? \App\Models\Master\JenisSetelan::find($item['jenis_setelan_id'])?->nama  : ($item['jenis_setelan'] ?? null);
@@ -696,7 +708,7 @@ class OrderController extends Controller
 
         $order->load([
             'brand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
-            'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'items.resleting',
+            'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'items.resleting', 'items.printing',
             'items.polaJahitan', 'items.polaJahitanLengan',
             'items.jenisSetelan', 'items.polaProduksi',
             'items.namesets.size', 'items.namesets.sizeCelana',
@@ -766,6 +778,18 @@ class OrderController extends Controller
             $w->where('brand_id', $masterBrandId)->orWhereNull('brand_id');
         });
 
+        $user = auth()->user();
+        $userBrandIds = ($user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])))
+            ? null
+            : ($user ? $user->brands()->pluck('brands.id')->toArray() : []);
+
+        $banksQuery = BankAccount::active();
+        if ($userBrandIds !== null) {
+            $allRelevantBrandIds = array_unique(array_merge($userBrandIds, [$masterBrandId, $currentBrandId]));
+            $banksQuery->whereIn('brand_id', $allRelevantBrandIds);
+        }
+        $banks = $banksQuery->orderBy('bank')->get(['id', 'bank', 'atas_nama', 'nomor_rekening', 'brand_id']);
+
         return [
             'kategori_orders' => KategoriOrder::active()->where($masterQ)->orderBy('nama')->get(['id', 'nama']),
             'jenis_orders' => JenisOrder::active()->where($masterQ)->orderBy('nama')->get(['id', 'nama']),
@@ -793,7 +817,8 @@ class OrderController extends Controller
                 ->where('jenis_pola', 'like', '%Lengan%')
                 ->orderBy('nama')->get(['id', 'jenis_pola', 'nama']),
             'sizes' => Size::active()->orderBy('kategori_size')->orderBy('urutan')->get(['id', 'kategori_size', 'ukuran']),
-            'banks' => BankAccount::active()->where('brand_id', $masterBrandId)->orderBy('bank')->get(['id', 'bank', 'atas_nama', 'nomor_rekening']),
+            'banks' => $banks,
+            'jenis_pembayarans' => \App\Models\Finance\MasterJenisPembayaran::active()->orderBy('nama')->get(['id', 'nama']),
         ];
     }
 
@@ -874,12 +899,7 @@ class OrderController extends Controller
             'items.*.namesets.*.size_celana_id' => ['nullable', 'uuid'],
             'items.*.namesets.*.size_celana_label' => ['nullable', 'string', 'max:50'],
             'items.*.namesets.*.keterangan' => ['nullable', 'string'],
-            'payments' => ['nullable', 'array'],
-            'payments.*.master_jenis_pembayaran_id' => ['required', 'uuid', 'exists:master_jenis_pembayarans,id'],
-            'payments.*.amount' => ['required', 'numeric', 'min:0'],
-            'payments.*.payment_date' => ['required', 'date'],
-            'payments.*.bank_id' => ['nullable', 'uuid'],
-            'payments.*.notes' => ['nullable', 'string'],
+            'bank_id' => ['required', 'uuid', 'exists:bank_accounts,id'],
         ]);
     }
 

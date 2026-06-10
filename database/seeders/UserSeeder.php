@@ -153,5 +153,23 @@ class UserSeeder extends Seeder
             $brandCrl->id => ['is_default' => false, 'assigned_at' => now(), 'assigned_by' => $super->id],
             $brandDrv->id => ['is_default' => false, 'assigned_at' => now(), 'assigned_by' => $super->id],
         ]);
+
+        // Supervisor (Akses multi-brand untuk audit/unlock PO)
+        $supervisor = User::updateOrCreate(
+            ['email' => 'supervisor@nisreport.local'],
+            [
+                'name' => 'Supervisor Utama',
+                'password' => Hash::make('password'),
+                'phone' => '081999999999',
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ]
+        );
+        $supervisor->syncRoles(['supervisor']);
+        $supervisor->brands()->syncWithoutDetaching([
+            $brandAlg->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
+            $brandCrl->id => ['is_default' => false, 'assigned_at' => now(), 'assigned_by' => $super->id],
+            $brandDrv->id => ['is_default' => false, 'assigned_at' => now(), 'assigned_by' => $super->id],
+        ]);
     }
 }

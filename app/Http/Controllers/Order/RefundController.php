@@ -20,10 +20,14 @@ class RefundController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $selectedBrandId = $request->input('brand_id', 'all');
+        $selectedBrandId = $request->input('brand_id');
+        if (is_null($selectedBrandId)) {
+            $selectedBrandId = BrandContext::current($request) ?? 'all';
+        }
 
         // Brand authorization — validate selected brand is accessible
-        $accessibleBrandIds = $user->isSuperadmin() || $user->hasRole('owner')
+        $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan']);
+        $accessibleBrandIds = $isAllBrandsRole
             ? null // null = no restriction
             : $user->brands()->pluck('brands.id')->toArray();
 
@@ -71,7 +75,8 @@ class RefundController extends Controller
 
         $refunds = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
 
-        $brands = $user->isSuperadmin()
+        $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan']);
+        $brands = $isAllBrandsRole
             ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
             : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);
 

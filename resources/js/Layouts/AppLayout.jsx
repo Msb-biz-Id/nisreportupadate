@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Toaster, toast } from 'sonner';
 import axios from 'axios';
 import {
@@ -111,6 +111,9 @@ function buildMenu(user) {
     }
     if (hasPermission(user, 'user.view')) {
         adminItems.push({ name: 'User', href: route('users.index'), icon: Users, active: route().current('users.*') });
+    }
+    if (hasPermission(user, 'user.assign-role')) {
+        adminItems.push({ name: 'Role & Izin', href: route('roles.index'), icon: ShieldCheck, active: route().current('roles.*') });
     }
     if (adminItems.length) sections.push({ title: 'Administrasi', items: adminItems });
 
@@ -331,6 +334,16 @@ function buildMenu(user) {
 function NavItem({ item, onNavigate }) {
     const Icon = item.icon;
     const [open, setOpen] = useState(item.defaultOpen ?? false);
+    const itemRef = useRef(null);
+
+    useEffect(() => {
+        if (item.active && itemRef.current) {
+            const timer = setTimeout(() => {
+                itemRef.current.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [item.active]);
 
     if (item.children?.length) {
         const childActive = item.children.some((c) => c.active);
@@ -381,7 +394,7 @@ function NavItem({ item, onNavigate }) {
     if (item.soon) return <div>{content}</div>;
 
     return (
-        <Link href={item.href} onClick={() => onNavigate?.()} className="block">
+        <Link ref={itemRef} href={item.href} onClick={() => onNavigate?.()} className="block">
             {content}
         </Link>
     );
@@ -390,6 +403,20 @@ function NavItem({ item, onNavigate }) {
 function SidebarContent({ user, brandContext, onNavigate }) {
     const sections = buildMenu(user);
     const current = brandContext?.current;
+    const navRef = useRef(null);
+
+    useEffect(() => {
+        const savedScroll = sessionStorage.getItem('sidebar-scroll-position');
+        if (savedScroll && navRef.current) {
+            // Restore scroll position
+            navRef.current.scrollTop = parseInt(savedScroll, 10);
+        }
+    }, []);
+
+    const handleScroll = (e) => {
+        // Save scroll position
+        sessionStorage.setItem('sidebar-scroll-position', e.currentTarget.scrollTop);
+    };
 
     return (
         <div className="flex h-full flex-col">
@@ -407,7 +434,11 @@ function SidebarContent({ user, brandContext, onNavigate }) {
                 <BrandSwitcher brandContext={brandContext} userRoles={user?.roles} />
             )}
 
-            <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4 scrollbar-thin">
+            <nav 
+                ref={navRef}
+                onScroll={handleScroll}
+                className="flex-1 space-y-6 overflow-y-auto px-3 py-4 scrollbar-thin"
+            >
                 {sections.map((section) => (
                     <div key={section.title}>
                         <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">

@@ -195,12 +195,13 @@ class UserController extends Controller
 
     private function rolesForUser(User $user): array
     {
+        $roles = \Spatie\Permission\Models\Role::pluck('name')->toArray();
         if ($user->isSuperadmin()) {
-            return RolePermissionSeeder::ROLES;
+            return $roles;
         }
         // Non-superadmin tidak bisa membuat user dengan role superadmin
         return array_values(array_filter(
-            RolePermissionSeeder::ROLES,
+            $roles,
             fn ($r) => $r !== 'superadmin'
         ));
     }

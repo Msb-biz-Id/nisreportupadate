@@ -126,6 +126,13 @@ class POStatusManager
         $lock = $order->lockStatus;
         if ($lock) {
             $lock->update(['is_locked' => false]);
+        } else {
+            POLockStatus::create([
+                'order_id' => $order->id,
+                'is_locked' => false,
+                'locked_at' => now(),
+                'locked_by' => $user->id,
+            ]);
         }
     }
 

@@ -52,7 +52,7 @@ class ProductionTest extends TestCase
         $produksi = $this->makeUser('admin_produksi', [$brand]);
         $detail = $order->progressDetails->first();
 
-        $this->assertFalse($order->isLocked());
+        $this->assertTrue($order->isLocked());
 
         $this->actingAsWithBrand($produksi, $brand)
             ->put(route('produksi.progress.update', ['order' => $order->id, 'detail' => $detail->id]), [
@@ -62,7 +62,7 @@ class ProductionTest extends TestCase
             ->assertRedirect();
 
         $order = $order->fresh(['lockStatus']);
-        $this->assertTrue($order->isLocked(), 'PO should be auto-locked when first stage on_progress');
+        $this->assertTrue($order->isLocked(), 'PO should be locked');
         $this->assertEquals('on_progress', $order->status_po);
     }
 

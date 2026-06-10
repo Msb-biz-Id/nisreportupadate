@@ -40,11 +40,11 @@ class DashboardController extends Controller
             // null = tanpa filter brand → tampilkan semua
             'admin_produksi' => [
                 'view' => 'AdminProduksi',
-                'stats' => $this->service->adminProduksiStats(null),
+                'stats' => $this->service->adminProduksiStats($brandId),
             ],
             'admin_keuangan' => [
                 'view' => 'Finance',
-                'stats' => $this->service->financeStats(null),
+                'stats' => $this->service->financeStats($brandId),
             ],
             'admin_brand' => [
                 'view' => 'AdminBrand',

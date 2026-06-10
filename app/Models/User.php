@@ -72,7 +72,7 @@ class User extends Authenticatable
 
     public function hasAccessToBrand(string $brandId): bool
     {
-        if ($this->isSuperadmin()) {
+        if ($this->isSuperadmin() || $this->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])) {
             return true;
         }
         return $this->brands()->where('brands.id', $brandId)->exists();

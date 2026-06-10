@@ -16,6 +16,7 @@ class RolePermissionSeeder extends Seeder
         'admin_reseller',
         'admin_produksi',
         'admin_keuangan',
+        'supervisor',
     ];
 
     public function run(): void
@@ -30,7 +31,7 @@ class RolePermissionSeeder extends Seeder
             'dashboard.view-global',
             'dashboard.view-brand',
             'master.manage', 'master.brand', 'master.produk', 'master.production',
-            'order.view', 'order.create', 'order.update', 'order.delete', 'order.publish', 'order.refund',
+            'order.view', 'order.create', 'order.update', 'order.delete', 'order.publish', 'order.refund', 'order.unlock',
             'production.update-progress', 'production.add-reject',
             'finance.view', 'finance.manage-invoice', 'finance.manage-refund',
             'finance.manage-pemasukan', 'finance.manage-pengeluaran',
@@ -62,7 +63,7 @@ class RolePermissionSeeder extends Seeder
             ],
             'admin_brand' => [
                 'master.brand', 'master.produk',
-                'order.view', 'order.create', 'order.update', 'order.publish', 'order.refund',
+                'order.view', 'order.create', 'order.update', 'order.delete', 'order.publish', 'order.refund',
                 'finance.manage-invoice',
                 'report.view', 'report.export',
                 'settings.notification',
@@ -94,6 +95,13 @@ class RolePermissionSeeder extends Seeder
                 'finance.manage-pemasukan', 'finance.manage-pengeluaran',
                 'report.view', 'report.export',
                 'dashboard.view-brand',
+            ],
+            'supervisor' => [
+                'order.view',
+                'order.unlock',
+                'audit.view',
+                'dashboard.view-brand',
+                'report.view',
             ],
         ];
 

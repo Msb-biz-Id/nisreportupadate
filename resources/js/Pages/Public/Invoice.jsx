@@ -330,17 +330,15 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                         </div>
                                     </div>
                                 )}
-                                {invoice.bank && (
-                                    <div className="space-y-2 p-4 bg-amber-50/75 rounded-2xl border border-amber-100 shadow-sm text-amber-800 text-[11px] leading-relaxed">
-                                        <div className="flex items-center gap-1.5 font-bold text-amber-900">
-                                            <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                                            ⚠️ Himbauan Keamanan Pembayaran
-                                        </div>
-                                        <p>
-                                            Mohon <strong>TIDAK MELAKUKAN</strong> scan barcode/QR atau transfer ke rekening mana pun selain rekening resmi atas nama <strong>{invoice.bank.atas_nama}</strong> yang tertera di atas. Jangan percayai pihak lain yang menghubungi Anda atas nama brand kami selain kontak resmi yang tercantum pada identitas brand di invoice ini.
-                                        </p>
+                                <div className="space-y-2 p-4 bg-amber-50/75 rounded-2xl border border-amber-100 shadow-sm text-amber-800 text-[11px] leading-relaxed">
+                                    <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                                        <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                                        ⚠️ Himbauan Keamanan Pembayaran
                                     </div>
-                                )}
+                                    <p>
+                                        Demi keamanan transaksi, mohon <strong>TIDAK MELAKUKAN</strong> scan barcode/QR atau melakukan transfer ke rekening mana pun selain rekening resmi atas nama {invoice.bank ? <strong>{invoice.bank.atas_nama}</strong> : <strong>{brand.nama_brand}</strong>}. Jangan pernah mengirimkan dana ke rekening perorangan/sales/rekening lain di luar informasi resmi yang tertera. Selalu konfirmasi transaksi melalui kontak resmi brand kami.
+                                    </p>
+                                </div>
                             </div>
 
                             <div className="w-full md:max-w-sm space-y-2.5 text-slate-700">

@@ -262,25 +262,28 @@
         </table>
     </div>
 
-    @if (!empty($invoice->bank))
-        <div class="qr-section">
-            <div>
+    <div class="qr-section">
+        <div>
+            @if (!empty($invoice->bank))
                 <div class="info-label">Transfer ke</div>
                 <strong>{{ $invoice->bank->bank ?? '' }}</strong><br>
                 {{ $invoice->bank->atas_nama ?? '' }}<br>
                 <span style="font-family: monospace; font-size: 11pt;">{{ $invoice->bank->nomor_rekening ?? '' }}</span>
-            </div>
-            @if (!empty($qrCodeData))
-                <div style="text-align: right;">
-                    <img class="qr-image" src="{{ $qrCodeData }}" alt="QR Code">
-                    <div style="font-size: 7pt; color: #6B7280; margin-top: 4px;">Scan untuk tracking</div>
-                </div>
+            @else
+                <div class="info-label">Transfer ke</div>
+                <strong style="color: #DC2626;">Hubungi Admin Resmi untuk Rekening Pembayaran</strong>
             @endif
         </div>
-        <div style="margin-top: 8px; padding: 8px; border: 1px dashed #D97706; background-color: #FEF3C7; border-radius: 4px; color: #92400E; font-size: 8pt; line-height: 1.3;">
-            <strong>⚠️ Himbauan Keamanan Pembayaran:</strong> Mohon <strong>TIDAK MELAKUKAN</strong> scan barcode/QR atau transfer ke rekening mana pun selain rekening resmi atas nama <strong>{{ $invoice->bank->atas_nama }}</strong> di atas. Jangan percayai pihak lain yang menghubungi Anda atas nama brand kami selain kontak resmi yang tercantum pada identitas brand di invoice ini.
-        </div>
-    @endif
+        @if (!empty($qrCodeData))
+            <div style="text-align: right;">
+                <img class="qr-image" src="{{ $qrCodeData }}" alt="QR Code">
+                <div style="font-size: 7pt; color: #6B7280; margin-top: 4px;">Scan untuk tracking</div>
+            </div>
+        @endif
+    </div>
+    <div style="margin-top: 8px; padding: 8px; border: 1px dashed #D97706; background-color: #FEF3C7; border-radius: 4px; color: #92400E; font-size: 8pt; line-height: 1.3;">
+        <strong>⚠️ Himbauan Keamanan Pembayaran:</strong> Demi keamanan transaksi, mohon <strong>TIDAK MELAKUKAN</strong> scan barcode/QR atau melakukan transfer ke rekening mana pun selain rekening resmi atas nama <strong>{{ $invoice->bank ? $invoice->bank->atas_nama : ($invoice->brand ? $invoice->brand->nama_brand : 'brand kami') }}</strong>. Jangan pernah mengirimkan dana ke rekening perorangan/sales/rekening lain di luar informasi resmi yang tertera. Selalu konfirmasi transaksi melalui kontak resmi brand kami.
+    </div>
 
     <div class="footer">
         <strong>Terima kasih atas kepercayaan Anda!</strong>

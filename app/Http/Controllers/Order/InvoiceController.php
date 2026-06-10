@@ -36,6 +36,13 @@ class InvoiceController extends Controller
         }
 
         $invoice->load(['brand', 'bank', 'items', 'order.pelanggan']);
+        if (!$invoice->bank_id) {
+            $defaultBank = \App\Models\Master\BankAccount::active()->where('brand_id', $invoice->brand_id)->first();
+            if ($defaultBank) {
+                $invoice->setRelation('bank', $defaultBank);
+                $invoice->bank_id = $defaultBank->id;
+            }
+        }
         $trackingUrl = url('/track/' . ($invoice->order?->no_po ?? ''));
         $qrCodeData = $this->qrCodeDataUri($trackingUrl);
         $logoData = $this->logoDataUri($invoice->brand?->logo);
@@ -75,6 +82,14 @@ class InvoiceController extends Controller
         $invoice = $query->with(['brand', 'bank', 'items', 'order.pelanggan', 'order.payments.bank', 'order.progressDetails.progress'])
             ->firstOrFail();
 
+        if (!$invoice->bank_id) {
+            $defaultBank = \App\Models\Master\BankAccount::active()->where('brand_id', $invoice->brand_id)->first();
+            if ($defaultBank) {
+                $invoice->setRelation('bank', $defaultBank);
+                $invoice->bank_id = $defaultBank->id;
+            }
+        }
+
         if ($user && !$user->isSuperadmin() && !$user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])) {
             $userBrandIds = $user->brands()->pluck('brands.id')->toArray();
             abort_unless(in_array($invoice->brand_id, $userBrandIds), 403, 'Unauthorized brand context.');
@@ -112,6 +127,14 @@ class InvoiceController extends Controller
 
         $invoice = $query->with(['brand', 'bank', 'items', 'order.pelanggan'])
             ->firstOrFail();
+
+        if (!$invoice->bank_id) {
+            $defaultBank = \App\Models\Master\BankAccount::active()->where('brand_id', $invoice->brand_id)->first();
+            if ($defaultBank) {
+                $invoice->setRelation('bank', $defaultBank);
+                $invoice->bank_id = $defaultBank->id;
+            }
+        }
 
         if ($user && !$user->isSuperadmin() && !$user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])) {
             $userBrandIds = $user->brands()->pluck('brands.id')->toArray();
@@ -170,7 +193,10 @@ class InvoiceController extends Controller
             abort(403);
         }
 
-        $selectedBrandId = $request->input('brand_id', 'all');
+        $selectedBrandId = $request->input('brand_id');
+        if (is_null($selectedBrandId)) {
+            $selectedBrandId = BrandContext::current($request) ?? 'all';
+        }
 
         // admin_keuangan & admin_produksi = lintas-brand (lihat semua brand + reseller)
         $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
@@ -264,7 +290,10 @@ class InvoiceController extends Controller
             abort(403);
         }
 
-        $selectedBrandId = $request->input('brand_id', 'all');
+        $selectedBrandId = $request->input('brand_id');
+        if (is_null($selectedBrandId)) {
+            $selectedBrandId = BrandContext::current($request) ?? 'all';
+        }
 
         $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
 
@@ -373,7 +402,10 @@ class InvoiceController extends Controller
             abort(403);
         }
 
-        $selectedBrandId = $request->input('brand_id', 'all');
+        $selectedBrandId = $request->input('brand_id');
+        if (is_null($selectedBrandId)) {
+            $selectedBrandId = BrandContext::current($request) ?? 'all';
+        }
 
         $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
 
@@ -470,6 +502,7 @@ class InvoiceController extends Controller
                 'status' => 'draft',
                 'total_tagihan' => $totalTagihan,
                 'total_bayar' => $totalPaid,
+                'bank_id' => \App\Models\Master\BankAccount::active()->where('brand_id', $order->brand_id)->first()?->id,
                 // dp_amount = total verified payments at invoice creation (supports both old payment_type and new master_jenis_pembayaran)
                 'dp_amount' => $totalPaid,
                 'sisa_pembayaran' => $order->sisaTagihan(),
@@ -689,6 +722,10 @@ class InvoiceController extends Controller
     public function destroyPayment(Request $request, OrderPayment $payment)
     {
         Gate::authorize('finance.manage-invoice');
+
+        if ($request->user()->hasRole('admin_brand')) {
+            abort(403, 'Hanya Admin Keuangan yang dapat menghapus data pembayaran.');
+        }
 
         $order        = $payment->order;
         $wasVerified  = $payment->verified_at !== null;

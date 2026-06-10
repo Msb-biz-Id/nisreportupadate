@@ -112,6 +112,13 @@ class RoleAccessTest extends TestCase
             'nama' => 'Test', 'nomor_hp' => '081', 'is_active' => true,
         ]);
         $user = $this->makeUser('admin_brand', [$brand]);
+        $bank = \App\Models\Master\BankAccount::create([
+            'brand_id' => $brand->id,
+            'bank' => 'BCA',
+            'atas_nama' => 'Test Acc',
+            'nomor_rekening' => '12345',
+            'is_active' => true,
+        ]);
 
         $this->actingAsWithBrand($user, $brand)
             ->post(route('orders.store'), [
@@ -119,6 +126,7 @@ class RoleAccessTest extends TestCase
                 'tanggal_masuk'     => now()->toDateString(),
                 'deadline_customer' => now()->addDays(7)->toDateString(),
                 'pelanggan_id'      => $customer->id,
+                'bank_id'           => $bank->id,
                 'items'             => [[
                     'nama_produk'  => 'Jersey',
                     'quantity'     => 5,
@@ -374,6 +382,13 @@ class RoleAccessTest extends TestCase
             'nama' => 'Customer Reseller', 'nomor_hp' => '082', 'is_active' => true,
         ]);
         $user = $this->makeUser('admin_reseller', [$hub]);
+        $bank = \App\Models\Master\BankAccount::create([
+            'brand_id' => $hub->id,
+            'bank' => 'BCA',
+            'atas_nama' => 'Test Reseller Acc',
+            'nomor_rekening' => '67890',
+            'is_active' => true,
+        ]);
 
         $this->actingAsWithBrand($user, $hub)
             ->post(route('orders.store'), [
@@ -381,6 +396,7 @@ class RoleAccessTest extends TestCase
                 'tanggal_masuk'     => now()->toDateString(),
                 'deadline_customer' => now()->addDays(7)->toDateString(),
                 'pelanggan_id'      => $customer->id,
+                'bank_id'           => $bank->id,
                 'items'             => [[
                     'nama_produk'  => 'Jersey Reseller',
                     'quantity'     => 3,
@@ -503,5 +519,24 @@ class RoleAccessTest extends TestCase
             ->assertRedirect();
 
         $this->assertDatabaseMissing('order_payments', ['id' => $payment->id]);
+    }
+
+    public function test_admin_brand_cannot_delete_payment(): void
+    {
+        ['brand' => $brand, 'order' => $order] = $this->makeBrandWithOrder();
+        $user    = $this->makeUser('admin_brand', [$brand]);
+        $payment = OrderPayment::create([
+            'order_id'     => $order->id,
+            'payment_type' => 'dp',
+            'amount'       => 100000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by'  => $user->id,
+        ]);
+
+        $this->actingAsWithBrand($user, $brand)
+            ->delete(route('invoices.payments.destroy', $payment->id))
+            ->assertStatus(403);
+
+        $this->assertDatabaseHas('order_payments', ['id' => $payment->id]);
     }
 }

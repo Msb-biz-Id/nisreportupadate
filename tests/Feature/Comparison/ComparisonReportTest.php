@@ -34,8 +34,7 @@ class ComparisonReportTest extends TestCase
             'order_items' => \App\Models\Order\OrderItem::count(),
             'all_brands' => \App\Models\Brand::all()->toArray(),
         ];
-        var_dump($res);
-        $this->fail('DUMPING DATA');
+        $this->assertIsInt($res['total_orders']);
     }
 
     public function test_owner_with_one_brand_sees_not_eligible(): void

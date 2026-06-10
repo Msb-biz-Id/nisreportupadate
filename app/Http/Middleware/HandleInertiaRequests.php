@@ -28,7 +28,7 @@ class HandleInertiaRequests extends Middleware
             $userRoles = $user->getRoleNames()->all();
             $userPermissions = $user->getAllPermissions()->pluck('name')->all();
 
-            if ($user->isSuperadmin() || $user->hasRole('owner')) {
+            if ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])) {
                 $availableBrands = Brand::orderBy('nama_brand')->get([
                     'id', 'nama_brand', 'kode', 'warna_primary', 'is_active',
                 ]);

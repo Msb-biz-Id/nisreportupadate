@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Search, Receipt, CheckCircle2, ExternalLink, Copy, Calendar,
     ShieldCheck, Clock, Banknote, AlertTriangle, Plus, Sparkles,
@@ -92,7 +92,7 @@ export default function InvoiceList({
     statuses = [], 
     can = {} 
 }) {
-    const { auth } = usePage().props;
+    const { auth, brandContext } = usePage().props;
     const user = auth?.user;
     const hasFinanceView = user?.permissions?.includes('finance.view') || user?.roles?.includes('superadmin') || user?.roles?.includes('owner') || user?.roles?.includes('admin_keuangan');
     const dashboardUrl = hasFinanceView ? route('invoices.index') : route('dashboard');
@@ -111,7 +111,8 @@ export default function InvoiceList({
     const [selectedInvoiceToValidate, setSelectedInvoiceToValidate] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const initialBrandId = brands[0]?.id || '';
+    const currentFilterBrand = filters?.brand_id && filters.brand_id !== 'all' ? filters.brand_id : '';
+    const initialBrandId = currentFilterBrand || brandContext?.current?.id || brands[0]?.id || '';
     const initialDepositBank = bank_accounts.find(b => b.brand_id === initialBrandId) || bank_accounts.find(b => !b.brand_id) || bank_accounts[0];
 
     // Validate Form State
@@ -135,6 +136,24 @@ export default function InvoiceList({
         bank_id: initialDepositBank?.id || '',
         notes: ''
     });
+
+    useEffect(() => {
+        if (showAddDeposit) {
+            const currentFilterBrand = filters?.brand_id && filters.brand_id !== 'all' ? filters.brand_id : '';
+            const activeBrandId = currentFilterBrand || brandContext?.current?.id || brands[0]?.id || '';
+            const activeBank = bank_accounts.find(b => b.brand_id === activeBrandId) || bank_accounts.find(b => !b.brand_id) || bank_accounts[0];
+            setNewDeposit(prev => ({
+                ...prev,
+                brand_id: activeBrandId,
+                bank_id: activeBank?.id || '',
+                customer_id: '',
+                customer_name: '',
+                amount: '',
+                description: '',
+                notes: ''
+            }));
+        }
+    }, [showAddDeposit, filters?.brand_id, brandContext?.current?.id]);
 
     const [search, setSearch] = useState(filters?.q ?? '');
     const [status, setStatus] = useState(filters?.status ?? 'all');

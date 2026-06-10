@@ -456,7 +456,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                         <Badge variant={p.verified_at ? 'success' : 'warning'} className="text-[9px] px-1.5 py-0 font-bold">
                                                             {p.verified_at ? '✓ VERIFIED' : '⏳ PENDING'}
                                                         </Badge>
-                                                        {can?.manage_invoice && (
+                                                        {can?.delete_payment && (
                                                             <button
                                                                 onClick={() => {
                                                                     const msg = p.verified_at

@@ -56,5 +56,11 @@ export const ROLE_LABELS = {
 };
 
 export function roleLabel(slug) {
-    return ROLE_LABELS[slug] ?? slug;
+    if (!slug) return '';
+    if (ROLE_LABELS[slug]) return ROLE_LABELS[slug];
+    return slug
+        .replace(/[_-]/g, ' ')
+        .split(' ')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
 }
