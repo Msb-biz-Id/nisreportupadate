@@ -43,7 +43,11 @@ import {
     Volume2,
     BellOff,
     Inbox,
-    CheckSquare
+    CheckSquare,
+    Download,
+    WifiOff,
+    PanelLeftClose,
+    PanelLeftOpen
 } from 'lucide-react';
 import { cn, initials, roleLabel } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/Components/ui/sheet';
@@ -112,7 +116,7 @@ function buildMenu(user) {
     if (hasPermission(user, 'user.view')) {
         adminItems.push({ name: 'User', href: route('users.index'), icon: Users, active: route().current('users.*') });
     }
-    if (hasPermission(user, 'user.assign-role')) {
+    if (user?.is_superadmin) {
         adminItems.push({ name: 'Role & Izin', href: route('roles.index'), icon: ShieldCheck, active: route().current('roles.*') });
     }
     if (adminItems.length) sections.push({ title: 'Administrasi', items: adminItems });
@@ -257,6 +261,8 @@ function buildMenu(user) {
             { slug: 'analisis-marketing', name: '🎯 Analisis Pasar' },
             { slug: 'penjualan-produk',   name: 'Penjualan & Produk' },
             { slug: 'pelanggan',          name: 'Pelanggan' },
+            { slug: 'crm-churn',          name: '🔮 Prediksi Churn & CRM' },
+            { slug: 'crm-seasonal',       name: '📅 Pengingat Order Musiman' },
             { slug: 'wilayah',            name: 'Wilayah' },
             { slug: 'kategori',           name: 'Kategori Order' },
             // Operasional
@@ -331,7 +337,7 @@ function buildMenu(user) {
     return sections;
 }
 
-function NavItem({ item, onNavigate }) {
+function NavItem({ item, onNavigate, isCollapsed }) {
     const Icon = item.icon;
     const [open, setOpen] = useState(item.defaultOpen ?? false);
     const itemRef = useRef(null);
@@ -344,6 +350,65 @@ function NavItem({ item, onNavigate }) {
             return () => clearTimeout(timer);
         }
     }, [item.active]);
+
+    if (isCollapsed) {
+        if (item.children?.length) {
+            const childActive = item.children.some((c) => c.active);
+            return (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button
+                            type="button"
+                            title={item.name}
+                            className={cn(
+                                'flex w-full items-center justify-center rounded-lg p-2 text-sm font-medium transition-colors outline-none',
+                                childActive
+                                    ? 'bg-sidebar-accent/30 text-sidebar-foreground'
+                                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground',
+                            )}
+                        >
+                            <Icon className="h-5 w-5" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="right" align="start" className="w-56 ml-2 bg-sidebar text-sidebar-foreground border-sidebar-border shadow-lg">
+                        <DropdownMenuLabel className="text-xs text-sidebar-foreground/50 uppercase tracking-wider">{item.name}</DropdownMenuLabel>
+                        <DropdownMenuSeparator className="bg-sidebar-border" />
+                        {item.children.map((c) => (
+                            <DropdownMenuItem key={c.name} asChild className="focus:bg-sidebar-accent focus:text-sidebar-foreground cursor-pointer">
+                                <Link href={c.href} onClick={() => onNavigate?.()} className={cn("flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm", c.active && "bg-sidebar-accent text-sidebar-foreground font-semibold")}>
+                                    {c.icon && <c.icon className="h-4 w-4 shrink-0" />}
+                                    <span>{c.name}</span>
+                                </Link>
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            );
+        }
+
+        const content = (
+            <span
+                title={item.name}
+                className={cn(
+                    'flex items-center justify-center rounded-lg p-2 transition-colors',
+                    item.active
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm'
+                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground',
+                    item.soon && 'cursor-not-allowed opacity-60 hover:bg-transparent hover:text-sidebar-foreground/70',
+                )}
+            >
+                <Icon className="h-5 w-5" />
+            </span>
+        );
+
+        if (item.soon) return <div>{content}</div>;
+
+        return (
+            <Link ref={itemRef} href={item.href} onClick={() => onNavigate?.()} className="block">
+                {content}
+            </Link>
+        );
+    }
 
     if (item.children?.length) {
         const childActive = item.children.some((c) => c.active);
@@ -367,7 +432,7 @@ function NavItem({ item, onNavigate }) {
                 {isOpen && (
                     <div className="ml-3 mt-1 space-y-0.5 border-l border-sidebar-border pl-3">
                         {item.children.map((c) => (
-                            <NavItem key={c.name} item={c} onNavigate={onNavigate} />
+                            <NavItem key={c.name} item={c} onNavigate={onNavigate} isCollapsed={false} />
                         ))}
                     </div>
                 )}
@@ -400,38 +465,37 @@ function NavItem({ item, onNavigate }) {
     );
 }
 
-function SidebarContent({ user, brandContext, onNavigate }) {
+function SidebarContent({ user, brandContext, onNavigate, installPrompt, handleInstall, isCollapsed, app }) {
     const sections = buildMenu(user);
-    const current = brandContext?.current;
     const navRef = useRef(null);
 
     useEffect(() => {
         const savedScroll = sessionStorage.getItem('sidebar-scroll-position');
         if (savedScroll && navRef.current) {
-            // Restore scroll position
             navRef.current.scrollTop = parseInt(savedScroll, 10);
         }
     }, []);
 
     const handleScroll = (e) => {
-        // Save scroll position
         sessionStorage.setItem('sidebar-scroll-position', e.currentTarget.scrollTop);
     };
 
     return (
         <div className="flex h-full flex-col">
-            <div className="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border px-5">
+            <div className={cn("flex h-16 shrink-0 items-center border-b border-sidebar-border transition-all duration-300", isCollapsed ? "justify-center px-0" : "gap-2 px-5")}>
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-accent text-sidebar-accent-foreground">
                     <ShieldCheck className="h-5 w-5" />
                 </div>
-                <div className="leading-tight">
-                    <div className="text-sm font-semibold text-sidebar-foreground">{app?.name ?? 'NISReport'}</div>
-                    <div className="text-[11px] text-sidebar-foreground/60">{app?.description ?? 'Multi-Brand Order Mgmt'}</div>
-                </div>
+                {!isCollapsed && (
+                    <div className="leading-tight">
+                        <div className="text-sm font-semibold text-sidebar-foreground">{app?.name ?? 'NISReport'}</div>
+                        <div className="text-[11px] text-sidebar-foreground/60">{app?.description ?? 'Multi-Brand Order Mgmt'}</div>
+                    </div>
+                )}
             </div>
 
             {!user?.roles?.includes('admin_produksi') && !user?.roles?.includes('admin_keuangan') && (
-                <BrandSwitcher brandContext={brandContext} userRoles={user?.roles} />
+                <BrandSwitcher brandContext={brandContext} userRoles={user?.roles} isCollapsed={isCollapsed} />
             )}
 
             <nav 
@@ -439,38 +503,97 @@ function SidebarContent({ user, brandContext, onNavigate }) {
                 onScroll={handleScroll}
                 className="flex-1 space-y-6 overflow-y-auto px-3 py-4 scrollbar-thin"
             >
-                {sections.map((section) => (
+                {sections.map((section, idx) => (
                     <div key={section.title}>
-                        <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
-                            {section.title}
-                        </div>
+                        {!isCollapsed ? (
+                            <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
+                                {section.title}
+                            </div>
+                        ) : (
+                            idx > 0 && <div className="h-px bg-sidebar-border/50 my-4 mx-2" />
+                        )}
                         <div className="space-y-1">
                             {section.items.map((item) => (
-                                <NavItem key={item.name} item={item} onNavigate={onNavigate} />
+                                <NavItem key={item.name} item={item} onNavigate={onNavigate} isCollapsed={isCollapsed} />
                             ))}
                         </div>
                     </div>
                 ))}
             </nav>
 
-            <div className="border-t border-sidebar-border p-3">
-                <div className="rounded-lg bg-sidebar-accent/10 p-3 text-xs text-sidebar-foreground/70">
-                    <div className="font-semibold text-sidebar-foreground">{user?.name}</div>
-                    <div className="truncate">{user?.email}</div>
-                    <div className="mt-2 flex flex-wrap gap-1">
-                        {user?.roles?.map((r) => (
-                            <Badge key={r} variant="outline" className="border-sidebar-foreground/30 bg-transparent text-[10px] text-sidebar-foreground/80">
-                                {roleLabel(r)}
-                            </Badge>
-                        ))}
+            <div className={cn("border-t border-sidebar-border p-3 space-y-2", isCollapsed && "p-0")}>
+                {isCollapsed ? (
+                    <div className="flex flex-col items-center gap-2 border-t border-sidebar-border p-3">
+                        {installPrompt && (
+                            <Button 
+                                onClick={handleInstall}
+                                variant="outline" 
+                                size="sm" 
+                                title="Instal Aplikasi PWA"
+                                className="h-9 w-9 p-0 flex items-center justify-center bg-blue-500/10 border-blue-500/20 text-blue-600 hover:bg-blue-600 hover:text-white"
+                            >
+                                <Download className="h-4 w-4" />
+                            </Button>
+                        )}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button type="button" className="outline-none">
+                                    <Avatar className="h-9 w-9 ring-2 ring-sidebar-border">
+                                        <AvatarFallback>{initials(user?.name)}</AvatarFallback>
+                                    </Avatar>
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="center" className="w-56 ml-2 bg-sidebar text-sidebar-foreground border-sidebar-border shadow-lg">
+                                <DropdownMenuLabel>
+                                    <div className="font-semibold text-sidebar-foreground">{user?.name}</div>
+                                    <div className="text-[10px] text-sidebar-foreground/60 truncate">{user?.email}</div>
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator className="bg-sidebar-border" />
+                                <DropdownMenuItem asChild className="focus:bg-sidebar-accent focus:text-sidebar-foreground">
+                                    <Link href={route('profile.edit')} className="cursor-pointer">
+                                        <UserIcon className="mr-2 h-4 w-4" /> Profil
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator className="bg-sidebar-border" />
+                                <DropdownMenuItem asChild className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                    <Link href={route('logout')} method="post" as="button" className="w-full cursor-pointer text-left">
+                                        <LogOut className="mr-2 h-4 w-4" /> Keluar
+                                    </Link>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
-                </div>
+                ) : (
+                    <>
+                        {installPrompt && (
+                            <Button 
+                                onClick={handleInstall}
+                                variant="outline" 
+                                size="sm" 
+                                className="w-full text-xs flex items-center justify-center gap-1.5 bg-blue-500/10 border-blue-500/20 text-blue-600 hover:bg-blue-600 hover:text-white"
+                            >
+                                <Download className="h-3.5 w-3.5" /> Instal Aplikasi PWA
+                            </Button>
+                        )}
+                        <div className="rounded-lg bg-sidebar-accent/10 p-3 text-xs text-sidebar-foreground/70">
+                            <div className="font-semibold text-sidebar-foreground">{user?.name}</div>
+                            <div className="truncate">{user?.email}</div>
+                            <div className="mt-2 flex flex-wrap gap-1">
+                                {user?.roles?.map((r) => (
+                                    <Badge key={r} variant="outline" className="border-sidebar-foreground/30 bg-transparent text-[10px] text-sidebar-foreground/80">
+                                        {roleLabel(r)}
+                                    </Badge>
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );
 }
 
-function BrandSwitcher({ brandContext, userRoles = [] }) {
+function BrandSwitcher({ brandContext, userRoles = [], isCollapsed }) {
     const current = brandContext?.current;
     const available = brandContext?.available ?? [];
     const isAdminReseller = userRoles.includes('admin_reseller');
@@ -483,6 +606,41 @@ function BrandSwitcher({ brandContext, userRoles = [] }) {
     }
 
     const switcherLabel = isAdminReseller ? 'Brand Reseller Aktif' : 'Brand Aktif';
+
+    if (isCollapsed) {
+        return (
+            <div className="flex justify-center py-3">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button
+                            type="button"
+                            title={`${switcherLabel}: ${current.nama_brand}`}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent/10 transition hover:bg-sidebar-accent/20 focus:outline-none focus:ring-2 focus:ring-sidebar-accent"
+                        >
+                            <span
+                                className="h-4 w-4 shrink-0 rounded-full ring-1 ring-sidebar-border"
+                                style={{ background: current.warna_primary || '#3B82F6' }}
+                            />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="center" className="w-64 ml-2 bg-sidebar text-sidebar-foreground border-sidebar-border shadow-lg">
+                        <DropdownMenuLabel className="text-xs text-sidebar-foreground/50 uppercase tracking-wider">{isAdminReseller ? 'Pilih Brand Reseller' : 'Pilih Brand'}</DropdownMenuLabel>
+                        <DropdownMenuSeparator className="bg-sidebar-border" />
+                        {available.map((b) => (
+                            <DropdownMenuItem key={b.id} onSelect={() => switchBrand(b.id)} className="focus:bg-sidebar-accent focus:text-sidebar-foreground cursor-pointer">
+                                <span className="flex flex-1 items-center gap-2">
+                                    <span className="h-3 w-3 rounded-full" style={{ background: b.warna_primary || '#3B82F6' }} />
+                                    <span className="truncate">{b.nama_brand}</span>
+                                    {!b.is_active && <Badge variant="outline" className="text-[10px]">Non-Aktif</Badge>}
+                                </span>
+                                {b.id === current.id && <Check className="h-4 w-4 text-primary" />}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+        );
+    }
 
     return (
         <div className="px-3 py-3">
@@ -700,8 +858,74 @@ export default function AppLayout({ title, header, children }) {
     const user = auth?.user;
     const [mobileOpen, setMobileOpen] = useState(false);
 
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('sidebar-collapsed') === 'true';
+        }
+        return false;
+    });
+
+    const toggleSidebar = () => {
+        setIsCollapsed((prev) => {
+            const next = !prev;
+            localStorage.setItem('sidebar-collapsed', String(next));
+            return next;
+        });
+    };
+
     const [notifications, setNotifications] = useState(user?.recent_notifications || []);
     const [unreadCount, setUnreadCount] = useState(user?.unread_notifications_count || 0);
+
+    // PWA & Offline Status States
+    const [deferredPrompt, setDeferredPrompt] = useState(null);
+    const [isInstallable, setIsInstallable] = useState(false);
+    const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+    useEffect(() => {
+        const handleBeforeInstallPrompt = (e) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+            setIsInstallable(true);
+        };
+        const handleAppInstalled = () => {
+            setDeferredPrompt(null);
+            setIsInstallable(false);
+            toast.success('Aplikasi berhasil diinstal!');
+        };
+        const goOnline = () => {
+            setIsOffline(false);
+            toast.dismiss('offline-toast');
+            toast.success('Koneksi internet terhubung kembali.');
+        };
+        const goOffline = () => {
+            setIsOffline(true);
+            toast.error('Koneksi internet terputus. Menjalankan mode offline.', {
+                duration: Infinity,
+                id: 'offline-toast'
+            });
+        };
+
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        window.addEventListener('appinstalled', handleAppInstalled);
+        window.addEventListener('online', goOnline);
+        window.addEventListener('offline', goOffline);
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+            window.removeEventListener('appinstalled', handleAppInstalled);
+            window.removeEventListener('online', goOnline);
+            window.removeEventListener('offline', goOffline);
+        };
+    }, []);
+
+    const handleInstallClick = async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`PWA Install Choice Outcome: ${outcome}`);
+        setDeferredPrompt(null);
+        setIsInstallable(false);
+    };
 
     // Request Browser Desktop Notification permission
     useEffect(() => {
@@ -825,6 +1049,188 @@ export default function AppLayout({ title, header, children }) {
             .catch((err) => console.error('Failed to delete notification:', err));
     };
 
+    const [offlineDraftsCount, setOfflineDraftsCount] = useState(0);
+    const [isSyncing, setIsSyncing] = useState(false);
+
+    const checkDrafts = () => {
+        try {
+            const drafts = JSON.parse(localStorage.getItem('offline_order_drafts') || '[]');
+            const queue = JSON.parse(localStorage.getItem('offline_request_queue') || '[]');
+            setOfflineDraftsCount(drafts.length + queue.length);
+        } catch (e) {
+            console.error('Failed to parse offline drafts/requests:', e);
+        }
+    };
+
+    useEffect(() => {
+        checkDrafts();
+
+        window.addEventListener('focus', checkDrafts);
+        window.addEventListener('online', checkDrafts);
+        window.addEventListener('offline-queue-updated', checkDrafts);
+        
+        return () => {
+            window.removeEventListener('focus', checkDrafts);
+            window.removeEventListener('online', checkDrafts);
+            window.removeEventListener('offline-queue-updated', checkDrafts);
+        };
+    }, [isOffline]);
+
+    // Global Inertia interceptor to capture offline submissions for all user roles/pages
+    useEffect(() => {
+        const unbind = router.on('before', (event) => {
+            const method = event.detail.visit.method.toUpperCase();
+            if (method === 'GET') return;
+
+            if (!navigator.onLine) {
+                // Cancel original network request
+                event.preventDefault();
+
+                const url = event.detail.visit.url.toString();
+                const data = event.detail.visit.data;
+
+                // Create a clear description of the action being performed
+                let actionName = 'Aktivitas';
+                if (url.includes('/orders') && method === 'POST') {
+                    actionName = `Buat PO "${data?.nama_po || 'Baru'}"`;
+                } else if (url.includes('/orders') && method === 'PUT') {
+                    actionName = `Edit PO "${data?.nama_po || ''}"`;
+                } else if (url.includes('/produksi/progress') && method === 'PUT') {
+                    actionName = `Update Progress Tahap`;
+                } else if (url.includes('/produksi/rijek') && method === 'POST') {
+                    actionName = `Catat Rijek Produksi`;
+                } else if (url.includes('/produksi/rijek') && method === 'PUT') {
+                    actionName = `Edit Rijek Produksi`;
+                } else if (url.includes('/keuangan') || url.includes('/payments') || url.includes('/pembayaran')) {
+                    actionName = `Transaksi Keuangan`;
+                } else if (url.includes('/notifications')) {
+                    return; // Ignore notification status changes offline
+                }
+
+                const offlineQueue = JSON.parse(localStorage.getItem('offline_request_queue') || '[]');
+                
+                // Prevent duplicate requests being queued within 2 seconds
+                const isDuplicate = offlineQueue.some(req => 
+                    req.url === url && 
+                    req.method === method && 
+                    JSON.stringify(req.data) === JSON.stringify(data) &&
+                    (Date.now() - new Date(req.timestamp).getTime() < 2000)
+                );
+
+                if (!isDuplicate) {
+                    offlineQueue.push({
+                        id: 'req_' + Date.now(),
+                        url: url,
+                        method: method,
+                        data: data,
+                        actionName: actionName,
+                        timestamp: new Date().toISOString()
+                    });
+                    localStorage.setItem('offline_request_queue', JSON.stringify(offlineQueue));
+                    
+                    window.dispatchEvent(new Event('offline-queue-updated'));
+                    
+                    toast.success(`Aksi "${actionName}" disimpan secara offline!`, {
+                        description: 'Akan otomatis disinkronkan saat terhubung ke internet kembali.',
+                        duration: 8000
+                    });
+
+                    // For the main order form, redirect to order index locally
+                    if (url.includes('/orders') && method === 'POST') {
+                        router.visit(route('orders.index'));
+                    }
+                }
+            }
+        });
+
+        return () => {
+            unbind();
+        };
+    }, []);
+
+    const handleSyncOfflineDrafts = async () => {
+        if (isSyncing) return;
+        setIsSyncing(true);
+
+        const drafts = JSON.parse(localStorage.getItem('offline_order_drafts') || '[]');
+        const queue = JSON.parse(localStorage.getItem('offline_request_queue') || '[]');
+
+        if (drafts.length === 0 && queue.length === 0) {
+            setIsSyncing(false);
+            return;
+        }
+
+        toast.loading('Menyinkronkan data offline ke server...', { id: 'pwa-sync' });
+
+        let successCount = 0;
+        const remainingDrafts = [];
+        const remainingQueue = [];
+
+        // 1. Sync specific order drafts
+        for (const draft of drafts) {
+            try {
+                const xsrf = document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='))?.split('=')[1] ?? '';
+                const config = {
+                    headers: { 'X-XSRF-TOKEN': decodeURIComponent(xsrf) }
+                };
+                
+                if (draft.isEdit && draft.orderId) {
+                    await axios.put(route('orders.update', draft.orderId), draft.data, config);
+                } else {
+                    await axios.post(route('orders.store'), draft.data, config);
+                }
+                successCount++;
+            } catch (error) {
+                console.error('Failed to sync draft:', error);
+                remainingDrafts.push(draft);
+                toast.error(`Gagal menyimpan PO "${draft.nama_po}".`, {
+                    description: error.response?.data?.message || 'Terjadi kesalahan pada server.'
+                });
+            }
+        }
+
+        // 2. Sync general request queue (for all pages/roles)
+        for (const req of queue) {
+            try {
+                const xsrf = document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='))?.split('=')[1] ?? '';
+                const config = {
+                    headers: { 'X-XSRF-TOKEN': decodeURIComponent(xsrf) }
+                };
+
+                if (req.method === 'POST') {
+                    await axios.post(req.url, req.data, config);
+                } else if (req.method === 'PUT') {
+                    await axios.put(req.url, req.data, config);
+                } else if (req.method === 'PATCH') {
+                    await axios.patch(req.url, req.data, config);
+                } else if (req.method === 'DELETE') {
+                    await axios.delete(req.url, { ...config, data: req.data });
+                }
+                successCount++;
+            } catch (error) {
+                console.error('Failed to sync queued request:', error);
+                remainingQueue.push(req);
+                toast.error(`Gagal menyinkronkan "${req.actionName}".`, {
+                    description: error.response?.data?.message || 'Terjadi kesalahan pada server.'
+                });
+            }
+        }
+
+        localStorage.setItem('offline_order_drafts', JSON.stringify(remainingDrafts));
+        localStorage.setItem('offline_request_queue', JSON.stringify(remainingQueue));
+        
+        setOfflineDraftsCount(remainingDrafts.length + remainingQueue.length);
+        setIsSyncing(false);
+        toast.dismiss('pwa-sync');
+
+        if (successCount > 0) {
+            toast.success(`Berhasil menyinkronkan ${successCount} aktivitas offline ke server!`, {
+                duration: 6000
+            });
+            router.reload();
+        }
+    };
+
     useEffect(() => {
         if (flash?.success) toast.success(flash.success);
         if (flash?.error) toast.error(flash.error);
@@ -836,10 +1242,17 @@ export default function AppLayout({ title, header, children }) {
             <Toaster richColors position="top-right" />
 
             {/* Sidebar desktop */}
-            <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:block">
+            <aside className={cn(
+                "fixed inset-y-0 left-0 z-30 hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:block transition-all duration-300",
+                isCollapsed ? "w-20" : "w-64"
+            )}>
                 <SidebarContent 
                     user={user} 
                     brandContext={brandContext} 
+                    installPrompt={isInstallable}
+                    handleInstall={handleInstallClick}
+                    isCollapsed={isCollapsed}
+                    app={app}
                 />
             </aside>
 
@@ -852,18 +1265,32 @@ export default function AppLayout({ title, header, children }) {
                         user={user} 
                         brandContext={brandContext} 
                         onNavigate={() => setMobileOpen(false)} 
+                        installPrompt={isInstallable}
+                        handleInstall={handleInstallClick}
+                        isCollapsed={false}
+                        app={app}
                     />
                 </SheetContent>
             </Sheet>
 
-            <div className="lg:pl-64">
+            <div className={cn("transition-all duration-300", isCollapsed ? "lg:pl-20" : "lg:pl-64")}>
                 {/* Top bar */}
                 <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur md:px-6">
                     <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)}>
                         <Menu className="h-5 w-5" />
                     </Button>
 
-                    <div className="flex-1">
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="hidden lg:flex text-gray-500 hover:text-gray-700 hover:bg-sidebar-accent/20" 
+                        onClick={toggleSidebar}
+                        title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                    >
+                        {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+                    </Button>
+
+                    <div className="flex-1 flex items-center gap-3">
                         {header ? (
                             typeof header === 'string' ? (
                                 <h1 className="text-base font-semibold sm:text-lg">{header}</h1>
@@ -873,6 +1300,13 @@ export default function AppLayout({ title, header, children }) {
                         ) : title ? (
                             <h1 className="text-base font-semibold sm:text-lg">{title}</h1>
                         ) : null}
+
+                        {isOffline && (
+                            <Badge variant="destructive" className="animate-pulse bg-red-600 text-white flex items-center gap-1">
+                                <WifiOff className="h-3 w-3" />
+                                <span>Offline</span>
+                            </Badge>
+                        )}
                     </div>
 
                     <div className="hidden items-center gap-2 sm:flex">
@@ -900,6 +1334,24 @@ export default function AppLayout({ title, header, children }) {
                         <UserMenu user={user} />
                     </div>
                 </header>
+
+                {/* Offline Sync Banner */}
+                {!isOffline && offlineDraftsCount > 0 && (
+                    <div className="bg-amber-500 text-slate-900 px-4 py-3 flex items-center justify-between text-xs font-bold shadow-md animate-pulse">
+                        <div className="flex items-center gap-2">
+                            <span className="flex h-2.5 w-2.5 rounded-full bg-red-600 animate-ping" />
+                            <span>Terdapat {offlineDraftsCount} draf pesanan offline yang belum disimpan ke server.</span>
+                        </div>
+                        <Button
+                            onClick={handleSyncOfflineDrafts}
+                            disabled={isSyncing}
+                            size="sm"
+                            className="bg-slate-900 text-white hover:bg-slate-800 transition disabled:opacity-50 text-[11px] h-8 font-black uppercase"
+                        >
+                            {isSyncing ? 'Menyinkronkan...' : 'Sinkronkan Sekarang'}
+                        </Button>
+                    </div>
+                )}
 
                 <main className="px-4 py-6 md:px-6 lg:px-8">{children}</main>
             </div>

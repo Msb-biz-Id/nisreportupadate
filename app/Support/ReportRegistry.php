@@ -189,6 +189,41 @@ class ReportRegistry
                 ],
                 'chart' => ['type' => 'bar', 'x' => 'sumber_order', 'y' => 'total_value', 'title' => 'Analisis Saluran Marketing by Omset'],
             ],
+            'crm-churn' => [
+                'slug' => 'crm-churn',
+                'label' => 'Prediksi Churn & CRM',
+                'icon' => 'Sparkles',
+                'group' => 'penjualan',
+                'description' => 'Prediksi risiko pelanggan kabur (churn) dan perkiraan tanggal pemesanan berikutnya berdasarkan riwayat transaksi.',
+                'filters' => ['brand'],
+                'columns' => [
+                    ['key' => 'kode', 'label' => 'Kode Pelanggan'],
+                    ['key' => 'nama', 'label' => 'Nama Pelanggan'],
+                    ['key' => 'total_order', 'label' => 'Total Order', 'format' => 'number'],
+                    ['key' => 'avg_interval_text', 'label' => 'Siklus Order (Rata-rata)'],
+                    ['key' => 'recency_days', 'label' => 'Hari Sejak Order Terakhir', 'format' => 'number'],
+                    ['key' => 'next_order_pred', 'label' => 'Prediksi Order Berikutnya', 'format' => 'date'],
+                    ['key' => 'risk_level', 'label' => 'Tingkat Risiko Churn', 'format' => 'churn_status'],
+                    ['key' => 'monetary_loss', 'label' => 'Potensi Omset Hilang', 'format' => 'currency'],
+                    ['key' => 'whatsapp_action', 'label' => 'Aksi Follow Up', 'format' => 'whatsapp_action'],
+                ],
+            ],
+            'crm-seasonal' => [
+                'slug' => 'crm-seasonal',
+                'label' => 'Pengingat Order Musiman',
+                'icon' => 'Calendar',
+                'group' => 'penjualan',
+                'description' => 'Mendeteksi pelanggan yang memesan untuk event tahunan di bulan yang sama tahun lalu untuk penawaran repeat order.',
+                'filters' => ['brand'],
+                'columns' => [
+                    ['key' => 'kode', 'label' => 'Kode Pelanggan'],
+                    ['key' => 'nama', 'label' => 'Nama Pelanggan'],
+                    ['key' => 'order_tahun_lalu', 'label' => 'No PO Tahun Lalu'],
+                    ['key' => 'tanggal_order_lalu', 'label' => 'Tanggal Order Lalu', 'format' => 'date'],
+                    ['key' => 'nilai_order_lalu', 'label' => 'Nilai Order Lalu', 'format' => 'currency'],
+                    ['key' => 'whatsapp_action', 'label' => 'Aksi Follow Up', 'format' => 'whatsapp_action'],
+                ],
+            ],
         ];
     }
 

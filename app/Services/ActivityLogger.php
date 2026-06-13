@@ -28,6 +28,9 @@ class ActivityLogger
         $request = request();
         $user = $request->user();
         $brandId = $request ? BrandContext::current($request) : null;
+        if ($brandId === 'all' || !is_numeric($brandId)) {
+            $brandId = null;
+        }
 
         return ActivityLog::create([
             'user_id' => $user?->id,

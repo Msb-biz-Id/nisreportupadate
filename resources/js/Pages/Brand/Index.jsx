@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Power, Search, Building2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Power, Search, Building2, Upload } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -295,12 +295,72 @@ function BrandForm({ open, onOpenChange, brand, onSuccess, isAdminReseller = fal
     );
 }
 
+function BrandImportDialog({ open, onOpenChange }) {
+    const { data, setData, post, processing, errors, reset } = useForm({
+        file: null,
+    });
+
+    function submit(e) {
+        e.preventDefault();
+        post(route('brands.import'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                reset();
+                onOpenChange(false);
+            },
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <form onSubmit={submit}>
+                    <DialogHeader>
+                        <DialogTitle>Import Brand (CSV)</DialogTitle>
+                        <DialogDescription>
+                            Pastikan format CSV sesuai format baku.
+                            <a
+                                href={route('brands.import-template')}
+                                className="mt-1 block text-xs font-semibold text-primary hover:underline"
+                            >
+                                📥 Download Format Baku Brand (CSV)
+                            </a>
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="py-4">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="file">File CSV</Label>
+                            <Input
+                                id="file"
+                                type="file"
+                                accept=".csv"
+                                onChange={(e) => setData('file', e.target.files[0])}
+                                className="mt-1"
+                            />
+                            {errors.file && <p className="text-xs text-destructive">{errors.file}</p>}
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={processing}>Batal</Button>
+                        <Button type="submit" disabled={processing || !data.file}>
+                            {processing ? 'Mengimpor...' : 'Mulai Import'}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 export default function BrandIndex({ brands, filters, can, is_admin_reseller = false, accessible_brand_ids = [] }) {
     const [openForm, setOpenForm] = useState(false);
     const [editing, setEditing] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [search, setSearch] = useState(filters?.q ?? '');
     const [status, setStatus] = useState(filters?.status ?? 'all');
+    const [openImport, setOpenImport] = useState(false);
 
     function applyFilters(overrides = {}) {
         router.get(route('brands.index'), {
@@ -350,10 +410,17 @@ export default function BrandIndex({ brands, filters, can, is_admin_reseller = f
                             </p>
                         </div>
                         {can?.create && (
-                            <Button onClick={openCreate}>
-                                <Plus className="h-4 w-4" />
-                                {is_admin_reseller ? 'Tambah Reseller' : 'Tambah Brand'}
-                            </Button>
+                            <div className="flex flex-wrap items-center gap-2">
+                                {can?.import && (
+                                    <Button variant="outline" onClick={() => setOpenImport(true)}>
+                                        <Upload className="h-4 w-4 mr-1" /> Import CSV
+                                    </Button>
+                                )}
+                                <Button onClick={openCreate}>
+                                    <Plus className="h-4 w-4" />
+                                    {is_admin_reseller ? 'Tambah Reseller' : 'Tambah Brand'}
+                                </Button>
+                            </div>
                         )}
                     </CardHeader>
                     <CardContent className="pt-0">
@@ -516,6 +583,13 @@ export default function BrandIndex({ brands, filters, can, is_admin_reseller = f
                                 onSuccess={() => setOpenForm(false)}
                                 isAdminReseller={is_admin_reseller}
                             />
+
+            {can?.import && (
+                <BrandImportDialog
+                    open={openImport}
+                    onOpenChange={setOpenImport}
+                />
+            )}
 
             <Dialog open={!!confirmDelete} onOpenChange={(v) => !v && setConfirmDelete(null)}>
                 <DialogContent>

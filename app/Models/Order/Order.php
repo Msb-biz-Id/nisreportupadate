@@ -23,6 +23,15 @@ class Order extends Model
 {
     use HasFactory, HasUuidAndSoftDeletes;
 
+    protected static function booted()
+    {
+        static::saving(function ($order) {
+            if ($order->is_special_order) {
+                $order->total_tagihan = 0.0;
+            }
+        });
+    }
+
     public const STATUSES = [
         'draft', 'published', 'on_progress', 'selesai_produksi',
         'siap_dikirim', 'sudah_dikirim', 'delay', 'hold',
@@ -99,6 +108,9 @@ class Order extends Model
 
     public function totalTagihan(): float
     {
+        if ($this->is_special_order) {
+            return 0.0;
+        }
         $subtotal = (float) $this->items()->sum('subtotal');
         
         $penambahan = (float) $this->payments()
@@ -126,6 +138,9 @@ class Order extends Model
 
     public function totalPaid(): float
     {
+        if ($this->is_special_order) {
+            return 0.0;
+        }
         $pemasukan = (float) $this->payments()
             ->whereNotNull('verified_at')
             ->whereHas('masterJenisPembayaran', function ($q) {
@@ -155,12 +170,23 @@ class Order extends Model
 
     public function sisaTagihan(): float
     {
+        if ($this->is_special_order) {
+            return 0.0;
+        }
         return max(0, $this->totalTagihan() - $this->totalPaid());
+    }
+
+    public function getTotalTagihanAttribute($value)
+    {
+        if ($this->is_special_order) {
+            return 0.0;
+        }
+        return (float) $value;
     }
 
     public function scopeForBrand($q, string|array|null $brandId)
     {
-        if (empty($brandId)) return $q;
+        if (empty($brandId) || $brandId === 'all') return $q;
         if (is_array($brandId)) {
             return empty($brandId) ? $q->whereRaw('0=1') : $q->whereIn('brand_id', $brandId);
         }

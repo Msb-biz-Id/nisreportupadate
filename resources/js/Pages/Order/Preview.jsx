@@ -413,28 +413,28 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                             {/* Status Lunas */}
                             <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
                                 <div className="flex items-center gap-2">
-                                    {order.is_lunas
-                                        ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                                        : <XCircle className="h-4 w-4 text-rose-400" />
-                                    }
-                                    <span className="text-sm font-semibold">
-                                        {order.is_lunas ? 'Lunas' : 'Belum Lunas'}
-                                    </span>
-                                    {order.is_lunas && order.lunas_at && (
-                                        <span className="text-[10px] text-muted-foreground">{formatDate(order.lunas_at)}</span>
-                                    )}
-                                </div>
-                                {can?.mark_lunas && (
-                                    <Button
-                                        size="xs"
-                                        variant={order.is_lunas ? 'outline' : 'default'}
-                                        className={order.is_lunas ? 'text-xs h-7' : 'text-xs h-7 bg-emerald-600 hover:bg-emerald-700'}
-                                        onClick={() => router.post(route('orders.mark-lunas', order.id), {}, { preserveScroll: true })}
-                                    >
-                                        {order.is_lunas ? 'Batalkan' : 'Tandai Lunas'}
-                                    </Button>
-                                )}
-                            </div>
+                                     {(order.is_lunas || order.is_special_order)
+                                         ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                         : <XCircle className="h-4 w-4 text-rose-400" />
+                                     }
+                                     <span className="text-sm font-semibold">
+                                         {(order.is_lunas || order.is_special_order) ? 'Lunas' : 'Belum Lunas'}
+                                     </span>
+                                     {order.is_lunas && order.lunas_at && (
+                                         <span className="text-[10px] text-muted-foreground">{formatDate(order.lunas_at)}</span>
+                                     )}
+                                 </div>
+                                 {can?.mark_lunas && !order.is_special_order && (
+                                     <Button
+                                         size="xs"
+                                         variant={order.is_lunas ? 'outline' : 'default'}
+                                         className={order.is_lunas ? 'text-xs h-7' : 'text-xs h-7 bg-emerald-600 hover:bg-emerald-700'}
+                                         onClick={() => router.post(route('orders.mark-lunas', order.id), {}, { preserveScroll: true })}
+                                     >
+                                         {order.is_lunas ? 'Batalkan' : 'Tandai Lunas'}
+                                     </Button>
+                                 )}
+                             </div>
 
                             {/* Payment History */}
                             {(order.payments ?? []).length > 0 && (
@@ -612,7 +612,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                             const jahitanFields = [
                                 item.pola_jahitan?.nama && {
                                     label: 'Pola Jahitan',
-                                    value: `${item.pola_jahitan.jenis_pola} — ${item.pola_jahitan.nama}`
+                                    value: item.pola_jahitan.nama
                                 },
                                 // Jahitan List Lengan: dari relasi pola_jahitan_lengan (UUID) atau string lama
                                 (item.pola_jahitan_lengan?.nama || item.jahitan_list_lengan) && {

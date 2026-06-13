@@ -19,6 +19,7 @@ const STATUS_BADGE = {
     delay: 'destructive', hold: 'warning',
     pending_review: 'warning', approved: 'info', rejected: 'destructive',
     ringan: 'outline', sedang: 'warning', berat: 'destructive',
+    Safe: 'success', Warning: 'warning', 'High Risk': 'destructive',
 };
 
 function FormatCell({ value, format }) {
@@ -36,6 +37,28 @@ function FormatCell({ value, format }) {
         if (days < 0) return <Badge variant="destructive">{Math.abs(days)} hari telat</Badge>;
         if (days <= 2) return <Badge variant="warning">H-{days}</Badge>;
         return <Badge variant="outline">H-{days}</Badge>;
+    }
+    if (format === 'whatsapp_action') {
+        const { nama, nomor_hp, type, recency, aoi, order_tahun_lalu, tanggal_order_lalu } = value;
+        const phone = String(nomor_hp).replace(/[^0-9]/g, '');
+        const formattedPhone = phone.startsWith('0') ? '62' + phone.slice(1) : phone;
+        
+        let messageText = '';
+        if (type === 'seasonal') {
+            messageText = `Halo Kak ${nama}, semoga sehat selalu! Kami melihat tahun lalu sekitar tanggal ${formatDate(tanggal_order_lalu)} Kakak pernah memesan dengan No PO ${order_tahun_lalu}. Karena sudah memasuki siklus tahunan project tersebut, apakah tahun ini ada rencana pembuatan jersey atau jaket baru yang bisa kami bantu kembali? 😊`;
+        } else {
+            messageText = `Halo Kak ${nama}, semoga sehat selalu! Kami dari brand pilihan Kakak melihat Kak sudah ${recency} hari tidak melakukan pemesanan. Biasanya Kakak memesan setiap ${aoi} hari sekali. Apakah saat ini ada kebutuhan jersey atau project jaket baru yang bisa kami bantu? Dapatkan penawaran promo menarik khusus repeat order hari ini! 😊`;
+        }
+        
+        const message = encodeURIComponent(messageText);
+        const url = `https://wa.me/${formattedPhone}?text=${message}`;
+        return (
+            <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs border-green-500 hover:bg-green-50 hover:text-green-600">
+                <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
+                    <Icons.MessageSquare className="h-3 w-3 text-green-500" /> Hubungi WA
+                </a>
+            </Button>
+        );
     }
     return value;
 }

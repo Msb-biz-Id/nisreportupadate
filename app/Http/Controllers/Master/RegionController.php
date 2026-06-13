@@ -6,17 +6,14 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 /**
- * RegionController — data wilayah Indonesia via API publik emsifa.
- *
- * Tidak bergantung pada tabel DB laravolt (tidak rusak saat migrate:fresh).
- * Data di-cache 7 hari — sangat jarang berubah.
- *
- * Source: https://www.emsifa.com/api-wilayah-indonesia
- * Format kode: BPS (sama dengan laravolt) — tidak perlu migrasi data pelanggan.
+ * RegionController — data wilayah Indonesia via database lokal (laravolt/indonesia)
+ * dengan fallback ke API publik emsifa jika database kosong.
  */
 class RegionController extends Controller
 {
@@ -25,6 +22,17 @@ class RegionController extends Controller
 
     public function provinces(): JsonResponse
     {
+        $prefix = config('laravolt.indonesia.table_prefix', 'indonesia_');
+        $tableName = $prefix . 'provinces';
+
+        if (Schema::hasTable($tableName) && DB::table($tableName)->exists()) {
+            $data = DB::table($tableName)
+                ->select('code', 'name')
+                ->orderBy('name')
+                ->get();
+            return response()->json($data);
+        }
+
         $data = $this->cached('provinces', fn () =>
             Http::timeout(10)->get(self::BASE . '/provinces.json')->json()
         );
@@ -39,6 +47,18 @@ class RegionController extends Controller
     {
         $province = $request->string('province')->toString();
         if (! $province) return response()->json([]);
+
+        $prefix = config('laravolt.indonesia.table_prefix', 'indonesia_');
+        $tableName = $prefix . 'cities';
+
+        if (Schema::hasTable($tableName) && DB::table($tableName)->exists()) {
+            $data = DB::table($tableName)
+                ->where('province_code', $province)
+                ->select('code', 'name')
+                ->orderBy('name')
+                ->get();
+            return response()->json($data);
+        }
 
         $data = $this->cached("cities.{$province}", fn () =>
             Http::timeout(10)->get(self::BASE . "/regencies/{$province}.json")->json()
@@ -55,6 +75,18 @@ class RegionController extends Controller
         $city = $request->string('city')->toString();
         if (! $city) return response()->json([]);
 
+        $prefix = config('laravolt.indonesia.table_prefix', 'indonesia_');
+        $tableName = $prefix . 'districts';
+
+        if (Schema::hasTable($tableName) && DB::table($tableName)->exists()) {
+            $data = DB::table($tableName)
+                ->where('city_code', $city)
+                ->select('code', 'name')
+                ->orderBy('name')
+                ->get();
+            return response()->json($data);
+        }
+
         $data = $this->cached("districts.{$city}", fn () =>
             Http::timeout(10)->get(self::BASE . "/districts/{$city}.json")->json()
         );
@@ -69,6 +101,18 @@ class RegionController extends Controller
     {
         $district = $request->string('district')->toString();
         if (! $district) return response()->json([]);
+
+        $prefix = config('laravolt.indonesia.table_prefix', 'indonesia_');
+        $tableName = $prefix . 'villages';
+
+        if (Schema::hasTable($tableName) && DB::table($tableName)->exists()) {
+            $data = DB::table($tableName)
+                ->where('district_code', $district)
+                ->select('code', 'name')
+                ->orderBy('name')
+                ->get();
+            return response()->json($data);
+        }
 
         $data = $this->cached("villages.{$district}", fn () =>
             Http::timeout(10)->get(self::BASE . "/villages/{$district}.json")->json()

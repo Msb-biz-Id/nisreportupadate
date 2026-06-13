@@ -395,4 +395,132 @@ class InvoiceTest extends TestCase
         $response->assertStatus(200);
         $response->assertHeader('content-type', 'application/pdf');
     }
+
+    public function test_special_order_lifecycle_workflow(): void
+    {
+        $brand = $this->makeBrand();
+        $brandAdmin = $this->makeUser('admin_brand', [$brand]);
+        $financeAdmin = $this->makeUser('admin_keuangan', [$brand]);
+        $productionAdmin = $this->makeUser('admin_produksi', [$brand]);
+
+        Customer::create([
+            'brand_id' => $brand->id,
+            'kode' => 'C_SO',
+            'nama' => 'Special Customer',
+            'nomor_hp' => '0877',
+            'is_active' => true,
+        ]);
+
+        // Create progress master data
+        foreach ([
+            ['Setting', 1], ['Jahit', 2], ['Packing', 3], ['Sending', 4],
+        ] as [$nama, $urut]) {
+            \App\Models\Master\Progress::create([
+                'nama_progress' => $nama,
+                'urutan' => $urut,
+                'is_active' => true,
+                'warna' => '#3B82F6',
+                'is_skippable' => false,
+            ]);
+        }
+
+        // 1. Create a draft Special Order
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-SO-001',
+            'nama_po' => 'Special Suit',
+            'status_po' => 'draft',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => Customer::first()->id,
+            'total_tagihan' => 1000000,
+            'is_special_order' => true,
+            'created_by' => $brandAdmin->id,
+        ]);
+
+        OrderItem::create([
+            'order_id' => $order->id,
+            'nama_produk' => 'Main SO Item',
+            'quantity' => 1,
+            'harga_satuan' => 1000000,
+            'subtotal' => 1000000,
+        ]);
+
+        // Verify that in PHP model calculations, the financial totals are strictly 0.0
+        $this->assertEquals(0.0, $order->totalTagihan());
+        $this->assertEquals(0.0, $order->totalPaid());
+        $this->assertEquals(0.0, $order->sisaTagihan());
+
+        // 2. Try to publish as brand admin - should fail since bypass_dp (finance admin approval) is not set yet.
+        $this->actingAsWithBrand($brandAdmin, $brand)
+            ->post(route('orders.publish', $order->id))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertEquals('draft', $order->fresh()->status_po);
+
+        // 3. Approve / bypass DP as finance admin
+        $this->actingAsWithBrand($financeAdmin, $brand)
+            ->post(route('orders.bypass-dp', $order->id))
+            ->assertRedirect();
+
+        $this->assertTrue((bool)$order->fresh()->is_dp_bypassed);
+
+        // 4. Now publish as brand admin - should succeed!
+        $this->actingAsWithBrand($brandAdmin, $brand)
+            ->post(route('orders.publish', $order->id))
+            ->assertRedirect();
+
+        $order = $order->fresh();
+        $this->assertEquals('published', $order->status_po);
+
+        // 5. Verify the order's database total_tagihan field is updated to 0.0
+        $this->assertEquals(0.0, (float)$order->total_tagihan);
+
+        // 6. Create invoice from Special Order
+        $this->actingAsWithBrand($financeAdmin, $brand)
+            ->post(route('invoices.create-from-order', $order->id))
+            ->assertRedirect();
+
+        $invoice = Invoice::where('order_id', $order->id)->first();
+        $this->assertNotNull($invoice);
+        $this->assertEquals(0.0, (float)$invoice->total_tagihan);
+        $this->assertEquals(0.0, (float)$invoice->sisa_pembayaran);
+
+        // 7. Validate invoice
+        $this->actingAsWithBrand($financeAdmin, $brand)
+            ->post(route('invoices.validate', $invoice->id), [
+                'bank_id' => null,
+            ])
+            ->assertRedirect();
+
+        $invoice = $invoice->fresh();
+        $this->assertEquals('validated', $invoice->status);
+        $this->assertEquals(0.0, (float)$invoice->sisa_pembayaran);
+
+        // 8. Try to mark lunas - should fail since it's a Special Order
+        $this->actingAsWithBrand($financeAdmin, $brand)
+            ->post(route('orders.mark-lunas', $order->id))
+            ->assertStatus(422);
+
+        // 9. Update progress in production and ensure production/shipping can bypass is_lunas validation
+        // First transition to on_progress
+        $order->update(['status_po' => 'on_progress']);
+        $sendingDetail = $order->progressDetails()->whereHas('progress', function ($q) {
+            $q->where('nama_progress', 'Sending');
+        })->first();
+
+        $this->assertNotNull($sendingDetail);
+
+        // Try to update sending detail to on_progress as production admin - should succeed (no is_lunas block!)
+        $this->actingAsWithBrand($productionAdmin, $brand)
+            ->put(route('produksi.progress.update', ['order' => $order->id, 'detail' => $sendingDetail->id]), [
+                'status' => 'on_progress',
+                'catatan' => 'Sending SO',
+            ])
+            ->assertRedirect()
+            ->assertSessionDoesntHaveErrors();
+
+        $this->assertEquals('on_progress', $sendingDetail->fresh()->status);
+    }
 }

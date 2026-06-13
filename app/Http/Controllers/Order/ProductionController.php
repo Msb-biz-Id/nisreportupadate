@@ -174,7 +174,7 @@ class ProductionController extends Controller
 
         $isSending = strtoupper($detail->progress->nama_progress ?? '') === 'SENDING';
 
-        if ($isSending && ! $order->is_lunas) {
+        if ($isSending && ! $order->is_lunas && ! $order->is_special_order) {
             return back()->with('error', 'Tahap Sending belum bisa diupdate. Konfirmasi LUNAS dari Keuangan diperlukan terlebih dahulu.');
         }
 

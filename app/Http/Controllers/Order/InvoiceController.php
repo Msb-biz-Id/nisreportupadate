@@ -541,7 +541,7 @@ class InvoiceController extends Controller
         ]);
 
         $tagihan = (float) $invoice->total_tagihan;
-        $diskonNominal = $data['diskon_type'] === 'persen'
+        $diskonNominal = ($data['diskon_type'] ?? null) === 'persen'
             ? ($tagihan * ($data['diskon_value'] ?? 0) / 100)
             : ($data['diskon_value'] ?? 0);
         $afterDiskon = $tagihan - $diskonNominal + ($data['biaya_pengiriman'] ?? 0);
@@ -549,7 +549,7 @@ class InvoiceController extends Controller
         $invoice->update([
             ...$data,
             'status' => 'validated',
-            'sisa_pembayaran' => max(0, $afterDiskon - (float) $invoice->dp_amount),
+            'sisa_pembayaran' => ($invoice->order?->is_special_order) ? 0.0 : max(0, $afterDiskon - (float) $invoice->dp_amount),
         ]);
 
         return back()->with('success', 'Invoice divalidasi.');

@@ -33,7 +33,7 @@ class RoleController extends Controller
         $groupedPermissions = [
             'Brand & User Management' => ['brand.view', 'brand.create', 'brand.update', 'brand.delete', 'user.view', 'user.create', 'user.update', 'user.delete', 'user.assign-role', 'user.assign-brand'],
             'Dashboard & Audit Logs' => ['dashboard.view-global', 'dashboard.view-brand', 'audit.view'],
-            'Master Data' => ['master.manage', 'master.brand', 'master.produk', 'master.production'],
+            'Master Data' => ['master.manage', 'master.brand', 'master.produk', 'master.production', 'master.view'],
             'Order Operations' => ['order.view', 'order.create', 'order.update', 'order.delete', 'order.publish', 'order.refund', 'order.unlock'],
             'Production' => ['production.update-progress', 'production.add-reject'],
             'Finance' => ['finance.view', 'finance.manage-invoice', 'finance.manage-refund', 'finance.manage-pemasukan', 'finance.manage-pengeluaran'],

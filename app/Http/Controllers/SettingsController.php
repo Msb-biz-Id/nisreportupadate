@@ -100,6 +100,7 @@ class SettingsController extends Controller
                 'notification_channel' => SystemSetting::get('system', 'notification_channel', 'whatsapp'),
                 'whatsapp_enabled' => (bool) SystemSetting::get('system', 'whatsapp_enabled', true),
                 'telegram_enabled' => (bool) SystemSetting::get('system', 'telegram_enabled', false),
+                'customer_import_enabled' => (bool) SystemSetting::get('system', 'customer_import_enabled', false),
             ],
             'seo' => [
                 'site_name' => SystemSetting::get('seo', 'site_name', 'Circle Sportwear - Tracking PO'),
@@ -347,11 +348,13 @@ class SettingsController extends Controller
             'notification_channel' => ['required', 'in:whatsapp,telegram,both'],
             'whatsapp_enabled' => ['boolean'],
             'telegram_enabled' => ['boolean'],
+            'customer_import_enabled' => ['boolean'],
         ]);
 
         SystemSetting::set('system', 'notification_channel', $data['notification_channel']);
         SystemSetting::set('system', 'whatsapp_enabled', $data['whatsapp_enabled'] ? '1' : '0');
         SystemSetting::set('system', 'telegram_enabled', $data['telegram_enabled'] ? '1' : '0');
+        SystemSetting::set('system', 'customer_import_enabled', $data['customer_import_enabled'] ? '1' : '0');
 
         return back()->with('success', 'Pengaturan sistem tersimpan.');
     }

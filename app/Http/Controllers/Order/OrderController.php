@@ -35,6 +35,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use App\Exports\POComprehensiveExport;
+use Maatwebsite\Excel\Facades\Excel;
 use Inertia\Inertia;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -69,6 +71,8 @@ class OrderController extends Controller
             default => $brandId,
         };
 
+        $tab = $request->string('tab', 'active')->toString();
+
         $query = Order::query()
             ->forBrand($effectiveId)
             ->with(['pelanggan:id,nama', 'brand:id,nama_brand,kode', 'paketOrder:id,nama,warna,prioritas'])
@@ -86,8 +90,15 @@ class OrderController extends Controller
             $query->where('status_po', '!=', 'draft');
         }
 
-        if ($status = $request->string('status')->toString()) {
-            $query->where('status_po', $status);
+        $status = $request->string('status')->toString();
+        if ($status && $status !== 'all') {
+            $query->where('orders.status_po', $status);
+        } else {
+            if ($tab === 'archive') {
+                $query->where('orders.status_po', 'sudah_dikirim');
+            } else {
+                $query->where('orders.status_po', '!=', 'sudah_dikirim');
+            }
         }
 
         // Jika ada filter brand spesifik (bukan 'all') → drill-down ke brand tertentu
@@ -139,6 +150,7 @@ class OrderController extends Controller
                 'brand_id' => $request->string('brand_id')->toString(),
                 'date_from' => $request->string('date_from')->toString(),
                 'date_to'   => $request->string('date_to')->toString(),
+                'tab'       => $tab,
             ],
             'statuses'     => $visibleStatuses,
             'statusCounts' => $statusCounts,
@@ -151,6 +163,84 @@ class OrderController extends Controller
                 'filter_by_brand' => $canSeeMultiBrand,
             ],
         ]);
+    }
+
+    public function exportComprehensive(Request $request)
+    {
+        Gate::authorize('order.view');
+
+        $user      = $request->user();
+        $brandId   = BrandContext::current($request);
+        $canSeeMultiBrand = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi', 'admin_reseller', 'admin_brand']);
+
+        $filterBrandId = $request->string('brand_id')->toString();
+        $userBrandIds  = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])
+            ? null
+            : $user->brands()->pluck('brands.id')->toArray();
+
+        $effectiveId = match(true) {
+            $user->hasRole(['admin_produksi', 'admin_keuangan']) => null,
+            $user->hasRole('admin_reseller')  => BrandContext::effectiveBrandIds($request),
+            $user->hasRole('admin_brand') && ($filterBrandId === 'all' || empty($filterBrandId))
+                => $userBrandIds ?? $brandId,
+            default => $brandId,
+        };
+
+        $tab = $request->string('tab', 'active')->toString();
+
+        $query = Order::query()
+            ->forBrand($effectiveId)
+            ->with([
+                'brand:id,nama_brand,kode',
+                'pelanggan:id,nama',
+                'progressDetails.progress',
+                'rijeks.progress',
+                'payments.bank',
+                'payments.masterJenisPembayaran'
+            ]);
+
+        if ($search = $request->string('q')->toString()) {
+            $query->where(function ($q) use ($search) {
+                $q->where('no_po', 'like', "%{$search}%")
+                  ->orWhere('nama_po', 'like', "%{$search}%")
+                  ->orWhereHas('pelanggan', fn ($x) => $x->where('nama', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($user->hasRole('admin_produksi')) {
+            $query->where('status_po', '!=', 'draft');
+        }
+
+        $status = $request->string('status')->toString();
+        if ($status && $status !== 'all') {
+            $query->where('orders.status_po', $status);
+        } else {
+            if ($tab === 'archive') {
+                $query->where('orders.status_po', 'sudah_dikirim');
+            } else {
+                $query->where('orders.status_po', '!=', 'sudah_dikirim');
+            }
+        }
+
+        if ($canSeeMultiBrand && $filterBrandId && $filterBrandId !== 'all') {
+            $query->where('orders.brand_id', $filterBrandId);
+        }
+
+        if ($dateFrom = $request->string('date_from')->toString()) {
+            $query->whereDate('tanggal_masuk', '>=', $dateFrom);
+        }
+        if ($dateTo = $request->string('date_to')->toString()) {
+            $query->whereDate('tanggal_masuk', '<=', $dateTo);
+        }
+
+        $orders = $query->orderByDesc('created_at')->get()->all();
+
+        $filename = 'comprehensive-po-export-' . now()->format('Ymd-His') . '.xlsx';
+
+        return Excel::download(
+            new POComprehensiveExport('Master PO Export', $orders),
+            $filename
+        );
     }
 
     public function create(Request $request)
@@ -250,7 +340,7 @@ class OrderController extends Controller
             ]);
 
             $this->syncItems($order, $data['items'] ?? []);
-            $order->update(['total_tagihan' => $order->items()->sum('subtotal')]);
+            $order->update(['total_tagihan' => $order->is_special_order ? 0.0 : $order->items()->sum('subtotal')]);
 
             $order->load('items');
             $totalTagihan = (float) $order->total_tagihan;
@@ -266,7 +356,7 @@ class OrderController extends Controller
                 'total_tagihan'   => $totalTagihan,
                 'bank_id'         => $data['bank_id'],
                 'dp_amount'       => $dp,
-                'sisa_pembayaran' => max(0, $totalTagihan - $dp),
+                'sisa_pembayaran' => $order->is_special_order ? 0.0 : max(0, $totalTagihan - $dp),
                 'created_by'      => $user->id,
             ]);
 
@@ -322,7 +412,7 @@ class OrderController extends Controller
             $order->update($updateData);
 
             $this->syncItems($order, $data['items'] ?? []);
-            $order->update(['total_tagihan' => $order->items()->sum('subtotal')]);
+            $order->update(['total_tagihan' => $order->is_special_order ? 0.0 : $order->items()->sum('subtotal')]);
 
             // Sync invoice
             $invoice = $order->invoices()->first();
@@ -341,7 +431,7 @@ class OrderController extends Controller
 
                 $totalTagihan = $order->totalTagihan();
                 $totalPaid = $order->totalPaid();
-                $newSisa = max(0, $totalTagihan - $totalPaid);
+                $newSisa = $order->is_special_order ? 0.0 : max(0, $totalTagihan - $totalPaid);
 
                 $invoice->update([
                     'total_tagihan' => $totalTagihan,
@@ -454,14 +544,20 @@ class OrderController extends Controller
         $minDp        = $totalTagihan * $minDpPercentage;
         $minDpPercent = number_format($minDpPercentage * 100, 0) . '%';
 
-        if ($totalPaid < $minDp && ! $order->is_dp_bypassed) {
-            return back()->with('error',
-                'PO tidak bisa diterbitkan. Pembayaran terverifikasi Rp ' .
-                number_format($totalPaid, 0, ',', '.') .
-                ' belum mencapai minimal ' . $minDpPercent . ' DP (Rp ' .
-                number_format($minDp, 0, ',', '.') . '). ' .
-                'Minta Admin Keuangan memvalidasi pembayaran DP atau lakukan bypass.'
-            );
+        if ($order->is_special_order) {
+            if (! $order->is_dp_bypassed) {
+                return back()->with('error', 'PO tidak bisa diterbitkan. Untuk Special Order, silakan hubungi Admin Keuangan untuk menyetujui/melakukan bypass terlebih dahulu.');
+            }
+        } else {
+            if ($totalPaid < $minDp && ! $order->is_dp_bypassed) {
+                return back()->with('error',
+                    'PO tidak bisa diterbitkan. Pembayaran terverifikasi Rp ' .
+                    number_format($totalPaid, 0, ',', '.') .
+                    ' belum mencapai minimal ' . $minDpPercent . ' DP (Rp ' .
+                    number_format($minDp, 0, ',', '.') . '). ' .
+                    'Minta Admin Keuangan memvalidasi pembayaran DP atau lakukan bypass.'
+                );
+            }
         }
 
         $this->statusManager->publish($order, $request->user());
@@ -736,6 +832,7 @@ class OrderController extends Controller
 
     public function markLunas(Request $request, Order $order)
     {
+        abort_if($order->is_special_order, 422, 'Special Order tidak memerlukan konfirmasi lunas.');
         abort_unless(
             $request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan'),
             403

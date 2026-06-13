@@ -82,24 +82,24 @@ class CalendarTest extends TestCase
             ->assertInertia(fn ($p) => $p->where('events', []));
     }
 
-    public function test_calendar_respects_brand_isolation()
+    public function test_calendar_does_not_isolate_by_brand()
     {
-        $brand1 = $this->makeBrand(['kode' => 'BX1']);
-        $brand2 = $this->makeBrand(['kode' => 'BX2']);
+        $brand1 = $this->makeBrand(['kode' => 'BX1', 'nama_brand' => 'Brand Satu']);
+        $brand2 = $this->makeBrand(['kode' => 'BX2', 'nama_brand' => 'Brand Dua']);
         $user   = $this->makeUser('superadmin', [$brand1, $brand2]);
 
         Customer::create(['brand_id' => $brand1->id, 'kode' => 'C1', 'nama' => 'T', 'nomor_hp' => '081', 'is_active' => true]);
         Customer::create(['brand_id' => $brand2->id, 'kode' => 'C2', 'nama' => 'T', 'nomor_hp' => '082', 'is_active' => true]);
 
         Order::create([
-            'brand_id' => $brand1->id, 'no_po' => 'PO-CX1', 'nama_po' => 'Brand1',
+            'brand_id' => $brand1->id, 'no_po' => 'PO-CX1', 'nama_po' => 'PO 1',
             'status_po' => 'published', 'tanggal_masuk' => now()->toDateString(),
             'deadline_customer' => now()->addDays(5)->toDateString(),
             'pelanggan_id' => Customer::where('brand_id', $brand1->id)->first()->id,
             'total_tagihan' => 100000, 'published_at' => now(), 'created_by' => $user->id,
         ]);
         Order::create([
-            'brand_id' => $brand2->id, 'no_po' => 'PO-CX2', 'nama_po' => 'Brand2',
+            'brand_id' => $brand2->id, 'no_po' => 'PO-CX2', 'nama_po' => 'PO 2',
             'status_po' => 'published', 'tanggal_masuk' => now()->toDateString(),
             'deadline_customer' => now()->addDays(5)->toDateString(),
             'pelanggan_id' => Customer::where('brand_id', $brand2->id)->first()->id,
@@ -110,7 +110,9 @@ class CalendarTest extends TestCase
             ->get(route('kalender.index'))
             ->assertOk()
             ->assertInertia(fn ($p) => $p->where('events', fn ($ev) =>
-                count($ev) === 1 && $ev[0]['noPo'] === 'PO-CX1'
+                count($ev) === 2 &&
+                collect($ev)->contains('noPo', 'PO-CX1') &&
+                collect($ev)->contains('noPo', 'PO-CX2')
             ));
     }
 

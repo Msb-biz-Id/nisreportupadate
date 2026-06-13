@@ -57,12 +57,12 @@ class UserManagementTest extends TestCase
             ->assertSessionHasErrors('default_brand_id');
     }
 
-    public function test_owner_cannot_assign_superadmin_role(): void
+    public function test_non_superadmin_cannot_assign_superadmin_role(): void
     {
         $brand = $this->makeBrand();
-        $owner = $this->makeUser('owner', [$brand]);
+        $nonSa = $this->makeUser('admin_reseller', [$brand]);
 
-        $this->actingAs($owner)
+        $this->actingAs($nonSa)
             ->post(route('users.store'), [
                 'name' => 'Sneaky',
                 'email' => 'sneaky@test.local',

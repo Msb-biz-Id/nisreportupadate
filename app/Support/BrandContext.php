@@ -21,14 +21,36 @@ class BrandContext
             return null;
         }
 
+        $canSeeAll = $user->hasAccessToBrand('all');
         $current = $request->session()->get(self::SESSION_KEY) ?? $user->last_brand_id;
+
+        if ($current === 'all' && $canSeeAll) {
+            return [
+                'id' => 'all',
+                'nama_brand' => 'Semua Brand',
+                'kode' => 'ALL',
+                'warna_primary' => '#6366F1',
+                'is_active' => true,
+            ];
+        }
+
         $brand = $current ? $brands->firstWhere('id', $current) : null;
 
         if (! $brand) {
+            if ($canSeeAll) {
+                $request->session()->put(self::SESSION_KEY, 'all');
+                return [
+                    'id' => 'all',
+                    'nama_brand' => 'Semua Brand',
+                    'kode' => 'ALL',
+                    'warna_primary' => '#6366F1',
+                    'is_active' => true,
+                ];
+            }
             $brand = $brands->firstWhere('is_active', true) ?? $brands->first();
             $request->session()->put(self::SESSION_KEY, $brand->id);
             if ($user->last_brand_id !== $brand->id) {
-                $user->forceFill(['last_brand_id' => $brand->id])->saveQuietly();
+                $user->forceFill(['last_brand_id' => $brand->id === 'all' ? null : $brand->id])->saveQuietly();
             }
         }
 
@@ -48,7 +70,7 @@ class BrandContext
         }
 
         $request->session()->put(self::SESSION_KEY, $brandId);
-        $user->forceFill(['last_brand_id' => $brandId])->saveQuietly();
+        $user->forceFill(['last_brand_id' => $brandId === 'all' ? null : $brandId])->saveQuietly();
 
         return true;
     }
@@ -66,9 +88,13 @@ class BrandContext
             return null;
         }
 
-        $availableBrands = $user->isSuperadmin()
-            ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary', 'is_active'])
-            : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode', 'warna_primary', 'is_active']);
+        $canSeeAllGlobalBrands = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+
+        if ($canSeeAllGlobalBrands) {
+            $availableBrands = \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary', 'is_active']);
+        } else {
+            $availableBrands = $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode', 'warna_primary', 'is_active']);
+        }
 
         $resolved = self::resolve($request, $user, $availableBrands);
 

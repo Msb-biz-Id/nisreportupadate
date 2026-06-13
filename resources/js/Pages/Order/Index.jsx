@@ -1,6 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Search, Eye, Package, RotateCw, Copy, Check, X, Calendar } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Eye, Package, RotateCw, Copy, Check, X, Calendar, Download } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -35,12 +35,15 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
     const [showDatePanel, setShowDatePanel] = useState(!!(filters?.date_from || filters?.date_to));
 
     function applyFilters(overrides = {}) {
+        const activeTab = overrides.hasOwnProperty('tab') ? overrides.tab : (filters?.tab ?? 'active');
+        const isArchive = activeTab === 'archive';
         router.get(route('orders.index'), {
             q:         overrides.hasOwnProperty('q') ? overrides.q : search,
-            status:    (overrides.hasOwnProperty('status') ? overrides.status : status) === 'all' ? '' : (overrides.hasOwnProperty('status') ? overrides.status : status),
+            status:    isArchive ? '' : ((overrides.hasOwnProperty('status') ? overrides.status : status) === 'all' ? '' : (overrides.hasOwnProperty('status') ? overrides.status : status)),
             brand_id:  (overrides.hasOwnProperty('brand_id') ? overrides.brand_id : brandId) === NONE ? '' : (overrides.hasOwnProperty('brand_id') ? overrides.brand_id : brandId),
             date_from: overrides.hasOwnProperty('date_from') ? overrides.date_from : dateFrom,
             date_to:   overrides.hasOwnProperty('date_to') ? overrides.date_to : dateTo,
+            tab:       activeTab,
         }, { preserveScroll: true, preserveState: true });
     }
 
@@ -126,7 +129,9 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
     function resetFilters() {
         setSearch(''); setStatus('all'); setBrandId('');
         setDateFrom(''); setDateTo(''); setShowDatePanel(false);
-        router.get(route('orders.index'), {}, { preserveScroll: true, preserveState: true });
+        router.get(route('orders.index'), {
+            tab: filters?.tab ?? 'active'
+        }, { preserveScroll: true, preserveState: true });
     }
 
     function doDelete() {
@@ -140,6 +145,10 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
     const hasActiveFilter = search || (status && status !== 'all') || brandId || dateFrom || dateTo;
     const totalPo = Object.values(statusCounts ?? {}).reduce((s, v) => s + v, 0);
     const summaryItems = statuses.filter((s) => (statusCounts?.[s] ?? 0) > 0).map((s) => ({ key: s, ...STATUS_LABEL[s], count: statusCounts[s] }));
+    const isArchiveTab = (filters?.tab ?? 'active') === 'archive';
+    const colsCount = isArchiveTab
+        ? (can?.filter_by_brand && brands?.length > 0 ? 4 : 3)
+        : (can?.filter_by_brand && brands?.length > 0 ? 5 : 4);
 
     function copyToClipboard() {
         const headers = ['No. PO', 'Nama PO', 'Brand', 'Pelanggan', 'Tgl Masuk', 'Deadline', 'Status', 'Total', 'Items'];
@@ -168,33 +177,35 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
 
             <div className="space-y-4">
                 {/* Summary Cards */}
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-                    <button
-                        onClick={() => { setStatus('all'); applyFilters({ status: 'all' }); }}
-                        className={`rounded-xl border p-3 text-left transition hover:shadow-md ${status === 'all' ? 'border-slate-800 bg-slate-800 text-white' : 'bg-white hover:border-slate-400'}`}
-                    >
-                        <p className={`text-[10px] font-bold uppercase tracking-wider ${status === 'all' ? 'text-slate-300' : 'text-slate-400'}`}>Total PO</p>
-                        <p className="mt-1 text-2xl font-black tabular-nums">{totalPo}</p>
-                    </button>
-                    {summaryItems.map((item) => (
+                {(filters?.tab ?? 'active') !== 'archive' && (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
                         <button
-                            key={item.key}
-                            onClick={() => { setStatus(item.key); applyFilters({ status: item.key }); }}
-                            className="rounded-xl border p-3 text-left transition hover:shadow-md"
-                            style={status === item.key
-                                ? { backgroundColor: item.color, borderColor: item.color, color: '#fff' }
-                                : { borderColor: item.color + '50', backgroundColor: item.color + '10' }
-                            }
+                            onClick={() => { setStatus('all'); applyFilters({ status: 'all' }); }}
+                            className={`rounded-xl border p-3 text-left transition hover:shadow-md ${status === 'all' ? 'border-slate-800 bg-slate-800 text-white' : 'bg-white hover:border-slate-400'}`}
                         >
-                            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: status === item.key ? '#fff' : item.color }}>
-                                {item.label}
-                            </p>
-                            <p className="mt-1 text-2xl font-black tabular-nums" style={{ color: status === item.key ? '#fff' : item.color }}>
-                                {item.count}
-                            </p>
+                            <p className={`text-[10px] font-bold uppercase tracking-wider ${status === 'all' ? 'text-slate-300' : 'text-slate-400'}`}>Total PO</p>
+                            <p className="mt-1 text-2xl font-black tabular-nums">{totalPo}</p>
                         </button>
-                    ))}
-                </div>
+                        {summaryItems.map((item) => (
+                            <button
+                                key={item.key}
+                                onClick={() => { setStatus(item.key); applyFilters({ status: item.key }); }}
+                                className="rounded-xl border p-3 text-left transition hover:shadow-md"
+                                style={status === item.key
+                                    ? { backgroundColor: item.color, borderColor: item.color, color: '#fff' }
+                                    : { borderColor: item.color + '50', backgroundColor: item.color + '10' }
+                                }
+                            >
+                                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: status === item.key ? '#fff' : item.color }}>
+                                    {item.label}
+                                </p>
+                                <p className="mt-1 text-2xl font-black tabular-nums" style={{ color: status === item.key ? '#fff' : item.color }}>
+                                    {item.count}
+                                </p>
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 <Card>
                     <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -206,7 +217,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                 Kelola PO: draft → terbitkan → produksi → kirim.
                             </p>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -216,6 +227,26 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                             >
                                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                                 {copied ? 'Tersalin!' : 'Salin Data'}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    const params = new URLSearchParams({
+                                        q: search,
+                                        status: status === 'all' ? '' : status,
+                                        brand_id: brandId,
+                                        date_from: dateFrom,
+                                        date_to: dateTo,
+                                        tab: filters?.tab ?? 'active'
+                                    }).toString();
+                                    window.open(route('orders.export-comprehensive') + '?' + params, '_blank');
+                                }}
+                                className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 flex items-center gap-1.5"
+                                title="Download Master Export (Semua Record: Progress, Rijek, Pembayaran)"
+                            >
+                                <Download className="h-4 w-4" />
+                                Master Export
                             </Button>
                             {can?.create && (
                                 <Button asChild>
@@ -227,9 +258,33 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                         </div>
                     </CardHeader>
                     <CardContent className="pt-0">
+                        {/* Tab Switcher */}
+                        <div className="flex border-b border-slate-200 mb-6">
+                            <button
+                                onClick={() => applyFilters({ tab: 'active', status: 'all' })}
+                                className={`py-3 px-6 font-semibold text-sm border-b-2 transition-all ${
+                                    (filters?.tab ?? 'active') === 'active'
+                                        ? 'border-indigo-600 text-indigo-600'
+                                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                                }`}
+                            >
+                                PO Aktif
+                            </button>
+                            <button
+                                onClick={() => applyFilters({ tab: 'archive', status: 'all' })}
+                                className={`py-3 px-6 font-semibold text-sm border-b-2 transition-all ${
+                                    (filters?.tab ?? 'active') === 'archive'
+                                        ? 'border-indigo-600 text-indigo-600'
+                                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                                }`}
+                            >
+                                Arsip PO
+                            </button>
+                        </div>
+
                         {/* Filter Bar */}
                         <div className="mb-6 space-y-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${colsCount} gap-3`}>
                                 {/* Search */}
                                 <div className="relative">
                                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -243,15 +298,17 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                 </div>
 
                                 {/* Status Select */}
-                                <Select value={status} onValueChange={(v) => { setStatus(v); applyFilters({ status: v }); }}>
-                                    <SelectTrigger className="bg-white"><SelectValue placeholder="Status" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Semua Status</SelectItem>
-                                        {statuses.map((s) => (
-                                            <SelectItem key={s} value={s}>{STATUS_LABEL[s]?.label ?? s}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                {!isArchiveTab && (
+                                    <Select value={status} onValueChange={(v) => { setStatus(v); applyFilters({ status: v }); }}>
+                                        <SelectTrigger className="bg-white"><SelectValue placeholder="Status" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Semua Status</SelectItem>
+                                            {statuses.map((s) => (
+                                                <SelectItem key={s} value={s}>{STATUS_LABEL[s]?.label ?? s}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
 
                                 {/* Brand Filter — admin_brand bisa pilih semua brand atau satu */}
                                 {can?.filter_by_brand && brands?.length > 0 ? (

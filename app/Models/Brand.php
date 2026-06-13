@@ -78,6 +78,11 @@ class Brand extends Model
         return $this->hasMany(Brand::class, 'parent_brand_id');
     }
 
+    public function bankAccounts(): HasMany
+    {
+        return $this->hasMany(\App\Models\Master\BankAccount::class);
+    }
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);

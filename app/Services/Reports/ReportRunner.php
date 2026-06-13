@@ -43,6 +43,8 @@ class ReportRunner
             'pemasukan' => $this->pemasukan($brandId, $filters),
             'pengeluaran' => $this->pengeluaran($brandId, $filters),
             'analisis-marketing' => $this->analisisMarketing($brandId, $filters),
+            'crm-churn' => $this->crmChurn($brandId, $filters),
+            'crm-seasonal' => $this->crmSeasonal($brandId, $filters),
             default => ['rows' => [], 'summary' => []],
         };
     }
@@ -596,6 +598,190 @@ class ReportRunner
                 ['label' => 'Total Qty Terjual', 'value' => array_sum(array_column($rows, 'total_qty'))],
                 ['label' => 'Total Order', 'value' => array_sum(array_column($rows, 'total_order'))],
                 ['label' => 'Total Omset', 'value' => $totalOmset, 'format' => 'currency'],
+            ],
+        ];
+    }
+
+    private function crmChurn(string|array|null $brandId, array $filters): array
+    {
+        $customers = DB::table('customers')
+            ->join('orders', 'orders.pelanggan_id', '=', 'customers.id')
+            ->where('orders.status_po', '!=', 'draft')
+            ->when($brandId && $brandId !== 'all', function ($q) use ($brandId) {
+                if (is_array($brandId)) {
+                    $q->whereIn('orders.brand_id', $brandId);
+                } else {
+                    $q->where('customers.brand_id', $brandId);
+                }
+            })
+            ->select('customers.id', 'customers.kode', 'customers.nama', 'customers.nomor_hp', 'orders.tanggal_masuk', 'orders.total_tagihan')
+            ->orderBy('customers.id')
+            ->orderBy('orders.tanggal_masuk')
+            ->get();
+
+        $grouped = $customers->groupBy('id');
+        $rows = [];
+        $warningCount = 0;
+        $highRiskCount = 0;
+        $totalLoss = 0;
+
+        foreach ($grouped as $customerId => $customerOrders) {
+            $first = $customerOrders->first();
+            $totalOrder = $customerOrders->count();
+            $totalValue = $customerOrders->sum('total_tagihan');
+            $aov = $totalOrder > 0 ? ($totalValue / $totalOrder) : 0;
+            
+            // Extract dates
+            $dates = $customerOrders->pluck('tanggal_masuk')->map(fn($d) => Carbon::parse($d))->all();
+            
+            // Calculate intervals
+            $intervals = [];
+            for ($i = 1; $i < count($dates); $i++) {
+                $intervals[] = $dates[$i-1]->diffInDays($dates[$i]);
+            }
+            
+            $aoi = count($intervals) > 0 ? (array_sum($intervals) / count($intervals)) : 30; // fallback 30 hari
+            $aoi = max(1, $aoi);
+            
+            $lastOrderDate = end($dates);
+            $recency = $lastOrderDate->diffInDays(Carbon::now());
+            
+            // Churn Risk Assessment
+            if ($recency <= $aoi * 1.5) {
+                $riskLevel = 'Safe';
+            } elseif ($recency <= $aoi * 2.5) {
+                $riskLevel = 'Warning';
+                $warningCount++;
+            } else {
+                $riskLevel = 'High Risk';
+                $highRiskCount++;
+            }
+            
+            $monetaryLoss = ($riskLevel === 'Safe') ? 0 : $aov;
+            if ($riskLevel !== 'Safe') {
+                $totalLoss += $monetaryLoss;
+            }
+            
+            $nextOrderPred = $lastOrderDate->copy()->addDays((int) round($aoi));
+            
+            $rows[] = [
+                'kode' => $first->kode,
+                'nama' => $first->nama,
+                'nomor_hp' => $first->nomor_hp,
+                'total_order' => $totalOrder,
+                'avg_interval' => $aoi,
+                'avg_interval_text' => round($aoi) . ' hari',
+                'recency_days' => $recency,
+                'next_order_pred' => $nextOrderPred->toDateString(),
+                'risk_level' => $riskLevel,
+                'monetary_loss' => $monetaryLoss,
+                'whatsapp_action' => [
+                    'nama' => $first->nama,
+                    'nomor_hp' => $first->nomor_hp,
+                    'recency' => $recency,
+                    'aoi' => (int) round($aoi),
+                ]
+            ];
+        }
+
+        // Sort rows by risk severity: High Risk first, then Warning, then Safe
+        usort($rows, function ($a, $b) {
+            $riskScore = ['High Risk' => 3, 'Warning' => 2, 'Safe' => 1];
+            $scoreA = $riskScore[$a['risk_level']] ?? 0;
+            $scoreB = $riskScore[$b['risk_level']] ?? 0;
+            if ($scoreA === $scoreB) {
+                return $b['recency_days'] <=> $a['recency_days']; // show longer elapsed first
+            }
+            return $scoreB <=> $scoreA;
+        });
+
+        return [
+            'rows' => $rows,
+            'summary' => [
+                ['label' => 'Total Pelanggan Teranalisa', 'value' => count($rows)],
+                ['label' => 'Pelanggan Warning (Mulai Berisiko)', 'value' => $warningCount],
+                ['label' => 'Pelanggan High Risk (Hampir Pasti Churn)', 'value' => $highRiskCount],
+                ['label' => 'Total Potensi Omset Hilang', 'value' => $totalLoss, 'format' => 'currency'],
+            ],
+        ];
+    }
+
+    private function crmSeasonal(string|array|null $brandId, array $filters): array
+    {
+        $targetMonth = Carbon::now()->month;
+
+        $results = DB::table('customers')
+            ->join('orders', 'orders.pelanggan_id', '=', 'customers.id')
+            ->where('orders.status_po', '!=', 'draft')
+            ->whereMonth('orders.tanggal_masuk', $targetMonth)
+            ->whereYear('orders.tanggal_masuk', '<', Carbon::now()->year)
+            ->when($brandId && $brandId !== 'all', function ($q) use ($brandId) {
+                if (is_array($brandId)) {
+                    $q->whereIn('orders.brand_id', $brandId);
+                } else {
+                    $q->where('customers.brand_id', $brandId);
+                }
+            })
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('orders as active_orders')
+                    ->whereColumn('active_orders.pelanggan_id', 'customers.id')
+                    ->where('active_orders.status_po', '!=', 'draft')
+                    ->where('active_orders.tanggal_masuk', '>=', Carbon::now()->subDays(60)->toDateString());
+            })
+            ->select(
+                'customers.id',
+                'customers.kode',
+                'customers.nama',
+                'customers.nomor_hp',
+                'orders.no_po',
+                'orders.tanggal_masuk',
+                'orders.total_tagihan'
+            )
+            ->orderByDesc('orders.tanggal_masuk')
+            ->get();
+
+        $grouped = $results->groupBy('id');
+        $rows = [];
+        $totalLoss = 0;
+
+        foreach ($grouped as $customerId => $customerOrders) {
+            $latestPastOrder = $customerOrders->first();
+            $totalLoss += (float) $latestPastOrder->total_tagihan;
+
+            $rows[] = [
+                'kode' => $latestPastOrder->kode,
+                'nama' => $latestPastOrder->nama,
+                'order_tahun_lalu' => $latestPastOrder->no_po,
+                'tanggal_order_lalu' => $latestPastOrder->tanggal_masuk,
+                'nilai_order_lalu' => (float) $latestPastOrder->total_tagihan,
+                'whatsapp_action' => [
+                    'type' => 'seasonal',
+                    'nama' => $latestPastOrder->nama,
+                    'nomor_hp' => $latestPastOrder->nomor_hp,
+                    'order_tahun_lalu' => $latestPastOrder->no_po,
+                    'tanggal_order_lalu' => $latestPastOrder->tanggal_masuk,
+                ]
+            ];
+        }
+
+        // Sort by value descending
+        usort($rows, function ($a, $b) {
+            return $b['nilai_order_lalu'] <=> $a['nilai_order_lalu'];
+        });
+
+        $monthNames = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',
+            7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $targetMonthName = $monthNames[$targetMonth] ?? Carbon::now()->format('F');
+
+        return [
+            'rows' => $rows,
+            'summary' => [
+                ['label' => 'Bulan Target', 'value' => $targetMonthName],
+                ['label' => 'Pelanggan Terdeteksi', 'value' => count($rows)],
+                ['label' => 'Total Potensi Omset Repeat Order', 'value' => $totalLoss, 'format' => 'currency'],
             ],
         ];
     }

@@ -65,7 +65,7 @@ class MasterController extends Controller
     public function store(Request $request, string $slug)
     {
         $config = $this->resolveConfig($slug);
-        $this->authorizeForConfig($config);
+        abort_unless($this->canManageConfig($request->user(), $config), 403, 'Aksi ini tidak diizinkan untuk role Anda.');
 
         $data = $this->validatePayload($request, $config);
 
@@ -86,7 +86,7 @@ class MasterController extends Controller
     public function update(Request $request, string $slug, string $id)
     {
         $config = $this->resolveConfig($slug);
-        $this->authorizeForConfig($config);
+        abort_unless($this->canManageConfig($request->user(), $config), 403, 'Aksi ini tidak diizinkan untuk role Anda.');
 
         $modelClass = $config['model'];
         $record = $modelClass::findOrFail($id);
@@ -102,7 +102,7 @@ class MasterController extends Controller
     public function destroy(Request $request, string $slug, string $id)
     {
         $config = $this->resolveConfig($slug);
-        $this->authorizeForConfig($config);
+        abort_unless($this->canManageConfig($request->user(), $config), 403, 'Aksi ini tidak diizinkan untuk role Anda.');
 
         $modelClass = $config['model'];
         $record = $modelClass::findOrFail($id);
@@ -123,7 +123,7 @@ class MasterController extends Controller
     private function authorizeForConfig(array $config): void
     {
         $user = request()->user();
-        if ($user->can('master.manage')) return;
+        if ($user->can('master.manage') || $user->can('master.view')) return;
         if ($user->can('master.brand') && ($config['group'] === 'order' || $config['slug'] === 'bank')) return;
         if ($user->can('master.produk') && $config['slug'] === 'produk') return;
         // admin_produksi: akses semua master global (bahan, size, logo, pola, dll) + production (progress)

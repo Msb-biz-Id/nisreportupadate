@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Search, Users, Phone, Mail, MapPin } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Users, Phone, Mail, MapPin, Upload, Download } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -18,7 +18,7 @@ import { formatRupiah } from '@/lib/utils';
 
 const NONE = '__none__';
 
-function CustomerForm({ open, onOpenChange, customer, customerTypes, sumberOrders, onSuccess }) {
+function CustomerForm({ open, onOpenChange, customer, customerTypes, onSuccess }) {
     const isEdit = !!customer;
     const { data, setData, post, put, processing, errors, reset } = useForm({
         nama: customer?.nama ?? '',
@@ -151,8 +151,80 @@ function CustomerForm({ open, onOpenChange, customer, customerTypes, sumberOrder
     );
 }
 
-export default function CustomerIndex({ items, filters, customerTypes, sumberOrders, can }) {
+function ImportModal({ open, onOpenChange }) {
+    const { data, setData, post, processing, errors, reset } = useForm({
+        file: null,
+    });
+
+    function submit(e) {
+        e.preventDefault();
+        if (!data.file) return;
+        post(route('master.pelanggan.import'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                reset();
+                onOpenChange(false);
+            },
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-md">
+                <form onSubmit={submit}>
+                    <DialogHeader>
+                        <DialogTitle>Import Pelanggan</DialogTitle>
+                        <DialogDescription>
+                            Unggah file CSV dengan format baku untuk mengimpor data pelanggan secara massal. Brand/reseller harus sudah terdaftar di sistem.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-4">
+                        <div className="rounded-lg border bg-muted/30 p-4">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                    <div className="text-sm font-medium">Format Baku (Template)</div>
+                                    <div className="text-xs text-muted-foreground">Unduh format kolom yang diperlukan.</div>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => window.open(route('master.pelanggan.import-template'), '_blank')}
+                                >
+                                    <Download className="mr-2 h-4 w-4" /> Unduh CSV
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="file">File CSV</Label>
+                            <Input
+                                id="file"
+                                type="file"
+                                accept=".csv"
+                                onChange={(e) => setData('file', e.target.files[0])}
+                                className="mt-1"
+                            />
+                            {errors.file && <p className="text-xs text-destructive">{errors.file}</p>}
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={processing}>Batal</Button>
+                        <Button type="submit" disabled={processing || !data.file}>
+                            {processing ? 'Mengimpor...' : 'Mulai Import'}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+export default function CustomerIndex({ items, filters, customerTypes, can }) {
     const [openForm, setOpenForm] = useState(false);
+    const [openImport, setOpenImport] = useState(false);
     const [editing, setEditing] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [search, setSearch] = useState(filters?.q ?? '');
@@ -187,9 +259,16 @@ export default function CustomerIndex({ items, filters, customerTypes, sumberOrd
                             <p className="text-sm text-muted-foreground">Pelanggan terisolasi per brand aktif. Reseller menggunakan database global.</p>
                         </div>
                         {can?.manage && (
-                            <Button onClick={() => { setEditing(null); setOpenForm(true); }}>
-                                <Plus className="h-4 w-4" /> Tambah Pelanggan
-                            </Button>
+                            <div className="flex flex-wrap items-center gap-2">
+                                {can?.import && (
+                                    <Button variant="outline" onClick={() => setOpenImport(true)}>
+                                        <Upload className="h-4 w-4 mr-1" /> Import CSV
+                                    </Button>
+                                )}
+                                <Button onClick={() => { setEditing(null); setOpenForm(true); }}>
+                                    <Plus className="h-4 w-4 mr-1" /> Tambah Pelanggan
+                                </Button>
+                            </div>
                         )}
                     </CardHeader>
                     <CardContent className="pt-0">
@@ -305,15 +384,20 @@ export default function CustomerIndex({ items, filters, customerTypes, sumberOrd
             </div>
 
             {can?.manage && (
-                <CustomerForm
-                    key={editing?.id ?? 'new'}
-                    open={openForm}
-                    onOpenChange={setOpenForm}
-                    customer={editing}
-                    customerTypes={customerTypes}
-                    sumberOrders={sumberOrders}
-                    onSuccess={() => setOpenForm(false)}
-                />
+                <>
+                    <CustomerForm
+                        key={editing?.id ?? 'new'}
+                        open={openForm}
+                        onOpenChange={setOpenForm}
+                        customer={editing}
+                        customerTypes={customerTypes}
+                        onSuccess={() => setOpenForm(false)}
+                    />
+                    <ImportModal
+                        open={openImport}
+                        onOpenChange={setOpenImport}
+                    />
+                </>
             )}
 
             <Dialog open={!!confirmDelete} onOpenChange={(v) => !v && setConfirmDelete(null)}>

@@ -256,6 +256,7 @@ function SystemSection({ sys }) {
         notification_channel: sys.notification_channel,
         whatsapp_enabled: !!sys.whatsapp_enabled,
         telegram_enabled: !!sys.telegram_enabled,
+        customer_import_enabled: !!sys.customer_import_enabled,
     });
 
     function submit(e) {
@@ -295,6 +296,13 @@ function SystemSection({ sys }) {
                             <p className="text-[11px] text-muted-foreground mt-0.5">Aktifkan untuk mengizinkan notifikasi keluar via Telegram.</p>
                         </div>
                         <Switch checked={data.telegram_enabled} onCheckedChange={(v) => setData('telegram_enabled', v)} />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-4 bg-muted/20">
+                        <div>
+                            <Label className="text-xs font-semibold text-gray-800">Master Data Customer Import (Web)</Label>
+                            <p className="text-[11px] text-red-600 font-medium mt-0.5">⚠️ Aktifkan fitur impor CSV pelanggan secara massal via dashboard web (Hanya Superadmin).</p>
+                        </div>
+                        <Switch checked={data.customer_import_enabled} onCheckedChange={(v) => setData('customer_import_enabled', v)} />
                     </div>
                     <div className="pt-2 border-t">
                         <Button type="submit" disabled={processing} className="px-5">Simpan Konfigurasi</Button>

@@ -270,7 +270,7 @@
                     <td style="border:1px solid #000; padding:5px 6px; font-weight:bold; text-align:left;">POLA JAHITAN</td>
                     @foreach($nonAddonItems as $item)
                     <td style="border:1px solid #000; padding:5px 6px; text-align:center;">
-                        {{ $item->polaJahitan ? strtoupper($item->polaJahitan->jenis_pola . ' — ' . $item->polaJahitan->nama) : '.......' }}
+                        {{ $item->polaJahitan ? strtoupper($item->polaJahitan->nama) : '.......' }}
                     </td>
                     @endforeach
                 </tr>

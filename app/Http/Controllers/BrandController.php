@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
+use App\Models\Settings\SystemSetting;
 
 class BrandController extends Controller
 {
@@ -60,6 +62,7 @@ class BrandController extends Controller
                 'create' => $user->can('brand.create'),
                 'update' => $user->can('brand.update'),
                 'delete' => $user->can('brand.delete'),
+                'import' => (bool) SystemSetting::get('system', 'customer_import_enabled', false),
             ],
             'is_admin_reseller' => $user->hasRole('admin_reseller'),
             // IDs brand yang admin_reseller punya akses penuh (untuk tampilkan tombol aksi)
@@ -245,5 +248,157 @@ class BrandController extends Controller
         }
 
         return back()->with('success', "Brand {$brand->nama_brand} berhasil diambil alih. Anda sekarang bisa mengelolanya.");
+    }
+
+    public function downloadTemplate(Request $request)
+    {
+        Gate::authorize('brand.create');
+        if (!SystemSetting::get('system', 'customer_import_enabled', false)) {
+            abort(403, 'Fitur impor dinonaktifkan oleh administrator.');
+        }
+
+        $headers = [
+            'kode',
+            'nama_brand',
+            'brand_type',
+            'tagline',
+            'deskripsi',
+            'email',
+            'no_hp',
+            'alamat',
+            'warna_primary'
+        ];
+
+        $callback = function() use ($headers) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $headers);
+            
+            // Add sample row
+            fputcsv($file, [
+                'ALG',
+                'Apparel Allegiant',
+                'regular',
+                'Premium Sportwear',
+                'Produsen jersey berkualitas tinggi',
+                'info@allegiant.id',
+                '081223344556',
+                'Bandung, Jawa Barat',
+                '#000000'
+            ]);
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="format_baku_brand.csv"',
+        ]);
+    }
+
+    public function import(Request $request)
+    {
+        Gate::authorize('brand.create');
+        if (!SystemSetting::get('system', 'customer_import_enabled', false)) {
+            abort(403, 'Fitur impor dinonaktifkan oleh administrator.');
+        }
+
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:csv,txt'],
+        ]);
+
+        $file = $request->file('file');
+        $path = $file->getRealPath();
+
+        $handle = fopen($path, 'r');
+        if (!$handle) {
+            return back()->with('error', 'Gagal membuka file CSV.');
+        }
+
+        $headers = fgetcsv($handle, 1000, ',');
+        if ($headers) {
+            $headers[0] = preg_replace('/[\x{FEFF}\x{FFFE}\x{EFBB}\x{BFB0}]/u', '', $headers[0]);
+            $headers = array_map('trim', $headers);
+        }
+
+        $headerMap = array_flip($headers);
+
+        $required = ['kode', 'nama_brand'];
+        foreach ($required as $req) {
+            if (!isset($headerMap[$req])) {
+                fclose($handle);
+                return back()->with('error', "Format CSV salah. Kolom '{$req}' wajib ada.");
+            }
+        }
+
+        $imported = 0;
+        $errors = [];
+        $lineNum = 1;
+
+        DB::beginTransaction();
+        try {
+            while (($row = fgetcsv($handle, 1000, ',')) !== false) {
+                $lineNum++;
+                if (empty(array_filter($row))) continue;
+
+                $data = [];
+                foreach ($headerMap as $col => $index) {
+                    $data[$col] = isset($row[$index]) ? trim($row[$index]) : null;
+                }
+
+                if (empty($data['kode']) || empty($data['nama_brand'])) {
+                    $errors[] = "Baris {$lineNum}: Kolom 'kode' dan 'nama_brand' tidak boleh kosong.";
+                    continue;
+                }
+
+                $brandCode = Str::upper($data['kode']);
+                $brandType = strtolower($data['brand_type'] ?? 'regular');
+                if (!in_array($brandType, ['regular', 'reseller_hub', 'reseller_branch'])) {
+                    $brandType = 'regular';
+                }
+
+                // Create or Update Brand
+                $brand = Brand::updateOrCreate(
+                    ['kode' => $brandCode],
+                    [
+                        'nama_brand' => $data['nama_brand'],
+                        'brand_type' => $brandType,
+                        'tagline' => $data['tagline'],
+                        'deskripsi' => $data['deskripsi'],
+                        'email' => $data['email'],
+                        'no_hp' => $data['no_hp'],
+                        'alamat' => $data['alamat'],
+                        'warna_primary' => $data['warna_primary'] ?? '#000000',
+                        'is_active' => true,
+                        'created_by' => $request->user()->id,
+                    ]
+                );
+
+                // Auto-create CASH bank account for brand if not exists
+                if (!$brand->bankAccounts()->where('bank', 'CASH')->exists()) {
+                    \App\Models\Master\BankAccount::create([
+                        'brand_id' => $brand->id,
+                        'bank' => 'CASH',
+                        'atas_nama' => 'Cash',
+                        'nomor_rekening' => 'CASH',
+                        'is_active' => true,
+                    ]);
+                }
+
+                $imported++;
+            }
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            fclose($handle);
+            return back()->with('error', 'Terjadi kesalahan saat mengimpor brand: ' . $e->getMessage());
+        }
+
+        fclose($handle);
+
+        if (count($errors) > 0) {
+            return back()->with('success', "Berhasil mengimpor {$imported} brand.")
+                ->with('warning', implode('<br>', $errors));
+        }
+
+        return back()->with('success', "Berhasil mengimpor {$imported} brand.");
     }
 }

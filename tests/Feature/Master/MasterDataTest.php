@@ -63,19 +63,23 @@ class MasterDataTest extends TestCase
         $this->assertDatabaseMissing('bahan_kains', ['nama' => 'Microfiber Test']);
     }
 
-    public function test_owner_can_create_global_master(): void
+    public function test_owner_cannot_create_global_master_but_can_view(): void
     {
         $brand = $this->makeBrand();
         $user = $this->makeUser('owner', [$brand]);
+
+        $this->actingAsWithBrand($user, $brand)
+            ->get(route('master.index', 'bahan-kain'))
+            ->assertOk();
 
         $this->actingAsWithBrand($user, $brand)
             ->post(route('master.store', 'bahan-kain'), [
                 'nama' => 'Microfiber Owner',
                 'is_active' => true,
             ])
-            ->assertRedirect();
+            ->assertForbidden();
 
-        $this->assertDatabaseHas('bahan_kains', ['nama' => 'Microfiber Owner']);
+        $this->assertDatabaseMissing('bahan_kains', ['nama' => 'Microfiber Owner']);
     }
 
     public function test_admin_produksi_can_manage_global_master_data(): void

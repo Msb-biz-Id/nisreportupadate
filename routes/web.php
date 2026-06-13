@@ -53,6 +53,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/brand/switch/{brandId}', BrandSwitchController::class)->name('brand.switch');
 
     // Phase 1: Brand & User Management
+    Route::get('/brands/import-template', [BrandController::class, 'downloadTemplate'])->name('brands.import-template');
+    Route::post('/brands/import', [BrandController::class, 'import'])->name('brands.import');
     Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
     Route::post('/brands', [BrandController::class, 'store'])->name('brands.store');
     Route::put('/brands/{brand}', [BrandController::class, 'update'])->name('brands.update');
@@ -76,6 +78,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     // Phase 2: Master Data — Customer (dedicated)
+    Route::get('/master/pelanggan/import-template', [CustomerController::class, 'downloadTemplate'])->name('master.pelanggan.import-template');
+    Route::post('/master/pelanggan/import', [CustomerController::class, 'import'])->name('master.pelanggan.import');
     Route::get('/master/pelanggan', [CustomerController::class, 'index'])->name('master.pelanggan.index');
     Route::post('/master/pelanggan', [CustomerController::class, 'store'])->name('master.pelanggan.store');
     Route::put('/master/pelanggan/{customer}', [CustomerController::class, 'update'])->name('master.pelanggan.update');
@@ -99,6 +103,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('orders')->name('orders.')->group(function () {
         Route::get('/', [OrderController::class, 'index'])->name('index');
         Route::get('/create', [OrderController::class, 'create'])->name('create');
+        Route::get('/export-comprehensive', [OrderController::class, 'exportComprehensive'])->name('export-comprehensive');
         Route::post('/', [OrderController::class, 'store'])->name('store');
         Route::get('/{order}', [OrderController::class, 'show'])->name('show');
         Route::get('/{order}/edit', [OrderController::class, 'edit'])->name('edit');

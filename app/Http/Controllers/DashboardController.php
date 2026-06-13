@@ -30,11 +30,11 @@ class DashboardController extends Controller
         $data = Cache::remember($cacheKey, 60, fn () => match ($role) {
             'superadmin' => [
                 'view' => 'Superadmin',
-                'stats' => $this->service->superadminStats(),
+                'stats' => $this->service->superadminStats($filterBrand ?: $brandId),
             ],
             'owner' => [
                 'view' => 'Owner',
-                'stats' => $this->service->ownerStats($user, $filterBrand),
+                'stats' => $this->service->ownerStats($user, $filterBrand ?: $brandId),
             ],
             // admin_produksi & admin_keuangan = lintas-brand (lihat semua brand + reseller)
             // null = tanpa filter brand → tampilkan semua

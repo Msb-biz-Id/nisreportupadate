@@ -22,7 +22,7 @@ class DashboardService
     {
         return fn ($q) => is_array($brandId)
             ? $q->whereIn('brand_id', $brandId)
-            : $q->where('brand_id', $brandId);
+            : $q->when($brandId && $brandId !== 'all', fn ($q2) => $q2->where('brand_id', $brandId));
     }
 
     /** Filter orders.brand_id (for join queries where orders is joined) */
@@ -30,7 +30,7 @@ class DashboardService
     {
         return fn ($q) => is_array($brandId)
             ? $q->whereIn('orders.brand_id', $brandId)
-            : $q->where('orders.brand_id', $brandId);
+            : $q->when($brandId && $brandId !== 'all', fn ($q2) => $q2->where('orders.brand_id', $brandId));
     }
 
     /**
@@ -140,14 +140,17 @@ class DashboardService
         ];
     }
 
-    public function superadminStats(): array
+    public function superadminStats(string|array|null $brandId = null): array
     {
         $totalBrandAktif = Brand::active()->count();
         $totalUser       = \App\Models\User::count();
-        $totalOrder      = Order::count();
-        $totalRevenue    = Order::sum('total_tagihan');
+        
+        $baseOrder = Order::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
+        $totalOrder      = (clone $baseOrder)->count();
+        $totalRevenue    = (clone $baseOrder)->sum('total_tagihan');
 
         $perBrand = Order::query()
+            ->when($brandId && $brandId !== 'all', $this->bf($brandId))
             ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
             ->select('orders.brand_id', DB::raw('COUNT(orders.id) as total'), DB::raw('SUM(orders.total_tagihan) as revenue'), DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_pcs'))
             ->groupBy('orders.brand_id')
@@ -166,15 +169,15 @@ class DashboardService
             'cards' => [
                 ['label' => 'Total Brand Aktif', 'value' => $totalBrandAktif, 'icon' => 'Building2',   'accent' => 'blue'],
                 ['label' => 'Total User',         'value' => $totalUser,       'icon' => 'Users',        'accent' => 'emerald'],
-                ['label' => 'Total Order (Semua)', 'value' => $totalOrder,     'icon' => 'Package',      'accent' => 'violet'],
+                ['label' => 'Total Order',        'value' => $totalOrder,     'icon' => 'Package',      'accent' => 'violet'],
                 ['label' => 'Total Revenue',       'value' => $totalRevenue,   'currency' => true, 'icon' => 'TrendingUp', 'accent' => 'amber'],
             ],
             'brand_performance' => $perBrand,
-            'status_breakdown'  => $this->statusBreakdown(null),
-            'trend_harian'      => $this->trendHarian(null, 14),
-            'po_terbaru'        => $this->poTerbaru(null, 10),
-            'trend_bulanan'     => $this->trendBulanan(null),
-            'target_progress'   => $this->getTargetProgress(Brand::active()->pluck('id')->toArray()),
+            'status_breakdown'  => $this->statusBreakdown($brandId),
+            'trend_harian'      => $this->trendHarian($brandId, 14),
+            'po_terbaru'        => $this->poTerbaru($brandId, 10),
+            'trend_bulanan'     => $this->trendBulanan($brandId),
+            'target_progress'   => $this->getTargetProgress($brandId ?: Brand::active()->pluck('id')->toArray()),
         ];
     }
 
@@ -185,7 +188,7 @@ class DashboardService
         // Expand reseller hubs to include hub itself + all branch IDs
         $allOpIds = $this->expandToOperationalIds($ownedBrandIds);
 
-        if ($filterBrand) {
+        if ($filterBrand && $filterBrand !== 'all') {
             $fb = Brand::select('id', 'brand_type')->find($filterBrand);
             $opBrandIds = ($fb && $fb->brand_type === Brand::TYPE_RESELLER_HUB)
                 ? Brand::where('parent_brand_id', $filterBrand)->pluck('id')->toArray()
@@ -211,7 +214,7 @@ class DashboardService
             ],
             'owned_brands' => Brand::whereIn('id', $ownedBrandIds)->get(['id', 'nama_brand', 'kode', 'warna_primary']),
             'brand_performance' => Order::query()
-                ->whereIn('orders.brand_id', $allOpIds)
+                ->whereIn('orders.brand_id', $opBrandIds)
                 ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
                 ->select('orders.brand_id', DB::raw('COUNT(orders.id) as total'), DB::raw('SUM(orders.total_tagihan) as revenue'), DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_pcs'))
                 ->groupBy('orders.brand_id')
@@ -584,7 +587,7 @@ class DashboardService
             ->get()->keyBy('bulan');
 
         $targets = DB::table('brand_targets')
-            ->when($brandId, function ($q) use ($brandId) {
+            ->when($brandId && $brandId !== 'all', function ($q) use ($brandId) {
                 return is_array($brandId)
                     ? $q->whereIn('brand_id', $brandId)
                     : $q->where('brand_id', $brandId);
@@ -635,6 +638,9 @@ class DashboardService
     private function getTargetProgress(array|string $brandIds): array
     {
         $brandIds = (array) $brandIds;
+        if (empty($brandIds) || in_array('all', $brandIds)) {
+            $brandIds = Brand::active()->pluck('id')->toArray();
+        }
         $currentMonth = (int) now()->month;
         $currentYear  = (int) now()->year;
 

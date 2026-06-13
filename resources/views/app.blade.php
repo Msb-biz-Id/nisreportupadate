@@ -12,7 +12,29 @@
         @endphp
         <link rel="icon" type="image/x-icon" href="{{ $faviconUrl }}">
 
-        @php $appName = \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'NISReport')); @endphp
+        <!-- PWA Meta and Links -->
+        <link rel="manifest" href="/manifest.json">
+        <meta name="theme-color" content="#3b82f6">
+        <link rel="apple-touch-icon" href="/pwa-icon-192.png">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+        <!-- Service Worker Registration -->
+        <script>
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js')
+                        .then((reg) => {
+                            console.log('Service Worker registered successfully:', reg.scope);
+                        })
+                        .catch((err) => {
+                            console.error('Service Worker registration failed:', err);
+                        });
+                });
+            }
+        </script>
+
+        @php $appName = \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'Circle Sportwear - Tracking PO')); @endphp
         <meta name="app-name" content="{{ $appName }}">
         <title inertia>{{ $appName }}</title>
 

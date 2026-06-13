@@ -827,7 +827,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                                         <SearchableSelect
                                             value={item.pola_jahitan_id || ''}
                                             onValueChange={(v) => patch('pola_jahitan_id', v)}
-                                            options={masters.pola_jahitans.map((p) => ({ value: p.id, label: `[${p.jenis_pola}] ${p.nama}` }))}
+                                            options={masters.pola_jahitans.filter((p) => p.jenis_pola === 'Pola').map((p) => ({ value: p.id, label: p.nama }))}
                                             placeholder="— Cari pola jahitan —"
                                             className="text-xs"
                                         />
@@ -837,7 +837,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                                         <SearchableSelect
                                             value={item.pola_jahitan_lengan_id || ''}
                                             onValueChange={(v) => patch('pola_jahitan_lengan_id', v)}
-                                            options={(masters.pola_jahitans_lengan ?? masters.pola_jahitans).map((p) => ({ value: p.id, label: p.nama }))}
+                                            options={(masters.pola_jahitans_lengan ?? masters.pola_jahitans).filter((p) => p.jenis_pola === 'Lengan').map((p) => ({ value: p.id, label: p.nama }))}
                                             placeholder="— Cari jahitan lengan —"
                                             className="text-xs"
                                         />
@@ -1241,6 +1241,29 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
 
     function submit(e) {
         e.preventDefault();
+
+        if (!navigator.onLine) {
+            const offlineDrafts = JSON.parse(localStorage.getItem('offline_order_drafts') || '[]');
+            const newDraft = {
+                id: isEdit ? `edit_${order.id}_${Date.now()}` : `create_${Date.now()}`,
+                isEdit: isEdit,
+                orderId: isEdit ? order.id : null,
+                data: { ...data },
+                timestamp: new Date().toISOString(),
+                nama_po: data.nama_po || 'Pesanan Tanpa Nama'
+            };
+            offlineDrafts.push(newDraft);
+            localStorage.setItem('offline_order_drafts', JSON.stringify(offlineDrafts));
+            
+            toast.success('Draf disimpan secara offline di browser Anda!', {
+                description: 'Data akan otomatis disinkronkan saat terhubung ke internet kembali.',
+                duration: 8000
+            });
+            
+            router.visit(route('orders.index'));
+            return;
+        }
+
         if (isEdit) {
             put(route('orders.update', order.id));
         } else {
@@ -1263,6 +1286,13 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
 
     const [pdfLoading, setPdfLoading] = useState(false);
     async function downloadDraftPdf() {
+        if (!navigator.onLine) {
+            toast.error('Tidak dapat mengunduh PDF dalam mode offline.', {
+                description: 'Koneksi internet/server diperlukan untuk membuat dokumen PDF SPK.'
+            });
+            return;
+        }
+
         setPdfLoading(true);
         try {
             const xsrf = document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='))?.split('=')[1] ?? '';

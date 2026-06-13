@@ -257,7 +257,7 @@ export default function ProgressPage({ order, can }) {
                         {sortedDetails.map((d) => {
                             const variant = STATUS_VARIANT[d.status] ?? 'outline';
                             const isSendingRow = d.progress?.nama_progress?.toUpperCase() === 'SENDING';
-                            const sendingLocked = isSendingRow && !order.is_lunas;
+                            const sendingLocked = isSendingRow && !order.is_lunas && !order.is_special_order;
                             return (
                                 <div key={d.id} className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 ${sendingLocked ? 'bg-amber-50/50 border-amber-200' : ''}`}>
                                     <div className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white" style={{ background: d.progress?.warna || '#3B82F6' }}>

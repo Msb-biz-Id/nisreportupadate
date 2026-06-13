@@ -35,22 +35,11 @@ class CalendarController extends Controller
         Gate::authorize('order.view');
         $user = $request->user();
 
-        // Resolusi brand:
-        // - admin_produksi & admin_keuangan: lintas-brand (null = semua)
-        // - admin_reseller: hub + semua branch
-        // - superadmin/owner/admin_brand: ikut brand context (punya brand switcher)
-        $brandId = match(true) {
-            $user->hasRole(['admin_produksi', 'admin_keuangan']) => null,
-            $user->hasRole('admin_reseller') => BrandContext::effectiveBrandIds($request),
-            default => BrandContext::current($request),
-        };
-
         $isProduksi = $user->hasRole('admin_produksi');
 
         $orders = Order::query()
-            ->forBrand($brandId)
             ->published()
-            ->with('pelanggan:id,nama')
+            ->with(['pelanggan:id,nama', 'brand:id,nama_brand,kode'])
             ->withCount(['items as total_pcs' => fn ($q) => $q->selectRaw('SUM(quantity)')])
             ->orderBy('deadline_customer')
             ->get();
@@ -64,9 +53,11 @@ class CalendarController extends Controller
                 ? ($o->end_production_date ?? $o->deadline_customer)?->toDateString()
                 : $o->deadline_customer?->toDateString();
 
+            $brandPrefix = $o->brand?->nama_brand ? "({$o->brand->nama_brand}) " : "";
+
             return [
                 'id'            => $o->id,
-                'title'         => "[{$o->no_po}] " . ($o->nama_po ?? ''),
+                'title'         => "[{$o->no_po}] " . $brandPrefix . ($o->nama_po ?? ''),
                 'start'         => $start,
                 'end'           => $end,
                 'status'        => $o->status_po,
@@ -75,6 +66,8 @@ class CalendarController extends Controller
                 'pelanggan'     => $o->pelanggan?->nama,
                 'noPo'          => $o->no_po,
                 'namaPo'        => $o->nama_po,
+                'brandName'     => $o->brand?->nama_brand,
+                'brandKode'     => $o->brand?->kode,
                 'daysRemaining' => $o->deadline_customer
                     ? now()->startOfDay()->diffInDays($o->deadline_customer, false)
                     : null,
