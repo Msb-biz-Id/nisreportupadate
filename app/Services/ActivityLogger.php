@@ -28,7 +28,7 @@ class ActivityLogger
         $request = request();
         $user = $request->user();
         $brandId = $request ? BrandContext::current($request) : null;
-        if ($brandId === 'all' || !is_numeric($brandId)) {
+        if ($brandId === 'all' || empty($brandId)) {
             $brandId = null;
         }
 

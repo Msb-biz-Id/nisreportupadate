@@ -49,7 +49,7 @@ class OrderLifecycleTest extends TestCase
     public function test_admin_brand_can_create_draft_po(): void
     {
         $brand = $this->setupBrandWithMasters();
-        $user = $this->makeUser('owner', [$brand]);
+        $user = $this->makeUser('admin_brand', [$brand]);
         $customer = Customer::where('brand_id', $brand->id)->first();
 
         $bank = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->first();
@@ -77,7 +77,7 @@ class OrderLifecycleTest extends TestCase
     public function test_publish_po_creates_progress_details_and_auto_pemasukan(): void
     {
         $brand = $this->setupBrandWithMasters();
-        $user = $this->makeUser('owner', [$brand]);
+        $user = $this->makeUser('admin_brand', [$brand]);
         $customer = Customer::where('brand_id', $brand->id)->first();
 
         $order = Order::create([
@@ -142,7 +142,7 @@ class OrderLifecycleTest extends TestCase
     {
         $brand = $this->setupBrandWithMasters();
         $brand->update(['min_dp_percentage' => 0.30]);
-        $user = $this->makeUser('owner', [$brand]);
+        $user = $this->makeUser('admin_brand', [$brand]);
         $customer = Customer::where('brand_id', $brand->id)->first();
 
         $order = Order::create([
@@ -245,7 +245,7 @@ class OrderLifecycleTest extends TestCase
     public function test_cannot_publish_po_without_items(): void
     {
         $brand = $this->setupBrandWithMasters();
-        $user = $this->makeUser('owner', [$brand]);
+        $user = $this->makeUser('admin_brand', [$brand]);
         $customer = Customer::where('brand_id', $brand->id)->first();
 
         $order = Order::create([
@@ -267,7 +267,7 @@ class OrderLifecycleTest extends TestCase
     public function test_owner_cannot_delete_published_po(): void
     {
         $brand = $this->setupBrandWithMasters();
-        $user = $this->makeUser('owner', [$brand]);
+        $user = $this->makeUser('admin_brand', [$brand]);
         $customer = Customer::where('brand_id', $brand->id)->first();
 
         $order = Order::create([
@@ -290,7 +290,7 @@ class OrderLifecycleTest extends TestCase
     public function test_repeat_order_creates_new_draft_with_reference(): void
     {
         $brand = $this->setupBrandWithMasters();
-        $user = $this->makeUser('owner', [$brand]);
+        $user = $this->makeUser('admin_brand', [$brand]);
         $customer = Customer::where('brand_id', $brand->id)->first();
 
         $order = Order::create([
@@ -599,7 +599,7 @@ class OrderLifecycleTest extends TestCase
     public function test_refund_can_be_created_using_po_number_or_link(): void
     {
         $brand = $this->setupBrandWithMasters();
-        $user = $this->makeUser('owner', [$brand]);
+        $user = $this->makeUser('admin_brand', [$brand]);
         $customer = \App\Models\Master\Customer::where('brand_id', $brand->id)->first();
 
         $order = Order::create([
@@ -648,7 +648,7 @@ class OrderLifecycleTest extends TestCase
     public function test_can_create_order_with_extended_nameset_fields(): void
     {
         $brand = $this->setupBrandWithMasters();
-        $user = $this->makeUser('owner', [$brand]);
+        $user = $this->makeUser('admin_brand', [$brand]);
         $customer = Customer::where('brand_id', $brand->id)->first();
         
         $size = \App\Models\Master\Size::create([
@@ -707,7 +707,7 @@ class OrderLifecycleTest extends TestCase
     public function test_published_po_is_locked_by_default_and_cannot_be_edited_unless_unlocked(): void
     {
         $brand = $this->setupBrandWithMasters();
-        $user = $this->makeUser('owner', [$brand]);
+        $user = $this->makeUser('admin_brand', [$brand]);
         $customer = Customer::where('brand_id', $brand->id)->first();
 
         $order = Order::create([
