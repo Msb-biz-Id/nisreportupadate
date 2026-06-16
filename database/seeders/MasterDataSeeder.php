@@ -21,7 +21,6 @@ use App\Models\Master\Progress;
 use App\Models\Master\Resleting;
 use App\Models\Master\Size;
 use App\Models\Master\SumberOrder;
-use App\Models\Master\TipeOrder;
 use Illuminate\Database\Seeder;
 
 class MasterDataSeeder extends Seeder
@@ -35,7 +34,6 @@ class MasterDataSeeder extends Seeder
         $this->seedResleting();
         $this->seedPrinting();
         $this->seedPaketOrder();
-        $this->seedTipeOrder();
         $this->seedSize();
         $this->seedPolaJahitan();
         $this->seedProgress();
@@ -122,19 +120,6 @@ class MasterDataSeeder extends Seeder
                 ['warna' => $warna, 'prioritas' => $prioritas, 'is_active' => true]
             );
         }
-    }
-
-    private function seedTipeOrder(): void
-    {
-        $items = [
-            ['nama' => 'Jersey Tim', 'deskripsi' => 'Order jersey untuk tim/klub'],
-            ['nama' => 'Jersey Komunitas', 'deskripsi' => 'Order jersey komunitas'],
-            ['nama' => 'Seragam Sekolah', 'deskripsi' => 'Order seragam sekolah'],
-            ['nama' => 'Kaos Event', 'deskripsi' => 'Kaos panitia / peserta event'],
-            ['nama' => 'Jaket', 'deskripsi' => 'Order jaket / hoodie'],
-            ['nama' => 'Custom', 'deskripsi' => 'Order custom sesuai request'],
-        ];
-        foreach ($items as $i) TipeOrder::firstOrCreate(['nama' => $i['nama']], $i + ['is_active' => true]);
     }
 
     private function seedSize(): void

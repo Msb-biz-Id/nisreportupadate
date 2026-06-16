@@ -24,7 +24,7 @@ class OrderItem extends Model
 
     protected $fillable = [
         'order_id', 'product_id', 'jenis_produk_id', 'is_addon', 'nama_produk', 'varian_label',
-        'quantity', 'harga_satuan', 'subtotal',
+        'quantity', 'harga_satuan', 'discount_type', 'discount_value', 'discount_amount', 'subtotal',
         'bahan_kain_id', 'bahan_kain_ids', 'bahan_kain_bawahan_id', 'bahan_kain_bawahan_ids',
         'jenis_setelan', 'jenis_setelan_id',
         'pola', 'pola_produksi_id',
@@ -42,6 +42,8 @@ class OrderItem extends Model
     protected $casts = [
         'quantity' => 'integer',
         'harga_satuan' => 'decimal:2',
+        'discount_value' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
         'subtotal' => 'decimal:2',
         'logo_ids'                => 'array',
         'bahan_kain_ids'          => 'array',

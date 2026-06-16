@@ -61,9 +61,167 @@
         .page-break   { page-break-before: always; }
         .page-num:after { content: counter(page); }
         .lampiran-sub { font-weight: bold; font-size: 9.5pt; margin-bottom: 4px; }
+
+        @media screen {
+            body {
+                background: #f3f4f6;
+                padding: 80px 15px 40px;
+                font-family: 'Inter', system-ui, -apple-system, sans-serif;
+                margin: 0;
+            }
+            .web-toolbar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 60px;
+                background: #1f2937;
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 24px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                z-index: 9999;
+                font-family: system-ui, -apple-system, sans-serif;
+            }
+            .toolbar-title {
+                font-weight: 600;
+                font-size: 15px;
+                letter-spacing: 0.5px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .toolbar-actions {
+                display: flex;
+                gap: 12px;
+            }
+            .btn {
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 500;
+                cursor: pointer;
+                border: none;
+                transition: all 0.2s;
+                text-decoration: none;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .btn-primary {
+                background: #3b82f6;
+                color: #fff;
+            }
+            .btn-primary:hover {
+                background: #2563eb;
+            }
+            .btn-secondary {
+                background: #4b5563;
+                color: #fff;
+            }
+            .btn-secondary:hover {
+                background: #374151;
+            }
+            .btn-danger {
+                background: #ef4444;
+                color: #fff;
+            }
+            .btn-danger:hover {
+                background: #dc2626;
+            }
+            .paper-container {
+                background: #fff;
+                max-width: 210mm;
+                min-height: 297mm;
+                margin: 0 auto;
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                padding: 20mm 15mm;
+                border: 1px solid #e5e7eb;
+                position: relative;
+            }
+            header {
+                position: absolute;
+                top: 5mm;
+                left: 15mm;
+                right: 15mm;
+                border-bottom: 3px solid #000;
+            }
+            footer {
+                position: absolute;
+                bottom: 5mm;
+                left: 15mm;
+                right: 15mm;
+                border-top: 2px solid #000;
+            }
+            main {
+                margin-top: 5mm;
+                margin-bottom: 5mm;
+            }
+            .page-break {
+                margin-top: 40px;
+                border-top: 2px dashed #9ca3af;
+                padding-top: 40px;
+                position: relative;
+            }
+            .page-break::before {
+                content: "BATAS HALAMAN CETAK";
+                position: absolute;
+                top: -12px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #fff;
+                padding: 0 10px;
+                font-size: 10px;
+                color: #9ca3af;
+                font-weight: 600;
+            }
+        }
+        @media print {
+            .web-toolbar {
+                display: none !important;
+            }
+            body {
+                background: #fff !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .paper-container {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                max-width: 100% !important;
+                min-height: 0 !important;
+            }
+        }
     </style>
 </head>
 <body>
+    @if(isset($isWebPreview) && $isWebPreview)
+        <div class="web-toolbar">
+            <div class="toolbar-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                PREVIEW SPK: {{ $order->no_po }}
+            </div>
+            <div class="toolbar-actions">
+                <button onclick="window.print()" class="btn btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+                    Cetak / Simpan PDF
+                </button>
+                <a href="{{ route('orders.spk.pdf', $order->id) }}" class="btn btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    Unduh PDF
+                </a>
+                <button onclick="window.close()" class="btn btn-danger">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+                    Tutup
+                </button>
+            </div>
+        </div>
+        <div class="paper-container">
+    @endif
 
     <header>FORMAT ORDER {{ strtoupper($order->brand->nama_brand ?? 'BRAND') }}</header>
 
@@ -120,21 +278,19 @@
                             <td style="font-weight: bold; padding: 3px 0;">:</td>
                             <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ $order->items->sum('jml_bawahan') ?: '.......' }} PCS</td>
                         </tr>
-                        <tr>
-                            <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">JENIS PRINTING</td>
-                            <td style="font-weight: bold; padding: 3px 0;">:</td>
-                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ strtoupper($printingStr) }}</td>
-                        </tr>
                     </table>
                 </td>
-                <!-- Right Side: Brand & Paket Box -->
-                <td style="width: 40%; padding: 0 0 0 15px; vertical-align: top; text-align: center;">
+                <!-- Right Side: Brand & Paket Box -->                 <td style="width: 40%; padding: 0 0 0 15px; vertical-align: top; text-align: center;">
                     <div style="border: 2px solid #000; padding: 12px 10px; min-height: 110px; background: #fff; text-align: center;">
                         <div style="font-size: 15pt; font-weight: 900; line-height: 1.2;">
                             {{ strtoupper($order->brand->nama_brand ?? 'BRAND') }}
                         </div>
                         <div style="font-size: 12pt; font-weight: 700; color: red; margin-top: 3px;">
                             ({{ $order->is_special_order ? 'SPECIAL' : 'NORMAL' }})
+                        </div>
+                        <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
+                            JENIS PRINTING:<br>
+                            <span style="font-size: 12pt; font-weight: 900; color: red;">{{ strtoupper($printingStr) }}</span>
                         </div>
                         @if($order->paketOrder)
                             <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
@@ -143,7 +299,7 @@
                             </div>
                         @endif
                     </div>
-                </td>
+                </td>>
             </tr>
         </table>
 
@@ -294,38 +450,6 @@
         </table>
         @endif
 
-        {{-- ===== ADD-ONS TABLE ===== --}}
-        @if($addonItems->isNotEmpty())
-        <div style="color: #b91c1c; font-weight: bold; font-size: 11pt; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase;">ADD-ONS & BIAYA TAMBAHAN</div>
-        <table class="spec-table" style="margin-top:0;">
-            <thead>
-                <tr>
-                    <th style="border:1px solid #000; padding:5px 6px; text-align:left;">NAMA ADD-ON</th>
-                    <th style="border:1px solid #000; padding:5px 6px; text-align:center; width:100px;">QTY</th>
-                    <th style="border:1px solid #000; padding:5px 6px; text-align:right; width:150px;">HARGA SATUAN</th>
-                    <th style="border:1px solid #000; padding:5px 6px; text-align:right; width:160px;">TOTAL</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($addonItems as $item)
-                <tr>
-                    <td style="border:1px solid #000; padding:5px 6px; text-align:left; font-weight:bold;">{{ strtoupper($item->nama_produk) }}</td>
-                    <td style="border:1px solid #000; padding:5px 6px; text-align:center;">{{ $item->quantity }}</td>
-                    <td style="border:1px solid #000; padding:5px 6px; text-align:right;">RP {{ number_format($item->harga_satuan, 0, ',', '.') }}</td>
-                    <td style="border:1px solid #000; padding:5px 6px; text-align:right; font-weight:bold;">RP {{ number_format($item->subtotal, 0, ',', '.') }}</td>
-                </tr>
-                @if($item->catatan)
-                <tr>
-                    <td colspan="4" style="border:1px solid #000; padding:4px 6px; font-size:8.5pt; color:#555; background:#fafafa; text-align:left;">
-                        KETERANGAN: {{ strtoupper($item->catatan) }}
-                    </td>
-                </tr>
-                @endif
-                @endforeach
-            </tbody>
-        </table>
-        @endif
-
         {{-- ===== REFERENSI DESAIN & GAMBAR (PER ITEM) ===== --}}
         @foreach ($nonAddonItems as $item)
             @if($item->gambar_desain || $item->ket_atasan || $item->ket_bawahan || $item->jenis_kerah || $item->gambar_kerah || $item->gambar_ket_tambahan)
@@ -337,10 +461,13 @@
                 </div>
 
                 @if($item->gambar_desain)
-                    @php $dPath = storage_path('app/public/' . $item->gambar_desain); @endphp
+                    @php
+                        $dPath = storage_path('app/public/' . $item->gambar_desain);
+                        $dUrl = asset('storage/' . $item->gambar_desain);
+                    @endphp
                     @if(file_exists($dPath))
                     <div class="img-box" style="border-top:none; padding:2px; margin-bottom:6px;">
-                        <img src="{{ $dPath }}" style="max-width: 100%; max-height: 520px; display: block; margin: 0 auto;">
+                        <img src="{{ (isset($isWebPreview) && $isWebPreview) ? $dUrl : $dPath }}" style="max-width: 100%; max-height: 520px; display: block; margin: 0 auto;">
                     </div>
                     @else
                     <div class="img-box" style="border-top:none; height:120px; line-height:120px; color:#999; font-weight:bold;">[ GAMBAR DESAIN TIDAK DITEMUKAN ]</div>
@@ -379,10 +506,13 @@
                             </div>
                             <div style="border:1px solid #000; border-top:none; padding:6px; text-align:center; background:#fff;">
                                 @if($item->gambar_kerah)
-                                    @php $kPath = storage_path('app/public/' . $item->gambar_kerah); @endphp
+                                    @php
+                                        $kPath = storage_path('app/public/' . $item->gambar_kerah);
+                                        $kUrl = asset('storage/' . $item->gambar_kerah);
+                                    @endphp
                                     @if(file_exists($kPath))
                                     <div style="text-align:center;">
-                                        <img src="{{ $kPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
+                                        <img src="{{ (isset($isWebPreview) && $isWebPreview) ? $kUrl : $kPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
                                     </div>
                                     @else
                                     <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR KERAH TIDAK DITEMUKAN ]</div>
@@ -402,10 +532,13 @@
                                 KETERANGAN TAMBAHAN
                             </div>
                             <div style="border:1px solid #000; border-top:none; padding:6px; text-align:center; background:#fff;">
-                                @php $ktPath = storage_path('app/public/' . $item->gambar_ket_tambahan); @endphp
+                                @php
+                                    $ktPath = storage_path('app/public/' . $item->gambar_ket_tambahan);
+                                    $ktUrl = asset('storage/' . $item->gambar_ket_tambahan);
+                                @endphp
                                 @if(file_exists($ktPath))
                                 <div style="text-align:center;">
-                                    <img src="{{ $ktPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
+                                    <img src="{{ (isset($isWebPreview) && $isWebPreview) ? $ktUrl : $ktPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
                                 </div>
                                 @else
                                 <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR TIDAK DITEMUKAN ]</div>
@@ -754,5 +887,8 @@
         @endforeach
 
     </main>
+    @if(isset($isWebPreview) && $isWebPreview)
+        </div>
+    @endif
 </body>
 </html>

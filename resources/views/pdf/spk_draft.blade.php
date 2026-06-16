@@ -143,11 +143,6 @@
                             <td style="font-weight: bold; padding: 3px 0;">:</td>
                             <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ $totalBawahan }}{{ is_numeric($totalBawahan) ? ' PCS' : '' }}</td>
                         </tr>
-                        <tr>
-                            <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">JENIS PRINTING</td>
-                            <td style="font-weight: bold; padding: 3px 0;">:</td>
-                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ strtoupper($printingStr) }}</td>
-                        </tr>
                     </table>
                 </td>
                 <!-- Right Side: Brand & Paket Box -->
@@ -158,6 +153,10 @@
                         </div>
                         <div style="font-size: 12pt; font-weight: 700; color: red; margin-top: 3px;">
                             ({{ !empty($raw['is_special_order']) ? 'SPECIAL' : 'NORMAL' }})
+                        </div>
+                        <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
+                            JENIS PRINTING:<br>
+                            <span style="font-size: 12pt; font-weight: 900; color: red;">{{ strtoupper($printingStr) }}</span>
                         </div>
                         @if(isset($paketOrder) && $paketOrder)
                             <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
@@ -329,38 +328,6 @@
                     </td>
                     @endforeach
                 </tr>
-            </tbody>
-        </table>
-        @endif
-
-        {{-- ===== ADD-ONS TABLE ===== --}}
-        @if($addonItems->isNotEmpty())
-        <div style="color: #b91c1c; font-weight: bold; font-size: 11pt; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase;">ADD-ONS & BIAYA TAMBAHAN</div>
-        <table class="spec-table" style="margin-top:0;">
-            <thead>
-                <tr>
-                    <th style="border:1px solid #000; padding:5px 6px; text-align:left;">NAMA ADD-ON</th>
-                    <th style="border:1px solid #000; padding:5px 6px; text-align:center; width:100px;">QTY</th>
-                    <th style="border:1px solid #000; padding:5px 6px; text-align:right; width:150px;">HARGA SATUAN</th>
-                    <th style="border:1px solid #000; padding:5px 6px; text-align:right; width:160px;">TOTAL</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($addonItems as $item)
-                <tr>
-                    <td style="border:1px solid #000; padding:5px 6px; text-align:left; font-weight:bold;">{{ strtoupper($item['nama_produk'] ?? '') }}</td>
-                    <td style="border:1px solid #000; padding:5px 6px; text-align:center;">{{ $item['quantity'] ?? 0 }}</td>
-                    <td style="border:1px solid #000; padding:5px 6px; text-align:right;">RP {{ number_format($item['harga_satuan'] ?? 0, 0, ',', '.') }}</td>
-                    <td style="border:1px solid #000; padding:5px 6px; text-align:right; font-weight:bold;">RP {{ number_format(($item['harga_satuan'] ?? 0) * ($item['quantity'] ?? 0), 0, ',', '.') }}</td>
-                </tr>
-                @if(!empty($item['catatan']))
-                <tr>
-                    <td colspan="4" style="border:1px solid #000; padding:4px 6px; font-size:8.5pt; color:#555; background:#fafafa; text-align:left;">
-                        KETERANGAN: {{ strtoupper($item['catatan']) }}
-                    </td>
-                </tr>
-                @endif
-                @endforeach
             </tbody>
         </table>
         @endif

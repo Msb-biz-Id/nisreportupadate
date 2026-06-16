@@ -216,7 +216,14 @@
                 @foreach ($mainItems as $item)
                     <tr>
                         <td>{{ $rowNum++ }}</td>
-                        <td>{{ $item->produk }}</td>
+                        <td>
+                            <div>{{ $item->produk }}</div>
+                            @if (!empty($item->discount_amount) && $item->discount_amount > 0)
+                                <div style="font-size: 8pt; color: #DC2626; font-weight: bold; margin-top: 2px;">
+                                    Diskon: {{ $item->discount_type === 'persen' ? (number_format($item->discount_value, 0) . '%') : ('Rp ' . number_format($item->discount_value, 0, ',', '.')) }} (-Rp {{ number_format($item->discount_amount, 0, ',', '.') }})
+                                </div>
+                            @endif
+                        </td>
                         <td class="right">{{ number_format($item->jumlah, 0, ',', '.') }}</td>
                         <td class="right">Rp {{ number_format($item->harga_satuan, 0, ',', '.') }}</td>
                         <td class="right">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
@@ -229,7 +236,14 @@
                 @foreach ($addonItems as $item)
                     <tr>
                         <td>{{ $rowNum++ }}</td>
-                        <td>{{ $item->produk }}</td>
+                        <td>
+                            <div>{{ $item->produk }}</div>
+                            @if (!empty($item->discount_amount) && $item->discount_amount > 0)
+                                <div style="font-size: 8pt; color: #DC2626; font-weight: bold; margin-top: 2px;">
+                                    Diskon: {{ $item->discount_type === 'persen' ? (number_format($item->discount_value, 0) . '%') : ('Rp ' . number_format($item->discount_value, 0, ',', '.')) }} (-Rp {{ number_format($item->discount_amount, 0, ',', '.') }})
+                                </div>
+                            @endif
+                        </td>
                         <td class="right">{{ number_format($item->jumlah, 0, ',', '.') }}</td>
                         <td class="right">Rp {{ number_format($item->harga_satuan, 0, ',', '.') }}</td>
                         <td class="right">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>

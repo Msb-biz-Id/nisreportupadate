@@ -126,8 +126,8 @@ class MasterController extends Controller
         if ($user->can('master.manage') || $user->can('master.view')) return;
         if ($user->can('master.brand') && ($config['group'] === 'order' || $config['slug'] === 'bank')) return;
         if ($user->can('master.produk') && $config['slug'] === 'produk') return;
-        // admin_produksi: akses semua master global (bahan, size, logo, pola, dll) + production (progress)
-        if ($user->can('master.production') && in_array($config['group'], ['production', 'global'])) return;
+        // admin_produksi: akses semua master global (bahan, size, logo, pola, dll) + production (progress) + order (sumber, jenis, promo, kategori, dll)
+        if ($user->can('master.production') && in_array($config['group'], ['production', 'global', 'order'])) return;
         abort(403);
     }
 
@@ -136,7 +136,7 @@ class MasterController extends Controller
         if ($user->can('master.manage')) return true;
         if ($user->can('master.brand') && ($config['group'] === 'order' || $config['slug'] === 'bank')) return true;
         if ($user->can('master.produk') && $config['slug'] === 'produk') return true;
-        if ($user->can('master.production') && in_array($config['group'], ['production', 'global'])) return true;
+        if ($user->can('master.production') && in_array($config['group'], ['production', 'global', 'order'])) return true;
         return false;
     }
 

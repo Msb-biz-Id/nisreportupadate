@@ -26,6 +26,9 @@ function newItem() {
         varian_label: '',
         quantity: 1,
         harga_satuan: 0,
+        discount_type: '',
+        discount_value: 0,
+        discount_amount: 0,
         is_addon: false,
         jenis_setelan_id: '',
         pola_produksi_id: '',
@@ -59,6 +62,21 @@ function newItem() {
         gambar_ket_tambahan: '',
         namesets: [],
     };
+}
+
+function getCalculatedSubtotal(item) {
+    const qty = Number(item.quantity) || 0;
+    const price = Number(item.harga_satuan) || 0;
+    const raw = qty * price;
+    const discountType = item.discount_type || '';
+    const discountValue = Number(item.discount_value) || 0;
+    let amount = 0;
+    if (discountType === 'persen') {
+        amount = raw * (discountValue / 100);
+    } else if (discountType === 'nominal') {
+        amount = discountValue;
+    }
+    return Math.max(0, raw - amount);
 }
 
 function newNameset() {
@@ -520,7 +538,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
         onChange(index, { ...item, namesets: next });
     }
 
-    const subtotal = (Number(item.quantity) || 0) * (Number(item.harga_satuan) || 0);
+    const subtotal = getCalculatedSubtotal(item);
     const totalPcs = item.is_addon ? (Number(item.quantity) || 0) : item.namesets.length;
 
     const polaByJenis = useMemo(() => {
@@ -659,7 +677,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                             <Input value={item.varian_label} onChange={(e) => patch('varian_label', e.target.value)} placeholder="Pemain Utama / Cadangan" className="h-8 text-xs uppercase" />
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mt-3">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 mt-3">
                         <div>
                             <FieldLabel>Qty <span className="text-red-500">*</span></FieldLabel>
                             <Input 
@@ -695,8 +713,42 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                             <FieldLabel>Harga Satuan</FieldLabel>
                             <Input type="number" min={0} value={item.harga_satuan === 0 ? '' : item.harga_satuan} onChange={(e) => patch('harga_satuan', e.target.value === '' ? 0 : Number(e.target.value))} className="h-8 text-xs" />
                         </div>
-                        <div className="col-span-2 flex items-end justify-end">
-                            <div className="rounded-lg border-2 border-slate-200 bg-slate-100 px-4 py-1.5 text-right">
+                        <div>
+                            <FieldLabel>Tipe Diskon</FieldLabel>
+                            <Select value={item.discount_type || NONE} onValueChange={(v) => {
+                                const nextVal = v === NONE ? '' : v;
+                                const next = { ...item, discount_type: nextVal };
+                                if (nextVal === '') {
+                                    next.discount_value = 0;
+                                    next.discount_amount = 0;
+                                }
+                                onChange(index, next);
+                            }}>
+                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Tanpa Diskon" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={NONE}>Tanpa Diskon</SelectItem>
+                                    <SelectItem value="persen">Persen (%)</SelectItem>
+                                    <SelectItem value="nominal">Nominal (Rp)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <FieldLabel>Nilai Diskon</FieldLabel>
+                            <Input 
+                                type="number" 
+                                min={0} 
+                                disabled={!item.discount_type} 
+                                value={item.discount_value === 0 ? '' : item.discount_value} 
+                                onChange={(e) => {
+                                    const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                    patch('discount_value', val);
+                                }} 
+                                className="h-8 text-xs font-bold" 
+                                placeholder={item.discount_type === 'persen' ? '%' : 'Rp'}
+                            />
+                        </div>
+                        <div className="flex items-end justify-end">
+                            <div className="rounded-lg border-2 border-slate-200 bg-slate-100 px-4 py-1.5 text-right w-full">
                                 <p className="text-[10px] font-bold text-slate-500 uppercase">Subtotal</p>
                                 <p className="font-mono font-black text-sm text-slate-800">{formatRupiah(subtotal)}</p>
                             </div>
@@ -1113,6 +1165,9 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
             varian_label: i.varian_label ?? '',
             quantity: Number(i.quantity) || 1,
             harga_satuan: Number(i.harga_satuan) || 0,
+            discount_type: i.discount_type ?? '',
+            discount_value: i.discount_value !== undefined ? Number(i.discount_value) : 0,
+            discount_amount: i.discount_amount !== undefined ? Number(i.discount_amount) : 0,
             is_addon: i.is_addon ?? false,
             jenis_setelan_id: i.jenis_setelan_id ?? '',
             pola_produksi_id: i.pola_produksi_id ?? '',
@@ -1278,8 +1333,8 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
     const totalAddonPcs = useMemo(() => addonItems.reduce((s, i) => s + (Number(i.quantity) || 0), 0), [addonItems]);
     const totalPcs = totalCorePcs + totalAddonPcs;
 
-    const totalCoreHarga = useMemo(() => coreItems.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.harga_satuan) || 0), 0), [coreItems]);
-    const totalAddonHarga = useMemo(() => addonItems.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.harga_satuan) || 0), 0), [addonItems]);
+    const totalCoreHarga = useMemo(() => coreItems.reduce((s, i) => s + getCalculatedSubtotal(i), 0), [coreItems]);
+    const totalAddonHarga = useMemo(() => addonItems.reduce((s, i) => s + getCalculatedSubtotal(i), 0), [addonItems]);
     const totalHarga = totalCoreHarga + totalAddonHarga;
 
     const pageTitle = isEdit ? `Edit PO ${order.no_po}` : 'Buat PO Baru';
@@ -1374,7 +1429,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                                                 {item.nama_produk || `Produk #${origIdx + 1}`}
                                                             </span>
                                                             <span className="font-mono font-bold text-slate-500 whitespace-nowrap ml-2">
-                                                                {item.namesets.length} pcs — {formatRupiah((Number(item.quantity) || 0) * (Number(item.harga_satuan) || 0))}
+                                                                {item.namesets.length} pcs — {formatRupiah(getCalculatedSubtotal(item))}
                                                             </span>
                                                         </div>
                                                     );
@@ -1393,7 +1448,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                                                 {item.nama_produk || `Add-on #${origIdx + 1}`}
                                                             </span>
                                                             <span className="font-mono font-bold text-slate-500 whitespace-nowrap ml-2">
-                                                                {item.quantity} pcs — {formatRupiah((Number(item.quantity) || 0) * (Number(item.harga_satuan) || 0))}
+                                                                {item.quantity} pcs — {formatRupiah(getCalculatedSubtotal(item))}
                                                             </span>
                                                         </div>
                                                     );

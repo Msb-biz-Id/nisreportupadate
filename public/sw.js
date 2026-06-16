@@ -36,8 +36,8 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
 
-  // Exclude non-GET requests, hot reload, and external/api paths
-  if (request.method !== 'GET' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/sanctum/')) {
+  // Exclude non-HTTP/HTTPS requests, non-GET requests, hot reload, and external/api paths
+  if (!request.url.startsWith('http') || request.method !== 'GET' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/sanctum/')) {
     return;
   }
 
@@ -61,7 +61,9 @@ self.addEventListener('fetch', (event) => {
           fetch(request).then((networkResponse) => {
             if (networkResponse.status === 200) {
               caches.open(CACHE_NAME).then((cache) => {
-                cache.put(request, networkResponse);
+                if (request.url.startsWith('http')) {
+                  cache.put(request, networkResponse);
+                }
               });
             }
           }).catch(() => {/* Ignore network errors during background fetch */});
@@ -72,7 +74,9 @@ self.addEventListener('fetch', (event) => {
           if (networkResponse.status === 200) {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseToCache);
+              if (request.url.startsWith('http')) {
+                cache.put(request, responseToCache);
+              }
             });
           }
           return networkResponse;
@@ -87,7 +91,9 @@ self.addEventListener('fetch', (event) => {
           if (networkResponse.status === 200) {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseToCache);
+              if (request.url.startsWith('http')) {
+                cache.put(request, responseToCache);
+              }
             });
           }
           return networkResponse;

@@ -43,8 +43,19 @@ class TrackingController extends Controller
 
         $invoices = [];
         if ($order) {
+            $user = auth()->user();
+            $isAuthorized = $user && (
+                $user->isSuperadmin() ||
+                $user->hasRole('owner') ||
+                $user->hasPermissionTo('finance.view') ||
+                $user->hasPermissionTo('finance.manage-invoice') ||
+                $user->hasPermissionTo('order.view')
+            );
+
             $invoices = \App\Models\Order\Invoice::where('order_id', $order->id)
-                ->whereIn('status', ['published', 'sent', 'paid'])
+                ->when(!$isAuthorized, function ($q) {
+                    $q->whereIn('status', ['published', 'sent', 'paid']);
+                })
                 ->get(['invoice_number'])
                 ->map(fn ($inv) => ['invoice_number' => $inv->invoice_number])
                 ->all();

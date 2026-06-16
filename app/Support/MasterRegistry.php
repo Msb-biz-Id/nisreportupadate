@@ -18,8 +18,8 @@ use App\Models\Master\Resleting;
 use App\Models\Master\Size;
 use App\Models\Master\Iklan;
 use App\Models\Master\JenisOrder;
+use App\Models\Master\KategoriOrder;
 use App\Models\Master\SumberOrder;
-use App\Models\Master\TipeOrder;
 
 /**
  * Konfigurasi terpusat untuk semua master data.
@@ -91,7 +91,6 @@ class MasterRegistry
                 'order_by' => 'prioritas',
                 'secondary_order' => 'nama',
             ],
-            'tipe-order' => self::simpleConfig('tipe-order', 'Tipe Order', 'Boxes', TipeOrder::class),
 
             'size' => [
                 'slug' => 'size',
@@ -194,6 +193,7 @@ class MasterRegistry
                 'order_by' => 'urutan',
             ],
 
+            'kategori-order' => self::brandScopedSimple('kategori-order', 'Kategori Order', 'Tag', KategoriOrder::class),
             'sumber-order' => self::brandScopedSimple('sumber-order', 'Sumber Order', 'Compass', SumberOrder::class),
             'jenis-order' => self::brandScopedSimple('jenis-order', 'Jenis Order', 'LayoutList', JenisOrder::class),
 

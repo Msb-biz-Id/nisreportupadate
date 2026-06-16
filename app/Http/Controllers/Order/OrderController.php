@@ -368,6 +368,9 @@ class OrderController extends Controller
                     'harga_satuan' => $item->harga_satuan,
                     'subtotal'     => $item->subtotal,
                     'is_addon'     => (bool) $item->is_addon,
+                    'discount_type' => $item->discount_type,
+                    'discount_value' => $item->discount_value,
+                    'discount_amount' => $item->discount_amount,
                 ]);
             }
 
@@ -426,6 +429,9 @@ class OrderController extends Controller
                         'harga_satuan' => $item->harga_satuan,
                         'subtotal'     => $item->subtotal,
                         'is_addon'     => (bool) $item->is_addon,
+                        'discount_type' => $item->discount_type,
+                        'discount_value' => $item->discount_value,
+                        'discount_amount' => $item->discount_amount,
                     ]);
                 }
 
@@ -465,8 +471,8 @@ class OrderController extends Controller
             'payments.bank', 'payments.recorder', 'payments.verifier', 'payments.masterJenisPembayaran',
             'progressDetails.progress', 'progressDetails.updater',
             'rijeks.progress', 'rijeks.creator',
-            'lockStatus.lockedBy',
-            'changeLogs.changer',
+            'lockStatus.lockedBy', 'lockStatus.unlockRequestedBy.roles', 'lockStatus.relockRequestedBy.roles',
+            'changeLogs.changer.roles',
             'invoices',
             'refunds.creator', 'refunds.publisher',
             'repeats', 'repeatFrom',
@@ -520,6 +526,7 @@ class OrderController extends Controller
                 'repeat' => $request->user()->can('order.create') && ! $order->isDraft(),
                 'manage_invoice' => $request->user()->can('finance.manage-invoice'),
                 'delete_payment' => $request->user()->can('finance.manage-invoice') && !$request->user()->hasRole('admin_brand'),
+                'edit_payment' => $request->user()->can('finance.manage-invoice') && !$request->user()->hasRole('admin_brand'),
                 'add_payment' => ! $request->user()->hasRole('admin_produksi'),
                 'edit_timeline' => $request->user()->hasRole('admin_produksi'),
                 'mark_lunas' => $request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan'),
@@ -634,7 +641,6 @@ class OrderController extends Controller
 
     public function unlock(Request $request, Order $order)
     {
-        abort_unless($request->user()->can('order.unlock'), 403, 'Anda tidak memiliki hak untuk meng-unlock PO.');
         $this->guardBrandOwnership($request, $order);
         abort_if($order->isDraft(), 422);
 
@@ -642,18 +648,224 @@ class OrderController extends Controller
             'reason' => ['required', 'string', 'min:8', 'max:1000'],
         ]);
 
-        $this->statusManager->unlock($order, $request->user());
-        $this->statusManager->logChange($order, $request->user(), $data['reason'], '_unlock', 'locked', 'unlocked');
+        $user = $request->user();
 
-        return back()->with('info', 'PO di-unlock. Lakukan perubahan, kemudian re-lock untuk mengembalikan proteksi.');
+        // Jika user memiliki permission order.unlock (Superadmin/Owner/Supervisor), unlock langsung!
+        if ($user->can('order.unlock')) {
+            $this->statusManager->unlock($order, $user);
+            
+            // Clear any pending unlock requests
+            $lock = $order->lockStatus;
+            if ($lock) {
+                $lock->update([
+                    'unlock_requested_by' => null,
+                    'unlock_request_reason' => null,
+                    'unlock_requested_at' => null,
+                ]);
+            }
+
+            $this->statusManager->logChange($order, $user, $data['reason'], '_unlock', 'locked', 'unlocked');
+            \App\Services\ActivityLogger::log('unlock', 'order', $order, "Unlock PO {$order->no_po} secara langsung dengan alasan: " . $data['reason']);
+
+            return back()->with('info', 'PO di-unlock. Lakukan perubahan, kemudian re-lock untuk mengembalikan proteksi.');
+        }
+
+        // Jika user TIDAK memiliki permission order.unlock (Admin Brand/Reseller/Produksi), ajukan permohonan!
+        $lock = $order->lockStatus;
+        if ($lock) {
+            $lock->update([
+                'unlock_requested_by' => $user->id,
+                'unlock_request_reason' => $data['reason'],
+                'unlock_requested_at' => now(),
+            ]);
+        } else {
+            $order->lockStatus()->create([
+                'is_locked' => true,
+                'locked_at' => now(),
+                'locked_by' => $user->id,
+                'unlock_requested_by' => $user->id,
+                'unlock_request_reason' => $data['reason'],
+                'unlock_requested_at' => now(),
+            ]);
+        }
+
+        \App\Services\ActivityLogger::log('unlock_request', 'order', $order, "Mengajukan permohonan unlock PO {$order->no_po} dengan alasan: " . $data['reason']);
+
+        return back()->with('success', 'Permohonan unlock PO telah diajukan ke Superadmin/Supervisor.');
+    }
+
+    public function approveUnlock(Request $request, Order $order)
+    {
+        abort_unless($request->user()->can('order.unlock'), 403, 'Anda tidak memiliki hak untuk menyetujui unlock PO.');
+        $this->guardBrandOwnership($request, $order);
+
+        $lock = $order->lockStatus;
+        if (!$lock || !$lock->unlock_requested_by) {
+            return back()->with('error', 'Tidak ada permohonan unlock aktif.');
+        }
+
+        $requester = \App\Models\User::find($lock->unlock_requested_by);
+        $reason = $lock->unlock_request_reason;
+
+        $this->statusManager->unlock($order, $request->user());
+
+        // Log change with requester as changer and approver as approved_by
+        \App\Models\Order\POChangeLog::create([
+            'order_id' => $order->id,
+            'changed_by' => $requester->id,
+            'approved_by' => $request->user()->id,
+            'change_reason' => $reason,
+            'field_changed' => '_unlock',
+            'old_value' => 'locked',
+            'new_value' => 'unlocked',
+        ]);
+
+        // Clear request
+        $lock->update([
+            'unlock_requested_by' => null,
+            'unlock_request_reason' => null,
+            'unlock_requested_at' => null,
+        ]);
+
+        \App\Services\ActivityLogger::log('unlock_approve', 'order', $order, "Menyetujui permohonan unlock PO {$order->no_po} oleh {$requester->name}");
+
+        return back()->with('info', 'Permohonan unlock disetujui. PO berhasil dibuka kuncinya.');
+    }
+
+    public function rejectUnlock(Request $request, Order $order)
+    {
+        abort_unless($request->user()->can('order.unlock'), 403, 'Anda tidak memiliki hak untuk menolak permohonan unlock PO.');
+        $this->guardBrandOwnership($request, $order);
+
+        $lock = $order->lockStatus;
+        if (!$lock || !$lock->unlock_requested_by) {
+            return back()->with('error', 'Tidak ada permohonan unlock aktif.');
+        }
+
+        $requester = \App\Models\User::find($lock->unlock_requested_by);
+
+        // Clear request
+        $lock->update([
+            'unlock_requested_by' => null,
+            'unlock_request_reason' => null,
+            'unlock_requested_at' => null,
+        ]);
+
+        \App\Services\ActivityLogger::log('unlock_reject', 'order', $order, "Menolak permohonan unlock PO {$order->no_po} oleh {$requester->name}");
+
+        return back()->with('info', 'Permohonan unlock PO telah ditolak.');
     }
 
     public function relock(Request $request, Order $order)
     {
-        abort_unless($request->user()->can('order.unlock'), 403, 'Anda tidak memiliki hak untuk me-relock PO.');
         $this->guardBrandOwnership($request, $order);
+        $user = $request->user();
+
+        // Jika user memiliki permission order.unlock (Superadmin/Owner/Supervisor), relock langsung!
+        if ($user->can('order.unlock')) {
+            $this->statusManager->relock($order, $user);
+
+            // Clear any pending relock requests
+            $lock = $order->lockStatus;
+            if ($lock) {
+                $lock->update([
+                    'relock_requested_by' => null,
+                    'relock_request_reason' => null,
+                    'relock_requested_at' => null,
+                ]);
+            }
+
+            $this->statusManager->logChange($order, $user, 'Re-lock PO secara langsung', '_relock', 'unlocked', 'locked');
+            \App\Services\ActivityLogger::log('relock', 'order', $order, "Re-lock PO {$order->no_po} secara langsung");
+
+            return back()->with('success', 'PO kembali ter-lock.');
+        }
+
+        // Jika user TIDAK memiliki permission order.unlock (Admin Brand/Reseller/Produksi), ajukan permohonan!
+        $reason = $request->input('reason', 'Re-lock PO requested by Admin');
+        $lock = $order->lockStatus;
+        if ($lock) {
+            $lock->update([
+                'relock_requested_by' => $user->id,
+                'relock_request_reason' => $reason,
+                'relock_requested_at' => now(),
+            ]);
+        } else {
+            $order->lockStatus()->create([
+                'is_locked' => false,
+                'locked_at' => now(),
+                'locked_by' => $user->id,
+                'relock_requested_by' => $user->id,
+                'relock_request_reason' => $reason,
+                'relock_requested_at' => now(),
+            ]);
+        }
+
+        \App\Services\ActivityLogger::log('relock_request', 'order', $order, "Mengajukan permohonan re-lock PO {$order->no_po}");
+
+        return back()->with('success', 'Permohonan re-lock PO telah diajukan ke Superadmin/Supervisor.');
+    }
+
+    public function approveRelock(Request $request, Order $order)
+    {
+        abort_unless($request->user()->can('order.unlock'), 403, 'Anda tidak memiliki hak untuk menyetujui re-lock PO.');
+        $this->guardBrandOwnership($request, $order);
+
+        $lock = $order->lockStatus;
+        if (!$lock || !$lock->relock_requested_by) {
+            return back()->with('error', 'Tidak ada permohonan re-lock aktif.');
+        }
+
+        $requester = \App\Models\User::find($lock->relock_requested_by);
+        $reason = $lock->relock_request_reason;
+
         $this->statusManager->relock($order, $request->user());
-        return back()->with('success', 'PO kembali ter-lock.');
+
+        // Log change
+        \App\Models\Order\POChangeLog::create([
+            'order_id' => $order->id,
+            'changed_by' => $requester->id,
+            'approved_by' => $request->user()->id,
+            'change_reason' => $reason,
+            'field_changed' => '_relock',
+            'old_value' => 'unlocked',
+            'new_value' => 'locked',
+        ]);
+
+        // Clear request
+        $lock->update([
+            'relock_requested_by' => null,
+            'relock_request_reason' => null,
+            'relock_requested_at' => null,
+        ]);
+
+        \App\Services\ActivityLogger::log('relock_approve', 'order', $order, "Menyetujui permohonan re-lock PO {$order->no_po} oleh {$requester->name}");
+
+        return back()->with('success', 'Permohonan re-lock disetujui. PO berhasil dikunci.');
+    }
+
+    public function rejectRelock(Request $request, Order $order)
+    {
+        abort_unless($request->user()->can('order.unlock'), 403, 'Anda tidak memiliki hak untuk menolak permohonan re-lock PO.');
+        $this->guardBrandOwnership($request, $order);
+
+        $lock = $order->lockStatus;
+        if (!$lock || !$lock->relock_requested_by) {
+            return back()->with('error', 'Tidak ada permohonan re-lock aktif.');
+        }
+
+        $requester = \App\Models\User::find($lock->relock_requested_by);
+
+        // Clear request
+        $lock->update([
+            'relock_requested_by' => null,
+            'relock_request_reason' => null,
+            'relock_requested_at' => null,
+        ]);
+
+        \App\Services\ActivityLogger::log('relock_reject', 'order', $order, "Menolak permohonan re-lock PO {$order->no_po} oleh {$requester->name}");
+
+        return back()->with('info', 'Permohonan re-lock PO telah ditolak.');
     }
 
     public function bypassDp(Request $request, Order $order)
@@ -815,6 +1027,25 @@ class OrderController extends Controller
         return $pdf->download("SPK-{$order->no_po}.pdf");
     }
 
+    public function spkPreview(Request $request, Order $order)
+    {
+        Gate::authorize('order.view');
+        $this->guardBrandOwnership($request, $order);
+
+        $order->load([
+            'brand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
+            'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'items.resleting', 'items.printing',
+            'items.polaJahitan', 'items.polaJahitanLengan',
+            'items.jenisSetelan', 'items.polaProduksi',
+            'items.namesets.size', 'items.namesets.sizeCelana',
+        ]);
+
+        return view('pdf.spk', [
+            'order' => $order,
+            'isWebPreview' => true,
+        ]);
+    }
+
     public function updateTimeline(Request $request, Order $order)
     {
         Gate::authorize('production.update-progress');
@@ -825,7 +1056,42 @@ class OrderController extends Controller
             'end_production_date'   => ['nullable', 'date', 'after_or_equal:start_production_date'],
         ]);
 
+        $oldStart = $order->start_production_date;
+        $oldEnd = $order->end_production_date;
+
         $order->update($data);
+
+        $newStart = $order->fresh()->start_production_date;
+        $newEnd = $order->fresh()->end_production_date;
+
+        $user = $request->user();
+
+        // Format dates consistently to check for changes
+        $oldStartStr = $oldStart ? \Carbon\Carbon::parse($oldStart)->toDateString() : null;
+        $newStartStr = $newStart ? \Carbon\Carbon::parse($newStart)->toDateString() : null;
+        if ($oldStartStr !== $newStartStr) {
+            \App\Models\Order\POChangeLog::create([
+                'order_id' => $order->id,
+                'changed_by' => $user->id,
+                'field_changed' => 'start_production_date',
+                'old_value' => $oldStartStr,
+                'new_value' => $newStartStr,
+                'change_reason' => 'Perubahan tanggal mulai produksi',
+            ]);
+        }
+
+        $oldEndStr = $oldEnd ? \Carbon\Carbon::parse($oldEnd)->toDateString() : null;
+        $newEndStr = $newEnd ? \Carbon\Carbon::parse($newEnd)->toDateString() : null;
+        if ($oldEndStr !== $newEndStr) {
+            \App\Models\Order\POChangeLog::create([
+                'order_id' => $order->id,
+                'changed_by' => $user->id,
+                'field_changed' => 'end_production_date',
+                'old_value' => $oldEndStr,
+                'new_value' => $newEndStr,
+                'change_reason' => 'Perubahan tanggal selesai produksi',
+            ]);
+        }
 
         return back()->with('success', 'Timeline produksi berhasil diperbarui.');
     }
@@ -946,6 +1212,9 @@ class OrderController extends Controller
             'items.*.varian_label' => ['nullable', 'string', 'max:100'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.harga_satuan' => ['required', 'numeric', 'min:0'],
+            'items.*.discount_type' => ['nullable', 'string', Rule::in(['persen', 'nominal', ''])],
+            'items.*.discount_value' => ['nullable', 'numeric', 'min:0'],
+            'items.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
             'items.*.bahan_kain_id' => ['nullable', 'uuid'],
             'items.*.bahan_kain_ids' => ['nullable', 'array'],
             'items.*.bahan_kain_ids.*' => ['uuid', 'exists:bahan_kains,id'],
@@ -1012,7 +1281,23 @@ class OrderController extends Controller
             unset($item['namesets']);
 
             $item['order_id'] = $order->id;
-            $item['subtotal'] = ($item['quantity'] ?? 0) * ($item['harga_satuan'] ?? 0);
+
+            $qty = $item['quantity'] ?? 0;
+            $price = $item['harga_satuan'] ?? 0;
+            $raw = $qty * $price;
+
+            $discountType = $item['discount_type'] ?? '';
+            $discountValue = $item['discount_value'] ?? 0;
+
+            $discountAmount = 0;
+            if ($discountType === 'persen') {
+                $discountAmount = $raw * ($discountValue / 100);
+            } elseif ($discountType === 'nominal') {
+                $discountAmount = $discountValue;
+            }
+
+            $item['discount_amount'] = $discountAmount;
+            $item['subtotal'] = max(0, $raw - $discountAmount);
 
             $created = OrderItem::create($item);
 

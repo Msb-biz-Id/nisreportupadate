@@ -1,8 +1,8 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Package, User, MapPin, CalendarClock, Pencil, Send, RotateCw, Trash2, Lock, Unlock,
-    CreditCard, ListChecks, AlertTriangle, Receipt, FileText, ExternalLink, CheckCircle2, XCircle,
+    CreditCard, ListChecks, AlertTriangle, Receipt, FileText, ExternalLink, CheckCircle2, XCircle, Eye,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
@@ -34,7 +34,20 @@ const PROGRESS_STATUS = {
     skipped: { label: 'Skipped', variant: 'secondary' },
 };
 
-function UnlockDialog({ order, open, onOpenChange }) {
+const FIELD_LABELS = {
+    '_unlock': 'Membuka Kunci (Unlock) PO',
+    '_relock': 'Mengunci Kembali (Re-lock) PO',
+    'nama_po': 'Nama PO',
+    'tanggal_masuk': 'Tanggal Masuk',
+    'deadline_customer': 'Deadline Customer',
+    'start_production_date': 'Mulai Produksi',
+    'end_production_date': 'Selesai Produksi',
+    'catatan': 'Catatan PO',
+    'total_tagihan': 'Total Tagihan',
+    'pembayaran_diedit': 'Edit Pembayaran',
+};
+
+function UnlockDialog({ order, open, onOpenChange, canUnlock }) {
     const { data, setData, post, processing, errors } = useForm({ reason: '' });
     function submit(e) {
         e.preventDefault();
@@ -45,9 +58,11 @@ function UnlockDialog({ order, open, onOpenChange }) {
             <DialogContent>
                 <form onSubmit={submit}>
                     <DialogHeader>
-                        <DialogTitle>Unlock PO</DialogTitle>
+                        <DialogTitle>{canUnlock ? 'Unlock PO' : 'Minta Unlock PO'}</DialogTitle>
                         <DialogDescription>
-                            Setelah unlock, PO bisa diubah. Setiap perubahan akan tercatat di Change Log. Re-lock setelah selesai edit.
+                            {canUnlock 
+                                ? 'Setelah unlock, PO bisa diubah. Setiap perubahan akan tercatat di Change Log. Re-lock setelah selesai edit.'
+                                : 'Anda mengajukan permohonan untuk membuka kunci PO ini. Setelah disetujui oleh Owner atau Supervisor, PO baru dapat diubah.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-4">
@@ -57,7 +72,40 @@ function UnlockDialog({ order, open, onOpenChange }) {
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
-                        <Button type="submit" disabled={processing}>Unlock</Button>
+                        <Button type="submit" disabled={processing}>{canUnlock ? 'Unlock' : 'Ajukan Unlock'}</Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function RelockDialog({ order, open, onOpenChange, canUnlock }) {
+    const { data, setData, post, processing, errors } = useForm({ reason: '' });
+    function submit(e) {
+        e.preventDefault();
+        post(route('orders.relock', order.id), { onSuccess: () => onOpenChange(false), preserveScroll: true });
+    }
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <form onSubmit={submit}>
+                    <DialogHeader>
+                        <DialogTitle>{canUnlock ? 'Re-lock PO' : 'Minta Re-lock PO'}</DialogTitle>
+                        <DialogDescription>
+                            {canUnlock 
+                                ? 'Kunci kembali PO ini agar tidak bisa diubah secara tidak sengaja.'
+                                : 'Anda mengajukan permohonan untuk mengunci kembali PO ini. Setelah disetujui oleh Owner atau Supervisor, PO akan dikunci kembali.'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Label>Alasan Re-lock <span className="text-destructive">*</span></Label>
+                        <Textarea value={data.reason} onChange={(e) => setData('reason', e.target.value)} rows={3} className="mt-1.5" placeholder="Contoh: Edit selesai, data sudah sesuai, dll" required={!canUnlock} />
+                        {errors.reason && <p className="mt-1 text-xs text-destructive">{errors.reason}</p>}
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
+                        <Button type="submit" disabled={processing}>{canUnlock ? 'Re-lock' : 'Ajukan Re-lock'}</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
@@ -134,6 +182,99 @@ function AddPaymentDialog({ order, open, onOpenChange, banks, jenis_pembayarans 
     );
 }
 
+function EditPaymentDialog({ payment, open, onOpenChange, banks, jenis_pembayarans = [] }) {
+    const { data, setData, put, processing, errors } = useForm({
+        master_jenis_pembayaran_id: '',
+        amount: 0,
+        payment_date: '',
+        bank_id: '',
+        notes: '',
+        change_reason: '',
+    });
+
+    useEffect(() => {
+        if (payment) {
+            setData({
+                master_jenis_pembayaran_id: payment.master_jenis_pembayaran_id ? String(payment.master_jenis_pembayaran_id) : '',
+                amount: payment.amount || 0,
+                payment_date: payment.payment_date ? payment.payment_date.split('T')[0] : '',
+                bank_id: payment.bank_id ? String(payment.bank_id) : '',
+                notes: payment.notes || '',
+                change_reason: '',
+            });
+        }
+    }, [payment, open]);
+
+    function submit(e) {
+        e.preventDefault();
+        put(route('invoices.payments.update', payment.id), {
+            preserveScroll: true,
+            onSuccess: () => onOpenChange(false),
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <form onSubmit={submit}>
+                    <DialogHeader>
+                        <DialogTitle>Edit Pembayaran</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid grid-cols-1 gap-3 py-4 sm:grid-cols-2">
+                        <div>
+                            <Label>Tipe</Label>
+                            <Select value={data.master_jenis_pembayaran_id} onValueChange={(v) => setData('master_jenis_pembayaran_id', v)}>
+                                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {jenis_pembayarans.map((jp) => (
+                                        <SelectItem key={jp.id} value={String(jp.id)}>{jp.nama}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {errors.master_jenis_pembayaran_id && <p className="text-xs text-destructive">{errors.master_jenis_pembayaran_id}</p>}
+                        </div>
+                        <div>
+                            <Label>Nominal</Label>
+                            <Input type="number" min={0} value={data.amount === 0 ? '' : data.amount} onChange={(e) => setData('amount', e.target.value === '' ? 0 : Number(e.target.value))} className="mt-1.5" />
+                            {errors.amount && <p className="text-xs text-destructive">{errors.amount}</p>}
+                        </div>
+                        <div>
+                            <Label>Tanggal</Label>
+                            <Input type="date" value={data.payment_date} onChange={(e) => setData('payment_date', e.target.value)} className="mt-1.5" />
+                            {errors.payment_date && <p className="text-xs text-destructive">{errors.payment_date}</p>}
+                        </div>
+                        <div>
+                            <Label>Bank (opsional)</Label>
+                            <Select value={data.bank_id || '__none__'} onValueChange={(v) => setData('bank_id', v === '__none__' ? '' : v)}>
+                                <SelectTrigger className="mt-1.5"><SelectValue placeholder="—" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">— —</SelectItem>
+                                    {banks.map((b) => (<SelectItem key={b.id} value={String(b.id)}>{b.bank} {b.nomor_rekening}</SelectItem>))}
+                                </SelectContent>
+                            </Select>
+                            {errors.bank_id && <p className="text-xs text-destructive">{errors.bank_id}</p>}
+                        </div>
+                        <div className="sm:col-span-2">
+                            <Label>Catatan</Label>
+                            <Textarea value={data.notes} onChange={(e) => setData('notes', e.target.value)} rows={2} className="mt-1.5" />
+                            {errors.notes && <p className="text-xs text-destructive">{errors.notes}</p>}
+                        </div>
+                        <div className="sm:col-span-2">
+                            <Label>Alasan Perubahan <span className="text-destructive">*</span></Label>
+                            <Textarea value={data.change_reason} onChange={(e) => setData('change_reason', e.target.value)} rows={2} className="mt-1.5" placeholder="Sebutkan detail & alasan perubahan pembayaran" required />
+                            {errors.change_reason && <p className="text-xs text-destructive">{errors.change_reason}</p>}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
+                        <Button type="submit" disabled={processing}>Simpan Perubahan</Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function TimelineForm({ order, onDone }) {
     const { data, setData, patch, processing } = useForm({
         start_production_date: order.start_production_date?.slice(0, 10) ?? '',
@@ -165,9 +306,14 @@ function TimelineForm({ order, onDone }) {
 
 export default function OrderPreview({ order, can, dp_info = null, printings = [], banks = [], jenis_pembayarans = [] }) {
     const [openUnlock, setOpenUnlock] = useState(false);
+    const [openRelock, setOpenRelock] = useState(false);
     const [openPayment, setOpenPayment] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [editTimeline, setEditTimeline] = useState(false);
+    const [openEditPayment, setOpenEditPayment] = useState(false);
+    const [selectedPayment, setSelectedPayment] = useState(null);
+
+    const isLocked = order.status_po !== 'draft' && (!order.lock_status || order.lock_status.is_locked);
 
     const st = STATUS_LABEL[order.status_po] ?? { label: order.status_po, variant: 'outline' };
     const pendingPayments = (order.payments ?? []).filter(p => !p.verified_at);
@@ -213,9 +359,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
     function doDelete() {
         router.delete(route('orders.destroy', order.id));
     }
-    function relock() {
-        router.post(route('orders.relock', order.id), {}, { preserveScroll: true });
-    }
+
 
     return (
         <AppLayout title={`Preview ${order.no_po}`}>
@@ -232,7 +376,13 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     <Badge variant={st.variant}>{st.label}</Badge>
                                     {order.is_special_order && <Badge variant="warning">Special Order</Badge>}
                                     {order.is_repeat_order && <Badge variant="outline"><RotateCw className="mr-1 h-3 w-3" />Repeat</Badge>}
-                                    {order.lock_status?.is_locked && <Badge variant="secondary"><Lock className="mr-1 h-3 w-3" />Locked</Badge>}
+                                    {order.status_po !== 'draft' && (
+                                        isLocked ? (
+                                            <Badge variant="secondary"><Lock className="mr-1 h-3 w-3" />Locked</Badge>
+                                        ) : (
+                                            <Badge variant="warning"><Unlock className="mr-1 h-3 w-3" />Unlocked</Badge>
+                                        )
+                                    )}
                                 </div>
                                 <h3 className="mt-1 text-lg font-medium">{order.nama_po}</h3>
                             </div>
@@ -261,6 +411,11 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     <Button onClick={repeatOrder} variant="outline" size="sm"><RotateCw className="h-4 w-4" /> Repeat Order</Button>
                                 )}
                                 <Button asChild variant="outline" size="sm">
+                                    <a href={route('orders.spk.preview', order.id)} target="_blank" rel="noopener noreferrer">
+                                        <Eye className="h-4 w-4" /> Preview SPK
+                                    </a>
+                                </Button>
+                                <Button asChild variant="outline" size="sm">
                                     <a href={route('orders.spk.pdf', order.id)} target="_blank" rel="noopener noreferrer">
                                         <FileText className="h-4 w-4" /> SPK PDF
                                     </a>
@@ -279,11 +434,39 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         </Button>
                                     </>
                                 )}
-                                {order.lock_status?.is_locked && can?.unlock && (
-                                    <Button variant="outline" size="sm" onClick={() => setOpenUnlock(true)}><Unlock className="h-4 w-4" /> Unlock</Button>
+                                {order.status_po !== 'draft' && isLocked && (
+                                    can?.unlock ? (
+                                        <Button variant="outline" size="sm" onClick={() => setOpenUnlock(true)}>
+                                            <Unlock className="h-4 w-4 mr-1" /> Unlock PO
+                                        </Button>
+                                    ) : (
+                                        (order.lock_status?.unlock_requested_by || order.lock_status?.unlockRequestedBy) ? (
+                                            <Button variant="outline" size="sm" disabled className="opacity-75">
+                                                <RotateCw className="h-4 w-4 mr-1 animate-spin" /> Menunggu Unlock
+                                            </Button>
+                                        ) : (
+                                            <Button variant="outline" size="sm" onClick={() => setOpenUnlock(true)}>
+                                                <Unlock className="h-4 w-4 mr-1" /> Minta Unlock
+                                            </Button>
+                                        )
+                                    )
                                 )}
-                                {order.lock_status && ! order.lock_status?.is_locked && (
-                                    <Button variant="outline" size="sm" onClick={relock}><Lock className="h-4 w-4" /> Re-lock</Button>
+                                {order.status_po !== 'draft' && !isLocked && (
+                                    can?.unlock ? (
+                                        <Button variant="outline" size="sm" onClick={() => setOpenRelock(true)}>
+                                            <Lock className="h-4 w-4 mr-1" /> Re-lock PO
+                                        </Button>
+                                    ) : (
+                                        (order.lock_status?.relock_requested_by || order.lock_status?.relockRequestedBy) ? (
+                                            <Button variant="outline" size="sm" disabled className="opacity-75">
+                                                <RotateCw className="h-4 w-4 mr-1 animate-spin" /> Menunggu Re-lock
+                                            </Button>
+                                        ) : (
+                                            <Button variant="outline" size="sm" onClick={() => setOpenRelock(true)}>
+                                                <Lock className="h-4 w-4 mr-1" /> Minta Re-lock
+                                            </Button>
+                                        )
+                                    )
                                 )}
                                 {can?.delete && (
                                     <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setConfirmDelete(true)}>
@@ -294,6 +477,100 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                         </div>
                     </CardHeader>
                 </Card>
+
+                {/* Banners for Unlock/Relock Approval Requests */}
+                {(order.lock_status?.unlock_requested_by || order.lock_status?.unlockRequestedBy) && (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-amber-800 shadow-sm">
+                        <div className="flex items-start gap-3">
+                            <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                                <h4 className="text-sm font-bold">Permohonan Unlock PO 🔓</h4>
+                                <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                                    Diajukan oleh: <strong>{(order.lock_status?.unlock_requested_by || order.lock_status?.unlockRequestedBy)?.name || 'Admin'}</strong>
+                                    {((order.lock_status?.unlock_requested_by || order.lock_status?.unlockRequestedBy)?.roles?.length > 0) && 
+                                        ` (${(order.lock_status?.unlock_requested_by || order.lock_status?.unlockRequestedBy)?.roles[0].name})`}
+                                    <br />
+                                    Alasan: <span className="italic">"{order.lock_status?.unlock_request_reason || order.lock_status?.unlockRequestReason}"</span>
+                                </p>
+                            </div>
+                        </div>
+                        {can?.unlock && (
+                            <div className="flex gap-2 self-end sm:self-center shrink-0">
+                                <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="border-amber-300 hover:bg-amber-100/50"
+                                    onClick={() => {
+                                        if (confirm('Setujui permohonan unlock PO ini?')) {
+                                            router.post(route('orders.unlock.approve', order.id), {}, { preserveScroll: true });
+                                        }
+                                    }}
+                                >
+                                    Setujui
+                                </Button>
+                                <Button 
+                                    size="sm" 
+                                    variant="destructive" 
+                                    onClick={() => {
+                                        if (confirm('Tolak permohonan unlock PO ini?')) {
+                                            router.post(route('orders.unlock.reject', order.id), {}, { preserveScroll: true });
+                                        }
+                                    }}
+                                >
+                                    Tolak
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {(order.lock_status?.relock_requested_by || order.lock_status?.relockRequestedBy) && (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-amber-800 shadow-sm">
+                        <div className="flex items-start gap-3">
+                            <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                                <h4 className="text-sm font-bold">Permohonan Re-lock PO 🔒</h4>
+                                <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                                    Diajukan oleh: <strong>{(order.lock_status?.relock_requested_by || order.lock_status?.relockRequestedBy)?.name || 'Admin'}</strong>
+                                    {((order.lock_status?.relock_requested_by || order.lock_status?.relockRequestedBy)?.roles?.length > 0) && 
+                                        ` (${(order.lock_status?.relock_requested_by || order.lock_status?.relockRequestedBy)?.roles[0].name})`}
+                                </p>
+                                {(order.lock_status?.relock_request_reason || order.lock_status?.relockRequestReason) && (
+                                    <p className="text-xs text-amber-800 italic mt-1 leading-relaxed">
+                                        Alasan: "{order.lock_status?.relock_request_reason || order.lock_status?.relockRequestReason}"
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        {can?.unlock && (
+                            <div className="flex gap-2 self-end sm:self-center shrink-0">
+                                <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="border-amber-300 hover:bg-amber-100/50"
+                                    onClick={() => {
+                                        if (confirm('Setujui permohonan re-lock PO ini?')) {
+                                            router.post(route('orders.relock.approve', order.id), {}, { preserveScroll: true });
+                                        }
+                                    }}
+                                >
+                                    Setujui
+                                </Button>
+                                <Button 
+                                    size="sm" 
+                                    variant="destructive" 
+                                    onClick={() => {
+                                        if (confirm('Tolak permohonan re-lock PO ini?')) {
+                                            router.post(route('orders.relock.reject', order.id), {}, { preserveScroll: true });
+                                        }
+                                    }}
+                                >
+                                    Tolak
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {order.status_po === 'draft' && !isDpSufficient && (
                     <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 flex items-start gap-3 text-amber-800 shadow-sm">
@@ -456,7 +733,19 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                         <Badge variant={p.verified_at ? 'success' : 'warning'} className="text-[9px] px-1.5 py-0 font-bold">
                                                             {p.verified_at ? '✓ VERIFIED' : '⏳ PENDING'}
                                                         </Badge>
-                                                        {can?.delete_payment && (
+                                                        {can?.edit_payment && (
+                                                             <button
+                                                                 onClick={() => {
+                                                                     setSelectedPayment(p);
+                                                                     setOpenEditPayment(true);
+                                                                 }}
+                                                                 className="ml-1 p-0.5 rounded text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                                                                 title="Edit record pembayaran ini"
+                                                             >
+                                                                 <Pencil className="h-3.5 w-3.5" />
+                                                             </button>
+                                                         )}
+                                                         {can?.delete_payment && (
                                                             <button
                                                                 onClick={() => {
                                                                     const msg = p.verified_at
@@ -692,7 +981,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     )}
 
                                     {/* Nameset */}
-                                    {item.namesets?.length > 0 && (
+                                    {!item.is_addon && item.namesets?.length > 0 && (
                                         <details className="mt-1">
                                             <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Nameset ({item.namesets.length})</summary>
                                             <div className="mt-2 overflow-x-auto">
@@ -888,25 +1177,63 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                     </CardContent>
                 </Card>
 
-                {/* Change Log */}
+                {/* Change Log / Riwayat Perubahan */}
                 {order.change_logs?.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base"><FileText className="h-4 w-4 text-primary" /> Change Log</CardTitle>
+                    <Card className="border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+                        <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3">
+                            <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                                <FileText className="h-4 w-4 text-slate-500" /> Riwayat Perubahan & Otorisasi PO
+                            </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-2 text-sm">
-                            {order.change_logs.map((cl) => (
-                                <div key={cl.id} className="rounded border p-2">
-                                    <div className="flex justify-between text-xs">
-                                        <span className="font-medium">{cl.field_changed}</span>
-                                        <span className="text-muted-foreground">{formatDateTime(cl.created_at)} · {cl.changer?.name}</span>
+                        <CardContent className="p-4 space-y-4">
+                            {order.change_logs.map((cl) => {
+                                const isSystemAction = cl.field_changed.startsWith('_');
+                                const fieldLabel = FIELD_LABELS[cl.field_changed] ?? cl.field_changed;
+                                
+                                return (
+                                    <div key={cl.id} className="relative pl-6 pb-2 border-l-2 border-slate-100 last:pb-0 last:border-l-0">
+                                        {/* Timeline Dot */}
+                                        <div className={`absolute -left-[6px] top-1.5 h-[10px] w-[10px] rounded-full border-2 ${
+                                            cl.field_changed === '_unlock' ? 'bg-amber-500 border-amber-200' :
+                                            cl.field_changed === '_relock' ? 'bg-emerald-500 border-emerald-200' :
+                                            'bg-blue-500 border-blue-200'
+                                        }`} />
+                                        
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex flex-wrap items-center justify-between gap-1 text-xs">
+                                                <span className="font-semibold text-slate-700">
+                                                    {fieldLabel}
+                                                </span>
+                                                <span className="text-slate-400 font-medium">
+                                                    {formatDateTime(cl.created_at)}
+                                                </span>
+                                            </div>
+                                            
+                                            {!isSystemAction && (
+                                                <div className="text-xs text-slate-500 flex items-center gap-1.5">
+                                                    <span className="line-through bg-slate-50 px-1 py-0.5 rounded text-slate-400">{cl.old_value || '—'}</span>
+                                                    <span className="text-slate-300">→</span>
+                                                    <span className="font-semibold bg-slate-50 px-1 py-0.5 rounded text-slate-700">{cl.new_value || '—'}</span>
+                                                </div>
+                                            )}
+                                            
+                                            <div className="text-xs text-slate-600 flex flex-wrap items-center gap-1 mt-0.5">
+                                                <span className="font-medium text-slate-500">Oleh:</span>
+                                                <span className="font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded-md text-[10px]">{cl.changer?.name || 'Sistem'}</span>
+                                                {cl.changer?.roles?.[0]?.name && (
+                                                    <span className="text-[10px] text-slate-400">({cl.changer.roles[0].name.replace('_', ' ')})</span>
+                                                )}
+                                            </div>
+
+                                            {cl.change_reason && (
+                                                <div className="mt-1 bg-amber-50/50 border border-amber-100/50 rounded-lg p-2 text-xs text-amber-800 font-medium leading-relaxed italic shadow-sm">
+                                                    Alasan: "{cl.change_reason}"
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="text-xs text-muted-foreground">
-                                        <span className="line-through">{cl.old_value || '—'}</span> → <span className="font-semibold">{cl.new_value || '—'}</span>
-                                    </div>
-                                    {cl.change_reason && <div className="text-xs italic">"{cl.change_reason}"</div>}
-                                </div>
-                            ))}
+                                );
+                            })}
                         </CardContent>
                     </Card>
                 )}
@@ -927,8 +1254,10 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                 </Card>
             </div>
 
-            <UnlockDialog order={order} open={openUnlock} onOpenChange={setOpenUnlock} />
+            <UnlockDialog order={order} open={openUnlock} onOpenChange={setOpenUnlock} canUnlock={can?.unlock} />
+            <RelockDialog order={order} open={openRelock} onOpenChange={setOpenRelock} canUnlock={can?.unlock} />
             <AddPaymentDialog order={order} open={openPayment} onOpenChange={setOpenPayment} banks={banks} jenis_pembayarans={jenis_pembayarans} />
+            <EditPaymentDialog payment={selectedPayment} open={openEditPayment} onOpenChange={setOpenEditPayment} banks={banks} jenis_pembayarans={jenis_pembayarans} />
 
             <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
                 <DialogContent>

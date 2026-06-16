@@ -217,7 +217,14 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                                             {mainItems.map((item) => (
                                                                 <tr key={item.id} className="hover:bg-slate-50/20">
                                                                     <td className="py-3 px-4 text-xs font-medium text-slate-400">{rowNum++}</td>
-                                                                    <td className="py-3 px-4 font-semibold text-slate-800">{item.produk}</td>
+                                                                    <td className="py-3 px-4">
+                                                                        <div className="font-semibold text-slate-800">{item.produk}</div>
+                                                                        {Number(item.discount_amount) > 0 && (
+                                                                            <div className="text-[10px] text-rose-500 font-bold mt-0.5">
+                                                                                Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : formatRupiah(item.discount_value)} (-{formatRupiah(item.discount_amount)})
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
                                                                     <td className="py-3 px-4 text-right font-mono font-medium">{item.jumlah} pcs</td>
                                                                     <td className="py-3 px-4 text-right font-mono text-xs">{formatRupiah(item.harga_satuan)}</td>
                                                                     <td className="py-3 px-4 text-right font-mono text-xs font-semibold text-slate-800">{formatRupiah(item.subtotal)}</td>
@@ -235,7 +242,14 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                                             {addonItems.map((item) => (
                                                                 <tr key={item.id} className="hover:bg-slate-50/20">
                                                                     <td className="py-3 px-4 text-xs font-medium text-slate-400">{rowNum++}</td>
-                                                                    <td className="py-3 px-4 font-semibold text-slate-800">{item.produk}</td>
+                                                                    <td className="py-3 px-4">
+                                                                        <div className="font-semibold text-slate-800">{item.produk}</div>
+                                                                        {Number(item.discount_amount) > 0 && (
+                                                                            <div className="text-[10px] text-rose-500 font-bold mt-0.5">
+                                                                                Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : formatRupiah(item.discount_value)} (-{formatRupiah(item.discount_amount)})
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
                                                                     <td className="py-3 px-4 text-right font-mono font-medium">{item.jumlah} pcs</td>
                                                                     <td className="py-3 px-4 text-right font-mono text-xs">{formatRupiah(item.harga_satuan)}</td>
                                                                     <td className="py-3 px-4 text-right font-mono text-xs font-semibold text-slate-800">{formatRupiah(item.subtotal)}</td>

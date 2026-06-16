@@ -14,8 +14,8 @@ const STATUS_BADGE = {
     hold: { label: 'Ditahan', class: 'bg-orange-100 text-orange-700' },
 };
 
-function ProgressIcon({ status }) {
-    if (status === 'selesai') return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
+function ProgressIcon({ status, brandColor }) {
+    if (status === 'selesai') return <CheckCircle2 className="h-5 w-5" style={{ color: brandColor }} />;
     if (status === 'on_progress') return <Clock className="h-5 w-5 animate-pulse text-amber-500" />;
     if (status === 'skipped') return <Circle className="h-5 w-5 text-gray-300" />;
     return <Circle className="h-5 w-5 text-gray-300" />;
@@ -47,10 +47,35 @@ export default function Track({ po_number, found, order, brand, invoice, invoice
     const whatsappUrl = getWhatsAppUrl();
     const instagramUrl = getInstagramUrl();
 
+    const brandColor = activeBrand?.warna_primary || '#2563EB';
+
+    const getAlphaColor = (hexColor, alpha) => {
+        if (!hexColor) return `rgba(37, 99, 235, ${alpha})`;
+        if (hexColor.startsWith('#')) {
+            const hex = hexColor.replace('#', '');
+            if (hex.length === 3) {
+                const r = parseInt(hex[0] + hex[0], 16);
+                const g = parseInt(hex[1] + hex[1], 16);
+                const b = parseInt(hex[2] + hex[2], 16);
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            }
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+        return hexColor;
+    };
+
     return (
         <>
             <Head title={`Tracking ${po_number}`} />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 px-4 py-8">
+            <div 
+                className="min-h-screen px-4 py-8 transition-all duration-300"
+                style={{
+                    background: `linear-gradient(135deg, #f8fafc 0%, #ffffff 50%, ${getAlphaColor(brandColor, 0.05)} 100%)`
+                }}
+            >
                 <div className="mx-auto max-w-2xl">
                     <div className="mb-6 flex items-center justify-center gap-3 text-center">
                         {activeBrand ? (
@@ -63,7 +88,7 @@ export default function Track({ po_number, found, order, brand, invoice, invoice
                             ) : (
                                 <div
                                     className="flex h-10 w-10 items-center justify-center rounded-xl text-white font-extrabold shadow text-base uppercase transition-all duration-300"
-                                    style={{ backgroundColor: activeBrand.warna_primary || '#3B82F6' }}
+                                    style={{ backgroundColor: brandColor }}
                                 >
                                     {activeBrand.nama_brand.substring(0, 2).toUpperCase()}
                                 </div>
@@ -140,7 +165,10 @@ export default function Track({ po_number, found, order, brand, invoice, invoice
                                         <h1 className="mt-1 text-xl font-bold">{order.nama_po}</h1>
                                         <div className="mt-1 text-sm text-muted-foreground">{order.brand?.nama_brand}</div>
                                     </div>
-                                    <div className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_BADGE[order.status_po]?.class ?? 'bg-gray-100'}`}>
+                                    <div 
+                                        className={`rounded-full px-3 py-1 text-xs font-semibold ${order.status_po !== 'published' ? (STATUS_BADGE[order.status_po]?.class ?? 'bg-gray-100') : ''}`}
+                                        style={order.status_po === 'published' ? { backgroundColor: getAlphaColor(brandColor, 0.1), color: brandColor } : {}}
+                                    >
                                         {STATUS_BADGE[order.status_po]?.label ?? order.status_po}
                                     </div>
                                 </div>
@@ -163,13 +191,30 @@ export default function Track({ po_number, found, order, brand, invoice, invoice
                             {invoices && invoices.length > 0 ? (
                                 <div className="space-y-3.5">
                                     {invoices.map((inv, idx) => (
-                                        <div key={inv.invoice_number} className="rounded-2xl border border-blue-200 bg-blue-50/50 p-5 shadow-sm space-y-4">
+                                        <div 
+                                            key={inv.invoice_number} 
+                                            className="rounded-2xl border p-5 shadow-sm space-y-4"
+                                            style={{
+                                                borderColor: getAlphaColor(brandColor, 0.2),
+                                                backgroundColor: getAlphaColor(brandColor, 0.04)
+                                            }}
+                                        >
                                             <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2 font-bold text-blue-900 text-sm">
-                                                    <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                <div 
+                                                    className="flex items-center gap-2 font-bold text-sm"
+                                                    style={{ color: getAlphaColor(brandColor, 0.9) }}
+                                                >
+                                                    <svg 
+                                                        className="h-5 w-5" 
+                                                        style={{ color: brandColor }}
+                                                        fill="none" 
+                                                        viewBox="0 0 24 24" 
+                                                        stroke="currentColor" 
+                                                        strokeWidth={2.5}
+                                                    >
                                                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                                     </svg>
-                                                    Invoice {idx === 0 ? 'Awal / DP' : 'Pelunasan / Final'}: <span className="font-mono text-blue-700 select-all font-extrabold">{inv.invoice_number}</span>
+                                                    Invoice {idx === 0 ? 'Awal / DP' : 'Pelunasan / Final'}: <span className="font-mono select-all font-extrabold" style={{ color: brandColor }}>{inv.invoice_number}</span>
                                                 </div>
                                                 <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
                                                     Ready to View
@@ -186,37 +231,58 @@ export default function Track({ po_number, found, order, brand, invoice, invoice
                                                     href={`/invoice/${inv.invoice_number}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 py-3 px-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+                                                    style={{ backgroundColor: brandColor }}
+                                                    className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-white py-3 px-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:brightness-95 active:brightness-90"
                                                 >
                                                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                         <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                                     </svg>
-                                                    Detail Invoice
+                                                    Invoice Web
                                                 </a>
                                                 <a
                                                     href={`/invoice/${inv.invoice_number}/pdf`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-blue-700 bg-white border border-blue-200 hover:bg-blue-50 active:bg-blue-100 py-3 px-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+                                                    style={{
+                                                        borderColor: getAlphaColor(brandColor, 0.2),
+                                                        color: brandColor
+                                                    }}
+                                                    className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold bg-white border hover:bg-slate-50 active:bg-slate-100 py-3 px-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
                                                 >
                                                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                                     </svg>
-                                                    Unduh PDF
+                                                    Invoice PDF
                                                 </a>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             ) : invoice ? (
-                                <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-5 shadow-sm space-y-4">
+                                <div 
+                                    className="rounded-2xl border p-5 shadow-sm space-y-4"
+                                    style={{
+                                        borderColor: getAlphaColor(brandColor, 0.2),
+                                        backgroundColor: getAlphaColor(brandColor, 0.04)
+                                    }}
+                                >
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 font-bold text-blue-900 text-sm">
-                                            <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                        <div 
+                                            className="flex items-center gap-2 font-bold text-sm"
+                                            style={{ color: getAlphaColor(brandColor, 0.9) }}
+                                        >
+                                            <svg 
+                                                className="h-5 w-5" 
+                                                style={{ color: brandColor }}
+                                                fill="none" 
+                                                viewBox="0 0 24 24" 
+                                                stroke="currentColor" 
+                                                strokeWidth={2.5}
+                                            >
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                             </svg>
-                                            Invoice Terbit: <span className="font-mono text-blue-700 select-all font-extrabold">{invoice.invoice_number}</span>
+                                            Invoice Terbit: <span className="font-mono select-all font-extrabold" style={{ color: brandColor }}>{invoice.invoice_number}</span>
                                         </div>
                                         <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
                                             Ready to View
@@ -230,24 +296,29 @@ export default function Track({ po_number, found, order, brand, invoice, invoice
                                             href={`/invoice/${invoice.invoice_number}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 py-3 px-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+                                            style={{ backgroundColor: brandColor }}
+                                            className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-white py-3 px-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:brightness-95 active:brightness-90"
                                         >
                                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                             </svg>
-                                            Detail Invoice
+                                            Invoice Web
                                         </a>
                                         <a
                                             href={`/invoice/${invoice.invoice_number}/pdf`}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-blue-700 bg-white border border-blue-200 hover:bg-blue-50 active:bg-blue-100 py-3 px-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+                                            style={{
+                                                borderColor: getAlphaColor(brandColor, 0.2),
+                                                color: brandColor
+                                            }}
+                                            className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold bg-white border hover:bg-slate-50 active:bg-slate-100 py-3 px-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
                                         >
                                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                             </svg>
-                                            Unduh PDF
+                                            Invoice PDF
                                         </a>
                                     </div>
                                 </div>
@@ -280,7 +351,7 @@ export default function Track({ po_number, found, order, brand, invoice, invoice
                             {/* Items */}
                             <div className="rounded-2xl border bg-white p-5 shadow-sm">
                                 <div className="mb-3 flex items-center gap-2 font-semibold">
-                                    <Package className="h-4 w-4 text-primary" /> Detail Pesanan
+                                    <Package className="h-4 w-4" style={{ color: brandColor }} /> Detail Pesanan
                                 </div>
                                 <ul className="space-y-2 text-sm">
                                     {(order.items ?? []).map((item, idx) => (
@@ -298,7 +369,7 @@ export default function Track({ po_number, found, order, brand, invoice, invoice
                                 <ol className="space-y-3">
                                     {(order.progress ?? []).map((p, i) => (
                                         <li key={i} className="flex items-center gap-3">
-                                            <ProgressIcon status={p.status} />
+                                            <ProgressIcon status={p.status} brandColor={brandColor} />
                                             <div className="flex-1">
                                                 <div className={`text-sm font-medium ${p.status === 'pending' ? 'text-muted-foreground' : ''}`}>
                                                     {p.nama}

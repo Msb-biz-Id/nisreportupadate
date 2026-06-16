@@ -96,4 +96,49 @@ class PublicAccessTest extends TestCase
         $draftInv->update(['status' => 'published']);
         $this->get('/invoice/INV-PUB-DRAFT')->assertOk();
     }
+
+    public function test_authorized_user_can_view_draft_invoice_on_tracking_page(): void
+    {
+        $brand = $this->makeBrand();
+        $user = $this->makeUser('admin_produksi', [$brand]); // admin_produksi has order.view
+        Customer::create(['brand_id' => $brand->id, 'kode' => 'C', 'nama' => 'X', 'nomor_hp' => '081', 'is_active' => true]);
+
+        $order = Order::create([
+            'brand_id' => $brand->id, 'no_po' => 'PO-INV-TRACK-TEST',
+            'nama_po' => 'P', 'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => Customer::first()->id,
+            'total_tagihan' => 500000,
+            'published_at' => now(),
+            'created_by' => $user->id,
+        ]);
+
+        $draftInv = Invoice::create([
+            'brand_id' => $brand->id, 'order_id' => $order->id,
+            'invoice_number' => 'INV-PUB-DRAFT-TRACK',
+            'tanggal_terbit' => now()->toDateString(),
+            'status' => 'draft',
+            'total_tagihan' => 500000,
+            'sisa_pembayaran' => 500000,
+            'created_by' => $user->id,
+        ]);
+
+        // Unauthenticated guest should NOT see the draft invoice on tracking page
+        $response = $this->get('/track/PO-INV-TRACK-TEST');
+        $response->assertOk();
+        $response->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+            ->component('Public/Track')
+            ->where('invoices', [])
+        );
+
+        // Authenticated admin_produksi user SHOULD see it on tracking page
+        $response = $this->actingAs($user)->get('/track/PO-INV-TRACK-TEST');
+        $response->assertOk();
+        $response->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+            ->component('Public/Track')
+            ->has('invoices', 1)
+            ->where('invoices.0.invoice_number', 'INV-PUB-DRAFT-TRACK')
+        );
+    }
 }

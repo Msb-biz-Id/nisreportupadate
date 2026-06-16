@@ -76,13 +76,13 @@ const MASTER_ITEMS = [
     { slug: 'resleting', name: 'Resleting', icon: Move3D, group: 'global' },
     { slug: 'printing', name: 'Jenis Printing', icon: Printer, group: 'global' },
     { slug: 'paket-order', name: 'Paket Order', icon: PackageOpen, group: 'global' },
-    { slug: 'tipe-order', name: 'Tipe Order', icon: Boxes, group: 'global' },
     { slug: 'size', name: 'Size / Ukuran', icon: Ruler, group: 'global' },
     { slug: 'pola-jahitan', name: 'Pola Jahitan', icon: Scissors, group: 'global' },
     { slug: 'jenis-setelan',  name: 'Jenis Setelan',  icon: Layers,    group: 'production' },
     { slug: 'pola-produksi',  name: 'Pola Produksi',  icon: Scissors,  group: 'production' },
     { slug: 'jenis-produk',   name: 'Jenis Produk',   icon: Layers,    group: 'production' },
     { slug: 'progress',       name: 'Tahapan Progress', icon: ListChecks, group: 'production' },
+    { slug: 'kategori-order', name: 'Kategori Order', icon: Tag, group: 'brand' },
     { slug: 'sumber-order', name: 'Sumber Order', icon: Compass, group: 'brand' },
     { slug: 'jenis-order', name: 'Jenis Order', icon: LayoutList, group: 'brand' },
     { slug: 'iklan', name: 'Promo', icon: Megaphone, group: 'brand' },
@@ -136,7 +136,12 @@ function buildMenu(user) {
             if (canManageBrand && m.group === 'brand') return true;
             if (canManageProduk && m.slug === 'produk') return true;
             // admin_produksi: lihat semua master produksi (global = bahan, size, logo, pola, dll) + tahapan progress
-            if (canManageProduction && (m.group === 'production' || m.group === 'global')) return true;
+            // serta master data order/po (sumber, jenis, promo, kategori, produk)
+            if (canManageProduction && (
+                m.group === 'production' || 
+                m.group === 'global' || 
+                (m.group === 'brand' && m.slug !== 'bank')
+            )) return true;
             return false;
         });
 

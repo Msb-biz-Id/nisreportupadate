@@ -792,5 +792,507 @@ class OrderLifecycleTest extends TestCase
 
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'deleted_at' => null]);
     }
+
+    public function test_admin_produksi_can_update_timeline(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $user = $this->makeUser('admin_produksi', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-TIMELINE-TEST',
+            'nama_po' => 'Timeline Test PO',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 100000,
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAsWithBrand($user, $brand)
+            ->patch(route('orders.timeline.update', $order->id), [
+                'start_production_date' => '2026-06-12',
+                'end_production_date' => '2026-06-28',
+            ])
+            ->assertRedirect();
+
+        $order = $order->fresh();
+        $this->assertEquals('2026-06-12', $order->start_production_date->toDateString());
+        $this->assertEquals('2026-06-28', $order->end_production_date->toDateString());
+
+        // Assert POChangeLog recorded for start_production_date
+        $this->assertDatabaseHas('po_change_logs', [
+            'order_id' => $order->id,
+            'changed_by' => $user->id,
+            'field_changed' => 'start_production_date',
+            'new_value' => '2026-06-12',
+        ]);
+
+        // Assert POChangeLog recorded for end_production_date
+        $this->assertDatabaseHas('po_change_logs', [
+            'order_id' => $order->id,
+            'changed_by' => $user->id,
+            'field_changed' => 'end_production_date',
+            'new_value' => '2026-06-28',
+        ]);
+    }
+
+    public function test_unlock_and_relock_po_permissions_and_audit_logging(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $customer = Customer::where('brand_id', $brand->id)->first();
+
+        // 1. Test admin_brand can unlock and relock
+        $adminBrand = $this->makeUser('admin_brand', [$brand]);
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-UNLOCK-AB',
+            'nama_po' => 'Unlock Brand PO',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 100000,
+            'created_by' => $adminBrand->id,
+        ]);
+
+        // Lock it first
+        app(\App\Services\POStatusManager::class)->relock($order, $adminBrand);
+        $this->assertTrue($order->fresh()->isLocked());
+
+        // Create a supervisor
+        $supervisor = $this->makeUser('supervisor', [$brand]);
+
+        // 1. Admin Brand requests unlock
+        $reason = 'Salah input detail ukuran produk';
+        $this->actingAsWithBrand($adminBrand, $brand)
+            ->post(route('orders.unlock', $order->id), [
+                'reason' => $reason
+            ])
+            ->assertRedirect();
+
+        // Should still be locked (requires supervisor approval)
+        $this->assertTrue($order->fresh()->isLocked());
+        $this->assertDatabaseHas('po_lock_status', [
+            'order_id' => $order->id,
+            'unlock_requested_by' => $adminBrand->id,
+            'unlock_request_reason' => $reason,
+        ]);
+        $this->assertDatabaseHas('activity_logs', [
+            'subject_id' => $order->id,
+            'activity' => 'unlock_request',
+            'user_id' => $adminBrand->id,
+        ]);
+
+        // 2. Supervisor approves unlock request
+        $this->actingAsWithBrand($supervisor, $brand)
+            ->post(route('orders.unlock.approve', $order->id))
+            ->assertRedirect();
+
+        $this->assertFalse($order->fresh()->isLocked());
+        $this->assertDatabaseHas('po_change_logs', [
+            'order_id' => $order->id,
+            'changed_by' => $adminBrand->id,
+            'approved_by' => $supervisor->id,
+            'field_changed' => '_unlock',
+            'change_reason' => $reason,
+        ]);
+        $this->assertDatabaseHas('activity_logs', [
+            'subject_id' => $order->id,
+            'activity' => 'unlock_approve',
+            'user_id' => $supervisor->id,
+        ]);
+
+        // 3. Admin Brand requests relock
+        $this->actingAsWithBrand($adminBrand, $brand)
+            ->post(route('orders.relock', $order->id))
+            ->assertRedirect();
+
+        // Should still be unlocked (requires approval)
+        $this->assertFalse($order->fresh()->isLocked());
+        $this->assertDatabaseHas('po_lock_status', [
+            'order_id' => $order->id,
+            'relock_requested_by' => $adminBrand->id,
+        ]);
+        $this->assertDatabaseHas('activity_logs', [
+            'subject_id' => $order->id,
+            'activity' => 'relock_request',
+            'user_id' => $adminBrand->id,
+        ]);
+
+        // 4. Supervisor approves relock request
+        $this->actingAsWithBrand($supervisor, $brand)
+            ->post(route('orders.relock.approve', $order->id))
+            ->assertRedirect();
+
+        $this->assertTrue($order->fresh()->isLocked());
+        $this->assertDatabaseHas('po_change_logs', [
+            'order_id' => $order->id,
+            'changed_by' => $adminBrand->id,
+            'approved_by' => $supervisor->id,
+            'field_changed' => '_relock',
+        ]);
+        $this->assertDatabaseHas('activity_logs', [
+            'subject_id' => $order->id,
+            'activity' => 'relock_approve',
+            'user_id' => $supervisor->id,
+        ]);
+
+        // 5. Test Admin Produksi requests unlock, then supervisor rejects it
+        $adminProd = $this->makeUser('admin_produksi', [$brand]);
+        $this->actingAsWithBrand($adminProd, $brand)
+            ->post(route('orders.unlock', $order->id), [
+                'reason' => 'Admin produksi request unlock'
+            ])
+            ->assertRedirect();
+
+        $this->assertTrue($order->fresh()->isLocked());
+        $this->assertDatabaseHas('po_lock_status', [
+            'order_id' => $order->id,
+            'unlock_requested_by' => $adminProd->id,
+        ]);
+
+        // Reject it
+        $this->actingAsWithBrand($supervisor, $brand)
+            ->post(route('orders.unlock.reject', $order->id))
+            ->assertRedirect();
+
+        $this->assertTrue($order->fresh()->isLocked());
+        // Request columns should be cleared
+        $this->assertDatabaseHas('po_lock_status', [
+            'order_id' => $order->id,
+            'unlock_requested_by' => null,
+        ]);
+        $this->assertDatabaseHas('activity_logs', [
+            'subject_id' => $order->id,
+            'activity' => 'unlock_reject',
+            'user_id' => $supervisor->id,
+        ]);
+
+        // 6. Test Admin Keuangan is blocked from approving
+        $adminKeu = $this->makeUser('admin_keuangan', [$brand]);
+        $this->actingAsWithBrand($adminKeu, $brand)
+            ->post(route('orders.unlock.approve', $order->id))
+            ->assertStatus(403);
+
+        // 7. Test Supervisor can directly unlock and relock
+        $this->actingAsWithBrand($supervisor, $brand)
+            ->post(route('orders.unlock', $order->id), [
+                'reason' => 'Supervisor direct unlock'
+            ])
+            ->assertRedirect();
+
+        $this->assertFalse($order->fresh()->isLocked());
+
+        $this->actingAsWithBrand($supervisor, $brand)
+            ->post(route('orders.relock', $order->id))
+            ->assertRedirect();
+
+        $this->assertTrue($order->fresh()->isLocked());
+    }
+
+    public function test_order_creation_and_invoice_sync_with_product_level_discounts(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $user = $this->makeUser('admin_brand', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+        $bank = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->first();
+
+        // 1. Create Order with items having discounts
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('orders.store'), [
+                'nama_po' => 'Discount PO Test',
+                'tanggal_masuk' => now()->toDateString(),
+                'deadline_customer' => now()->addDays(14)->toDateString(),
+                'pelanggan_id' => $customer->id,
+                'bank_id' => $bank->id,
+                'items' => [
+                    [
+                        'nama_produk' => 'Jersey A',
+                        'quantity' => 10,
+                        'harga_satuan' => 100000,
+                        'discount_type' => 'persen',
+                        'discount_value' => 10, // 10% discount -> amount: 100,000
+                    ],
+                    [
+                        'nama_produk' => 'Jersey B',
+                        'quantity' => 2,
+                        'harga_satuan' => 200000,
+                        'discount_type' => 'nominal',
+                        'discount_value' => 50000, // 50,000 nominal discount
+                    ],
+                    [
+                        'nama_produk' => 'Jersey C',
+                        'quantity' => 1,
+                        'harga_satuan' => 50000,
+                        'discount_type' => '',
+                        'discount_value' => 0,
+                    ]
+                ],
+            ])
+            ->assertRedirect();
+
+        // Total Tagihan = (10 * 100,000 - 10%) + (2 * 200,000 - 50,000) + (1 * 50,000 - 0)
+        // = (1,000,000 - 100,000) + (400,000 - 50,000) + 50,000 = 900,000 + 350,000 + 50,000 = 1,300,000
+        $this->assertDatabaseHas('orders', [
+            'nama_po' => 'Discount PO Test',
+            'status_po' => 'draft',
+            'total_tagihan' => 1300000
+        ]);
+
+        $order = Order::where('nama_po', 'Discount PO Test')->first();
+
+        // Verify Order Items
+        $this->assertDatabaseHas('order_items', [
+            'order_id' => $order->id,
+            'nama_produk' => 'Jersey A',
+            'discount_type' => 'persen',
+            'discount_value' => 10,
+            'discount_amount' => 100000,
+            'subtotal' => 900000,
+        ]);
+
+        $this->assertDatabaseHas('order_items', [
+            'order_id' => $order->id,
+            'nama_produk' => 'Jersey B',
+            'discount_type' => 'nominal',
+            'discount_value' => 50000,
+            'discount_amount' => 50000,
+            'subtotal' => 350000,
+        ]);
+
+        // Verify Invoice & Invoice Items
+        $this->assertDatabaseHas('invoices', [
+            'order_id' => $order->id,
+            'total_tagihan' => 1300000,
+        ]);
+
+        $invoice = $order->invoices()->first();
+
+        $this->assertDatabaseHas('invoice_items', [
+            'invoice_id' => $invoice->id,
+            'produk' => 'Jersey A',
+            'discount_type' => 'persen',
+            'discount_value' => 10,
+            'discount_amount' => 100000,
+            'subtotal' => 900000,
+        ]);
+
+        $this->assertDatabaseHas('invoice_items', [
+            'invoice_id' => $invoice->id,
+            'produk' => 'Jersey B',
+            'discount_type' => 'nominal',
+            'discount_value' => 50000,
+            'discount_amount' => 50000,
+            'subtotal' => 350000,
+        ]);
+
+        // 2. Update Order items and verify discounts and subtotals recalculate and sync to invoice items
+        $jerseyA = $order->items()->where('nama_produk', 'Jersey A')->first();
+        $jerseyB = $order->items()->where('nama_produk', 'Jersey B')->first();
+        $jerseyC = $order->items()->where('nama_produk', 'Jersey C')->first();
+
+        $this->actingAsWithBrand($user, $brand)
+            ->put(route('orders.update', $order->id), [
+                'nama_po' => 'Discount PO Test Updated',
+                'tanggal_masuk' => now()->toDateString(),
+                'deadline_customer' => now()->addDays(14)->toDateString(),
+                'pelanggan_id' => $customer->id,
+                'bank_id' => $bank->id,
+                'items' => [
+                    [
+                        'id' => $jerseyA->id,
+                        'nama_produk' => 'Jersey A',
+                        'quantity' => 10,
+                        'harga_satuan' => 100000,
+                        'discount_type' => 'persen',
+                        'discount_value' => 20, // increased discount to 20% -> amount: 200,000 -> subtotal: 800,000
+                    ],
+                    [
+                        'id' => $jerseyB->id,
+                        'nama_produk' => 'Jersey B',
+                        'quantity' => 2,
+                        'harga_satuan' => 200000,
+                        'discount_type' => 'nominal',
+                        'discount_value' => 100000, // increased discount to 100,000 -> subtotal: 300,000
+                    ],
+                    // jersey C removed, which is supported by syncItems delete logic
+                ],
+            ])
+            ->assertRedirect();
+
+        // New total tagihan: 800,000 + 300,000 = 1,100,000
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'nama_po' => 'Discount PO Test Updated',
+            'total_tagihan' => 1100000,
+        ]);
+
+        $this->assertDatabaseHas('order_items', [
+            'order_id' => $order->id,
+            'nama_produk' => 'Jersey A',
+            'discount_type' => 'persen',
+            'discount_value' => 20,
+            'discount_amount' => 200000,
+            'subtotal' => 800000,
+        ]);
+
+        $this->assertDatabaseHas('invoice_items', [
+            'invoice_id' => $invoice->id,
+            'produk' => 'Jersey A',
+            'discount_type' => 'persen',
+            'discount_value' => 20,
+            'discount_amount' => 200000,
+            'subtotal' => 800000,
+        ]);
+
+        $this->assertDatabaseHas('invoice_items', [
+            'invoice_id' => $invoice->id,
+            'produk' => 'Jersey B',
+            'discount_type' => 'nominal',
+            'discount_value' => 100000,
+            'discount_amount' => 100000,
+            'subtotal' => 300000,
+        ]);
+    }
+
+    public function test_spk_pdf_and_preview_access(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $user = $this->makeUser('admin_brand', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => app(NumberGenerator::class)->generateOrderNumber($brand),
+            'nama_po' => 'SPK Test PO',
+            'status_po' => 'draft',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(14)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 100000,
+            'created_by' => $user->id,
+        ]);
+
+        // Test PDF download access
+        $this->actingAsWithBrand($user, $brand)
+            ->get(route('orders.spk.pdf', $order->id))
+            ->assertStatus(200)
+            ->assertHeader('content-type', 'application/pdf');
+
+        // Test Web Preview access
+        $response = $this->actingAsWithBrand($user, $brand)
+            ->get(route('orders.spk.preview', $order->id))
+            ->assertStatus(200);
+
+        $response->assertViewHas('isWebPreview', true);
+        $response->assertViewHas('order');
+    }
+
+    public function test_admin_keuangan_can_edit_payment_and_generate_audit_trail()
+    {
+        $brand = $this->setupBrandWithMasters();
+        $adminBrand = $this->makeUser('admin_brand', [$brand]);
+        $adminKeuangan = $this->makeUser('admin_keuangan', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+        $bank = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->first();
+
+        // Create the order via the store endpoint
+        $this->actingAsWithBrand($adminBrand, $brand)
+            ->post(route('orders.store'), [
+                'nama_po' => 'PO Edit Payment Test',
+                'tanggal_masuk' => now()->toDateString(),
+                'deadline_customer' => now()->addDays(14)->toDateString(),
+                'pelanggan_id' => $customer->id,
+                'bank_id' => $bank->id,
+                'items' => [[
+                    'nama_produk' => 'Jersey Test',
+                    'quantity' => 10,
+                    'harga_satuan' => 100000,
+                ]],
+            ])
+            ->assertRedirect();
+
+        $order = Order::where('nama_po', 'PO Edit Payment Test')->first();
+        $invoice = $order->invoices()->first();
+
+        $jp = \App\Models\Finance\MasterJenisPembayaran::firstOrCreate(
+            ['nama' => 'DP'],
+            ['tipe_keuangan' => 'pemasukan', 'deskripsi' => 'Down Payment']
+        );
+        $jp2 = \App\Models\Finance\MasterJenisPembayaran::firstOrCreate(
+            ['nama' => 'Pelunasan'],
+            ['tipe_keuangan' => 'pemasukan', 'deskripsi' => 'Pelunasan']
+        );
+
+        $payment = \App\Models\Order\OrderPayment::create([
+            'order_id' => $order->id,
+            'master_jenis_pembayaran_id' => $jp->id,
+            'payment_type' => 'dp',
+            'amount' => 400000,
+            'payment_date' => now()->toDateString(),
+            'bank_id' => $bank->id,
+            'is_debit' => true,
+            'verified_at' => now(),
+            'verified_by' => null,
+            'recorded_by' => $adminBrand->id,
+        ]);
+
+        $kategori = \App\Models\Finance\KategoriPemasukan::firstOrCreate(
+            ['brand_id' => $brand->id, 'nama_kategori' => 'Pembayaran PO'],
+            ['deskripsi' => 'Pembayaran pesanan dari customer', 'is_system' => true, 'is_active' => true]
+        );
+        $pemasukan = Pemasukan::create([
+            'brand_id' => $brand->id,
+            'kategori_pemasukan_id' => $kategori->id,
+            'order_id' => $order->id,
+            'source_payment_id' => $payment->id,
+            'tanggal' => $payment->payment_date,
+            'nominal' => $payment->amount,
+            'keterangan' => 'DP PO test',
+            'is_auto' => true,
+            'created_by' => $adminBrand->id,
+        ]);
+
+        $this->actingAsWithBrand($adminBrand, $brand)
+            ->put(route('invoices.payments.update', $payment->id), [
+                'master_jenis_pembayaran_id' => $jp2->id,
+                'amount' => 500000,
+                'payment_date' => now()->addDay()->toDateString(),
+                'bank_id' => $bank->id,
+                'notes' => 'Catatan revisi',
+                'change_reason' => 'Perbaikan nominal pembayaran',
+            ])
+            ->assertStatus(403);
+
+        $this->actingAsWithBrand($adminKeuangan, $brand)
+            ->put(route('invoices.payments.update', $payment->id), [
+                'master_jenis_pembayaran_id' => $jp2->id,
+                'amount' => 500000,
+                'payment_date' => now()->addDay()->toDateString(),
+                'bank_id' => $bank->id,
+                'notes' => 'Catatan revisi',
+                'change_reason' => 'Perbaikan nominal pembayaran',
+            ])
+            ->assertStatus(302);
+
+        $payment->refresh();
+        $this->assertEquals(500000, $payment->amount);
+        $this->assertEquals($jp2->id, $payment->master_jenis_pembayaran_id);
+        $this->assertEquals('Catatan revisi', $payment->notes);
+
+        $this->assertDatabaseHas('po_change_logs', [
+            'order_id' => $order->id,
+            'field_changed' => 'pembayaran_diedit',
+            'change_reason' => 'Perbaikan nominal pembayaran',
+            'changed_by' => $adminKeuangan->id,
+        ]);
+
+        $pemasukan->refresh();
+        $this->assertEquals(500000, $pemasukan->nominal);
+    }
 }
+
 

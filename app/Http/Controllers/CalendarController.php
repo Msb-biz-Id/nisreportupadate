@@ -33,25 +33,23 @@ class CalendarController extends Controller
     public function index(Request $request)
     {
         Gate::authorize('order.view');
-        $user = $request->user();
 
-        $isProduksi = $user->hasRole('admin_produksi');
+        $brandId = $request->string('brand_id')->toString();
+        if (empty($brandId)) {
+            $brandId = BrandContext::current($request) ?? 'all';
+        }
 
         $orders = Order::query()
+            ->forBrand($brandId)
             ->published()
             ->with(['pelanggan:id,nama', 'brand:id,nama_brand,kode'])
             ->withCount(['items as total_pcs' => fn ($q) => $q->selectRaw('SUM(quantity)')])
             ->orderBy('deadline_customer')
             ->get();
 
-        $events = $orders->map(function (Order $o) use ($isProduksi) {
-            $start = $isProduksi
-                ? ($o->start_production_date ?? $o->tanggal_masuk)?->toDateString()
-                : $o->tanggal_masuk?->toDateString();
-
-            $end = $isProduksi
-                ? ($o->end_production_date ?? $o->deadline_customer)?->toDateString()
-                : $o->deadline_customer?->toDateString();
+        $events = $orders->map(function (Order $o) {
+            $start = ($o->start_production_date ?? $o->tanggal_masuk)?->toDateString();
+            $end = ($o->end_production_date ?? $o->deadline_customer)?->toDateString();
 
             $brandPrefix = $o->brand?->nama_brand ? "({$o->brand->nama_brand}) " : "";
 
@@ -81,6 +79,9 @@ class CalendarController extends Controller
             'events'       => $events,
             'statusColors' => self::STATUS_COLORS,
             'statusLabels' => self::STATUS_LABELS,
+            'filters'      => [
+                'brand_id' => $brandId,
+            ],
         ]);
     }
 }

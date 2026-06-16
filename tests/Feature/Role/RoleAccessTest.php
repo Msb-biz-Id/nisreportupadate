@@ -307,17 +307,28 @@ class RoleAccessTest extends TestCase
         }
     }
 
-    public function test_admin_produksi_cannot_access_brand_master_data(): void
+    public function test_admin_produksi_can_access_po_master_data(): void
     {
         $brand = $this->makeBrand();
         $user  = $this->makeUser('admin_produksi', [$brand]);
 
-        // brand-only master: sumber-order, jenis-order, etc.
-        foreach (['sumber-order', 'jenis-order', 'customer-type'] as $slug) {
+        // PO-relevant master data (including kategori-order)
+        foreach (['kategori-order', 'sumber-order', 'jenis-order', 'customer-type', 'produk', 'iklan'] as $slug) {
             $this->actingAsWithBrand($user, $brand)
                 ->get(route('master.index', $slug))
-                ->assertForbidden("Slug [{$slug}] should be forbidden for admin_produksi");
+                ->assertOk("Slug [{$slug}] should be accessible to admin_produksi");
         }
+    }
+
+    public function test_admin_produksi_cannot_access_bank_master_data(): void
+    {
+        $brand = $this->makeBrand();
+        $user  = $this->makeUser('admin_produksi', [$brand]);
+
+        // bank is finance master, should be forbidden for admin_produksi
+        $this->actingAsWithBrand($user, $brand)
+            ->get(route('master.index', 'bank'))
+            ->assertForbidden("Slug [bank] should be forbidden for admin_produksi");
     }
 
     public function test_admin_produksi_cannot_create_orders(): void

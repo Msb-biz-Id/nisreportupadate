@@ -1,4 +1,5 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { useState, useMemo, useCallback } from 'react';
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import {
@@ -522,7 +523,8 @@ function CustomAgenda({ events, statusColors, statusLabels, filterStatus, curren
     );
 }
 
-export default function CalendarIndex({ events, statusColors, statusLabels }) {
+export default function CalendarIndex({ events, statusColors, statusLabels, filters }) {
+    const { brandContext } = usePage().props;
     const [selectedDate, setSelectedDate]   = useState(null);
     const [filterStatus, setFilterStatus]   = useState('all');
     const [currentDate, setCurrentDate]     = useState(new Date());
@@ -623,6 +625,31 @@ export default function CalendarIndex({ events, statusColors, statusLabels }) {
                         <h1 className="text-xl font-semibold">Kalender PO</h1>
                         <p className="text-sm text-muted-foreground">{events.length} order aktif — klik tanggal untuk detail</p>
                     </div>
+                    {brandContext?.available && brandContext.available.length > 1 && (
+                        <div className="w-56">
+                            <Select
+                                value={filters?.brand_id || 'all'}
+                                onValueChange={(v) => {
+                                    router.get(
+                                        route('kalender.index'),
+                                        { brand_id: v },
+                                        { preserveState: true, replace: true }
+                                    );
+                                }}
+                            >
+                                <SelectTrigger className="bg-white">
+                                    <SelectValue placeholder="Pilih Brand" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {brandContext.available.map((b) => (
+                                        <SelectItem key={b.id} value={b.id}>
+                                            {b.nama_brand}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
                 </div>
 
                 {/* Status filter badges */}
@@ -740,6 +767,10 @@ export default function CalendarIndex({ events, statusColors, statusLabels }) {
                 .rbc-wrapper .rbc-agenda-date-cell,
                 .rbc-wrapper .rbc-agenda-time-cell { color: hsl(var(--muted-foreground)); }
                 .rbc-wrapper .rbc-date-cell { padding-bottom: 14px; }
+                .rbc-wrapper .rbc-event,
+                .rbc-wrapper .rbc-show-more {
+                    display: none !important;
+                }
             `}</style>
         </AppLayout>
     );

@@ -52,6 +52,7 @@ class RolePermissionSeeder extends Seeder
                 'user.view',
                 'master.view',
                 'order.view',
+                'order.unlock',
                 'finance.view',
                 'report.view', 'report.export',
                 'dashboard.view-brand',

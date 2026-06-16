@@ -517,6 +517,9 @@ class InvoiceController extends Controller
                     'harga_satuan' => $item->harga_satuan,
                     'subtotal' => $item->subtotal,
                     'is_addon' => (bool) $item->is_addon,
+                    'discount_type' => $item->discount_type,
+                    'discount_value' => $item->discount_value,
+                    'discount_amount' => $item->discount_amount,
                 ]);
             }
 
@@ -717,6 +720,158 @@ class InvoiceController extends Controller
         ]);
 
         return back()->with('success', 'Pembayaran berhasil diverifikasi.');
+    }
+
+    public function updatePayment(Request $request, OrderPayment $payment)
+    {
+        Gate::authorize('finance.manage-invoice');
+
+        if ($request->user()->hasRole('admin_brand')) {
+            abort(403, 'Hanya Admin Keuangan yang dapat mengubah data pembayaran.');
+        }
+
+        $request->validate([
+            'master_jenis_pembayaran_id' => 'required|exists:master_jenis_pembayarans,id',
+            'amount' => 'required|numeric|min:0',
+            'payment_date' => 'required|date',
+            'bank_id' => 'nullable|exists:bank_accounts,id',
+            'notes' => 'nullable|string',
+            'change_reason' => 'required|string|min:5',
+        ]);
+
+        $order = $payment->order;
+        $user = $request->user();
+
+        // Prepare old values details
+        $oldMaster = $payment->masterJenisPembayaran;
+        $oldMasterName = $oldMaster ? $oldMaster->nama : strtoupper($payment->payment_type ?? 'Pembayaran');
+        $oldBank = $payment->bank;
+        $oldBankName = $oldBank ? "{$oldBank->bank} ({$oldBank->nomor_rekening})" : '—';
+        $oldAmountFormatted = 'Rp ' . number_format($payment->amount, 0, ',', '.');
+        $oldDate = $payment->payment_date ? $payment->payment_date->toDateString() : '—';
+        $oldNotes = $payment->notes ?? '—';
+
+        $oldDetail = "Tipe: {$oldMasterName}, Nominal: {$oldAmountFormatted}, Tanggal: {$oldDate}, Bank: {$oldBankName}, Catatan: {$oldNotes}";
+
+        // Retrieve the new MasterJenisPembayaran details
+        $newMaster = \App\Models\Finance\MasterJenisPembayaran::find($request->master_jenis_pembayaran_id);
+        $newMasterName = $newMaster ? $newMaster->nama : '—';
+        $newBank = $request->bank_id ? \App\Models\Master\BankAccount::find($request->bank_id) : null;
+        $newBankName = $newBank ? "{$newBank->bank} ({$newBank->nomor_rekening})" : '—';
+        $newAmountFormatted = 'Rp ' . number_format($request->amount, 0, ',', '.');
+        $newDate = $request->payment_date;
+        $newNotes = $request->notes ?? '—';
+
+        $newDetail = "Tipe: {$newMasterName}, Nominal: {$newAmountFormatted}, Tanggal: {$newDate}, Bank: {$newBankName}, Catatan: {$newNotes}";
+
+        DB::transaction(function () use ($payment, $order, $request, $user, $oldDetail, $newDetail, $newMaster) {
+            $map = [
+                'DP' => 'dp',
+                'Pelunasan' => 'pelunasan',
+                'Ongkir' => 'ongkir',
+                'Tambahan Produk' => 'tambahan_produk',
+                'Cashback' => 'cashback',
+                'Return' => 'return',
+                'Lainnya' => 'lainnya',
+            ];
+            $paymentType = $map[$newMaster->nama] ?? 'lainnya';
+            $isDebit = !in_array($paymentType, ['cashback', 'return']);
+
+            // Update the payment record
+            $payment->update([
+                'master_jenis_pembayaran_id' => $request->master_jenis_pembayaran_id,
+                'payment_type' => $paymentType,
+                'amount' => $request->amount,
+                'payment_date' => $request->payment_date,
+                'bank_id' => $request->bank_id,
+                'notes' => $request->notes,
+                'is_debit' => $isDebit,
+            ]);
+
+            // Create PO change log
+            \App\Models\Order\POChangeLog::create([
+                'order_id' => $order->id,
+                'changed_by' => $user->id,
+                'field_changed' => 'pembayaran_diedit',
+                'old_value' => $oldDetail,
+                'new_value' => $newDetail,
+                'change_reason' => $request->change_reason,
+            ]);
+
+            // Sync with ledger if verified
+            if ($payment->verified_at !== null) {
+                $isPemasukan = ($newMaster->tipe_keuangan === 'pemasukan');
+                $paymentName = $newMaster->nama;
+
+                if ($isPemasukan) {
+                    Pengeluaran::where('source_payment_id', $payment->id)->delete();
+
+                    $kategori = KategoriPemasukan::firstOrCreate(
+                        ['brand_id' => $order->brand_id, 'nama_kategori' => 'Pembayaran PO'],
+                        [
+                            'deskripsi' => 'Pembayaran pesanan dari customer',
+                            'is_system'  => true,
+                            'is_active'  => true,
+                        ]
+                    );
+
+                    Pemasukan::updateOrCreate(
+                        ['source_payment_id' => $payment->id],
+                        [
+                            'brand_id'             => $order->brand_id,
+                            'kategori_pemasukan_id' => $kategori->id,
+                            'order_id'             => $order->id,
+                            'tanggal'              => $payment->payment_date,
+                            'nominal'              => $payment->amount,
+                            'keterangan'           => "{$paymentName} PO {$order->no_po} — {$order->pelanggan?->nama}",
+                            'is_auto'              => true,
+                            'created_by'           => $user->id,
+                        ]
+                    );
+                } else {
+                    Pemasukan::where('source_payment_id', $payment->id)->delete();
+
+                    $kategori = KategoriPengeluaran::firstOrCreate(
+                        ['brand_id' => $order->brand_id, 'nama_kategori' => 'Refund / Cashback PO'],
+                        [
+                            'deskripsi' => 'Pengembalian dana atau cashback ke customer',
+                            'is_system'  => true,
+                            'is_active'  => true,
+                        ]
+                    );
+
+                    Pengeluaran::updateOrCreate(
+                        ['source_payment_id' => $payment->id],
+                        [
+                            'brand_id'               => $order->brand_id,
+                            'kategori_pengeluaran_id' => $kategori->id,
+                            'tanggal'                => $payment->payment_date,
+                            'nominal'                => $payment->amount,
+                            'keterangan'             => "{$paymentName} PO {$order->no_po} — {$order->pelanggan?->nama}",
+                            'is_auto'                => true,
+                            'created_by'             => $user->id,
+                        ]
+                    );
+                }
+            }
+
+            // Recalculate invoice & order totals
+            $order->update(['total_tagihan' => $order->totalTagihan()]);
+            $invoice = $order->invoices()->first();
+            if ($invoice) {
+                $newTotal = $order->totalTagihan();
+                $newPaid  = $order->totalPaid();
+                $newSisa  = max(0, $newTotal - $newPaid);
+                $invoice->update([
+                    'total_tagihan'  => $newTotal,
+                    'total_bayar'    => $newPaid,
+                    'sisa_pembayaran' => $newSisa,
+                    'status' => $newSisa <= 0 ? 'paid' : ($invoice->status === 'paid' ? 'validated' : $invoice->status),
+                ]);
+            }
+        });
+
+        return back()->with('success', 'Data pembayaran dan catatan keuangan terkait berhasil diperbarui.');
     }
 
     public function destroyPayment(Request $request, OrderPayment $payment)
