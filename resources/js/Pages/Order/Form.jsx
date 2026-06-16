@@ -74,7 +74,7 @@ function getCalculatedSubtotal(item) {
     if (discountType === 'persen') {
         amount = raw * (discountValue / 100);
     } else if (discountType === 'nominal') {
-        amount = discountValue;
+        amount = qty * discountValue;
     }
     return Math.max(0, raw - amount);
 }
@@ -1425,11 +1425,23 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                                     const origIdx = data.items.indexOf(item);
                                                     return (
                                                         <div key={origIdx} className="flex justify-between items-center text-xs">
-                                                            <span className="font-bold text-slate-700 uppercase truncate max-w-[170px]" title={item.nama_produk}>
-                                                                {item.nama_produk || `Produk #${origIdx + 1}`}
-                                                            </span>
+                                                            <div className="flex flex-col min-w-0">
+                                                                <span className="font-bold text-slate-700 uppercase truncate max-w-[170px]" title={item.nama_produk}>
+                                                                    {item.nama_produk || `Produk #${origIdx + 1}`}
+                                                                </span>
+                                                                {Number(item.discount_value) > 0 && (
+                                                                    <span className="text-[10px] text-amber-600 font-medium">
+                                                                        Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(Number(item.discount_value))}/pcs`}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <span className="font-mono font-bold text-slate-500 whitespace-nowrap ml-2">
                                                                 {item.namesets.length} pcs — {formatRupiah(getCalculatedSubtotal(item))}
+                                                                {Number(item.discount_value) > 0 && (
+                                                                    <span className="text-[10px] text-slate-400 block text-right font-normal">
+                                                                        (hemat {formatRupiah(item.discount_type === 'persen' ? (item.namesets.length * item.harga_satuan * item.discount_value / 100) : (item.namesets.length * item.discount_value))})
+                                                                    </span>
+                                                                )}
                                                             </span>
                                                         </div>
                                                     );
@@ -1444,11 +1456,23 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                                     const origIdx = data.items.indexOf(item);
                                                     return (
                                                         <div key={origIdx} className="flex justify-between items-center text-xs">
-                                                            <span className="font-bold text-slate-700 uppercase truncate max-w-[170px]" title={item.nama_produk}>
-                                                                {item.nama_produk || `Add-on #${origIdx + 1}`}
-                                                            </span>
+                                                            <div className="flex flex-col min-w-0">
+                                                                <span className="font-bold text-slate-700 uppercase truncate max-w-[170px]" title={item.nama_produk}>
+                                                                    {item.nama_produk || `Add-on #${origIdx + 1}`}
+                                                                </span>
+                                                                {Number(item.discount_value) > 0 && (
+                                                                    <span className="text-[10px] text-amber-600 font-medium">
+                                                                        Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(Number(item.discount_value))}/pcs`}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <span className="font-mono font-bold text-slate-500 whitespace-nowrap ml-2">
                                                                 {item.quantity} pcs — {formatRupiah(getCalculatedSubtotal(item))}
+                                                                {Number(item.discount_value) > 0 && (
+                                                                    <span className="text-[10px] text-slate-400 block text-right font-normal">
+                                                                        (hemat {formatRupiah(item.discount_type === 'persen' ? (item.quantity * item.harga_satuan * item.discount_value / 100) : (item.quantity * item.discount_value))})
+                                                                    </span>
+                                                                )}
                                                             </span>
                                                         </div>
                                                     );

@@ -10,7 +10,7 @@
 
         header { position: fixed; top: -18mm; left: 0; right: 0; height: 12mm;
                  text-align: center; font-size: 14pt; font-weight: bold;
-                 text-decoration: underline; border-bottom: 3px solid #000; padding-bottom: 5px; text-transform: uppercase; }
+                 border-bottom: 3px solid #000; padding-bottom: 5px; text-transform: uppercase; }
         footer { position: fixed; bottom: -15mm; left: 0; right: 0; height: 10mm;
                  border-top: 2px solid #000; padding-top: 5px; }
         main   { margin-top: 5mm; margin-bottom: 5mm; }
@@ -83,9 +83,22 @@
     </style>
 </head>
 <body>
-
-    <header>FORMAT ORDER {{ strtoupper($brand->nama_brand) }} <span class="draft-badge">DRAFT</span></header>
-
+    <header>
+        <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; padding: 0;">
+            <tr>
+                <td style="width: 30%; text-align: left; font-size: 8pt; font-weight: bold; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: none; text-transform: uppercase;">
+                    MESIN PRINT: ....................
+                </td>
+                <td style="width: 40%; text-align: center; font-size: 14pt; font-weight: bold; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: underline; text-transform: uppercase;">
+                    FORMAT ORDER {{ strtoupper($brand->nama_brand) }}
+                </td>
+                <td style="width: 30%; text-align: right; font-size: 8pt; font-weight: bold; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: none; text-transform: uppercase;">
+                    MESIN PRES: ....................
+                </td>
+            </tr>
+        </table>
+        <span class="draft-badge">DRAFT</span>
+    </header>
     <footer>
         <table style="width:100%; border:none; font-size:8.5pt; font-weight:bold;">
             <tr>
@@ -151,16 +164,13 @@
                         <div style="font-size: 15pt; font-weight: 900; line-height: 1.2;">
                             {{ strtoupper($brand->nama_brand) }}
                         </div>
-                        <div style="font-size: 12pt; font-weight: 700; color: red; margin-top: 3px;">
-                            ({{ !empty($raw['is_special_order']) ? 'SPECIAL' : 'NORMAL' }})
-                        </div>
                         <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
                             JENIS PRINTING:<br>
                             <span style="font-size: 12pt; font-weight: 900; color: red;">{{ strtoupper($printingStr) }}</span>
                         </div>
                         @if(isset($paketOrder) && $paketOrder)
                             <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
-                                PAKET:<br>
+                                PAKET ORDER:<br>
                                 <span style="font-size: 12.5pt; font-weight: 900;">{{ strtoupper($paketOrder->nama) }}</span>
                             </div>
                         @endif
@@ -178,7 +188,7 @@
 
         {{-- ===== KETERANGAN MATERIAL (SIDE-BY-SIDE SPEC TABLE) ===== --}}
         @if($nonAddonItems->isNotEmpty())
-        <div style="color: red; font-weight: bold; font-size: 11pt; margin-bottom: 5px; text-transform: uppercase;">KETERANGAN MATERIAL</div>
+        <div style="color: #000; font-weight: bold; font-size: 11pt; margin-bottom: 5px; text-transform: uppercase;">KETERANGAN MATERIAL</div>
         <table class="spec-table" style="margin-top:0;">
             <thead>
                 <tr>
@@ -283,7 +293,7 @@
 
         {{-- ===== KETERANGAN JAHITAN ===== --}}
         @if($nonAddonItems->isNotEmpty())
-        <div style="color: #b91c1c; font-weight: bold; font-size: 11pt; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase;">KETERANGAN JAHITAN</div>
+        <div style="color: #000; font-weight: bold; font-size: 11pt; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase;">KETERANGAN JAHITAN</div>
         <table style="width:100%; border:1px solid #000; border-collapse:collapse; font-size:9.5pt; margin-bottom:15px;">
             <thead>
                 <tr style="background:#d4d4d4; font-weight:bold;">
@@ -621,7 +631,7 @@
 
         <table style="width:100%; border-collapse:collapse; font-size:10pt;">
             <thead>
-                <tr style="background:#000; color:#fff; font-weight:900;">
+                <tr style="background:#d4d4d4; color:#000; font-weight:bold;">
                     <th style="border:1.5px solid #000; padding:6px 8px; text-align:center; width:35px;">NO</th>
                     <th style="border:1.5px solid #000; padding:6px 8px; text-align:left; width:180px;">PROSES</th>
                     @foreach($nonAddonItems as $pi)
@@ -639,7 +649,6 @@
                 <tr style="{{ $idx % 2 === 0 ? 'background:#f9f9f9;' : 'background:#fff;' }}">
                     <td style="border:1px solid #000; padding:6px 8px; text-align:center; font-weight:bold;">{{ $idx + 1 }}</td>
                     <td style="border:1px solid #000; padding:6px 8px; font-weight:900; font-size:10pt;">
-                        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:{{ $prog->warna ?? '#6B7280' }}; margin-right:5px; vertical-align:middle;"></span>
                         {{ strtoupper($prog->nama_progress) }}
                     </td>
                     @foreach($nonAddonItems as $pi)

@@ -220,7 +220,7 @@
                             <div>{{ $item->produk }}</div>
                             @if (!empty($item->discount_amount) && $item->discount_amount > 0)
                                 <div style="font-size: 8pt; color: #DC2626; font-weight: bold; margin-top: 2px;">
-                                    Diskon: {{ $item->discount_type === 'persen' ? (number_format($item->discount_value, 0) . '%') : ('Rp ' . number_format($item->discount_value, 0, ',', '.')) }} (-Rp {{ number_format($item->discount_amount, 0, ',', '.') }})
+                                    Diskon: {{ $item->discount_type === 'persen' ? (number_format($item->discount_value, 0) . '%') : ('Rp ' . number_format($item->discount_value, 0, ',', '.') . '/pcs') }} (-Rp {{ number_format($item->discount_amount, 0, ',', '.') }})
                                 </div>
                             @endif
                         </td>
@@ -240,7 +240,7 @@
                             <div>{{ $item->produk }}</div>
                             @if (!empty($item->discount_amount) && $item->discount_amount > 0)
                                 <div style="font-size: 8pt; color: #DC2626; font-weight: bold; margin-top: 2px;">
-                                    Diskon: {{ $item->discount_type === 'persen' ? (number_format($item->discount_value, 0) . '%') : ('Rp ' . number_format($item->discount_value, 0, ',', '.')) }} (-Rp {{ number_format($item->discount_amount, 0, ',', '.') }})
+                                    Diskon: {{ $item->discount_type === 'persen' ? (number_format($item->discount_value, 0) . '%') : ('Rp ' . number_format($item->discount_value, 0, ',', '.') . '/pcs') }} (-Rp {{ number_format($item->discount_amount, 0, ',', '.') }})
                                 </div>
                             @endif
                         </td>

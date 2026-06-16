@@ -221,7 +221,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                                                         <div className="font-semibold text-slate-800">{item.produk}</div>
                                                                         {Number(item.discount_amount) > 0 && (
                                                                             <div className="text-[10px] text-rose-500 font-bold mt-0.5">
-                                                                                Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : formatRupiah(item.discount_value)} (-{formatRupiah(item.discount_amount)})
+                                                                                Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(item.discount_value)}/pcs`} (-{formatRupiah(item.discount_amount)})
                                                                             </div>
                                                                         )}
                                                                     </td>
@@ -246,7 +246,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                                                         <div className="font-semibold text-slate-800">{item.produk}</div>
                                                                         {Number(item.discount_amount) > 0 && (
                                                                             <div className="text-[10px] text-rose-500 font-bold mt-0.5">
-                                                                                Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : formatRupiah(item.discount_value)} (-{formatRupiah(item.discount_amount)})
+                                                                                Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(item.discount_value)}/pcs`} (-{formatRupiah(item.discount_amount)})
                                                                             </div>
                                                                         )}
                                                                     </td>

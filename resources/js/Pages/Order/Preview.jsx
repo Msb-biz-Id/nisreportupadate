@@ -918,7 +918,15 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     <div className="flex flex-wrap items-start justify-between gap-2">
                                         <div>
                                             <div className="font-medium">{idx + 1}. {item.nama_produk} {item.varian_label && <Badge variant="outline" className="ml-1">{item.varian_label}</Badge>}</div>
-                                            <div className="text-xs text-muted-foreground">Qty: <span className="font-mono font-semibold">{item.quantity}</span> × {formatRupiah(item.harga_satuan)}</div>
+                                            <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
+                                                <span>Qty: <span className="font-mono font-semibold">{item.quantity}</span> × {formatRupiah(item.harga_satuan)}</span>
+                                                {Number(item.discount_value) > 0 && (
+                                                    <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/10">
+                                                        Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(Number(item.discount_value))}/pcs`}
+                                                        <span>(-{formatRupiah(Number(item.discount_amount))})</span>
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="text-right font-mono font-semibold">{formatRupiah(item.subtotal)}</div>
                                     </div>
