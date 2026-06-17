@@ -86,15 +86,15 @@ export default function SpkPreview({ order, printings, progresses }) {
                 <div className="mx-auto w-[210mm] min-h-[297mm] bg-white border border-slate-200 p-[15mm] shadow-lg print:border-none print:shadow-none print:p-0 print:m-0 print:w-full">
                     
                     {/* Header - Fixed height simulation */}
-                    <div className="border-b-[3px] border-black pb-2 mb-4">
+                    <div className="border-b border-slate-400 pb-2 mb-4">
                         <div className="flex justify-between items-end">
-                            <div className="w-[30%] text-left font-bold text-[11px]">
+                            <div className="w-[30%] text-left font-normal text-slate-600 text-[10px]">
                                 MESIN PRINT: ....................
                             </div>
                             <div className="w-[40%] text-center font-black text-lg underline">
                                 FORMAT ORDER {brand.nama_brand || 'BRAND'}
                             </div>
-                            <div className="w-[30%] text-right font-bold text-[11px]">
+                            <div className="w-[30%] text-right font-normal text-slate-600 text-[10px]">
                                 MESIN PRES: ....................
                             </div>
                         </div>
