@@ -1343,7 +1343,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
     async function downloadDraftPdf() {
         if (!navigator.onLine) {
             toast.error('Tidak dapat mengunduh PDF dalam mode offline.', {
-                description: 'Koneksi internet/server diperlukan untuk membuat dokumen PDF SPK.'
+                description: 'Koneksi internet/server diperlukan untuk membuat dokumen PDF FO.'
             });
             return;
         }
@@ -1361,7 +1361,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `SPK-DRAFT-${new Date().toISOString().slice(0,10)}.pdf`;
+            a.download = `FO-DRAFT-${new Date().toISOString().slice(0,10)}.pdf`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);

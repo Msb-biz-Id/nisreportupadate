@@ -11,7 +11,7 @@ const chunkArray = (arr, size) => {
     return chunks;
 };
 
-export default function SpkPreview({ order, printings, progresses }) {
+export default function FoPreview({ order, printings, progresses }) {
     const brand = order.brand || {};
     const nonAddonItems = (order.items || []).filter(item => !item.is_addon);
     const grandTotal = nonAddonItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -42,7 +42,7 @@ export default function SpkPreview({ order, printings, progresses }) {
 
     return (
         <>
-            <Head title={`SPK ${order.no_po} - ${brand.nama_brand || ''}`} />
+            <Head title={`FO ${order.no_po} - ${brand.nama_brand || ''}`} />
             
             {/* Toolbar - Hidden when printing */}
             <div className="fixed top-0 left-0 right-0 h-16 bg-slate-900 text-white flex items-center justify-between px-6 z-[9999] shadow-md print:hidden font-sans">
@@ -55,7 +55,7 @@ export default function SpkPreview({ order, printings, progresses }) {
                     </Button>
                     <div className="h-4 w-[1px] bg-slate-700"></div>
                     <span className="font-extrabold text-sm tracking-widest text-slate-200">
-                        PREVIEW SPK: {order.no_po}
+                        PREVIEW FO: {order.no_po}
                     </span>
                 </div>
                 
@@ -66,7 +66,7 @@ export default function SpkPreview({ order, printings, progresses }) {
                     </Button>
                     
                     <Button asChild variant="outline" className="border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white rounded-xl font-bold flex items-center gap-1.5 text-xs">
-                        <a href={route('orders.spk.pdf', order.id)} target="_blank" rel="noopener noreferrer">
+                        <a href={route('orders.fo.pdf', order.id)} target="_blank" rel="noopener noreferrer">
                             <Download className="h-4 w-4" />
                             Unduh PDF
                         </a>
@@ -612,26 +612,38 @@ export default function SpkPreview({ order, printings, progresses }) {
                                     <tr className="bg-slate-300 border-b border-black font-bold">
                                         <th className="border border-black p-1.5 text-center w-10">NO</th>
                                         <th className="border border-black p-1.5 w-60">PROSES</th>
-                                        {nonAddonItems.map(item => (
+                                        {nonAddonItems.map((item, idx) => (
                                             <th key={item.id} className="border border-black p-1.5 text-center text-[10.5px]">
-                                                {item.varian_label || item.nama_produk}
-                                                {item.varian_label && item.varian_label !== item.nama_produk && (
-                                                    <div className="text-[9px] font-normal opacity-80">{item.nama_produk}</div>
-                                                )}
+                                                NAME {idx + 1}
                                             </th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {progresses.map((prog, idx) => (
-                                        <tr key={prog.id} className={idx % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'}>
+                                    {/* Manual static rows: ADMIN, DESAIN, FORMAT ORDER */}
+                                    {['ADMIN', 'DESAIN', 'FORMAT ORDER'].map((label, idx) => (
+                                        <tr key={`manual-${idx}`} className={idx % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'}>
                                             <td className="border border-black p-2 text-center font-bold">{idx + 1}</td>
-                                            <td className="border border-black p-2 font-black text-[12px]">{prog.nama_progress}</td>
+                                            <td className="border border-black p-2 font-black text-[12px]">{label}</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-2 text-center">&nbsp;</td>
                                             ))}
                                         </tr>
                                     ))}
+                                    {/* Dynamic progress rows from database (SETTING, etc.) */}
+                                    {progresses.map((prog, idx) => {
+                                        const rowNum = 3 + idx + 1;
+                                        const totalIdx = 3 + idx;
+                                        return (
+                                            <tr key={prog.id} className={totalIdx % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'}>
+                                                <td className="border border-black p-2 text-center font-bold">{rowNum}</td>
+                                                <td className="border border-black p-2 font-black text-[12px]">{prog.nama_progress}</td>
+                                                {nonAddonItems.map(item => (
+                                                    <td key={item.id} className="border border-black p-2 text-center">&nbsp;</td>
+                                                ))}
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                             <div className="mt-3 font-bold text-[10px] text-slate-500 text-right">

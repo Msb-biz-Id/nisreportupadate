@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>SPK {{ $order->no_po }}</title>
+    <title>SPK DRAFT - {{ $brand->nama_brand }}</title>
     <style>
         /* === CSS TEMPLATE DASAR PDF A4 (Polished) === */
         * { box-sizing: border-box; }
@@ -20,6 +20,25 @@
 
         table { width: 100%; border-collapse: collapse; }
         td, th { padding: 5px; vertical-align: top; }
+
+        /* Draft badge */
+        .draft-badge {
+            position: absolute;
+            right: 0;
+            top: 0;
+            background: #FEE2E2;
+            color: #EF4444;
+            border: 1px solid #FCA5A5;
+            font-size: 8.5pt;
+            font-weight: bold;
+            padding: 2px 10px;
+            border-radius: 9999px;
+            text-decoration: none !important;
+            display: inline-block;
+            line-height: 1.2;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
 
         /* Title boxes */
         .title-box        { font-weight: bold; font-size: 10.5pt; background: #d4d4d4; color: #000;
@@ -61,12 +80,9 @@
         .page-break   { page-break-before: always; }
         .page-num:after { content: counter(page); }
         .lampiran-sub { font-weight: bold; font-size: 9.5pt; margin-bottom: 4px; }
-
-
     </style>
 </head>
 <body>
-
     <header>
         <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; padding: 0;">
             <tr>
@@ -74,19 +90,20 @@
                     MESIN PRINT: ....................
                 </td>
                 <td style="width: 50%; text-align: center; font-size: 11pt; font-weight: bold; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: underline; text-transform: uppercase;">
-                    FORMAT ORDER {{ strtoupper($order->brand->nama_brand ?? 'BRAND') }}
+                    FORMAT ORDER {{ strtoupper($brand->nama_brand) }}
                 </td>
                 <td style="width: 25%; text-align: right; font-size: 7.5pt; font-weight: normal; color: #444; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: none; text-transform: uppercase;">
                     MESIN PRES: ....................
                 </td>
             </tr>
         </table>
+        <span class="draft-badge">DRAFT</span>
     </header>
     <footer>
         <table style="width:100%; border:none; font-size:8.5pt; font-weight:bold;">
             <tr>
                 <td style="text-align:left; width:40%;">HALAMAN <span class="page-num"></span></td>
-                <td style="text-align:right; width:60%; color:#b91c1c;">NAMA ORDER: {{ strtoupper($order->nama_po) }} · {{ $order->no_po }}</td>
+                <td style="text-align:right; width:60%; color:#b91c1c;">NAMA ORDER: {{ strtoupper($raw['nama_po'] ?? '—') }}</td>
             </tr>
         </table>
     </footer>
@@ -95,14 +112,18 @@
 
         {{-- ===== TOP DETAILS SECTION ===== --}}
         @php
-            $nonAddonItems = $order->items->filter(fn($i) => empty($i->is_addon))->values();
-            $addonItems = $order->items->filter(fn($i) => !empty($i->is_addon))->values();
-            $grandTotal = $nonAddonItems->sum('quantity');
+            $nonAddonItems = collect($items)->filter(fn($i) => empty($i['is_addon']))->values();
+            $addonItems = collect($items)->filter(fn($i) => !empty($i['is_addon']))->values();
+            $grandTotal = $nonAddonItems->sum(fn($i) => (int)($i['quantity'] ?? 0));
+            $kategoriStr = $nonAddonItems->pluck('nama_produk')->filter()->map('strtoupper')->implode(', ');
+            $totalAtasan = $nonAddonItems->sum(fn($i) => (int)($i['jml_atasan'] ?: ($i['quantity'] ?? 0)));
+            $totalBawahan = $nonAddonItems->sum(fn($i) => (int)($i['jml_bawahan'] ?? 0)) ?: '.......';
             $printingNames = collect();
-            if (!empty($order->printing_ids)) {
-                $printingNames = \App\Models\Master\Printing::whereIn('id', $order->printing_ids)->pluck('nama');
+            if (!empty($raw['printing_ids'])) {
+                $printingNames = \App\Models\Master\Printing::whereIn('id', $raw['printing_ids'])->pluck('nama');
             }
             $printingStr = $printingNames->isNotEmpty() ? $printingNames->implode(', ') : '.......';
+            $dv = fn($v) => trim((string)($v ?? '')) ?: '.......';
         @endphp
 
         <table style="width: 100%; margin-bottom: 15px; border-collapse: collapse;">
@@ -113,26 +134,27 @@
                         <tr>
                             <td style="width: 160px; font-weight: bold; font-size: 10.5pt; padding: 3px 0;">TANGGAL MASUK</td>
                             <td style="width: 15px; font-weight: bold; padding: 3px 0;">:</td>
-                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ strtoupper(\Carbon\Carbon::parse($order->tanggal_masuk)->translatedFormat('d F Y')) }}</td>
+                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ !empty($raw['tanggal_masuk']) ? strtoupper(\Carbon\Carbon::parse($raw['tanggal_masuk'])->translatedFormat('d F Y')) : '.......' }}</td>
                         </tr>
                         <tr style="color: red;">
                             <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0; color: red;">DATELINE</td>
                             <td style="font-weight: bold; padding: 3px 0; color: red;">:</td>
-                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold; color: red;">{{ strtoupper(\Carbon\Carbon::parse($order->deadline_customer)->translatedFormat('d F Y')) }}</td>
+                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold; color: red;">{{ !empty($raw['deadline_customer']) ? strtoupper(\Carbon\Carbon::parse($raw['deadline_customer'])->translatedFormat('d F Y')) : '.......' }}</td>
                         </tr>
                         <tr>
                             <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">NAMA ORDER</td>
                             <td style="font-weight: bold; padding: 3px 0;">:</td>
-                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ strtoupper($order->nama_po) }}</td>
+                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ strtoupper($raw['nama_po'] ?? '') ?: '.......' }}</td>
                         </tr>
                         <tr>
                             <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">TOTAL ATASAN</td>
                             <td style="font-weight: bold; padding: 3px 0;">:</td>
-                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ $order->items->sum('jml_atasan') ?: $grandTotal }} PCS</td>
-                        </tr>                        <tr>
+                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ $totalAtasan }} PCS</td>
+                        </tr>
+                        <tr>
                             <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">TOTAL BAWAHAN</td>
                             <td style="font-weight: bold; padding: 3px 0;">:</td>
-                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ $order->items->sum('jml_bawahan') ?: '.......' }} PCS</td>
+                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ $totalBawahan }}{{ is_numeric($totalBawahan) ? ' PCS' : '' }}</td>
                         </tr>
                     </table>
                 </td>
@@ -140,16 +162,16 @@
                 <td style="width: 40%; padding: 0 0 0 15px; vertical-align: top; text-align: center;">
                     <div style="border: 2px solid #000; padding: 12px 10px; min-height: 110px; background: #fff; text-align: center;">
                         <div style="font-size: 15pt; font-weight: 900; line-height: 1.2;">
-                            {{ strtoupper($order->brand->nama_brand ?? 'BRAND') }}
+                            {{ strtoupper($brand->nama_brand) }}
                         </div>
                         <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
                             JENIS PRINTING:<br>
                             <span style="font-size: 12pt; font-weight: 900; color: red;">{{ strtoupper($printingStr) }}</span>
                         </div>
-                        @if($order->paketOrder)
+                        @if(isset($paketOrder) && $paketOrder)
                             <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
                                 PAKET ORDER:<br>
-                                <span style="font-size: 12.5pt; font-weight: 900;">{{ strtoupper($order->paketOrder->nama) }}</span>
+                                <span style="font-size: 12.5pt; font-weight: 900;">{{ strtoupper($paketOrder->nama) }}</span>
                             </div>
                         @endif
                     </div>
@@ -157,10 +179,10 @@
             </tr>
         </table>
 
-        @if($order->catatan)
+        @if(!empty($raw['catatan']))
         <div class="title-box" style="margin-top:0;">CATATAN ORDER</div>
         <div style="border:1px solid #000; padding:6px 10px; font-weight:bold; margin-bottom:15px; font-size: 9.5pt;">
-            {{ strtoupper($order->catatan) }}
+            {{ strtoupper($raw['catatan']) }}
         </div>
         @endif
 
@@ -172,89 +194,97 @@
                 <tr>
                     <th style="width: 25%; text-align: left;">JENIS PESANAN</th>
                     @foreach($nonAddonItems as $item)
-                    <th>{{ strtoupper($item->varian_label ?: $item->nama_produk) }}</th>
+                    <th>{{ strtoupper(($item['varian_label'] ?? '') ?: ($item['nama_produk'] ?? '')) }}</th>
                     @endforeach
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td class="spec-row-head">BAHAN</td>
+                    <td class="spec-row-head">JENIS SETELAN</td>
                     @foreach($nonAddonItems as $item)
-                    @php
-                        $bahanAtasanStr = !empty($item->bahan_kain_ids)
-                            ? \App\Models\Master\BahanKain::whereIn('id', $item->bahan_kain_ids)->pluck('nama')->implode(', ')
-                            : ($item->bahanKain->nama ?? '.......');
-                    @endphp
-                    <td>{{ strtoupper($bahanAtasanStr) }}</td>
+                    <td>{{ $dv(strtoupper($item['_jenis_setelan'] ?? $item['jenis_setelan'] ?? '')) }}</td>
                     @endforeach
                 </tr>
                 <tr>
-                    <td class="spec-row-head">JUMLAH ATASAN</td>
+                    <td class="spec-row-head">POLA</td>
                     @foreach($nonAddonItems as $item)
-                    <td>{{ $item->jml_atasan ?: $item->quantity }}</td>
+                    <td>{{ $dv(strtoupper($item['_pola_produksi'] ?? $item['pola'] ?? '')) }}</td>
                     @endforeach
                 </tr>
                 <tr>
-                    <td class="spec-row-head">JUMLAH BAWAHAN</td>
+                    <td class="spec-row-head">BAHAN ATASAN</td>
                     @foreach($nonAddonItems as $item)
-                    <td>{{ $item->jml_bawahan ?: '.......' }}</td>
+                    <td>{{ $dv(strtoupper($item['_bahan_kain_names'] ?? $item['_bahan_kain'] ?? '')) }}</td>
+                    @endforeach
+                </tr>
+                <tr>
+                    <td class="spec-row-head">BAHAN BAWAHAN</td>
+                    @foreach($nonAddonItems as $item)
+                    <td>{{ $dv(strtoupper($item['_bahan_kain_bawahan_names'] ?? $item['_bahan_kain_bawahan'] ?? '')) }}</td>
                     @endforeach
                 </tr>
                 <tr>
                     <td class="spec-row-head">WARNA</td>
                     @foreach($nonAddonItems as $item)
-                    <td>{{ strtoupper($item->warna ?? '') ?: '.......' }}</td>
+                    <td>{{ $dv(strtoupper($item['warna'] ?? '')) }}</td>
                     @endforeach
                 </tr>
                 <tr>
                     <td class="spec-row-head">JENIS LOGO</td>
                     @foreach($nonAddonItems as $item)
                     @php
-                        $itemLogos = collect();
-                        if (!empty($item->logo_ids)) {
-                            $itemLogos = \App\Models\Master\Logo::whereIn('id', $item->logo_ids)->pluck('nama');
-                        } elseif ($item->logo_id) {
-                            $itemLogos = collect([$item->logo?->nama])->filter();
-                        }
-                        $logoStr = $itemLogos->isNotEmpty() ? $itemLogos->implode(', ') : '.......';
+                        $logoDisplay = !empty($item['_logos']) ? strtoupper(implode(', ', $item['_logos'])) : strtoupper($item['_logo'] ?? '');
+                        $logoDisplay = $logoDisplay ?: '.......';
                     @endphp
-                    <td>{{ strtoupper($logoStr) }}</td>
+                    <td>{{ $logoDisplay }}</td>
+                    @endforeach
+                </tr>
+                <tr>
+                    <td class="spec-row-head">JUMLAH ATASAN</td>
+                    @foreach($nonAddonItems as $item)
+                    <td>{{ $item['jml_atasan'] ?: ($item['quantity'] ?? '.......') }}</td>
+                    @endforeach
+                </tr>
+                <tr>
+                    <td class="spec-row-head">JUMLAH BAWAHAN</td>
+                    @foreach($nonAddonItems as $item)
+                    <td>{{ $item['jml_bawahan'] ?: '.......' }}</td>
                     @endforeach
                 </tr>
                 <tr>
                     <td class="spec-row-head">JENIS RIB</td>
                     @foreach($nonAddonItems as $item)
-                    <td>{{ strtoupper($item->jenis_rib ?? '') ?: '.......' }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">LIST KERAH</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ strtoupper($item->list_kerah ?? '') ?: '.......' }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">LIST LENGAN</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ strtoupper($item->list_lengan ?? '') ?: '.......' }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">LIST SAMPING CELANA</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ strtoupper($item->list_samping_celana ?? '') ?: '.......' }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">LIST BAWAH CELANA</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ strtoupper($item->list_bawah_celana ?? '') ?: '.......' }}</td>
+                    <td>{{ $dv(strtoupper($item['jenis_rib'] ?? '')) }}</td>
                     @endforeach
                 </tr>
                 <tr>
                     <td class="spec-row-head">TUTUP KERAH</td>
                     @foreach($nonAddonItems as $item)
-                    <td>{{ strtoupper($item->tutup_kerah ?? '') ?: '.......' }}</td>
+                    <td>{{ $dv(strtoupper($item['tutup_kerah'] ?? '')) }}</td>
+                    @endforeach
+                </tr>
+                <tr>
+                    <td class="spec-row-head">LIST KERAH</td>
+                    @foreach($nonAddonItems as $item)
+                    <td>{{ $dv(strtoupper($item['list_kerah'] ?? '')) }}</td>
+                    @endforeach
+                </tr>
+                <tr>
+                    <td class="spec-row-head">LIST LENGAN</td>
+                    @foreach($nonAddonItems as $item)
+                    <td>{{ $dv(strtoupper($item['list_lengan'] ?? '')) }}</td>
+                    @endforeach
+                </tr>
+                <tr>
+                    <td class="spec-row-head">LIST SAMPING CELANA</td>
+                    @foreach($nonAddonItems as $item)
+                    <td>{{ $dv(strtoupper($item['list_samping_celana'] ?? '')) }}</td>
+                    @endforeach
+                </tr>
+                <tr>
+                    <td class="spec-row-head">LIST BAWAH CELANA</td>
+                    @foreach($nonAddonItems as $item)
+                    <td>{{ $dv(strtoupper($item['list_bawah_celana'] ?? '')) }}</td>
                     @endforeach
                 </tr>
             </tbody>
@@ -270,7 +300,7 @@
                     <th style="border:1px solid #000; padding:5px 6px; text-align:left; width:250px;">JAHITAN / DETAIL</th>
                     @foreach($nonAddonItems as $item)
                     <th style="border:1px solid #000; padding:5px 6px; text-align:center;">
-                        {{ strtoupper($item->varian_label ?: $item->nama_produk) }}
+                        {{ strtoupper(($item['varian_label'] ?? '') ?: ($item['nama_produk'] ?? '')) }}
                     </th>
                     @endforeach
                 </tr>
@@ -279,16 +309,24 @@
                 <tr>
                     <td style="border:1px solid #000; padding:5px 6px; font-weight:bold; text-align:left;">POLA JAHITAN</td>
                     @foreach($nonAddonItems as $item)
+                    @php
+                        $polaJ = $item['_pola_jahitan'] ?? null;
+                        $polaJStr = $polaJ ? strtoupper($polaJ->nama) : '.......';
+                    @endphp
                     <td style="border:1px solid #000; padding:5px 6px; text-align:center;">
-                        {{ $item->polaJahitan ? strtoupper($item->polaJahitan->nama) : '.......' }}
+                        {{ $polaJStr }}
                     </td>
                     @endforeach
                 </tr>
                 <tr>
                     <td style="border:1px solid #000; padding:5px 6px; font-weight:bold; text-align:left;">JAHITAN LIST LENGAN</td>
                     @foreach($nonAddonItems as $item)
+                    @php
+                        $polaJLengan = $item['_pola_jahitan_lengan'] ?? null;
+                        $lenganStr = $polaJLengan ? strtoupper($polaJLengan->nama) : $dv(strtoupper($item['jahitan_list_lengan'] ?? ''));
+                    @endphp
                     <td style="border:1px solid #000; padding:5px 6px; text-align:center;">
-                        {{ $item->polaJahitanLengan ? strtoupper($item->polaJahitanLengan->nama) : (strtoupper($item->jahitan_list_lengan ?? '') ?: '.......') }}
+                        {{ $lenganStr }}
                     </td>
                     @endforeach
                 </tr>
@@ -296,7 +334,7 @@
                     <td style="border:1px solid #000; padding:5px 6px; font-weight:bold; text-align:left;">JENIS RESLETING</td>
                     @foreach($nonAddonItems as $item)
                     <td style="border:1px solid #000; padding:5px 6px; text-align:center;">
-                        {{ strtoupper($item->resleting->nama ?? '.......') }}
+                        {{ $dv(strtoupper($item['_resleting'] ?? '')) }}
                     </td>
                     @endforeach
                 </tr>
@@ -306,22 +344,23 @@
 
         {{-- ===== REFERENSI DESAIN & GAMBAR (PER ITEM) ===== --}}
         @foreach ($nonAddonItems as $item)
-            @if($item->gambar_desain || $item->ket_atasan || $item->ket_bawahan || $item->jenis_kerah || $item->gambar_kerah || $item->gambar_ket_tambahan)
+            @php
+                $hasDesain = !empty($item['gambar_desain']) || !empty($item['ket_atasan']) || !empty($item['ket_bawahan'])
+                          || !empty($item['jenis_kerah']) || !empty($item['gambar_kerah']) || !empty($item['gambar_ket_tambahan']);
+            @endphp
+            @if($hasDesain)
             <div class="page-break"></div>
 
             <div class="img-wrapper" style="padding:6px; margin-bottom:10px;">
                 <div class="title-box-center" style="margin-top:0;">
-                    REFERENSI DESAIN {{ strtoupper($item->nama_produk) }} @if($item->varian_label) — {{ strtoupper($item->varian_label) }}@endif
+                    REFERENSI DESAIN {{ strtoupper($item['nama_produk'] ?? '') }} @if(!empty($item['varian_label'])) — {{ strtoupper($item['varian_label']) }}@endif
                 </div>
 
-                @if($item->gambar_desain)
-                    @php
-                        $dPath = storage_path('app/public/' . $item->gambar_desain);
-                        $dUrl = asset('storage/' . $item->gambar_desain);
-                    @endphp
+                @if(!empty($item['gambar_desain']))
+                    @php $dPath = storage_path('app/public/' . $item['gambar_desain']); @endphp
                     @if(file_exists($dPath))
                     <div class="img-box" style="border-top:none; padding:2px; margin-bottom:6px;">
-                        <img src="{{ (isset($isWebPreview) && $isWebPreview) ? $dUrl : $dPath }}" style="max-width: 100%; max-height: 520px; display: block; margin: 0 auto;">
+                        <img src="{{ $dPath }}" style="max-width: 100%; max-height: 520px; display: block; margin: 0 auto;">
                     </div>
                     @else
                     <div class="img-box" style="border-top:none; height:120px; line-height:120px; color:#999; font-weight:bold;">[ GAMBAR DESAIN TIDAK DITEMUKAN ]</div>
@@ -334,19 +373,19 @@
                     <tr>
                         <td style="width:50%; vertical-align:top; padding:6px; border-right:1px solid #000;">
                             <div style="background:#d4d4d4; font-weight:900; padding:4px; text-align:center; margin-bottom:4px; border:1px solid #000;">KETERANGAN ATASAN</div>
-                            <div style="padding:2px; text-align:center; font-weight:bold;">{{ strtoupper($item->ket_atasan ?? '') ?: '.......' }}</div>
+                            <div style="padding:2px; text-align:center; font-weight:bold;">{{ $dv(strtoupper($item['ket_atasan'] ?? '')) }}</div>
                         </td>
                         <td style="width:50%; vertical-align:top; padding:6px;">
                             <div style="background:#d4d4d4; font-weight:900; padding:4px; text-align:center; margin-bottom:4px; border:1px solid #000;">KETERANGAN BAWAHAN</div>
-                            <div style="padding:2px; text-align:center; font-weight:bold;">{{ strtoupper($item->ket_bawahan ?? '') ?: '.......' }}</div>
+                            <div style="padding:2px; text-align:center; font-weight:bold;">{{ $dv(strtoupper($item['ket_bawahan'] ?? '')) }}</div>
                         </td>
                     </tr>
                 </table>
             </div>
 
             @php
-                $hasKerah = !empty($item->jenis_kerah) || !empty($item->gambar_kerah);
-                $hasTambahan = !empty($item->gambar_ket_tambahan);
+                $hasKerah = !empty($item['jenis_kerah']) || !empty($item['gambar_kerah']);
+                $hasTambahan = !empty($item['gambar_ket_tambahan']);
             @endphp
 
             @if($hasKerah || $hasTambahan)
@@ -356,17 +395,14 @@
                     <td style="width: {{ $hasTambahan ? '50%' : '100%' }}; padding-right: {{ $hasTambahan ? '5px' : '0' }}; border: none; vertical-align: top;">
                         <div class="img-wrapper" style="padding:6px; margin-bottom:0;">
                             <div class="title-box-center" style="margin-top:0; font-size: 9pt;">
-                                JENIS KERAH: {{ strtoupper($item->jenis_kerah ?? '.......') }}
+                                JENIS KERAH: {{ strtoupper($item['jenis_kerah'] ?? '.......') }}
                             </div>
                             <div style="border:1px solid #000; border-top:none; padding:6px; text-align:center; background:#fff;">
-                                @if($item->gambar_kerah)
-                                    @php
-                                        $kPath = storage_path('app/public/' . $item->gambar_kerah);
-                                        $kUrl = asset('storage/' . $item->gambar_kerah);
-                                    @endphp
+                                @if(!empty($item['gambar_kerah']))
+                                    @php $kPath = storage_path('app/public/' . $item['gambar_kerah']); @endphp
                                     @if(file_exists($kPath))
                                     <div style="text-align:center;">
-                                        <img src="{{ (isset($isWebPreview) && $isWebPreview) ? $kUrl : $kPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
+                                        <img src="{{ $kPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
                                     </div>
                                     @else
                                     <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR KERAH TIDAK DITEMUKAN ]</div>
@@ -386,13 +422,10 @@
                                 KETERANGAN TAMBAHAN
                             </div>
                             <div style="border:1px solid #000; border-top:none; padding:6px; text-align:center; background:#fff;">
-                                @php
-                                    $ktPath = storage_path('app/public/' . $item->gambar_ket_tambahan);
-                                    $ktUrl = asset('storage/' . $item->gambar_ket_tambahan);
-                                @endphp
+                                @php $ktPath = storage_path('app/public/' . $item['gambar_ket_tambahan']); @endphp
                                 @if(file_exists($ktPath))
                                 <div style="text-align:center;">
-                                    <img src="{{ (isset($isWebPreview) && $isWebPreview) ? $ktUrl : $ktPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
+                                    <img src="{{ $ktPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
                                 </div>
                                 @else
                                 <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR TIDAK DITEMUKAN ]</div>
@@ -415,33 +448,36 @@
 
         @foreach ($nonAddonItems as $item)
             @php
-                $filled = $item->namesets->filter(fn($ns) =>
-                    !empty($ns->nama_punggung) || !empty($ns->nomor_punggung) ||
-                    !empty($ns->nama_dada)     || !empty($ns->nomor_dada)     ||
-                    !empty($ns->nama_lengan)   || !empty($ns->nomor_lengan)   ||
-                    !empty($ns->nama_punggung_2) || !empty($ns->nomor_punggung_2) ||
-                    !empty($ns->size_id)       || !empty($ns->size_label)     ||
-                    !empty($ns->size_celana_id)|| !empty($ns->size_celana_label) ||
-                    !empty($ns->keterangan)
+                $namesets = collect($item['namesets'] ?? []);
+                $filled   = $namesets->filter(fn($ns) =>
+                    !empty($ns['nama_punggung']) || !empty($ns['nomor_punggung']) ||
+                    !empty($ns['nama_dada'])     || !empty($ns['nomor_dada'])     ||
+                    !empty($ns['nama_lengan'])   || !empty($ns['nomor_lengan'])   ||
+                    !empty($ns['nama_punggung_2']) || !empty($ns['nomor_punggung_2']) ||
+                    !empty($ns['size_id'])       || !empty($ns['size_label'])     ||
+                    !empty($ns['size_celana_id'])|| !empty($ns['size_celana_label']) ||
+                    !empty($ns['keterangan'])
                 );
 
-                $hasNamaPunggung = $filled->contains(fn($ns) => !empty($ns->nama_punggung) || !empty($ns->nomor_punggung));
-                $hasNamaDada     = $filled->contains(fn($ns) => !empty($ns->nama_dada)     || !empty($ns->nomor_dada));
-                $hasNamaLengan   = $filled->contains(fn($ns) => !empty($ns->nama_lengan)   || !empty($ns->nomor_lengan));
-                $hasNamaPunggung2 = $filled->contains(fn($ns) => !empty($ns->nama_punggung_2) || !empty($ns->nomor_punggung_2));
-                $hasSizeAtasan   = $filled->contains(fn($ns) => !empty($ns->size_id)       || !empty($ns->size_label));
-                $hasSizeBawahan  = $filled->contains(fn($ns) => !empty($ns->size_celana_id)|| !empty($ns->size_celana_label));
-                $hasKeterangan   = $filled->contains(fn($ns) => !empty($ns->keterangan));
+                $hasNamaPunggung = $filled->contains(fn($ns) => !empty($ns['nama_punggung']) || !empty($ns['nomor_punggung']));
+                $hasNamaDada     = $filled->contains(fn($ns) => !empty($ns['nama_dada'])     || !empty($ns['nomor_dada']));
+                $hasNamaLengan   = $filled->contains(fn($ns) => !empty($ns['nama_lengan'])   || !empty($ns['nomor_lengan']));
+                $hasNamaPunggung2 = $filled->contains(fn($ns) => !empty($ns['nama_punggung_2']) || !empty($ns['nomor_punggung_2']));
+                $hasSizeAtasan   = $filled->contains(fn($ns) => !empty($ns['size_id'])       || !empty($ns['size_label']));
+                $hasSizeBawahan  = $filled->contains(fn($ns) => !empty($ns['size_celana_id'])|| !empty($ns['size_celana_label']));
+                $hasKeterangan   = $filled->contains(fn($ns) => !empty($ns['keterangan']));
 
                 $sizeAtasanRaw = [];
                 $sizeBawahanRaw = [];
                 foreach ($filled as $ns) {
-                    if (!empty($ns->size_id) || !empty($ns->size_label)) {
-                        $sz = $ns->size ? $ns->size->ukuran : trim(last(explode('-', $ns->size_label ?? '')));
+                    if (!empty($ns['size_id']) || !empty($ns['size_label'])) {
+                        $parts = explode('-', $ns['_size_label'] ?? $ns['size_label'] ?? '');
+                        $sz = trim(end($parts));
                         if ($sz) $sizeAtasanRaw[$sz] = ($sizeAtasanRaw[$sz] ?? 0) + 1;
                     }
-                    if (!empty($ns->size_celana_id) || !empty($ns->size_celana_label)) {
-                        $sz = $ns->sizeCelana ? $ns->sizeCelana->ukuran : trim(last(explode('-', $ns->size_celana_label ?? '')));
+                    if (!empty($ns['size_celana_id']) || !empty($ns['size_celana_label'])) {
+                        $parts = explode('-', $ns['_size_celana_label'] ?? $ns['size_celana_label'] ?? '');
+                        $sz = trim(end($parts));
                         if ($sz) $sizeBawahanRaw[$sz] = ($sizeBawahanRaw[$sz] ?? 0) + 1;
                     }
                 }
@@ -497,7 +533,7 @@
             @endphp
 
             <div class="title-box-center" style="font-size:11.5pt;">
-                DATA PESANAN {{ strtoupper($item->nama_produk) }} @if($item->varian_label) — {{ strtoupper($item->varian_label) }}@endif
+                DATA PESANAN {{ strtoupper($item['nama_produk'] ?? '') }} @if(!empty($item['varian_label'])) — {{ strtoupper($item['varian_label']) }}@endif
             </div>
             <table class="{{ $tableClass }}" style="border-top:none; table-layout: fixed; width: 100%;">
                 <colgroup>
@@ -519,29 +555,35 @@
                             @if($col['type'] === 'no')
                                 <td>{{ $i + 1 }}.</td>
                             @elseif($col['type'] === 'nama_punggung')
-                                <td class="t-left">{{ strtoupper($ns->nama_punggung ?? '') ?: '' }}</td>
+                                <td class="t-left">{{ strtoupper($ns['nama_punggung'] ?? '') ?: '' }}</td>
                             @elseif($col['type'] === 'no_punggung')
-                                <td>{{ $ns->nomor_punggung ?: '' }}</td>
+                                <td>{{ $ns['nomor_punggung'] ?? '' }}</td>
                             @elseif($col['type'] === 'nama_dada')
-                                <td class="t-left">{{ strtoupper($ns->nama_dada ?? '') ?: '' }}</td>
+                                <td class="t-left">{{ strtoupper($ns['nama_dada'] ?? '') ?: '' }}</td>
                             @elseif($col['type'] === 'no_dada')
-                                <td>{{ $ns->nomor_dada ?: '' }}</td>
+                                <td>{{ $ns['nomor_dada'] ?? '' }}</td>
                             @elseif($col['type'] === 'nama_lengan')
-                                <td class="t-left">{{ strtoupper($ns->nama_lengan ?? '') ?: '' }}</td>
+                                <td class="t-left">{{ strtoupper($ns['nama_lengan'] ?? '') ?: '' }}</td>
                             @elseif($col['type'] === 'no_lengan')
-                                <td>{{ $ns->nomor_lengan ?: '' }}</td>
+                                <td>{{ $ns['nomor_lengan'] ?? '' }}</td>
                             @elseif($col['type'] === 'nama_punggung_2')
-                                <td class="t-left">{{ strtoupper($ns->nama_punggung_2 ?? '') ?: '' }}</td>
+                                <td class="t-left">{{ strtoupper($ns['nama_punggung_2'] ?? '') ?: '' }}</td>
                             @elseif($col['type'] === 'no_punggung_2')
-                                <td>{{ $ns->nomor_punggung_2 ?: '' }}</td>
+                                <td>{{ $ns['nomor_punggung_2'] ?? '' }}</td>
                             @elseif($col['type'] === 'size')
-                                @php $sv = $ns->size ? $ns->size->ukuran : trim(last(explode('-', $ns->size_label ?? ''))); @endphp
+                                @php
+                                    $parts = explode('-', $ns['_size_label'] ?? $ns['size_label'] ?? '');
+                                    $sv = trim(end($parts));
+                                @endphp
                                 <td>{{ $sv ?: '' }}</td>
                             @elseif($col['type'] === 'size_celana')
-                                @php $svc = $ns->sizeCelana ? $ns->sizeCelana->ukuran : trim(last(explode('-', $ns->size_celana_label ?? ''))); @endphp
+                                @php
+                                    $parts = explode('-', $ns['_size_celana_label'] ?? $ns['size_celana_label'] ?? '');
+                                    $svc = trim(end($parts));
+                                @endphp
                                 <td>{{ $svc ?: '' }}</td>
                             @elseif($col['type'] === 'keterangan')
-                                <td class="t-left">{{ $ns->keterangan ?: '' }}</td>
+                                <td class="t-left">{{ $ns['keterangan'] ?: '' }}</td>
                             @endif
                         @endforeach
                     </tr>
@@ -584,7 +626,7 @@
         <div class="page-break"></div>
 
         <div style="font-size:12pt; font-weight:900; text-decoration:underline; margin-bottom:10px; border-bottom:2px solid #000; padding-bottom:4px; text-align:center;">
-            CHECKLIST PRODUKSI — {{ strtoupper($order->nama_po) }}
+            CHECKLIST PRODUKSI — {{ strtoupper($raw['nama_po'] ?? '') }}
         </div>
 
         <table style="width:100%; border-collapse:collapse; font-size:10pt;">
@@ -592,20 +634,30 @@
                 <tr style="background:#d4d4d4; color:#000; font-weight:bold;">
                     <th style="border:1.5px solid #000; padding:6px 8px; text-align:center; width:35px;">NO</th>
                     <th style="border:1.5px solid #000; padding:6px 8px; text-align:left; width:180px;">PROSES</th>
-                    @foreach($nonAddonItems as $pi)
+                    @foreach($nonAddonItems as $pi => $item)
                     <th style="border:1.5px solid #000; padding:6px 8px; text-align:center; font-size:9pt;">
-                        {{ strtoupper($pi->varian_label ?: $pi->nama_produk) }}
-                        @if($pi->varian_label && $pi->varian_label !== $pi->nama_produk)
-                        <div style="font-size:7.5pt; font-weight:400; opacity:0.8;">{{ strtoupper($pi->nama_produk) }}</div>
-                        @endif
+                        NAME {{ $pi + 1 }}
                     </th>
                     @endforeach
                 </tr>
             </thead>
             <tbody>
+                {{-- Manual static rows --}}
+                @php $manualRows = ['ADMIN', 'DESAIN', 'FORMAT ORDER']; @endphp
+                @foreach($manualRows as $mi => $label)
+                <tr style="{{ $mi % 2 === 0 ? 'background:#f9f9f9;' : 'background:#fff;' }}">
+                    <td style="border:1px solid #000; padding:6px 8px; text-align:center; font-weight:bold;">{{ $mi + 1 }}</td>
+                    <td style="border:1px solid #000; padding:6px 8px; font-weight:900; font-size:10pt;">{{ $label }}</td>
+                    @foreach($nonAddonItems as $pi)
+                    <td style="border:1px solid #000; padding:6px 8px; text-align:center; min-width:80px;">&nbsp;</td>
+                    @endforeach
+                </tr>
+                @endforeach
+                {{-- Dynamic progress rows from DB (SETTING, etc.) --}}
                 @foreach($progresses as $idx => $prog)
-                <tr style="{{ $idx % 2 === 0 ? 'background:#f9f9f9;' : 'background:#fff;' }}">
-                    <td style="border:1px solid #000; padding:6px 8px; text-align:center; font-weight:bold;">{{ $idx + 1 }}</td>
+                @php $rowNum = count($manualRows) + $idx + 1; $totalIdx = count($manualRows) + $idx; @endphp
+                <tr style="{{ $totalIdx % 2 === 0 ? 'background:#f9f9f9;' : 'background:#fff;' }}">
+                    <td style="border:1px solid #000; padding:6px 8px; text-align:center; font-weight:bold;">{{ $rowNum }}</td>
                     <td style="border:1px solid #000; padding:6px 8px; font-weight:900; font-size:10pt;">
                         {{ strtoupper($prog->nama_progress) }}
                     </td>
@@ -618,11 +670,11 @@
         </table>
 
         <div style="margin-top:8px; font-size:8.5pt; color:#555; text-align:right;">
-            Dicetak: {{ now()->translatedFormat('d M Y, H:i') }} · {{ strtoupper($order->brand->nama_brand ?? '') }}
+            Dicetak: {{ now()->translatedFormat('d M Y, H:i') }} · {{ strtoupper($brand->nama_brand) }} (DRAFT)
         </div>
         @endif
 
-        {{-- ===== LAMPIRAN: DATA PESANAN SEMUA PRODUK ===== --}}
+        {{-- ===== LAMPIRAN ===== --}}
         <div class="page-break"></div>
         <div style="font-size:12pt; font-weight:900; text-decoration:underline; margin-bottom:10px; border-bottom:2px solid #000; padding-bottom:4px;">
             LAMPIRAN: DATA PESANAN
@@ -630,23 +682,24 @@
 
         @foreach ($nonAddonItems as $item)
             @php
-                $lampFilled = $item->namesets->filter(fn($ns) =>
-                    !empty($ns->nama_punggung) || !empty($ns->nomor_punggung) ||
-                    !empty($ns->nama_dada)     || !empty($ns->nomor_dada)     ||
-                    !empty($ns->nama_lengan)   || !empty($ns->nomor_lengan)   ||
-                    !empty($ns->nama_punggung_2) || !empty($ns->nomor_punggung_2) ||
-                    !empty($ns->size_id)       || !empty($ns->size_label)     ||
-                    !empty($ns->size_celana_id)|| !empty($ns->size_celana_label) ||
-                    !empty($ns->keterangan)
+                $namesets = collect($item['namesets'] ?? []);
+                $lampFilled = $namesets->filter(fn($ns) =>
+                    !empty($ns['nama_punggung']) || !empty($ns['nomor_punggung']) ||
+                    !empty($ns['nama_dada'])     || !empty($ns['nomor_dada'])     ||
+                    !empty($ns['nama_lengan'])   || !empty($ns['nomor_lengan'])   ||
+                    !empty($ns['nama_punggung_2']) || !empty($ns['nomor_punggung_2']) ||
+                    !empty($ns['size_id'])       || !empty($ns['size_label'])     ||
+                    !empty($ns['size_celana_id'])|| !empty($ns['size_celana_label']) ||
+                    !empty($ns['keterangan'])
                 );
 
-                $hasLampNamaPunggung = $lampFilled->contains(fn($ns) => !empty($ns->nama_punggung) || !empty($ns->nomor_punggung));
-                $hasLampNamaDada     = $lampFilled->contains(fn($ns) => !empty($ns->nama_dada)     || !empty($ns->nomor_dada));
-                $hasLampNamaLengan   = $lampFilled->contains(fn($ns) => !empty($ns->nama_lengan)   || !empty($ns->nomor_lengan));
-                $hasLampNamaPunggung2 = $lampFilled->contains(fn($ns) => !empty($ns->nama_punggung_2) || !empty($ns->nomor_punggung_2));
-                $hasLampSizeAtasan   = $lampFilled->contains(fn($ns) => !empty($ns->size_id)       || !empty($ns->size_label));
-                $hasLampSizeBawahan  = $lampFilled->contains(fn($ns) => !empty($ns->size_celana_id)|| !empty($ns->size_celana_label));
-                $hasLampKeterangan   = $lampFilled->contains(fn($ns) => !empty($ns->keterangan));
+                $hasLampNamaPunggung = $lampFilled->contains(fn($ns) => !empty($ns['nama_punggung']) || !empty($ns['nomor_punggung']));
+                $hasLampNamaDada     = $lampFilled->contains(fn($ns) => !empty($ns['nama_dada'])     || !empty($ns['nomor_dada']));
+                $hasLampNamaLengan   = $lampFilled->contains(fn($ns) => !empty($ns['nama_lengan'])   || !empty($ns['nomor_lengan']));
+                $hasLampNamaPunggung2 = $lampFilled->contains(fn($ns) => !empty($ns['nama_punggung_2']) || !empty($ns['nomor_punggung_2']));
+                $hasLampSizeAtasan   = $lampFilled->contains(fn($ns) => !empty($ns['size_id'])       || !empty($ns['size_label']));
+                $hasLampSizeBawahan  = $lampFilled->contains(fn($ns) => !empty($ns['size_celana_id'])|| !empty($ns['size_celana_label']));
+                $hasLampKeterangan   = $lampFilled->contains(fn($ns) => !empty($ns['keterangan']));
             @endphp
             @if($lampFilled->isNotEmpty())
             @php
@@ -686,7 +739,9 @@
                 
                 $tableClass = count($cols) > 7 ? 'ns-table ns-table-dense' : 'ns-table';
             @endphp
-            <div class="lampiran-sub">DATA PESANAN: {{ strtoupper($item->nama_produk) }} @if($item->varian_label) — {{ strtoupper($item->varian_label) }}@endif</div>
+            <div class="lampiran-sub">
+                DATA PESANAN: {{ strtoupper($item['nama_produk'] ?? '') }}@if(!empty($item['varian_label'])) — {{ strtoupper($item['varian_label']) }}@endif
+            </div>
             <table class="{{ $tableClass }}" style="margin-bottom:12px; table-layout: fixed; width: 100%;">
                 <colgroup>
                     @foreach($cols as $col)
@@ -707,29 +762,35 @@
                             @if($col['type'] === 'no')
                                 <td>{{ $i + 1 }}.</td>
                             @elseif($col['type'] === 'nama_punggung')
-                                <td class="t-left">{{ strtoupper($ns->nama_punggung ?? '') ?: '.......' }}</td>
+                                <td class="t-left">{{ strtoupper($ns['nama_punggung'] ?? '') ?: '.......' }}</td>
                             @elseif($col['type'] === 'no_punggung')
-                                <td>{{ $ns->nomor_punggung ?: '.......' }}</td>
+                                <td>{{ $ns['nomor_punggung'] ?? '.......' }}</td>
                             @elseif($col['type'] === 'nama_dada')
-                                <td class="t-left">{{ strtoupper($ns->nama_dada ?? '') ?: '' }}</td>
+                                <td class="t-left">{{ strtoupper($ns['nama_dada'] ?? '') ?: '' }}</td>
                             @elseif($col['type'] === 'no_dada')
-                                <td>{{ $ns->nomor_dada ?: '' }}</td>
+                                <td>{{ $ns['nomor_dada'] ?? '' }}</td>
                             @elseif($col['type'] === 'nama_lengan')
-                                <td class="t-left">{{ strtoupper($ns->nama_lengan ?? '') ?: '.......' }}</td>
+                                <td class="t-left">{{ strtoupper($ns['nama_lengan'] ?? '') ?: '.......' }}</td>
                             @elseif($col['type'] === 'no_lengan')
-                                <td>{{ $ns->nomor_lengan ?: '.......' }}</td>
+                                <td>{{ $ns['nomor_lengan'] ?? '.......' }}</td>
                             @elseif($col['type'] === 'nama_punggung_2')
-                                <td class="t-left">{{ strtoupper($ns->nama_punggung_2 ?? '') ?: '.......' }}</td>
+                                <td class="t-left">{{ strtoupper($ns['nama_punggung_2'] ?? '') ?: '.......' }}</td>
                             @elseif($col['type'] === 'no_punggung_2')
-                                <td>{{ $ns->nomor_punggung_2 ?: '.......' }}</td>
+                                <td>{{ $ns['nomor_punggung_2'] ?? '.......' }}</td>
                             @elseif($col['type'] === 'size')
-                                @php $sv = $ns->size ? $ns->size->ukuran : trim(last(explode('-', $ns->size_label ?? ''))); @endphp
+                                @php
+                                    $parts = explode('-', $ns['_size_label'] ?? $ns['size_label'] ?? '');
+                                    $sv = trim(end($parts));
+                                @endphp
                                 <td>{{ $sv ?: '.......' }}</td>
                             @elseif($col['type'] === 'size_celana')
-                                @php $svc = $ns->sizeCelana ? $ns->sizeCelana->ukuran : trim(last(explode('-', $ns->size_celana_label ?? ''))); @endphp
+                                @php
+                                    $parts = explode('-', $ns['_size_celana_label'] ?? $ns['size_celana_label'] ?? '');
+                                    $svc = trim(end($parts));
+                                @endphp
                                 <td>{{ $svc ?: '.......' }}</td>
                             @elseif($col['type'] === 'keterangan')
-                                <td class="t-left">{{ $ns->keterangan ?: '.......' }}</td>
+                                <td class="t-left">{{ $ns['keterangan'] ?: '.......' }}</td>
                             @endif
                         @endforeach
                     </tr>
@@ -740,6 +801,5 @@
         @endforeach
 
     </main>
-
 </body>
 </html>
