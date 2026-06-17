@@ -84,18 +84,17 @@
         /* ===== WATERMARK DRAFT ===== */
         .watermark {
             position: fixed;
-            top: 55mm;
-            left: -10mm;
-            width: 230mm;
+            top: 75mm;
+            left: -20mm;
+            width: 250mm;
             text-align: center;
-            font-size: 72pt;
+            font-size: 85pt;
             font-weight: 900;
-            color: #000;
-            opacity: 0.07;
-            transform: rotate(-35deg);
-            z-index: 9999;
+            color: rgba(0, 0, 0, 0.06);
+            transform: rotate(-30deg);
+            z-index: 99999;
             pointer-events: none;
-            letter-spacing: 8px;
+            letter-spacing: 12px;
             text-transform: uppercase;
             font-family: 'DejaVu Sans', 'Helvetica', sans-serif;
         }
@@ -657,7 +656,7 @@
                     <th style="border:1.5px solid #000; padding:6px 8px; text-align:left; width:180px;">PROSES</th>
                     @foreach($nonAddonItems as $pi => $item)
                     <th style="border:1.5px solid #000; padding:6px 8px; text-align:center; font-size:9pt;">
-                        NAME {{ $pi + 1 }}
+                        NAMA {{ $pi + 1 }}
                     </th>
                     @endforeach
                 </tr>
