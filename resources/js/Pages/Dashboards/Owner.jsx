@@ -29,8 +29,10 @@ export default function Owner({ stats }) {
     const trendBulananOmset  = trendBulanan.map((tb) => tb.total_omset);
     const trendBulananPcs    = trendBulanan.map((tb) => tb.total_pcs);
 
+    const currentBrandId = stats.current_brand_id ?? 'all';
+
     function changeBrand(v) {
-        const params = v === 'all' ? {} : { brand_id: v };
+        const params = { brand_id: v };
         router.get(route('dashboard'), params, { preserveScroll: true, preserveState: true });
     }
 
@@ -43,7 +45,7 @@ export default function Owner({ stats }) {
                         <CardTitle className="text-base">Filter Tampilan</CardTitle>
                         <CardDescription>Pilih brand untuk drill-down, atau lihat agregat semua brand milik Anda.</CardDescription>
                     </div>
-                    <Select onValueChange={changeBrand} defaultValue="all">
+                    <Select onValueChange={changeBrand} value={currentBrandId}>
                         <SelectTrigger className="sm:w-64"><SelectValue placeholder="Semua Brand" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Semua Brand (Aggregated)</SelectItem>

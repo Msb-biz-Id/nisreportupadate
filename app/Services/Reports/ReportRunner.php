@@ -42,6 +42,7 @@ class ReportRunner
             'refund' => $this->refund($brandId, $filters),
             'pemasukan' => $this->pemasukan($brandId, $filters),
             'pengeluaran' => $this->pengeluaran($brandId, $filters),
+            'arus-kas-bank' => $this->arusKasBank($brandId, $filters),
             'analisis-marketing' => $this->analisisMarketing($brandId, $filters),
             'crm-churn' => $this->crmChurn($brandId, $filters),
             'crm-seasonal' => $this->crmSeasonal($brandId, $filters),
@@ -782,6 +783,90 @@ class ReportRunner
                 ['label' => 'Bulan Target', 'value' => $targetMonthName],
                 ['label' => 'Pelanggan Terdeteksi', 'value' => count($rows)],
                 ['label' => 'Total Potensi Omset Repeat Order', 'value' => $totalLoss, 'format' => 'currency'],
+            ],
+        ];
+    }
+
+    private function arusKasBank(string|array|null $brandId, array $filters): array
+    {
+        [$from, $to] = $this->dateRange($filters);
+
+        $bankIds = $filters['bank_ids'] ?? [];
+        if (empty($bankIds)) {
+            // Find all active bank accounts for these brand(s)
+            $bankIds = \App\Models\Master\BankAccount::query()
+                ->active()
+                ->when($brandId, function($q) use ($brandId) {
+                    return is_array($brandId)
+                        ? $q->whereIn('brand_id', $brandId)
+                        : $q->where('brand_id', $brandId);
+                })
+                ->pluck('id')
+                ->toArray();
+        }
+
+        if (empty($bankIds)) {
+            return [
+                'rows' => [],
+                'summary' => [
+                    ['label' => 'Total Transaksi', 'value' => 0],
+                    ['label' => 'Total Debit (Masuk)', 'value' => 0, 'format' => 'currency'],
+                    ['label' => 'Total Kredit (Keluar)', 'value' => 0, 'format' => 'currency'],
+                    ['label' => 'Saldo Bersih', 'value' => 0, 'format' => 'currency'],
+                ],
+            ];
+        }
+
+        $payments = OrderPayment::query()
+            ->whereIn('bank_id', $bankIds)
+            ->whereBetween('payment_date', [$from, $to])
+            ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'bank:id,bank,nomor_rekening', 'bank.brand:id,nama_brand', 'masterJenisPembayaran:id,nama'])
+            ->orderByDesc('payment_date')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $rows = $payments->map(function ($p) {
+            $debit = $p->is_debit ? (float) $p->amount : 0.0;
+            $kredit = !$p->is_debit ? (float) $p->amount : 0.0;
+
+            $statusText = $p->verified_at ? 'verified' : 'pending';
+
+            $tipeLabel = $p->masterJenisPembayaran?->nama ?? $p->payment_type;
+            $tipeLabelClean = match(strtolower($tipeLabel)) {
+                'dp' => 'DP ' . ($p->dp_sequence ?? 1),
+                'pelunasan' => 'Pelunasan',
+                'ongkir' => 'Ongkir',
+                'tambahan_produk' => 'Tambahan Produk',
+                'cashback' => 'Cashback',
+                'return' => 'Return',
+                default => ucfirst($tipeLabel)
+            };
+
+            return [
+                'tanggal' => $p->payment_date?->toDateString(),
+                'bank_info' => $p->bank ? "{$p->bank->bank} - {$p->bank->nomor_rekening}" : 'CASH',
+                'brand_name' => $p->bank?->brand?->nama_brand ?? 'General',
+                'no_po' => $p->order?->no_po ?? '-',
+                'pelanggan' => $p->order?->pelanggan?->nama ?? '-',
+                'tipe' => $tipeLabelClean,
+                'debit' => $debit,
+                'kredit' => $kredit,
+                'status' => $statusText,
+                'notes' => $p->notes ?? '-',
+            ];
+        })->all();
+
+        $totalDebit = array_sum(array_column($rows, 'debit'));
+        $totalKredit = array_sum(array_column($rows, 'kredit'));
+        $saldoBersih = $totalDebit - $totalKredit;
+
+        return [
+            'rows' => $rows,
+            'summary' => [
+                ['label' => 'Total Transaksi', 'value' => count($rows)],
+                ['label' => 'Total Debit (Masuk)', 'value' => $totalDebit, 'format' => 'currency'],
+                ['label' => 'Total Kredit (Keluar)', 'value' => $totalKredit, 'format' => 'currency'],
+                ['label' => 'Saldo Bersih', 'value' => $saldoBersih, 'format' => 'currency'],
             ],
         ];
     }

@@ -13,7 +13,7 @@ class ReportRegistry
                 'icon' => 'Package',
                 'group' => 'penjualan',
                 'description' => 'Analisa jumlah produk yang di-order, top produk, dan tren penjualan.',
-                'filters' => ['date_range', 'periode'],
+                'filters' => ['date_range', 'periode', 'brand'],
                 'columns' => [
                     ['key' => 'nama_produk', 'label' => 'Produk'],
                     ['key' => 'total_qty', 'label' => 'Total Qty', 'format' => 'number'],
@@ -29,7 +29,7 @@ class ReportRegistry
                 'icon' => 'Users',
                 'group' => 'penjualan',
                 'description' => 'Top pelanggan berdasarkan jumlah order dan total transaksi.',
-                'filters' => ['date_range'],
+                'filters' => ['date_range', 'brand'],
                 'columns' => [
                     ['key' => 'kode', 'label' => 'Kode'],
                     ['key' => 'nama', 'label' => 'Nama'],
@@ -47,7 +47,7 @@ class ReportRegistry
                 'icon' => 'MapPin',
                 'group' => 'penjualan',
                 'description' => 'Distribusi order per wilayah secara hirarkis (Provinsi, Kabupaten, Kecamatan, Desa).',
-                'filters' => ['date_range', 'level_wilayah'],
+                'filters' => ['date_range', 'level_wilayah', 'brand'],
                 'columns' => [
                     ['key' => 'provinsi', 'label' => 'Provinsi'],
                     ['key' => 'kabupaten', 'label' => 'Kabupaten/Kota'],
@@ -65,7 +65,7 @@ class ReportRegistry
                 'icon' => 'Tag',
                 'group' => 'penjualan',
                 'description' => 'Distribusi order per kategori.',
-                'filters' => ['date_range'],
+                'filters' => ['date_range', 'brand'],
                 'columns' => [
                     ['key' => 'kategori', 'label' => 'Kategori'],
                     ['key' => 'total_order', 'label' => 'Total Order', 'format' => 'number'],
@@ -80,7 +80,7 @@ class ReportRegistry
                 'icon' => 'PackageCheck',
                 'group' => 'operasional',
                 'description' => 'Daftar PO dengan filter status dan periode.',
-                'filters' => ['date_range', 'status_po'],
+                'filters' => ['date_range', 'status_po', 'brand'],
                 'columns' => [
                     ['key' => 'no_po', 'label' => 'No PO'],
                     ['key' => 'nama_po', 'label' => 'Nama PO'],
@@ -97,7 +97,7 @@ class ReportRegistry
                 'icon' => 'AlarmClock',
                 'group' => 'operasional',
                 'description' => 'PO mendekati deadline atau sudah terlambat.',
-                'filters' => ['threshold'],
+                'filters' => ['threshold', 'brand'],
                 'columns' => [
                     ['key' => 'no_po', 'label' => 'No PO'],
                     ['key' => 'pelanggan', 'label' => 'Pelanggan'],
@@ -112,7 +112,7 @@ class ReportRegistry
                 'icon' => 'AlertTriangle',
                 'group' => 'produksi',
                 'description' => 'Detail rijek produksi: jenis, tingkat, kendala.',
-                'filters' => ['date_range'],
+                'filters' => ['date_range', 'brand'],
                 'columns' => [
                     ['key' => 'no_po', 'label' => 'No PO'],
                     ['key' => 'tahapan', 'label' => 'Tahapan'],
@@ -129,7 +129,7 @@ class ReportRegistry
                 'icon' => 'RotateCcw',
                 'group' => 'keuangan',
                 'description' => 'Detail refund per periode, jenis masalah, dan status.',
-                'filters' => ['date_range', 'refund_status'],
+                'filters' => ['date_range', 'refund_status', 'brand'],
                 'columns' => [
                     ['key' => 'refund_number', 'label' => 'No Refund'],
                     ['key' => 'no_po', 'label' => 'No PO'],
@@ -146,7 +146,7 @@ class ReportRegistry
                 'icon' => 'TrendingUp',
                 'group' => 'keuangan',
                 'description' => 'Detail semua pemasukan (otomatis dari PO + manual).',
-                'filters' => ['date_range', 'is_auto'],
+                'filters' => ['date_range', 'is_auto', 'brand'],
                 'columns' => [
                     ['key' => 'tanggal', 'label' => 'Tanggal', 'format' => 'date'],
                     ['key' => 'kategori', 'label' => 'Kategori'],
@@ -162,7 +162,7 @@ class ReportRegistry
                 'icon' => 'TrendingDown',
                 'group' => 'keuangan',
                 'description' => 'Detail semua pengeluaran (otomatis dari refund + manual).',
-                'filters' => ['date_range', 'is_auto'],
+                'filters' => ['date_range', 'is_auto', 'brand'],
                 'columns' => [
                     ['key' => 'tanggal', 'label' => 'Tanggal', 'format' => 'date'],
                     ['key' => 'kategori', 'label' => 'Kategori'],
@@ -171,6 +171,27 @@ class ReportRegistry
                     ['key' => 'sumber', 'label' => 'Sumber', 'format' => 'badge'],
                 ],
                 'chart' => ['type' => 'bar', 'x' => 'kategori', 'y' => 'nominal', 'title' => 'Pengeluaran per Kategori'],
+            ],
+            'arus-kas-bank' => [
+                'slug' => 'arus-kas-bank',
+                'label' => 'Arus Kas & Rekonsiliasi Bank',
+                'icon' => 'Landmark',
+                'group' => 'keuangan',
+                'description' => 'Pencocokan mutasi rekening koran dan arus kas bank berdasarkan rekening yang dimiliki oleh brand.',
+                'filters' => ['date_range', 'brand', 'bank_accounts'],
+                'columns' => [
+                    ['key' => 'tanggal', 'label' => 'Tanggal', 'format' => 'date'],
+                    ['key' => 'bank_info', 'label' => 'Rekening Bank'],
+                    ['key' => 'brand_name', 'label' => 'Brand'],
+                    ['key' => 'no_po', 'label' => 'No PO'],
+                    ['key' => 'pelanggan', 'label' => 'Pelanggan'],
+                    ['key' => 'tipe', 'label' => 'Tipe Transaksi'],
+                    ['key' => 'debit', 'label' => 'Debit (Masuk)', 'format' => 'currency'],
+                    ['key' => 'kredit', 'label' => 'Kredit (Keluar)', 'format' => 'currency'],
+                    ['key' => 'status', 'label' => 'Status', 'format' => 'status_badge'],
+                    ['key' => 'notes', 'label' => 'Catatan'],
+                ],
+                'chart' => ['type' => 'bar', 'x' => 'bank_info', 'y' => 'debit', 'title' => 'Total Dana Masuk per Rekening Bank'],
             ],
             'analisis-marketing' => [
                 'slug' => 'analisis-marketing',

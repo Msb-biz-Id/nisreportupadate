@@ -242,13 +242,14 @@ class DashboardService
             'deadline_mendekat'             => $this->deadlineMendekat($opBrandIds, 5),
             'po_terlambat'                  => $this->poTerlambat($opBrandIds, 5),
             'target_progress'               => $this->getTargetProgress($opBrandIds),
+            'current_brand_id'              => $filterBrand ?: 'all',
         ];
     }
 
     public function financeStats(string|array|null $brandId): array
     {
-        $invoices = Invoice::query()->when($brandId, $this->bf($brandId));
-        $refunds  = Refund::query()->when($brandId, $this->bf($brandId));
+        $invoices = Invoice::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
+        $refunds  = Refund::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
 
         $invoicePending      = (clone $invoices)->whereIn('status', ['draft', 'validated'])->count();
         $invoiceToday        = (clone $invoices)->whereDate('tanggal_terbit', today())->count();
@@ -256,7 +257,7 @@ class DashboardService
 
         $paidToday = OrderPayment::query()
             ->whereDate('payment_date', today())
-            ->when($brandId, fn ($q) => $q->whereHas('order', $this->bf($brandId)))
+            ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
             ->sum('amount');
 
         $refundPending        = (clone $refunds)->where('status', 'pending_review')->count();
@@ -265,12 +266,99 @@ class DashboardService
         $refundPublishedAmount = (clone $refundPublished)->sum('nominal_refund');
 
         $outstandingTotal = Order::query()
-            ->when($brandId, $this->bf($brandId))
+            ->when($brandId && $brandId !== 'all', $this->bf($brandId))
             ->where('status_po', '!=', 'draft')
             ->sum('total_tagihan')
             - OrderPayment::query()
-                ->when($brandId, fn ($q) => $q->whereHas('order', $this->bf($brandId)))
+                ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
                 ->sum('amount');
+
+        $bankAccountsSummary = \App\Models\Master\BankAccount::query()
+            ->when($brandId && $brandId !== 'all', $this->bf($brandId))
+            ->with('brand:id,nama_brand,kode')
+            ->get()
+            ->map(function ($bank) use ($brandId) {
+                // Sum verified payments
+                $totalReceived = OrderPayment::where('bank_id', $bank->id)
+                    ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
+                    ->sum('amount');
+
+                // Last 15 transactions for matching bank statement (rekening koran)
+                $recentTransactions = OrderPayment::where('bank_id', $bank->id)
+                    ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
+                    ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'masterJenisPembayaran:id,nama'])
+                    ->orderByDesc('payment_date')
+                    ->orderByDesc('created_at')
+                    ->limit(15)
+                    ->get()
+                    ->map(fn ($p) => [
+                        'id' => $p->id,
+                        'no_po' => $p->order?->no_po,
+                        'nama_po' => $p->order?->nama_po,
+                        'pelanggan' => $p->order?->pelanggan?->nama ?? '-',
+                        'tipe' => $p->masterJenisPembayaran?->nama ?? $p->payment_type,
+                        'amount' => (float) $p->amount,
+                        'payment_date' => $p->payment_date?->toDateString(),
+                        'verified' => !empty($p->verified_at),
+                        'notes' => $p->notes,
+                    ]);
+
+                return [
+                    'id' => $bank->id,
+                    'bank' => $bank->bank,
+                    'atas_nama' => $bank->atas_nama,
+                    'nomor_rekening' => $bank->nomor_rekening,
+                    'brand_name' => $bank->brand?->nama_brand ?? 'General',
+                    'brand_kode' => $bank->brand?->kode ?? 'GEN',
+                    'total_received' => (float) $totalReceived,
+                    'recent_transactions' => $recentTransactions,
+                ];
+            });
+
+        $brandFinancialReports = \App\Models\Brand::active()
+            ->when($brandId && $brandId !== 'all', fn ($q) => is_array($brandId) ? $q->whereIn('id', $brandId) : $q->where('id', $brandId))
+            ->get()
+            ->map(function ($brand) {
+                // Total revenue (omset) based on published POs
+                $totalRevenue = Order::where('brand_id', $brand->id)
+                    ->where('status_po', '!=', 'draft')
+                    ->sum('total_tagihan');
+
+                // Total received payments
+                $totalPayments = OrderPayment::whereHas('order', fn ($q) => $q->where('brand_id', $brand->id))
+                    ->sum('amount');
+
+                // Total outstanding
+                $outstanding = max(0, $totalRevenue - $totalPayments);
+
+                // Payments by payment types for this brand
+                $paymentTypeBreakdown = DB::table('order_payments')
+                    ->join('orders', 'orders.id', '=', 'order_payments.order_id')
+                    ->leftJoin('master_jenis_pembayarans', 'master_jenis_pembayarans.id', '=', 'order_payments.master_jenis_pembayaran_id')
+                    ->where('orders.brand_id', $brand->id)
+                    ->select('master_jenis_pembayarans.nama', DB::raw('SUM(order_payments.amount) as total'))
+                    ->groupBy('master_jenis_pembayarans.nama')
+                    ->get()
+                    ->map(fn ($r) => [
+                        'nama' => $r->nama ?? 'Lainnya',
+                        'total' => (float) $r->total,
+                    ]);
+
+                return [
+                    'id' => $brand->id,
+                    'nama_brand' => $brand->nama_brand,
+                    'kode' => $brand->kode,
+                    'warna' => $brand->warna_primary,
+                    'total_revenue' => (float) $totalRevenue,
+                    'total_payments' => (float) $totalPayments,
+                    'outstanding' => (float) $outstanding,
+                    'payment_type_breakdown' => $paymentTypeBreakdown,
+                ];
+            })
+            ->filter(fn ($b) => $b['total_revenue'] > 0 || $b['total_payments'] > 0)
+            ->values();
+
+        $allActiveBrands = \App\Models\Brand::active()->get(['id', 'nama_brand', 'kode']);
 
         return [
             'cards' => [
@@ -292,6 +380,10 @@ class DashboardService
                 ->with(['order:id,no_po', 'creator:id,name'])
                 ->orderByDesc('created_at')->limit(10)->get(),
             'payment_status' => $this->paymentStatusBreakdown($brandId),
+            'bank_accounts_summary' => $bankAccountsSummary,
+            'brand_financial_reports' => $brandFinancialReports,
+            'brands' => $allActiveBrands,
+            'current_brand_id' => $brandId ?: 'all',
         ];
     }
 

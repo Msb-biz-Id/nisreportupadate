@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import Chart from '@/Components/Chart';
 import { formatDate, formatRupiah } from '@/lib/utils';
+import { MultiSelect } from '@/Components/ui/multi-select';
 
 const STATUS_BADGE = {
     draft: 'outline', published: 'info', on_progress: 'warning',
@@ -20,6 +21,7 @@ const STATUS_BADGE = {
     pending_review: 'warning', approved: 'info', rejected: 'destructive',
     ringan: 'outline', sedang: 'warning', berat: 'destructive',
     Safe: 'success', Warning: 'warning', 'High Risk': 'destructive',
+    verified: 'success', pending: 'warning',
 };
 
 function FormatCell({ value, format }) {
@@ -63,11 +65,29 @@ function FormatCell({ value, format }) {
     return value;
 }
 
-function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders = [], brands = [], products = [] }) {
+function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders = [], brands = [], products = [], bankAccounts = [] }) {
     const [local, setLocal] = useState(filters);
 
     function patch(k, v) { setLocal({ ...local, [k]: v }); }
     function apply() { onApply(local); }
+
+    const handleBrandChange = (v) => {
+        const nextBrandId = v === '__all__' ? '' : v;
+        const validBankIds = (local.bank_ids || []).filter((id) => {
+            const acc = bankAccounts.find(b => String(b.id) === String(id));
+            return !nextBrandId || (acc && String(acc.brand_id) === String(nextBrandId));
+        });
+        setLocal({
+            ...local,
+            brand_id: nextBrandId,
+            bank_ids: validBankIds
+        });
+    };
+
+    const filteredBankAccounts = bankAccounts.filter((b) => {
+        if (!local.brand_id || local.brand_id === '__all__') return true;
+        return String(b.brand_id) === String(local.brand_id);
+    });
 
     return (
         <Card>
@@ -176,7 +196,7 @@ function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders 
                 {config.filters?.includes('brand') && brands.length > 0 && (
                     <div>
                         <Label className="text-xs">Brand</Label>
-                        <Select value={local.brand_id || '__all__'} onValueChange={(v) => patch('brand_id', v === '__all__' ? '' : v)}>
+                        <Select value={local.brand_id || '__all__'} onValueChange={handleBrandChange}>
                             <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="Semua Brand" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="__all__">Semua Brand</SelectItem>
@@ -185,6 +205,21 @@ function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders 
                                 ))}
                             </SelectContent>
                         </Select>
+                    </div>
+                )}
+                {config.filters?.includes('bank_accounts') && (
+                    <div className="sm:col-span-2">
+                        <Label className="text-xs">Rekening Bank</Label>
+                        <MultiSelect
+                            value={local.bank_ids || []}
+                            onChange={(val) => patch('bank_ids', val)}
+                            options={filteredBankAccounts.map((b) => ({
+                                value: String(b.id),
+                                label: b.label || `${b.bank} — ${b.nomor_rekening} (${b.atas_nama})`
+                            }))}
+                            placeholder="Semua Rekening Bank"
+                            className="mt-1"
+                        />
                     </div>
                 )}
                 {config.filters?.includes('product') && products.length > 0 && (
@@ -312,7 +347,7 @@ function ReportChart({ config, rows, heatmapSeries }) {
     );
 }
 
-export default function ReportShow({ config, filters, rows, summary, heatmapSeries, groups, allReports, customerTypes = [], sumberOrders = [], brands = [], products = [] }) {
+export default function ReportShow({ config, filters, rows, summary, heatmapSeries, groups, allReports, customerTypes = [], sumberOrders = [], brands = [], products = [], bankAccounts = [] }) {
     const Icon = Icons[config.icon] ?? Icons.BarChart3;
 
     function applyFilters(newFilters) {
@@ -347,7 +382,7 @@ export default function ReportShow({ config, filters, rows, summary, heatmapSeri
                     </CardHeader>
                 </Card>
 
-                <FilterBar config={config} filters={filters} onApply={applyFilters} customerTypes={customerTypes} sumberOrders={sumberOrders} brands={brands} products={products} />
+                <FilterBar config={config} filters={filters} onApply={applyFilters} customerTypes={customerTypes} sumberOrders={sumberOrders} brands={brands} products={products} bankAccounts={bankAccounts} />
 
                 <SummaryCards items={summary} />
 

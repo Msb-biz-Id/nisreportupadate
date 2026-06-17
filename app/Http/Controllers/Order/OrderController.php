@@ -514,7 +514,7 @@ class OrderController extends Controller
 
         $brandId = $order->brand_id;
         $banks = BankAccount::active()->where('brand_id', $brandId)->orderBy('bank')->get(['id', 'bank', 'atas_nama', 'nomor_rekening']);
-        $jenis_pembayarans = \App\Models\Finance\MasterJenisPembayaran::active()->orderBy('nama')->get(['id', 'nama']);
+        $jenis_pembayarans = \App\Models\Finance\MasterJenisPembayaran::active()->orderBy('nama')->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan']);
 
         // Computed DP info — frontend uses these exact values to stay in sync with backend
         $minDpPct      = $order->brand ? (float) ($order->brand->min_dp_percentage ?? 0.50) : 0.50;
@@ -918,7 +918,7 @@ class OrderController extends Controller
             'master_jenis_pembayaran_id' => ['required', 'uuid', 'exists:master_jenis_pembayarans,id'],
             'amount' => ['required', 'numeric', 'min:0'],
             'payment_date' => ['required', 'date'],
-            'bank_id' => ['nullable', 'uuid', 'exists:bank_accounts,id'],
+            'bank_id' => ['required', 'uuid', 'exists:bank_accounts,id'],
             'notes' => ['nullable', 'string'],
         ]);
 
@@ -1217,7 +1217,7 @@ class OrderController extends Controller
                 ->orderBy('nama')->get(['id', 'jenis_pola', 'nama']),
             'sizes' => Size::active()->orderBy('kategori_size')->orderBy('urutan')->get(['id', 'kategori_size', 'ukuran']),
             'banks' => $banks,
-            'jenis_pembayarans' => \App\Models\Finance\MasterJenisPembayaran::active()->orderBy('nama')->get(['id', 'nama']),
+            'jenis_pembayarans' => \App\Models\Finance\MasterJenisPembayaran::active()->orderBy('nama')->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan']),
         ];
     }
 

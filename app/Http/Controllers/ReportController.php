@@ -25,7 +25,34 @@ class ReportController extends Controller
         $masterBrandId = BrandContext::masterDataId($request);
 
         $filters = $this->extractFilters($request, $config);
-        $result = $this->runner->run($slug, $effectiveId, $filters);
+        $queryBrandScope = $this->resolveQueryBrandScope($request, $filters);
+        $result = $this->runner->run($slug, $queryBrandScope, $filters);
+
+        $user = $request->user();
+        $role = $user?->getRoleNames()->first();
+        $isGlobal = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']));
+
+        $bankAccountsQuery = \App\Models\Master\BankAccount::query()->active();
+        if (! $isGlobal) {
+            if ($role === 'admin_reseller') {
+                $bankAccountsQuery->whereIn('brand_id', (array)$effectiveId);
+            } else {
+                $bankAccountsQuery->where('brand_id', BrandContext::current($request));
+            }
+        }
+        $bankAccounts = $bankAccountsQuery
+            ->with('brand:id,nama_brand')
+            ->orderBy('bank')
+            ->get(['id', 'brand_id', 'bank', 'nomor_rekening', 'atas_nama'])
+            ->map(fn($b) => [
+                'id' => $b->id,
+                'brand_id' => $b->brand_id,
+                'label' => "{$b->brand?->nama_brand} - {$b->bank} ({$b->nomor_rekening})",
+                'bank' => $b->bank,
+                'nomor_rekening' => $b->nomor_rekening,
+                'atas_nama' => $b->atas_nama,
+            ])
+            ->all();
 
         return Inertia::render('Report/Show', [
             'config' => $config,
@@ -45,13 +72,17 @@ class ReportController extends Controller
                 ->when($masterBrandId, fn($q) => $q->where('brand_id', $masterBrandId)->orWhereNull('brand_id'))
                 ->get(['id', 'nama'])
                 ->all(),
-            'brands' => $effectiveId 
-                ? \App\Models\Brand::whereIn('id', (array)$effectiveId)->get(['id', 'nama_brand', 'kode'])->all()
-                : \App\Models\Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])->all(),
+            'brands' => $isGlobal 
+                ? \App\Models\Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])->all()
+                : ($role === 'admin_reseller' 
+                    ? \App\Models\Brand::whereIn('id', (array)$effectiveId)->get(['id', 'nama_brand', 'kode'])->all()
+                    : \App\Models\Brand::where('id', BrandContext::current($request))->get(['id', 'nama_brand', 'kode'])->all()
+                ),
             'products' => \App\Models\Master\Product::query()
                 ->when($masterBrandId, fn($q) => $q->where('brand_id', $masterBrandId)->orWhereNull('brand_id'))
                 ->get(['id', 'nama'])
                 ->all(),
+            'bankAccounts' => $bankAccounts,
         ]);
     }
 
@@ -59,10 +90,10 @@ class ReportController extends Controller
     {
         Gate::authorize('report.export');
         $config = $this->resolveConfig($slug, $request);
-        $effectiveId = $this->effectiveBrandId($request);
         $filters = $this->extractFilters($request, $config);
+        $queryBrandScope = $this->resolveQueryBrandScope($request, $filters);
 
-        $result = $this->runner->run($slug, $effectiveId, $filters);
+        $result = $this->runner->run($slug, $queryBrandScope, $filters);
         $filename = "report-{$slug}-" . now()->format('Ymd-His') . '.xlsx';
 
         return Excel::download(
@@ -75,10 +106,10 @@ class ReportController extends Controller
     {
         Gate::authorize('report.export');
         $config = $this->resolveConfig($slug, $request);
-        $effectiveId = $this->effectiveBrandId($request);
         $filters = $this->extractFilters($request, $config);
+        $queryBrandScope = $this->resolveQueryBrandScope($request, $filters);
 
-        $result = $this->runner->run($slug, $effectiveId, $filters);
+        $result = $this->runner->run($slug, $queryBrandScope, $filters);
 
         $pdf = Pdf::loadView('pdf.report', [
             'config' => $config,
@@ -90,6 +121,42 @@ class ReportController extends Controller
         ])->setPaper('a4', 'landscape');
 
         return $pdf->download("report-{$slug}-" . now()->format('Ymd-His') . '.pdf');
+    }
+
+    /** Resolves the brand scope to filter queries by based on user permissions and selected filter. */
+    private function resolveQueryBrandScope(Request $request, array $filters): string|array|null
+    {
+        $user = $request->user();
+        if (! $user) {
+            return null;
+        }
+        $isGlobal = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+        $selectedBrandId = $filters['brand_id'] ?? null;
+        if ($selectedBrandId === '__all__') {
+            $selectedBrandId = null;
+        }
+
+        if ($isGlobal) {
+            return $selectedBrandId ?: null;
+        }
+
+        $role = $user->getRoleNames()->first();
+        if ($role === 'admin_reseller') {
+            $allowedIds = BrandContext::effectiveBrandIds($request);
+            if (empty($allowedIds)) {
+                $allowedIds = (array) BrandContext::current($request);
+            }
+            if ($selectedBrandId) {
+                return in_array($selectedBrandId, $allowedIds) ? $selectedBrandId : $allowedIds;
+            }
+            return $allowedIds;
+        }
+
+        $activeBrandId = BrandContext::current($request);
+        if ($selectedBrandId) {
+            return $selectedBrandId === $activeBrandId ? $selectedBrandId : $activeBrandId;
+        }
+        return $activeBrandId;
     }
 
     /** Returns effective brand ID(s) for report queries. admin_reseller on hub → array of branch IDs. */
@@ -176,7 +243,18 @@ class ReportController extends Controller
                     $filters['level_wilayah'] = $request->string('level_wilayah', 'kabupaten')->toString();
                     break;
                 case 'brand':
-                    $filters['brand_id'] = $request->string('brand_id')->toString();
+                    $brandVal = $request->string('brand_id')->toString();
+                    $filters['brand_id'] = ($brandVal === '' || $brandVal === '__all__') ? null : $brandVal;
+                    break;
+                case 'bank_accounts':
+                    $val = $request->input('bank_ids');
+                    if (is_string($val)) {
+                        $filters['bank_ids'] = array_filter(explode(',', $val));
+                    } elseif (is_array($val)) {
+                        $filters['bank_ids'] = array_filter($val);
+                    } else {
+                        $filters['bank_ids'] = [];
+                    }
                     break;
                 case 'region':
                     $filters['region'] = $request->string('region')->toString();

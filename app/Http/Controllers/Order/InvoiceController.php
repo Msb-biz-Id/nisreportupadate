@@ -194,8 +194,8 @@ class InvoiceController extends Controller
         }
 
         $selectedBrandId = $request->input('brand_id');
-        if (is_null($selectedBrandId)) {
-            $selectedBrandId = BrandContext::current($request) ?? 'all';
+        if (is_null($selectedBrandId) || $selectedBrandId === '' || $selectedBrandId === 'all') {
+            $selectedBrandId = 'all';
         }
 
         // admin_keuangan & admin_produksi = lintas-brand (lihat semua brand + reseller)
@@ -273,7 +273,7 @@ class InvoiceController extends Controller
             'unpaid_invoices' => $unpaidInvoices,
             'paid_invoices' => $paidInvoices,
             'filters' => [
-                'brand_id' => $request->string('brand_id', $selectedBrandId)->toString(),
+                'brand_id' => $selectedBrandId,
             ],
             'can' => [
                 'create' => $request->user()->can('finance.manage-invoice'),
@@ -291,8 +291,8 @@ class InvoiceController extends Controller
         }
 
         $selectedBrandId = $request->input('brand_id');
-        if (is_null($selectedBrandId)) {
-            $selectedBrandId = BrandContext::current($request) ?? 'all';
+        if (is_null($selectedBrandId) || $selectedBrandId === '' || $selectedBrandId === 'all') {
+            $selectedBrandId = 'all';
         }
 
         $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
@@ -382,7 +382,7 @@ class InvoiceController extends Controller
             'filters' => [
                 'q' => $request->string('q')->toString(),
                 'status' => $request->string('status')->toString(),
-                'brand_id' => $request->string('brand_id', $selectedBrandId)->toString(),
+                'brand_id' => $selectedBrandId,
                 'start_date' => $request->string('start_date')->toString(),
                 'end_date' => $request->string('end_date')->toString(),
             ],
@@ -403,8 +403,8 @@ class InvoiceController extends Controller
         }
 
         $selectedBrandId = $request->input('brand_id');
-        if (is_null($selectedBrandId)) {
-            $selectedBrandId = BrandContext::current($request) ?? 'all';
+        if (is_null($selectedBrandId) || $selectedBrandId === '' || $selectedBrandId === 'all') {
+            $selectedBrandId = 'all';
         }
 
         $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
@@ -474,7 +474,7 @@ class InvoiceController extends Controller
             'pending_payments' => $enrichedPayments,
             'brands' => $brands,
             'filters' => [
-                'brand_id' => $request->string('brand_id', $selectedBrandId)->toString(),
+                'brand_id' => $selectedBrandId,
             ],
             'can' => [
                 'validate' => $request->user()->can('finance.manage-invoice'),
@@ -734,7 +734,7 @@ class InvoiceController extends Controller
             'master_jenis_pembayaran_id' => 'required|exists:master_jenis_pembayarans,id',
             'amount' => 'required|numeric|min:0',
             'payment_date' => 'required|date',
-            'bank_id' => 'nullable|exists:bank_accounts,id',
+            'bank_id' => 'required|exists:bank_accounts,id',
             'notes' => 'nullable|string',
             'change_reason' => 'required|string|min:5',
         ]);

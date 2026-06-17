@@ -21,8 +21,8 @@ class RefundController extends Controller
     {
         $user = $request->user();
         $selectedBrandId = $request->input('brand_id');
-        if (is_null($selectedBrandId)) {
-            $selectedBrandId = BrandContext::current($request) ?? 'all';
+        if (is_null($selectedBrandId) || $selectedBrandId === '' || $selectedBrandId === 'all') {
+            $selectedBrandId = 'all';
         }
 
         // Brand authorization — validate selected brand is accessible
@@ -46,7 +46,14 @@ class RefundController extends Controller
             ->when($effectiveIds, fn ($q) => $q->whereIn('brand_id', $effectiveIds))
             ->when(! $effectiveIds && (! $selectedBrandId || $selectedBrandId === 'all') && $accessibleBrandIds !== null,
                 fn ($q) => $q->whereIn('brand_id', $accessibleBrandIds))
-            ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'creator:id,name']);
+            ->with([
+                'order:id,no_po,nama_po,pelanggan_id,brand_id,total_tagihan,is_special_order',
+                'order.pelanggan:id,nama',
+                'brand:id,nama_brand,kode',
+                'creator:id,name',
+                'reviewer:id,name',
+                'publisher:id,name'
+            ]);
 
         if ($status = $request->string('status')->toString()) {
             $query->where('status', $status);
@@ -87,7 +94,7 @@ class RefundController extends Controller
             'filters' => [
                 'q' => $request->string('q')->toString(),
                 'status' => $request->string('status')->toString(),
-                'brand_id' => $request->string('brand_id', $selectedBrandId)->toString(),
+                'brand_id' => $selectedBrandId,
                 'start_date' => $request->string('start_date')->toString(),
                 'end_date' => $request->string('end_date')->toString(),
             ],
@@ -103,6 +110,24 @@ class RefundController extends Controller
     public function store(Request $request)
     {
         Gate::authorize('order.refund');
+
+        if ($request->has('nominal_refund')) {
+            $nominal = $request->input('nominal_refund');
+            if (is_string($nominal)) {
+                $cleaned = preg_replace('/[^\d,.-]/', '', $nominal);
+                if (strpos($cleaned, '.') !== false && strpos($cleaned, ',') !== false) {
+                    $cleaned = str_replace('.', '', $cleaned);
+                    $cleaned = str_replace(',', '.', $cleaned);
+                } elseif (strpos($cleaned, '.') !== false && preg_match('/^\d+(\.\d{3})+$/', $cleaned)) {
+                    $cleaned = str_replace('.', '', $cleaned);
+                } elseif (strpos($cleaned, ',') !== false && preg_match('/^\d+(,\d{3})+$/', $cleaned)) {
+                    $cleaned = str_replace(',', '', $cleaned);
+                } elseif (strpos($cleaned, ',') !== false) {
+                    $cleaned = str_replace(',', '.', $cleaned);
+                }
+                $request->merge(['nominal_refund' => $cleaned]);
+            }
+        }
 
         // Resolve order_id from PO Number, Link (URL), or raw UUID
         $orderInput = trim($request->input('order_id'));
@@ -151,8 +176,14 @@ class RefundController extends Controller
         $brandId = BrandContext::current($request);
         if (! $request->user()->isSuperadmin() && $order->brand_id !== $brandId) abort(403);
 
-        if ($data['nominal_refund'] > $order->total_tagihan) {
-            return back()->withErrors(['nominal_refund' => 'Nominal refund tidak boleh melebihi total tagihan PO.']);
+        $existingRefundsSum = Refund::where('order_id', $order->id)
+            ->whereIn('status', ['pending_review', 'approved', 'published'])
+            ->sum('nominal_refund');
+
+        $maxRefundable = $order->total_tagihan - $existingRefundsSum;
+
+        if ($data['nominal_refund'] > $maxRefundable) {
+            return back()->withErrors(['nominal_refund' => 'Nominal refund melebihi batas yang dapat direfund (Maksimal sisa: ' . number_format(max(0, $maxRefundable), 0, ',', '.') . ').']);
         }
 
         $refund = Refund::create([

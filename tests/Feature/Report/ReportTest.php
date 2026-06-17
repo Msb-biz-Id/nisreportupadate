@@ -255,5 +255,38 @@ class ReportTest extends TestCase
         $this->assertEquals(1500000, $row['nilai_order_lalu']);
         $this->assertEquals('seasonal', $row['whatsapp_action']['type']);
     }
+
+    public function test_report_brand_filter_scoping_by_role(): void
+    {
+        $brand1 = $this->makeBrand(['nama_brand' => 'Brand One']);
+        $brand2 = $this->makeBrand(['nama_brand' => 'Brand Two']);
+
+        $owner = $this->makeUser('owner', [$brand1, $brand2]);
+        $adminBrand1 = $this->makeUser('admin_brand', [$brand1]);
+
+        // Verify that global user (owner) receives all active brands in the dropdown list
+        $response = $this->actingAsWithBrand($owner, $brand1)
+            ->get(route('reports.show', 'penjualan-produk'));
+        $response->assertOk();
+        $props = $response->original->getData()['page']['props'];
+        $brandIdsInDropdown = collect($props['brands'])->pluck('id')->toArray();
+        $this->assertContains($brand1->id, $brandIdsInDropdown);
+        $this->assertContains($brand2->id, $brandIdsInDropdown);
+
+        // Verify that brand-restricted user only receives their assigned brand in the dropdown
+        $response = $this->actingAsWithBrand($adminBrand1, $brand1)
+            ->get(route('reports.show', 'penjualan-produk'));
+        $response->assertOk();
+        $props = $response->original->getData()['page']['props'];
+        $brandIdsInDropdown = collect($props['brands'])->pluck('id')->toArray();
+        $this->assertContains($brand1->id, $brandIdsInDropdown);
+        $this->assertNotContains($brand2->id, $brandIdsInDropdown);
+
+        // Verify query brand scoping resolves correctly for owner (all when no brand_id filter)
+        $response = $this->actingAsWithBrand($owner, $brand1)
+            ->get(route('reports.show', 'penjualan-produk', ['brand_id' => '__all__']));
+        $response->assertOk();
+        $this->assertNull($response->original->getData()['page']['props']['filters']['brand_id'] ?? null);
+    }
 }
 

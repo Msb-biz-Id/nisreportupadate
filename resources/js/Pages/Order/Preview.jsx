@@ -114,6 +114,51 @@ function RelockDialog({ order, open, onOpenChange, canUnlock }) {
     );
 }
 
+function PaymentTypeInfo({ selectedJp, amount }) {
+    if (!selectedJp) return null;
+    
+    return (
+        <div className="sm:col-span-2 p-3 rounded-lg border text-xs flex items-start gap-2.5 bg-slate-50 border-slate-200">
+            {selectedJp.efek_tagihan === 'penambahan' && (
+                <>
+                    <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                        <p className="font-semibold text-amber-900">Menaikkan Total Tagihan PO</p>
+                        <p className="text-slate-600 mt-0.5">
+                            Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai biaya tambahan (misal: Ongkir, Penambahan Produk). 
+                            Menginput ini akan menambah harga keseluruhan PO sebesar <strong>{formatRupiah(amount)}</strong>.
+                        </p>
+                    </div>
+                </>
+            )}
+            {selectedJp.efek_tagihan === 'pengurangan' && (
+                <>
+                    <AlertTriangle className="h-4 w-4 text-rose-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                        <p className="font-semibold text-rose-900">Menurunkan Total Tagihan PO</p>
+                        <p className="text-slate-600 mt-0.5">
+                            Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai potongan tagihan (misal: Return/Diskon, Cashback). 
+                            Menginput ini akan memotong total harga keseluruhan PO sebesar <strong>{formatRupiah(amount)}</strong>.
+                        </p>
+                    </div>
+                </>
+            )}
+            {selectedJp.efek_tagihan === 'netral' && (
+                <>
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                        <p className="font-semibold text-emerald-950">Pembayaran Kas (Mengurangi Sisa Tagihan)</p>
+                        <p className="text-slate-600 mt-0.5">
+                            Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai realisasi pembayaran (DP / Pelunasan). 
+                            Menginput ini akan langsung mengurangi sisa pembayaran PO sebesar <strong>{formatRupiah(amount)}</strong> tanpa mengubah total nilai PO.
+                        </p>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
 function AddPaymentDialog({ order, open, onOpenChange, banks, jenis_pembayarans = [] }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         master_jenis_pembayaran_id: '',
@@ -129,6 +174,9 @@ function AddPaymentDialog({ order, open, onOpenChange, banks, jenis_pembayarans 
             onSuccess: () => { reset(); onOpenChange(false); },
         });
     }
+
+    const selectedJp = jenis_pembayarans.find(jp => String(jp.id) === String(data.master_jenis_pembayaran_id));
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
@@ -159,15 +207,18 @@ function AddPaymentDialog({ order, open, onOpenChange, banks, jenis_pembayarans 
                             <Input type="date" value={data.payment_date} onChange={(e) => setData('payment_date', e.target.value)} className="mt-1.5" />
                         </div>
                         <div>
-                            <Label>Bank (opsional)</Label>
-                            <Select value={data.bank_id || '__none__'} onValueChange={(v) => setData('bank_id', v === '__none__' ? '' : v)}>
-                                <SelectTrigger className="mt-1.5"><SelectValue placeholder="—" /></SelectTrigger>
+                            <Label>Bank <span className="text-destructive">*</span></Label>
+                            <Select value={data.bank_id} onValueChange={(v) => setData('bank_id', v)}>
+                                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pilih Bank..." /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="__none__">— —</SelectItem>
                                     {banks.map((b) => (<SelectItem key={b.id} value={b.id}>{b.bank} {b.nomor_rekening}</SelectItem>))}
                                 </SelectContent>
                             </Select>
+                            {errors.bank_id && <p className="text-xs text-destructive">{errors.bank_id}</p>}
                         </div>
+
+                        <PaymentTypeInfo selectedJp={selectedJp} amount={data.amount} />
+
                         <div className="sm:col-span-2">
                             <Label>Catatan</Label>
                             <Textarea value={data.notes} onChange={(e) => setData('notes', e.target.value)} rows={2} className="mt-1.5" />
@@ -214,6 +265,8 @@ function EditPaymentDialog({ payment, open, onOpenChange, banks, jenis_pembayara
         });
     }
 
+    const selectedJp = jenis_pembayarans.find(jp => String(jp.id) === String(data.master_jenis_pembayaran_id));
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
@@ -245,16 +298,18 @@ function EditPaymentDialog({ payment, open, onOpenChange, banks, jenis_pembayara
                             {errors.payment_date && <p className="text-xs text-destructive">{errors.payment_date}</p>}
                         </div>
                         <div>
-                            <Label>Bank (opsional)</Label>
-                            <Select value={data.bank_id || '__none__'} onValueChange={(v) => setData('bank_id', v === '__none__' ? '' : v)}>
-                                <SelectTrigger className="mt-1.5"><SelectValue placeholder="—" /></SelectTrigger>
+                            <Label>Bank <span className="text-destructive">*</span></Label>
+                            <Select value={data.bank_id} onValueChange={(v) => setData('bank_id', v)}>
+                                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pilih Bank..." /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="__none__">— —</SelectItem>
                                     {banks.map((b) => (<SelectItem key={b.id} value={String(b.id)}>{b.bank} {b.nomor_rekening}</SelectItem>))}
                                 </SelectContent>
                             </Select>
                             {errors.bank_id && <p className="text-xs text-destructive">{errors.bank_id}</p>}
                         </div>
+
+                        <PaymentTypeInfo selectedJp={selectedJp} amount={data.amount} />
+
                         <div className="sm:col-span-2">
                             <Label>Catatan</Label>
                             <Textarea value={data.notes} onChange={(e) => setData('notes', e.target.value)} rows={2} className="mt-1.5" />

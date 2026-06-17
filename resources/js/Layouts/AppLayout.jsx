@@ -261,11 +261,11 @@ function buildMenu(user) {
     if (hasPermission(user, 'report.view')) {
         const REPORT_ITEMS = [
             // Marketing & Pasar
-            { slug: 'analisis-marketing', name: '🎯 Analisis Pasar' },
+            { slug: 'analisis-marketing', name: 'Analisis Pasar' },
             { slug: 'penjualan-produk',   name: 'Penjualan & Produk' },
             { slug: 'pelanggan',          name: 'Pelanggan' },
-            { slug: 'crm-churn',          name: '🔮 Prediksi Churn & CRM' },
-            { slug: 'crm-seasonal',       name: '📅 Pengingat Order Musiman' },
+            { slug: 'crm-churn',          name: 'Prediksi Churn & CRM' },
+            { slug: 'crm-seasonal',       name: 'Pengingat Order Musiman' },
             { slug: 'wilayah',            name: 'Wilayah' },
             { slug: 'kategori',           name: 'Kategori Order' },
             // Operasional
@@ -276,6 +276,7 @@ function buildMenu(user) {
             // Keuangan
             { slug: 'pemasukan',          name: 'Pemasukan' },
             { slug: 'pengeluaran',        name: 'Pengeluaran' },
+            { slug: 'arus-kas-bank',      name: 'Arus Kas & Rekonsiliasi Bank' },
         ];
         const currentSlug = route().params?.slug;
         const isReportActive = route().current('reports.*');
@@ -288,13 +289,13 @@ function buildMenu(user) {
                 ...REPORT_ITEMS.map((r) => ({
                     name: r.name,
                     href: route('reports.show', r.slug),
-                    icon: BarChart3,
+                    icon: null,
                     active: isReportActive && currentSlug === r.slug,
                 })),
                 {
                     name: 'Comparison (Multi-Brand)',
                     href: route('comparison.show'),
-                    icon: BarChart3,
+                    icon: null,
                     active: isComparisonActive,
                 },
             ],
@@ -400,7 +401,7 @@ function NavItem({ item, onNavigate, isCollapsed }) {
                     item.soon && 'cursor-not-allowed opacity-60 hover:bg-transparent hover:text-sidebar-foreground/70',
                 )}
             >
-                <Icon className="h-5 w-5" />
+                {Icon && <Icon className="h-5 w-5" />}
             </span>
         );
 
@@ -453,7 +454,7 @@ function NavItem({ item, onNavigate, isCollapsed }) {
                 item.soon && 'cursor-not-allowed opacity-60 hover:bg-transparent hover:text-sidebar-foreground/70',
             )}
         >
-            <Icon className="h-4 w-4" />
+            {Icon && <Icon className="h-4 w-4" />}
             <span className="flex-1">{item.name}</span>
             {item.soon && <Badge variant="outline" className="border-sidebar-foreground/20 text-[10px] text-sidebar-foreground/60">Soon</Badge>}
         </span>

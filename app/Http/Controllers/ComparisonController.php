@@ -20,7 +20,8 @@ class ComparisonController extends Controller
         Gate::authorize('report.view');
 
         $user = $request->user();
-        $availableBrands = $user->isSuperadmin()
+        $isGlobal = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']));
+        $availableBrands = $isGlobal
             ? Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary'])
             : $user->brands()->where('is_active', true)->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode', 'warna_primary']);
 
@@ -89,7 +90,8 @@ class ComparisonController extends Controller
         Gate::authorize('report.export');
 
         $user = $request->user();
-        $availableBrands = $user->isSuperadmin()
+        $isGlobal = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']));
+        $availableBrands = $isGlobal
             ? Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary'])
             : $user->brands()->where('is_active', true)->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode', 'warna_primary']);
 
@@ -180,7 +182,8 @@ class ComparisonController extends Controller
         Gate::authorize('report.export');
 
         $user = $request->user();
-        $availableBrands = $user->isSuperadmin()
+        $isGlobal = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']));
+        $availableBrands = $isGlobal
             ? Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary'])
             : $user->brands()->where('is_active', true)->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode', 'warna_primary']);
 

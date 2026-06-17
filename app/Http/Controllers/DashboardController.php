@@ -44,7 +44,7 @@ class DashboardController extends Controller
             ],
             'admin_keuangan' => [
                 'view' => 'Finance',
-                'stats' => $this->service->financeStats($brandId),
+                'stats' => $this->service->financeStats($filterBrand ?: $brandId),
             ],
             'admin_brand' => [
                 'view' => 'AdminBrand',

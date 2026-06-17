@@ -9,7 +9,7 @@
         @page { margin: 15mm 12mm 15mm 12mm; }
 
         header { position: fixed; top: -10mm; left: 0; right: 0; height: 8mm;
-                 text-align: center; font-size: 14pt; font-weight: bold;
+                 text-align: center; font-size: 11pt; font-weight: bold;
                  border-bottom: 1px solid #777; padding-bottom: 5px; text-transform: uppercase; }
         footer { position: fixed; bottom: -10mm; left: 0; right: 0; height: 8mm;
                  border-top: 1px solid #777; padding-top: 5px; }
@@ -86,13 +86,13 @@
     <header>
         <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; padding: 0;">
             <tr>
-                <td style="width: 30%; text-align: left; font-size: 7.5pt; font-weight: normal; color: #444; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: none; text-transform: uppercase;">
+                <td style="width: 25%; text-align: left; font-size: 7.5pt; font-weight: normal; color: #444; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: none; text-transform: uppercase;">
                     MESIN PRINT: ....................
                 </td>
-                <td style="width: 40%; text-align: center; font-size: 14pt; font-weight: bold; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: underline; text-transform: uppercase;">
+                <td style="width: 50%; text-align: center; font-size: 11pt; font-weight: bold; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: underline; text-transform: uppercase;">
                     FORMAT ORDER {{ strtoupper($brand->nama_brand) }}
                 </td>
-                <td style="width: 30%; text-align: right; font-size: 7.5pt; font-weight: normal; color: #444; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: none; text-transform: uppercase;">
+                <td style="width: 25%; text-align: right; font-size: 7.5pt; font-weight: normal; color: #444; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: none; text-transform: uppercase;">
                     MESIN PRES: ....................
                 </td>
             </tr>

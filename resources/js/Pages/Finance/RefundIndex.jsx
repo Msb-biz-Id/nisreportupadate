@@ -76,7 +76,12 @@ function CreateRefundDialog({ open, onOpenChange, jenisOptions }) {
                         <div>
                             <Label>Nominal Refund <span className="text-destructive">*</span></Label>
                             <Input type="number" min={0} value={data.nominal_refund} onChange={(e) => setData('nominal_refund', Number(e.target.value))} className="mt-1.5" />
-                            {errors.nominal_refund && <p className="text-xs text-destructive">{errors.nominal_refund}</p>}
+                            {data.nominal_refund > 0 && (
+                                <p className="mt-1 text-xs text-rose-600 font-semibold font-mono">
+                                    Format: {formatRupiah(data.nominal_refund)}
+                                </p>
+                            )}
+                            {errors.nominal_refund && <p className="text-xs text-destructive mt-1">{errors.nominal_refund}</p>}
                         </div>
                         <div>
                             <Label>Alasan <span className="text-destructive">*</span></Label>
@@ -129,6 +134,143 @@ function RejectDialog({ refund, open, onOpenChange }) {
     );
 }
 
+function DetailRefundDialog({ refund, open, onOpenChange, can, onPublish, onReject }) {
+    if (!refund) return null;
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <div>
+                            <DialogTitle className="text-lg font-bold font-mono">{refund.refund_number}</DialogTitle>
+                            <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                                Diajukan oleh: <span className="font-medium text-foreground">{refund.creator?.name || '—'}</span> &bull; {formatDate(refund.created_at)}
+                            </DialogDescription>
+                        </div>
+                        <Badge variant={STATUS_VARIANT[refund.status] ?? 'outline'} className="text-xs px-2.5 py-0.5 uppercase">
+                            {refund.status}
+                        </Badge>
+                    </div>
+                </DialogHeader>
+
+                <div className="py-4 space-y-5 max-h-[65vh] overflow-y-auto pr-1">
+                    {/* Main details grid */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Jenis Masalah</span>
+                            <span className="text-sm font-medium border px-2 py-1 rounded bg-slate-50 inline-block capitalize">
+                                {refund.jenis_masalah?.replace(/_/g, ' ')}
+                            </span>
+                        </div>
+                        <div className="space-y-1">
+                            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Jumlah Item</span>
+                            <span className="text-sm font-semibold text-slate-700">{refund.jumlah_item} pcs</span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 border-t pt-3">
+                        <div className="space-y-1">
+                            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Nominal Refund</span>
+                            <span className="text-base font-bold text-rose-600 font-mono">{formatRupiah(refund.nominal_refund)}</span>
+                        </div>
+                        <div className="space-y-1">
+                            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Brand</span>
+                            <span className="text-sm font-semibold text-slate-700">{refund.brand?.nama_brand || refund.order?.brand?.nama_brand || '—'}</span>
+                        </div>
+                    </div>
+
+                    <div className="border-t pt-3 space-y-1.5">
+                        <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Alasan Refund</span>
+                        <p className="text-sm text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100 whitespace-pre-wrap">{refund.alasan}</p>
+                    </div>
+
+                    {refund.catatan && (
+                        <div className="border-t pt-3 space-y-1.5">
+                            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Catatan Tambahan</span>
+                            <p className="text-sm text-slate-600 bg-slate-50/50 p-2.5 rounded-lg border border-slate-100 whitespace-pre-wrap">{refund.catatan}</p>
+                        </div>
+                    )}
+
+                    {/* Order Information section */}
+                    <div className="border-t pt-4">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Informasi PO / Pesanan</h4>
+                        <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200/60 grid grid-cols-2 gap-4">
+                            <div>
+                                <span className="text-xs text-slate-500 block">Nomor PO</span>
+                                <span className="text-sm font-mono font-semibold text-primary">{refund.order?.no_po || '—'}</span>
+                            </div>
+                            <div>
+                                <span className="text-xs text-slate-500 block">Nama Pelanggan</span>
+                                <span className="text-sm font-medium text-slate-800">{refund.order?.pelanggan?.nama || '—'}</span>
+                            </div>
+                            <div className="col-span-2 border-t pt-2 mt-1 flex justify-between items-center">
+                                <div>
+                                    <span className="text-xs text-slate-500 block">Total Tagihan PO</span>
+                                    <span className="text-sm font-semibold font-mono text-slate-700">{formatRupiah(refund.order?.total_tagihan)}</span>
+                                </div>
+                                {refund.order?.is_special_order && (
+                                    <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200 text-xs">
+                                        Special Order
+                                    </Badge>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Review Logs if rejected/published */}
+                    {(refund.reviewed_by || refund.published_by || refund.status === 'rejected') && (
+                        <div className="border-t pt-4">
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Audit & Review Log</h4>
+                            <div className="text-xs space-y-2 bg-slate-50 p-3 rounded-lg border">
+                                {refund.status === 'rejected' && (
+                                    <div className="p-2.5 bg-rose-50 border border-rose-100 rounded-md text-rose-800 space-y-1">
+                                        <div className="font-semibold flex items-center gap-1">
+                                            <XCircle className="h-3.5 w-3.5" /> Ditolak oleh Finance
+                                        </div>
+                                        {refund.rejected_reason && <p className="font-normal italic text-xs">Alasan: "{refund.rejected_reason}"</p>}
+                                        {refund.reviewed_by && (
+                                            <p className="text-[10px] text-rose-600 font-medium">
+                                                Oleh: {refund.reviewer?.name || 'Sistem'} &bull; {formatDate(refund.reviewed_at)}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                                {refund.status === 'published' && (
+                                    <div className="p-2.5 bg-emerald-50 border border-emerald-100 rounded-md text-emerald-800 space-y-1">
+                                        <div className="font-semibold flex items-center gap-1">
+                                            <CheckCircle2 className="h-3.5 w-3.5" /> Berhasil Diterbitkan
+                                        </div>
+                                        {refund.published_by && (
+                                            <p className="text-[10px] text-emerald-600 font-medium">
+                                                Oleh: {refund.publisher?.name || 'Sistem'} &bull; {formatDate(refund.published_at)}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <DialogFooter className="border-t pt-3">
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Tutup</Button>
+                    {can?.review && refund.status === 'pending_review' && (
+                        <div className="flex gap-2">
+                            <Button type="button" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => { onOpenChange(false); onPublish(refund); }}>
+                                <CheckCircle2 className="h-4 w-4 mr-1" /> Terbitkan
+                            </Button>
+                            <Button type="button" variant="destructive" onClick={() => { onOpenChange(false); onReject(refund); }}>
+                                <XCircle className="h-4 w-4 mr-1" /> Tolak
+                            </Button>
+                        </div>
+                    )}
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 export default function RefundIndex({ refunds, all_filtered_refunds, brands, filters, statuses, jenis_options: jenisOptions, can }) {
     const [search, setSearch] = useState(filters?.q ?? '');
     const [status, setStatus] = useState(filters?.status ?? 'all');
@@ -138,6 +280,7 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
     const [copied, setCopied] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
     const [rejecting, setRejecting] = useState(null);
+    const [selectedRefund, setSelectedRefund] = useState(null);
     const [showDatePanel, setShowDatePanel] = useState(!!(filters?.start_date || filters?.end_date));
 
     function applyFilters(overrides = {}) {
@@ -453,27 +596,32 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
                                         </TableRow>
                                     )}
                                     {refunds.data.map((r) => (
-                                        <TableRow key={r.id}>
-                                            <TableCell className="font-mono text-xs">{r.refund_number}</TableCell>
+                                        <TableRow key={r.id} className="cursor-pointer hover:bg-slate-50/50" onClick={() => setSelectedRefund(r)}>
+                                            <TableCell className="font-mono text-xs font-semibold">{r.refund_number}</TableCell>
                                             <TableCell className="font-mono text-xs">{r.order?.no_po}</TableCell>
-                                            <TableCell><Badge variant="outline">{r.jenis_masalah?.replace(/_/g, ' ')}</Badge></TableCell>
-                                            <TableCell className="text-right font-mono text-xs">{formatRupiah(r.nominal_refund)}</TableCell>
+                                            <TableCell><Badge variant="outline" className="capitalize">{r.jenis_masalah?.replace(/_/g, ' ')}</Badge></TableCell>
+                                            <TableCell className="text-right font-mono text-xs font-bold text-slate-800">{formatRupiah(r.nominal_refund)}</TableCell>
                                             <TableCell className="text-xs">
                                                 {r.creator?.name}<br />
                                                 <span className="text-muted-foreground">{formatDate(r.created_at)}</span>
                                             </TableCell>
                                             <TableCell><Badge variant={STATUS_VARIANT[r.status] ?? 'outline'}>{r.status}</Badge></TableCell>
-                                            <TableCell className="text-right">
-                                                {can?.review && r.status === 'pending_review' && (
-                                                    <div className="flex justify-end gap-1">
-                                                        <Button size="sm" variant="outline" className="text-emerald-600" onClick={() => publish(r)}>
-                                                            <CheckCircle2 className="h-3.5 w-3.5" /> Terbitkan
-                                                        </Button>
-                                                        <Button size="sm" variant="outline" className="text-destructive" onClick={() => setRejecting(r)}>
-                                                            <XCircle className="h-3.5 w-3.5" /> Tolak
-                                                        </Button>
-                                                    </div>
-                                                )}
+                                            <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex justify-end gap-1.5">
+                                                    <Button size="sm" variant="outline" onClick={() => setSelectedRefund(r)}>
+                                                        Detail
+                                                    </Button>
+                                                    {can?.review && r.status === 'pending_review' && (
+                                                        <>
+                                                            <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50" onClick={() => publish(r)}>
+                                                                <CheckCircle2 className="h-3.5 w-3.5" /> Terbitkan
+                                                            </Button>
+                                                            <Button size="sm" variant="outline" className="text-destructive border-destructive/20 hover:bg-destructive/5" onClick={() => setRejecting(r)}>
+                                                                <XCircle className="h-3.5 w-3.5" /> Tolak
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -488,6 +636,14 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
             {rejecting && (
                 <RejectDialog key={rejecting.id} refund={rejecting} open={!!rejecting} onOpenChange={(v) => !v && setRejecting(null)} />
             )}
+            <DetailRefundDialog 
+                refund={selectedRefund} 
+                open={!!selectedRefund} 
+                onOpenChange={(v) => !v && setSelectedRefund(null)} 
+                can={can} 
+                onPublish={publish} 
+                onReject={setRejecting} 
+            />
         </AppLayout>
     );
 }
