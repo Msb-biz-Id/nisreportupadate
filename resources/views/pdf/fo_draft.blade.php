@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>SPK DRAFT - {{ $brand->nama_brand }}</title>
+    <title>FO DRAFT - {{ $brand->nama_brand }}</title>
     <style>
         /* === CSS TEMPLATE DASAR PDF A4 (Polished) === */
         * { box-sizing: border-box; }
@@ -80,9 +80,30 @@
         .page-break   { page-break-before: always; }
         .page-num:after { content: counter(page); }
         .lampiran-sub { font-weight: bold; font-size: 9.5pt; margin-bottom: 4px; }
+
+        /* ===== WATERMARK DRAFT ===== */
+        .watermark {
+            position: fixed;
+            top: 55mm;
+            left: -10mm;
+            width: 230mm;
+            text-align: center;
+            font-size: 72pt;
+            font-weight: 900;
+            color: #000;
+            opacity: 0.07;
+            transform: rotate(-35deg);
+            z-index: 9999;
+            pointer-events: none;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            font-family: 'DejaVu Sans', 'Helvetica', sans-serif;
+        }
     </style>
 </head>
 <body>
+    {{-- ===== WATERMARK DIAGONAL ===== --}}
+    <div class="watermark">DRAFT</div>
     <header>
         <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; padding: 0;">
             <tr>
