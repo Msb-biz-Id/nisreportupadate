@@ -1275,8 +1275,10 @@ class OrderLifecycleTest extends TestCase
             ->get(route('orders.spk.preview', $order->id))
             ->assertStatus(200);
 
-        $response->assertViewHas('isWebPreview', true);
-        $response->assertViewHas('order');
+        $response->assertInertia(fn ($page) => $page
+            ->component('Order/SpkPreview')
+            ->has('order')
+        );
     }
 
     public function test_admin_keuangan_can_edit_payment_and_generate_audit_trail()

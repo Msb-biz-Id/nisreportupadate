@@ -6,12 +6,12 @@
     <style>
         /* === CSS TEMPLATE DASAR PDF A4 (Polished) === */
         * { box-sizing: border-box; }
-        @page { margin: 25mm 15mm 20mm 15mm; }
+        @page { margin: 15mm 12mm 15mm 12mm; }
 
-        header { position: fixed; top: -18mm; left: 0; right: 0; height: 12mm;
+        header { position: fixed; top: -10mm; left: 0; right: 0; height: 8mm;
                  text-align: center; font-size: 14pt; font-weight: bold;
                  border-bottom: 3px solid #000; padding-bottom: 5px; text-transform: uppercase; }
-        footer { position: fixed; bottom: -15mm; left: 0; right: 0; height: 10mm;
+        footer { position: fixed; bottom: -10mm; left: 0; right: 0; height: 8mm;
                  border-top: 2px solid #000; padding-top: 5px; }
         main   { margin-top: 5mm; margin-bottom: 5mm; }
 

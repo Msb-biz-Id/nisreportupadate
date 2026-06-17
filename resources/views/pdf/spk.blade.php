@@ -6,12 +6,12 @@
     <style>
         /* === CSS TEMPLATE DASAR PDF A4 (Polished) === */
         * { box-sizing: border-box; }
-        @page { margin: 25mm 15mm 20mm 15mm; }
+        @page { margin: 15mm 12mm 15mm 12mm; }
 
-        header { position: fixed; top: -18mm; left: 0; right: 0; height: 12mm;
+        header { position: fixed; top: -10mm; left: 0; right: 0; height: 8mm;
                  text-align: center; font-size: 14pt; font-weight: bold;
                  border-bottom: 3px solid #000; padding-bottom: 5px; text-transform: uppercase; }
-        footer { position: fixed; bottom: -15mm; left: 0; right: 0; height: 10mm;
+        footer { position: fixed; bottom: -10mm; left: 0; right: 0; height: 8mm;
                  border-top: 2px solid #000; padding-top: 5px; }
         main   { margin-top: 5mm; margin-bottom: 5mm; }
 
@@ -62,166 +62,11 @@
         .page-num:after { content: counter(page); }
         .lampiran-sub { font-weight: bold; font-size: 9.5pt; margin-bottom: 4px; }
 
-        @media screen {
-            body {
-                background: #fff;
-                padding: 60px 0 0 0;
-                font-family: 'Inter', system-ui, -apple-system, sans-serif;
-                margin: 0;
-            }
-            .web-toolbar {
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                height: 60px;
-                background: #1f2937;
-                color: #fff;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 0 24px;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-                z-index: 9999;
-                font-family: system-ui, -apple-system, sans-serif;
-            }
-            .toolbar-title {
-                font-weight: 600;
-                font-size: 15px;
-                letter-spacing: 0.5px;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
-            .toolbar-actions {
-                display: flex;
-                gap: 12px;
-            }
-            .btn {
-                padding: 8px 16px;
-                border-radius: 6px;
-                font-size: 13px;
-                font-weight: 500;
-                cursor: pointer;
-                border: none;
-                transition: all 0.2s;
-                text-decoration: none;
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-            }
-            .btn-primary {
-                background: #3b82f6;
-                color: #fff;
-            }
-            .btn-primary:hover {
-                background: #2563eb;
-            }
-            .btn-secondary {
-                background: #4b5563;
-                color: #fff;
-            }
-            .btn-secondary:hover {
-                background: #374151;
-            }
-            .btn-danger {
-                background: #ef4444;
-                color: #fff;
-            }
-            .btn-danger:hover {
-                background: #dc2626;
-            }
-            .paper-container {
-                background: #fff;
-                max-width: 210mm;
-                min-height: 297mm;
-                margin: 0 auto;
-                box-shadow: none;
-                padding: 10mm;
-                border: none;
-                position: relative;
-            }
-            header {
-                position: absolute;
-                top: 5mm;
-                left: 10mm;
-                right: 10mm;
-                border-bottom: 3px solid #000;
-            }
-            footer {
-                position: absolute;
-                bottom: 5mm;
-                left: 10mm;
-                right: 10mm;
-                border-top: 2px solid #000;
-            }
-            main {
-                margin-top: 15mm;
-                margin-bottom: 15mm;
-            }
-            .page-break {
-                margin-top: 40px;
-                border-top: 2px dashed #9ca3af;
-                padding-top: 40px;
-                position: relative;
-            }
-            .page-break::before {
-                content: "BATAS HALAMAN CETAK";
-                position: absolute;
-                top: -12px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: #fff;
-                padding: 0 10px;
-                font-size: 10px;
-                color: #9ca3af;
-                font-weight: 600;
-            }
-        }
-        @media print {
-            .web-toolbar {
-                display: none !important;
-            }
-            body {
-                background: #fff !important;
-                padding: 0 !important;
-                margin: 0 !important;
-            }
-            .paper-container {
-                box-shadow: none !important;
-                border: none !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                max-width: 100% !important;
-                min-height: 0 !important;
-            }
-        }
+
     </style>
 </head>
 <body>
-    @if(isset($isWebPreview) && $isWebPreview)
-        <div class="web-toolbar">
-            <div class="toolbar-title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                PREVIEW SPK: {{ $order->no_po }}
-            </div>
-            <div class="toolbar-actions">
-                <button onclick="window.print()" class="btn btn-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
-                    Cetak / Simpan PDF
-                </button>
-                <a href="{{ route('orders.spk.pdf', $order->id) }}" class="btn btn-secondary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                    Unduh PDF
-                </a>
-                <button onclick="window.close()" class="btn btn-danger">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="m15 9-6 6M9 9l6 6"/></svg>
-                    Tutup
-                </button>
-            </div>
-        </div>
-        <div class="paper-container">
-    @endif
+
     <header>
         <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; padding: 0;">
             <tr>
@@ -895,8 +740,6 @@
         @endforeach
 
     </main>
-    @if(isset($isWebPreview) && $isWebPreview)
-        </div>
-    @endif
+
 </body>
 </html>

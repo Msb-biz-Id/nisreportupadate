@@ -93,6 +93,20 @@ class MasterDataTest extends TestCase
             ->assertRedirect();
     }
 
+    public function test_admin_produksi_cannot_access_brand_scoped_master_data(): void
+    {
+        $brand = $this->makeBrand();
+        $user = $this->makeUser('admin_produksi', [$brand]);
+
+        $this->actingAsWithBrand($user, $brand)
+            ->get(route('master.index', 'sumber-order'))
+            ->assertForbidden();
+
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('master.store', 'sumber-order'), ['nama' => 'Brand Source'])
+            ->assertForbidden();
+    }
+
     public function test_invalid_master_slug_returns_404(): void
     {
         $sa = $this->makeUser('superadmin', [$this->makeBrand()]);

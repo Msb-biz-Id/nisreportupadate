@@ -1056,9 +1056,29 @@ class OrderController extends Controller
             'items.namesets.size', 'items.namesets.sizeCelana',
         ]);
 
-        return view('pdf.spk', [
+        foreach ($order->items as $item) {
+            $item->logo_names = !empty($item->logo_ids)
+                ? \App\Models\Master\Logo::whereIn('id', $item->logo_ids)->pluck('nama')->toArray()
+                : [];
+            $item->bahan_kains_names = !empty($item->bahan_kain_ids)
+                ? \App\Models\Master\BahanKain::whereIn('id', $item->bahan_kain_ids)->pluck('nama')->implode(', ')
+                : null;
+            $item->bahan_kain_bawahan_names = !empty($item->bahan_kain_bawahan_ids)
+                ? \App\Models\Master\BahanKain::whereIn('id', $item->bahan_kain_bawahan_ids)->pluck('nama')->implode(', ')
+                : null;
+        }
+
+        $printings = collect();
+        if (!empty($order->printing_ids)) {
+            $printings = \App\Models\Master\Printing::whereIn('id', $order->printing_ids)->pluck('nama');
+        }
+
+        $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+
+        return Inertia::render('Order/SpkPreview', [
             'order' => $order,
-            'isWebPreview' => true,
+            'printings' => $printings,
+            'progresses' => $progresses,
         ]);
     }
 

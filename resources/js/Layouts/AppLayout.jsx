@@ -136,11 +136,9 @@ function buildMenu(user) {
             if (canManageBrand && m.group === 'brand') return true;
             if (canManageProduk && m.slug === 'produk') return true;
             // admin_produksi: lihat semua master produksi (global = bahan, size, logo, pola, dll) + tahapan progress
-            // serta master data order/po (sumber, jenis, promo, kategori, produk)
             if (canManageProduction && (
                 m.group === 'production' || 
-                m.group === 'global' || 
-                (m.group === 'brand' && m.slug !== 'bank')
+                m.group === 'global'
             )) return true;
             return false;
         });
