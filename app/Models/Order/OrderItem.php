@@ -64,5 +64,5 @@ class OrderItem extends Model
     public function resleting(): BelongsTo { return $this->belongsTo(Resleting::class); }
     public function polaJahitan(): BelongsTo { return $this->belongsTo(PolaJahitan::class, 'pola_jahitan_id'); }
     public function polaJahitanLengan(): BelongsTo { return $this->belongsTo(PolaJahitan::class, 'pola_jahitan_lengan_id'); }
-    public function namesets(): HasMany { return $this->hasMany(OrderNameset::class); }
+    public function namesets(): HasMany { return $this->hasMany(OrderNameset::class)->orderBy('urutan'); }
 }

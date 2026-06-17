@@ -555,35 +555,35 @@
                             @if($col['type'] === 'no')
                                 <td>{{ $i + 1 }}.</td>
                             @elseif($col['type'] === 'nama_punggung')
-                                <td class="t-left">{{ strtoupper($ns['nama_punggung'] ?? '') ?: '.......' }}</td>
+                                <td class="t-left">{{ strtoupper($ns['nama_punggung'] ?? '') ?: '' }}</td>
                             @elseif($col['type'] === 'no_punggung')
-                                <td>{{ $ns['nomor_punggung'] ?? '.......' }}</td>
+                                <td>{{ $ns['nomor_punggung'] ?? '' }}</td>
                             @elseif($col['type'] === 'nama_dada')
-                                <td class="t-left">{{ strtoupper($ns['nama_dada'] ?? '') ?: '.......' }}</td>
+                                <td class="t-left">{{ strtoupper($ns['nama_dada'] ?? '') ?: '' }}</td>
                             @elseif($col['type'] === 'no_dada')
-                                <td>{{ $ns['nomor_dada'] ?? '.......' }}</td>
+                                <td>{{ $ns['nomor_dada'] ?? '' }}</td>
                             @elseif($col['type'] === 'nama_lengan')
-                                <td class="t-left">{{ strtoupper($ns['nama_lengan'] ?? '') ?: '.......' }}</td>
+                                <td class="t-left">{{ strtoupper($ns['nama_lengan'] ?? '') ?: '' }}</td>
                             @elseif($col['type'] === 'no_lengan')
-                                <td>{{ $ns['nomor_lengan'] ?? '.......' }}</td>
+                                <td>{{ $ns['nomor_lengan'] ?? '' }}</td>
                             @elseif($col['type'] === 'nama_punggung_2')
-                                <td class="t-left">{{ strtoupper($ns['nama_punggung_2'] ?? '') ?: '.......' }}</td>
+                                <td class="t-left">{{ strtoupper($ns['nama_punggung_2'] ?? '') ?: '' }}</td>
                             @elseif($col['type'] === 'no_punggung_2')
-                                <td>{{ $ns['nomor_punggung_2'] ?? '.......' }}</td>
+                                <td>{{ $ns['nomor_punggung_2'] ?? '' }}</td>
                             @elseif($col['type'] === 'size')
                                 @php
                                     $parts = explode('-', $ns['_size_label'] ?? $ns['size_label'] ?? '');
                                     $sv = trim(end($parts));
                                 @endphp
-                                <td>{{ $sv ?: '.......' }}</td>
+                                <td>{{ $sv ?: '' }}</td>
                             @elseif($col['type'] === 'size_celana')
                                 @php
                                     $parts = explode('-', $ns['_size_celana_label'] ?? $ns['size_celana_label'] ?? '');
                                     $svc = trim(end($parts));
                                 @endphp
-                                <td>{{ $svc ?: '.......' }}</td>
+                                <td>{{ $svc ?: '' }}</td>
                             @elseif($col['type'] === 'keterangan')
-                                <td class="t-left">{{ $ns['keterangan'] ?: '.......' }}</td>
+                                <td class="t-left">{{ $ns['keterangan'] ?: '' }}</td>
                             @endif
                         @endforeach
                     </tr>
@@ -756,9 +756,9 @@
                             @elseif($col['type'] === 'no_punggung')
                                 <td>{{ $ns['nomor_punggung'] ?? '.......' }}</td>
                             @elseif($col['type'] === 'nama_dada')
-                                <td class="t-left">{{ strtoupper($ns['nama_dada'] ?? '') ?: '.......' }}</td>
+                                <td class="t-left">{{ strtoupper($ns['nama_dada'] ?? '') ?: '' }}</td>
                             @elseif($col['type'] === 'no_dada')
-                                <td>{{ $ns['nomor_dada'] ?? '.......' }}</td>
+                                <td>{{ $ns['nomor_dada'] ?? '' }}</td>
                             @elseif($col['type'] === 'nama_lengan')
                                 <td class="t-left">{{ strtoupper($ns['nama_lengan'] ?? '') ?: '.......' }}</td>
                             @elseif($col['type'] === 'no_lengan')

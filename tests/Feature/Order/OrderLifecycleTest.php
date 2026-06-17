@@ -704,6 +704,85 @@ class OrderLifecycleTest extends TestCase
         $this->assertEquals('Dewasa - L', $nameset->size_celana_label);
     }
 
+    public function test_nameset_entries_are_auto_sorted_by_size(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $user = $this->makeUser('admin_brand', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+
+        $sizeS = \App\Models\Master\Size::create([
+            'kategori_size' => 'Laki-laki',
+            'ukuran' => 'S',
+            'urutan' => 2,
+            'is_active' => true,
+        ]);
+        $sizeM = \App\Models\Master\Size::create([
+            'kategori_size' => 'Laki-laki',
+            'ukuran' => 'M',
+            'urutan' => 3,
+            'is_active' => true,
+        ]);
+        $sizeKidXS = \App\Models\Master\Size::create([
+            'kategori_size' => 'Anak',
+            'ukuran' => 'XS Kid',
+            'urutan' => 1,
+            'is_active' => true,
+        ]);
+
+        $bank = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->first();
+
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('orders.store'), [
+                'nama_po' => 'PO Sorted Nameset Test',
+                'tanggal_masuk' => now()->toDateString(),
+                'deadline_customer' => now()->addDays(14)->toDateString(),
+                'pelanggan_id' => $customer->id,
+                'bank_id' => $bank->id,
+                'items' => [[
+                    'nama_produk' => 'Jersey Test',
+                    'quantity' => 3,
+                    'harga_satuan' => 100000,
+                    'namesets' => [
+                        [
+                            'nama_punggung' => 'M-Boy',
+                            'nomor_punggung' => '3',
+                            'size_id' => $sizeM->id,
+                            'size_label' => 'Laki-laki - M',
+                        ],
+                        [
+                            'nama_punggung' => 'XS-Kid',
+                            'nomor_punggung' => '1',
+                            'size_id' => $sizeKidXS->id,
+                            'size_label' => 'Anak - XS Kid',
+                        ],
+                        [
+                            'nama_punggung' => 'S-Boy',
+                            'nomor_punggung' => '2',
+                            'size_id' => $sizeS->id,
+                            'size_label' => 'Laki-laki - S',
+                        ]
+                    ]
+                ]],
+            ])
+            ->assertRedirect();
+
+        $order = Order::where('nama_po', 'PO Sorted Nameset Test')->first();
+        $this->assertNotNull($order);
+        $item = $order->items()->first();
+        $this->assertNotNull($item);
+
+        $namesets = $item->namesets()->get();
+        $this->assertCount(3, $namesets);
+
+        $this->assertEquals('XS-Kid', $namesets[0]->nama_punggung);
+        $this->assertEquals('S-Boy', $namesets[1]->nama_punggung);
+        $this->assertEquals('M-Boy', $namesets[2]->nama_punggung);
+
+        $this->assertEquals(0, $namesets[0]->urutan);
+        $this->assertEquals(1, $namesets[1]->urutan);
+        $this->assertEquals(2, $namesets[2]->urutan);
+    }
+
     public function test_published_po_is_locked_by_default_and_cannot_be_edited_unless_unlocked(): void
     {
         $brand = $this->setupBrandWithMasters();

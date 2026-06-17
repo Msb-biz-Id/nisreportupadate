@@ -61,8 +61,9 @@ export default function ImageUploader({
         reader.onload = () => {
             const img = new Image();
             img.onload = () => {
+                const resizedSrc = resizeImageIfNeeded(img, 1600);
                 const calculatedAspect = img.width / img.height;
-                setSrc(reader.result);
+                setSrc(resizedSrc);
                 setImageAspect(calculatedAspect);
                 setCropAspect(calculatedAspect); // Default to full area/original aspect ratio
                 setCrop({ x: 0, y: 0 });
@@ -210,6 +211,7 @@ export default function ImageUploader({
                                     onCropComplete={onCropComplete}
                                     showGrid={true}
                                     objectFit="contain"
+                                    maxZoom={5}
                                 />
                             )}
                         </div>
@@ -310,7 +312,7 @@ export default function ImageUploader({
                                         <input
                                             type="range"
                                             min={1}
-                                            max={3}
+                                            max={5}
                                             step={0.05}
                                             value={zoom}
                                             onChange={(e) => setZoom(Number(e.target.value))}
@@ -416,4 +418,29 @@ function loadImage(src) {
         img.onerror = reject;
         img.src = src;
     });
+}
+
+function resizeImageIfNeeded(img, maxDim = 1600) {
+    if (img.width <= maxDim && img.height <= maxDim) {
+        return img.src;
+    }
+    const canvas = document.createElement('canvas');
+    let width = img.width;
+    let height = img.height;
+    if (width > height) {
+        if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+        }
+    } else {
+        if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+        }
+    }
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, width, height);
+    return canvas.toDataURL('image/jpeg', 0.92);
 }

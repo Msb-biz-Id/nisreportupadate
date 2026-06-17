@@ -46,7 +46,7 @@ function UpdateModal({ order, detail, open, onOpenChange }) {
                     <DialogHeader>
                         <DialogTitle>Update {detail?.progress?.nama_progress}</DialogTitle>
                         <DialogDescription>
-                            Pilih status baru untuk tahapan ini. Catatan wajib diisi untuk transisi status.
+                            Pilih status baru untuk tahapan ini.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-3 py-4">
@@ -63,7 +63,7 @@ function UpdateModal({ order, detail, open, onOpenChange }) {
                             </Select>
                         </div>
                         <div>
-                            <Label>Catatan {data.status !== 'pending' && <span className="text-destructive">*</span>}</Label>
+                            <Label>Catatan (opsional)</Label>
                             <Textarea value={data.catatan} onChange={(e) => setData('catatan', e.target.value)} rows={3} className="mt-1.5" placeholder="Apa yang dikerjakan / hasil pengerjaan" />
                             {errors.catatan && <p className="mt-1 text-xs text-destructive">{errors.catatan}</p>}
                         </div>
@@ -74,7 +74,7 @@ function UpdateModal({ order, detail, open, onOpenChange }) {
                         {data.status === 'skipped' && (
                             <div>
                                 <Label>Alasan Skip <span className="text-destructive">*</span></Label>
-                                <Textarea value={data.skipped_reason} onChange={(e) => setData('skipped_reason', e.target.value)} rows={2} className="mt-1.5" />
+                                <Textarea value={data.skipped_reason} onChange={(e) => setData('skipped_reason', e.target.value)} rows={2} className="mt-1.5" required />
                                 {errors.skipped_reason && <p className="mt-1 text-xs text-destructive">{errors.skipped_reason}</p>}
                             </div>
                         )}
@@ -83,7 +83,7 @@ function UpdateModal({ order, detail, open, onOpenChange }) {
                                 <p className="text-xs font-black text-violet-700 uppercase tracking-wide">Data Pengiriman</p>
                                 <div>
                                     <Label>Nama Ekspedisi <span className="text-destructive">*</span></Label>
-                                    <Input value={data.nama_ekspedisi} onChange={(e) => setData('nama_ekspedisi', e.target.value)} placeholder="JNE / J&T / SiCepat / dll" className="mt-1.5" />
+                                    <Input value={data.nama_ekspedisi} onChange={(e) => setData('nama_ekspedisi', e.target.value)} placeholder="JNE / J&T / SiCepat / dll" className="mt-1.5" required />
                                     {errors.nama_ekspedisi && <p className="mt-1 text-xs text-destructive">{errors.nama_ekspedisi}</p>}
                                 </div>
                                 <div>
@@ -96,6 +96,102 @@ function UpdateModal({ order, detail, open, onOpenChange }) {
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
                         <Button type="submit" disabled={processing}>Update</Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function BulkUpdateModal({ order, ids, open, onOpenChange, sortedDetails, onSuccess }) {
+    const selectedNames = sortedDetails
+        .filter(d => ids.includes(d.id))
+        .map(d => d.progress?.nama_progress)
+        .join(', ');
+
+    const hasSending = sortedDetails
+        .filter(d => ids.includes(d.id))
+        .some(d => d.progress?.nama_progress?.toUpperCase() === 'SENDING');
+
+    const { data, setData, post, processing, errors, reset } = useForm({
+        ids: ids,
+        status: 'selesai',
+        catatan: '',
+        kendala: '',
+        skipped_reason: '',
+        nama_ekspedisi: order?.nama_ekspedisi ?? '',
+        no_resi: order?.no_resi ?? '',
+    });
+
+    useEffect(() => {
+        setData('ids', ids);
+    }, [ids, open]);
+
+    function submit(e) {
+        e.preventDefault();
+        post(route('produksi.progress.bulk', order.id), {
+            preserveScroll: true,
+            onSuccess: () => { reset(); onSuccess(); onOpenChange(false); },
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <form onSubmit={submit}>
+                    <DialogHeader>
+                        <DialogTitle>Update Status Massal</DialogTitle>
+                        <DialogDescription>
+                            Memperbarui status untuk tahapan: <span className="font-bold text-slate-800">{selectedNames}</span>.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-4">
+                        <div>
+                            <Label>Status Baru</Label>
+                            <Select value={data.status} onValueChange={(v) => setData('status', v)}>
+                                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="pending">Pending</SelectItem>
+                                    <SelectItem value="on_progress">On Progress</SelectItem>
+                                    <SelectItem value="selesai">Selesai</SelectItem>
+                                    <SelectItem value="skipped">Skipped</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label>Catatan (opsional)</Label>
+                            <Textarea value={data.catatan} onChange={(e) => setData('catatan', e.target.value)} rows={3} className="mt-1.5" placeholder="Catatan untuk semua tahapan terpilih" />
+                            {errors.catatan && <p className="mt-1 text-xs text-destructive">{errors.catatan}</p>}
+                        </div>
+                        <div>
+                            <Label>Kendala (opsional)</Label>
+                            <Textarea value={data.kendala} onChange={(e) => setData('kendala', e.target.value)} rows={2} className="mt-1.5" placeholder="Kendala untuk semua tahapan terpilih jika ada" />
+                        </div>
+                        {data.status === 'skipped' && (
+                            <div>
+                                <Label>Alasan Skip <span className="text-destructive">*</span></Label>
+                                <Textarea value={data.skipped_reason} onChange={(e) => setData('skipped_reason', e.target.value)} rows={2} className="mt-1.5" required />
+                                {errors.skipped_reason && <p className="mt-1 text-xs text-destructive">{errors.skipped_reason}</p>}
+                            </div>
+                        )}
+                        {hasSending && data.status === 'selesai' && (
+                            <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 space-y-3">
+                                <p className="text-xs font-black text-violet-700 uppercase tracking-wide">Data Pengiriman (Untuk Tahap Sending)</p>
+                                <div>
+                                    <Label>Nama Ekspedisi <span className="text-destructive">*</span></Label>
+                                    <Input value={data.nama_ekspedisi} onChange={(e) => setData('nama_ekspedisi', e.target.value)} placeholder="JNE / J&T / SiCepat / dll" className="mt-1.5" required />
+                                    {errors.nama_ekspedisi && <p className="mt-1 text-xs text-destructive">{errors.nama_ekspedisi}</p>}
+                                </div>
+                                <div>
+                                    <Label>Nomor Resi</Label>
+                                    <Input value={data.no_resi} onChange={(e) => setData('no_resi', e.target.value)} placeholder="Nomor resi pengiriman" className="mt-1.5 font-mono" />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
+                        <Button type="submit" disabled={processing}>Simpan Perubahan</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
@@ -221,6 +317,8 @@ export default function ProgressPage({ order, can }) {
     const [updating, setUpdating] = useState(null);
     const [openRijek, setOpenRijek] = useState(false);
     const [editingRijek, setEditingRijek] = useState(null);
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [openBulkUpdate, setOpenBulkUpdate] = useState(false);
 
     const sortedDetails = (order.progress_details ?? []).slice().sort(
         (a, b) => (a.progress?.urutan ?? 0) - (b.progress?.urutan ?? 0)
@@ -228,6 +326,26 @@ export default function ProgressPage({ order, can }) {
 
     const progressOptions = sortedDetails.map((d) => d.progress).filter(Boolean);
     const isSent = order.status_po === 'sudah_dikirim';
+
+    const updatableDetails = sortedDetails.filter(d => {
+        const isSendingRow = d.progress?.nama_progress?.toUpperCase() === 'SENDING';
+        const sendingLocked = isSendingRow && !order.is_lunas && !order.is_special_order;
+        return can?.update && !sendingLocked;
+    });
+
+    const toggleSelect = (id) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === updatableDetails.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(updatableDetails.map(d => d.id));
+        }
+    };
 
     return (
         <AppLayout title={`Progress ${order.no_po}`}>
@@ -247,19 +365,75 @@ export default function ProgressPage({ order, can }) {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Update Progress Per-Tahapan</CardTitle>
-                        <CardDescription>
-                            <span className="font-mono">{order.no_po}</span> — {order.nama_po}.
-                            PO ter-lock otomatis saat tahap pertama jadi <em>On Progress</em>.
-                        </CardDescription>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div>
+                                <CardTitle>Update Progress Per-Tahapan</CardTitle>
+                                <CardDescription>
+                                    <span className="font-mono">{order.no_po}</span> — {order.nama_po}.
+                                    PO ter-lock otomatis saat tahap pertama jadi <em>On Progress</em>.
+                                </CardDescription>
+                            </div>
+                            {updatableDetails.length > 0 && (
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={toggleSelectAll}
+                                        className="text-xs h-8 px-3 text-slate-600 border-slate-200 hover:bg-slate-50"
+                                    >
+                                        {selectedIds.length === updatableDetails.length ? 'Deselect All' : 'Select All'}
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
                     </CardHeader>
                     <CardContent className="space-y-2">
+                        {selectedIds.length > 0 && (
+                            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/50 p-3.5 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="flex items-center gap-2">
+                                    <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
+                                    <span className="text-sm font-semibold text-blue-900">
+                                        {selectedIds.length} tahapan terpilih
+                                    </span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button
+                                        size="sm"
+                                        className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                                        onClick={() => setOpenBulkUpdate(true)}
+                                    >
+                                        Update Status Terpilih
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="text-slate-500 hover:text-slate-700 hover:bg-slate-100/50 font-medium"
+                                        onClick={() => setSelectedIds([])}
+                                    >
+                                        Batal
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
                         {sortedDetails.map((d) => {
                             const variant = STATUS_VARIANT[d.status] ?? 'outline';
                             const isSendingRow = d.progress?.nama_progress?.toUpperCase() === 'SENDING';
                             const sendingLocked = isSendingRow && !order.is_lunas && !order.is_special_order;
+                            const isSelected = selectedIds.includes(d.id);
+
                             return (
-                                <div key={d.id} className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 ${sendingLocked ? 'bg-amber-50/50 border-amber-200' : ''}`}>
+                                <div key={d.id} className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 transition-colors ${sendingLocked ? 'bg-amber-50/50 border-amber-200' : ''} ${isSelected ? 'border-blue-300 bg-blue-50/10' : ''}`}>
+                                    {can?.update && !sendingLocked && (
+                                        <div className="flex items-center justify-center pr-1">
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                checked={isSelected}
+                                                onChange={() => toggleSelect(d.id)}
+                                            />
+                                        </div>
+                                    )}
                                     <div className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white" style={{ background: d.progress?.warna || '#3B82F6' }}>
                                         {d.progress?.urutan}
                                     </div>
@@ -382,6 +556,16 @@ export default function ProgressPage({ order, can }) {
                     detail={updating}
                     open={!!updating}
                     onOpenChange={(v) => !v && setUpdating(null)}
+                />
+            )}
+            {openBulkUpdate && (
+                <BulkUpdateModal
+                    order={order}
+                    ids={selectedIds}
+                    open={openBulkUpdate}
+                    onOpenChange={setOpenBulkUpdate}
+                    sortedDetails={sortedDetails}
+                    onSuccess={() => setSelectedIds([])}
                 />
             )}
             <RijekModal

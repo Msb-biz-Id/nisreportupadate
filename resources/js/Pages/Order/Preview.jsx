@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import {
     Package, User, MapPin, CalendarClock, Pencil, Send, RotateCw, Trash2, Lock, Unlock,
     CreditCard, ListChecks, AlertTriangle, Receipt, FileText, ExternalLink, CheckCircle2, XCircle, Eye,
+    ChevronDown, ChevronUp, Copy, Check,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
@@ -312,6 +313,30 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
     const [editTimeline, setEditTimeline] = useState(false);
     const [openEditPayment, setOpenEditPayment] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState(null);
+    const [copied, setCopied] = useState(false);
+    const [collapsedSections, setCollapsedSections] = useState({
+        pelanggan: true,
+        timeline: true,
+        pembayaran: true,
+        changeLog: true,
+        detailPo: true,
+        items: true,
+        progress: true,
+        rijekRefund: true,
+    });
+
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(`${window.location.origin}/track/${order.no_po}`);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const toggleSection = (section) => {
+        setCollapsedSections(prev => ({
+            ...prev,
+            [section]: !prev[section]
+        }));
+    };
 
     const isLocked = order.status_po !== 'draft' && (!order.lock_status || order.lock_status.is_locked);
 
@@ -385,6 +410,29 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     )}
                                 </div>
                                 <h3 className="mt-1 text-lg font-medium">{order.nama_po}</h3>
+                                <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+                                    <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+                                        <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
+                                        Tracking Publik:
+                                    </span>
+                                    <a 
+                                        href={`/track/${order.no_po}`} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="font-mono bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md px-2 py-0.5 text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1.5"
+                                    >
+                                        {window.location.origin}/track/{order.no_po}
+                                    </a>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-slate-400 hover:text-slate-600 flex items-center justify-center rounded-md"
+                                        onClick={copyToClipboard}
+                                        title="Salin Link"
+                                    >
+                                        {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                                    </Button>
+                                </div>
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {can?.edit && (
@@ -593,280 +641,450 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                     </div>
                 )}
 
-                {/* Info Grid */}
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base"><User className="h-4 w-4 text-primary" /> Pelanggan</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-1 text-sm">
-                            <div className="font-semibold">{order.pelanggan?.nama ?? '-'}</div>
-                            <div className="text-muted-foreground">{order.pelanggan?.kode}</div>
-                            <div className="text-muted-foreground">{order.pelanggan?.nomor_hp}</div>
-                            {order.pelanggan?.email && <div className="text-muted-foreground">{order.pelanggan.email}</div>}
-                            {order.pelanggan?.kabupaten_nama && (
-                                <div className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
-                                    <MapPin className="mt-0.5 h-3 w-3" />
-                                    <span>{order.pelanggan.kabupaten_nama}, {order.pelanggan.provinsi_nama}</span>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="flex items-center gap-2 text-base"><CalendarClock className="h-4 w-4 text-primary" /> Timeline</CardTitle>
-                            {can?.edit_timeline && !editTimeline && (
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditTimeline(true)} title="Edit Timeline Produksi">
-                                    <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                            )}
-                        </CardHeader>
-                        <CardContent className="space-y-1.5 text-sm">
-                            <div className="flex justify-between"><span className="text-muted-foreground">Tanggal Masuk</span><span className="font-medium">{formatDate(order.tanggal_masuk)}</span></div>
-                            <div className="flex justify-between"><span className="text-muted-foreground">Deadline Customer</span><span className="font-medium">{formatDate(order.deadline_customer)}</span></div>
-                            {editTimeline ? (
-                                <TimelineForm order={order} onDone={() => setEditTimeline(false)} />
-                            ) : (
-                                <>
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Mulai Produksi</span><span className="font-medium">{formatDate(order.start_production_date) || '-'}</span></div>
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Selesai Produksi</span><span className="font-medium">{formatDate(order.end_production_date) || '-'}</span></div>
-                                </>
-                            )}
-                            {order.published_at && (
-                                <>
-                                    <Separator className="my-2" />
-                                    <div className="flex justify-between text-xs"><span className="text-muted-foreground">Diterbitkan</span><span>{formatDateTime(order.published_at)}</span></div>
-                                </>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base"><CreditCard className="h-4 w-4 text-primary" /> Pembayaran</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-1.5 text-sm">
-                            <div className="flex justify-between"><span className="text-muted-foreground">Total Tagihan</span><span className="font-mono font-semibold">{formatRupiah(totalTagihan)}</span></div>
-                            <div className="flex justify-between"><span className="text-muted-foreground">Sudah Diverifikasi</span><span className="font-mono text-emerald-600">{formatRupiah(totalPaid)}</span></div>
-                            {pendingPaid > 0 && (
-                                <div className="flex justify-between"><span className="text-muted-foreground">Menunggu Validasi</span><span className="font-mono text-amber-600">{formatRupiah(pendingPaid)}</span></div>
-                            )}
-                            <div className="flex justify-between"><span className="text-muted-foreground">Sisa Tagihan</span><span className="font-mono font-bold text-destructive">{formatRupiah(sisaTagihan)}</span></div>
-
-                            {/* DP Status for draft PO */}
-                            {order.status_po === 'draft' && (
-                                <div className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs ${
-                                    order.is_dp_bypassed
-                                        ? 'border-blue-200 bg-blue-50/60 text-blue-700'
-                                        : isDpSufficient
-                                            ? 'border-emerald-200 bg-emerald-50/60 text-emerald-700'
-                                            : 'border-amber-200 bg-amber-50/60 text-amber-700'
-                                }`}>
-                                    <div className="flex items-center gap-1.5">
-                                        {order.is_dp_bypassed
-                                            ? <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />
-                                            : isDpSufficient
-                                                ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                                                : <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                                        }
-                                        <span className="font-semibold">
-                                            {order.is_dp_bypassed
-                                                ? `Bypass DP Aktif — diizinkan oleh Keuangan`
-                                                : isDpSufficient
-                                                    ? `DP ${(minDpPercentage * 100).toFixed(0)}%: Terpenuhi ✓`
-                                                    : `DP ${(minDpPercentage * 100).toFixed(0)}%: Belum Terpenuhi`
-                                            }
-                                        </span>
-                                    </div>
-                                    <span className="font-mono font-bold">
-                                        {totalTagihan > 0 ? ((totalPaid / totalTagihan) * 100).toFixed(0) : 0}%
-                                    </span>
-                                </div>
-                            )}
-
-                            <Separator className="my-2" />
-
-                            {/* Status Lunas */}
-                            <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
-                                <div className="flex items-center gap-2">
-                                     {(order.is_lunas || order.is_special_order)
-                                         ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                                         : <XCircle className="h-4 w-4 text-rose-400" />
-                                     }
-                                     <span className="text-sm font-semibold">
-                                         {(order.is_lunas || order.is_special_order) ? 'Lunas' : 'Belum Lunas'}
-                                     </span>
-                                     {order.is_lunas && order.lunas_at && (
-                                         <span className="text-[10px] text-muted-foreground">{formatDate(order.lunas_at)}</span>
-                                     )}
-                                 </div>
-                                 {can?.mark_lunas && !order.is_special_order && (
-                                     <Button
-                                         size="xs"
-                                         variant={order.is_lunas ? 'outline' : 'default'}
-                                         className={order.is_lunas ? 'text-xs h-7' : 'text-xs h-7 bg-emerald-600 hover:bg-emerald-700'}
-                                         onClick={() => router.post(route('orders.mark-lunas', order.id), {}, { preserveScroll: true })}
-                                     >
-                                         {order.is_lunas ? 'Batalkan' : 'Tandai Lunas'}
-                                     </Button>
-                                 )}
-                             </div>
-
-                            {/* Payment History */}
-                            {(order.payments ?? []).length > 0 && (
-                                <div className="space-y-3 pt-1">
-                                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Riwayat Pembayaran</span>
-                                    {(order.payments ?? []).map((p) => (
-                                        <div key={p.id} className={`flex flex-col gap-2 rounded-xl border p-3 text-xs ${p.verified_at ? 'bg-slate-50/70 border-slate-200' : 'bg-amber-50/50 border-amber-200'}`}>
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-0.5">
-                                                    <div className="font-bold text-slate-800 text-xs">
-                                                        {p.master_jenis_pembayaran?.nama ?? (p.payment_type ? p.payment_type.toUpperCase() : '-')} — {formatDate(p.payment_date)}
-                                                    </div>
-                                                    {p.notes && <div className="text-slate-500 font-medium text-[11px]">Memo: "{p.notes}"</div>}
-                                                    {p.bank && <div className="text-slate-400 text-[10px] font-mono">{p.bank.bank} · {p.bank.nomor_rekening}</div>}
-                                                </div>
-                                                <div className="text-right space-y-1">
-                                                    <div className="font-mono font-bold text-slate-900">{formatRupiah(p.amount)}</div>
-                                                    <div className="flex items-center gap-1 justify-end">
-                                                        <Badge variant={p.verified_at ? 'success' : 'warning'} className="text-[9px] px-1.5 py-0 font-bold">
-                                                            {p.verified_at ? '✓ VERIFIED' : '⏳ PENDING'}
-                                                        </Badge>
-                                                        {can?.edit_payment && (
-                                                             <button
-                                                                 onClick={() => {
-                                                                     setSelectedPayment(p);
-                                                                     setOpenEditPayment(true);
-                                                                 }}
-                                                                 className="ml-1 p-0.5 rounded text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
-                                                                 title="Edit record pembayaran ini"
-                                                             >
-                                                                 <Pencil className="h-3.5 w-3.5" />
-                                                             </button>
-                                                         )}
-                                                         {can?.delete_payment && (
-                                                            <button
-                                                                onClick={() => {
-                                                                    const msg = p.verified_at
-                                                                        ? `Hapus pembayaran ${p.master_jenis_pembayaran?.nama ?? p.payment_type} Rp ${Number(p.amount).toLocaleString('id-ID')}?\n\nPembayaran ini sudah diverifikasi. Catatan keuangan (pemasukan/pengeluaran) terkait juga akan dihapus.`
-                                                                        : `Hapus pembayaran ${p.master_jenis_pembayaran?.nama ?? p.payment_type} Rp ${Number(p.amount).toLocaleString('id-ID')}?`;
-                                                                    if (confirm(msg)) {
-                                                                        router.delete(route('invoices.payments.destroy', p.id), { preserveScroll: true });
-                                                                    }
-                                                                }}
-                                                                className="ml-1 p-0.5 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
-                                                                title="Hapus record pembayaran ini"
-                                                            >
-                                                                <XCircle className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            {p.verified_at && (
-                                                <div className="mt-1.5 rounded-lg border border-slate-100 bg-white p-2.5 space-y-2 shadow-sm">
-                                                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-700">
-                                                        <span className="flex items-center gap-1 text-slate-600">
-                                                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                                                            Diverifikasi oleh:
-                                                        </span>
-                                                        <span className="text-slate-900 font-bold bg-slate-100 px-1.5 py-0.5 rounded text-[9px]">{p.verifier?.name ?? 'Finance Admin'}</span>
-                                                    </div>
-                                                    
-                                                    {p.verification_checks && (
-                                                        <div className="grid grid-cols-3 gap-1 pt-1 border-t border-slate-50">
-                                                            <div className="flex items-center gap-1 text-[9px] font-semibold">
-                                                                <span className={p.verification_checks.bank_mutasi ? "text-emerald-600" : "text-slate-400"}>
-                                                                    {p.verification_checks.bank_mutasi ? '✓ Mutasi Koran' : '✗ Mutasi Koran'}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1 text-[9px] font-semibold">
-                                                                <span className={p.verification_checks.nominal_cocok ? "text-emerald-600" : "text-slate-400"}>
-                                                                    {p.verification_checks.nominal_cocok ? '✓ Nominal Cocok' : '✗ Nominal Cocok'}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1 text-[9px] font-semibold">
-                                                                <span className={p.verification_checks.bukti_valid ? "text-emerald-600" : "text-slate-400"}>
-                                                                    {p.verification_checks.bukti_valid ? '✓ Bukti Valid' : '✗ Bukti Valid'}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    
-                                                    {p.verification_notes ? (
-                                                        <div className="text-[10px] text-slate-600 bg-slate-50 p-1.5 rounded-md border border-slate-100 font-medium italic">
-                                                            "{p.verification_notes}"
-                                                        </div>
-                                                    ) : (
-                                                        <div className="text-[10px] text-slate-400 italic">
-                                                            Tidak ada catatan verifikasi.
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {can?.add_payment && (
-                                <Button size="sm" variant="outline" className="w-full mt-2" onClick={() => setOpenPayment(true)}>
-                                    <CreditCard className="h-4 w-4" /> Tambah Pembayaran
-                                </Button>
-                            )}
-                        </CardContent>
-                    </Card>
+                {/* Control Panel (Buka/Tutup Semua) */}
+                <div className="flex justify-end gap-2 my-1">
+                    <Button 
+                        type="button"
+                        variant="outline" 
+                        size="sm"
+                        className="text-xs h-8 px-3 rounded-lg border-slate-200 bg-white hover:bg-slate-50 text-slate-600 flex items-center gap-1.5 shadow-sm font-medium"
+                        onClick={() => setCollapsedSections({
+                            pelanggan: false,
+                            timeline: false,
+                            pembayaran: false,
+                            changeLog: false,
+                            detailPo: false,
+                            items: false,
+                            progress: false,
+                            rijekRefund: false,
+                        })}
+                    >
+                        <ChevronDown className="h-3.5 w-3.5 rotate-180 text-slate-500" /> Buka Semua
+                    </Button>
+                    <Button 
+                        type="button"
+                        variant="outline" 
+                        size="sm"
+                        className="text-xs h-8 px-3 rounded-lg border-slate-200 bg-white hover:bg-slate-50 text-slate-600 flex items-center gap-1.5 shadow-sm font-medium"
+                        onClick={() => setCollapsedSections({
+                            pelanggan: true,
+                            timeline: true,
+                            pembayaran: true,
+                            changeLog: true,
+                            detailPo: true,
+                            items: true,
+                            progress: true,
+                            rijekRefund: true,
+                        })}
+                    >
+                        <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> Tutup Semua
+                    </Button>
                 </div>
 
-                {/* Detail PO */}
-                {(() => {
-                    const fields = [
-                        order.jenisOrder?.nama && { label: 'Jenis Order', value: order.jenisOrder.nama },
-                        order.sumberOrder?.nama && { label: 'Sumber Order', value: order.sumberOrder.nama },
-                        order.paketOrder?.nama && {
-                            label: 'Paket Order',
-                            value: order.paketOrder.nama,
-                            warna: order.paketOrder.warna,
-                        },
-                        printings.length > 0 && { label: 'Jenis Printing', value: printings.map(p => p.nama).join(', ') },
-                        order.iklan?.nama && { label: 'Promo', value: order.iklan.nama + (order.iklan.platform ? ` (${order.iklan.platform})` : '') },
-                        (order.nama_ekspedisi || order.no_resi) && { label: 'Ekspedisi', value: [order.nama_ekspedisi, order.no_resi].filter(Boolean).join(' · ') },
-                        order.catatan && { label: 'Catatan PO', value: order.catatan, full: true },
-                    ].filter(Boolean);
+                {/* Info Grid */}
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                    <div className="lg:col-span-2 space-y-4">
+                        {/* Row 1: Pelanggan & Timeline */}
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 items-start">
+                            {/* Pelanggan */}
+                            <Card className="border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+                                <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3 cursor-pointer select-none" onClick={() => toggleSection('pelanggan')}>
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                                            <User className="h-4 w-4 text-slate-500" /> Pelanggan
+                                        </CardTitle>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100/50" onClick={(e) => { e.stopPropagation(); toggleSection('pelanggan'); }}>
+                                            {collapsedSections.pelanggan ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronUp className="h-4 w-4 text-slate-500" />}
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                {!collapsedSections.pelanggan && (
+                                    <CardContent className="space-y-1 text-sm pt-4">
+                                        <div className="font-semibold">{order.pelanggan?.nama ?? '-'}</div>
+                                        <div className="text-muted-foreground">{order.pelanggan?.kode}</div>
+                                        <div className="text-muted-foreground">{order.pelanggan?.nomor_hp}</div>
+                                        {order.pelanggan?.email && <div className="text-muted-foreground">{order.pelanggan.email}</div>}
+                                        {order.pelanggan?.kabupaten_nama && (
+                                            <div className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
+                                                <MapPin className="mt-0.5 h-3 w-3" />
+                                                <span>{order.pelanggan.kabupaten_nama}, {order.pelanggan.provinsi_nama}</span>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                )}
+                            </Card>
 
-                    if (fields.length === 0) return null;
-
-                    return (
-                        <Card>
-                            <CardContent className="pt-4">
-                                <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
-                                    {fields.map((f) => (
-                                        <div key={f.label} className={f.full ? 'col-span-2 sm:col-span-3 lg:col-span-4' : ''}>
-                                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{f.label}</span>
-                                            {f.warna ? (
-                                                <p className="mt-0.5 flex items-center gap-1.5 text-sm font-medium">
-                                                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: f.warna }} />
-                                                    {f.value}
-                                                </p>
-                                            ) : (
-                                                <p className="mt-0.5 text-sm font-medium">{f.value}</p>
+                            {/* Timeline */}
+                            <Card className="border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+                                <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3 cursor-pointer select-none" onClick={() => toggleSection('timeline')}>
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                                            <CalendarClock className="h-4 w-4 text-slate-500" /> Timeline
+                                        </CardTitle>
+                                        <div className="flex items-center gap-1">
+                                            {can?.edit_timeline && !editTimeline && (
+                                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setEditTimeline(true); if (collapsedSections.timeline) { toggleSection('timeline'); } }} title="Edit Timeline Produksi">
+                                                    <Pencil className="h-3.5 w-3.5 text-slate-500" />
+                                                </Button>
                                             )}
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100/50" onClick={(e) => { e.stopPropagation(); toggleSection('timeline'); }}>
+                                                {collapsedSections.timeline ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronUp className="h-4 w-4 text-slate-500" />}
+                                            </Button>
                                         </div>
-                                    ))}
+                                    </div>
+                                </CardHeader>
+                                {!collapsedSections.timeline && (
+                                    <CardContent className="space-y-1.5 text-sm pt-4">
+                                        <div className="flex justify-between"><span className="text-muted-foreground">Tanggal Masuk</span><span className="font-medium">{formatDate(order.tanggal_masuk)}</span></div>
+                                        <div className="flex justify-between"><span className="text-muted-foreground">Deadline Customer</span><span className="font-medium">{formatDate(order.deadline_customer)}</span></div>
+                                        {editTimeline ? (
+                                            <TimelineForm order={order} onDone={() => setEditTimeline(false)} />
+                                        ) : (
+                                            <>
+                                                <div className="flex justify-between"><span className="text-muted-foreground">Mulai Produksi</span><span className="font-medium">{formatDate(order.start_production_date) || '-'}</span></div>
+                                                <div className="flex justify-between"><span className="text-muted-foreground">Selesai Produksi</span><span className="font-medium">{formatDate(order.end_production_date) || '-'}</span></div>
+                                            </>
+                                        )}
+                                        {order.published_at && (
+                                            <>
+                                                <Separator className="my-2" />
+                                                <div className="flex justify-between text-xs"><span className="text-muted-foreground">Diterbitkan</span><span>{formatDateTime(order.published_at)}</span></div>
+                                            </>
+                                        )}
+                                    </CardContent>
+                                )}
+                            </Card>
+                        </div>
+
+                        {/* Row 2: Riwayat Perubahan & Detail PO */}
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 items-start">
+                            {/* Riwayat Perubahan & Otorisasi PO */}
+                            <Card className="border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+                                <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3 cursor-pointer select-none" onClick={() => toggleSection('changeLog')}>
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                                            <FileText className="h-4 w-4 text-slate-500" /> Riwayat Perubahan & Otorisasi PO
+                                        </CardTitle>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100/50" onClick={(e) => { e.stopPropagation(); toggleSection('changeLog'); }}>
+                                            {collapsedSections.changeLog ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronUp className="h-4 w-4 text-slate-500" />}
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                {!collapsedSections.changeLog && (
+                                    <CardContent className="p-4 space-y-4">
+                                        {order.change_logs?.length > 0 ? (
+                                            order.change_logs.map((cl) => {
+                                                const isSystemAction = cl.field_changed.startsWith('_');
+                                                const fieldLabel = FIELD_LABELS[cl.field_changed] ?? cl.field_changed;
+                                                
+                                                return (
+                                                    <div key={cl.id} className="relative pl-6 pb-2 border-l-2 border-slate-100 last:pb-0 last:border-l-0">
+                                                        {/* Timeline Dot */}
+                                                        <div className={`absolute -left-[6px] top-1.5 h-[10px] w-[10px] rounded-full border-2 ${
+                                                            cl.field_changed === '_unlock' ? 'bg-amber-500 border-amber-200' :
+                                                            cl.field_changed === '_relock' ? 'bg-emerald-500 border-emerald-200' :
+                                                            'bg-blue-500 border-blue-200'
+                                                        }`} />
+                                                        
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex flex-wrap items-center justify-between gap-1 text-xs">
+                                                                <span className="font-semibold text-slate-700">
+                                                                    {fieldLabel}
+                                                                </span>
+                                                                <span className="text-slate-400 font-medium">
+                                                                    {formatDateTime(cl.created_at)}
+                                                                </span>
+                                                            </div>
+                                                            
+                                                            {!isSystemAction && (
+                                                                <div className="text-xs text-slate-500 flex items-center gap-1.5">
+                                                                    <span className="line-through bg-slate-50 px-1 py-0.5 rounded text-slate-400">{cl.old_value || '—'}</span>
+                                                                    <span className="text-slate-300">→</span>
+                                                                    <span className="font-semibold bg-slate-50 px-1 py-0.5 rounded text-slate-700">{cl.new_value || '—'}</span>
+                                                                </div>
+                                                            )}
+                                                            
+                                                            <div className="text-xs text-slate-600 flex flex-wrap items-center gap-1 mt-0.5">
+                                                                <span className="font-medium text-slate-500">Oleh:</span>
+                                                                <span className="font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded-md text-[10px]">{cl.changer?.name || 'Sistem'}</span>
+                                                                {cl.changer?.roles?.[0]?.name && (
+                                                                    <span className="text-[10px] text-slate-400">({cl.changer.roles[0].name.replace('_', ' ')})</span>
+                                                                )}
+                                                            </div>
+
+                                                            {cl.change_reason && (
+                                                                <div className="mt-1 bg-amber-50/50 border border-amber-100/50 rounded-lg p-2 text-xs text-amber-800 font-medium leading-relaxed italic shadow-sm">
+                                                                    Alasan: "{cl.change_reason}"
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        ) : (
+                                            <div className="text-xs text-slate-400 italic text-center py-4">Belum ada riwayat perubahan</div>
+                                        )}
+                                    </CardContent>
+                                )}
+                            </Card>
+
+                            {/* Detail PO */}
+                            {(() => {
+                                const fields = [
+                                    order.jenisOrder?.nama && { label: 'Jenis Order', value: order.jenisOrder.nama },
+                                    order.sumberOrder?.nama && { label: 'Sumber Order', value: order.sumberOrder.nama },
+                                    order.paketOrder?.nama && {
+                                        label: 'Paket Order',
+                                        value: order.paketOrder.nama,
+                                        warna: order.paketOrder.warna,
+                                    },
+                                    printings.length > 0 && { label: 'Jenis Printing', value: printings.map(p => p.nama).join(', ') },
+                                    order.iklan?.nama && { label: 'Promo', value: order.iklan.nama + (order.iklan.platform ? ` (${order.iklan.platform})` : '') },
+                                    (order.nama_ekspedisi || order.no_resi) && { label: 'Ekspedisi', value: [order.nama_ekspedisi, order.no_resi].filter(Boolean).join(' · ') },
+                                    order.catatan && { label: 'Catatan PO', value: order.catatan, full: true },
+                                ].filter(Boolean);
+
+                                if (fields.length === 0) return null;
+
+                                return (
+                                    <Card className="border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+                                        <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3 cursor-pointer select-none" onClick={() => toggleSection('detailPo')}>
+                                            <div className="flex items-center justify-between">
+                                                <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                                                    <FileText className="h-4 w-4 text-slate-500" /> Detail PO
+                                                </CardTitle>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100/50" onClick={(e) => { e.stopPropagation(); toggleSection('detailPo'); }}>
+                                                    {collapsedSections.detailPo ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronUp className="h-4 w-4 text-slate-500" />}
+                                                </Button>
+                                            </div>
+                                        </CardHeader>
+                                        {!collapsedSections.detailPo && (
+                                            <CardContent className="p-4">
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                                                    {fields.map((f) => (
+                                                        <div key={f.label} className={f.full ? 'col-span-2' : ''}>
+                                                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{f.label}</span>
+                                                            {f.warna ? (
+                                                                <p className="mt-0.5 flex items-center gap-1.5 text-sm font-medium">
+                                                                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: f.warna }} />
+                                                                    {f.value}
+                                                                </p>
+                                                            ) : (
+                                                                <p className="mt-0.5 text-sm font-medium whitespace-pre-wrap">{f.value}</p>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </CardContent>
+                                        )}
+                                    </Card>
+                                );
+                            })()}
+                        </div>
+                    </div>
+
+                    {/* Pembayaran */}
+                    <div className="lg:col-span-1">
+                        <Card className="border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+                            <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3 cursor-pointer select-none" onClick={() => toggleSection('pembayaran')}>
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                                        <CreditCard className="h-4 w-4 text-slate-500" /> Pembayaran
+                                    </CardTitle>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100/50" onClick={(e) => { e.stopPropagation(); toggleSection('pembayaran'); }}>
+                                        {collapsedSections.pembayaran ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronUp className="h-4 w-4 text-slate-500" />}
+                                    </Button>
                                 </div>
-                            </CardContent>
+                            </CardHeader>
+                            {!collapsedSections.pembayaran && (
+                                <CardContent className="space-y-1.5 text-sm pt-4">
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Total Tagihan</span><span className="font-mono font-semibold">{formatRupiah(totalTagihan)}</span></div>
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Sudah Diverifikasi</span><span className="font-mono text-emerald-600">{formatRupiah(totalPaid)}</span></div>
+                                    {pendingPaid > 0 && (
+                                        <div className="flex justify-between"><span className="text-muted-foreground">Menunggu Validasi</span><span className="font-mono text-amber-600">{formatRupiah(pendingPaid)}</span></div>
+                                    )}
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Sisa Tagihan</span><span className="font-mono font-bold text-destructive">{formatRupiah(sisaTagihan)}</span></div>
+
+                                    {/* DP Status for draft PO */}
+                                    {order.status_po === 'draft' && (
+                                        <div className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs ${
+                                            order.is_dp_bypassed
+                                                ? 'border-blue-200 bg-blue-50/60 text-blue-700'
+                                                : isDpSufficient
+                                                    ? 'border-emerald-200 bg-emerald-50/60 text-emerald-700'
+                                                    : 'border-amber-200 bg-amber-50/60 text-amber-700'
+                                        }`}>
+                                            <div className="flex items-center gap-1.5">
+                                                {order.is_dp_bypassed
+                                                    ? <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />
+                                                    : isDpSufficient
+                                                        ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                                        : <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                                                }
+                                                <span className="font-semibold">
+                                                    {order.is_dp_bypassed
+                                                        ? `Bypass DP Aktif — diizinkan oleh Keuangan`
+                                                        : isDpSufficient
+                                                            ? `DP ${(minDpPercentage * 100).toFixed(0)}%: Terpenuhi ✓`
+                                                            : `DP ${(minDpPercentage * 100).toFixed(0)}%: Belum Terpenuhi`
+                                                    }
+                                                </span>
+                                            </div>
+                                            <span className="font-mono font-bold">
+                                                {totalTagihan > 0 ? ((totalPaid / totalTagihan) * 100).toFixed(0) : 0}%
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    <Separator className="my-2" />
+
+                                    {/* Status Lunas */}
+                                    <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+                                        <div className="flex items-center gap-2">
+                                             {(order.is_lunas || order.is_special_order)
+                                                 ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                                 : <XCircle className="h-4 w-4 text-rose-400" />
+                                             }
+                                             <span className="text-sm font-semibold">
+                                                 {(order.is_lunas || order.is_special_order) ? 'Lunas' : 'Belum Lunas'}
+                                             </span>
+                                             {order.is_lunas && order.lunas_at && (
+                                                 <span className="text-[10px] text-muted-foreground">{formatDate(order.lunas_at)}</span>
+                                             )}
+                                         </div>
+                                         {can?.mark_lunas && !order.is_special_order && (
+                                             <Button
+                                                 size="xs"
+                                                 variant={order.is_lunas ? 'outline' : 'default'}
+                                                 className={order.is_lunas ? 'text-xs h-7' : 'text-xs h-7 bg-emerald-600 hover:bg-emerald-700'}
+                                                 onClick={() => router.post(route('orders.mark-lunas', order.id), {}, { preserveScroll: true })}
+                                             >
+                                                 {order.is_lunas ? 'Batalkan' : 'Tandai Lunas'}
+                                             </Button>
+                                         )}
+                                     </div>
+
+                                    {/* Payment History */}
+                                    {(order.payments ?? []).length > 0 && (
+                                        <div className="space-y-3 pt-1">
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Riwayat Pembayaran</span>
+                                            {(order.payments ?? []).map((p) => (
+                                                <div key={p.id} className={`flex flex-col gap-2 rounded-xl border p-3 text-xs ${p.verified_at ? 'bg-slate-50/70 border-slate-200' : 'bg-amber-50/50 border-amber-200'}`}>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="space-y-0.5">
+                                                            <div className="font-bold text-slate-800 text-xs">
+                                                                {p.master_jenis_pembayaran?.nama ?? (p.payment_type ? p.payment_type.toUpperCase() : '-')} — {formatDate(p.payment_date)}
+                                                            </div>
+                                                            {p.notes && <div className="text-slate-500 font-medium text-[11px]">Memo: "{p.notes}"</div>}
+                                                            {p.bank && <div className="text-slate-400 text-[10px] font-mono">{p.bank.bank} · {p.bank.nomor_rekening}</div>}
+                                                        </div>
+                                                        <div className="text-right space-y-1">
+                                                            <div className="font-mono font-bold text-slate-900">{formatRupiah(p.amount)}</div>
+                                                            <div className="flex items-center gap-1 justify-end">
+                                                                <Badge variant={p.verified_at ? 'success' : 'warning'} className="text-[9px] px-1.5 py-0 font-bold">
+                                                                    {p.verified_at ? '✓ VERIFIED' : '⏳ PENDING'}
+                                                                </Badge>
+                                                                {can?.edit_payment && (
+                                                                     <button
+                                                                         onClick={() => {
+                                                                             setSelectedPayment(p);
+                                                                             setOpenEditPayment(true);
+                                                                         }}
+                                                                         className="ml-1 p-0.5 rounded text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                                                                         title="Edit record pembayaran ini"
+                                                                     >
+                                                                         <Pencil className="h-3.5 w-3.5" />
+                                                                     </button>
+                                                                 )}
+                                                                 {can?.delete_payment && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const msg = p.verified_at
+                                                                                ? `Hapus pembayaran ${p.master_jenis_pembayaran?.nama ?? p.payment_type} Rp ${Number(p.amount).toLocaleString('id-ID')}?\n\nPembayaran ini sudah diverifikasi. Catatan keuangan (pemasukan/pengeluaran) terkait juga akan dihapus.`
+                                                                                : `Hapus pembayaran ${p.master_jenis_pembayaran?.nama ?? p.payment_type} Rp ${Number(p.amount).toLocaleString('id-ID')}?`;
+                                                                            if (confirm(msg)) {
+                                                                                router.delete(route('invoices.payments.destroy', p.id), { preserveScroll: true });
+                                                                            }
+                                                                        }}
+                                                                        className="ml-1 p-0.5 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                                                                        title="Hapus record pembayaran ini"
+                                                                    >
+                                                                        <XCircle className="h-3.5 w-3.5" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {p.verified_at && (
+                                                        <div className="mt-1.5 rounded-lg border border-slate-100 bg-white p-2.5 space-y-2 shadow-sm">
+                                                            <div className="flex items-center justify-between text-[10px] font-bold text-slate-700">
+                                                                <span className="flex items-center gap-1 text-slate-600">
+                                                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                                                                    Diverifikasi oleh:
+                                                                </span>
+                                                                <span className="text-slate-900 font-bold bg-slate-100 px-1.5 py-0.5 rounded text-[9px]">{p.verifier?.name ?? 'Finance Admin'}</span>
+                                                            </div>
+                                                            
+                                                            {p.verification_checks && (
+                                                                <div className="grid grid-cols-3 gap-1 pt-1 border-t border-slate-50">
+                                                                    <div className="flex items-center gap-1 text-[9px] font-semibold">
+                                                                        <span className={p.verification_checks.bank_mutasi ? "text-emerald-600" : "text-slate-400"}>
+                                                                            {p.verification_checks.bank_mutasi ? '✓ Mutasi Koran' : '✗ Mutasi Koran'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1 text-[9px] font-semibold">
+                                                                        <span className={p.verification_checks.nominal_cocok ? "text-emerald-600" : "text-slate-400"}>
+                                                                            {p.verification_checks.nominal_cocok ? '✓ Nominal Cocok' : '✗ Nominal Cocok'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1 text-[9px] font-semibold">
+                                                                        <span className={p.verification_checks.bukti_valid ? "text-emerald-600" : "text-slate-400"}>
+                                                                            {p.verification_checks.bukti_valid ? '✓ Bukti Valid' : '✗ Bukti Valid'}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            
+                                                            {p.verification_notes ? (
+                                                                <div className="text-[10px] text-slate-600 bg-slate-50 p-1.5 rounded-md border border-slate-100 font-medium italic">
+                                                                    "{p.verification_notes}"
+                                                                </div>
+                                                            ) : (
+                                                                <div className="text-[10px] text-slate-400 italic">
+                                                                    Tidak ada catatan verifikasi.
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {can?.add_payment && (
+                                        <Button size="sm" variant="outline" className="w-full mt-2" onClick={() => setOpenPayment(true)}>
+                                            <CreditCard className="h-4 w-4" /> Tambah Pembayaran
+                                        </Button>
+                                    )}
+                                </CardContent>
+                            )}
                         </Card>
-                    );
-                })()}
+                    </div>
+                </div>
 
                 {/* Items */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-base"><Package className="h-4 w-4 text-primary" /> Item Produk ({order.items?.length ?? 0})</CardTitle>
+                    <CardHeader className="cursor-pointer select-none" onClick={() => toggleSection('items')}>
+                        <div className="flex items-center justify-between">
+                            <CardTitle className="flex items-center gap-2 text-base"><Package className="h-4 w-4 text-primary" /> Item Produk ({order.items?.length ?? 0})</CardTitle>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100" onClick={(e) => { e.stopPropagation(); toggleSection('items'); }}>
+                                {collapsedSections.items ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronUp className="h-4 w-4 text-slate-500" />}
+                            </Button>
+                        </div>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    {!collapsedSections.items && (
+                        <CardContent className="space-y-3">
                         {(order.items ?? []).map((item, idx) => {
                             const SETELAN_LABEL = { stell: 'Stell', non_stell: 'Non-Stell', atasan_saja: 'Atasan Saja', bawahan_saja: 'Bawahan Saja' };
                             // Bahan Atasan: dari bahan_kain_ids (multi) atau bahan_kain (single)
@@ -1033,16 +1251,29 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                         })}
                         {order.items?.length === 0 && <p className="text-center text-sm text-muted-foreground">Belum ada item.</p>}
                     </CardContent>
+                    )}
                 </Card>
 
                 {/* Progress Timeline */}
                 {order.progress_details?.length > 0 && (
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-base"><ListChecks className="h-4 w-4 text-primary" /> Progress Produksi</CardTitle>
-                            <CardDescription>Klik <Link className="font-medium text-primary underline" href={route('produksi.progress', order.id)}>halaman progress</Link> untuk update status per tahapan.</CardDescription>
+                        <CardHeader className="cursor-pointer select-none" onClick={() => toggleSection('progress')}>
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <CardTitle className="flex items-center gap-2 text-base">
+                                        <ListChecks className="h-4 w-4 text-primary" /> Progress Produksi
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Klik <Link className="font-medium text-primary underline" href={route('produksi.progress', order.id)} onClick={(e) => e.stopPropagation()}>halaman progress</Link> untuk update status per tahapan.
+                                    </CardDescription>
+                                </div>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 hover:bg-slate-100" onClick={(e) => { e.stopPropagation(); toggleSection('progress'); }}>
+                                    {collapsedSections.progress ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronUp className="h-4 w-4 text-slate-500" />}
+                                </Button>
+                            </div>
                         </CardHeader>
-                        <CardContent>
+                        {!collapsedSections.progress && (
+                            <CardContent>
                             <ol className="relative space-y-3 border-l-2 border-border pl-5">
                                 {order.progress_details
                                     .slice()
@@ -1065,21 +1296,30 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     })}
                             </ol>
                         </CardContent>
+                        )}
                     </Card>
                 )}
 
                 {/* Rijek & Refund Detailing */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-base">
-                            <AlertTriangle className="h-4 w-4 text-amber-500" />
-                            Detailing & Total Laporan Rijek & Refund
-                        </CardTitle>
-                        <CardDescription>
-                            Ringkasan cacat produksi (rijek) dan pengembalian dana (refund) untuk PO ini.
-                        </CardDescription>
+                    <CardHeader className="cursor-pointer select-none" onClick={() => toggleSection('rijekRefund')}>
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                                    Detailing & Total Laporan Rijek & Refund
+                                </CardTitle>
+                                <CardDescription>
+                                    Ringkasan cacat produksi (rijek) dan pengembalian dana (refund) untuk PO ini.
+                                </CardDescription>
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 hover:bg-slate-100" onClick={(e) => { e.stopPropagation(); toggleSection('rijekRefund'); }}>
+                                {collapsedSections.rijekRefund ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronUp className="h-4 w-4 text-slate-500" />}
+                            </Button>
+                        </div>
                     </CardHeader>
-                    <CardContent className="space-y-6">
+                    {!collapsedSections.rijekRefund && (
+                        <CardContent className="space-y-6">
                         {/* Summary Grid */}
                         <div className="grid grid-cols-2 gap-4 rounded-lg bg-muted/40 p-4">
                             <div className="text-center sm:text-left">
@@ -1183,82 +1423,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                             )}
                         </div>
                     </CardContent>
-                </Card>
-
-                {/* Change Log / Riwayat Perubahan */}
-                {order.change_logs?.length > 0 && (
-                    <Card className="border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
-                        <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3">
-                            <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                                <FileText className="h-4 w-4 text-slate-500" /> Riwayat Perubahan & Otorisasi PO
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-4 space-y-4">
-                            {order.change_logs.map((cl) => {
-                                const isSystemAction = cl.field_changed.startsWith('_');
-                                const fieldLabel = FIELD_LABELS[cl.field_changed] ?? cl.field_changed;
-                                
-                                return (
-                                    <div key={cl.id} className="relative pl-6 pb-2 border-l-2 border-slate-100 last:pb-0 last:border-l-0">
-                                        {/* Timeline Dot */}
-                                        <div className={`absolute -left-[6px] top-1.5 h-[10px] w-[10px] rounded-full border-2 ${
-                                            cl.field_changed === '_unlock' ? 'bg-amber-500 border-amber-200' :
-                                            cl.field_changed === '_relock' ? 'bg-emerald-500 border-emerald-200' :
-                                            'bg-blue-500 border-blue-200'
-                                        }`} />
-                                        
-                                        <div className="flex flex-col gap-1">
-                                            <div className="flex flex-wrap items-center justify-between gap-1 text-xs">
-                                                <span className="font-semibold text-slate-700">
-                                                    {fieldLabel}
-                                                </span>
-                                                <span className="text-slate-400 font-medium">
-                                                    {formatDateTime(cl.created_at)}
-                                                </span>
-                                            </div>
-                                            
-                                            {!isSystemAction && (
-                                                <div className="text-xs text-slate-500 flex items-center gap-1.5">
-                                                    <span className="line-through bg-slate-50 px-1 py-0.5 rounded text-slate-400">{cl.old_value || '—'}</span>
-                                                    <span className="text-slate-300">→</span>
-                                                    <span className="font-semibold bg-slate-50 px-1 py-0.5 rounded text-slate-700">{cl.new_value || '—'}</span>
-                                                </div>
-                                            )}
-                                            
-                                            <div className="text-xs text-slate-600 flex flex-wrap items-center gap-1 mt-0.5">
-                                                <span className="font-medium text-slate-500">Oleh:</span>
-                                                <span className="font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded-md text-[10px]">{cl.changer?.name || 'Sistem'}</span>
-                                                {cl.changer?.roles?.[0]?.name && (
-                                                    <span className="text-[10px] text-slate-400">({cl.changer.roles[0].name.replace('_', ' ')})</span>
-                                                )}
-                                            </div>
-
-                                            {cl.change_reason && (
-                                                <div className="mt-1 bg-amber-50/50 border border-amber-100/50 rounded-lg p-2 text-xs text-amber-800 font-medium leading-relaxed italic shadow-sm">
-                                                    Alasan: "{cl.change_reason}"
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Public tracking link */}
-                <Card>
-                    <CardContent className="flex flex-col items-center justify-between gap-2 p-4 sm:flex-row">
-                        <div>
-                            <div className="text-sm font-medium">Link Tracking Publik</div>
-                            <div className="font-mono text-xs text-muted-foreground">{window.location.origin}/track/{order.no_po}</div>
-                        </div>
-                        <Button asChild variant="outline" size="sm">
-                            <a href={`/track/${order.no_po}`} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="h-4 w-4" /> Buka Tracking
-                            </a>
-                        </Button>
-                    </CardContent>
+                    )}
                 </Card>
             </div>
 

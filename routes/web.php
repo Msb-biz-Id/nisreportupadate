@@ -135,6 +135,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/gantt', [ProductionController::class, 'gantt'])->name('gantt');
         Route::get('/{order}/progress', [ProductionController::class, 'progress'])->name('progress');
         Route::put('/{order}/progress/{detail}', [ProductionController::class, 'updateProgress'])->name('progress.update');
+        Route::post('/{order}/progress/bulk', [ProductionController::class, 'bulkUpdateProgress'])->name('progress.bulk');
         Route::post('/{order}/rijek', [ProductionController::class, 'storeRijek'])->name('rijek.store');
         Route::put('/{order}/rijek/{rijek}', [ProductionController::class, 'updateRijek'])->name('rijek.update');
         Route::delete('/{order}/rijek/{rijek}', [ProductionController::class, 'destroyRijek'])->name('rijek.destroy');

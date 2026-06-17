@@ -65,7 +65,7 @@ class MasterDataSeeder extends Seeder
     private function seedLogo(): void
     {
         \Illuminate\Support\Facades\DB::table('logos')->delete();
-        $items = ['Pvc', 'Pvc Hologram', 'Flock Tatami', 'Dtf', 'Bordir', 'Woven', 'Rubber', 'Chameleon'];
+        $items = ['Pvc', 'Pvc Hologram', 'Flock Tatami', 'Dtf', 'Bordir', 'Woven', 'Rubber', 'Chameleon', 'Printing'];
         foreach ($items as $nama) Logo::firstOrCreate(['nama' => $nama], ['is_active' => true]);
     }
 
@@ -134,10 +134,21 @@ class MasterDataSeeder extends Seeder
         ];
         foreach ($map as $kat => $ukurans) {
             foreach ($ukurans as $idx => $u) {
-                Size::firstOrCreate(
-                    ['kategori_size' => $kat, 'ukuran' => $u],
-                    ['urutan' => $idx, 'is_active' => true]
-                );
+                $size = Size::withTrashed()->where(['kategori_size' => $kat, 'ukuran' => $u])->first();
+                if ($size) {
+                    $size->update([
+                        'urutan' => $idx,
+                        'is_active' => true,
+                        'deleted_at' => null,
+                    ]);
+                } else {
+                    Size::create([
+                        'kategori_size' => $kat,
+                        'ukuran' => $u,
+                        'urutan' => $idx,
+                        'is_active' => true,
+                    ]);
+                }
             }
         }
     }

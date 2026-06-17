@@ -32,6 +32,7 @@ class ProductionController extends Controller
         $orders = Order::query()
             ->forBrand($brandId)
             ->published()
+            ->where('status_po', '!=', 'sudah_dikirim')
             ->with('pelanggan:id,nama')
             ->orderBy('deadline_customer')
             ->get();
@@ -102,6 +103,7 @@ class ProductionController extends Controller
         $orders = Order::query()
             ->forBrand($brandId)
             ->published()
+            ->where('status_po', '!=', 'sudah_dikirim')
             ->with(['pelanggan:id,nama', 'lockStatus', 'brand:id,kode,warna_primary', 'paketOrder:id,nama,warna,prioritas'])
             ->withCount(['rijeks as has_rijek' => fn ($q) => $q->whereNull('resolved_at')])
             ->orderBy('deadline_customer')
@@ -180,7 +182,7 @@ class ProductionController extends Controller
 
         $data = $request->validate([
             'status'         => ['required', Rule::in(OrderProgressDetail::STATUSES)],
-            'catatan'        => ['required_unless:status,pending', 'nullable', 'string'],
+            'catatan'        => ['nullable', 'string'],
             'kendala'        => ['nullable', 'string'],
             'skipped_reason' => ['required_if:status,skipped', 'nullable', 'string'],
             'nama_ekspedisi' => [$isSending && $request->input('status') === 'selesai' ? 'required' : 'nullable', 'string', 'max:100'],
@@ -209,6 +211,60 @@ class ProductionController extends Controller
         ]);
 
         return back()->with('success', 'Progress berhasil diperbarui.');
+    }
+
+    public function bulkUpdateProgress(Request $request, Order $order)
+    {
+        Gate::authorize('production.update-progress');
+        $this->guardBrandOwnership($request, $order);
+
+        $data = $request->validate([
+            'ids'            => ['required', 'array'],
+            'ids.*'          => ['required', 'uuid', 'exists:order_progress_details,id'],
+            'status'         => ['required', Rule::in(OrderProgressDetail::STATUSES)],
+            'catatan'        => ['nullable', 'string'],
+            'kendala'        => ['nullable', 'string'],
+            'skipped_reason' => ['required_if:status,skipped', 'nullable', 'string'],
+            'nama_ekspedisi' => ['nullable', 'string', 'max:100'],
+            'no_resi'        => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $details = OrderProgressDetail::whereIn('id', $data['ids'])
+            ->where('order_id', $order->id)
+            ->with('progress')
+            ->get();
+
+        foreach ($details as $detail) {
+            $isSending = strtoupper($detail->progress->nama_progress ?? '') === 'SENDING';
+
+            // Skip updating SENDING if it's locked by payment
+            if ($isSending && ! $order->is_lunas && ! $order->is_special_order) {
+                continue;
+            }
+
+            $this->statusManager->updateProgressDetail(
+                $order, $detail, $data['status'],
+                $data['catatan'] ?? null, $data['kendala'] ?? null,
+                $data['skipped_reason'] ?? null, $request->user()
+            );
+
+            if ($isSending && $data['status'] === 'selesai') {
+                $order->update([
+                    'nama_ekspedisi' => $data['nama_ekspedisi'] ?? null,
+                    'no_resi'        => $data['no_resi'] ?? null,
+                ]);
+            }
+
+            DynamicNotificationService::dispatch('progress_updated', [
+                'no_po' => $order->no_po,
+                'brand_id' => $order->brand_id,
+                'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
+                'stage' => $detail->progress->nama_progress ?? '-',
+                'action_url' => "/produksi/progress/{$order->id}"
+            ]);
+        }
+
+        return back()->with('success', 'Progress berhasil diperbarui secara massal.');
     }
 
     public function storeRijek(Request $request, Order $order)
@@ -360,6 +416,13 @@ class ProductionController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => "Transisi '{$from}' → '{$to}' tidak diizinkan via Kanban. Gunakan halaman progress untuk update detail tahapan.",
+            ], 422);
+        }
+
+        if ($to === 'sudah_dikirim' && ! $order->is_lunas && ! $order->is_special_order) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal memindahkan. Konfirmasi LUNAS dari Keuangan diperlukan terlebih dahulu sebelum pesanan dapat dikirim.',
             ], 422);
         }
 

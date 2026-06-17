@@ -90,14 +90,22 @@ class OrderController extends Controller
             $query->where('status_po', '!=', 'draft');
         }
 
+        // Filter berdasarkan tab terlebih dahulu
+        if ($tab === 'archive') {
+            $query->where('orders.status_po', 'sudah_dikirim');
+        } else {
+            $query->where('orders.status_po', '!=', 'sudah_dikirim');
+        }
+
+        // Kemudian filter status jika dispesifikasikan (dan valid untuk tab tersebut)
         $status = $request->string('status')->toString();
         if ($status && $status !== 'all') {
-            $query->where('orders.status_po', $status);
-        } else {
-            if ($tab === 'archive') {
-                $query->where('orders.status_po', 'sudah_dikirim');
+            if ($tab === 'active' && $status === 'sudah_dikirim') {
+                $query->whereRaw('1 = 0');
+            } elseif ($tab === 'archive' && $status !== 'sudah_dikirim') {
+                $query->whereRaw('1 = 0');
             } else {
-                $query->where('orders.status_po', '!=', 'sudah_dikirim');
+                $query->where('orders.status_po', $status);
             }
         }
 
@@ -123,6 +131,8 @@ class OrderController extends Controller
             }))
             ->when($request->string('date_from')->toString(), fn ($q, $v) => $q->whereDate('tanggal_masuk', '>=', $v))
             ->when($request->string('date_to')->toString(), fn ($q, $v) => $q->whereDate('tanggal_masuk', '<=', $v))
+            ->when($tab === 'archive', fn ($q) => $q->where('status_po', 'sudah_dikirim'))
+            ->when($tab === 'active', fn ($q) => $q->where('status_po', '!=', 'sudah_dikirim'))
             ->selectRaw('status_po, count(*) as total')
             ->groupBy('status_po')
             ->pluck('total', 'status_po')
@@ -141,6 +151,12 @@ class OrderController extends Controller
         $visibleStatuses = $user->hasRole('admin_produksi')
             ? array_values(array_filter(Order::STATUSES, fn ($s) => $s !== 'draft'))
             : Order::STATUSES;
+
+        if ($tab === 'active') {
+            $visibleStatuses = array_values(array_filter($visibleStatuses, fn ($s) => $s !== 'sudah_dikirim'));
+        } else {
+            $visibleStatuses = ['sudah_dikirim'];
+        }
 
         return Inertia::render('Order/Index', [
             'orders' => $orders,
@@ -1276,6 +1292,30 @@ class OrderController extends Controller
             $i->delete();
         });
 
+        $sizeIds = [];
+        foreach ($items as $item) {
+            foreach ($item['namesets'] ?? [] as $ns) {
+                if (!empty($ns['size_id'])) {
+                    $sizeIds[] = $ns['size_id'];
+                }
+                if (!empty($ns['size_celana_id'])) {
+                    $sizeIds[] = $ns['size_celana_id'];
+                }
+            }
+        }
+        $sizesMap = [];
+        if (!empty($sizeIds)) {
+            $sizesMap = \App\Models\Master\Size::whereIn('id', array_unique($sizeIds))->get()->keyBy('id');
+        }
+
+        $categoryPriority = [
+            'ANAK' => 1,
+            'LAKI-LAKI' => 2,
+            'UNISEX' => 3,
+            'PEREMPUAN' => 4,
+            'CUSTOM' => 5,
+        ];
+
         foreach ($items as $item) {
             $namesets = $item['namesets'] ?? [];
             unset($item['namesets']);
@@ -1300,6 +1340,49 @@ class OrderController extends Controller
             $item['subtotal'] = max(0, $raw - $discountAmount);
 
             $created = OrderItem::create($item);
+
+            // Sort namesets by size (atasan) and secondarily by size (celana)
+            usort($namesets, function ($a, $b) use ($sizesMap, $categoryPriority) {
+                // Atasan A
+                $sizeIdA = $a['size_id'] ?? null;
+                $sizeA = $sizeIdA && isset($sizesMap[$sizeIdA]) ? $sizesMap[$sizeIdA] : null;
+                $catPriA = $sizeA ? ($categoryPriority[strtoupper($sizeA->kategori_size)] ?? 99) : 999;
+                $urutanA = $sizeA ? ($sizeA->urutan ?? 9999) : 999999;
+
+                // Atasan B
+                $sizeIdB = $b['size_id'] ?? null;
+                $sizeB = $sizeIdB && isset($sizesMap[$sizeIdB]) ? $sizesMap[$sizeIdB] : null;
+                $catPriB = $sizeB ? ($categoryPriority[strtoupper($sizeB->kategori_size)] ?? 99) : 999;
+                $urutanB = $sizeB ? ($sizeB->urutan ?? 9999) : 999999;
+
+                if ($catPriA !== $catPriB) {
+                    return $catPriA <=> $catPriB;
+                }
+                if ($urutanA !== $urutanB) {
+                    return $urutanA <=> $urutanB;
+                }
+
+                // Celana A
+                $sizeCelanaIdA = $a['size_celana_id'] ?? null;
+                $sizeCelanaA = $sizeCelanaIdA && isset($sizesMap[$sizeCelanaIdA]) ? $sizesMap[$sizeCelanaIdA] : null;
+                $catPriCelanaA = $sizeCelanaA ? ($categoryPriority[strtoupper($sizeCelanaA->kategori_size)] ?? 99) : 999;
+                $urutanCelanaA = $sizeCelanaA ? ($sizeCelanaA->urutan ?? 9999) : 999999;
+
+                // Celana B
+                $sizeCelanaIdB = $b['size_celana_id'] ?? null;
+                $sizeCelanaB = $sizeCelanaIdB && isset($sizesMap[$sizeCelanaIdB]) ? $sizesMap[$sizeCelanaIdB] : null;
+                $catPriCelanaB = $sizeCelanaB ? ($categoryPriority[strtoupper($sizeCelanaB->kategori_size)] ?? 99) : 999;
+                $urutanCelanaB = $sizeCelanaB ? ($sizeCelanaB->urutan ?? 9999) : 999999;
+
+                if ($catPriCelanaA !== $catPriCelanaB) {
+                    return $catPriCelanaA <=> $catPriCelanaB;
+                }
+                if ($urutanCelanaA !== $urutanCelanaB) {
+                    return $urutanCelanaA <=> $urutanCelanaB;
+                }
+
+                return 0;
+            });
 
             foreach ($namesets as $idx => $ns) {
                 $ns['order_item_id'] = $created->id;

@@ -46,6 +46,34 @@ class KanbanMoveTest extends TestCase
     public function test_valid_transition_siap_dikirim_to_sudah_dikirim(): void
     {
         $order = $this->makePoWithStatus('siap_dikirim');
+        $order->update(['is_lunas' => true]);
+        $produksi = $this->makeUser('admin_produksi', [$order->brand]);
+
+        $this->actingAsWithBrand($produksi, $order->brand)
+            ->putJson(route('produksi.move-status', $order->id), ['to_status' => 'sudah_dikirim'])
+            ->assertOk();
+
+        $this->assertEquals('sudah_dikirim', $order->fresh()->status_po);
+    }
+
+    public function test_transition_siap_dikirim_to_sudah_dikirim_blocked_if_not_lunas(): void
+    {
+        $order = $this->makePoWithStatus('siap_dikirim');
+        $produksi = $this->makeUser('admin_produksi', [$order->brand]);
+
+        $this->actingAsWithBrand($produksi, $order->brand)
+            ->putJson(route('produksi.move-status', $order->id), ['to_status' => 'sudah_dikirim'])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonFragment(['error' => 'Gagal memindahkan. Konfirmasi LUNAS dari Keuangan diperlukan terlebih dahulu sebelum pesanan dapat dikirim.']);
+
+        $this->assertNotEquals('sudah_dikirim', $order->fresh()->status_po);
+    }
+
+    public function test_transition_siap_dikirim_to_sudah_dikirim_allowed_if_special_order_even_if_not_lunas(): void
+    {
+        $order = $this->makePoWithStatus('siap_dikirim');
+        $order->update(['is_special_order' => true]);
         $produksi = $this->makeUser('admin_produksi', [$order->brand]);
 
         $this->actingAsWithBrand($produksi, $order->brand)
