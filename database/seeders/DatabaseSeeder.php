@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             MasterDataSeeder::class,
             FinanceSeeder::class,
+            CustomerSeeder::class,
             // OrderSeeder::class,
         ]);
     }

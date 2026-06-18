@@ -1,3 +1,14 @@
+@php
+    /**
+     * @var string $mode
+     * @var array $result
+     * @var \App\Models\Brand|null $brand
+     * @var int $year
+     * @var array $years
+     * @var \Carbon\Carbon $generated_at
+     * @var \App\Models\User $user
+     */
+@endphp
 <!DOCTYPE html>
 <html>
 <head>
@@ -33,13 +44,13 @@
                 @if ($mode === 'brands')
                     Perbandingan Kinerja Lintas Brand (Tahun {{ $year }})
                 @else
-                    Perbandingan Kinerja Multi-Tahun Brand: <strong>{{ $brand->nama_brand }}</strong>
+                    Perbandingan Kinerja Multi-Tahun Brand: <strong>{{ $brand?->nama_brand }}</strong>
                 @endif
             </div>
         </div>
         <div class="meta">
             <div><strong>Generated:</strong> {{ $generated_at->translatedFormat('d M Y, H:i') }}</div>
-            <div><strong>Oleh:</strong> {{ $user->name ?? '-' }}</div>
+            <div><strong>Oleh:</strong> {{ $user?->name ?? '-' }}</div>
         </div>
         <div class="clear"></div>
     </div>
@@ -51,7 +62,7 @@
             <span class="badge">Tahun: {{ $year }}</span>
             <span class="badge">Jumlah Brand: {{ count($result['data']) }}</span>
         @else
-            <span class="badge">Brand: {{ $brand->nama_brand }}</span>
+            <span class="badge">Brand: {{ $brand?->nama_brand }}</span>
             <span class="badge">Tahun Perbandingan: {{ implode(', ', $years) }}</span>
         @endif
     </div>
@@ -90,7 +101,7 @@
         </thead>
         <tbody>
             @php
-                $monthsKeys = Array.from({ length: 12 }, (_, i) => i + 1);
+                $monthsKeys = range(1, 12);
                 $monthsNames = [
                     1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
                     5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',

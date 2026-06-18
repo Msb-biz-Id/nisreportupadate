@@ -98,7 +98,16 @@ export default function InvoiceList({
     const hasFinanceView = user?.permissions?.includes('finance.view') || user?.roles?.includes('superadmin') || user?.roles?.includes('owner') || user?.roles?.includes('admin_keuangan');
     const dashboardUrl = hasFinanceView ? route('invoices.index') : route('dashboard');
 
-    const [activeTab, setActiveTab] = useState('belum_lunas');
+    // Get initial tab from query params if available
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const tabParam = urlParams ? urlParams.get('tab') : null;
+    const [activeTab, setActiveTab] = useState(tabParam || 'belum_lunas');
+
+    useEffect(() => {
+        if (tabParam && ['belum_lunas', 'sudah_lunas', 'tanda_jadi'].includes(tabParam)) {
+            setActiveTab(tabParam);
+        }
+    }, [tabParam]);
     
     // Dialogs & Modals state
     const [showAddDeposit, setShowAddDeposit] = useState(false);

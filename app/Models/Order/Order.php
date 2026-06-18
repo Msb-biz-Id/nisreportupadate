@@ -111,27 +111,41 @@ class Order extends Model
         if ($this->is_special_order) {
             return 0.0;
         }
-        $subtotal = (float) $this->items()->sum('subtotal');
+
+        // Ensure relations are loaded to prevent N+1 and minimize queries
+        if (!$this->relationLoaded('items')) {
+            $this->load('items');
+        }
+        if (!$this->relationLoaded('payments') || $this->payments->contains(fn($p) => !$p->relationLoaded('masterJenisPembayaran'))) {
+            $this->load('payments.masterJenisPembayaran');
+        }
+
+        $subtotal = (float) $this->items->sum('subtotal');
         
-        $penambahan = (float) $this->payments()
-            ->whereNotNull('verified_at')
-            ->whereHas('masterJenisPembayaran', function ($q) {
-                $q->where('efek_tagihan', 'penambahan');
-            })
+        $penambahan = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->masterJenisPembayaran?->efek_tagihan === 'penambahan')
             ->sum('amount');
             
-        $pengurangan = (float) $this->payments()
-            ->whereNotNull('verified_at')
-            ->whereHas('masterJenisPembayaran', function ($q) {
-                $q->where('efek_tagihan', 'pengurangan');
-            })
+        $pengurangan = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->masterJenisPembayaran?->efek_tagihan === 'pengurangan')
             ->sum('amount');
         
         // Fallback for old data without master_jenis_pembayaran_id
-        $ongkir = (float) $this->payments()->whereNull('master_jenis_pembayaran_id')->where('payment_type', 'ongkir')->whereNotNull('verified_at')->sum('amount');
-        $tambahan = (float) $this->payments()->whereNull('master_jenis_pembayaran_id')->where('payment_type', 'tambahan_produk')->whereNotNull('verified_at')->sum('amount');
-        $cashback = (float) $this->payments()->whereNull('master_jenis_pembayaran_id')->where('payment_type', 'cashback')->whereNotNull('verified_at')->sum('amount');
-        $return = (float) $this->payments()->whereNull('master_jenis_pembayaran_id')->where('payment_type', 'return')->whereNotNull('verified_at')->sum('amount');
+        $ongkir = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'ongkir')
+            ->sum('amount');
+            
+        $tambahan = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'tambahan_produk')
+            ->sum('amount');
+            
+        $cashback = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'cashback')
+            ->sum('amount');
+            
+        $return = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'return')
+            ->sum('amount');
         
         return max(0, $subtotal + $penambahan + $ongkir + $tambahan - $pengurangan - $cashback - $return);
     }
@@ -141,29 +155,48 @@ class Order extends Model
         if ($this->is_special_order) {
             return 0.0;
         }
-        $pemasukan = (float) $this->payments()
-            ->whereNotNull('verified_at')
-            ->whereHas('masterJenisPembayaran', function ($q) {
-                $q->where('tipe_keuangan', 'pemasukan');
-            })
+
+        // Ensure relations are loaded to prevent N+1 and minimize queries
+        if (!$this->relationLoaded('payments') || $this->payments->contains(fn($p) => !$p->relationLoaded('masterJenisPembayaran'))) {
+            $this->load('payments.masterJenisPembayaran');
+        }
+
+        $pemasukan = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->masterJenisPembayaran?->tipe_keuangan === 'pemasukan')
             ->sum('amount');
             
-        $pengeluaran = (float) $this->payments()
-            ->whereNotNull('verified_at')
-            ->whereHas('masterJenisPembayaran', function ($q) {
-                $q->where('tipe_keuangan', 'pengeluaran');
-            })
+        $pengeluaran = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->masterJenisPembayaran?->tipe_keuangan === 'pengeluaran')
             ->sum('amount');
         
         // Fallback for old data without master_jenis_pembayaran_id
-        $dp = (float) $this->payments()->whereNull('master_jenis_pembayaran_id')->where('payment_type', 'dp')->whereNotNull('verified_at')->sum('amount');
-        $pelunasan = (float) $this->payments()->whereNull('master_jenis_pembayaran_id')->where('payment_type', 'pelunasan')->whereNotNull('verified_at')->sum('amount');
-        $ongkir = (float) $this->payments()->whereNull('master_jenis_pembayaran_id')->where('payment_type', 'ongkir')->whereNotNull('verified_at')->sum('amount');
-        $tambahan = (float) $this->payments()->whereNull('master_jenis_pembayaran_id')->where('payment_type', 'tambahan_produk')->whereNotNull('verified_at')->sum('amount');
-        $lainnya = (float) $this->payments()->whereNull('master_jenis_pembayaran_id')->where('payment_type', 'lainnya')->whereNotNull('verified_at')->sum('amount');
+        $dp = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'dp')
+            ->sum('amount');
+            
+        $pelunasan = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'pelunasan')
+            ->sum('amount');
+            
+        $ongkir = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'ongkir')
+            ->sum('amount');
+            
+        $tambahan = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'tambahan_produk')
+            ->sum('amount');
+            
+        $lainnya = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'lainnya')
+            ->sum('amount');
         
-        $return = (float) $this->payments()->whereNull('master_jenis_pembayaran_id')->where('payment_type', 'return')->whereNotNull('verified_at')->sum('amount');
-        $cashback = (float) $this->payments()->whereNull('master_jenis_pembayaran_id')->where('payment_type', 'cashback')->whereNotNull('verified_at')->sum('amount');
+        $return = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'return')
+            ->sum('amount');
+            
+        $cashback = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'cashback')
+            ->sum('amount');
         
         return max(0, $pemasukan + $dp + $pelunasan + $ongkir + $tambahan + $lainnya - $pengeluaran - $return - $cashback);
     }

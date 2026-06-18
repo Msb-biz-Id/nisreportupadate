@@ -138,9 +138,11 @@
             $kategoriStr = $nonAddonItems->pluck('nama_produk')->filter()->map('strtoupper')->implode(', ');
             $totalAtasan = $nonAddonItems->sum(fn($i) => (int)($i['jml_atasan'] ?: ($i['quantity'] ?? 0)));
             $totalBawahan = $nonAddonItems->sum(fn($i) => (int)($i['jml_bawahan'] ?? 0)) ?: '.......';
-            $printingNames = collect();
-            if (!empty($raw['printing_ids'])) {
-                $printingNames = \App\Models\Master\Printing::whereIn('id', $raw['printing_ids'])->pluck('nama');
+            if (!isset($printingNames)) {
+                $printingNames = collect();
+                if (!empty($raw['printing_ids'])) {
+                    $printingNames = \App\Models\Master\Printing::whereIn('id', $raw['printing_ids'])->pluck('nama');
+                }
             }
             $printingStr = $printingNames->isNotEmpty() ? $printingNames->implode(', ') : '.......';
             $dv = fn($v) => trim((string)($v ?? '')) ?: '.......';
@@ -647,7 +649,9 @@
 
         {{-- ===== CHECKLIST PRODUKSI ===== --}}
         @php
-            $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+            if (!isset($progresses)) {
+                $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+            }
         @endphp
         @if($progresses->count() && $nonAddonItems->count())
         <div class="page-break"></div>

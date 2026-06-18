@@ -6,13 +6,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Support\BrandContext;
 
 class UploadController extends Controller
 {
-    /**
-     * Endpoint upload gambar generic. Path disimpan per "purpose" (products, orders, brands).
-     * Return URL public yang bisa disimpan di field model.
-     */
     public function image(Request $request)
     {
         $data = $request->validate([
@@ -24,15 +21,45 @@ class UploadController extends Controller
         // Authorization sederhana: butuh login. Validasi role detail di controller pemanggil.
         abort_unless($request->user(), 401);
 
+        /** @var \Illuminate\Http\UploadedFile $file */
         $file = $data['file'];
         $purpose = $data['purpose'];
-        $filename = Str::ulid() . '.' . $file->getClientOriginalExtension();
+        
+        // Output format adalah selalu webp
+        $filename = Str::ulid() . '.webp';
 
+        // Kelompokkan folder upload orders berdasarkan brand aktif jika ada
+        $brand = BrandContext::currentBrand($request);
+        $brandFolder = ($brand && $brand->id !== 'all') ? Str::slug($brand->nama_brand) : null;
+
+        $subFolders = [];
+        if ($purpose === 'orders' && $brandFolder) {
+            $subFolders[] = $brandFolder;
+        }
         if ($purpose === 'orders' && !empty($data['nama_po'])) {
-            $folderName = Str::slug($data['nama_po']);
-            $path = $file->storeAs("{$purpose}/{$folderName}", $filename, 'public');
-        } else {
-            $path = $file->storeAs($purpose, $filename, 'public');
+            $subFolders[] = Str::slug($data['nama_po']);
+        }
+
+        $folderPath = $purpose;
+        if (!empty($subFolders)) {
+            $folderPath .= '/' . implode('/', $subFolders);
+        }
+
+        $path = "{$folderPath}/{$filename}";
+
+        // Tentukan full path tujuan di storage public
+        $targetFullPath = Storage::disk('public')->path($path);
+
+        // Lakukan kompresi ke WebP menggunakan GD Library
+        $compressed = $this->compressToWebp($file->getRealPath(), $targetFullPath);
+
+        if (!$compressed) {
+            // Fallback: simpan apa adanya jika kompresi gagal
+            $extension = $file->guessExtension() ?: $file->getClientOriginalExtension();
+            $filename = Str::ulid() . '.' . $extension;
+            $path = "{$folderPath}/{$filename}";
+            
+            $path = $file->storeAs($folderPath, $filename, 'public');
         }
 
         return response()->json([
@@ -40,6 +67,68 @@ class UploadController extends Controller
             'path' => $path,
             'url' => Storage::disk('public')->url($path),
         ]);
+    }
+
+    /**
+     * Kompres dan resize gambar ke format WebP menggunakan PHP GD Library.
+     */
+    private function compressToWebp(string $tempPath, string $targetPath): bool
+    {
+        try {
+            $info = @getimagesize($tempPath);
+            if (!$info) return false;
+
+            $mime = $info['mime'];
+            
+            switch ($mime) {
+                case 'image/jpeg':
+                    $image = @imagecreatefromjpeg($tempPath);
+                    break;
+                case 'image/png':
+                    $image = @imagecreatefrompng($tempPath);
+                    if ($image) {
+                        imagealphablending($image, false);
+                        imagesavealpha($image, true);
+                    }
+                    break;
+                case 'image/webp':
+                    $image = @imagecreatefromwebp($tempPath);
+                    break;
+                default:
+                    return false;
+            }
+
+            if (!$image) return false;
+
+            $width = imagesx($image);
+            $height = imagesy($image);
+            $maxWidth = 1200;
+
+            // Resize secara proporsional jika lebar melebihi batas maksimum
+            if ($width > $maxWidth) {
+                $newWidth = $maxWidth;
+                $newHeight = (int) (($height / $width) * $maxWidth);
+                
+                $resizedImage = imagescale($image, $newWidth, $newHeight);
+                if ($resizedImage) {
+                    imagedestroy($image);
+                    $image = $resizedImage;
+                }
+            }
+
+            $dir = dirname($targetPath);
+            if (!file_exists($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+
+            // Simpan sebagai WebP berkualitas 75%
+            $success = @imagewebp($image, $targetPath, 75);
+            imagedestroy($image);
+
+            return $success;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     public function destroy(Request $request)

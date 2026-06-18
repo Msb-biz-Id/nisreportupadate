@@ -229,9 +229,10 @@ class MasterDataSeeder extends Seeder
 
     private function seedBank(): void
     {
-        foreach (Brand::all() as $brand) {
+        $targetBrands = Brand::whereIn('kode', ['ALG', 'CRL', 'DRV', 'IDW'])->get();
+        foreach ($targetBrands as $brand) {
             $banks = [
-                ['bank' => 'CASH', 'atas_nama' => 'Cash', 'nomor_rekening' => 'CASH'],
+                ['bank' => 'CASH', 'atas_nama' => $brand->nama_brand, 'nomor_rekening' => 'CASH'],
                 ['bank' => 'BCA', 'atas_nama' => $brand->nama_brand, 'nomor_rekening' => '1234567890'],
                 ['bank' => 'Mandiri', 'atas_nama' => $brand->nama_brand, 'nomor_rekening' => '9876543210'],
                 ['bank' => 'BRI', 'atas_nama' => $brand->nama_brand, 'nomor_rekening' => '0987654321'],

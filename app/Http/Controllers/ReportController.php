@@ -34,11 +34,7 @@ class ReportController extends Controller
 
         $bankAccountsQuery = \App\Models\Master\BankAccount::query()->active();
         if (! $isGlobal) {
-            if ($role === 'admin_reseller') {
-                $bankAccountsQuery->whereIn('brand_id', (array)$effectiveId);
-            } else {
-                $bankAccountsQuery->where('brand_id', BrandContext::current($request));
-            }
+            $bankAccountsQuery->whereIn('brand_id', (array)$effectiveId);
         }
         $bankAccounts = $bankAccountsQuery
             ->with('brand:id,nama_brand')
@@ -140,35 +136,21 @@ class ReportController extends Controller
             return $selectedBrandId ?: null;
         }
 
-        $role = $user->getRoleNames()->first();
-        if ($role === 'admin_reseller') {
-            $allowedIds = BrandContext::effectiveBrandIds($request);
-            if (empty($allowedIds)) {
-                $allowedIds = (array) BrandContext::current($request);
-            }
-            if ($selectedBrandId) {
-                return in_array($selectedBrandId, $allowedIds) ? $selectedBrandId : $allowedIds;
-            }
-            return $allowedIds;
-        }
-
-        $activeBrandId = BrandContext::current($request);
+        $allowedIds = BrandContext::effectiveBrandIds($request);
         if ($selectedBrandId) {
-            return $selectedBrandId === $activeBrandId ? $selectedBrandId : $activeBrandId;
+            return in_array($selectedBrandId, $allowedIds) ? $selectedBrandId : $allowedIds;
         }
-        return $activeBrandId;
+        return $allowedIds;
     }
 
-    /** Returns effective brand ID(s) for report queries. admin_reseller on hub → array of branch IDs. */
+    /** Returns effective brand ID(s) for report queries. */
     private function effectiveBrandId(Request $request): string|array|null
     {
         $user = $request->user();
-        $role = $user?->getRoleNames()->first();
-        if ($role === 'admin_reseller') {
-            $ids = BrandContext::effectiveBrandIds($request);
-            return $ids ?: BrandContext::current($request);
+        if (! $user) {
+            return null;
         }
-        return BrandContext::current($request);
+        return BrandContext::effectiveBrandIds($request);
     }
 
     private function resolveConfig(string $slug, Request $request = null): array

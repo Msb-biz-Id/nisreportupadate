@@ -12,6 +12,7 @@ use App\Models\Order\Refund;
 use App\Models\Order\Rijek;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardService
 {
@@ -37,208 +38,245 @@ class DashboardService
      * Expand hub brand IDs → hub + semua branch-nya.
      * Hub bisa punya order langsung, jadi ID hub ikut disertakan.
      * Regular brands dan branches dikembalikan as-is.
+     * CACHED: Hasil disimpan 15 menit
      */
     private function expandToOperationalIds(array $brandIds): array
     {
-        $result = [];
-        foreach ($brandIds as $id) {
-            $brand = Brand::select('id', 'brand_type')->find($id);
-            if ($brand && $brand->brand_type === Brand::TYPE_RESELLER_HUB) {
-                // Hub sendiri + semua branch-nya
-                $branches = Brand::where('parent_brand_id', $id)->pluck('id')->toArray();
-                $result[] = $id; // hub ikut
-                array_push($result, ...$branches);
-            } else {
-                $result[] = $id;
-            }
+        if (empty($brandIds)) {
+            return [];
         }
-        return array_unique($result);
+
+        $key = 'brand_ops:' . implode(',', array_unique($brandIds));
+
+        return Cache::remember($key, 900, function () use ($brandIds) {
+            // Single query: get hub IDs and branch IDs in one go
+            $result = Brand::query()
+                ->select('id')
+                ->where(function ($q) use ($brandIds) {
+                    // Include original brand IDs
+                    $q->whereIn('id', $brandIds)
+                      // OR include branches whose parent is a hub in brandIds
+                      ->orWhereHas('parent', function ($pq) use ($brandIds) {
+                          $pq->whereIn('id', $brandIds)
+                            ->where('brand_type', Brand::TYPE_RESELLER_HUB);
+                      });
+                })
+                ->pluck('id')
+                ->toArray();
+
+            return array_unique($result);
+        });
     }
 
     // ----- public stats -----
 
     public function adminBrandStats(string|array|null $brandId): array
     {
-        $base = Order::query()->when($brandId, $this->bf($brandId));
+        return CacheService::rememberDashboard(
+            'adminBrandStats',
+            $brandId,
+            function () use ($brandId) {
+                $base = Order::query()->when($brandId, $this->bf($brandId));
 
-        $today = (clone $base)->whereDate('tanggal_masuk', today())->count();
-        $week  = (clone $base)->whereBetween('tanggal_masuk', [now()->startOfWeek(), now()->endOfWeek()])->count();
-        $month = (clone $base)->whereMonth('tanggal_masuk', now()->month)->whereYear('tanggal_masuk', now()->year)->count();
+                $today = (clone $base)->whereDate('tanggal_masuk', today())->count();
+                $week  = (clone $base)->whereBetween('tanggal_masuk', [now()->startOfWeek(), now()->endOfWeek()])->count();
+                $month = (clone $base)->whereMonth('tanggal_masuk', now()->month)->whereYear('tanggal_masuk', now()->year)->count();
 
-        $totalProdukDiOrder = OrderItem::query()
-            ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->when($brandId, $this->obf($brandId))
-            ->distinct('order_items.product_id')->count('order_items.product_id');
+                $totalProdukDiOrder = OrderItem::query()
+                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                    ->when($brandId, $this->obf($brandId))
+                    ->distinct('order_items.product_id')->count('order_items.product_id');
 
-        $totalPelanggan = Customer::query()->when($brandId, $this->bf($brandId))->count();
+                $totalPelanggan = Customer::query()->when($brandId, $this->bf($brandId))->count();
 
-        $totalWilayah = Customer::query()
-            ->when($brandId, $this->bf($brandId))
-            ->whereNotNull('kabupaten_code')->distinct('kabupaten_code')->count('kabupaten_code');
+                $totalWilayah = Customer::query()
+                    ->when($brandId, $this->bf($brandId))
+                    ->whereNotNull('kabupaten_code')->distinct('kabupaten_code')->count('kabupaten_code');
 
-        $dpPendingCount = \App\Models\Order\DesignDeposit::query()
-            ->when($brandId, $this->bf($brandId))
-            ->where('status', 'pending')
-            ->count();
+                $dpPendingCount = \App\Models\Order\DesignDeposit::query()
+                    ->when($brandId, $this->bf($brandId))
+                    ->where('status', 'pending')
+                    ->count();
 
-        $refundPendingCount = \App\Models\Order\Refund::query()
-            ->when($brandId, $this->bf($brandId))
-            ->where('status', 'pending_review')
-            ->count();
+                $refundPendingCount = \App\Models\Order\Refund::query()
+                    ->when($brandId, $this->bf($brandId))
+                    ->where('status', 'pending_review')
+                    ->count();
 
-        return [
-            'cards' => [
-                ['label' => 'Order Hari Ini', 'value' => $today, 'icon' => 'Calendar', 'accent' => 'blue'],
-                ['label' => 'Order Minggu Ini', 'value' => $week, 'icon' => 'CalendarRange', 'accent' => 'emerald'],
-                ['label' => 'Order Bulan Ini', 'value' => $month, 'icon' => 'CalendarDays', 'accent' => 'violet'],
-                ['label' => 'Produk Di-order', 'value' => $totalProdukDiOrder, 'icon' => 'Package', 'accent' => 'amber'],
-                ['label' => 'Total Pelanggan', 'value' => $totalPelanggan, 'icon' => 'Users', 'accent' => 'pink'],
-                ['label' => 'Wilayah Tercakup', 'value' => $totalWilayah, 'icon' => 'MapPin', 'accent' => 'cyan'],
-                ['label' => 'Tanda Jadi Pending', 'value' => $dpPendingCount, 'icon' => 'Sparkles', 'accent' => 'amber'],
-                ['label' => 'Refund Pending', 'value' => $refundPendingCount, 'icon' => 'RotateCcw', 'accent' => 'red'],
-            ],
-            'status_breakdown'              => $this->statusBreakdown($brandId),
-            'trend_harian'                  => $this->trendHarian($brandId, 14),
-            'produk_terpopuler'             => $this->produkTerpopuler($brandId, 10),
-            'kategori_distribusi'           => $this->kategoriDistribusi($brandId),
-            'sumber_distribusi'             => $this->sumberDistribusi($brandId),
-            'kategori_pelanggan_distribusi' => $this->kategoriPelangganDistribusi($brandId),
-            'wilayah_top'                   => $this->wilayahTop($brandId, 8),
-            'top_pelanggan'                 => $this->topPelanggan($brandId, 5),
-            'po_terbaru'                    => $this->poTerbaru($brandId, 10),
-            'deadline_mendekat'             => $this->deadlineMendekat($brandId, 5),
-            'po_terlambat'                  => $this->poTerlambat($brandId, 5),
-            'trend_bulanan'                 => $this->trendBulanan($brandId),
-            'target_progress'               => $this->getTargetProgress($brandId),
-            'dp_pending_list' => \App\Models\Order\DesignDeposit::query()
-                ->when($brandId, $this->bf($brandId))
-                ->where('status', 'pending')
-                ->with(['customer:id,nama', 'brand:id,nama_brand,kode'])
-                ->orderByDesc('created_at')
-                ->limit(10)
-                ->get(),
-            'refund_pending_list' => \App\Models\Order\Refund::query()
-                ->when($brandId, $this->bf($brandId))
-                ->where('status', 'pending_review')
-                ->with(['order:id,no_po', 'creator:id,name'])
-                ->orderByDesc('created_at')
-                ->limit(10)
-                ->get(),
-        ];
+                return [
+                    'cards' => [
+                        ['label' => 'Order Hari Ini', 'value' => $today, 'icon' => 'Calendar', 'accent' => 'blue'],
+                        ['label' => 'Order Minggu Ini', 'value' => $week, 'icon' => 'CalendarRange', 'accent' => 'emerald'],
+                        ['label' => 'Order Bulan Ini', 'value' => $month, 'icon' => 'CalendarDays', 'accent' => 'violet'],
+                        ['label' => 'Produk Di-order', 'value' => $totalProdukDiOrder, 'icon' => 'Package', 'accent' => 'amber'],
+                        ['label' => 'Total Pelanggan', 'value' => $totalPelanggan, 'icon' => 'Users', 'accent' => 'pink'],
+                        ['label' => 'Wilayah Tercakup', 'value' => $totalWilayah, 'icon' => 'MapPin', 'accent' => 'cyan'],
+                        ['label' => 'Tanda Jadi Pending', 'value' => $dpPendingCount, 'icon' => 'Sparkles', 'accent' => 'amber'],
+                        ['label' => 'Refund Pending', 'value' => $refundPendingCount, 'icon' => 'RotateCcw', 'accent' => 'red'],
+                    ],
+                    'status_breakdown'              => $this->statusBreakdown($brandId),
+                    'trend_harian'                  => $this->trendHarian($brandId, 14),
+                    'produk_terpopuler'             => $this->produkTerpopuler($brandId, 10),
+                    'kategori_distribusi'           => $this->kategoriDistribusi($brandId),
+                    'sumber_distribusi'             => $this->sumberDistribusi($brandId),
+                    'kategori_pelanggan_distribusi' => $this->kategoriPelangganDistribusi($brandId),
+                    'wilayah_top'                   => $this->wilayahTop($brandId, 8),
+                    'top_pelanggan'                 => $this->topPelanggan($brandId, 5),
+                    'po_terbaru'                    => $this->poTerbaru($brandId, 10),
+                    'deadline_mendekat'             => $this->deadlineMendekat($brandId, 5),
+                    'po_terlambat'                  => $this->poTerlambat($brandId, 5),
+                    'trend_bulanan'                 => $this->trendBulanan($brandId),
+                    'target_progress'               => $this->getTargetProgress($brandId),
+                    'dp_pending_list' => \App\Models\Order\DesignDeposit::query()
+                        ->when($brandId, $this->bf($brandId))
+                        ->where('status', 'pending')
+                        ->with(['customer:id,nama', 'brand:id,nama_brand,kode'])
+                        ->orderByDesc('created_at')
+                        ->limit(10)
+                        ->get(),
+                    'refund_pending_list' => \App\Models\Order\Refund::query()
+                        ->when($brandId, $this->bf($brandId))
+                        ->where('status', 'pending_review')
+                        ->with(['order:id,no_po', 'creator:id,name'])
+                        ->orderByDesc('created_at')
+                        ->limit(10)
+                        ->get(),
+                ];
+            },
+            CacheService::TTL_SHORT
+        );
     }
 
     public function adminProduksiStats(string|array|null $brandId): array
     {
-        $base = Order::query()->when($brandId, $this->bf($brandId));
+        return CacheService::rememberDashboard(
+            'adminProduksiStats',
+            $brandId,
+            function () use ($brandId) {
+                $base = Order::query()->when($brandId, $this->bf($brandId));
 
-        $dalamProses  = (clone $base)->where('status_po', 'on_progress')->count();
-        $selesaiToday = (clone $base)->where('status_po', 'selesai_produksi')
-            ->whereDate('updated_at', today())->count();
-        $deadlineDekat = (clone $base)
-            ->whereIn('status_po', ['published', 'on_progress'])
-            ->whereBetween('deadline_customer', [now(), now()->addDays(7)])
-            ->count();
+                $dalamProses  = (clone $base)->where('status_po', 'on_progress')->count();
+                $selesaiToday = (clone $base)->where('status_po', 'selesai_produksi')
+                    ->whereDate('updated_at', today())->count();
+                $deadlineDekat = (clone $base)
+                    ->whereIn('status_po', ['published', 'on_progress'])
+                    ->whereBetween('deadline_customer', [now(), now()->addDays(7)])
+                    ->count();
 
-        $totalRijek = Rijek::query()
-            ->join('orders', 'orders.id', '=', 'rijeks.order_id')
-            ->when($brandId, $this->obf($brandId))
-            ->sum('rijeks.jumlah');
-        $totalProduksi = OrderItem::query()
-            ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->when($brandId, $this->obf($brandId))
-            ->where('orders.status_po', '!=', 'draft')
-            ->sum('order_items.quantity');
-        $rijekRate = $totalProduksi > 0 ? round(($totalRijek / $totalProduksi) * 100, 2) : 0;
+                $totalRijek = Rijek::query()
+                    ->join('orders', 'orders.id', '=', 'rijeks.order_id')
+                    ->when($brandId, $this->obf($brandId))
+                    ->sum('rijeks.jumlah');
+                $totalProduksi = OrderItem::query()
+                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                    ->when($brandId, $this->obf($brandId))
+                    ->where('orders.status_po', '!=', 'draft')
+                    ->sum('order_items.quantity');
+                $rijekRate = $totalProduksi > 0 ? round(($totalRijek / $totalProduksi) * 100, 2) : 0;
 
-        return [
-            'cards' => [
-                ['label' => 'Order Dalam Proses', 'value' => $dalamProses,    'icon' => 'Settings2',     'accent' => 'amber'],
-                ['label' => 'Selesai Hari Ini',   'value' => $selesaiToday,   'icon' => 'CheckCircle2',  'accent' => 'emerald'],
-                ['label' => 'Deadline ≤ 7 Hari',  'value' => $deadlineDekat,  'icon' => 'AlarmClock',    'accent' => 'orange'],
-                ['label' => 'Rijek Rate',          'value' => $rijekRate.'%',  'icon' => 'AlertTriangle', 'accent' => 'red'],
-            ],
-            'status_breakdown'     => $this->statusBreakdown($brandId),
-            'rijek_by_jenis'       => $this->rijekByJenis($brandId),
-            'rijek_by_tingkat'     => $this->rijekByTingkat($brandId),
-            'progress_distribution' => $this->progressDistribution($brandId),
-            'deadline_mendekat'    => $this->deadlineMendekat($brandId, 10),
-            'po_terlambat'         => $this->poTerlambat($brandId, 10),
-        ];
+                return [
+                    'cards' => [
+                        ['label' => 'Order Dalam Proses', 'value' => $dalamProses,    'icon' => 'Settings2',     'accent' => 'amber'],
+                        ['label' => 'Selesai Hari Ini',   'value' => $selesaiToday,   'icon' => 'CheckCircle2',  'accent' => 'emerald'],
+                        ['label' => 'Deadline ≤ 7 Hari',  'value' => $deadlineDekat,  'icon' => 'AlarmClock',    'accent' => 'orange'],
+                        ['label' => 'Rijek Rate',          'value' => $rijekRate.'%',  'icon' => 'AlertTriangle', 'accent' => 'red'],
+                    ],
+                    'status_breakdown'     => $this->statusBreakdown($brandId),
+                    'rijek_by_jenis'       => $this->rijekByJenis($brandId),
+                    'rijek_by_tingkat'     => $this->rijekByTingkat($brandId),
+                    'progress_distribution' => $this->progressDistribution($brandId),
+                    'deadline_mendekat'    => $this->deadlineMendekat($brandId, 10),
+                    'po_terlambat'         => $this->poTerlambat($brandId, 10),
+                ];
+            },
+            CacheService::TTL_SHORT
+        );
     }
 
     public function superadminStats(string|array|null $brandId = null): array
     {
-        $totalBrandAktif = Brand::active()->count();
-        $totalUser       = \App\Models\User::count();
-        
-        $baseOrder = Order::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
-        $totalOrder      = (clone $baseOrder)->count();
-        $totalRevenue    = (clone $baseOrder)->sum('total_tagihan');
+        return CacheService::rememberDashboard(
+            'superadminStats',
+            $brandId,
+            function () use ($brandId) {
+                $totalBrandAktif = Brand::active()->count();
+                $totalUser       = \App\Models\User::count();
+                
+                $baseOrder = Order::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
+                $totalOrder      = (clone $baseOrder)->count();
+                $totalRevenue    = (clone $baseOrder)->sum('total_tagihan');
 
-        $perBrand = Order::query()
-            ->when($brandId && $brandId !== 'all', $this->bf($brandId))
-            ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
-            ->select('orders.brand_id', DB::raw('COUNT(orders.id) as total'), DB::raw('SUM(orders.total_tagihan) as revenue'), DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_pcs'))
-            ->groupBy('orders.brand_id')
-            ->with('brand:id,nama_brand,kode,warna_primary')
-            ->get()
-            ->map(fn ($r) => [
-                'brand'     => $r->brand?->nama_brand ?? '-',
-                'kode'      => $r->brand?->kode,
-                'warna'     => $r->brand?->warna_primary,
-                'total'     => (int) $r->total,
-                'revenue'   => (float) $r->revenue,
-                'total_pcs' => (int) $r->total_pcs,
-            ]);
+                $perBrand = Order::query()
+                    ->when($brandId && $brandId !== 'all', $this->bf($brandId))
+                    ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
+                    ->select('orders.brand_id', DB::raw('COUNT(orders.id) as total'), DB::raw('SUM(orders.total_tagihan) as revenue'), DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_pcs'))
+                    ->groupBy('orders.brand_id')
+                    ->with('brand:id,nama_brand,kode,warna_primary')
+                    ->get()
+                    ->map(fn ($r) => [
+                        'brand'     => $r->brand?->nama_brand ?? '-',
+                        'kode'      => $r->brand?->kode,
+                        'warna'     => $r->brand?->warna_primary,
+                        'total'     => (int) $r->total,
+                        'revenue'   => (float) $r->revenue,
+                        'total_pcs' => (int) $r->total_pcs,
+                    ]);
 
-        return [
-            'cards' => [
-                ['label' => 'Total Brand Aktif', 'value' => $totalBrandAktif, 'icon' => 'Building2',   'accent' => 'blue'],
-                ['label' => 'Total User',         'value' => $totalUser,       'icon' => 'Users',        'accent' => 'emerald'],
-                ['label' => 'Total Order',        'value' => $totalOrder,     'icon' => 'Package',      'accent' => 'violet'],
-                ['label' => 'Total Revenue',       'value' => $totalRevenue,   'currency' => true, 'icon' => 'TrendingUp', 'accent' => 'amber'],
-            ],
-            'brand_performance' => $perBrand,
-            'status_breakdown'  => $this->statusBreakdown($brandId),
-            'trend_harian'      => $this->trendHarian($brandId, 14),
-            'po_terbaru'        => $this->poTerbaru($brandId, 10),
-            'trend_bulanan'     => $this->trendBulanan($brandId),
-            'target_progress'   => $this->getTargetProgress($brandId ?: Brand::active()->pluck('id')->toArray()),
-        ];
+                return [
+                    'cards' => [
+                        ['label' => 'Total Brand Aktif', 'value' => $totalBrandAktif, 'icon' => 'Building2',   'accent' => 'blue'],
+                        ['label' => 'Total User',         'value' => $totalUser,       'icon' => 'Users',        'accent' => 'emerald'],
+                        ['label' => 'Total Order',        'value' => $totalOrder,     'icon' => 'Package',      'accent' => 'violet'],
+                        ['label' => 'Total Revenue',       'value' => $totalRevenue,   'currency' => true, 'icon' => 'TrendingUp', 'accent' => 'amber'],
+                    ],
+                    'brand_performance' => $perBrand,
+                    'status_breakdown'  => $this->statusBreakdown($brandId),
+                    'trend_harian'      => $this->trendHarian($brandId, 14),
+                    'po_terbaru'        => $this->poTerbaru($brandId, 10),
+                    'trend_bulanan'     => $this->trendBulanan($brandId),
+                    'target_progress'   => $this->getTargetProgress($brandId ?: Brand::active()->pluck('id')->toArray()),
+                ];
+            },
+            CacheService::TTL_SHORT
+        );
     }
 
     public function ownerStats(User $user, ?string $filterBrand): array
     {
-        $ownedBrandIds = $user->brands()->pluck('brands.id')->all();
+        return CacheService::rememberDashboard(
+            'ownerStats',
+            $filterBrand,
+            function () use ($user, $filterBrand) {
+                $ownedBrandIds = $user->brands()->pluck('brands.id')->all();
 
-        // Expand reseller hubs to include hub itself + all branch IDs
-        $allOpIds = $this->expandToOperationalIds($ownedBrandIds);
+                // Expand reseller hubs to include hub itself + all branch IDs
+                $allOpIds = $this->expandToOperationalIds($ownedBrandIds);
 
-        if ($filterBrand && $filterBrand !== 'all') {
-            $fb = Brand::select('id', 'brand_type')->find($filterBrand);
-            $opBrandIds = ($fb && $fb->brand_type === Brand::TYPE_RESELLER_HUB)
-                ? Brand::where('parent_brand_id', $filterBrand)->pluck('id')->toArray()
-                : [$filterBrand];
-        } else {
-            $opBrandIds = $allOpIds;
-        }
+                if ($filterBrand && $filterBrand !== 'all') {
+                    $fb = Brand::select('id', 'brand_type')->find($filterBrand);
+                    $opBrandIds = ($fb && $fb->brand_type === Brand::TYPE_RESELLER_HUB)
+                        ? Brand::where('parent_brand_id', $filterBrand)->pluck('id')->toArray()
+                        : [$filterBrand];
+                } else {
+                    $opBrandIds = $allOpIds;
+                }
 
-        $base         = Order::query()->whereIn('brand_id', $opBrandIds);
-        $totalRevenue = (clone $base)->sum('total_tagihan');
-        $totalPo      = (clone $base)->count();
-        $outstanding  = $totalRevenue - OrderPayment::whereHas(
-            'order', fn ($q) => $q->whereIn('brand_id', $opBrandIds)
-        )->sum('amount');
-        $rejectRate = $this->calculateRejectRate($opBrandIds);
+                $base         = Order::query()->whereIn('brand_id', $opBrandIds);
+                $totalRevenue = (clone $base)->sum('total_tagihan');
+                $totalPo      = (clone $base)->count();
+                $outstanding  = $totalRevenue - OrderPayment::whereHas(
+                    'order', fn ($q) => $q->whereIn('brand_id', $opBrandIds)
+                )->sum('amount');
+                $rejectRate = $this->calculateRejectRate($opBrandIds);
 
-        return [
-            'cards' => [
-                ['label' => 'Total PO',             'value' => $totalPo,                  'icon' => 'Package',       'accent' => 'blue'],
-                ['label' => 'Total Revenue',         'value' => $totalRevenue, 'currency' => true, 'icon' => 'TrendingUp',    'accent' => 'emerald'],
-                ['label' => 'Outstanding Payment',   'value' => max(0, $outstanding), 'currency' => true, 'icon' => 'CreditCard',    'accent' => 'orange'],
-                ['label' => 'Rijek Rate',            'value' => $rejectRate.'%',           'icon' => 'AlertTriangle', 'accent' => 'red'],
-            ],
-            'owned_brands' => Brand::whereIn('id', $ownedBrandIds)->get(['id', 'nama_brand', 'kode', 'warna_primary']),
+                return [
+                    'cards' => [
+                        ['label' => 'Total PO',             'value' => $totalPo,                  'icon' => 'Package',       'accent' => 'blue'],
+                        ['label' => 'Total Revenue',         'value' => $totalRevenue, 'currency' => true, 'icon' => 'TrendingUp',    'accent' => 'emerald'],
+                        ['label' => 'Outstanding Payment',   'value' => max(0, $outstanding), 'currency' => true, 'icon' => 'CreditCard',    'accent' => 'orange'],
+                        ['label' => 'Rijek Rate',            'value' => $rejectRate.'%',           'icon' => 'AlertTriangle', 'accent' => 'red'],
+                    ],
+                    'owned_brands' => Brand::whereIn('id', $ownedBrandIds)->get(['id', 'nama_brand', 'kode', 'warna_primary']),
             'brand_performance' => Order::query()
                 ->whereIn('orders.brand_id', $opBrandIds)
                 ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
@@ -270,21 +308,28 @@ class DashboardService
             'target_progress'               => $this->getTargetProgress($opBrandIds),
             'current_brand_id'              => $filterBrand ?: 'all',
         ];
+            },
+            CacheService::TTL_SHORT
+        );
     }
 
     public function financeStats(string|array|null $brandId): array
     {
-        $invoices = Invoice::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
-        $refunds  = Refund::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
+        return CacheService::rememberDashboard(
+            'financeStats',
+            $brandId,
+            function () use ($brandId) {
+                $invoices = Invoice::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
+                $refunds  = Refund::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
 
-        $invoicePending      = (clone $invoices)->whereIn('status', ['draft', 'validated'])->count();
-        $invoiceToday        = (clone $invoices)->whereDate('tanggal_terbit', today())->count();
-        $totalTagihanPending = (clone $invoices)->whereIn('status', ['draft', 'validated', 'published'])->sum('sisa_pembayaran');
+                $invoicePending      = (clone $invoices)->whereIn('status', ['draft', 'validated'])->count();
+                $invoiceToday        = (clone $invoices)->whereDate('tanggal_terbit', today())->count();
+                $totalTagihanPending = (clone $invoices)->whereIn('status', ['draft', 'validated', 'published'])->sum('sisa_pembayaran');
 
-        $paidToday = OrderPayment::query()
-            ->whereDate('payment_date', today())
-            ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
-            ->sum('amount');
+                $paidToday = OrderPayment::query()
+                    ->whereDate('payment_date', today())
+                    ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
+                    ->sum('amount');
 
         $refundPending        = (clone $refunds)->where('status', 'pending_review')->count();
         $refundPublished      = (clone $refunds)->where('status', 'published');
@@ -322,64 +367,124 @@ class DashboardService
         $bankAccountsSummary = \App\Models\Master\BankAccount::query()
             ->when($brandId && $brandId !== 'all', $this->bf($brandId))
             ->with('brand:id,nama_brand,kode')
-            ->get()
-            ->map(function ($bank) use ($brandId) {
-                // Sum verified payments
-                $totalReceived = OrderPayment::where('bank_id', $bank->id)
-                    ->whereNotNull('verified_at')
-                    ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
-                    ->sum('amount');
+            ->get();
 
-                // Last 15 transactions for matching bank statement (rekening koran)
-                $recentTransactions = OrderPayment::where('bank_id', $bank->id)
-                    ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
-                    ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'masterJenisPembayaran:id,nama'])
-                    ->orderByDesc('payment_date')
-                    ->orderByDesc('created_at')
-                    ->limit(15)
-                    ->get()
-                    ->map(fn ($p) => [
-                        'id' => $p->id,
-                        'no_po' => $p->order?->no_po,
-                        'nama_po' => $p->order?->nama_po,
-                        'pelanggan' => $p->order?->pelanggan?->nama ?? '-',
-                        'tipe' => $p->masterJenisPembayaran?->nama ?? $p->payment_type,
-                        'amount' => (float) $p->amount,
-                        'payment_date' => $p->payment_date?->toDateString(),
-                        'verified' => !empty($p->verified_at),
-                        'notes' => $p->notes,
-                    ]);
+        $bankIds = $bankAccountsSummary->pluck('id')->toArray();
 
-                return [
-                    'id' => $bank->id,
-                    'bank' => $bank->bank,
-                    'atas_nama' => $bank->atas_nama,
-                    'nomor_rekening' => $bank->nomor_rekening,
-                    'brand_name' => $bank->brand?->nama_brand ?? 'General',
-                    'brand_kode' => $bank->brand?->kode ?? 'GEN',
-                    'total_received' => (float) $totalReceived,
-                    'recent_transactions' => $recentTransactions,
-                ];
-            });
+        // 1. Ambil total received per bank account via single query GROUP BY
+        $verifiedPaymentsByBank = [];
+        if (!empty($bankIds)) {
+            $verifiedPaymentsByBank = OrderPayment::query()
+                ->whereIn('bank_id', $bankIds)
+                ->whereNotNull('verified_at')
+                ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
+                ->select('bank_id', DB::raw('SUM(amount) as total'))
+                ->groupBy('bank_id')
+                ->pluck('total', 'bank_id')
+                ->toArray();
+        }
 
-        $brandFinancialReports = \App\Models\Brand::active()
+        // 2. Ambil recent transactions untuk bank account yang bersangkutan via single query
+        $recentPayments = collect();
+        if (!empty($bankIds)) {
+            $recentPayments = OrderPayment::query()
+                ->whereIn('bank_id', $bankIds)
+                ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
+                ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'masterJenisPembayaran:id,nama'])
+                ->orderByDesc('payment_date')
+                ->orderByDesc('created_at')
+                ->get()
+                ->groupBy('bank_id');
+        }
+
+        $bankAccountsSummary = $bankAccountsSummary->map(function ($bank) use ($verifiedPaymentsByBank, $recentPayments) {
+            $totalReceived = $verifiedPaymentsByBank[$bank->id] ?? 0.0;
+            
+            $recentTransactions = collect($recentPayments->get($bank->id) ?? [])
+                ->take(15)
+                ->map(fn ($p) => [
+                    'id' => $p->id,
+                    'no_po' => $p->order?->no_po,
+                    'nama_po' => $p->order?->nama_po,
+                    'pelanggan' => $p->order?->pelanggan?->nama ?? '-',
+                    'tipe' => $p->masterJenisPembayaran?->nama ?? $p->payment_type,
+                    'amount' => (float) $p->amount,
+                    'payment_date' => $p->payment_date?->toDateString(),
+                    'verified' => !empty($p->verified_at),
+                    'notes' => $p->notes,
+                ]);
+
+            return [
+                'id' => $bank->id,
+                'bank' => $bank->bank,
+                'atas_nama' => $bank->atas_nama,
+                'nomor_rekening' => $bank->nomor_rekening,
+                'brand_name' => $bank->brand?->nama_brand ?? 'General',
+                'brand_kode' => $bank->brand?->kode ?? 'GEN',
+                'total_received' => (float) $totalReceived,
+                'recent_transactions' => $recentTransactions,
+            ];
+        });
+
+        $brandsForReport = \App\Models\Brand::active()
             ->when($brandId && $brandId !== 'all', fn ($q) => is_array($brandId) ? $q->whereIn('id', $brandId) : $q->where('id', $brandId))
-            ->get()
-            ->map(function ($brand) {
-                // Total revenue (omset) based on published POs
-                $totalRevenue = Order::where('brand_id', $brand->id)
-                    ->where('status_po', '!=', 'draft')
-                    ->sum('total_tagihan');
+            ->get();
 
-                // Total received payments (verified only)
-                $totalPayments = OrderPayment::whereHas('order', fn ($q) => $q->where('brand_id', $brand->id))
-                    ->whereNotNull('verified_at')
-                    ->sum('amount');
+        $brandIdsForReport = $brandsForReport->pluck('id')->toArray();
 
-                // Total refunds published
-                $totalRefunds = Refund::where('brand_id', $brand->id)
-                    ->where('status', 'published')
-                    ->sum('nominal_refund');
+        // 1. Total revenue per brand (only published POs)
+        $brandRevenues = [];
+        if (!empty($brandIdsForReport)) {
+            $brandRevenues = Order::whereIn('brand_id', $brandIdsForReport)
+                ->where('status_po', '!=', 'draft')
+                ->select('brand_id', DB::raw('SUM(total_tagihan) as total'))
+                ->groupBy('brand_id')
+                ->pluck('total', 'brand_id')
+                ->toArray();
+        }
+
+        // 2. Total received payments per brand (verified only)
+        $brandPayments = [];
+        if (!empty($brandIdsForReport)) {
+            $brandPayments = OrderPayment::query()
+                ->whereNotNull('order_payments.verified_at')
+                ->join('orders', 'orders.id', '=', 'order_payments.order_id')
+                ->whereIn('orders.brand_id', $brandIdsForReport)
+                ->select('orders.brand_id', DB::raw('SUM(order_payments.amount) as total'))
+                ->groupBy('orders.brand_id')
+                ->pluck('total', 'orders.brand_id')
+                ->toArray();
+        }
+
+        // 3. Total refunds per brand (published only)
+        $brandRefunds = [];
+        if (!empty($brandIdsForReport)) {
+            $brandRefunds = Refund::whereIn('brand_id', $brandIdsForReport)
+                ->where('status', 'published')
+                ->select('brand_id', DB::raw('SUM(nominal_refund) as total'))
+                ->groupBy('brand_id')
+                ->pluck('total', 'brand_id')
+                ->toArray();
+        }
+
+        // 4. Payments by payment types for each brand
+        $brandPaymentTypesRaw = collect();
+        if (!empty($brandIdsForReport)) {
+            $brandPaymentTypesRaw = DB::table('order_payments')
+                ->join('orders', 'orders.id', '=', 'order_payments.order_id')
+                ->leftJoin('master_jenis_pembayarans', 'master_jenis_pembayarans.id', '=', 'order_payments.master_jenis_pembayaran_id')
+                ->whereIn('orders.brand_id', $brandIdsForReport)
+                ->select('orders.brand_id', 'master_jenis_pembayarans.nama', DB::raw('SUM(order_payments.amount) as total'))
+                ->groupBy('orders.brand_id', 'master_jenis_pembayarans.nama')
+                ->get()
+                ->groupBy('brand_id');
+        }
+
+        $brandFinancialReports = $brandsForReport
+            ->map(function ($brand) use ($brandRevenues, $brandPayments, $brandRefunds, $brandPaymentTypesRaw) {
+                $totalRevenue = $brandRevenues[$brand->id] ?? 0.0;
+                $totalPayments = $brandPayments[$brand->id] ?? 0.0;
+                $totalRefunds = $brandRefunds[$brand->id] ?? 0.0;
 
                 // Net payments received
                 $netPayments = $totalPayments - $totalRefunds;
@@ -388,17 +493,11 @@ class DashboardService
                 $outstanding = max(0, $totalRevenue - $netPayments);
 
                 // Payments by payment types for this brand
-                $paymentTypeBreakdown = DB::table('order_payments')
-                    ->join('orders', 'orders.id', '=', 'order_payments.order_id')
-                    ->leftJoin('master_jenis_pembayarans', 'master_jenis_pembayarans.id', '=', 'order_payments.master_jenis_pembayaran_id')
-                    ->where('orders.brand_id', $brand->id)
-                    ->select('master_jenis_pembayarans.nama', DB::raw('SUM(order_payments.amount) as total'))
-                    ->groupBy('master_jenis_pembayarans.nama')
-                    ->get()
-                    ->map(fn ($r) => [
-                        'nama' => $r->nama ?? 'Lainnya',
-                        'total' => (float) $r->total,
-                    ]);
+                $rawTypes = $brandPaymentTypesRaw->get($brand->id, collect());
+                $paymentTypeBreakdown = $rawTypes->map(fn ($r) => [
+                    'nama' => $r->nama ?? 'Lainnya',
+                    'total' => (float) $r->total,
+                ])->values()->all();
 
                 return [
                     'id' => $brand->id,
@@ -448,104 +547,149 @@ class DashboardService
             'brands' => $allActiveBrands,
             'current_brand_id' => $brandId ?: 'all',
         ];
+            },
+            CacheService::TTL_SHORT
+        );
     }
 
     // ----- private helpers -----
 
     private function statusBreakdown(string|array|null $brandId): array
     {
-        $rows = Order::query()
-            ->when($brandId, $this->bf($brandId))
-            ->select('status_po', DB::raw('COUNT(*) as cnt'))
-            ->groupBy('status_po')
-            ->pluck('cnt', 'status_po')
-            ->toArray();
+        return CacheService::rememberDashboard(
+            'statusBreakdown',
+            $brandId,
+            function () use ($brandId) {
+                $rows = Order::query()
+                    ->when($brandId, $this->bf($brandId))
+                    ->select('status_po', DB::raw('COUNT(*) as cnt'))
+                    ->groupBy('status_po')
+                    ->pluck('cnt', 'status_po')
+                    ->toArray();
 
-        $statuses = [
-            'draft'            => ['label' => 'Draft',            'color' => '#9CA3AF'],
-            'published'        => ['label' => 'PO Masuk',         'color' => '#3B82F6'],
-            'on_progress'      => ['label' => 'On Progress',      'color' => '#F59E0B'],
-            'selesai_produksi' => ['label' => 'Selesai Produksi', 'color' => '#22C55E'],
-            'siap_dikirim'     => ['label' => 'Siap Dikirim',     'color' => '#06B6D4'],
-            'sudah_dikirim'    => ['label' => 'Sudah Dikirim',    'color' => '#8B5CF6'],
-            'delay'            => ['label' => 'Delay',            'color' => '#EF4444'],
-            'hold'             => ['label' => 'Hold',             'color' => '#F97316'],
-        ];
+                $statuses = [
+                    'draft'            => ['label' => 'Draft',            'color' => '#9CA3AF'],
+                    'published'        => ['label' => 'PO Masuk',         'color' => '#3B82F6'],
+                    'on_progress'      => ['label' => 'On Progress',      'color' => '#F59E0B'],
+                    'selesai_produksi' => ['label' => 'Selesai Produksi', 'color' => '#22C55E'],
+                    'siap_dikirim'     => ['label' => 'Siap Dikirim',     'color' => '#06B6D4'],
+                    'sudah_dikirim'    => ['label' => 'Sudah Dikirim',    'color' => '#8B5CF6'],
+                    'delay'            => ['label' => 'Delay',            'color' => '#EF4444'],
+                    'hold'             => ['label' => 'Hold',             'color' => '#F97316'],
+                ];
 
-        $out = [];
-        foreach ($statuses as $key => $meta) {
-            $out[] = ['key' => $key, 'label' => $meta['label'], 'color' => $meta['color'], 'count' => (int) ($rows[$key] ?? 0)];
-        }
-        return $out;
+                $out = [];
+                foreach ($statuses as $key => $meta) {
+                    $out[] = ['key' => $key, 'label' => $meta['label'], 'color' => $meta['color'], 'count' => (int) ($rows[$key] ?? 0)];
+                }
+                return $out;
+            },
+            CacheService::TTL_SHORT
+        );
     }
 
     private function trendHarian(string|array|null $brandId, int $days): array
     {
-        $from = now()->subDays($days - 1)->startOfDay();
-        $rows = Order::query()
-            ->when($brandId, $this->bf($brandId))
-            ->where('tanggal_masuk', '>=', $from->toDateString())
-            ->select(DB::raw('DATE(tanggal_masuk) as d'), DB::raw('COUNT(*) as cnt'))
-            ->groupBy('d')->pluck('cnt', 'd')->toArray();
+        return CacheService::rememberDashboard(
+            'trendHarian',
+            $brandId,
+            function () use ($brandId, $days) {
+                $from = now()->subDays($days - 1)->startOfDay();
+                $rows = Order::query()
+                    ->when($brandId, $this->bf($brandId))
+                    ->where('tanggal_masuk', '>=', $from->toDateString())
+                    ->select(DB::raw('DATE(tanggal_masuk) as d'), DB::raw('COUNT(*) as cnt'))
+                    ->groupBy('d')->pluck('cnt', 'd')->toArray();
 
-        $out = [];
-        for ($i = 0; $i < $days; $i++) {
-            $d     = $from->copy()->addDays($i)->toDateString();
-            $out[] = ['date' => $d, 'count' => (int) ($rows[$d] ?? 0)];
-        }
-        return $out;
+                $out = [];
+                for ($i = 0; $i < $days; $i++) {
+                    $d     = $from->copy()->addDays($i)->toDateString();
+                    $out[] = ['date' => $d, 'count' => (int) ($rows[$d] ?? 0)];
+                }
+                return $out;
+            },
+            CacheService::TTL_SHORT
+        );
     }
 
     private function produkTerpopuler(string|array|null $brandId, int $limit): array
     {
-        return OrderItem::query()
-            ->when($brandId, fn ($q) => $q->whereHas('order', $this->bf($brandId)))
-            ->select('nama_produk', DB::raw('SUM(quantity) as total_qty'), DB::raw('COUNT(DISTINCT order_id) as total_order'))
-            ->groupBy('nama_produk')
-            ->orderByDesc('total_qty')
-            ->limit($limit)
-            ->get()
-            ->map(fn ($r) => ['nama' => $r->nama_produk, 'total_qty' => (int) $r->total_qty, 'total_order' => (int) $r->total_order])
-            ->all();
+        return CacheService::rememberDashboard(
+            'produkTerpopuler',
+            $brandId,
+            function () use ($brandId, $limit) {
+                return OrderItem::query()
+                    ->when($brandId, fn ($q) => $q->whereHas('order', $this->bf($brandId)))
+                    ->select('nama_produk', DB::raw('SUM(quantity) as total_qty'), DB::raw('COUNT(DISTINCT order_id) as total_order'))
+                    ->groupBy('nama_produk')
+                    ->orderByDesc('total_qty')
+                    ->limit($limit)
+                    ->get()
+                    ->map(fn ($r) => ['nama' => $r->nama_produk, 'total_qty' => (int) $r->total_qty, 'total_order' => (int) $r->total_order])
+                    ->all();
+            },
+            CacheService::TTL_MEDIUM
+        );
     }
 
     private function kategoriDistribusi(string|array|null $brandId): array
     {
-        return Order::query()
-            ->when($brandId, $this->bf($brandId))
-            ->whereNotNull('kategori_order_id')
-            ->with('kategoriOrder:id,nama')
-            ->select('kategori_order_id', DB::raw('COUNT(*) as cnt'))
-            ->groupBy('kategori_order_id')
-            ->get()
-            ->map(fn ($r) => ['label' => $r->kategoriOrder?->nama ?? '-', 'count' => (int) $r->cnt])
-            ->all();
+        return CacheService::rememberDashboard(
+            'kategoriDistribusi',
+            $brandId,
+            function () use ($brandId) {
+                return Order::query()
+                    ->when($brandId, $this->bf($brandId))
+                    ->whereNotNull('kategori_order_id')
+                    ->with('kategoriOrder:id,nama')
+                    ->select('kategori_order_id', DB::raw('COUNT(*) as cnt'))
+                    ->groupBy('kategori_order_id')
+                    ->get()
+                    ->map(fn ($r) => ['label' => $r->kategoriOrder?->nama ?? '-', 'count' => (int) $r->cnt])
+                    ->all();
+            },
+            CacheService::TTL_MEDIUM
+        );
     }
 
     private function sumberDistribusi(string|array|null $brandId): array
     {
-        return Order::query()
-            ->when($brandId, $this->bf($brandId))
-            ->whereNotNull('sumber_order_id')
-            ->with('sumberOrder:id,nama')
-            ->select('sumber_order_id', DB::raw('COUNT(*) as cnt'))
-            ->groupBy('sumber_order_id')
-            ->get()
-            ->map(fn ($r) => ['label' => $r->sumberOrder?->nama ?? '-', 'count' => (int) $r->cnt])
-            ->all();
+        return CacheService::rememberDashboard(
+            'sumberDistribusi',
+            $brandId,
+            function () use ($brandId) {
+                return Order::query()
+                    ->when($brandId, $this->bf($brandId))
+                    ->whereNotNull('sumber_order_id')
+                    ->with('sumberOrder:id,nama')
+                    ->select('sumber_order_id', DB::raw('COUNT(*) as cnt'))
+                    ->groupBy('sumber_order_id')
+                    ->get()
+                    ->map(fn ($r) => ['label' => $r->sumberOrder?->nama ?? '-', 'count' => (int) $r->cnt])
+                    ->all();
+            },
+            CacheService::TTL_MEDIUM
+        );
     }
 
     private function kategoriPelangganDistribusi(string|array|null $brandId): array
     {
-        return Order::query()
-            ->when($brandId, $this->obf($brandId))
-            ->join('customers', 'customers.id', '=', 'orders.pelanggan_id')
-            ->leftJoin('customer_types', 'customer_types.id', '=', 'customers.type_pelanggan_id')
-            ->select(DB::raw('COALESCE(customer_types.nama, "Tanpa Kategori") as label'), DB::raw('COUNT(*) as cnt'))
-            ->groupBy('label')
-            ->get()
-            ->map(fn ($r) => ['label' => $r->label, 'count' => (int) $r->cnt])
-            ->all();
+        return CacheService::rememberDashboard(
+            'kategoriPelangganDistribusi',
+            $brandId,
+            function () use ($brandId) {
+                return Order::query()
+                    ->when($brandId, $this->obf($brandId))
+                    ->join('customers', 'customers.id', '=', 'orders.pelanggan_id')
+                    ->leftJoin('customer_types', 'customer_types.id', '=', 'customers.type_pelanggan_id')
+                    ->select(DB::raw('COALESCE(customer_types.nama, "Tanpa Kategori") as label'), DB::raw('COUNT(*) as cnt'))
+                    ->groupBy('label')
+                    ->get()
+                    ->map(fn ($r) => ['label' => $r->label, 'count' => (int) $r->cnt])
+                    ->all();
+            },
+            CacheService::TTL_MEDIUM
+        );
     }
 
     private function wilayahTop(string|array|null $brandId, int $limit): array

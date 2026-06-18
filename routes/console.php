@@ -15,3 +15,6 @@ Schedule::command('reports:send bulanan')->monthlyOn(1, '08:00');
 
 // BRD 13.5.3: Reminder & overdue invoice WA setiap hari 09:00
 Schedule::command('invoices:send-reminders --days=3')->dailyAt('09:00');
+
+// Backup otomatis ke Google Drive setiap hari jam 02:00 subuh
+Schedule::command('backup:gdrive')->dailyAt('02:00');

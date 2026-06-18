@@ -44,6 +44,11 @@
 </head>
 <body>
     @php
+        /** @var \App\Models\Order\Invoice $invoice */
+        /** @var \App\Models\Brand|null $headerBrand */
+        /** @var string|null $logoData */
+        /** @var string|null $qrCodeData */
+
         if (!function_exists('maskPhoneNumber')) {
             function maskPhoneNumber($phone) {
                 if (empty($phone)) return '—';
@@ -98,7 +103,7 @@
                 <strong>{{ $invoice->order?->pelanggan?->nama ?? '-' }}</strong><br>
                 {{ maskPhoneNumber($invoice->order?->pelanggan?->nomor_hp ?? '') }}<br>
                 @if ($invoice->order?->pelanggan?->email ?? '')
-                    {{ maskEmailAddress($invoice->order->pelanggan->email) }}<br>
+                    {{ maskEmailAddress($invoice->order?->pelanggan?->email) }}<br>
                 @endif
                 <span style="color:#6B7280; font-size: 8pt;">
                     {{ trim(implode(', ', array_filter([
@@ -115,7 +120,10 @@
             <div class="info-card">
                 <strong style="font-family: monospace;">{{ $invoice->order?->no_po ?? '—' }}</strong><br>
                 {{ $invoice->order?->nama_po ?? '—' }}<br>
-                <span style="color:#6B7280; font-size: 8pt;">Tgl Order: {{ $invoice->order?->tanggal_masuk ? \Carbon\Carbon::parse($invoice->order->tanggal_masuk)->translatedFormat('d M Y') : '—' }}</span>
+                <span style="color:#6B7280; font-size: 8pt;">Tgl Order: {{ $invoice->order?->tanggal_masuk ? \Carbon\Carbon::parse($invoice->order?->tanggal_masuk)->translatedFormat('d M Y') : '—' }}</span>
+                @if($invoice->order?->iklan)
+                    <br><span style="font-size: 8pt; color: #047857; font-weight: bold;">Promo: {{ $invoice->order?->iklan?->nama }}{{ $invoice->order?->iklan?->platform ? ' (' . $invoice->order?->iklan?->platform . ')' : '' }}</span>
+                @endif
             </div>
         </div>
     </div>
@@ -183,21 +191,64 @@
 
     <div class="totals">
         <table>
+            @php
+                $mainItems = $invoice->items->where('is_addon', false);
+                $addonItems = $invoice->items->where('is_addon', true);
+                
+                $mainSubtotalGross = $mainItems->sum(function($item) {
+                    return $item->jumlah * $item->harga_satuan;
+                });
+                $addonSubtotalGross = $addonItems->sum(function($item) {
+                    return $item->jumlah * $item->harga_satuan;
+                });
+                $grossSubtotal = $mainSubtotalGross + $addonSubtotalGross;
+
+                $diskonValue = (float) $invoice->diskon_value;
+                $diskonNominal = $invoice->diskon_type === 'persen'
+                    ? ($grossSubtotal * $diskonValue / 100)
+                    : $diskonValue;
+
+                $additionPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'tambahan_produk') : collect();
+                $cashbackPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'cashback') : collect();
+                $returnPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'return') : collect();
+            @endphp
+
             @if($addonItems->isNotEmpty())
-                <tr><td class="label">Subtotal Produk Inti</td><td class="value">Rp {{ number_format($mainSubtotal, 0, ',', '.') }}</td></tr>
-                <tr><td class="label">Subtotal Add-ons</td><td class="value">Rp {{ number_format($addonSubtotal, 0, ',', '.') }}</td></tr>
+                <tr><td class="label">Subtotal Produk Inti (Gross)</td><td class="value">Rp {{ number_format($mainSubtotalGross, 0, ',', '.') }}</td></tr>
+                <tr><td class="label">Subtotal Add-ons (Gross)</td><td class="value">Rp {{ number_format($addonSubtotalGross, 0, ',', '.') }}</td></tr>
+            @else
+                <tr><td class="label">Total Harga Produk (Gross)</td><td class="value">Rp {{ number_format($grossSubtotal, 0, ',', '.') }}</td></tr>
             @endif
-            <tr><td class="label">Total Tagihan</td><td class="value">Rp {{ number_format($invoice->total_tagihan, 0, ',', '.') }}</td></tr>
-            @if ($invoice->diskon_value > 0)
+
+            @if ($diskonNominal > 0)
                 <tr>
-                    <td class="label">Diskon @if($invoice->diskon_type === 'persen') ({{ $invoice->diskon_value }}%) @endif</td>
-                    <td class="value">- Rp {{ number_format($invoice->diskon_type === 'persen' ? ($invoice->total_tagihan * $invoice->diskon_value / 100) : $invoice->diskon_value, 0, ',', '.') }}</td>
+                    <td class="label">Diskon @if($invoice->diskon_type === 'persen') ({{ number_format($invoice->diskon_value, 0) }}%) @endif</td>
+                    <td class="value">- Rp {{ number_format($diskonNominal, 0, ',', '.') }}</td>
                 </tr>
             @endif
+
             @if ($invoice->biaya_pengiriman > 0)
                 <tr><td class="label">Ongkir ({{ $invoice->jasa_pengiriman ?? '' }})</td><td class="value">Rp {{ number_format($invoice->biaya_pengiriman, 0, ',', '.') }}</td></tr>
             @endif
-            @if ($invoice->order && $invoice->order->payments && $invoice->order->payments->whereNotNull('verified_at')->isNotEmpty())
+
+            @if ($additionPayments->isNotEmpty())
+                <tr><td class="label">Tambahan Produk</td><td class="value">+ Rp {{ number_format($additionPayments->sum('amount'), 0, ',', '.') }}</td></tr>
+            @endif
+
+            @if ($cashbackPayments->isNotEmpty())
+                <tr><td class="label">Cashback</td><td class="value">- Rp {{ number_format($cashbackPayments->sum('amount'), 0, ',', '.') }}</td></tr>
+            @endif
+
+            @if ($returnPayments->isNotEmpty())
+                <tr><td class="label">Returns / Refunds</td><td class="value">- Rp {{ number_format($returnPayments->sum('amount'), 0, ',', '.') }}</td></tr>
+            @endif
+
+            <tr style="border-top: 1px solid #E5E7EB;">
+                <td class="label" style="font-weight: bold; color: #1F2937;">Total Tagihan (Nett)</td>
+                <td class="value" style="font-weight: bold; color: #1F2937;">Rp {{ number_format($invoice->total_tagihan, 0, ',', '.') }}</td>
+            </tr>
+
+            @if ($invoice->order?->payments && $invoice->order->payments->whereNotNull('verified_at')->isNotEmpty())
                 @foreach ($invoice->order->payments->whereNotNull('verified_at') as $p)
                     @if (in_array($p->payment_type, ['dp', 'pelunasan', 'lainnya']))
                         @php

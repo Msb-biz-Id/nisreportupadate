@@ -71,7 +71,10 @@ class BrandController extends Controller
             'is_admin_reseller' => $user->hasRole('admin_reseller'),
             // IDs brand yang admin_reseller punya akses penuh (untuk tampilkan tombol aksi)
             'accessible_brand_ids' => $user->hasRole('admin_reseller')
-                ? $user->brands()->pluck('brands.id')->toArray()
+                ? array_merge(
+                    $user->brands()->pluck('brands.id')->toArray(),
+                    Brand::where('brand_type', Brand::TYPE_RESELLER_HUB)->pluck('id')->toArray()
+                )
                 : [],
         ]);
     }

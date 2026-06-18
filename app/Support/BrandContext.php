@@ -115,6 +115,37 @@ class BrandContext
             return [];
         }
 
+        if ($id === 'all') {
+            $user = $request->user();
+            if (! $user) {
+                return [];
+            }
+
+            $canSeeAllGlobalBrands = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+            if ($canSeeAllGlobalBrands) {
+                return Brand::pluck('id')->toArray();
+            }
+
+            if ($user->hasRole('admin_reseller')) {
+                $hubIds = Brand::where('brand_type', Brand::TYPE_RESELLER_HUB)->pluck('id')->toArray();
+                $branchIds = Brand::whereIn('parent_brand_id', $hubIds)->pluck('id')->toArray();
+                $assignedIds = $user->brands()->pluck('brands.id')->toArray();
+
+                // Get branches of explicitly assigned hubs
+                $assignedHubIds = Brand::whereIn('id', $assignedIds)->where('brand_type', Brand::TYPE_RESELLER_HUB)->pluck('id')->toArray();
+                $assignedBranchIds = Brand::whereIn('parent_brand_id', $assignedHubIds)->pluck('id')->toArray();
+
+                return array_values(array_unique(array_merge($hubIds, $branchIds, $assignedIds, $assignedBranchIds)));
+            }
+
+            // Other users (e.g. admin_brand)
+            $assignedIds = $user->brands()->pluck('brands.id')->toArray();
+            $assignedHubIds = Brand::whereIn('id', $assignedIds)->where('brand_type', Brand::TYPE_RESELLER_HUB)->pluck('id')->toArray();
+            $assignedBranchIds = Brand::whereIn('parent_brand_id', $assignedHubIds)->pluck('id')->toArray();
+
+            return array_values(array_unique(array_merge($assignedIds, $assignedBranchIds)));
+        }
+
         $brand = Brand::select('id', 'brand_type')->find($id);
         if ($brand && $brand->brand_type === Brand::TYPE_RESELLER_HUB) {
             // Hub ikut serta (bisa punya order langsung) + semua branches
@@ -162,10 +193,10 @@ class BrandContext
             }
 
             // If the root brand in the chain is a reseller hub/branch (no regular parent brand exists),
-            // we fall back to the first reseller hub (e.g. Telulas) so that all reseller hubs share the same master data.
+            // we fall back to the INDOWAREHOUSE brand (IDW) so that all reseller hubs share the same master data.
             if (in_array($root->brand_type, [Brand::TYPE_RESELLER_BRANCH, Brand::TYPE_RESELLER_HUB])) {
-                $firstHub = Brand::where('brand_type', Brand::TYPE_RESELLER_HUB)->first();
-                return $firstHub ? $firstHub->id : $root->id;
+                $idwBrand = Brand::where('kode', 'IDW')->first();
+                return $idwBrand ? $idwBrand->id : $root->id;
             }
 
             return $root->id;

@@ -34,6 +34,7 @@ Route::get('/', function () {
     ]);
 });
 
+
 // Public tracking PO + invoice (rate-limited)
 Route::middleware('throttle:60,1')->group(function () {
     Route::get('/track', [TrackingController::class, 'index'])->name('track.index');
@@ -199,6 +200,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::prefix('settings')->name('settings.')->group(function () {
         Route::get('/integrasi', [SettingsController::class, 'index'])->name('integrasi');
+        Route::get('/backup', [\App\Http\Controllers\BackupController::class, 'index'])->name('backup');
+        Route::get('/backup/download', [\App\Http\Controllers\BackupController::class, 'download'])->name('backup.download');
+        Route::post('/backup/cleanup', [\App\Http\Controllers\BackupController::class, 'cleanUp'])->name('backup.cleanup');
+        Route::post('/backup/settings', [\App\Http\Controllers\BackupController::class, 'updateSettings'])->name('backup.settings');
+        Route::post('/backup/run', [\App\Http\Controllers\BackupController::class, 'runBackup'])->name('backup.run');
+        Route::get('/backup/gdrive/redirect', [\App\Http\Controllers\BackupController::class, 'redirectToGoogle'])->name('backup.gdrive.redirect');
+        Route::get('/backup/gdrive/callback', [\App\Http\Controllers\BackupController::class, 'handleGoogleCallback'])->name('backup.gdrive.callback');
+        Route::post('/backup/gdrive/disconnect', [\App\Http\Controllers\BackupController::class, 'disconnectGoogle'])->name('backup.gdrive.disconnect');
         Route::get('/notifikasi', [SettingsController::class, 'notifications'])->name('notifikasi');
         Route::put('/integrasi/ai', [SettingsController::class, 'updateAi'])->name('integrasi.ai');
         Route::put('/integrasi/whatsapp', [SettingsController::class, 'updateWhatsapp'])->name('integrasi.whatsapp');

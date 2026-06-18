@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { playNotificationSound } from '@/Services/audio';
 import { cn } from '@/lib/utils';
 
-function NotificationMatrixSection({ matrix, availableRoles }) {
+function NotificationMatrixSection({ matrix, availableRoles, availableSounds }) {
     const { data, setData, put, processing } = useForm({
         matrix: { ...matrix }
     });
@@ -207,10 +207,11 @@ function NotificationMatrixSection({ matrix, availableRoles }) {
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            <SelectItem value="bell-chime">Pleasant Bell 🔔</SelectItem>
-                                                            <SelectItem value="success-tada">Success Tada 🎉</SelectItem>
-                                                            <SelectItem value="warning-alert">Sweep Alert ⚠️</SelectItem>
-                                                            <SelectItem value="cash-register">Coins Register 🪙</SelectItem>
+                                                            {availableSounds?.map((sound) => (
+                                                                 <SelectItem key={sound.value} value={sound.value}>
+                                                                     {sound.label}
+                                                                 </SelectItem>
+                                                             ))}
                                                         </SelectContent>
                                                     </Select>
                                                     <Button
@@ -243,7 +244,7 @@ function NotificationMatrixSection({ matrix, availableRoles }) {
     );
 }
 
-export default function Notifications({ notification_matrix, available_roles }) {
+export default function Notifications({ notification_matrix, available_roles, available_sounds }) {
     const roles = available_roles || ['superadmin', 'owner', 'admin_brand', 'reseller', 'admin_produksi', 'admin_keuangan'];
 
     return (
@@ -267,7 +268,7 @@ export default function Notifications({ notification_matrix, available_roles }) 
                 </div>
 
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
-                    <NotificationMatrixSection matrix={notification_matrix} availableRoles={roles} />
+                    <NotificationMatrixSection matrix={notification_matrix} availableRoles={roles} availableSounds={available_sounds} />
                 </div>
             </div>
         </AppLayout>

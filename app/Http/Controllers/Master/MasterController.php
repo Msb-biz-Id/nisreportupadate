@@ -145,8 +145,7 @@ class MasterController extends Controller
         if (! in_array($config['scope'], ['brand', 'brand_nullable'], true)) return;
         if (! isset($record->brand_id) || $record->brand_id === null) return;
 
-        $brandId = BrandContext::masterDataId($request);
-        if ($record->brand_id !== $brandId && ! $request->user()->isSuperadmin()) {
+        if (! $request->user()->isSuperadmin() && ! $request->user()->hasAccessToBrand($record->brand_id)) {
             abort(403, 'Record ini milik brand lain.');
         }
     }

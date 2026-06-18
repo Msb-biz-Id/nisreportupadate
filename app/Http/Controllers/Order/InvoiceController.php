@@ -35,7 +35,7 @@ class InvoiceController extends Controller
             abort_unless(in_array($invoice->brand_id, $userBrandIds), 403, 'Unauthorized brand context.');
         }
 
-        $invoice->load(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments']);
+        $invoice->load(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments', 'order.iklan']);
         if (!$invoice->bank_id) {
             $bankBrandId = \App\Support\BrandContext::masterDataId($request, $invoice->brand_id);
             $defaultBank = \App\Models\Master\BankAccount::active()->where('brand_id', $bankBrandId)->first();
@@ -82,7 +82,7 @@ class InvoiceController extends Controller
             $query->whereIn('status', ['published', 'sent', 'paid']);
         }
 
-        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments.bank', 'order.progressDetails.progress'])
+        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments.bank', 'order.progressDetails.progress', 'order.iklan'])
             ->firstOrFail();
 
         if (!$invoice->bank_id) {
@@ -91,6 +91,13 @@ class InvoiceController extends Controller
             if ($defaultBank) {
                 $invoice->setRelation('bank', $defaultBank);
                 $invoice->bank_id = $defaultBank->id;
+            }
+        }
+
+        if ($invoice->brand) {
+            $headerBrand = $invoice->brand->getHeaderBrand();
+            if ($headerBrand !== $invoice->brand) {
+                $invoice->setRelation('brand', $headerBrand);
             }
         }
 
@@ -129,7 +136,7 @@ class InvoiceController extends Controller
             $query->whereIn('status', ['published', 'sent', 'paid']);
         }
 
-        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments'])
+        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments', 'order.iklan'])
             ->firstOrFail();
 
         if (!$invoice->bank_id) {
@@ -217,39 +224,55 @@ class InvoiceController extends Controller
             abort_unless(in_array($selectedBrandId, $userBrandIds), 403, 'Unauthorized brand context.');
         }
 
-        // Aggregate Financial Metrics
-        $totalTagihanLunas = Invoice::where('status', 'paid')
-            ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
-            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn($q) => $q->whereIn('brand_id', $userBrandIds))
-            ->sum('total_tagihan');
+        // 1. Fetch aggregated sums grouped by brand_id to prevent N+1 loop queries
+        $lunasSums = Invoice::where('status', 'paid')
+            ->groupBy('brand_id')
+            ->select('brand_id', DB::raw('SUM(total_tagihan) as total'))
+            ->pluck('total', 'brand_id');
 
-        $totalTagihanBelumLunas = Invoice::where('status', '!=', 'paid')
-            ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
-            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn($q) => $q->whereIn('brand_id', $userBrandIds))
-            ->sum('sisa_pembayaran');
+        $belumLunasSums = Invoice::where('status', '!=', 'paid')
+            ->groupBy('brand_id')
+            ->select('brand_id', DB::raw('SUM(sisa_pembayaran) as total'))
+            ->pluck('total', 'brand_id');
 
-        $totalTJ = \App\Models\Order\DesignDeposit::whereIn('status', ['pending', 'verified'])
-            ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
-            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn($q) => $q->whereIn('brand_id', $userBrandIds))
-            ->sum('amount');
+        $tandaJadiSums = \App\Models\Order\DesignDeposit::whereIn('status', ['pending', 'verified'])
+            ->groupBy('brand_id')
+            ->select('brand_id', DB::raw('SUM(amount) as total'))
+            ->pluck('total', 'brand_id');
 
-        $totalPending = OrderPayment::whereNull('verified_at')
-            ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->whereHas('order', fn($o) => $o->where('brand_id', $selectedBrandId)))
-            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn($q) => $q->whereHas('order', fn($o) => $o->whereIn('brand_id', $userBrandIds)))
-            ->sum('amount');
+        $pendingSums = OrderPayment::whereNull('verified_at')
+            ->join('orders', 'order_payments.order_id', '=', 'orders.id')
+            ->groupBy('orders.brand_id')
+            ->select('orders.brand_id', DB::raw('SUM(order_payments.amount) as total'))
+            ->pluck('total', 'orders.brand_id');
 
-        // Brand-wise breakdowns
+        // 2. Build Brand-wise breakdowns in memory
         $brandBreakdown = [];
         foreach ($brands as $b) {
             $brandBreakdown[] = [
                 'id' => $b->id,
                 'nama' => $b->nama_brand,
                 'kode' => $b->kode,
-                'lunas' => (float) Invoice::where('status', 'paid')->where('brand_id', $b->id)->sum('total_tagihan'),
-                'belum_lunas' => (float) Invoice::where('status', '!=', 'paid')->where('brand_id', $b->id)->sum('sisa_pembayaran'),
-                'tanda_jadi' => (float) \App\Models\Order\DesignDeposit::whereIn('status', ['pending', 'verified'])->where('brand_id', $b->id)->sum('amount'),
-                'pending' => (float) OrderPayment::whereNull('verified_at')->whereHas('order', fn($o) => $o->where('brand_id', $b->id))->sum('amount'),
+                'lunas' => (float) ($lunasSums[$b->id] ?? 0.0),
+                'belum_lunas' => (float) ($belumLunasSums[$b->id] ?? 0.0),
+                'tanda_jadi' => (float) ($tandaJadiSums[$b->id] ?? 0.0),
+                'pending' => (float) ($pendingSums[$b->id] ?? 0.0),
             ];
+        }
+
+        // 3. Compute totals dynamically from the breakdown in memory (saves another 4 queries)
+        if ($selectedBrandId && $selectedBrandId !== 'all') {
+            $matched = collect($brandBreakdown)->firstWhere('id', $selectedBrandId);
+            $totalTagihanLunas = $matched['lunas'] ?? 0.0;
+            $totalTagihanBelumLunas = $matched['belum_lunas'] ?? 0.0;
+            $totalTJ = $matched['tanda_jadi'] ?? 0.0;
+            $totalPending = $matched['pending'] ?? 0.0;
+        } else {
+            // 'all' context
+            $totalTagihanLunas = (float) collect($brandBreakdown)->sum('lunas');
+            $totalTagihanBelumLunas = (float) collect($brandBreakdown)->sum('belum_lunas');
+            $totalTJ = (float) collect($brandBreakdown)->sum('tanda_jadi');
+            $totalPending = (float) collect($brandBreakdown)->sum('pending');
         }
 
         // Recent Invoices / PO lists (unpaid & paid)
@@ -340,15 +363,30 @@ class InvoiceController extends Controller
             $query->whereDate('tanggal_terbit', '<=', $endDate);
         }
 
-        $allFiltered = (clone $query)->orderByDesc('created_at')->get()->map(fn ($inv) => [
-            'invoice_number' => $inv->invoice_number,
-            'no_po' => $inv->order?->no_po ?? '—',
-            'pelanggan' => $inv->order?->pelanggan?->nama ?? '—',
-            'tanggal_terbit' => $inv->tanggal_terbit,
-            'total_tagihan' => $inv->total_tagihan,
-            'sisa_pembayaran' => $inv->sisa_pembayaran,
-            'status' => $inv->status,
-        ]);
+        $allFiltered = Invoice::query()
+            ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
+            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn ($q) => $q->whereIn('brand_id', $userBrandIds))
+            ->when($status = $request->string('status')->toString(), fn($q) => $q->where('status', $status))
+            ->when($search = $request->string('q')->toString(), function ($q) use ($search) {
+                $q->where(function ($qp) use ($search) {
+                    $qp->where('invoice_number', 'like', "%{$search}%")
+                      ->orWhereHas('order', fn ($x) => $x->where('no_po', 'like', "%{$search}%"));
+                });
+            })
+            ->when($startDate = $request->string('start_date')->toString(), fn($q) => $q->whereDate('tanggal_terbit', '>=', $startDate))
+            ->when($endDate = $request->string('end_date')->toString(), fn($q) => $q->whereDate('tanggal_terbit', '<=', $endDate))
+            ->with(['order:id,no_po,pelanggan_id', 'order.pelanggan:id,nama'])
+            ->orderByDesc('created_at')
+            ->get(['id', 'invoice_number', 'order_id', 'tanggal_terbit', 'total_tagihan', 'sisa_pembayaran', 'status'])
+            ->map(fn ($inv) => [
+                'invoice_number' => $inv->invoice_number,
+                'no_po' => $inv->order?->no_po ?? '—',
+                'pelanggan' => $inv->order?->pelanggan?->nama ?? '—',
+                'tanggal_terbit' => $inv->tanggal_terbit,
+                'total_tagihan' => $inv->total_tagihan,
+                'sisa_pembayaran' => $inv->sisa_pembayaran,
+                'status' => $inv->status,
+            ]);
 
         $invoices = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
 
@@ -451,7 +489,7 @@ class InvoiceController extends Controller
         $orderIds = $pendingPayments->pluck('order_id')->filter()->unique()->values();
         $dpPaidPerOrder = [];
         if ($orderIds->isNotEmpty()) {
-            foreach (\App\Models\Order\Order::whereIn('id', $orderIds)->get() as $ord) {
+            foreach (\App\Models\Order\Order::whereIn('id', $orderIds)->with(['items', 'payments.masterJenisPembayaran', 'brand'])->get() as $ord) {
                 $dpPaidPerOrder[$ord->id] = [
                     'total_tagihan' => (float) $ord->totalTagihan(),
                     'total_paid'    => (float) $ord->totalPaid(),
@@ -562,17 +600,24 @@ class InvoiceController extends Controller
             $order->load(['items', 'payments']);
         }
 
+        // Calculate gross subtotal of invoice/order items
+        $grossSubtotal = $order 
+            ? (float) $order->items->sum(fn($item) => $item->quantity * $item->harga_satuan) 
+            : (float) $invoice->items->sum(fn($item) => $item->jumlah * $item->harga_satuan);
+
         // 1. Fetch discount from order items (discount_amount sum)
-        $diskonNominalFromOrder = $order ? (float) $order->items()->sum('discount_amount') : 0.0;
+        $diskonNominalFromOrder = $order ? (float) $order->items->sum('discount_amount') : 0.0;
+        
+        $diskonType = $data['diskon_type'] ?? 'nominal';
+        $diskonValue = (float) ($data['diskon_value'] ?? 0);
+
         if ($diskonNominalFromOrder > 0) {
             $diskonType = 'nominal';
             $diskonValue = $diskonNominalFromOrder;
             $diskonNominal = $diskonNominalFromOrder;
         } else {
-            $diskonType = $data['diskon_type'] ?? 'nominal';
-            $diskonValue = (float) ($data['diskon_value'] ?? 0);
             $diskonNominal = $diskonType === 'persen'
-                ? (($invoice->total_tagihan ?: ($order ? $order->totalTagihan() : 0.0)) * $diskonValue / 100)
+                ? ($grossSubtotal * $diskonValue / 100)
                 : $diskonValue;
         }
 
@@ -601,12 +646,41 @@ class InvoiceController extends Controller
             ? $order->nama_ekspedisi 
             : ($data['jasa_pengiriman'] ?? null);
 
-        // 4. Recalculate totals dynamically
-        $tagihan = $order ? (float) $order->totalTagihan() : (float) $invoice->total_tagihan;
-        $totalPaid = $order ? (float) $order->totalPaid() : 0.0;
-        $sisaPembayaran = ($order && $order->is_special_order) ? 0.0 : max(0, $tagihan - $totalPaid);
+        // Calculate other adjustments (excluding shipping)
+        $penambahanExcludingOngkir = 0.0;
+        $pengurangan = 0.0;
+        if ($order) {
+            $penambahanExcludingOngkir = (float) $order->payments()
+                ->whereNotNull('verified_at')
+                ->where(function ($q) {
+                    $q->whereHas('masterJenisPembayaran', function ($mj) {
+                        $mj->where('efek_tagihan', 'penambahan')->where('nama', '!=', 'Ongkir');
+                    })->orWhere(function ($qp) {
+                        $qp->whereNull('master_jenis_pembayaran_id')
+                           ->where('payment_type', 'tambahan_produk');
+                    });
+                })
+                ->sum('amount');
 
-        DB::transaction(function () use ($invoice, $order, $data, $diskonType, $diskonValue, $biayaPengiriman, $jasaPengiriman, $tagihan, $totalPaid, $sisaPembayaran) {
+            $pengurangan = (float) $order->payments()
+                ->whereNotNull('verified_at')
+                ->where(function ($q) {
+                    $q->whereHas('masterJenisPembayaran', function ($mj) {
+                        $mj->where('efek_tagihan', 'pengurangan');
+                    })->orWhere(function ($qp) {
+                        $qp->whereNull('master_jenis_pembayaran_id')
+                           ->whereIn('payment_type', ['cashback', 'return']);
+                    });
+                })
+                ->sum('amount');
+        }
+
+        // Final Nett Invoice Tagihan
+        $invoiceTotalTagihan = max(0, $grossSubtotal - $diskonNominal + $biayaPengiriman + $penambahanExcludingOngkir - $pengurangan);
+        $totalPaid = $order ? (float) $order->totalPaid() : 0.0;
+        $sisaPembayaran = ($order && $order->is_special_order) ? 0.0 : max(0, $invoiceTotalTagihan - $totalPaid);
+
+        DB::transaction(function () use ($invoice, $order, $data, $diskonType, $diskonValue, $biayaPengiriman, $jasaPengiriman, $invoiceTotalTagihan, $totalPaid, $sisaPembayaran) {
             $invoice->update([
                 'bank_id' => $data['bank_id'] ?? $invoice->bank_id,
                 'catatan' => $data['catatan'] ?? $invoice->catatan,
@@ -617,7 +691,7 @@ class InvoiceController extends Controller
                 'status' => $sisaPembayaran <= 0 ? 'paid' : 'validated',
                 'dp_amount' => $totalPaid,
                 'total_bayar' => $totalPaid,
-                'total_tagihan' => $tagihan,
+                'total_tagihan' => $invoiceTotalTagihan,
                 'sisa_pembayaran' => $sisaPembayaran,
             ]);
 
@@ -745,21 +819,58 @@ class InvoiceController extends Controller
             // Automatically update the associated invoice's remaining balance
             $order = $payment->order;
             if ($order) {
+                $order->load(['items', 'payments']);
                 // Rekalkulasi total_tagihan di DB
                 $order->update(['total_tagihan' => $order->totalTagihan()]);
                 
                 $invoice = $order->invoices()->first();
                 if ($invoice) {
-                    $totalTagihan = $order->totalTagihan();
-                    $totalPaid = $order->totalPaid();
+                    $diskonNominalFromOrder = (float) $order->items->sum('discount_amount');
+                    $diskonType = $invoice->diskon_type ?? 'nominal';
+                    $diskonValue = (float) ($invoice->diskon_value ?? 0);
                     
-                    $diskonNominal = $invoice->diskon_type === 'persen'
-                        ? ($totalTagihan * (float)$invoice->diskon_value / 100)
-                        : (float)$invoice->diskon_value;
-                    $newSisa = max(0, $totalTagihan - $diskonNominal + (float)$invoice->biaya_pengiriman - $totalPaid);
+                    $grossSubtotal = (float) $order->items->sum(fn($item) => $item->quantity * $item->harga_satuan);
+                    
+                    if ($diskonNominalFromOrder > 0) {
+                        $diskonNominal = $diskonNominalFromOrder;
+                    } else {
+                        $diskonNominal = $diskonType === 'persen'
+                            ? ($grossSubtotal * $diskonValue / 100)
+                            : $diskonValue;
+                    }
+                    
+                    $biayaPengiriman = (float) ($invoice->biaya_pengiriman ?? 0);
+                    
+                    $penambahanExcludingOngkir = (float) $order->payments()
+                        ->whereNotNull('verified_at')
+                        ->where(function ($q) {
+                            $q->whereHas('masterJenisPembayaran', function ($mj) {
+                                $mj->where('efek_tagihan', 'penambahan')->where('nama', '!=', 'Ongkir');
+                            })->orWhere(function ($qp) {
+                                $qp->whereNull('master_jenis_pembayaran_id')
+                                   ->where('payment_type', 'tambahan_produk');
+                            });
+                        })
+                        ->sum('amount');
+
+                    $pengurangan = (float) $order->payments()
+                        ->whereNotNull('verified_at')
+                        ->where(function ($q) {
+                            $q->whereHas('masterJenisPembayaran', function ($mj) {
+                                $mj->where('efek_tagihan', 'pengurangan');
+                            })->orWhere(function ($qp) {
+                                $qp->whereNull('master_jenis_pembayaran_id')
+                                   ->whereIn('payment_type', ['cashback', 'return']);
+                            });
+                        })
+                        ->sum('amount');
+                        
+                    $invoiceTotalTagihan = max(0, $grossSubtotal - $diskonNominal + $biayaPengiriman + $penambahanExcludingOngkir - $pengurangan);
+                    $totalPaid = $order->totalPaid();
+                    $newSisa = ($order->is_special_order) ? 0.0 : max(0, $invoiceTotalTagihan - $totalPaid);
                     
                     $invoice->update([
-                        'total_tagihan' => $totalTagihan,
+                        'total_tagihan' => $invoiceTotalTagihan,
                         'total_bayar' => $totalPaid,
                         'sisa_pembayaran' => $newSisa,
                         'status' => $newSisa <= 0 ? 'paid' : $invoice->status,
@@ -814,15 +925,6 @@ class InvoiceController extends Controller
                 }
             }
         });
-
-        $order = $payment->order;
-        \App\Services\Notifications\DynamicNotificationService::dispatch('payment_verified', [
-            'no_po' => $order->no_po,
-            'brand_id' => $order->brand_id,
-            'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
-            'nominal' => 'Rp ' . number_format($payment->amount, 0, ',', '.'),
-            'action_url' => "/orders/{$order->id}"
-        ]);
 
         return back()->with('success', 'Pembayaran berhasil diverifikasi.');
     }

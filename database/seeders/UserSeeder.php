@@ -56,11 +56,11 @@ class UserSeeder extends Seeder
 
         // Admin Brand ALG (Apparel Allegiant)
         $adminAlg = User::updateOrCreate(
-            ['email' => 'admin.allegiant@nisreport.local'],
+            ['email' => 'allegiant.id@gmail.com'],
             [
                 'name' => 'Admin Brand Allegiant',
                 'password' => Hash::make('password'),
-                'phone' => '081333333333',
+                'phone' => '08113027007',
                 'is_active' => true,
                 'email_verified_at' => now(),
             ]
@@ -72,11 +72,11 @@ class UserSeeder extends Seeder
 
         // Admin Brand CRL (Circle Sportwear)
         $adminCrl = User::updateOrCreate(
-            ['email' => 'admin.circle@nisreport.local'],
+            ['email' => 'circlesportwear@gmail.com'],
             [
                 'name' => 'Admin Brand Circle',
                 'password' => Hash::make('password'),
-                'phone' => '081444444444',
+                'phone' => '082139220211',
                 'is_active' => true,
                 'email_verified_at' => now(),
             ]
@@ -88,11 +88,11 @@ class UserSeeder extends Seeder
 
         // Admin Brand DRV (Drive Sportwear)
         $adminDrv = User::updateOrCreate(
-            ['email' => 'admin.drive@nisreport.local'],
+            ['email' => 'sportweardrive@gmail.com'],
             [
                 'name' => 'Admin Brand Drive',
                 'password' => Hash::make('password'),
-                'phone' => '081888888888',
+                'phone' => '085143849390',
                 'is_active' => true,
                 'email_verified_at' => now(),
             ]
@@ -105,11 +105,11 @@ class UserSeeder extends Seeder
         // Admin Reseller demo — diarahkan ke brand Telulas (TLS)
         if ($brandTelulas) {
             $adminReseller = User::updateOrCreate(
-                ['email' => 'reseller@nisreport.local'],
+                ['email' => 'indonesiasportwarehouse@gmail.com'],
                 [
-                    'name' => 'Admin Reseller (Demo)',
+                    'name' => 'INDOWAREHOUSE',
                     'password' => Hash::make('password'),
-                    'phone' => '081555555555',
+                    'phone' => '62 858-5027-3293',
                     'is_active' => true,
                     'email_verified_at' => now(),
                 ]

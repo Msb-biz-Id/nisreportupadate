@@ -372,7 +372,7 @@ export default function AdminBrand({ stats }) {
                             <CardDescription className="text-xs text-slate-500">Pembayaran DP desain menunggu verifikasi keuangan.</CardDescription>
                         </div>
                         <Button asChild variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-700 font-semibold text-xs">
-                            <Link href={route('design-deposits.index') + '?status=pending'}>
+                            <Link href={route('invoices.list') + '?tab=tanda_jadi'}>
                                 Lihat Semua <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
                             </Link>
                         </Button>

@@ -106,6 +106,7 @@ class ProductionController extends Controller
             ->whereNotIn('status_po', ['sudah_dikirim', 'selesai'])
             ->with(['pelanggan:id,nama', 'lockStatus', 'brand:id,kode,warna_primary', 'paketOrder:id,nama,warna,prioritas'])
             ->withCount(['rijeks as has_rijek' => fn ($q) => $q->whereNull('resolved_at')])
+            ->withSum('items', 'quantity')
             ->orderBy('deadline_customer')
             ->get();
 
@@ -138,7 +139,7 @@ class ProductionController extends Controller
                 'is_locked'         => $order->isLocked(),
                 'is_special_order'  => (bool) $order->is_special_order,
                 'has_rijek'         => $order->has_rijek > 0,
-                'total_items'       => $order->items()->sum('quantity'),
+                'total_items'       => (int) ($order->items_sum_quantity ?? 0),
                 'days_remaining'    => $daysRemaining,
                 'paket_order'       => $order->paketOrder ? [
                     'nama'      => $order->paketOrder->nama,

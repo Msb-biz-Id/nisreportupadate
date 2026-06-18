@@ -56,6 +56,25 @@ class AppServiceProvider extends ServiceProvider
 
         Vite::prefetch(concurrency: 3);
 
+        // Register Cache::forgetPattern macro to prevent BadMethodCallException
+        \Illuminate\Support\Facades\Cache::macro('forgetPattern', function (string $pattern) {
+            $driver = config('cache.default');
+            if ($driver === 'redis') {
+                try {
+                    $redis = \Illuminate\Support\Facades\Redis::connection();
+                    $prefix = config('cache.prefix');
+                    $keys = $redis->keys($prefix . $pattern);
+                    foreach ($keys as $key) {
+                        $cleanKey = str_replace($prefix, '', $key);
+                        \Illuminate\Support\Facades\Cache::forget($cleanKey);
+                    }
+                } catch (\Exception $e) {
+                    // Fail silently
+                }
+                return;
+            }
+        });
+
         Gate::before(function ($user) {
             return $user->hasRole('superadmin') ? true : null;
         });

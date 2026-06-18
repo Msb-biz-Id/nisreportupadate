@@ -375,8 +375,7 @@ class CustomerController extends Controller
     private function guardOwnership(Request $request, Customer $customer): void
     {
         if ($customer->brand_id === null) return;
-        $brandId = BrandContext::masterDataId($request);
-        if ($customer->brand_id !== $brandId && ! $request->user()->isSuperadmin()) {
+        if (! $request->user()->isSuperadmin() && ! $request->user()->hasAccessToBrand($customer->brand_id)) {
             abort(403);
         }
     }

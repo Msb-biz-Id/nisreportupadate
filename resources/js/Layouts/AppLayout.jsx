@@ -318,6 +318,12 @@ function buildMenu(user) {
             icon: Settings,
             active: route().current('settings.integrasi*'),
         });
+        settingItems.push({
+            name: 'Backup Media',
+            href: route('settings.backup'),
+            icon: Download,
+            active: route().current('settings.backup*'),
+        });
     }
     if (hasPermission(user, 'audit.view')) {
         settingItems.push({
@@ -784,8 +790,10 @@ function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMark
                             <div 
                                 key={notif.id} 
                                 className={cn(
-                                    "flex gap-3 p-3 transition-colors hover:bg-muted/30 cursor-pointer group relative",
-                                    !notif.is_read && "bg-blue-50/40 border-l-2 border-blue-500"
+                                    "flex gap-3 p-3 transition-colors cursor-pointer group relative border-b border-gray-100",
+                                    notif.is_read 
+                                        ? "bg-transparent hover:bg-gray-50 border-l-4 border-transparent" 
+                                        : "bg-blue-50/60 hover:bg-blue-50/80 border-l-4 border-blue-600"
                                 )}
                                 onClick={() => {
                                     onMarkAsRead(notif.id);
@@ -796,7 +804,10 @@ function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMark
                                     }
                                 }}
                             >
-                                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white border shadow-sm">
+                                <div className={cn(
+                                    "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border shadow-sm",
+                                    notif.is_read ? "bg-gray-50 text-gray-400" : "bg-white text-blue-600 border-blue-100"
+                                )}>
                                     <span className="text-sm">
                                         {notif.type?.includes('refund') ? '🪙' : 
                                          notif.type?.includes('rijek') ? '⚠️' : 
@@ -804,15 +815,25 @@ function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMark
                                     </span>
                                 </div>
                                 <div className="flex-1 space-y-1 pr-6">
-                                    <div className="flex items-center justify-between gap-1">
-                                        <p className={cn("text-xs font-semibold text-gray-800 line-clamp-1", !notif.is_read && "text-blue-900")}>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <p className={cn(
+                                            "text-xs line-clamp-1 flex items-center gap-1.5", 
+                                            notif.is_read ? "font-medium text-gray-500" : "font-bold text-blue-900"
+                                        )}>
+                                            {!notif.is_read && <span className="h-1.5 w-1.5 rounded-full bg-blue-600 shrink-0" />}
                                             {notif.title}
                                         </p>
-                                        <span className="text-[9px] text-muted-foreground shrink-0 font-medium font-mono">
+                                        <span className={cn(
+                                            "text-[9px] shrink-0 font-medium font-mono",
+                                            notif.is_read ? "text-gray-400" : "text-blue-500 font-semibold"
+                                        )}>
                                             {formatTimeAgo(notif.created_at)}
                                         </span>
                                     </div>
-                                    <p className="text-[11px] text-gray-600 line-clamp-2 leading-relaxed">
+                                    <p className={cn(
+                                        "text-[11px] line-clamp-2 leading-relaxed",
+                                        notif.is_read ? "text-gray-400" : "text-gray-700 font-medium"
+                                    )}>
                                         {notif.body}
                                     </p>
                                 </div>

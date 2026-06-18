@@ -1,3 +1,9 @@
+@php
+    /** @var \App\Models\Order\Order $order */
+    /** @var \App\Models\Brand|null $headerBrand */
+    /** @var string|null $logoData */
+    /** @var \Illuminate\Database\Eloquent\Collection<\App\Models\Master\Progress> $progresses */
+@endphp
 <!DOCTYPE html>
 <html>
 <head>
@@ -198,9 +204,7 @@
                     <td class="spec-row-head">BAHAN</td>
                     @foreach($nonAddonItems as $item)
                     @php
-                        $bahanAtasanStr = !empty($item->bahan_kain_ids)
-                            ? \App\Models\Master\BahanKain::whereIn('id', $item->bahan_kain_ids)->pluck('nama')->implode(', ')
-                            : ($item->bahanKain->nama ?? '.......');
+                        $bahanAtasanStr = $item->bahan_kains_names ?: ($item->bahanKain->nama ?? '.......');
                     @endphp
                     <td>{{ strtoupper($bahanAtasanStr) }}</td>
                     @endforeach
@@ -227,13 +231,7 @@
                     <td class="spec-row-head">JENIS LOGO</td>
                     @foreach($nonAddonItems as $item)
                     @php
-                        $itemLogos = collect();
-                        if (!empty($item->logo_ids)) {
-                            $itemLogos = \App\Models\Master\Logo::whereIn('id', $item->logo_ids)->pluck('nama');
-                        } elseif ($item->logo_id) {
-                            $itemLogos = collect([$item->logo?->nama])->filter();
-                        }
-                        $logoStr = $itemLogos->isNotEmpty() ? $itemLogos->implode(', ') : '.......';
+                        $logoStr = !empty($item->logo_names) ? implode(', ', $item->logo_names) : ($item->logo?->nama ?? '.......');
                     @endphp
                     <td>{{ strtoupper($logoStr) }}</td>
                     @endforeach
@@ -323,6 +321,7 @@
 
         {{-- ===== REFERENSI DESAIN & GAMBAR (PER ITEM) ===== --}}
         @foreach ($nonAddonItems as $item)
+            @php /** @var \App\Models\Order\OrderItem $item */ @endphp
             @if($item->gambar_desain || $item->ket_atasan || $item->ket_bawahan || $item->jenis_kerah || $item->gambar_kerah || $item->gambar_ket_tambahan)
             <div class="page-break"></div>
 
@@ -432,6 +431,7 @@
 
         @foreach ($nonAddonItems as $item)
             @php
+                /** @var \App\Models\Order\OrderItem $item */
                 $filled = $item->namesets->filter(fn($ns) =>
                     !empty($ns->nama_punggung) || !empty($ns->nomor_punggung) ||
                     !empty($ns->nama_dada)     || !empty($ns->nomor_dada)     ||
@@ -657,6 +657,7 @@
 
         @foreach ($nonAddonItems as $item)
             @php
+                /** @var \App\Models\Order\OrderItem $item */
                 $lampFilled = $item->namesets->filter(fn($ns) =>
                     !empty($ns->nama_punggung) || !empty($ns->nomor_punggung) ||
                     !empty($ns->nama_dada)     || !empty($ns->nomor_dada)     ||

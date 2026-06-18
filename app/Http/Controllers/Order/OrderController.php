@@ -139,14 +139,20 @@ class OrderController extends Controller
             ->toArray();
 
         $orders = $query->orderByDesc('created_at')->paginate(25)->withQueryString();
-
-        // admin_reseller only sees their own branches; superadmin/owner see all
-        $brands = match (true) {
-            ! $canSeeMultiBrand => [],
-            $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])
-                => Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode']),
-            default => $user->brands()->orderBy('nama_brand')->get(['brands.id', 'brands.nama_brand', 'brands.kode']),
-        };
+        // Dapatkan daftar brand yang boleh difilter pada halaman ini
+        $brands = [];
+        if ($canSeeMultiBrand) {
+            if ($user->hasRole(['admin_produksi', 'admin_keuangan'])) {
+                // Keuangan/produksi dapat melihat semua brand aktif
+                $brands = Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode']);
+            } else {
+                // Yang lain dibatasi hanya pada brand-brand efektif saat ini (brand aktif + cabangnya jika ada)
+                $effectiveBrandIds = BrandContext::effectiveBrandIds($request);
+                $brands = Brand::whereIn('id', $effectiveBrandIds)
+                    ->orderBy('nama_brand')
+                    ->get(['id', 'nama_brand', 'kode']);
+            }
+        }
 
         $visibleStatuses = $user->hasRole('admin_produksi')
             ? array_values(array_filter(Order::STATUSES, fn ($s) => $s !== 'draft'))
@@ -176,7 +182,7 @@ class OrderController extends Controller
                 'update'          => $user->can('order.update'),
                 'delete'          => $user->can('order.delete'),
                 'publish'         => $user->can('order.publish'),
-                'filter_by_brand' => $canSeeMultiBrand,
+                'filter_by_brand' => $canSeeMultiBrand && count($brands) > 1,
             ],
         ]);
     }
@@ -491,18 +497,7 @@ class OrderController extends Controller
             'repeats', 'repeatFrom',
         ]);
 
-        foreach ($order->items as $item) {
-            // Resolve multi-field names untuk Preview
-            $item->logo_names = !empty($item->logo_ids)
-                ? \App\Models\Master\Logo::whereIn('id', $item->logo_ids)->pluck('nama')->toArray()
-                : [];
-            $item->bahan_kains_names = !empty($item->bahan_kain_ids)
-                ? \App\Models\Master\BahanKain::whereIn('id', $item->bahan_kain_ids)->pluck('nama')->implode(', ')
-                : null;
-            $item->bahan_kain_bawahan_names = !empty($item->bahan_kain_bawahan_ids)
-                ? \App\Models\Master\BahanKain::whereIn('id', $item->bahan_kain_bawahan_ids)->pluck('nama')->implode(', ')
-                : null;
-        }
+        $this->resolveItemNamesInBatch($order);
 
         $printings = collect();
         if (!empty($order->printing_ids)) {
@@ -977,13 +972,6 @@ class OrderController extends Controller
         }
 
         if (!$isFinanceOrAdmin) {
-            \App\Services\Notifications\DynamicNotificationService::dispatch('payment_submitted', [
-                'no_po' => $order->no_po,
-                'brand_id' => $order->brand_id,
-                'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
-                'nominal' => 'Rp ' . number_format($payment->amount, 0, ',', '.'),
-                'action_url' => "/invoices"
-            ]);
             return back()->with('success', 'Transaksi berhasil dicatat. Menunggu validasi dari Admin Keuangan.');
         }
 
@@ -1007,45 +995,129 @@ class OrderController extends Controller
         $sumber     = !empty($raw['sumber_order_id'])   ? SumberOrder::find($raw['sumber_order_id'])     : null;
         $paketOrder = !empty($raw['paket_order_id'])    ? PaketOrder::find($raw['paket_order_id'])       : null;
 
-        $items = collect($raw['items'] ?? [])->map(function ($item) {
-            $item['_bahan_kain']   = !empty($item['bahan_kain_id'])   ? BahanKain::find($item['bahan_kain_id'])?->nama   : null;
-            // Multi bahan atasan — gabungkan nama
-            $item['_bahan_kain_names'] = !empty($item['bahan_kain_ids'])
-                ? BahanKain::whereIn('id', $item['bahan_kain_ids'])->pluck('nama')->implode(', ')
-                : ($item['_bahan_kain'] ?? null);
-            $item['_bahan_kain_bawahan'] = !empty($item['bahan_kain_bawahan_id']) ? BahanKain::find($item['bahan_kain_bawahan_id'])?->nama : null;
-            $item['_bahan_kain_bawahan_names'] = !empty($item['bahan_kain_bawahan_ids'])
-                ? BahanKain::whereIn('id', $item['bahan_kain_bawahan_ids'])->pluck('nama')->implode(', ')
-                : ($item['_bahan_kain_bawahan'] ?? null);
-            $item['_logo']         = !empty($item['logo_id'])         ? Logo::find($item['logo_id'])?->nama             : null;
-            $item['_logos']        = !empty($item['logo_ids'])        ? Logo::whereIn('id', $item['logo_ids'])->pluck('nama')->toArray() : [];
-            // Pola Jahitan Config: { "Kerah": "uuid", ... } → { "Kerah": "nama pola" }
+        $rawItems = $raw['items'] ?? [];
+
+        // Kumpulkan semua ID untuk kueri batch
+        $bahanKainIds = [];
+        $logoIds = [];
+        $polaJahitanIds = [];
+        $resletingIds = [];
+        $printingIds = [];
+        $jenisSetelanIds = [];
+        $polaProduksiIds = [];
+        $sizeIds = [];
+
+        if (!empty($raw['printing_ids']) && is_array($raw['printing_ids'])) {
+            $printingIds = array_merge($printingIds, $raw['printing_ids']);
+        }
+
+        foreach ($rawItems as $item) {
+            if (!empty($item['bahan_kain_id'])) $bahanKainIds[] = $item['bahan_kain_id'];
+            if (!empty($item['bahan_kain_ids']) && is_array($item['bahan_kain_ids'])) {
+                $bahanKainIds = array_merge($bahanKainIds, $item['bahan_kain_ids']);
+            }
+            if (!empty($item['bahan_kain_bawahan_id'])) $bahanKainIds[] = $item['bahan_kain_bawahan_id'];
+            if (!empty($item['bahan_kain_bawahan_ids']) && is_array($item['bahan_kain_bawahan_ids'])) {
+                $bahanKainIds = array_merge($bahanKainIds, $item['bahan_kain_bawahan_ids']);
+            }
+
+            if (!empty($item['logo_id'])) $logoIds[] = $item['logo_id'];
+            if (!empty($item['logo_ids']) && is_array($item['logo_ids'])) {
+                $logoIds = array_merge($logoIds, $item['logo_ids']);
+            }
+
+            if (!empty($item['resleting_id'])) $resletingIds[] = $item['resleting_id'];
+            if (!empty($item['printing_id'])) $printingIds[] = $item['printing_id'];
+            if (!empty($item['jenis_setelan_id'])) $jenisSetelanIds[] = $item['jenis_setelan_id'];
+            if (!empty($item['pola_produksi_id'])) $polaProduksiIds[] = $item['pola_produksi_id'];
+
+            if (!empty($item['pola_jahitan_id'])) $polaJahitanIds[] = $item['pola_jahitan_id'];
+            if (!empty($item['pola_jahitan_lengan_id'])) $polaJahitanIds[] = $item['pola_jahitan_lengan_id'];
+            if (!empty($item['pola_jahitan_config']) && is_array($item['pola_jahitan_config'])) {
+                foreach ($item['pola_jahitan_config'] as $id) {
+                    if ($id) $polaJahitanIds[] = $id;
+                }
+            }
+
+            foreach ($item['namesets'] ?? [] as $ns) {
+                if (!empty($ns['size_id'])) $sizeIds[] = $ns['size_id'];
+                if (!empty($ns['size_celana_id'])) $sizeIds[] = $ns['size_celana_id'];
+            }
+        }
+
+        // Jalankan kueri batch
+        $bahanKains = !empty($bahanKainIds) ? BahanKain::whereIn('id', array_unique($bahanKainIds))->pluck('nama', 'id')->toArray() : [];
+        $logos = !empty($logoIds) ? Logo::whereIn('id', array_unique($logoIds))->pluck('nama', 'id')->toArray() : [];
+        $polaJahitans = !empty($polaJahitanIds) ? PolaJahitan::whereIn('id', array_unique($polaJahitanIds))->pluck('nama', 'id')->toArray() : [];
+        $resletings = !empty($resletingIds) ? Resleting::whereIn('id', array_unique($resletingIds))->pluck('nama', 'id')->toArray() : [];
+        $printings = !empty($printingIds) ? Printing::whereIn('id', array_unique($printingIds))->pluck('nama', 'id')->toArray() : [];
+        $jenisSetelans = !empty($jenisSetelanIds) ? \App\Models\Master\JenisSetelan::whereIn('id', array_unique($jenisSetelanIds))->pluck('nama', 'id')->toArray() : [];
+        $polaProduksis = !empty($polaProduksiIds) ? \App\Models\Master\PolaProduksi::whereIn('id', array_unique($polaProduksiIds))->pluck('nama', 'id')->toArray() : [];
+        
+        $sizes = collect();
+        if (!empty($sizeIds)) {
+            $sizes = Size::whereIn('id', array_unique($sizeIds))->get()->keyBy('id');
+        }
+
+        $items = collect($rawItems)->map(function ($item) use ($bahanKains, $logos, $polaJahitans, $resletings, $printings, $jenisSetelans, $polaProduksis, $sizes) {
+            $item['_bahan_kain'] = !empty($item['bahan_kain_id']) ? ($bahanKains[$item['bahan_kain_id']] ?? null) : null;
+            
+            $itemBahanKainNames = [];
+            if (!empty($item['bahan_kain_ids']) && is_array($item['bahan_kain_ids'])) {
+                foreach ($item['bahan_kain_ids'] as $id) {
+                    if (isset($bahanKains[$id])) $itemBahanKainNames[] = $bahanKains[$id];
+                }
+            }
+            $item['_bahan_kain_names'] = !empty($itemBahanKainNames) ? implode(', ', $itemBahanKainNames) : ($item['_bahan_kain'] ?? null);
+
+            $item['_bahan_kain_bawahan'] = !empty($item['bahan_kain_bawahan_id']) ? ($bahanKains[$item['bahan_kain_bawahan_id']] ?? null) : null;
+
+            $itemBahanKainBawahanNames = [];
+            if (!empty($item['bahan_kain_bawahan_ids']) && is_array($item['bahan_kain_bawahan_ids'])) {
+                foreach ($item['bahan_kain_bawahan_ids'] as $id) {
+                    if (isset($bahanKains[$id])) $itemBahanKainBawahanNames[] = $bahanKains[$id];
+                }
+            }
+            $item['_bahan_kain_bawahan_names'] = !empty($itemBahanKainBawahanNames) ? implode(', ', $itemBahanKainBawahanNames) : ($item['_bahan_kain_bawahan'] ?? null);
+
+            $item['_logo'] = !empty($item['logo_id']) ? ($logos[$item['logo_id']] ?? null) : null;
+
+            $itemLogos = [];
+            if (!empty($item['logo_ids']) && is_array($item['logo_ids'])) {
+                foreach ($item['logo_ids'] as $id) {
+                    if (isset($logos[$id])) $itemLogos[] = $logos[$id];
+                }
+            }
+            $item['_logos'] = $itemLogos;
+
             $item['_pola_jahitan_config'] = [];
             if (!empty($item['pola_jahitan_config']) && is_array($item['pola_jahitan_config'])) {
                 foreach ($item['pola_jahitan_config'] as $jenis => $id) {
-                    if ($id) {
-                        $pola = PolaJahitan::find($id);
-                        if ($pola) $item['_pola_jahitan_config'][$jenis] = $pola->nama;
+                    if ($id && isset($polaJahitans[$id])) {
+                        $item['_pola_jahitan_config'][$jenis] = $polaJahitans[$id];
                     }
                 }
             }
-            $item['_resleting']    = !empty($item['resleting_id'])    ? Resleting::find($item['resleting_id'])?->nama    : null;
-            $item['_printing']     = !empty($item['printing_id'])     ? Printing::find($item['printing_id'])?->nama     : null;
-            $item['_pola_jahitan'] = !empty($item['pola_jahitan_id']) ? PolaJahitan::find($item['pola_jahitan_id']) : null;
-            $item['_pola_jahitan_lengan'] = !empty($item['pola_jahitan_lengan_id']) ? PolaJahitan::find($item['pola_jahitan_lengan_id']) : null;
-            $item['_jenis_setelan']  = !empty($item['jenis_setelan_id'])  ? \App\Models\Master\JenisSetelan::find($item['jenis_setelan_id'])?->nama  : ($item['jenis_setelan'] ?? null);
-            $item['_pola_produksi']  = !empty($item['pola_produksi_id'])  ? \App\Models\Master\PolaProduksi::find($item['pola_produksi_id'])?->nama   : ($item['pola'] ?? null);
 
-            $item['namesets'] = collect($item['namesets'] ?? [])->map(function ($ns) {
+            $item['_resleting'] = !empty($item['resleting_id']) ? ($resletings[$item['resleting_id']] ?? null) : null;
+            $item['_printing'] = !empty($item['printing_id']) ? ($printings[$item['printing_id']] ?? null) : null;
+            
+            $item['_pola_jahitan'] = !empty($item['pola_jahitan_id']) ? ['nama' => $polaJahitans[$item['pola_jahitan_id']] ?? ''] : null;
+            $item['_pola_jahitan_lengan'] = !empty($item['pola_jahitan_lengan_id']) ? ['nama' => $polaJahitans[$item['pola_jahitan_lengan_id']] ?? ''] : null;
+
+            $item['_jenis_setelan'] = !empty($item['jenis_setelan_id']) ? ($jenisSetelans[$item['jenis_setelan_id']] ?? null) : ($item['jenis_setelan'] ?? null);
+            $item['_pola_produksi'] = !empty($item['pola_produksi_id']) ? ($polaProduksis[$item['pola_produksi_id']] ?? null) : ($item['pola'] ?? null);
+
+            $item['namesets'] = collect($item['namesets'] ?? [])->map(function ($ns) use ($sizes) {
                 if (!empty($ns['size_id'])) {
-                    $sz = Size::find($ns['size_id']);
+                    $sz = $sizes->get($ns['size_id']);
                     $ns['_size_label'] = $sz ? "{$sz->kategori_size} - {$sz->ukuran}" : ($ns['size_label'] ?? '-');
                 } else {
                     $ns['_size_label'] = $ns['size_label'] ?? '-';
                 }
 
                 if (!empty($ns['size_celana_id'])) {
-                    $szc = Size::find($ns['size_celana_id']);
+                    $szc = $sizes->get($ns['size_celana_id']);
                     $ns['_size_celana_label'] = $szc ? "{$szc->kategori_size} - {$szc->ukuran}" : ($ns['size_celana_label'] ?? '-');
                 } else {
                     $ns['_size_celana_label'] = $ns['size_celana_label'] ?? '-';
@@ -1059,7 +1131,17 @@ class OrderController extends Controller
         $headerBrand = $brand->getHeaderBrand();
         $logoData = $headerBrand ? $this->logoDataUri($headerBrand->logo) : '';
 
-        $pdf = Pdf::loadView('pdf.fo_draft', compact('brand', 'headerBrand', 'logoData', 'raw', 'pelanggan', 'kategori', 'jenisOrder', 'sumber', 'paketOrder', 'items'))
+        $printingNames = collect();
+        if (!empty($raw['printing_ids']) && is_array($raw['printing_ids'])) {
+            foreach ($raw['printing_ids'] as $pid) {
+                if (isset($printings[$pid])) {
+                    $printingNames->push($printings[$pid]);
+                }
+            }
+        }
+        $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+
+        $pdf = Pdf::loadView('pdf.fo_draft', compact('brand', 'headerBrand', 'logoData', 'raw', 'pelanggan', 'kategori', 'jenisOrder', 'sumber', 'paketOrder', 'items', 'printingNames', 'progresses'))
             ->setPaper('a4', 'portrait');
 
         $filename = 'FO-DRAFT-' . $brand->kode . '-' . now()->format('YmdHis') . '.pdf';
@@ -1079,13 +1161,16 @@ class OrderController extends Controller
             'items.namesets.size', 'items.namesets.sizeCelana',
         ]);
 
+        $this->resolveItemNamesInBatch($order);
         $headerBrand = $order->brand ? $order->brand->getHeaderBrand() : null;
         $logoData = $headerBrand ? $this->logoDataUri($headerBrand->logo) : '';
+        $progresses = \App\Models\Master\Progress::active()->ordered()->get();
 
         $pdf = Pdf::loadView('pdf.fo', [
             'order' => $order,
             'headerBrand' => $headerBrand,
-            'logoData' => $logoData
+            'logoData' => $logoData,
+            'progresses' => $progresses
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download("FO-{$order->no_po}.pdf");
@@ -1104,17 +1189,7 @@ class OrderController extends Controller
             'items.namesets.size', 'items.namesets.sizeCelana',
         ]);
 
-        foreach ($order->items as $item) {
-            $item->logo_names = !empty($item->logo_ids)
-                ? \App\Models\Master\Logo::whereIn('id', $item->logo_ids)->pluck('nama')->toArray()
-                : [];
-            $item->bahan_kains_names = !empty($item->bahan_kain_ids)
-                ? \App\Models\Master\BahanKain::whereIn('id', $item->bahan_kain_ids)->pluck('nama')->implode(', ')
-                : null;
-            $item->bahan_kain_bawahan_names = !empty($item->bahan_kain_bawahan_ids)
-                ? \App\Models\Master\BahanKain::whereIn('id', $item->bahan_kain_bawahan_ids)->pluck('nama')->implode(', ')
-                : null;
-        }
+        $this->resolveItemNamesInBatch($order);
 
         $printings = collect();
         if (!empty($order->printing_ids)) {
@@ -1508,5 +1583,63 @@ class OrderController extends Controller
             // fallback
         }
         return '';
+    }
+
+    private function resolveItemNamesInBatch(Order $order): void
+    {
+        $allLogoIds = [];
+        $allBahanKainIds = [];
+        foreach ($order->items as $item) {
+            if (!empty($item->logo_ids) && is_array($item->logo_ids)) {
+                $allLogoIds = array_merge($allLogoIds, $item->logo_ids);
+            }
+            if (!empty($item->bahan_kain_ids) && is_array($item->bahan_kain_ids)) {
+                $allBahanKainIds = array_merge($allBahanKainIds, $item->bahan_kain_ids);
+            }
+            if (!empty($item->bahan_kain_bawahan_ids) && is_array($item->bahan_kain_bawahan_ids)) {
+                $allBahanKainIds = array_merge($allBahanKainIds, $item->bahan_kain_bawahan_ids);
+            }
+        }
+        $allLogoIds = array_unique(array_filter($allLogoIds));
+        $allBahanKainIds = array_unique(array_filter($allBahanKainIds));
+
+        $logos = !empty($allLogoIds)
+            ? \App\Models\Master\Logo::whereIn('id', $allLogoIds)->pluck('nama', 'id')->toArray()
+            : [];
+        $bahanKains = !empty($allBahanKainIds)
+            ? \App\Models\Master\BahanKain::whereIn('id', $allBahanKainIds)->pluck('nama', 'id')->toArray()
+            : [];
+
+        foreach ($order->items as $item) {
+            $itemLogos = [];
+            if (!empty($item->logo_ids) && is_array($item->logo_ids)) {
+                foreach ($item->logo_ids as $lid) {
+                    if (isset($logos[$lid])) {
+                        $itemLogos[] = $logos[$lid];
+                    }
+                }
+            }
+            $item->logo_names = $itemLogos;
+
+            $itemBahanKains = [];
+            if (!empty($item->bahan_kain_ids) && is_array($item->bahan_kain_ids)) {
+                foreach ($item->bahan_kain_ids as $bkid) {
+                    if (isset($bahanKains[$bkid])) {
+                        $itemBahanKains[] = $bahanKains[$bkid];
+                    }
+                }
+            }
+            $item->bahan_kains_names = !empty($itemBahanKains) ? implode(', ', $itemBahanKains) : null;
+
+            $itemBahanKainBawahans = [];
+            if (!empty($item->bahan_kain_bawahan_ids) && is_array($item->bahan_kain_bawahan_ids)) {
+                foreach ($item->bahan_kain_bawahan_ids as $bkid) {
+                    if (isset($bahanKains[$bkid])) {
+                        $itemBahanKainBawahans[] = $bahanKains[$bkid];
+                    }
+                }
+            }
+            $item->bahan_kain_bawahan_names = !empty($itemBahanKainBawahans) ? implode(', ', $itemBahanKainBawahans) : null;
+        }
     }
 }

@@ -77,13 +77,47 @@ class User extends Authenticatable
             if ($canSeeAllGlobalBrands) {
                 return true;
             }
+            if ($this->hasRole('admin_reseller')) {
+                return true;
+            }
             return $this->brands()->count() > 1;
         }
 
         if ($this->isSuperadmin() || $this->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])) {
             return true;
         }
-        return $this->brands()->where('brands.id', $brandId)->exists();
+
+        if ($this->hasRole('admin_reseller')) {
+            // Admin reseller automatically manages all reseller hubs, their branches, and IDW
+            $brand = Brand::find($brandId);
+            if ($brand) {
+                if ($brand->kode === 'IDW') {
+                    return true;
+                }
+                if ($brand->brand_type === Brand::TYPE_RESELLER_HUB) {
+                    return true;
+                }
+                if ($brand->brand_type === Brand::TYPE_RESELLER_BRANCH && $brand->parent_brand_id) {
+                    $parent = Brand::find($brand->parent_brand_id);
+                    if ($parent && $parent->brand_type === Brand::TYPE_RESELLER_HUB) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // Direct brand assignment
+        if ($this->brands()->where('brands.id', $brandId)->exists()) {
+            return true;
+        }
+
+        // Recursive parent brand access (if user has access to parent, they have access to child)
+        $brand = Brand::find($brandId);
+        if ($brand && $brand->parent_brand_id) {
+            return $this->hasAccessToBrand($brand->parent_brand_id);
+        }
+
+        return false;
     }
 
     public function notifications(): HasMany

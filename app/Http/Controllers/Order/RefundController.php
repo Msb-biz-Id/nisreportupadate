@@ -31,8 +31,8 @@ class RefundController extends Controller
             ? null // null = no restriction
             : $user->brands()->pluck('brands.id')->toArray();
 
-        if ($selectedBrandId && $selectedBrandId !== 'all' && $accessibleBrandIds !== null) {
-            abort_unless(in_array($selectedBrandId, $accessibleBrandIds), 403, 'Anda tidak memiliki akses ke brand tersebut.');
+        if ($selectedBrandId && $selectedBrandId !== 'all' && !$isAllBrandsRole) {
+            abort_unless($user->hasAccessToBrand($selectedBrandId), 403, 'Anda tidak memiliki akses ke brand tersebut.');
         }
 
         // admin_reseller on hub context: expand to hub + all branch IDs
@@ -71,7 +71,7 @@ class RefundController extends Controller
             $query->whereDate('created_at', '<=', $endDate);
         }
 
-        $allFiltered = (clone $query)->orderByDesc('created_at')->get()->map(fn ($ref) => [
+        $allFiltered = (clone $query)->without(['order.pelanggan', 'brand', 'creator', 'reviewer', 'publisher'])->orderByDesc('created_at')->get()->map(fn ($ref) => [
             'refund_number' => $ref->refund_number,
             'no_po' => $ref->order?->no_po ?? '—',
             'jenis_masalah' => $ref->jenis_masalah,
@@ -173,8 +173,7 @@ class RefundController extends Controller
         $order = Order::findOrFail($data['order_id']);
         abort_if($order->isDraft(), 422, 'PO draft tidak bisa di-refund.');
 
-        $brandId = BrandContext::current($request);
-        if (! $request->user()->isSuperadmin() && $order->brand_id !== $brandId) abort(403);
+        if (! $request->user()->hasAccessToBrand($order->brand_id)) abort(403);
 
         $existingRefundsSum = Refund::where('order_id', $order->id)
             ->whereIn('status', ['pending_review', 'approved', 'published'])
@@ -194,13 +193,6 @@ class RefundController extends Controller
             'created_by' => $request->user()->id,
         ]);
 
-        DynamicNotificationService::dispatch('refund_submitted', [
-            'no_po' => $order->no_po,
-            'brand_id' => $order->brand_id,
-            'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
-            'action_url' => '/refunds'
-        ]);
-
         return back()->with('success', 'Refund berhasil diajukan dan menunggu review keuangan.');
     }
 
@@ -216,14 +208,6 @@ class RefundController extends Controller
         ]);
 
         \App\Services\ActivityLogger::log('publish', 'refund', $refund, "Terbitkan refund {$refund->refund_number}");
-
-        DynamicNotificationService::dispatch('refund_processed', [
-            'no_po' => $refund->order?->no_po,
-            'brand_id' => $refund->brand_id,
-            'brand_nama' => $refund->order?->brand?->nama_brand ?? $refund->brand_id,
-            'status' => 'Diterima (Published)',
-            'action_url' => '/refunds'
-        ]);
 
         return back()->with('success', "Refund {$refund->refund_number} diterbitkan.");
     }
@@ -242,14 +226,6 @@ class RefundController extends Controller
             'rejected_reason' => $data['rejected_reason'],
             'reviewed_by' => $request->user()->id,
             'reviewed_at' => now(),
-        ]);
-
-        DynamicNotificationService::dispatch('refund_processed', [
-            'no_po' => $refund->order?->no_po,
-            'brand_id' => $refund->brand_id,
-            'brand_nama' => $refund->order?->brand?->nama_brand ?? $refund->brand_id,
-            'status' => 'Ditolak',
-            'action_url' => '/refunds'
         ]);
 
         return back()->with('info', 'Refund ditolak. Pengaju dapat revisi dan ajukan ulang.');
