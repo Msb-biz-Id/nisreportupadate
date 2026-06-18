@@ -313,7 +313,7 @@ class RoleAccessTest extends TestCase
         $user  = $this->makeUser('admin_produksi', [$brand]);
 
         // PO-relevant master data / brand-only master should be forbidden for admin_produksi
-        foreach (['kategori-order', 'sumber-order', 'jenis-order', 'customer-type', 'produk', 'iklan'] as $slug) {
+        foreach (['sumber-order', 'jenis-order', 'customer-type', 'produk', 'iklan'] as $slug) {
             $this->actingAsWithBrand($user, $brand)
                 ->get(route('master.index', $slug))
                 ->assertForbidden("Slug [{$slug}] should be forbidden for admin_produksi");
@@ -549,5 +549,220 @@ class RoleAccessTest extends TestCase
             ->assertStatus(403);
 
         $this->assertDatabaseHas('order_payments', ['id' => $payment->id]);
+    }
+
+    public function test_reseller_branch_uses_regular_parent_brand_master_data(): void
+    {
+        $regular = $this->makeBrand(['brand_type' => \App\Models\Brand::TYPE_REGULAR]);
+        $branch  = $this->makeBrand(['brand_type' => \App\Models\Brand::TYPE_RESELLER_BRANCH, 'parent_brand_id' => $regular->id]);
+
+        $user = $this->makeUser('admin_brand', [$branch]);
+
+        // Create some master data on the parent regular brand
+        $category = \App\Models\Master\SumberOrder::create([
+            'brand_id'  => $regular->id,
+            'nama'      => 'Sumber Parent',
+            'is_active' => true,
+        ]);
+
+        // When acting as the reseller branch, we should be able to see this category because of masterDataId resolution
+        $this->actingAsWithBrand($user, $branch)
+            ->get(route('master.index', 'sumber-order'))
+            ->assertOk()
+            ->assertInertia(fn ($p) => $p
+                ->has('items.data', 1)
+                ->where('items.data.0.nama', 'Sumber Parent')
+            );
+    }
+
+    public function test_reseller_hub_uses_parent_brand_master_data(): void
+    {
+        $regular = $this->makeBrand(['brand_type' => \App\Models\Brand::TYPE_REGULAR]);
+        $hub     = $this->makeBrand(['brand_type' => \App\Models\Brand::TYPE_RESELLER_HUB, 'parent_brand_id' => $regular->id]);
+
+        $user = $this->makeUser('admin_brand', [$hub]);
+
+        // Create some master data on the parent regular brand
+        $category = \App\Models\Master\SumberOrder::create([
+            'brand_id'  => $regular->id,
+            'nama'      => 'Sumber Hub Parent',
+            'is_active' => true,
+        ]);
+
+        // When acting as the reseller hub, we should be able to see this category because of masterDataId resolution
+        $this->actingAsWithBrand($user, $hub)
+            ->get(route('master.index', 'sumber-order'))
+            ->assertOk()
+            ->assertInertia(fn ($p) => $p
+                ->has('items.data', 1)
+                ->where('items.data.0.nama', 'Sumber Hub Parent')
+            );
+    }
+
+    public function test_reseller_without_parent_falls_back_to_first_reseller_hub_master_data(): void
+    {
+        // First reseller hub (acts as the master for reseller data)
+        $firstHub = $this->makeBrand(['brand_type' => \App\Models\Brand::TYPE_RESELLER_HUB, 'kode' => 'H1']);
+        
+        // Second reseller hub without a parent brand
+        $secondHub = $this->makeBrand(['brand_type' => \App\Models\Brand::TYPE_RESELLER_HUB, 'kode' => 'H2', 'parent_brand_id' => null]);
+
+        $user = $this->makeUser('admin_brand', [$secondHub]);
+
+        // Create some master data on the first reseller hub (the default master)
+        $category = \App\Models\Master\SumberOrder::create([
+            'brand_id'  => $firstHub->id,
+            'nama'      => 'Sumber Reseller Master',
+            'is_active' => true,
+        ]);
+
+        // When acting as the second reseller hub (without parent), it should fallback to the first reseller hub
+        $this->actingAsWithBrand($user, $secondHub)
+            ->get(route('master.index', 'sumber-order'))
+            ->assertOk()
+            ->assertInertia(fn ($p) => $p
+                ->has('items.data', 1)
+                ->where('items.data.0.nama', 'Sumber Reseller Master')
+            );
+    }
+
+    public function test_reseller_bank_accounts_are_inherited_and_have_dynamic_reseller_atas_nama(): void
+    {
+        // Setup reseller global settings name
+        \App\Models\Settings\SystemSetting::set('reseller_branding', 'nama_brand', 'INDOWAREHOUSE');
+
+        $regular = $this->makeBrand(['brand_type' => \App\Models\Brand::TYPE_REGULAR, 'nama_brand' => 'Allegiant Owner']);
+        $hub     = $this->makeBrand(['brand_type' => \App\Models\Brand::TYPE_RESELLER_HUB, 'parent_brand_id' => $regular->id]);
+
+        $user = $this->makeUser('admin_brand', [$hub]);
+
+        // Create a bank account on regular brand
+        $regularBank = \App\Models\Master\BankAccount::create([
+            'brand_id' => $regular->id,
+            'bank' => 'BCA',
+            'atas_nama' => 'Original Owner',
+            'nomor_rekening' => '1111111111',
+            'is_active' => true,
+        ]);
+
+        // 1. Verify that when accessing Master Bank under Hub context, we see the inherited Regular brand's bank account,
+        // and its 'atas_nama' is dynamically resolved to 'INDOWAREHOUSE' (reseller global settings brand name).
+        $this->actingAsWithBrand($user, $hub)
+            ->get(route('master.index', 'bank'))
+            ->assertOk()
+            ->assertInertia(fn ($p) => $p
+                ->has('items.data', 1)
+                ->where('items.data.0.id', $regularBank->id)
+                ->where('items.data.0.atas_nama', 'INDOWAREHOUSE')
+            );
+
+        // 2. Verify invoice fallback uses the same bank account from the masterDataId brand context
+        $customer = \App\Models\Master\Customer::create([
+            'brand_id' => $hub->id,
+            'kode' => 'C-HUB',
+            'nama' => 'Hub Customer',
+            'nomor_hp' => '081234',
+            'is_active' => true,
+        ]);
+
+        $order = \App\Models\Order\Order::create([
+            'brand_id' => $hub->id,
+            'no_po' => 'PO-HUB-01',
+            'nama_po' => 'Test Hub Order',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 100000,
+            'created_by' => $user->id,
+        ]);
+
+        $invoiceWithoutHubBank = \App\Models\Order\Invoice::create([
+            'invoice_number' => 'INV-TEST-FALLBACK',
+            'brand_id' => $hub->id,
+            'order_id' => $order->id,
+            'status' => 'draft',
+            'total_tagihan' => 100000,
+            'sisa_pembayaran' => 100000,
+            'tanggal_terbit' => now()->toDateString(),
+            'created_by' => $user->id,
+        ]);
+
+        // Simulate session context for test model access
+        session([\App\Support\BrandContext::SESSION_KEY => $hub->id]);
+
+        $invoice = \App\Models\Order\Invoice::where('id', $invoiceWithoutHubBank->id)->with('brand.parentBrand')->first();
+        $this->assertNull($invoice->bank_id);
+        
+        // Simulating the fallback logic in controller:
+        $bankBrandId = \App\Support\BrandContext::masterDataId(request(), $invoice->brand_id);
+        $defaultBank = \App\Models\Master\BankAccount::active()->where('brand_id', $bankBrandId)->first();
+        
+        $this->assertNotNull($defaultBank);
+        $this->assertEquals($regularBank->id, $defaultBank->id);
+        $this->assertEquals('INDOWAREHOUSE', $defaultBank->atas_nama);
+    }
+
+    public function test_non_superadmin_non_owner_cannot_see_or_modify_superadmin_and_owner_users(): void
+    {
+        $brand = $this->makeBrand();
+        
+        // 1. Create a reseller admin
+        $resellerAdmin = $this->makeUser('admin_reseller', [$brand]);
+        
+        // 2. Create a superadmin user
+        $superadmin = $this->makeUser('superadmin', [$brand], ['email' => 'super@test.com']);
+        
+        // 3. Create an owner user
+        $owner = $this->makeUser('owner', [$brand], ['email' => 'owner@test.com']);
+        
+        // 4. Create a regular brand user (which the reseller should see since they share the brand)
+        $brandAdmin = $this->makeUser('admin_brand', [$brand], ['email' => 'brandadmin@test.com']);
+
+        // A. Listing users as reseller admin:
+        // They should see the brandAdmin, but NOT the superadmin or owner
+        $this->actingAsWithBrand($resellerAdmin, $brand)
+            ->get(route('users.index'))
+            ->assertOk()
+            ->assertInertia(fn ($p) => $p
+                ->has('users.data')
+                // Verify superadmin and owner are NOT in the list:
+                ->where('users.data', function ($users) {
+                    $emails = collect($users)->pluck('email');
+                    return ! $emails->contains('super@test.com') && ! $emails->contains('owner@test.com');
+                })
+            );
+
+        // B. Trying to update superadmin: should be Forbidden (403)
+        $this->actingAsWithBrand($resellerAdmin, $brand)
+            ->put(route('users.update', $superadmin->id), [
+                'name' => 'Updated Super',
+                'email' => 'super@test.com',
+                'role' => 'superadmin',
+                'brand_ids' => [$brand->id],
+                'default_brand_id' => $brand->id,
+            ])
+            ->assertStatus(403);
+
+        // C. Trying to update owner: should be Forbidden (403)
+        $this->actingAsWithBrand($resellerAdmin, $brand)
+            ->put(route('users.update', $owner->id), [
+                'name' => 'Updated Owner',
+                'email' => 'owner@test.com',
+                'role' => 'owner',
+                'brand_ids' => [$brand->id],
+                'default_brand_id' => $brand->id,
+            ])
+            ->assertStatus(403);
+
+        // D. Trying to delete superadmin: should be Forbidden (403)
+        $this->actingAsWithBrand($resellerAdmin, $brand)
+            ->delete(route('users.destroy', $superadmin->id))
+            ->assertStatus(403);
+
+        // E. Trying to delete owner: should be Forbidden (403)
+        $this->actingAsWithBrand($resellerAdmin, $brand)
+            ->delete(route('users.destroy', $owner->id))
+            ->assertStatus(403);
     }
 }

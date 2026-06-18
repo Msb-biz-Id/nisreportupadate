@@ -110,6 +110,18 @@ class SettingsController extends Controller
                 'favicon' => SystemSetting::get('seo', 'favicon'),
                 'favicon_url' => SystemSetting::get('seo', 'favicon') ? \Illuminate\Support\Facades\Storage::disk('public')->url(SystemSetting::get('seo', 'favicon')) : null,
             ],
+            'reseller_branding' => [
+                'nama_brand' => SystemSetting::get('reseller_branding', 'nama_brand', 'Circle Reseller'),
+                'tagline' => SystemSetting::get('reseller_branding', 'tagline', 'Reseller Official Hub'),
+                'email' => SystemSetting::get('reseller_branding', 'email', 'reseller@circlesportwear.com'),
+                'no_hp' => SystemSetting::get('reseller_branding', 'no_hp', '08123456789'),
+                'alamat' => SystemSetting::get('reseller_branding', 'alamat', ''),
+                'instagram' => SystemSetting::get('reseller_branding', 'instagram', ''),
+                'tiktok' => SystemSetting::get('reseller_branding', 'tiktok', ''),
+                'facebook' => SystemSetting::get('reseller_branding', 'facebook', ''),
+                'logo' => SystemSetting::get('reseller_branding', 'logo'),
+                'logo_url' => SystemSetting::get('reseller_branding', 'logo') ? \Illuminate\Support\Facades\Storage::disk('public')->url(SystemSetting::get('reseller_branding', 'logo')) : null,
+            ],
             'mail' => [
                 'mail_host' => SystemSetting::get('mail', 'mail_host', 'smtp.mailtrap.io'),
                 'mail_port' => SystemSetting::get('mail', 'mail_port', '2525'),
@@ -250,6 +262,39 @@ class SettingsController extends Controller
         }
 
         return back()->with('success', 'Pengaturan SEO & Branding berhasil disimpan.');
+    }
+
+    public function updateResellerBranding(Request $request)
+    {
+        Gate::authorize('settings.system');
+
+        $data = $request->validate([
+            'nama_brand' => ['required', 'string', 'max:255'],
+            'tagline' => ['nullable', 'string', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'no_hp' => ['nullable', 'string', 'max:20'],
+            'alamat' => ['nullable', 'string', 'max:1000'],
+            'instagram' => ['nullable', 'string', 'max:255'],
+            'tiktok' => ['nullable', 'string', 'max:255'],
+            'facebook' => ['nullable', 'string', 'max:255'],
+            'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:2048'],
+        ]);
+
+        SystemSetting::set('reseller_branding', 'nama_brand', $data['nama_brand']);
+        SystemSetting::set('reseller_branding', 'tagline', $data['tagline'] ?? '');
+        SystemSetting::set('reseller_branding', 'email', $data['email'] ?? '');
+        SystemSetting::set('reseller_branding', 'no_hp', $data['no_hp'] ?? '');
+        SystemSetting::set('reseller_branding', 'alamat', $data['alamat'] ?? '');
+        SystemSetting::set('reseller_branding', 'instagram', $data['instagram'] ?? '');
+        SystemSetting::set('reseller_branding', 'tiktok', $data['tiktok'] ?? '');
+        SystemSetting::set('reseller_branding', 'facebook', $data['facebook'] ?? '');
+
+        if ($request->hasFile('logo')) {
+            $logoPath = $request->file('logo')->store('system', 'public');
+            SystemSetting::set('reseller_branding', 'logo', $logoPath);
+        }
+
+        return back()->with('success', 'Pengaturan Branding Reseller berhasil disimpan.');
     }
 
     public function updateMail(Request $request)

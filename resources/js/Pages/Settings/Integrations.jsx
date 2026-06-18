@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Sparkles, MessageCircle, Send, Settings, CheckCircle2, AlertTriangle, FlaskConical, Bell, Volume2, ShieldAlert, CheckSquare, Clock, Calendar, Mail, Copy } from 'lucide-react';
+import { Sparkles, MessageCircle, Send, Settings, CheckCircle2, AlertTriangle, FlaskConical, Bell, Volume2, ShieldAlert, CheckSquare, Clock, Calendar, Mail, Copy, Building2 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -961,12 +961,172 @@ function MailSection({ mail }) {
     );
 }
 
-export default function Integrations({ ai, whatsapp, telegram, system, notification_matrix, available_roles, seo, mail, reports }) {
+function ResellerBrandingSection({ reseller_branding }) {
+    const { data, setData, post, processing, errors } = useForm({
+        nama_brand: reseller_branding.nama_brand || '',
+        tagline: reseller_branding.tagline || '',
+        email: reseller_branding.email || '',
+        no_hp: reseller_branding.no_hp || '',
+        alamat: reseller_branding.alamat || '',
+        instagram: reseller_branding.instagram || '',
+        tiktok: reseller_branding.tiktok || '',
+        facebook: reseller_branding.facebook || '',
+        logo: null,
+        _method: 'PUT',
+    });
+
+    function submit(e) {
+        e.preventDefault();
+        post(route('settings.integrasi.reseller-branding'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setData('logo', null);
+            }
+        });
+    }
+
+    return (
+        <Card className="shadow-md border-t-4 border-t-indigo-500">
+            <CardHeader className="border-b pb-4">
+                <CardTitle className="flex items-center gap-2 text-base">
+                    <Building2 className="h-4.5 w-4.5 text-indigo-600" /> Branding Reseller Global
+                </CardTitle>
+                <CardDescription>
+                    Atur nama utama, email, nomor HP, alamat, media sosial, dan logo KOP surat global untuk semua akun reseller.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+                <form onSubmit={submit} className="space-y-5" encType="multipart/form-data">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <Label className="text-xs font-semibold text-gray-700">Nama Utama Brand Reseller</Label>
+                            <Input 
+                                value={data.nama_brand} 
+                                onChange={(e) => setData('nama_brand', e.target.value)} 
+                                placeholder="Circle Reseller" 
+                                className="mt-1.5" 
+                                required
+                            />
+                            {errors.nama_brand && <p className="text-red-500 text-xs mt-1">{errors.nama_brand}</p>}
+                        </div>
+
+                        <div>
+                            <Label className="text-xs font-semibold text-gray-700">Tagline / Deskripsi KOP</Label>
+                            <Input 
+                                value={data.tagline} 
+                                onChange={(e) => setData('tagline', e.target.value)} 
+                                placeholder="Reseller Official Hub" 
+                                className="mt-1.5" 
+                            />
+                            {errors.tagline && <p className="text-red-500 text-xs mt-1">{errors.tagline}</p>}
+                        </div>
+
+                        <div>
+                            <Label className="text-xs font-semibold text-gray-700">Email KOP</Label>
+                            <Input 
+                                type="email"
+                                value={data.email} 
+                                onChange={(e) => setData('email', e.target.value)} 
+                                placeholder="reseller@circlesportwear.com" 
+                                className="mt-1.5" 
+                            />
+                            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                        </div>
+
+                        <div>
+                            <Label className="text-xs font-semibold text-gray-700">No. HP / WhatsApp KOP</Label>
+                            <Input 
+                                value={data.no_hp} 
+                                onChange={(e) => setData('no_hp', e.target.value)} 
+                                placeholder="08123456789" 
+                                className="mt-1.5" 
+                            />
+                            {errors.no_hp && <p className="text-red-500 text-xs mt-1">{errors.no_hp}</p>}
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <Label className="text-xs font-semibold text-gray-700">Alamat Lengkap KOP</Label>
+                            <Textarea 
+                                value={data.alamat} 
+                                onChange={(e) => setData('alamat', e.target.value)} 
+                                placeholder="Jl. Reseller Jaya No. 123, Bandung" 
+                                rows={2}
+                                className="mt-1.5 text-xs" 
+                            />
+                            {errors.alamat && <p className="text-red-500 text-xs mt-1">{errors.alamat}</p>}
+                        </div>
+
+                        <div>
+                            <Label className="text-xs font-semibold text-gray-700">Instagram</Label>
+                            <Input 
+                                value={data.instagram} 
+                                onChange={(e) => setData('instagram', e.target.value)} 
+                                placeholder="@circlereseller" 
+                                className="mt-1.5" 
+                            />
+                            {errors.instagram && <p className="text-red-500 text-xs mt-1">{errors.instagram}</p>}
+                        </div>
+
+                        <div>
+                            <Label className="text-xs font-semibold text-gray-700">TikTok</Label>
+                            <Input 
+                                value={data.tiktok} 
+                                onChange={(e) => setData('tiktok', e.target.value)} 
+                                placeholder="@circlereseller" 
+                                className="mt-1.5" 
+                            />
+                            {errors.tiktok && <p className="text-red-500 text-xs mt-1">{errors.tiktok}</p>}
+                        </div>
+
+                        <div>
+                            <Label className="text-xs font-semibold text-gray-700">Facebook</Label>
+                            <Input 
+                                value={data.facebook} 
+                                onChange={(e) => setData('facebook', e.target.value)} 
+                                placeholder="Circle Reseller" 
+                                className="mt-1.5" 
+                            />
+                            {errors.facebook && <p className="text-red-500 text-xs mt-1">{errors.facebook}</p>}
+                        </div>
+
+                        <div className="border rounded-xl p-4 bg-muted/10 md:col-span-2">
+                            <Label className="text-xs font-semibold text-gray-700 block mb-2">Logo KOP Reseller (Mempengaruhi PDF Kop Surat Reseller)</Label>
+                            
+                            {reseller_branding.logo_url && (
+                                <div className="mb-3 p-3 bg-white rounded-lg border border-slate-100 flex items-center justify-center h-20">
+                                    <img src={reseller_branding.logo_url} alt="Reseller Logo" className="max-h-full max-w-full object-contain" />
+                                </div>
+                            )}
+
+                            <Input 
+                                type="file" 
+                                onChange={(e) => setData('logo', e.target.files[0])} 
+                                accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                                className="mt-1.5 text-xs" 
+                            />
+                            <p className="mt-1.5 text-[10px] text-muted-foreground">Mendukung PNG, JPG, WEBP, SVG. Max 2MB.</p>
+                            {errors.logo && <p className="text-red-500 text-xs mt-1">{errors.logo}</p>}
+                        </div>
+                    </div>
+
+                    <div className="pt-4 border-t flex justify-end">
+                        <Button type="submit" disabled={processing} className="px-6 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white">
+                            <CheckCircle2 className="h-4 w-4" /> Simpan Branding Reseller
+                        </Button>
+                    </div>
+                </form>
+            </CardContent>
+        </Card>
+    );
+}
+
+export default function Integrations({ ai, whatsapp, telegram, system, notification_matrix, available_roles, seo, reseller_branding, mail, reports }) {
     const roles = available_roles || ['superadmin', 'owner', 'admin_brand', 'reseller', 'admin_produksi', 'admin_keuangan'];
     const [activeTab, setActiveTab] = useState('seo');
 
     const tabs = [
         { id: 'seo', name: 'SEO & Branding', icon: Settings, badge: 'App' },
+        { id: 'reseller_branding', name: 'Branding Reseller', icon: Building2, badge: 'Reseller' },
         { id: 'mail', name: 'SMTP Mail Server', icon: Mail, badge: 'SMTP' },
         { id: 'whatsapp', name: 'WhatsApp Gateway', icon: MessageCircle, badge: wa => wa.is_configured ? 'ON' : 'Mock' },
         { id: 'telegram', name: 'Telegram Bot', icon: Send, badge: tg => tg.is_configured ? 'ON' : 'Mock' },
@@ -1039,6 +1199,12 @@ export default function Integrations({ ai, whatsapp, telegram, system, notificat
                     {activeTab === 'seo' && (
                         <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
                             <SeoSection seo={seo} />
+                        </div>
+                    )}
+
+                    {activeTab === 'reseller_branding' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
+                            <ResellerBrandingSection reseller_branding={reseller_branding} />
                         </div>
                     )}
 

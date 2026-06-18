@@ -18,7 +18,7 @@ class BrandController extends Controller
         Gate::authorize('brand.view');
 
         $user = $request->user();
-        $query = Brand::query()->withCount('users');
+        $query = Brand::query()->with('parentBrand')->withCount('users');
 
         if ($user->isSuperadmin()) {
             // Superadmin lihat semua
@@ -30,7 +30,7 @@ class BrandController extends Controller
                   ->orWhere(function ($q2) use ($user) {
                       $accessibleIds = $user->brands()->pluck('brands.id');
                       $q2->where('brand_type', Brand::TYPE_RESELLER_BRANCH)
-                         ->whereIn('id', $accessibleIds);
+                          ->whereIn('id', $accessibleIds);
                   });
             });
         } else {
@@ -52,8 +52,12 @@ class BrandController extends Controller
 
         $brands = $query->orderBy('nama_brand')->paginate(15)->withQueryString();
 
+        $parentBrands = Brand::where('brand_type', Brand::TYPE_REGULAR)->orderBy('nama_brand')->get(['id', 'nama_brand']);
+
         return Inertia::render('Brand/Index', [
             'brands' => $brands,
+            'reseller_hubs' => $parentBrands,
+            'parent_brands' => $parentBrands,
             'filters' => [
                 'q' => $request->string('q')->toString(),
                 'status' => $request->string('status')->toString(),
@@ -96,6 +100,8 @@ class BrandController extends Controller
             'timezone' => ['nullable', 'string', 'max:50'],
             'currency' => ['nullable', 'string', 'max:10'],
             'is_active' => ['boolean'],
+            'brand_type' => ['nullable', 'string', Rule::in([Brand::TYPE_REGULAR, Brand::TYPE_RESELLER_HUB, Brand::TYPE_RESELLER_BRANCH])],
+            'parent_brand_id' => ['nullable', 'string', 'exists:brands,id'],
         ]);
 
         if ($request->hasFile('logo')) {
@@ -106,13 +112,20 @@ class BrandController extends Controller
         $data['created_by'] = $user->id;
         $data['is_active'] = $data['is_active'] ?? true;
 
-        // admin_reseller: membuat reseller baru sebagai hub mandiri
-        // (bukan branch, melainkan entitas reseller independen yang mereka kelola)
         if ($user->hasRole('admin_reseller') && ! $user->isSuperadmin()) {
-            $data['brand_type'] = Brand::TYPE_RESELLER_HUB;
-            $data['parent_brand_id'] = null;
+            if (!in_array($data['brand_type'] ?? '', [Brand::TYPE_RESELLER_HUB, Brand::TYPE_RESELLER_BRANCH])) {
+                $data['brand_type'] = Brand::TYPE_RESELLER_HUB;
+            }
         } else {
             $data['brand_type'] = $data['brand_type'] ?? Brand::TYPE_REGULAR;
+        }
+
+        if ($data['brand_type'] === Brand::TYPE_RESELLER_BRANCH && empty($data['parent_brand_id'])) {
+            return back()->withErrors(['parent_brand_id' => 'Brand Utama wajib dipilih jika tipe brand adalah Reseller Branch.']);
+        }
+
+        if (!in_array($data['brand_type'], [Brand::TYPE_RESELLER_BRANCH, Brand::TYPE_RESELLER_HUB])) {
+            $data['parent_brand_id'] = null;
         }
 
         $brand = Brand::create($data);
@@ -145,10 +158,10 @@ class BrandController extends Controller
         $user = $request->user();
         if (! $user->isSuperadmin()) {
             if ($user->hasRole('admin_reseller')) {
-                // admin_reseller hanya bisa update branch di bawah hub-nya
-                $hubIds = $user->brands()->where('brand_type', Brand::TYPE_RESELLER_HUB)->pluck('brands.id');
+                // admin_reseller hanya bisa update branch di bawah hub/induk-nya
+                $parentIds = $user->brands()->whereIn('brand_type', [Brand::TYPE_RESELLER_HUB, Brand::TYPE_REGULAR])->pluck('brands.id');
                 abort_unless(
-                    $brand->brand_type === Brand::TYPE_RESELLER_BRANCH && $hubIds->contains($brand->parent_brand_id),
+                    $brand->brand_type === Brand::TYPE_RESELLER_BRANCH && $parentIds->contains($brand->parent_brand_id),
                     403
                 );
             } elseif (! $user->hasAccessToBrand($brand->id)) {
@@ -176,6 +189,8 @@ class BrandController extends Controller
             'timezone' => ['nullable', 'string', 'max:50'],
             'currency' => ['nullable', 'string', 'max:10'],
             'is_active' => ['boolean'],
+            'brand_type' => ['nullable', 'string', Rule::in([Brand::TYPE_REGULAR, Brand::TYPE_RESELLER_HUB, Brand::TYPE_RESELLER_BRANCH])],
+            'parent_brand_id' => ['nullable', 'string', 'exists:brands,id'],
         ]);
 
         if ($request->hasFile('logo')) {
@@ -186,6 +201,23 @@ class BrandController extends Controller
         }
 
         $data['kode'] = Str::upper($data['kode']);
+
+        if ($user->hasRole('admin_reseller') && ! $user->isSuperadmin()) {
+            if (!in_array($data['brand_type'] ?? '', [Brand::TYPE_RESELLER_HUB, Brand::TYPE_RESELLER_BRANCH])) {
+                $data['brand_type'] = Brand::TYPE_RESELLER_HUB;
+            }
+        } else {
+            $data['brand_type'] = $data['brand_type'] ?? Brand::TYPE_REGULAR;
+        }
+
+        if ($data['brand_type'] === Brand::TYPE_RESELLER_BRANCH && empty($data['parent_brand_id'])) {
+            return back()->withErrors(['parent_brand_id' => 'Brand Utama wajib dipilih jika tipe brand adalah Reseller Branch.']);
+        }
+
+        if (!in_array($data['brand_type'], [Brand::TYPE_RESELLER_BRANCH, Brand::TYPE_RESELLER_HUB])) {
+            $data['parent_brand_id'] = null;
+        }
+
         $brand->update($data);
 
         return redirect()->route('brands.index')->with('success', 'Brand berhasil diperbarui.');
@@ -197,9 +229,9 @@ class BrandController extends Controller
 
         $user = $request->user();
         if (! $user->isSuperadmin() && $user->hasRole('admin_reseller')) {
-            $hubIds = $user->brands()->where('brand_type', Brand::TYPE_RESELLER_HUB)->pluck('brands.id');
+            $parentIds = $user->brands()->whereIn('brand_type', [Brand::TYPE_RESELLER_HUB, Brand::TYPE_REGULAR])->pluck('brands.id');
             abort_unless(
-                $brand->brand_type === Brand::TYPE_RESELLER_BRANCH && $hubIds->contains($brand->parent_brand_id),
+                $brand->brand_type === Brand::TYPE_RESELLER_BRANCH && $parentIds->contains($brand->parent_brand_id),
                 403
             );
         }

@@ -21,7 +21,7 @@ class CustomerController extends Controller
     {
         $this->authorizeBrandMaster($request->user());
 
-        $brandId = BrandContext::current($request);
+        $brandId = BrandContext::masterDataId($request);
         $query = Customer::query()->with(['customerType:id,nama'])
             ->when($brandId, fn ($q) => $q->where(function ($w) use ($brandId) {
                 $w->where('brand_id', $brandId)->orWhereNull('brand_id');
@@ -69,7 +69,7 @@ class CustomerController extends Controller
             $data['kode'] = $this->generateKode($request);
         }
 
-        $brandId = BrandContext::current($request);
+        $brandId = BrandContext::masterDataId($request);
         $data['brand_id'] = $brandId;
 
         Customer::create($data);
@@ -111,7 +111,7 @@ class CustomerController extends Controller
 
     private function validatePayload(Request $request, ?string $ignoreId = null): array
     {
-        $brandId = BrandContext::current($request);
+        $brandId = BrandContext::masterDataId($request);
 
         $rules = [
             'nama' => ['required', 'string', 'max:255'],
@@ -375,7 +375,7 @@ class CustomerController extends Controller
     private function guardOwnership(Request $request, Customer $customer): void
     {
         if ($customer->brand_id === null) return;
-        $brandId = BrandContext::current($request);
+        $brandId = BrandContext::masterDataId($request);
         if ($customer->brand_id !== $brandId && ! $request->user()->isSuperadmin()) {
             abort(403);
         }
@@ -383,7 +383,7 @@ class CustomerController extends Controller
 
     private function generateKode(Request $request): string
     {
-        $brandId = BrandContext::current($request);
+        $brandId = BrandContext::masterDataId($request);
         $prefix = 'CUST';
         $next = Customer::where('brand_id', $brandId)->withTrashed()->count() + 1;
         return $prefix . '-' . Str::padLeft((string) $next, 5, '0');

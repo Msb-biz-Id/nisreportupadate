@@ -193,7 +193,6 @@ class MasterRegistry
                 'order_by' => 'urutan',
             ],
 
-            'kategori-order' => self::brandScopedSimple('kategori-order', 'Kategori Order', 'Tag', KategoriOrder::class),
             'sumber-order' => self::brandScopedSimple('sumber-order', 'Sumber Order', 'Compass', SumberOrder::class),
             'jenis-order' => self::brandScopedSimple('jenis-order', 'Jenis Order', 'LayoutList', JenisOrder::class),
 

@@ -74,7 +74,7 @@
                     MESIN PRINT: ....................
                 </td>
                 <td style="width: 50%; text-align: center; font-size: 11pt; font-weight: bold; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: underline; text-transform: uppercase;">
-                    FORMAT ORDER {{ strtoupper($order->brand->nama_brand ?? 'BRAND') }}
+                    FORMAT ORDER {{ strtoupper(($headerBrand ?? ($order->brand ? $order->brand->getHeaderBrand() : null))?->nama_brand ?? 'BRAND') }}
                 </td>
                 <td style="width: 25%; text-align: right; font-size: 7.5pt; font-weight: normal; color: #444; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: none; text-transform: uppercase;">
                     MESIN PRES: ....................
@@ -105,6 +105,24 @@
             $printingStr = $printingNames->isNotEmpty() ? $printingNames->implode(', ') : '.......';
         @endphp
 
+        <!-- Standardized KOP Header -->
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; border-bottom: 2px solid #000; padding-bottom: 8px;">
+            <tr>
+                <td style="width: 65%; padding: 0; vertical-align: top;">
+                    @include('pdf.components.kop', ['brand' => $headerBrand ?? ($order->brand ? $order->brand->getHeaderBrand() : null), 'logoData' => $logoData ?? null])
+                </td>
+                <td style="width: 35%; padding: 0; vertical-align: top; text-align: right;">
+                    <div style="font-size: 16pt; font-weight: 900; color: #000; letter-spacing: -0.5px;">FORMAT ORDER</div>
+                    <div style="font-family: monospace; font-size: 11pt; font-weight: bold; margin-top: 2px;">{{ $order->no_po }}</div>
+                    @if($order->paketOrder)
+                        <div style="font-size: 8.5pt; font-weight: bold; margin-top: 6px; color: #374151;">
+                            PAKET: <span style="font-size: 9.5pt; font-weight: 900; color: #000;">{{ strtoupper($order->paketOrder->nama) }}</span>
+                        </div>
+                    @endif
+                </td>
+            </tr>
+        </table>
+
         <table style="width: 100%; margin-bottom: 15px; border-collapse: collapse;">
             <tr>
                 <!-- Left Side: Order Info -->
@@ -125,33 +143,32 @@
                             <td style="font-weight: bold; padding: 3px 0;">:</td>
                             <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ strtoupper($order->nama_po) }}</td>
                         </tr>
+                        @if($order->brand && ($order->brand->isResellerHub() || $order->brand->isResellerBranch()))
+                        <tr>
+                            <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">RESELLER</td>
+                            <td style="font-weight: bold; padding: 3px 0;">:</td>
+                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ strtoupper($order->brand->nama_brand) }}</td>
+                        </tr>
+                        @endif
                         <tr>
                             <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">TOTAL ATASAN</td>
                             <td style="font-weight: bold; padding: 3px 0;">:</td>
                             <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ $order->items->sum('jml_atasan') ?: $grandTotal }} PCS</td>
-                        </tr>                        <tr>
+                        </tr>
+                        <tr>
                             <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">TOTAL BAWAHAN</td>
                             <td style="font-weight: bold; padding: 3px 0;">:</td>
                             <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ $order->items->sum('jml_bawahan') ?: '.......' }} PCS</td>
                         </tr>
                     </table>
                 </td>
-                <!-- Right Side: Brand & Paket Box -->
-                <td style="width: 40%; padding: 0 0 0 15px; vertical-align: top; text-align: center;">
-                    <div style="border: 2px solid #000; padding: 12px 10px; min-height: 110px; background: #fff; text-align: center;">
-                        <div style="font-size: 15pt; font-weight: 900; line-height: 1.2;">
-                            {{ strtoupper($order->brand->nama_brand ?? 'BRAND') }}
-                        </div>
-                        <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
+                <!-- Right Side: Printing Box -->
+                <td style="width: 40%; padding: 0 0 0 15px; vertical-align: top;">
+                    <div style="border: 2px solid #000; padding: 12px 10px; background: #fff; text-align: center; min-height: 75px;">
+                        <div style="font-size: 10pt; font-weight: bold; line-height: 1.2;">
                             JENIS PRINTING:<br>
                             <span style="font-size: 12pt; font-weight: 900; color: red;">{{ strtoupper($printingStr) }}</span>
                         </div>
-                        @if($order->paketOrder)
-                            <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
-                                PAKET ORDER:<br>
-                                <span style="font-size: 12.5pt; font-weight: 900;">{{ strtoupper($order->paketOrder->nama) }}</span>
-                            </div>
-                        @endif
                     </div>
                 </td>
             </tr>
@@ -594,7 +611,7 @@
                     <th style="border:1.5px solid #000; padding:6px 8px; text-align:left; width:180px;">PROSES</th>
                     @foreach($nonAddonItems as $pi => $item)
                     <th style="border:1.5px solid #000; padding:6px 8px; text-align:center; font-size:9pt;">
-                        NAME {{ $pi + 1 }}
+                        NAMA {{ $pi + 1 }}
                     </th>
                     @endforeach
                 </tr>

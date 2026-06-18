@@ -94,7 +94,7 @@ class POStatusManager
 
         $newStatus = $order->status_po;
 
-        if ($order->status_po === 'draft') {
+        if (in_array($order->status_po, ['draft', 'selesai'], true)) {
             return;
         }
 

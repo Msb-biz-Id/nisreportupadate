@@ -121,9 +121,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/{order}/timeline', [OrderController::class, 'updateTimeline'])->name('timeline.update');
         Route::post('/{order}/bypass-dp', [OrderController::class, 'bypassDp'])->name('bypass-dp');
         Route::post('/{order}/mark-lunas', [OrderController::class, 'markLunas'])->name('mark-lunas');
+        Route::post('/{order}/complete', [OrderController::class, 'complete'])->name('complete');
         Route::post('/pdf-draft', [OrderController::class, 'draftPdf'])->name('pdf-draft');
-        Route::get('/{order}/spk.pdf', [OrderController::class, 'spkPdf'])->name('spk.pdf');
-        Route::get('/{order}/spk/preview', [OrderController::class, 'spkPreview'])->name('spk.preview');
+        Route::get('/{order}/fo.pdf', [OrderController::class, 'foPdf'])->name('fo.pdf');
+        Route::get('/{order}/fo/preview', [OrderController::class, 'foPreview'])->name('fo.preview');
     });
 
     // Calendar
@@ -160,6 +161,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/payments/{payment}', [InvoiceController::class, 'destroyPayment'])->name('payments.destroy');
         Route::post('/from-order/{order}', [InvoiceController::class, 'createFromOrder'])->name('create-from-order');
         Route::post('/{invoice}/validate', [InvoiceController::class, 'validateInvoice'])->name('validate');
+        Route::post('/{invoice}/cancel-validation', [InvoiceController::class, 'cancelValidation'])->name('cancel-validation');
         Route::post('/{invoice}/publish', [InvoiceController::class, 'publish'])->name('publish');
         Route::get('/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('pdf');
         Route::post('/{invoice}/send-wa', [InvoiceController::class, 'sendWhatsapp'])->name('send-wa');
@@ -203,6 +205,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/integrasi/telegram', [SettingsController::class, 'updateTelegram'])->name('integrasi.telegram');
         Route::put('/integrasi/system', [SettingsController::class, 'updateSystem'])->name('integrasi.system');
         Route::put('/integrasi/seo', [SettingsController::class, 'updateSeo'])->name('integrasi.seo');
+        Route::put('/integrasi/reseller-branding', [SettingsController::class, 'updateResellerBranding'])->name('integrasi.reseller-branding');
         Route::put('/integrasi/mail', [SettingsController::class, 'updateMail'])->name('integrasi.mail');
         Route::put('/integrasi/matrix', [SettingsController::class, 'updateMatrix'])->name('integrasi.matrix');
         Route::post('/integrasi/test/ai', [SettingsController::class, 'testAi'])->name('integrasi.test.ai');

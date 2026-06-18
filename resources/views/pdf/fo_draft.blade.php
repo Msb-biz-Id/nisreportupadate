@@ -110,7 +110,7 @@
                     MESIN PRINT: ....................
                 </td>
                 <td style="width: 50%; text-align: center; font-size: 11pt; font-weight: bold; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: underline; text-transform: uppercase;">
-                    FORMAT ORDER {{ strtoupper($brand->nama_brand) }}
+                    FORMAT ORDER {{ strtoupper(($headerBrand ?? ($brand ? $brand->getHeaderBrand() : null))?->nama_brand ?? 'BRAND') }}
                 </td>
                 <td style="width: 25%; text-align: right; font-size: 7.5pt; font-weight: normal; color: #444; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: none; text-transform: uppercase;">
                     MESIN PRES: ....................
@@ -166,6 +166,13 @@
                             <td style="font-weight: bold; padding: 3px 0;">:</td>
                             <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ strtoupper($raw['nama_po'] ?? '') ?: '.......' }}</td>
                         </tr>
+                        @if($brand && ($brand->isResellerHub() || $brand->isResellerBranch()))
+                        <tr>
+                            <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">RESELLER</td>
+                            <td style="font-weight: bold; padding: 3px 0;">:</td>
+                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ strtoupper($brand->nama_brand) }}</td>
+                        </tr>
+                        @endif
                         <tr>
                             <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">TOTAL ATASAN</td>
                             <td style="font-weight: bold; padding: 3px 0;">:</td>

@@ -137,7 +137,7 @@ class OrderPaymentObserver
 
         if (! $payment->is_debit) {
             // Record as Pengeluaran
-            if (Pengeluaran::where('brand_id', $order->brand_id)->where('nominal', $payment->amount)->where('tanggal', $payment->payment_date)->where('keterangan', 'like', "%{$order->no_po}%")->exists()) {
+            if (Pengeluaran::where('source_payment_id', $payment->id)->exists()) {
                 return;
             }
 
@@ -167,10 +167,11 @@ class OrderPaymentObserver
                 'keterangan'             => "{$label} PO {$order->no_po} — {$order->nama_po}",
                 'is_auto'                => true,
                 'created_by'             => $payment->recorded_by,
+                'source_payment_id'      => $payment->id,
             ]);
         } else {
             // Record as Pemasukan
-            if (Pemasukan::where('order_id', $order->id)->where('nominal', $payment->amount)->where('tanggal', $payment->payment_date)->where('keterangan', 'like', "%PO {$order->no_po}%")->exists()) {
+            if (Pemasukan::where('source_payment_id', $payment->id)->exists()) {
                 return;
             }
 
@@ -200,6 +201,7 @@ class OrderPaymentObserver
                 'keterangan'           => "{$label} PO {$order->no_po} — {$order->nama_po}",
                 'is_auto'              => true,
                 'created_by'           => $payment->recorded_by,
+                'source_payment_id'    => $payment->id,
             ]);
         }
     }

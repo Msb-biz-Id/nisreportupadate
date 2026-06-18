@@ -614,7 +614,7 @@ export default function FoPreview({ order, printings, progresses }) {
                                         <th className="border border-black p-1.5 w-60">PROSES</th>
                                         {nonAddonItems.map((item, idx) => (
                                             <th key={item.id} className="border border-black p-1.5 text-center text-[10.5px]">
-                                                NAME {idx + 1}
+                                                NAMA {idx + 1}
                                             </th>
                                         ))}
                                     </tr>

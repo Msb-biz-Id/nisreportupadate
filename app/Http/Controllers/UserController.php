@@ -26,6 +26,10 @@ class UserController extends Controller
             $query->whereHas('brands', fn ($q) => $q->whereIn('brands.id', $brandIds));
         }
 
+        if (! $authUser->isSuperadmin() && ! $authUser->hasRole('owner')) {
+            $query->whereDoesntHave('roles', fn ($q) => $q->whereIn('name', ['superadmin', 'owner']));
+        }
+
         if ($search = $request->string('q')->toString()) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
@@ -120,6 +124,13 @@ class UserController extends Controller
         Gate::authorize('user.update');
 
         $authUser = $request->user();
+        if ($user->hasRole('superadmin') && ! $authUser->isSuperadmin()) {
+            abort(403, 'Hanya superadmin yang dapat mengubah data superadmin.');
+        }
+        if ($user->hasRole('owner') && ! $authUser->isSuperadmin() && ! $authUser->hasRole('owner')) {
+            abort(403, 'Hanya superadmin atau owner yang dapat mengubah data owner.');
+        }
+
         if (! $authUser->isSuperadmin()) {
             $authBrandIds = $authUser->brands()->pluck('brands.id')->all();
             $shareBrand = $user->brands()->whereIn('brands.id', $authBrandIds)->exists();
@@ -185,7 +196,11 @@ class UserController extends Controller
         }
 
         if ($user->hasRole('superadmin') && ! $request->user()->isSuperadmin()) {
-            abort(403);
+            abort(403, 'Hanya superadmin yang dapat menghapus data superadmin.');
+        }
+
+        if ($user->hasRole('owner') && ! $request->user()->isSuperadmin() && ! $request->user()->hasRole('owner')) {
+            abort(403, 'Hanya superadmin atau owner yang dapat menghapus data owner.');
         }
 
         $user->delete();
@@ -199,10 +214,17 @@ class UserController extends Controller
         if ($user->isSuperadmin()) {
             return $roles;
         }
-        // Non-superadmin tidak bisa membuat user dengan role superadmin
+        if ($user->hasRole('owner')) {
+            // Owner can assign any role except superadmin
+            return array_values(array_filter(
+                $roles,
+                fn ($r) => $r !== 'superadmin'
+            ));
+        }
+        // Lower roles (like admin_reseller) cannot assign superadmin or owner
         return array_values(array_filter(
             $roles,
-            fn ($r) => $r !== 'superadmin'
+            fn ($r) => ! in_array($r, ['superadmin', 'owner'], true)
         ));
     }
 }

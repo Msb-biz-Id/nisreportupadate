@@ -117,4 +117,51 @@ class Brand extends Model
     {
         return $this->brand_type === self::TYPE_REGULAR;
     }
+
+    public function getHeaderBrand(): Brand
+    {
+        if ($this->isResellerHub() || $this->isResellerBranch()) {
+            $globalBrand = new self();
+            $globalBrand->id = $this->id;
+            
+            $globalBrand->nama_brand = \App\Models\Settings\SystemSetting::get('reseller_branding', 'nama_brand') 
+                ?: (\App\Models\Settings\SystemSetting::get('seo', 'site_name') ?: 'Circle Sportwear');
+            
+            $globalBrand->logo = \App\Models\Settings\SystemSetting::get('reseller_branding', 'logo') 
+                ?: \App\Models\Settings\SystemSetting::get('seo', 'logo');
+            
+            $globalBrand->tagline = \App\Models\Settings\SystemSetting::get('reseller_branding', 'tagline') 
+                ?: (\App\Models\Settings\SystemSetting::get('seo', 'site_description') ?: 'Premium Activewear & Apparel');
+            
+            $globalBrand->email = \App\Models\Settings\SystemSetting::get('reseller_branding', 'email') 
+                ?: (\App\Models\Settings\SystemSetting::get('mail', 'mail_from_address') ?: 'cs@circlesportwear.id');
+            
+            $globalBrand->no_hp = \App\Models\Settings\SystemSetting::get('reseller_branding', 'no_hp') 
+                ?: (\App\Models\Settings\SystemSetting::get('whatsapp', 'sender_phone') ?: '08123456789');
+
+            $globalBrand->alamat = \App\Models\Settings\SystemSetting::get('reseller_branding', 'alamat');
+            $globalBrand->instagram = \App\Models\Settings\SystemSetting::get('reseller_branding', 'instagram');
+            $globalBrand->tiktok = \App\Models\Settings\SystemSetting::get('reseller_branding', 'tiktok');
+            $globalBrand->facebook = \App\Models\Settings\SystemSetting::get('reseller_branding', 'facebook');
+            
+            $regular = self::where('brand_type', self::TYPE_REGULAR)->first();
+            if ($regular) {
+                $globalBrand->alamat = $globalBrand->alamat ?: $regular->alamat;
+                $globalBrand->no_hp = $globalBrand->no_hp ?: $regular->no_hp;
+                $globalBrand->email = $globalBrand->email ?: $regular->email;
+                $globalBrand->tagline = $globalBrand->tagline ?: $regular->tagline;
+                $globalBrand->instagram = $globalBrand->instagram ?: $regular->instagram;
+                $globalBrand->facebook = $globalBrand->facebook ?: $regular->facebook;
+                $globalBrand->tiktok = $globalBrand->tiktok ?: $regular->tiktok;
+                $globalBrand->website = $regular->website;
+            } else {
+                $globalBrand->alamat = $globalBrand->alamat ?: 'Bandung, Indonesia';
+            }
+            
+            return $globalBrand;
+        }
+
+        return $this;
+    }
 }
+

@@ -82,7 +82,6 @@ const MASTER_ITEMS = [
     { slug: 'pola-produksi',  name: 'Pola Produksi',  icon: Scissors,  group: 'production' },
     { slug: 'jenis-produk',   name: 'Jenis Produk',   icon: Layers,    group: 'production' },
     { slug: 'progress',       name: 'Tahapan Progress', icon: ListChecks, group: 'production' },
-    { slug: 'kategori-order', name: 'Kategori Order', icon: Tag, group: 'brand' },
     { slug: 'sumber-order', name: 'Sumber Order', icon: Compass, group: 'brand' },
     { slug: 'jenis-order', name: 'Jenis Order', icon: LayoutList, group: 'brand' },
     { slug: 'iklan', name: 'Promo', icon: Megaphone, group: 'brand' },
@@ -1003,7 +1002,7 @@ export default function AppLayout({ title, header, children }) {
                     }
                 })
                 .catch((err) => console.debug('Polling notifications skipped or offline:', err));
-        }, 30000);
+        }, 3000);
 
         return () => {
             if (channel && window.Echo) {

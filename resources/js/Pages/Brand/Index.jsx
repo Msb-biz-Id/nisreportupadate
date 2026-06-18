@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { formatDate } from '@/lib/utils';
 
-function BrandForm({ open, onOpenChange, brand, onSuccess, isAdminReseller = false }) {
+function BrandForm({ open, onOpenChange, brand, onSuccess, isAdminReseller = false, resellerHubs = [] }) {
     const isEdit = !!brand;
     const { data, setData, post, put, processing, errors, reset } = useForm({
         nama_brand: brand?.nama_brand ?? '',
@@ -34,6 +34,8 @@ function BrandForm({ open, onOpenChange, brand, onSuccess, isAdminReseller = fal
         timezone: brand?.timezone ?? 'Asia/Jakarta',
         currency: brand?.currency ?? 'IDR',
         is_active: brand?.is_active ?? true,
+        brand_type: brand?.brand_type ?? (isAdminReseller ? 'reseller_hub' : 'regular'),
+        parent_brand_id: brand?.parent_brand_id ?? '',
     });
 
     function submit(e) {
@@ -75,6 +77,54 @@ function BrandForm({ open, onOpenChange, brand, onSuccess, isAdminReseller = fal
                     </DialogHeader>
 
                     <div className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2">
+                        <div className={data.brand_type === 'reseller_branch' ? '' : 'sm:col-span-2'}>
+                            <Label htmlFor="brand_type">Tipe Brand <span className="text-destructive">*</span></Label>
+                            <Select 
+                                value={data.brand_type} 
+                                onValueChange={(v) => {
+                                    setData((prev) => ({
+                                        ...prev,
+                                        brand_type: v,
+                                        parent_brand_id: v === 'reseller_branch' ? prev.parent_brand_id : ''
+                                    }));
+                                }}
+                            >
+                                <SelectTrigger className="mt-1.5 w-full">
+                                    <SelectValue placeholder="Pilih Tipe" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {!isAdminReseller && <SelectItem value="regular">Regular Brand</SelectItem>}
+                                    <SelectItem value="reseller_hub">Reseller Hub</SelectItem>
+                                    <SelectItem value="reseller_branch">Reseller Branch</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {errors.brand_type && <p className="mt-1 text-xs text-destructive">{errors.brand_type}</p>}
+                        </div>
+
+                        {(data.brand_type === 'reseller_branch' || data.brand_type === 'reseller_hub') && (
+                            <div>
+                                <Label htmlFor="parent_brand_id">
+                                    Brand Utama Induk {data.brand_type === 'reseller_branch' && <span className="text-destructive">*</span>}
+                                </Label>
+                                <Select 
+                                    value={data.parent_brand_id} 
+                                    onValueChange={(v) => setData('parent_brand_id', v)}
+                                >
+                                    <SelectTrigger className="mt-1.5 w-full">
+                                        <SelectValue placeholder="Pilih Brand Utama / Umum" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {resellerHubs.map((hub) => (
+                                            <SelectItem key={hub.id} value={hub.id}>
+                                                {hub.nama_brand}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {errors.parent_brand_id && <p className="mt-1 text-xs text-destructive">{errors.parent_brand_id}</p>}
+                            </div>
+                        )}
+
                         <div className="sm:col-span-2">
                             <Label htmlFor="nama_brand">Nama Brand <span className="text-destructive">*</span></Label>
                             <Input
@@ -354,7 +404,7 @@ function BrandImportDialog({ open, onOpenChange }) {
     );
 }
 
-export default function BrandIndex({ brands, filters, can, is_admin_reseller = false, accessible_brand_ids = [] }) {
+export default function BrandIndex({ brands, filters, can, is_admin_reseller = false, accessible_brand_ids = [], reseller_hubs = [] }) {
     const [openForm, setOpenForm] = useState(false);
     const [editing, setEditing] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
@@ -454,6 +504,7 @@ export default function BrandIndex({ brands, filters, can, is_admin_reseller = f
                                     <TableRow>
                                         <TableHead className="w-12">Brand</TableHead>
                                         <TableHead>Nama</TableHead>
+                                        <TableHead>Tipe</TableHead>
                                         <TableHead>Tagline</TableHead>
                                         <TableHead className="text-center">User</TableHead>
                                         <TableHead>Dibuat</TableHead>
@@ -464,7 +515,7 @@ export default function BrandIndex({ brands, filters, can, is_admin_reseller = f
                                 <TableBody>
                                     {brands.data.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="py-10 text-center">
+                                            <TableCell colSpan={8} className="py-10 text-center">
                                                 {is_admin_reseller ? (
                                                     <div className="space-y-2">
                                                         <p className="text-sm font-semibold text-slate-600">Belum ada Branch Reseller</p>
@@ -515,6 +566,37 @@ export default function BrandIndex({ brands, filters, can, is_admin_reseller = f
                                                     >
                                                         ⚡ Belum dikelola — Klik untuk kelola
                                                     </button>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {brand.brand_type === 'reseller_hub' && (
+                                                    <div className="space-y-1">
+                                                        <Badge variant="default" className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-[10px]">
+                                                            Reseller Hub
+                                                        </Badge>
+                                                        {brand.parent_brand && (
+                                                            <div className="text-[10px] text-muted-foreground">
+                                                                Induk: <span className="font-semibold">{brand.parent_brand.nama_brand}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {brand.brand_type === 'reseller_branch' && (
+                                                    <div className="space-y-1">
+                                                        <Badge variant="outline" className="text-teal-600 border-teal-200 bg-teal-50 font-medium text-[10px]">
+                                                            Reseller Branch
+                                                        </Badge>
+                                                        {brand.parent_brand && (
+                                                            <div className="text-[10px] text-muted-foreground">
+                                                                Induk: <span className="font-semibold">{brand.parent_brand.nama_brand}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {brand.brand_type === 'regular' && (
+                                                    <Badge variant="outline" className="text-slate-600 border-slate-200 bg-slate-50 font-medium text-[10px]">
+                                                        Regular
+                                                    </Badge>
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-sm text-muted-foreground">{brand.tagline ?? '-'}</TableCell>
@@ -582,6 +664,7 @@ export default function BrandIndex({ brands, filters, can, is_admin_reseller = f
                                 brand={editing}
                                 onSuccess={() => setOpenForm(false)}
                                 isAdminReseller={is_admin_reseller}
+                                resellerHubs={reseller_hubs}
                             />
 
             {can?.import && (

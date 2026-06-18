@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/Components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Switch } from '@/Components/ui/switch';
+import { Textarea } from '@/Components/ui/textarea';
 import { Search, Plus, Edit, Trash2 } from 'lucide-react';
 import { Badge } from '@/Components/ui/badge';
 
@@ -21,6 +22,7 @@ export default function MasterJenisPembayaran({ items, filters }) {
         nama: '',
         tipe_keuangan: 'pemasukan',
         efek_tagihan: 'netral',
+        deskripsi: '',
         is_active: true,
     });
 
@@ -43,6 +45,7 @@ export default function MasterJenisPembayaran({ items, filters }) {
             nama: item.nama,
             tipe_keuangan: item.tipe_keuangan,
             efek_tagihan: item.efek_tagihan,
+            deskripsi: item.deskripsi || '',
             is_active: item.is_active,
         });
         setDialogOpen(true);
@@ -98,7 +101,8 @@ export default function MasterJenisPembayaran({ items, filters }) {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="pl-6 w-[300px]">Nama Pembayaran</TableHead>
+                                <TableHead className="pl-6 w-[200px]">Nama Pembayaran</TableHead>
+                                <TableHead className="min-w-[250px]">Deskripsi / Penjelasan</TableHead>
                                 <TableHead>Tipe Keuangan</TableHead>
                                 <TableHead>Efek Tagihan PO</TableHead>
                                 <TableHead>Status</TableHead>
@@ -113,6 +117,7 @@ export default function MasterJenisPembayaran({ items, filters }) {
                             ) : items.data.map(item => (
                                 <TableRow key={item.id}>
                                     <TableCell className="pl-6 font-medium">{item.nama}</TableCell>
+                                    <TableCell className="text-xs text-slate-500 max-w-xs truncate" title={item.deskripsi}>{item.deskripsi || '—'}</TableCell>
                                     <TableCell>
                                         <Badge variant={item.tipe_keuangan === 'pemasukan' ? 'success' : 'destructive'}>
                                             {item.tipe_keuangan.toUpperCase()}
@@ -180,7 +185,12 @@ export default function MasterJenisPembayaran({ items, filters }) {
                                 </Select>
                                 {errors.efek_tagihan && <p className="text-xs text-destructive mt-1">{errors.efek_tagihan}</p>}
                             </div>
-                            <div className="flex items-center space-x-2 pt-2">
+                            <div>
+                                                                <Label>Deskripsi / Penjelasan</Label>
+                                                                <Textarea value={data.deskripsi} onChange={e => setData('deskripsi', e.target.value)} placeholder="Contoh: Pembayaran uang muka untuk memulai proses pengerjaan order." className="mt-1 text-xs" rows={2} />
+                                                                {errors.deskripsi && <p className="text-xs text-destructive mt-1">{errors.deskripsi}</p>}
+                                                            </div>
+                                                            <div className="flex items-center space-x-2 pt-2">
                                 <Switch checked={data.is_active} onCheckedChange={c => setData('is_active', c)} />
                                 <Label className="font-normal cursor-pointer text-sm">Aktif digunakan</Label>
                             </div>

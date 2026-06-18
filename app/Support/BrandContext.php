@@ -127,8 +127,9 @@ class BrandContext
 
     /**
      * Resolve brand_id untuk query master data.
-     * Untuk reseller_branch → pakai parent hub brand_id agar master data di-share.
-     * Untuk brand regular/hub → pakai brand_id itu sendiri.
+     * Untuk reseller (hub/branch) → pakai parent brand_id agar master data di-share.
+     * Jika tidak ada parent brand, fall back ke brand utama pertama di sistem.
+     * Untuk brand regular → pakai brand_id itu sendiri.
      */
     public static function masterDataId(Request $request, ?string $brandId = null): ?string
     {
@@ -137,9 +138,37 @@ class BrandContext
             return null;
         }
 
+        if ($id === 'all') {
+            $user = $request->user();
+            if ($user) {
+                $firstBrandId = $user->brands()->first()?->id;
+                if ($firstBrandId) {
+                    return self::masterDataId($request, $firstBrandId);
+                }
+            }
+            $firstRegular = Brand::where('brand_type', Brand::TYPE_REGULAR)->first();
+            return $firstRegular ? $firstRegular->id : null;
+        }
+
         $brand = Brand::select('id', 'brand_type', 'parent_brand_id')->find($id);
-        if ($brand && $brand->brand_type === Brand::TYPE_RESELLER_BRANCH && $brand->parent_brand_id) {
-            return $brand->parent_brand_id;
+        if ($brand && in_array($brand->brand_type, [Brand::TYPE_RESELLER_BRANCH, Brand::TYPE_RESELLER_HUB])) {
+            $root = $brand;
+            while ($root->parent_brand_id) {
+                $parent = Brand::select('id', 'brand_type', 'parent_brand_id')->find($root->parent_brand_id);
+                if (! $parent) {
+                    break;
+                }
+                $root = $parent;
+            }
+
+            // If the root brand in the chain is a reseller hub/branch (no regular parent brand exists),
+            // we fall back to the first reseller hub (e.g. Telulas) so that all reseller hubs share the same master data.
+            if (in_array($root->brand_type, [Brand::TYPE_RESELLER_BRANCH, Brand::TYPE_RESELLER_HUB])) {
+                $firstHub = Brand::where('brand_type', Brand::TYPE_RESELLER_HUB)->first();
+                return $firstHub ? $firstHub->id : $root->id;
+            }
+
+            return $root->id;
         }
 
         return $id;

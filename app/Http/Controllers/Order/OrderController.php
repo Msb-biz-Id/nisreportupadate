@@ -92,17 +92,17 @@ class OrderController extends Controller
 
         // Filter berdasarkan tab terlebih dahulu
         if ($tab === 'archive') {
-            $query->where('orders.status_po', 'sudah_dikirim');
+            $query->whereIn('orders.status_po', ['sudah_dikirim', 'selesai']);
         } else {
-            $query->where('orders.status_po', '!=', 'sudah_dikirim');
+            $query->whereNotIn('orders.status_po', ['sudah_dikirim', 'selesai']);
         }
 
         // Kemudian filter status jika dispesifikasikan (dan valid untuk tab tersebut)
         $status = $request->string('status')->toString();
         if ($status && $status !== 'all') {
-            if ($tab === 'active' && $status === 'sudah_dikirim') {
+            if ($tab === 'active' && in_array($status, ['sudah_dikirim', 'selesai'], true)) {
                 $query->whereRaw('1 = 0');
-            } elseif ($tab === 'archive' && $status !== 'sudah_dikirim') {
+            } elseif ($tab === 'archive' && ! in_array($status, ['sudah_dikirim', 'selesai'], true)) {
                 $query->whereRaw('1 = 0');
             } else {
                 $query->where('orders.status_po', $status);
@@ -131,8 +131,8 @@ class OrderController extends Controller
             }))
             ->when($request->string('date_from')->toString(), fn ($q, $v) => $q->whereDate('tanggal_masuk', '>=', $v))
             ->when($request->string('date_to')->toString(), fn ($q, $v) => $q->whereDate('tanggal_masuk', '<=', $v))
-            ->when($tab === 'archive', fn ($q) => $q->where('status_po', 'sudah_dikirim'))
-            ->when($tab === 'active', fn ($q) => $q->where('status_po', '!=', 'sudah_dikirim'))
+            ->when($tab === 'archive', fn ($q) => $q->whereIn('status_po', ['sudah_dikirim', 'selesai']))
+            ->when($tab === 'active', fn ($q) => $q->whereNotIn('status_po', ['sudah_dikirim', 'selesai']))
             ->selectRaw('status_po, count(*) as total')
             ->groupBy('status_po')
             ->pluck('total', 'status_po')
@@ -153,9 +153,9 @@ class OrderController extends Controller
             : Order::STATUSES;
 
         if ($tab === 'active') {
-            $visibleStatuses = array_values(array_filter($visibleStatuses, fn ($s) => $s !== 'sudah_dikirim'));
+            $visibleStatuses = array_values(array_filter($visibleStatuses, fn ($s) => ! in_array($s, ['sudah_dikirim', 'selesai'], true)));
         } else {
-            $visibleStatuses = ['sudah_dikirim'];
+            $visibleStatuses = ['sudah_dikirim', 'selesai'];
         }
 
         return Inertia::render('Order/Index', [
@@ -294,10 +294,7 @@ class OrderController extends Controller
         $order->load(['items.namesets', 'items.polaJahitan', 'items.polaJahitanLengan', 'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'payments.bank']);
         $order->bank_id = $order->invoices()->first()?->bank_id;
 
-        $orderBrand = Brand::find($order->brand_id);
-        $masterBrandId = $orderBrand?->isResellerBranch() && $orderBrand->parent_brand_id
-            ? $orderBrand->parent_brand_id
-            : $order->brand_id;
+        $masterBrandId = BrandContext::masterDataId($request, $order->brand_id);
 
         return Inertia::render('Order/Form', [
             'mode' => 'edit',
@@ -514,7 +511,7 @@ class OrderController extends Controller
 
         $brandId = $order->brand_id;
         $banks = BankAccount::active()->where('brand_id', $brandId)->orderBy('bank')->get(['id', 'bank', 'atas_nama', 'nomor_rekening']);
-        $jenis_pembayarans = \App\Models\Finance\MasterJenisPembayaran::active()->orderBy('nama')->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan']);
+        $jenis_pembayarans = \App\Models\Finance\MasterJenisPembayaran::active()->orderBy('nama')->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan', 'deskripsi']);
 
         // Computed DP info — frontend uses these exact values to stay in sync with backend
         $minDpPct      = $order->brand ? (float) ($order->brand->min_dp_percentage ?? 0.50) : 0.50;
@@ -595,6 +592,47 @@ class OrderController extends Controller
         ]);
 
         return back()->with('success', 'PO berhasil diterbitkan dan masuk ke dashboard produksi.');
+    }
+
+    public function complete(Request $request, Order $order)
+    {
+        Gate::authorize('order.update');
+        $this->guardBrandOwnership($request, $order);
+
+        $user = $request->user();
+        if (!$user->hasRole(['admin_brand', 'owner', 'superadmin'])) {
+            return back()->with('error', 'Hanya Admin Brand yang dapat menyelesaikan pesanan.');
+        }
+
+        if ($order->status_po !== 'sudah_dikirim') {
+            return back()->with('error', 'Pesanan hanya dapat diselesaikan jika statusnya Sudah Dikirim.');
+        }
+
+        if (!$order->is_lunas && !$order->is_special_order) {
+            return back()->with('error', 'Pesanan hanya dapat diselesaikan jika sudah Lunas.');
+        }
+
+        $hasActiveRefunds = $order->refunds()->whereIn('status', ['draft', 'pending_review', 'approved'])->exists();
+        if ($hasActiveRefunds) {
+            return back()->with('error', 'Pesanan tidak dapat diselesaikan karena masih terdapat klaim refund/return aktif.');
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($order, $user) {
+            $order->update([
+                'status_po' => 'selesai',
+            ]);
+
+            \App\Services\ActivityLogger::log('complete', 'order', $order, "Selesaikan PO {$order->no_po}");
+        });
+
+        DynamicNotificationService::dispatch('order_completed', [
+            'no_po' => $order->no_po,
+            'brand_id' => $order->brand_id,
+            'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
+            'action_url' => "/orders/{$order->id}"
+        ]);
+
+        return back()->with('success', 'PO berhasil diselesaikan.');
     }
 
     public function repeat(Request $request, Order $order)
@@ -960,7 +998,7 @@ class OrderController extends Controller
         abort_unless(auth()->check(), 401);
 
         $brandId = BrandContext::current($request);
-        $brand   = Brand::findOrFail($brandId);
+        $brand   = Brand::with('parentBrand')->findOrFail($brandId);
         $raw     = $request->all();
 
         $pelanggan  = !empty($raw['pelanggan_id'])      ? Customer::find($raw['pelanggan_id'])           : null;
@@ -1018,32 +1056,42 @@ class OrderController extends Controller
             return $item;
         });
 
-        $pdf = Pdf::loadView('pdf.spk_draft', compact('brand', 'raw', 'pelanggan', 'kategori', 'jenisOrder', 'sumber', 'paketOrder', 'items'))
+        $headerBrand = $brand->getHeaderBrand();
+        $logoData = $headerBrand ? $this->logoDataUri($headerBrand->logo) : '';
+
+        $pdf = Pdf::loadView('pdf.fo_draft', compact('brand', 'headerBrand', 'logoData', 'raw', 'pelanggan', 'kategori', 'jenisOrder', 'sumber', 'paketOrder', 'items'))
             ->setPaper('a4', 'portrait');
 
-        $filename = 'SPK-DRAFT-' . $brand->kode . '-' . now()->format('YmdHis') . '.pdf';
+        $filename = 'FO-DRAFT-' . $brand->kode . '-' . now()->format('YmdHis') . '.pdf';
         return $pdf->download($filename);
     }
 
-    public function spkPdf(Request $request, Order $order)
+    public function foPdf(Request $request, Order $order)
     {
         Gate::authorize('order.view');
         $this->guardBrandOwnership($request, $order);
 
         $order->load([
-            'brand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
+            'brand.parentBrand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
             'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'items.resleting', 'items.printing',
             'items.polaJahitan', 'items.polaJahitanLengan',
             'items.jenisSetelan', 'items.polaProduksi',
             'items.namesets.size', 'items.namesets.sizeCelana',
         ]);
 
-        $pdf = Pdf::loadView('pdf.spk', ['order' => $order])->setPaper('a4', 'portrait');
+        $headerBrand = $order->brand ? $order->brand->getHeaderBrand() : null;
+        $logoData = $headerBrand ? $this->logoDataUri($headerBrand->logo) : '';
 
-        return $pdf->download("SPK-{$order->no_po}.pdf");
+        $pdf = Pdf::loadView('pdf.fo', [
+            'order' => $order,
+            'headerBrand' => $headerBrand,
+            'logoData' => $logoData
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download("FO-{$order->no_po}.pdf");
     }
 
-    public function spkPreview(Request $request, Order $order)
+    public function foPreview(Request $request, Order $order)
     {
         Gate::authorize('order.view');
         $this->guardBrandOwnership($request, $order);
@@ -1075,7 +1123,7 @@ class OrderController extends Controller
 
         $progresses = \App\Models\Master\Progress::active()->ordered()->get();
 
-        return Inertia::render('Order/SpkPreview', [
+        return Inertia::render('Order/FoPreview', [
             'order' => $order,
             'printings' => $printings,
             'progresses' => $progresses,
@@ -1217,7 +1265,7 @@ class OrderController extends Controller
                 ->orderBy('nama')->get(['id', 'jenis_pola', 'nama']),
             'sizes' => Size::active()->orderBy('kategori_size')->orderBy('urutan')->get(['id', 'kategori_size', 'ukuran']),
             'banks' => $banks,
-            'jenis_pembayarans' => \App\Models\Finance\MasterJenisPembayaran::active()->orderBy('nama')->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan']),
+            'jenis_pembayarans' => \App\Models\Finance\MasterJenisPembayaran::active()->orderBy('nama')->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan', 'deskripsi']),
         ];
     }
 
@@ -1444,5 +1492,21 @@ class OrderController extends Controller
         // admin_reseller can access orders on any brand they have access to
         // (hub context + all its branches, or a specific branch context)
         abort_unless($user->hasAccessToBrand($order->brand_id), 403);
+    }
+
+    private function logoDataUri(?string $logoPath): string
+    {
+        if (!$logoPath) return '';
+        try {
+            $fullPath = public_path('storage/' . $logoPath);
+            if (file_exists($fullPath)) {
+                $type = pathinfo($fullPath, PATHINFO_EXTENSION);
+                $data = file_get_contents($fullPath);
+                return 'data:image/' . $type . ';base64,' . base64_encode($data);
+            }
+        } catch (\Throwable $e) {
+            // fallback
+        }
+        return '';
     }
 }

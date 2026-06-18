@@ -76,6 +76,16 @@ class DashboardService
             ->when($brandId, $this->bf($brandId))
             ->whereNotNull('kabupaten_code')->distinct('kabupaten_code')->count('kabupaten_code');
 
+        $dpPendingCount = \App\Models\Order\DesignDeposit::query()
+            ->when($brandId, $this->bf($brandId))
+            ->where('status', 'pending')
+            ->count();
+
+        $refundPendingCount = \App\Models\Order\Refund::query()
+            ->when($brandId, $this->bf($brandId))
+            ->where('status', 'pending_review')
+            ->count();
+
         return [
             'cards' => [
                 ['label' => 'Order Hari Ini', 'value' => $today, 'icon' => 'Calendar', 'accent' => 'blue'],
@@ -84,6 +94,8 @@ class DashboardService
                 ['label' => 'Produk Di-order', 'value' => $totalProdukDiOrder, 'icon' => 'Package', 'accent' => 'amber'],
                 ['label' => 'Total Pelanggan', 'value' => $totalPelanggan, 'icon' => 'Users', 'accent' => 'pink'],
                 ['label' => 'Wilayah Tercakup', 'value' => $totalWilayah, 'icon' => 'MapPin', 'accent' => 'cyan'],
+                ['label' => 'Tanda Jadi Pending', 'value' => $dpPendingCount, 'icon' => 'Sparkles', 'accent' => 'amber'],
+                ['label' => 'Refund Pending', 'value' => $refundPendingCount, 'icon' => 'RotateCcw', 'accent' => 'red'],
             ],
             'status_breakdown'              => $this->statusBreakdown($brandId),
             'trend_harian'                  => $this->trendHarian($brandId, 14),
@@ -98,6 +110,20 @@ class DashboardService
             'po_terlambat'                  => $this->poTerlambat($brandId, 5),
             'trend_bulanan'                 => $this->trendBulanan($brandId),
             'target_progress'               => $this->getTargetProgress($brandId),
+            'dp_pending_list' => \App\Models\Order\DesignDeposit::query()
+                ->when($brandId, $this->bf($brandId))
+                ->where('status', 'pending')
+                ->with(['customer:id,nama', 'brand:id,nama_brand,kode'])
+                ->orderByDesc('created_at')
+                ->limit(10)
+                ->get(),
+            'refund_pending_list' => \App\Models\Order\Refund::query()
+                ->when($brandId, $this->bf($brandId))
+                ->where('status', 'pending_review')
+                ->with(['order:id,no_po', 'creator:id,name'])
+                ->orderByDesc('created_at')
+                ->limit(10)
+                ->get(),
         ];
     }
 
@@ -265,13 +291,33 @@ class DashboardService
         $refundPublishedCount  = (clone $refundPublished)->count();
         $refundPublishedAmount = (clone $refundPublished)->sum('nominal_refund');
 
+        // Total payments verified
+        $totalPayments = OrderPayment::query()
+            ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
+            ->whereNotNull('verified_at')
+            ->sum('amount');
+
+        // Total refunds published
+        $totalRefunds = Refund::query()
+            ->when($brandId && $brandId !== 'all', $this->bf($brandId))
+            ->where('status', 'published')
+            ->sum('nominal_refund');
+
         $outstandingTotal = Order::query()
             ->when($brandId && $brandId !== 'all', $this->bf($brandId))
             ->where('status_po', '!=', 'draft')
             ->sum('total_tagihan')
-            - OrderPayment::query()
-                ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
-                ->sum('amount');
+            - ($totalPayments - $totalRefunds);
+
+        $dpPendingCount = \App\Models\Order\DesignDeposit::query()
+            ->when($brandId && $brandId !== 'all', $this->bf($brandId))
+            ->where('status', 'pending')
+            ->count();
+
+        $dpVerifiedAmount = \App\Models\Order\DesignDeposit::query()
+            ->when($brandId && $brandId !== 'all', $this->bf($brandId))
+            ->where('status', 'verified')
+            ->sum('amount');
 
         $bankAccountsSummary = \App\Models\Master\BankAccount::query()
             ->when($brandId && $brandId !== 'all', $this->bf($brandId))
@@ -280,6 +326,7 @@ class DashboardService
             ->map(function ($bank) use ($brandId) {
                 // Sum verified payments
                 $totalReceived = OrderPayment::where('bank_id', $bank->id)
+                    ->whereNotNull('verified_at')
                     ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
                     ->sum('amount');
 
@@ -324,12 +371,21 @@ class DashboardService
                     ->where('status_po', '!=', 'draft')
                     ->sum('total_tagihan');
 
-                // Total received payments
+                // Total received payments (verified only)
                 $totalPayments = OrderPayment::whereHas('order', fn ($q) => $q->where('brand_id', $brand->id))
+                    ->whereNotNull('verified_at')
                     ->sum('amount');
 
+                // Total refunds published
+                $totalRefunds = Refund::where('brand_id', $brand->id)
+                    ->where('status', 'published')
+                    ->sum('nominal_refund');
+
+                // Net payments received
+                $netPayments = $totalPayments - $totalRefunds;
+
                 // Total outstanding
-                $outstanding = max(0, $totalRevenue - $totalPayments);
+                $outstanding = max(0, $totalRevenue - $netPayments);
 
                 // Payments by payment types for this brand
                 $paymentTypeBreakdown = DB::table('order_payments')
@@ -370,6 +426,8 @@ class DashboardService
                 ['label' => 'Refund Pending',       'value' => $refundPending,        'icon' => 'RotateCcw',   'accent' => 'orange'],
                 ['label' => 'Refund Diterbitkan',   'value' => $refundPublishedCount,  'icon' => 'CheckCircle2', 'accent' => 'violet'],
                 ['label' => 'Total Refund',         'value' => $refundPublishedAmount, 'currency' => true, 'icon' => 'TrendingDown', 'accent' => 'pink'],
+                ['label' => 'DP Desain Pending',     'value' => $dpPendingCount,       'icon' => 'Sparkles',    'accent' => 'amber'],
+                ['label' => 'DP Desain Terverifikasi', 'value' => $dpVerifiedAmount,     'currency' => true, 'icon' => 'CheckCircle', 'accent' => 'indigo'],
             ],
             'invoice_pending_list' => (clone $invoices)
                 ->whereIn('status', ['draft', 'validated'])
@@ -378,6 +436,11 @@ class DashboardService
             'refund_pending_list' => (clone $refunds)
                 ->where('status', 'pending_review')
                 ->with(['order:id,no_po', 'creator:id,name'])
+                ->orderByDesc('created_at')->limit(10)->get(),
+            'dp_pending_list' => \App\Models\Order\DesignDeposit::query()
+                ->when($brandId && $brandId !== 'all', $this->bf($brandId))
+                ->where('status', 'pending')
+                ->with(['customer:id,nama', 'brand:id,nama_brand,kode'])
                 ->orderByDesc('created_at')->limit(10)->get(),
             'payment_status' => $this->paymentStatusBreakdown($brandId),
             'bank_accounts_summary' => $bankAccountsSummary,

@@ -55,9 +55,30 @@ class BrandSeeder extends Seeder
         // Hapus data reseller demo lama (RSL, RSL-BDG, RSL-JKT) jika masih ada
         Brand::whereIn('kode', ['RSL', 'RSL-BDG', 'RSL-JKT'])->delete();
 
+        // Seed global reseller branding in system settings
+        \App\Models\Settings\SystemSetting::set('reseller_branding', 'nama_brand', 'INDOWAREHOUSE');
+        \App\Models\Settings\SystemSetting::set('reseller_branding', 'tagline', 'PUSAT CUSTOM JERSEY TERBAIK');
+        \App\Models\Settings\SystemSetting::set('reseller_branding', 'no_hp', '62 858-5027-3293');
+        \App\Models\Settings\SystemSetting::set('reseller_branding', 'alamat', 'JL. LARAS – LIRIS NO.102 SIDOKUMPUL LAMONGAN');
+        \App\Models\Settings\SystemSetting::set('reseller_branding', 'email', 'indonesiasportwarehouse@gmail.com');
+        \App\Models\Settings\SystemSetting::set('reseller_branding', 'instagram', 'indowarehouse_');
+
         // Reseller nyata — masing-masing entitas reseller mandiri (tipe: reseller_hub)
         // Bisa punya branch sendiri nanti. Master data shared di level hub.
         $resellerBrands = [
+            [
+                'nama_brand' => 'INDOWAREHOUSE',
+                'kode' => 'IDW',
+                'warna_primary' => '#EF4444',
+                'tagline' => 'PUSAT CUSTOM JERSEY TERBAIK',
+                'deskripsi' => 'Reseller — INDOWAREHOUSE',
+                'email' => 'indonesiasportwarehouse@gmail.com',
+                'no_hp' => '62 858-5027-3293',
+                'alamat' => 'JL. LARAS – LIRIS NO.102 SIDOKUMPUL LAMONGAN',
+                'instagram' => 'indowarehouse_',
+                'is_active' => true,
+                'brand_type' => Brand::TYPE_RESELLER_HUB,
+            ],
             ['nama_brand' => 'Telulas',       'kode' => 'TLS', 'warna_primary' => '#F59E0B'],
             ['nama_brand' => 'Pamos',         'kode' => 'PMS', 'warna_primary' => '#3B82F6'],
             ['nama_brand' => 'Sfitt Apparel', 'kode' => 'SFT', 'warna_primary' => '#10B981'],
@@ -67,7 +88,7 @@ class BrandSeeder extends Seeder
         foreach ($resellerBrands as $data) {
             Brand::firstOrCreate(
                 ['kode' => $data['kode']],
-                array_merge($data, [
+                array_merge([
                     'tagline'    => '',
                     'deskripsi'  => 'Reseller — ' . $data['nama_brand'],
                     'email'      => strtolower(str_replace(' ', '', $data['nama_brand'])) . '@reseller.local',
@@ -75,7 +96,7 @@ class BrandSeeder extends Seeder
                     'alamat'     => 'Indonesia',
                     'is_active'  => true,
                     'brand_type' => Brand::TYPE_RESELLER_HUB,
-                ])
+                ], $data)
             );
         }
     }

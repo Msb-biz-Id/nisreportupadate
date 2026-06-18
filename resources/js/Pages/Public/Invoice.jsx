@@ -46,6 +46,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
     const ongkirPayments = payments.filter(p => p.payment_type === 'ongkir');
     const cashbackPayments = payments.filter(p => p.payment_type === 'cashback');
     const additionPayments = payments.filter(p => p.payment_type === 'tambahan_produk');
+    const lainnyaPayments = payments.filter(p => p.payment_type === 'lainnya');
 
     return (
         <>
@@ -414,9 +415,45 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                 )}
 
                                 <div className="flex justify-between items-center text-xs font-bold border-t pt-2 border-slate-150">
-                                    <span className="text-slate-800">Total Tagihan (Nett)</span>
-                                    <span className="font-mono text-slate-800">{formatRupiah(invoice.total_tagihan)}</span>
+                                    <span className="text-slate-800">Total Tagihan</span>
+                                    <span className="font-mono text-slate-800">{formatRupiah(Number(invoice.total_tagihan))}</span>
                                 </div>
+
+                                {Number(invoice.diskon_value || 0) > 0 && (() => {
+                                    const totalTagihan = Number(invoice.total_tagihan);
+                                    const diskonValue = Number(invoice.diskon_value);
+                                    const diskonNominal = invoice.diskon_type === 'persen'
+                                        ? (totalTagihan * diskonValue / 100)
+                                        : diskonValue;
+                                    return (
+                                        <div className="flex justify-between items-center text-xs text-red-500 font-bold">
+                                            <span>Diskon {invoice.diskon_type === 'persen' ? `(${diskonValue}%)` : ''}</span>
+                                            <span className="font-mono">- {formatRupiah(diskonNominal)}</span>
+                                        </div>
+                                    );
+                                })()}
+
+                                {Number(invoice.biaya_pengiriman || 0) > 0 && (
+                                    <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                                        <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}</span>
+                                        <span className="font-mono">+ {formatRupiah(Number(invoice.biaya_pengiriman))}</span>
+                                    </div>
+                                )}
+
+                                {(Number(invoice.diskon_value || 0) > 0 || Number(invoice.biaya_pengiriman || 0) > 0) && (() => {
+                                    const totalTagihan = Number(invoice.total_tagihan);
+                                    const diskonValue = Number(invoice.diskon_value || 0);
+                                    const diskonNominal = invoice.diskon_type === 'persen'
+                                        ? (totalTagihan * diskonValue / 100)
+                                        : diskonValue;
+                                    const nettTagihan = totalTagihan - diskonNominal + Number(invoice.biaya_pengiriman || 0);
+                                    return (
+                                        <div className="flex justify-between items-center text-xs font-bold border-t pt-2 border-slate-150">
+                                            <span className="text-slate-800">Total Tagihan (Nett)</span>
+                                            <span className="font-mono text-slate-800">{formatRupiah(nettTagihan)}</span>
+                                        </div>
+                                    );
+                                })()}
 
                                 {dpPayments.length > 0 && (
                                     <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
@@ -429,6 +466,13 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                     <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
                                         <span>Pelunasan Masuk</span>
                                         <span className="font-mono">- {formatRupiah(pelunasanPayments.reduce((s, x) => s + Number(x.amount), 0))}</span>
+                                    </div>
+                                )}
+
+                                {lainnyaPayments.length > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
+                                        <span>Pembayaran Lainnya</span>
+                                        <span className="font-mono">- {formatRupiah(lainnyaPayments.reduce((s, x) => s + Number(x.amount), 0))}</span>
                                     </div>
                                 )}
 

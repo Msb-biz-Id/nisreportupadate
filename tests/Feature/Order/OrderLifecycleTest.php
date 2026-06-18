@@ -1246,7 +1246,7 @@ class OrderLifecycleTest extends TestCase
         ]);
     }
 
-    public function test_spk_pdf_and_preview_access(): void
+    public function test_fo_pdf_and_preview_access(): void
     {
         $brand = $this->setupBrandWithMasters();
         $user = $this->makeUser('admin_brand', [$brand]);
@@ -1255,7 +1255,7 @@ class OrderLifecycleTest extends TestCase
         $order = Order::create([
             'brand_id' => $brand->id,
             'no_po' => app(NumberGenerator::class)->generateOrderNumber($brand),
-            'nama_po' => 'SPK Test PO',
+            'nama_po' => 'FO Test PO',
             'status_po' => 'draft',
             'tanggal_masuk' => now()->toDateString(),
             'deadline_customer' => now()->addDays(14)->toDateString(),
@@ -1266,17 +1266,17 @@ class OrderLifecycleTest extends TestCase
 
         // Test PDF download access
         $this->actingAsWithBrand($user, $brand)
-            ->get(route('orders.spk.pdf', $order->id))
+            ->get(route('orders.fo.pdf', $order->id))
             ->assertStatus(200)
             ->assertHeader('content-type', 'application/pdf');
 
         // Test Web Preview access
         $response = $this->actingAsWithBrand($user, $brand)
-            ->get(route('orders.spk.preview', $order->id))
+            ->get(route('orders.fo.preview', $order->id))
             ->assertStatus(200);
 
         $response->assertInertia(fn ($page) => $page
-            ->component('Order/SpkPreview')
+            ->component('Order/FoPreview')
             ->has('order')
         );
     }
@@ -1330,21 +1330,7 @@ class OrderLifecycleTest extends TestCase
             'recorded_by' => $adminBrand->id,
         ]);
 
-        $kategori = \App\Models\Finance\KategoriPemasukan::firstOrCreate(
-            ['brand_id' => $brand->id, 'nama_kategori' => 'Pembayaran PO'],
-            ['deskripsi' => 'Pembayaran pesanan dari customer', 'is_system' => true, 'is_active' => true]
-        );
-        $pemasukan = Pemasukan::create([
-            'brand_id' => $brand->id,
-            'kategori_pemasukan_id' => $kategori->id,
-            'order_id' => $order->id,
-            'source_payment_id' => $payment->id,
-            'tanggal' => $payment->payment_date,
-            'nominal' => $payment->amount,
-            'keterangan' => 'DP PO test',
-            'is_auto' => true,
-            'created_by' => $adminBrand->id,
-        ]);
+        $pemasukan = Pemasukan::where('source_payment_id', $payment->id)->firstOrFail();
 
         $this->actingAsWithBrand($adminBrand, $brand)
             ->put(route('invoices.payments.update', $payment->id), [
@@ -1382,6 +1368,145 @@ class OrderLifecycleTest extends TestCase
 
         $pemasukan->refresh();
         $this->assertEquals(500000, $pemasukan->nominal);
+    }
+
+    public function test_admin_keuangan_can_cancel_invoice_validation(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $adminBrand = $this->makeUser('admin_brand', [$brand]);
+        $adminKeuangan = $this->makeUser('admin_keuangan', [$brand]);
+        $adminProduksi = $this->makeUser('admin_produksi', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+        $bank = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->first();
+
+        // Create the order via the store endpoint
+        $this->actingAsWithBrand($adminBrand, $brand)
+            ->post(route('orders.store'), [
+                'nama_po' => 'PO Validate Cancel Test',
+                'tanggal_masuk' => now()->toDateString(),
+                'deadline_customer' => now()->addDays(14)->toDateString(),
+                'pelanggan_id' => $customer->id,
+                'bank_id' => $bank->id,
+                'items' => [[
+                    'nama_produk' => 'Jersey Test',
+                    'quantity' => 10,
+                    'harga_satuan' => 100000,
+                ]],
+            ])
+            ->assertRedirect();
+
+        $order = Order::where('nama_po', 'PO Validate Cancel Test')->first();
+        $invoice = $order->invoices()->first();
+
+        $this->assertEquals('draft', $invoice->status);
+
+        // Validate the invoice
+        $this->actingAsWithBrand($adminKeuangan, $brand)
+            ->post(route('invoices.validate', $invoice->id), [
+                'bank_id' => $bank->id,
+                'catatan' => 'Catatan Validasi',
+            ])
+            ->assertStatus(302);
+
+        $invoice->refresh();
+        $this->assertEquals('validated', $invoice->status);
+
+        // User without manage-invoice permission (like admin_produksi) cannot cancel validation
+        $this->actingAsWithBrand($adminProduksi, $brand)
+            ->post(route('invoices.cancel-validation', $invoice->id))
+            ->assertStatus(403);
+
+        // Finance admin can cancel validation
+        $this->actingAsWithBrand($adminKeuangan, $brand)
+            ->post(route('invoices.cancel-validation', $invoice->id))
+            ->assertStatus(302);
+
+        $invoice->refresh();
+        $this->assertEquals('draft', $invoice->status);
+        
+        $this->assertDatabaseHas('activity_logs', [
+            'activity' => 'cancel-validation',
+            'module' => 'invoice',
+            'subject_type' => get_class($invoice),
+            'subject_id' => $invoice->id,
+        ]);
+    }
+
+    public function test_order_completion_lifecycle_and_constraints(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $adminBrand = $this->makeUser('admin_brand', [$brand]);
+        $adminProduksi = $this->makeUser('admin_produksi', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => app(NumberGenerator::class)->generateOrderNumber($brand),
+            'nama_po' => 'PO Complete Test',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(14)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 1000000,
+            'is_lunas' => false,
+            'created_by' => $adminBrand->id,
+        ]);
+
+        // 1. Cannot complete if status is not 'sudah_dikirim'
+        $this->actingAsWithBrand($adminBrand, $brand)
+            ->post(route('orders.complete', $order->id))
+            ->assertSessionHas('error', 'Pesanan hanya dapat diselesaikan jika statusnya Sudah Dikirim.');
+
+        // Update status to 'sudah_dikirim'
+        $order->update(['status_po' => 'sudah_dikirim']);
+
+        // 2. Cannot complete if not paid in full (is_lunas is false and is_special_order is false)
+        $this->actingAsWithBrand($adminBrand, $brand)
+            ->post(route('orders.complete', $order->id))
+            ->assertSessionHas('error', 'Pesanan hanya dapat diselesaikan jika sudah Lunas.');
+
+        // Make it lunas
+        $order->update(['is_lunas' => true]);
+
+        // 3. Cannot complete if has active refund claims
+        $refund = Refund::create([
+            'brand_id' => $brand->id,
+            'order_id' => $order->id,
+            'refund_number' => 'REF-COMP-001',
+            'alasan' => 'Produk cacat',
+            'jenis_masalah' => 'produk_cacat',
+            'jumlah_item' => 1,
+            'nominal_refund' => 50000,
+            'status' => 'pending_review',
+            'created_by' => $adminBrand->id,
+        ]);
+
+        $this->actingAsWithBrand($adminBrand, $brand)
+            ->post(route('orders.complete', $order->id))
+            ->assertSessionHas('error', 'Pesanan tidak dapat diselesaikan karena masih terdapat klaim refund/return aktif.');
+
+        // Resolve refund claim (e.g. reject/archive)
+        $refund->update(['status' => 'rejected']);
+
+        // 4. Role gating: admin_produksi cannot complete (no order.update permission -> 403)
+        $this->actingAsWithBrand($adminProduksi, $brand)
+            ->post(route('orders.complete', $order->id))
+            ->assertStatus(403);
+
+        // 5. Success case: admin_brand can complete
+        $this->actingAsWithBrand($adminBrand, $brand)
+            ->post(route('orders.complete', $order->id))
+            ->assertSessionHas('success', 'PO berhasil diselesaikan.');
+
+        $order->refresh();
+        $this->assertEquals('selesai', $order->status_po);
+
+        $this->assertDatabaseHas('activity_logs', [
+            'activity' => 'complete',
+            'module' => 'order',
+            'subject_type' => get_class($order),
+            'subject_id' => $order->id,
+        ]);
     }
 }
 

@@ -37,6 +37,7 @@ class MasterJenisPembayaranController extends Controller
             'nama' => ['required', 'string', 'max:255', 'unique:master_jenis_pembayarans,nama'],
             'tipe_keuangan' => ['required', Rule::in(['pemasukan', 'pengeluaran'])],
             'efek_tagihan' => ['required', Rule::in(['penambahan', 'pengurangan', 'netral'])],
+            'deskripsi' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
 
@@ -53,6 +54,7 @@ class MasterJenisPembayaranController extends Controller
             'nama' => ['required', 'string', 'max:255', Rule::unique('master_jenis_pembayarans')->ignore($master->id)],
             'tipe_keuangan' => ['required', Rule::in(['pemasukan', 'pengeluaran'])],
             'efek_tagihan' => ['required', Rule::in(['penambahan', 'pengurangan', 'netral'])],
+            'deskripsi' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
 

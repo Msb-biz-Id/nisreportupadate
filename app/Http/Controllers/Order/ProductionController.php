@@ -103,7 +103,7 @@ class ProductionController extends Controller
         $orders = Order::query()
             ->forBrand($brandId)
             ->published()
-            ->where('status_po', '!=', 'sudah_dikirim')
+            ->whereNotIn('status_po', ['sudah_dikirim', 'selesai'])
             ->with(['pelanggan:id,nama', 'lockStatus', 'brand:id,kode,warna_primary', 'paketOrder:id,nama,warna,prioritas'])
             ->withCount(['rijeks as has_rijek' => fn ($q) => $q->whereNull('resolved_at')])
             ->orderBy('deadline_customer')
@@ -174,6 +174,10 @@ class ProductionController extends Controller
         abort_unless($detail->order_id === $order->id, 404);
         $detail->loadMissing('progress');
 
+        if ($order->status_po === 'selesai') {
+            return back()->with('error', 'Tidak dapat memperbarui progress karena PO sudah selesai.');
+        }
+
         $isSending = strtoupper($detail->progress->nama_progress ?? '') === 'SENDING';
 
         if ($isSending && ! $order->is_lunas && ! $order->is_special_order) {
@@ -217,6 +221,10 @@ class ProductionController extends Controller
     {
         Gate::authorize('production.update-progress');
         $this->guardBrandOwnership($request, $order);
+
+        if ($order->status_po === 'selesai') {
+            return back()->with('error', 'Tidak dapat memperbarui progress karena PO sudah selesai.');
+        }
 
         $data = $request->validate([
             'ids'            => ['required', 'array'],
@@ -272,6 +280,10 @@ class ProductionController extends Controller
         Gate::authorize('production.add-reject');
         $this->guardBrandOwnership($request, $order);
 
+        if ($order->status_po === 'selesai') {
+            return back()->with('error', 'Tidak dapat mencatat rijek karena PO sudah selesai.');
+        }
+
         $data = $request->validate([
             'progress_id' => ['nullable', 'uuid', 'exists:progress,id'],
             'order_item_id' => ['nullable', 'uuid'],
@@ -320,8 +332,8 @@ class ProductionController extends Controller
         $this->guardBrandOwnership($request, $order);
         abort_unless($rijek->order_id === $order->id, 404);
 
-        if ($order->status_po === 'sudah_dikirim') {
-            return back()->with('error', 'Tidak dapat mengubah rijek karena PO sudah dikirim.');
+        if (in_array($order->status_po, ['sudah_dikirim', 'selesai'], true)) {
+            return back()->with('error', 'Tidak dapat mengubah rijek karena PO sudah dikirim/selesai.');
         }
 
         $data = $request->validate([
@@ -363,8 +375,8 @@ class ProductionController extends Controller
         $this->guardBrandOwnership($request, $order);
         abort_unless($rijek->order_id === $order->id, 404);
 
-        if ($order->status_po === 'sudah_dikirim') {
-            return back()->with('error', 'Tidak dapat menghapus rijek karena PO sudah dikirim.');
+        if (in_array($order->status_po, ['sudah_dikirim', 'selesai'], true)) {
+            return back()->with('error', 'Tidak dapat menghapus rijek karena PO sudah dikirim/selesai.');
         }
 
         $progressId = $rijek->progress_id;
@@ -397,6 +409,7 @@ class ProductionController extends Controller
         'sudah_dikirim' => [], // final
         'delay' => ['on_progress', 'hold'],
         'hold' => ['published', 'on_progress'],
+        'selesai' => [],
     ];
 
     public function moveStatus(Request $request, Order $order)

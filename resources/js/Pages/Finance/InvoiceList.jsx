@@ -5,7 +5,7 @@ import {
     ShieldCheck, Clock, Banknote, AlertTriangle, Plus, Sparkles,
     Layers, RefreshCw, FileText, ChevronRight, CheckCircle, HelpCircle, XCircle,
     Info, Percent, Truck, Wallet, FileSpreadsheet, CheckCircle2 as CheckedIcon,
-    MessageCircle, Send
+    MessageCircle, Send, Edit, Trash2
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
@@ -88,6 +88,7 @@ export default function InvoiceList({
     available_orders = [], 
     bank_accounts = [], 
     customers = [],
+    master_jenis_pembayarans = [],
     filters = {}, 
     statuses = [], 
     can = {} 
@@ -111,16 +112,27 @@ export default function InvoiceList({
     const [selectedInvoiceToValidate, setSelectedInvoiceToValidate] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Editing Payment state
+    const [editingPayment, setEditingPayment] = useState(null);
+    const [editPaymentForm, setEditPaymentForm] = useState({
+        master_jenis_pembayaran_id: '',
+        amount: '',
+        payment_date: '',
+        bank_id: '',
+        notes: '',
+        change_reason: ''
+    });
+
+    const currentInvoiceToValidate = selectedInvoiceToValidate
+        ? (invoices?.data || []).find(inv => inv.id === selectedInvoiceToValidate.id) || selectedInvoiceToValidate
+        : null;
+
     const currentFilterBrand = filters?.brand_id && filters.brand_id !== 'all' ? filters.brand_id : '';
     const initialBrandId = currentFilterBrand || brandContext?.current?.id || brands[0]?.id || '';
     const initialDepositBank = bank_accounts.find(b => b.brand_id === initialBrandId) || bank_accounts.find(b => !b.brand_id) || bank_accounts[0];
 
     // Validate Form State
     const [validationForm, setValidationForm] = useState({
-        diskon_type: 'nominal',
-        diskon_value: '0',
-        biaya_pengiriman: '0',
-        jasa_pengiriman: '',
         bank_id: '',
         catatan: ''
     });
@@ -361,10 +373,6 @@ export default function InvoiceList({
         const firstBrandBank = bank_accounts.find(bank => bank.brand_id === invoice.brand_id) || bank_accounts.find(bank => !bank.brand_id) || bank_accounts[0];
         setSelectedInvoiceToValidate(invoice);
         setValidationForm({
-            diskon_type: invoice.diskon_type || 'nominal',
-            diskon_value: String(invoice.diskon_value || 0),
-            biaya_pengiriman: String(invoice.biaya_pengiriman || 0),
-            jasa_pengiriman: invoice.jasa_pengiriman || '',
             bank_id: invoice.bank_id || firstBrandBank?.id || '',
             catatan: invoice.catatan || ''
         });
@@ -373,7 +381,7 @@ export default function InvoiceList({
     function submitValidation(e) {
         e.preventDefault();
         setIsSubmitting(true);
-        router.post(route('invoices.validate', selectedInvoiceToValidate.id), validationForm, {
+        router.post(route('invoices.validate', currentInvoiceToValidate.id), validationForm, {
             onSuccess: () => {
                 setSelectedInvoiceToValidate(null);
                 setIsSubmitting(false);
@@ -382,23 +390,58 @@ export default function InvoiceList({
         });
     }
 
+    useEffect(() => {
+        if (editingPayment) {
+            setEditPaymentForm({
+                master_jenis_pembayaran_id: editingPayment.master_jenis_pembayaran_id || '',
+                amount: String(editingPayment.amount || 0),
+                payment_date: editingPayment.payment_date ? editingPayment.payment_date.split('T')[0] : '',
+                bank_id: editingPayment.bank_id || '',
+                notes: editingPayment.notes || '',
+                change_reason: ''
+            });
+        }
+    }, [editingPayment]);
+
+    function submitEditPayment(e) {
+        e.preventDefault();
+        setIsSubmitting(true);
+        router.put(route('invoices.payments.update', editingPayment.id), editPaymentForm, {
+            onSuccess: () => {
+                setEditingPayment(null);
+                setIsSubmitting(false);
+            },
+            onError: () => setIsSubmitting(false)
+        });
+    }
+
     // Live calculation for preview during validation
     const getValidationPreview = () => {
-        if (!selectedInvoiceToValidate) return { tagihan: 0, sisa: 0, diskon: 0 };
-        const tagihan = Number(selectedInvoiceToValidate.total_tagihan) || 0;
-        const dp = Number(selectedInvoiceToValidate.dp_amount) || 0;
-        const diskVal = Number(validationForm.diskon_value) || 0;
-        const shipping = Number(validationForm.biaya_pengiriman) || 0;
+        if (!currentInvoiceToValidate) return { rawSubtotal: 0, tagihan: 0, sisa: 0, diskon: 0, shipping: 0, totalPaid: 0 };
+        
+        const rawSubtotal = (currentInvoiceToValidate.order?.items || [])
+            .reduce((sum, item) => sum + (Number(item.quantity) * Number(item.harga_satuan)), 0);
 
-        let diskonNominal = 0;
-        if (validationForm.diskon_type === 'persen') {
-            diskonNominal = (tagihan * diskVal) / 100;
-        } else {
-            diskonNominal = diskVal;
-        }
+        const diskon = (currentInvoiceToValidate.order?.items || [])
+            .reduce((sum, item) => sum + (Number(item.discount_amount) || 0), 0);
 
-        const sisa = Math.max(0, tagihan - diskonNominal + shipping - dp);
-        return { tagihan, sisa, diskon: diskonNominal, shipping };
+        const shipping = (currentInvoiceToValidate.order?.payments || [])
+            .filter(p => p.verified_at !== null && (p.payment_type === 'ongkir' || p.master_jenis_pembayaran?.nama === 'Ongkir'))
+            .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+        const tagihan = Number(currentInvoiceToValidate.order?.total_tagihan) || Number(currentInvoiceToValidate.total_tagihan) || 0;
+        
+        const totalPaid = (currentInvoiceToValidate.order?.payments || [])
+            .filter(p => p.verified_at !== null)
+            .reduce((sum, p) => {
+                const amt = Number(p.amount) || 0;
+                const isNeg = ['cashback', 'return'].includes(p.payment_type) || !p.is_debit;
+                return isNeg ? sum - amt : sum + amt;
+            }, 0);
+
+        const sisa = Math.max(0, tagihan - totalPaid);
+
+        return { rawSubtotal, tagihan, sisa, diskon, shipping, totalPaid };
     };
 
     const valPreview = getValidationPreview();
@@ -682,6 +725,20 @@ export default function InvoiceList({
                                                                 Publish
                                                             </Button>
                                                         )}
+                                                        {can?.create && iv.status === 'validated' && (
+                                                            <Button
+                                                                size="xs"
+                                                                variant="destructive"
+                                                                className="text-xs font-bold py-1 rounded-lg shadow-sm font-sans"
+                                                                onClick={() => {
+                                                                    if (confirm(`Yakin ingin membatalkan validasi untuk Invoice ${iv.invoice_number}? Status akan dikembalikan ke draft.`)) {
+                                                                        router.post(route('invoices.cancel-validation', iv.id));
+                                                                    }
+                                                                }}
+                                                            >
+                                                                Batal Validasi
+                                                            </Button>
+                                                        )}
                                                         {can?.publish && ['published', 'sent', 'overdue'].includes(iv.status) && (
                                                             <WaDropdownButton invoice={iv} onSend={sendInvoiceWa} />
                                                         )}
@@ -726,11 +783,27 @@ export default function InvoiceList({
                                                 <TableCell className="text-right font-mono text-xs font-black text-emerald-600">{formatRupiah(iv.total_tagihan)}</TableCell>
                                                 <TableCell><Badge variant="success">LUNAS</Badge></TableCell>
                                                 <TableCell className="text-right">
-                                                    <Button asChild size="xs" variant="outline" className="text-xs py-1 rounded-lg">
-                                                        <a href={route('invoice.public', iv.invoice_number)} target="_blank" rel="noopener noreferrer">
-                                                            <ExternalLink className="h-3 w-3 mr-1" /> PDF Detail
-                                                        </a>
-                                                    </Button>
+                                                    <div className="flex justify-end gap-1.5">
+                                                        <Button asChild size="xs" variant="outline" className="text-xs py-1 rounded-lg">
+                                                            <a href={route('invoice.public', iv.invoice_number)} target="_blank" rel="noopener noreferrer">
+                                                                <ExternalLink className="h-3 w-3 mr-1" /> PDF Detail
+                                                            </a>
+                                                        </Button>
+                                                        {can?.create && (
+                                                            <Button
+                                                                size="xs"
+                                                                variant="destructive"
+                                                                className="text-xs font-bold py-1 rounded-lg shadow-sm font-sans"
+                                                                onClick={() => {
+                                                                    if (confirm(`Yakin ingin membatalkan validasi untuk Invoice ${iv.invoice_number}? Status akan dikembalikan ke draft.`)) {
+                                                                        router.post(route('invoices.cancel-validation', iv.id));
+                                                                    }
+                                                                }}
+                                                            >
+                                                                Batal Validasi
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))
@@ -840,31 +913,289 @@ export default function InvoiceList({
 
                 {/* MODALS & DIALOGS */}
 
-                {/* Validate Invoice Modal */}
                 <Dialog open={!!selectedInvoiceToValidate} onOpenChange={(open) => !open && setSelectedInvoiceToValidate(null)}>
-                    <DialogContent className="sm:max-w-[550px]">
+                    <DialogContent className="lg:max-w-[1150px] md:max-w-[950px] sm:max-w-[850px] w-[95vw] max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-2 text-indigo-700 font-bold">
                                 <ShieldCheck className="h-5 w-5 text-indigo-600" />
-                                Validasi Invoice Draft ({selectedInvoiceToValidate?.invoice_number})
+                                Validasi Invoice Draft ({currentInvoiceToValidate?.invoice_number})
                             </DialogTitle>
                             <DialogDescription>
-                                Lengkapi rincian biaya tambahan (ongkir), diskon, dan tentukan bank penerima pembayaran sebelum menerbitkan invoice resmi.
+                                Lengkapi rincian biaya tambahan (ongkir), diskon, dan kelola record pembayaran PO di panel sebelah kanan sebelum memvalidasi.
                             </DialogDescription>
                         </DialogHeader>
-                        {selectedInvoiceToValidate && (
-                            <form onSubmit={submitValidation} className="space-y-4 py-2">
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1.5 col-span-2">
-                                        <label className="text-xs font-bold text-slate-700">Bank Penerima Pembayaran *</label>
+                        {currentInvoiceToValidate && (
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 py-2">
+                                {/* Left side: Form & Financial Preview */}
+                                <div className="lg:col-span-5 space-y-4">
+                                    <form onSubmit={submitValidation} className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-xs font-bold text-slate-700">Bank Penerima Pembayaran *</label>
+                                                <Select 
+                                                    value={validationForm.bank_id} 
+                                                    onValueChange={(v) => setValidationForm({ ...validationForm, bank_id: v })}
+                                                    required
+                                                >
+                                                    <SelectTrigger className="bg-white rounded-xl"><SelectValue placeholder="Pilih Rekening Bank" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {bank_accounts.filter(bank => !bank.brand_id || bank.brand_id === currentInvoiceToValidate?.brand_id).map(bank => (
+                                                            <SelectItem key={bank.id} value={bank.id}>
+                                                                {bank.bank} — {bank.nomor_rekening} ({bank.atas_nama})
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-xs font-bold text-slate-500">Jasa Pengiriman / Ekspedisi (dari Modul Produksi)</label>
+                                                <Input 
+                                                    value={currentInvoiceToValidate?.order?.nama_ekspedisi || 'Belum ditentukan di modul produksi'} 
+                                                    disabled 
+                                                    className="bg-slate-50 rounded-xl border-slate-200 text-slate-500 font-semibold"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-1.5 col-span-2">
+                                                <label className="text-xs font-bold text-slate-700">Catatan Invoice</label>
+                                                <Input 
+                                                    placeholder="Tambahkan catatan khusus invoice..." 
+                                                    value={validationForm.catatan} 
+                                                    onChange={(e) => setValidationForm({ ...validationForm, catatan: e.target.value })}
+                                                    className="bg-white rounded-xl"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Financial Live Preview Box */}
+                                        <div className="rounded-xl border border-indigo-100 bg-indigo-50/20 p-4 space-y-2 mt-2">
+                                            <h4 className="text-xs font-extrabold text-indigo-900 uppercase tracking-wider mb-2 flex items-center gap-1">
+                                                <Info className="h-3.5 w-3.5 text-indigo-600" />
+                                                Rincian Keuangan PO (Database)
+                                            </h4>
+                                            <div className="space-y-1.5 text-xs font-semibold">
+                                                <div className="flex justify-between text-slate-500">
+                                                    <span>Subtotal Item PO</span>
+                                                    <span className="font-mono">{formatRupiah(valPreview.rawSubtotal)}</span>
+                                                </div>
+                                                <div className="flex justify-between text-slate-500">
+                                                     <span>Diskon PO (dari Item)</span>
+                                                    <span className="font-mono text-red-600">-{formatRupiah(valPreview.diskon)}</span>
+                                                </div>
+                                                <div className="flex justify-between text-slate-500">
+                                                    <span>Biaya Pengiriman (Ongkir)</span>
+                                                    <span className="font-mono text-emerald-600">+{formatRupiah(valPreview.shipping)}</span>
+                                                </div>
+                                                <div className="flex justify-between border-t border-slate-200/60 pt-1.5 text-slate-700">
+                                                    <span>Total Tagihan Akhir PO</span>
+                                                    <span className="font-mono font-bold">{formatRupiah(valPreview.tagihan)}</span>
+                                                </div>
+                                                <div className="flex justify-between text-slate-500">
+                                                    <span>Total Pembayaran (Verified)</span>
+                                                    <span className="font-mono text-indigo-700">-{formatRupiah(valPreview.totalPaid)}</span>
+                                                </div>
+                                                <div className="flex justify-between border-t border-indigo-200 pt-2">
+                                                    <span className="font-bold text-indigo-950">Sisa Piutang Akhir</span>
+                                                    <span className="font-mono font-black text-indigo-900 text-sm">{formatRupiah(valPreview.sisa)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <DialogFooter className="pt-2 flex justify-end gap-2">
+                                            <Button type="button" variant="outline" onClick={() => setSelectedInvoiceToValidate(null)} className="rounded-xl">Batal</Button>
+                                            <Button 
+                                                type="submit" 
+                                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl"
+                                                disabled={isSubmitting}
+                                            >
+                                                {isSubmitting ? 'Memproses...' : 'Validasi Sekarang'}
+                                            </Button>
+                                        </DialogFooter>
+                                    </form>
+                                </div>
+
+                                {/* Right side: Payments Audit & Adjustment Ledger */}
+                                <div className="lg:col-span-7 border-t lg:border-t-0 lg:border-l pt-6 lg:pt-0 lg:pl-6 border-slate-100 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                            <Banknote className="h-4 w-4 text-emerald-600" />
+                                            Record Pembayaran & Penyesuaian PO
+                                        </h3>
+                                        <span className="text-xs font-semibold text-slate-500">
+                                            {(currentInvoiceToValidate.order?.payments || []).length} Record
+                                        </span>
+                                    </div>
+
+                                    <div className="overflow-hidden rounded-xl border border-slate-100 bg-slate-50/50">
+                                        <div>
+                                            <table className="w-full text-left border-collapse text-xs">
+                                                <thead>
+                                                    <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                                                        <th className="p-2.5">Tipe & Deskripsi</th>
+                                                        <th className="p-2.5">Bank & Tanggal</th>
+                                                        <th className="p-2.5 text-right">Nominal</th>
+                                                        <th className="p-2.5 text-center">Status</th>
+                                                        <th className="p-2.5 text-center">Aksi</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 bg-white">
+                                                    {(currentInvoiceToValidate.order?.payments || []).length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan="5" className="p-6 text-center text-slate-400 font-medium italic">
+                                                                Belum ada record pembayaran untuk PO ini.
+                                                            </td>
+                                                        </tr>
+                                                    ) : (
+                                                        (currentInvoiceToValidate.order?.payments || []).map((payment) => {
+                                                            const isNeg = ['cashback', 'return'].includes(payment.payment_type) || !payment.is_debit;
+                                                            const amt = Number(payment.amount) || 0;
+                                                            return (
+                                                                <tr key={payment.id} className="hover:bg-slate-50/50 transition-colors">
+                                                                    <td className="p-2.5">
+                                                                        <div className="font-bold text-slate-800">
+                                                                            {payment.master_jenis_pembayaran?.nama || payment.payment_type?.toUpperCase()}
+                                                                        </div>
+                                                                        {payment.master_jenis_pembayaran?.deskripsi && (
+                                                                            <div className="text-[10px] text-slate-500 max-w-[180px] truncate" title={payment.master_jenis_pembayaran.deskripsi}>
+                                                                                {payment.master_jenis_pembayaran.deskripsi}
+                                                                            </div>
+                                                                        )}
+                                                                        {payment.notes && (
+                                                                            <div className="text-[10px] text-slate-400 italic max-w-[180px] truncate" title={payment.notes}>
+                                                                                Note: {payment.notes}
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2.5 text-slate-600">
+                                                                        <div className="font-medium">{payment.bank?.bank || '—'}</div>
+                                                                        <div className="text-[10px] text-slate-400">{formatDate(payment.payment_date)}</div>
+                                                                    </td>
+                                                                    <td className="p-2.5 text-right font-mono font-bold">
+                                                                        <span className={isNeg ? "text-red-600" : "text-emerald-700"}>
+                                                                            {isNeg ? '-' : ''}{formatRupiah(amt)}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="p-2.5 text-center">
+                                                                        {payment.verified_at ? (
+                                                                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                                                                                Verified
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
+                                                                                Pending
+                                                                            </span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2.5">
+                                                                        <div className="flex items-center justify-center gap-1">
+                                                                            <Button
+                                                                                type="button"
+                                                                                size="icon"
+                                                                                variant="ghost"
+                                                                                className="h-7 w-7 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg"
+                                                                                onClick={() => setEditingPayment(payment)}
+                                                                                disabled={isSubmitting}
+                                                                            >
+                                                                                <Edit className="h-3.5 w-3.5" />
+                                                                            </Button>
+                                                                            <Button
+                                                                                type="button"
+                                                                                size="icon"
+                                                                                variant="ghost"
+                                                                                className="h-7 w-7 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg"
+                                                                                onClick={() => {
+                                                                                    if (confirm('Apakah Anda yakin ingin menghapus record pembayaran ini? Tindakan ini akan menghapus data di ledger jika sudah terverifikasi.')) {
+                                                                                        setIsSubmitting(true);
+                                                                                        router.delete(route('invoices.payments.destroy', payment.id), {
+                                                                                            onSuccess: () => setIsSubmitting(false),
+                                                                                            onError: () => setIsSubmitting(false)
+                                                                                        });
+                                                                                    }
+                                                                                }}
+                                                                                disabled={isSubmitting}
+                                                                            >
+                                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </DialogContent>
+                </Dialog>
+
+                {/* Edit Payment Sub-dialog */}
+                <Dialog open={!!editingPayment} onOpenChange={(open) => !open && setEditingPayment(null)}>
+                    <DialogContent className="sm:max-w-[450px]">
+                        <DialogHeader>
+                            <DialogTitle className="text-slate-800 font-bold">Edit Record Pembayaran</DialogTitle>
+                            <DialogDescription>
+                                Sesuaikan detail pembayaran. Alasan perubahan wajib diisi untuk audit log.
+                            </DialogDescription>
+                        </DialogHeader>
+                        {editingPayment && (
+                            <form onSubmit={submitEditPayment} className="space-y-4 py-2">
+                                <div className="space-y-3">
+                                    {/* Select Master Jenis Pembayaran */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-slate-700">Jenis Pembayaran *</label>
                                         <Select 
-                                            value={validationForm.bank_id} 
-                                            onValueChange={(v) => setValidationForm({ ...validationForm, bank_id: v })}
-                                            required
+                                            value={editPaymentForm.master_jenis_pembayaran_id}
+                                            onValueChange={(v) => setEditPaymentForm({ ...editPaymentForm, master_jenis_pembayaran_id: v })}
                                         >
-                                            <SelectTrigger className="bg-white rounded-xl"><SelectValue placeholder="Pilih Rekening Bank" /></SelectTrigger>
+                                            <SelectTrigger className="bg-white rounded-xl"><SelectValue placeholder="Pilih Jenis" /></SelectTrigger>
                                             <SelectContent>
-                                                {bank_accounts.filter(bank => !bank.brand_id || bank.brand_id === selectedInvoiceToValidate?.brand_id).map(bank => (
+                                                {master_jenis_pembayarans.map(m => (
+                                                    <SelectItem key={m.id} value={m.id}>{m.nama} ({m.tipe_keuangan.toUpperCase()})</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    
+                                    {/* Amount */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-slate-700">Nominal *</label>
+                                        <Input 
+                                            type="number"
+                                            min="0"
+                                            value={editPaymentForm.amount}
+                                            onChange={(e) => setEditPaymentForm({ ...editPaymentForm, amount: e.target.value })}
+                                            className="bg-white rounded-xl"
+                                            required
+                                        />
+                                    </div>
+                                    
+                                    {/* Date */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-slate-700">Tanggal Pembayaran *</label>
+                                        <Input 
+                                            type="date"
+                                            value={editPaymentForm.payment_date}
+                                            onChange={(e) => setEditPaymentForm({ ...editPaymentForm, payment_date: e.target.value })}
+                                            className="bg-white rounded-xl"
+                                            required
+                                        />
+                                    </div>
+
+                                    {/* Bank Account */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-slate-700">Bank *</label>
+                                        <Select 
+                                            value={editPaymentForm.bank_id}
+                                            onValueChange={(v) => setEditPaymentForm({ ...editPaymentForm, bank_id: v })}
+                                        >
+                                            <SelectTrigger className="bg-white rounded-xl"><SelectValue placeholder="Pilih Bank" /></SelectTrigger>
+                                            <SelectContent>
+                                                {bank_accounts.map(bank => (
                                                     <SelectItem key={bank.id} value={bank.id}>
                                                         {bank.bank} — {bank.nomor_rekening} ({bank.atas_nama})
                                                     </SelectItem>
@@ -872,113 +1203,39 @@ export default function InvoiceList({
                                             </SelectContent>
                                         </Select>
                                     </div>
-
+                                    
+                                    {/* Notes */}
                                     <div className="space-y-1.5">
-                                        <label className="text-xs font-bold text-slate-700">Tipe Diskon</label>
-                                        <Select 
-                                            value={validationForm.diskon_type} 
-                                            onValueChange={(v) => setValidationForm({ ...validationForm, diskon_type: v })}
-                                        >
-                                            <SelectTrigger className="bg-white rounded-xl"><SelectValue placeholder="Diskon" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="nominal">Nominal (Rupiah)</SelectItem>
-                                                <SelectItem value="persen">Persentase (%)</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs font-bold text-slate-700">Nilai Diskon</label>
-                                        <div className="relative">
-                                            {validationForm.diskon_type === 'nominal' ? (
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rp</span>
-                                            ) : null}
-                                            <Input 
-                                                type="number"
-                                                min="0"
-                                                value={validationForm.diskon_value} 
-                                                onChange={(e) => setValidationForm({ ...validationForm, diskon_value: e.target.value })}
-                                                className={`bg-white rounded-xl ${validationForm.diskon_type === 'nominal' ? 'pl-8' : ''}`}
-                                            />
-                                            {validationForm.diskon_type === 'persen' ? (
-                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
-                                            ) : null}
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs font-bold text-slate-700">Biaya Pengiriman</label>
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rp</span>
-                                            <Input 
-                                                type="number"
-                                                min="0"
-                                                value={validationForm.biaya_pengiriman} 
-                                                onChange={(e) => setValidationForm({ ...validationForm, biaya_pengiriman: e.target.value })}
-                                                className="pl-8 bg-white rounded-xl"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs font-bold text-slate-700">Jasa Pengiriman / Ekspedisi</label>
+                                        <label className="text-xs font-bold text-slate-700">Catatan</label>
                                         <Input 
-                                            placeholder="Contoh: JNE / J&T" 
-                                            value={validationForm.jasa_pengiriman} 
-                                            onChange={(e) => setValidationForm({ ...validationForm, jasa_pengiriman: e.target.value })}
+                                            value={editPaymentForm.notes}
+                                            onChange={(e) => setEditPaymentForm({ ...editPaymentForm, notes: e.target.value })}
                                             className="bg-white rounded-xl"
+                                            placeholder="Catatan pembayaran"
                                         />
                                     </div>
 
-                                    <div className="space-y-1.5 col-span-2">
-                                        <label className="text-xs font-bold text-slate-700">Catatan Invoice</label>
+                                    {/* Change Reason */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-red-700">Alasan Perubahan * (Minimal 5 karakter)</label>
                                         <Input 
-                                            placeholder="Tambahkan catatan khusus invoice..." 
-                                            value={validationForm.catatan} 
-                                            onChange={(e) => setValidationForm({ ...validationForm, catatan: e.target.value })}
-                                            className="bg-white rounded-xl"
+                                            value={editPaymentForm.change_reason}
+                                            onChange={(e) => setEditPaymentForm({ ...editPaymentForm, change_reason: e.target.value })}
+                                            className="bg-white rounded-xl border-red-200 focus:border-red-500"
+                                            placeholder="Alasan mengubah data pembayaran ini..."
+                                            required
                                         />
                                     </div>
                                 </div>
-
-                                {/* Financial Live Preview Box */}
-                                <div className="rounded-xl border border-indigo-100 bg-indigo-50/20 p-4 space-y-2 mt-2">
-                                    <h4 className="text-xs font-extrabold text-indigo-900 uppercase tracking-wider mb-2 flex items-center gap-1">
-                                        <Info className="h-3.5 w-3.5 text-indigo-600" />
-                                        Estimasi Perubahan Finansial PO
-                                    </h4>
-                                    <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
-                                        <div className="flex justify-between text-slate-500">
-                                            <span>Subtotal Tagihan PO</span>
-                                            <span className="font-mono">{formatRupiah(valPreview.tagihan)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-slate-500">
-                                            <span>Diskon Penjualan</span>
-                                            <span className="font-mono text-red-600">-{formatRupiah(valPreview.diskon)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-slate-500">
-                                            <span>Biaya Pengiriman</span>
-                                            <span className="font-mono text-emerald-600">+{formatRupiah(valPreview.shipping)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-slate-500">
-                                            <span>DP / Uang Muka Terbayar</span>
-                                            <span className="font-mono text-indigo-700">-{formatRupiah(selectedInvoiceToValidate.dp_amount || 0)}</span>
-                                        </div>
-                                        <div className="flex justify-between border-t border-indigo-100 pt-2 col-span-2">
-                                            <span className="font-bold text-indigo-950">Sisa Piutang Akhir</span>
-                                            <span className="font-mono font-black text-indigo-900 text-sm">{formatRupiah(valPreview.sisa)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
+                                
                                 <DialogFooter className="pt-2">
-                                    <Button type="button" variant="outline" onClick={() => setSelectedInvoiceToValidate(null)} className="rounded-xl">Batal</Button>
+                                    <Button type="button" variant="outline" onClick={() => setEditingPayment(null)} className="rounded-xl">Batal</Button>
                                     <Button 
                                         type="submit" 
                                         className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl"
-                                        disabled={isSubmitting}
+                                        disabled={isSubmitting || editPaymentForm.change_reason.trim().length < 5}
                                     >
-                                        {isSubmitting ? 'Memproses...' : 'Validasi Sekarang'}
+                                        {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
                                     </Button>
                                 </DialogFooter>
                             </form>

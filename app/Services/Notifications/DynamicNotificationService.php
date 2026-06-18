@@ -84,6 +84,14 @@ class DynamicNotificationService
                     'os_desktop' => true,
                     'roles' => ['admin_brand', 'owner'],
                     'sound' => 'success-tada'
+                ],
+                'order_completed' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'owner'],
+                    'sound' => 'success-tada'
                 ]
             ];
             $config = $defaults[$eventType] ?? [
@@ -131,6 +139,10 @@ class DynamicNotificationService
             'payment_verified' => [
                 'title' => 'Pembayaran PO Divalidasi',
                 'body' => 'Pembayaran sebesar {nominal} untuk PO {no_po} telah disetujui dan divalidasi oleh Admin Keuangan.',
+            ],
+            'order_completed' => [
+                'title' => 'PO Selesai',
+                'body' => 'PO {no_po} (brand {brand_nama}) telah selesai dan resmi ditutup.',
             ]
         ];
 

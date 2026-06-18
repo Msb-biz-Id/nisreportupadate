@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import {
     Package, User, MapPin, CalendarClock, Pencil, Send, RotateCw, Trash2, Lock, Unlock,
@@ -24,6 +24,7 @@ const STATUS_LABEL = {
     selesai_produksi: { label: 'Selesai Produksi', variant: 'success' },
     siap_dikirim: { label: 'Siap Dikirim', variant: 'info' },
     sudah_dikirim: { label: 'Sudah Dikirim', variant: 'secondary' },
+    selesai: { label: 'Selesai', variant: 'success' },
     delay: { label: 'Delay', variant: 'destructive' },
     hold: { label: 'Hold', variant: 'warning' },
 };
@@ -118,42 +119,49 @@ function PaymentTypeInfo({ selectedJp, amount }) {
     if (!selectedJp) return null;
     
     return (
-        <div className="sm:col-span-2 p-3 rounded-lg border text-xs flex items-start gap-2.5 bg-slate-50 border-slate-200">
-            {selectedJp.efek_tagihan === 'penambahan' && (
-                <>
-                    <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                        <p className="font-semibold text-amber-900">Menaikkan Total Tagihan PO</p>
-                        <p className="text-slate-600 mt-0.5">
-                            Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai biaya tambahan (misal: Ongkir, Penambahan Produk). 
-                            Menginput ini akan menambah harga keseluruhan PO sebesar <strong>{formatRupiah(amount)}</strong>.
-                        </p>
-                    </div>
-                </>
-            )}
-            {selectedJp.efek_tagihan === 'pengurangan' && (
-                <>
-                    <AlertTriangle className="h-4 w-4 text-rose-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                        <p className="font-semibold text-rose-900">Menurunkan Total Tagihan PO</p>
-                        <p className="text-slate-600 mt-0.5">
-                            Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai potongan tagihan (misal: Return/Diskon, Cashback). 
-                            Menginput ini akan memotong total harga keseluruhan PO sebesar <strong>{formatRupiah(amount)}</strong>.
-                        </p>
-                    </div>
-                </>
-            )}
-            {selectedJp.efek_tagihan === 'netral' && (
-                <>
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                        <p className="font-semibold text-emerald-950">Pembayaran Kas (Mengurangi Sisa Tagihan)</p>
-                        <p className="text-slate-600 mt-0.5">
-                            Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai realisasi pembayaran (DP / Pelunasan). 
-                            Menginput ini akan langsung mengurangi sisa pembayaran PO sebesar <strong>{formatRupiah(amount)}</strong> tanpa mengubah total nilai PO.
-                        </p>
-                    </div>
-                </>
+        <div className="sm:col-span-2 p-3 rounded-lg border text-xs flex flex-col gap-2 bg-slate-50 border-slate-200">
+            <div className="flex items-start gap-2.5">
+                {selectedJp.efek_tagihan === 'penambahan' && (
+                    <>
+                        <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                        <div>
+                            <p className="font-semibold text-amber-900">Menaikkan Total Tagihan PO</p>
+                            <p className="text-slate-600 mt-0.5">
+                                Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai biaya tambahan (misal: Ongkir, Penambahan Produk). 
+                                Menginput ini akan menambah harga keseluruhan PO sebesar <strong>{formatRupiah(amount)}</strong>.
+                            </p>
+                        </div>
+                    </>
+                )}
+                {selectedJp.efek_tagihan === 'pengurangan' && (
+                    <>
+                        <AlertTriangle className="h-4 w-4 text-rose-500 mt-0.5 flex-shrink-0" />
+                        <div>
+                            <p className="font-semibold text-rose-900">Menurunkan Total Tagihan PO</p>
+                            <p className="text-slate-600 mt-0.5">
+                                Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai potongan tagihan (misal: Return/Diskon, Cashback). 
+                                Menginput ini akan memotong total harga keseluruhan PO sebesar <strong>{formatRupiah(amount)}</strong>.
+                            </p>
+                        </div>
+                    </>
+                )}
+                {selectedJp.efek_tagihan === 'netral' && (
+                    <>
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                        <div>
+                            <p className="font-semibold text-emerald-950">Pembayaran Kas (Mengurangi Sisa Tagihan)</p>
+                            <p className="text-slate-600 mt-0.5">
+                                Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai realisasi pembayaran (DP / Pelunasan). 
+                                Menginput ini akan langsung mengurangi sisa pembayaran PO sebesar <strong>{formatRupiah(amount)}</strong> tanpa mengubah total nilai PO.
+                            </p>
+                        </div>
+                    </>
+                )}
+            </div>
+            {selectedJp.deskripsi && (
+                <div className="mt-1 pt-1.5 border-t border-slate-200 text-slate-500">
+                    <strong className="text-slate-700">Keterangan:</strong> {selectedJp.deskripsi}
+                </div>
             )}
         </div>
     );
@@ -361,6 +369,8 @@ function TimelineForm({ order, onDone }) {
 }
 
 export default function OrderPreview({ order, can, dp_info = null, printings = [], banks = [], jenis_pembayarans = [] }) {
+    const { auth } = usePage().props;
+    const user = auth?.user;
     const [openUnlock, setOpenUnlock] = useState(false);
     const [openRelock, setOpenRelock] = useState(false);
     const [openPayment, setOpenPayment] = useState(false);
@@ -439,6 +449,10 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
     function doDelete() {
         router.delete(route('orders.destroy', order.id));
     }
+    function completeOrder() {
+        if (!confirm('Apakah Anda yakin ingin menyelesaikan pesanan ini? Status "Selesai" adalah terminal state yang tidak dapat diubah kembali.')) return;
+        router.post(route('orders.complete', order.id), {}, { preserveScroll: true });
+    }
 
 
     return (
@@ -490,7 +504,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                 </div>
                             </div>
                             <div className="flex flex-wrap gap-2">
-                                {can?.edit && (
+                                {can?.edit && order.status_po !== 'selesai' && (
                                     <Button asChild variant="outline" size="sm">
                                         <Link href={route('orders.edit', order.id)}><Pencil className="h-4 w-4" /> Edit</Link>
                                     </Button>
@@ -513,14 +527,23 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                 {can?.repeat && (
                                     <Button onClick={repeatOrder} variant="outline" size="sm"><RotateCw className="h-4 w-4" /> Repeat Order</Button>
                                 )}
+                                {order.status_po === 'sudah_dikirim' && (user?.roles?.includes('admin_brand') || user?.roles?.includes('owner') || user?.roles?.includes('superadmin')) && (
+                                    <Button
+                                        onClick={completeOrder}
+                                        size="sm"
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5 shadow-sm shadow-emerald-100 animate-pulse"
+                                    >
+                                        <CheckCircle2 className="h-4 w-4" /> Selesaikan Pesanan
+                                    </Button>
+                                )}
                                 <Button asChild variant="outline" size="sm">
-                                    <a href={route('orders.spk.preview', order.id)} target="_blank" rel="noopener noreferrer">
-                                        <Eye className="h-4 w-4" /> Preview SPK
+                                    <a href={route('orders.fo.preview', order.id)} target="_blank" rel="noopener noreferrer">
+                                        <Eye className="h-4 w-4" /> Preview FO
                                     </a>
                                 </Button>
                                 <Button asChild variant="outline" size="sm">
-                                    <a href={route('orders.spk.pdf', order.id)} target="_blank" rel="noopener noreferrer">
-                                        <FileText className="h-4 w-4" /> SPK PDF
+                                    <a href={route('orders.fo.pdf', order.id)} target="_blank" rel="noopener noreferrer">
+                                        <FileText className="h-4 w-4" /> FO PDF
                                     </a>
                                 </Button>
                                 {order.invoices?.length > 0 && (
@@ -537,7 +560,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         </Button>
                                     </>
                                 )}
-                                {order.status_po !== 'draft' && isLocked && (
+                                {order.status_po !== 'draft' && order.status_po !== 'selesai' && isLocked && (
                                     can?.unlock ? (
                                         <Button variant="outline" size="sm" onClick={() => setOpenUnlock(true)}>
                                             <Unlock className="h-4 w-4 mr-1" /> Unlock PO
@@ -554,7 +577,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         )
                                     )
                                 )}
-                                {order.status_po !== 'draft' && !isLocked && (
+                                {order.status_po !== 'draft' && order.status_po !== 'selesai' && !isLocked && (
                                     can?.unlock ? (
                                         <Button variant="outline" size="sm" onClick={() => setOpenRelock(true)}>
                                             <Lock className="h-4 w-4 mr-1" /> Re-lock PO
@@ -571,7 +594,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         )
                                     )
                                 )}
-                                {can?.delete && (
+                                {can?.delete && order.status_po !== 'selesai' && (
                                     <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setConfirmDelete(true)}>
                                         <Trash2 className="h-4 w-4" /> Hapus
                                     </Button>
@@ -1007,7 +1030,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                  <span className="text-[10px] text-muted-foreground">{formatDate(order.lunas_at)}</span>
                                              )}
                                          </div>
-                                         {can?.mark_lunas && !order.is_special_order && (
+                                         {can?.mark_lunas && !order.is_special_order && order.status_po !== 'selesai' && (
                                              <Button
                                                  size="xs"
                                                  variant={order.is_lunas ? 'outline' : 'default'}
@@ -1039,7 +1062,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                                 <Badge variant={p.verified_at ? 'success' : 'warning'} className="text-[9px] px-1.5 py-0 font-bold">
                                                                     {p.verified_at ? '✓ VERIFIED' : '⏳ PENDING'}
                                                                 </Badge>
-                                                                {can?.edit_payment && (
+                                                                {can?.edit_payment && order.status_po !== 'selesai' && (
                                                                      <button
                                                                          onClick={() => {
                                                                              setSelectedPayment(p);
@@ -1051,7 +1074,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                                          <Pencil className="h-3.5 w-3.5" />
                                                                      </button>
                                                                  )}
-                                                                 {can?.delete_payment && (
+                                                                 {can?.delete_payment && order.status_po !== 'selesai' && (
                                                                     <button
                                                                         onClick={() => {
                                                                             const msg = p.verified_at
@@ -1117,7 +1140,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         </div>
                                     )}
 
-                                    {can?.add_payment && (
+                                    {can?.add_payment && order.status_po !== 'selesai' && (
                                         <Button size="sm" variant="outline" className="w-full mt-2" onClick={() => setOpenPayment(true)}>
                                             <CreditCard className="h-4 w-4" /> Tambah Pembayaran
                                         </Button>
@@ -1319,7 +1342,13 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         <ListChecks className="h-4 w-4 text-primary" /> Progress Produksi
                                     </CardTitle>
                                     <CardDescription>
-                                        Klik <Link className="font-medium text-primary underline" href={route('produksi.progress', order.id)} onClick={(e) => e.stopPropagation()}>halaman progress</Link> untuk update status per tahapan.
+                                        {order.status_po === 'selesai' ? (
+                                            <span className="text-slate-500 font-medium">Progress produksi telah dikunci karena PO telah selesai.</span>
+                                        ) : (
+                                            <>
+                                                Klik <Link className="font-medium text-primary underline" href={route('produksi.progress', order.id)} onClick={(e) => e.stopPropagation()}>halaman progress</Link> untuk update status per tahapan.
+                                            </>
+                                        )}
                                     </CardDescription>
                                 </div>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 hover:bg-slate-100" onClick={(e) => { e.stopPropagation(); toggleSection('progress'); }}>

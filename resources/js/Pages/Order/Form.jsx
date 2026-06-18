@@ -95,15 +95,141 @@ function newPayment() {
     return { master_jenis_pembayaran_id: '', amount: 0, payment_date: new Date().toISOString().slice(0, 10), bank_id: '', notes: '' };
 }
 
-function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
+function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null, polaProduksi = [] }) {
     const [text, setText] = useState('');
     const [hasHeaderRow, setHasHeaderRow] = useState(false);
     const [mappings, setMappings] = useState([]);
     const [prevMaxCols, setPrevMaxCols] = useState(0);
+    const [sizeOverrides, setSizeOverrides] = useState({});
 
     const safeSizes = useMemo(() => {
-        return Array.isArray(sizes) ? sizes : [];
+        const arr = Array.isArray(sizes) ? [...sizes] : [];
+        const catPriority = ['LAKI-LAKI', 'UNISEX', 'PEREMPUAN', 'ANAK', 'CUSTOM'];
+        arr.sort((a, b) => {
+            let idxA = catPriority.indexOf(a.kategori_size?.toUpperCase());
+            let idxB = catPriority.indexOf(b.kategori_size?.toUpperCase());
+            if (idxA === -1) idxA = 999;
+            if (idxB === -1) idxB = 999;
+            if (idxA !== idxB) return idxA - idxB;
+            return a.id - b.id;
+        });
+        return arr;
     }, [sizes]);
+
+    const polaName = useMemo(() => {
+        if (!item || !item.pola_produksi_id || !Array.isArray(polaProduksi)) return '';
+        const found = polaProduksi.find(p => p.id === item.pola_produksi_id);
+        return found ? found.nama.toLowerCase() : '';
+    }, [item, polaProduksi]);
+
+    const isKidsItem = useMemo(() => {
+        const prodName = (item?.nama_produk || '').toLowerCase();
+        return prodName.includes('anak') || prodName.includes('kids') || prodName.includes('junior');
+    }, [item]);
+
+    const isFemaleItem = useMemo(() => {
+        const prodName = (item?.nama_produk || '').toLowerCase();
+        return prodName.includes('cewek') || prodName.includes('perempuan') || prodName.includes('wanita') || prodName.includes('ladies') || prodName.includes('girls') || polaName.includes('perempuan');
+    }, [item, polaName]);
+
+    const priorityCategories = useMemo(() => {
+        if (isKidsItem) {
+            return ['ANAK', 'UNISEX', 'LAKI-LAKI', 'PEREMPUAN', 'CUSTOM'];
+        }
+        if (isFemaleItem) {
+            return ['PEREMPUAN', 'UNISEX', 'LAKI-LAKI', 'ANAK', 'CUSTOM'];
+        }
+        return ['LAKI-LAKI', 'UNISEX', 'PEREMPUAN', 'ANAK', 'CUSTOM'];
+    }, [isKidsItem, isFemaleItem]);
+
+    const parseInput = (inputStr) => {
+        let clean = inputStr.toLowerCase().trim();
+        if (!clean) return null;
+
+        clean = clean.replace(/\bxxl\b/g, '2xl')
+                     .replace(/\bxxxl\b/g, '3xl')
+                     .replace(/\bxxxxl\b/g, '4xl')
+                     .replace(/\bxxxxxl\b/g, '5xl')
+                     .replace(/\s+/g, ' ');
+
+        let category = null;
+        let sizePart = clean;
+
+        const maleRegex = /^(laki-laki|laki|cowok|pria|l)[\s\-\.]+(.+)$/i;
+        const femaleRegex = /^(perempuan|cewek|wanita|ladies|p)[\s\-\.]+(.+)$/i;
+        const unisexRegex = /^(unisex|u)[\s\-\.]+(.+)$/i;
+        const kidsRegex = /^(anak-anak|anak|kids|junior|kid|a)[\s\-\.]+(.+)$/i;
+        const customRegex = /^(custom|c)[\s\-\.]+(.+)$/i;
+
+        if (maleRegex.test(clean)) {
+            const match = clean.match(maleRegex);
+            category = 'LAKI-LAKI';
+            sizePart = match[2];
+        } else if (femaleRegex.test(clean)) {
+            const match = clean.match(femaleRegex);
+            category = 'PEREMPUAN';
+            sizePart = match[2];
+        } else if (unisexRegex.test(clean)) {
+            const match = clean.match(unisexRegex);
+            category = 'UNISEX';
+            sizePart = match[2];
+        } else if (kidsRegex.test(clean)) {
+            const match = clean.match(kidsRegex);
+            category = 'ANAK';
+            sizePart = match[2];
+        } else if (customRegex.test(clean)) {
+            const match = clean.match(customRegex);
+            category = 'CUSTOM';
+            sizePart = match[2];
+        }
+
+        sizePart = sizePart.replace(/\s+/g, '').toUpperCase();
+        if (sizePart === 'XXL') sizePart = '2XL';
+        if (sizePart === 'XXXL') sizePart = '3XL';
+        if (sizePart === 'XXXXL') sizePart = '4XL';
+        if (sizePart === 'XXXXXL') sizePart = '5XL';
+
+        return { category, sizePart };
+    };
+
+    const resolveSize = (val) => {
+        if (!val) return null;
+        const parsed = parseInput(val);
+        if (!parsed) return null;
+
+        const { category, sizePart } = parsed;
+
+        if (category) {
+            const matched = safeSizes.find(
+                (s) =>
+                    s.kategori_size?.toUpperCase() === category &&
+                    s.ukuran?.toUpperCase() === sizePart
+            );
+            if (matched) return matched;
+        }
+
+        const matches = safeSizes.filter(
+            (s) => s.ukuran?.toUpperCase() === sizePart
+        );
+
+        if (matches.length > 0) {
+            matches.sort((a, b) => {
+                let indexA = priorityCategories.indexOf(a.kategori_size?.toUpperCase());
+                let indexB = priorityCategories.indexOf(b.kategori_size?.toUpperCase());
+                if (indexA === -1) indexA = 999;
+                if (indexB === -1) indexB = 999;
+                return indexA - indexB;
+            });
+            return matches[0];
+        }
+
+        const fuzzyMatch = safeSizes.find(
+            (s) =>
+                `${s.kategori_size} - ${s.ukuran}`.toLowerCase().replace(/\s+/g, '') === val.toLowerCase().replace(/\s+/g, '') ||
+                s.ukuran?.toLowerCase().replace(/\s+/g, '') === val.toLowerCase().replace(/\s+/g, '')
+        );
+        return fuzzyMatch || null;
+    };
 
     const MAPPING_OPTIONS = [
         { value: 'ignore', label: 'Abaikan Kolom' },
@@ -125,19 +251,15 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
         const cleanedLine = line.replace(/\r$/, '').trim();
         if (!cleanedLine) return [];
 
-        // Prioritize tab or double-spaces (common spreadsheet cell delimiters)
         if (/\t|\s{2,}/.test(cleanedLine)) {
             return cleanedLine.split(/\t|\s{2,}/).map((c) => c.trim());
         }
-        // Semicolon delimiter (fallback)
         if (cleanedLine.includes(';')) {
             return cleanedLine.split(';').map((c) => c.trim());
         }
-        // Comma delimiter (fallback)
         if (cleanedLine.includes(',')) {
             return cleanedLine.split(',').map((c) => c.trim());
         }
-        // Fallback to single column
         return [cleanedLine];
     }
 
@@ -227,6 +349,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
             setMappings([]);
             setHasHeaderRow(false);
             setPrevMaxCols(0);
+            setSizeOverrides({});
             return;
         }
 
@@ -242,6 +365,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
                 setMappings(getDefaultMappings(maxCols));
             }
             setPrevMaxCols(maxCols);
+            setSizeOverrides({});
         }
     }, [maxCols, parsedRows, prevMaxCols]);
 
@@ -251,7 +375,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
             const startIndex = hasHeaderRow ? 1 : 0;
             const rowsToProcess = parsedRows.slice(startIndex);
             
-            const results = rowsToProcess.map((cols) => {
+            const results = rowsToProcess.map((cols, rIdx) => {
                 const rowData = {
                     nama_punggung: '',
                     nomor_punggung: '',
@@ -273,52 +397,40 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
                     if (!field || field === 'ignore') return;
                     
                     if (field === 'size_id') {
-                        const needle = val.toLowerCase().trim();
-                        const matches = safeSizes.filter(
-                            (s) =>
-                                s.ukuran?.toLowerCase() === needle ||
-                                `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle ||
-                                `${s.kategori_size}-${s.ukuran}`.toLowerCase() === needle
-                        );
-                        if (matches.length > 0) {
-                            const priority = ['LAKI-LAKI', 'UNISEX', 'PEREMPUAN', 'ANAK', 'CUSTOM'];
-                            matches.sort((a, b) => {
-                                let indexA = priority.indexOf(a.kategori_size?.toUpperCase());
-                                let indexB = priority.indexOf(b.kategori_size?.toUpperCase());
-                                if (indexA === -1) indexA = 999;
-                                if (indexB === -1) indexB = 999;
-                                return indexA - indexB;
-                            });
-                            const matched = matches[0];
-                            rowData.size_id = matched.id;
-                            rowData.size_label = `${matched.kategori_size} - ${matched.ukuran}`;
+                        const overrideVal = sizeOverrides[`${rIdx}-size_id`];
+                        if (overrideVal) {
+                            const matched = safeSizes.find((s) => s.id === overrideVal);
+                            if (matched) {
+                                rowData.size_id = matched.id;
+                                rowData.size_label = `${matched.kategori_size} - ${matched.ukuran}`;
+                            }
                         } else {
-                            rowData.size_id = '';
-                            rowData.size_label = val;
+                            const matched = resolveSize(val);
+                            if (matched) {
+                                rowData.size_id = matched.id;
+                                rowData.size_label = `${matched.kategori_size} - ${matched.ukuran}`;
+                            } else {
+                                rowData.size_id = '';
+                                rowData.size_label = val;
+                            }
                         }
                     } else if (field === 'size_celana_id') {
-                        const needle = val.toLowerCase().trim();
-                        const matches = safeSizes.filter(
-                            (s) =>
-                                s.ukuran?.toLowerCase() === needle ||
-                                `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle ||
-                                `${s.kategori_size}-${s.ukuran}`.toLowerCase() === needle
-                        );
-                        if (matches.length > 0) {
-                            const priority = ['LAKI-LAKI', 'UNISEX', 'PEREMPUAN', 'ANAK', 'CUSTOM'];
-                            matches.sort((a, b) => {
-                                let indexA = priority.indexOf(a.kategori_size?.toUpperCase());
-                                let indexB = priority.indexOf(b.kategori_size?.toUpperCase());
-                                if (indexA === -1) indexA = 999;
-                                if (indexB === -1) indexB = 999;
-                                return indexA - indexB;
-                            });
-                            const matched = matches[0];
-                            rowData.size_celana_id = matched.id;
-                            rowData.size_celana_label = `${matched.kategori_size} - ${matched.ukuran}`;
+                        const overrideVal = sizeOverrides[`${rIdx}-size_celana_id`];
+                        if (overrideVal) {
+                            const matched = safeSizes.find((s) => s.id === overrideVal);
+                            if (matched) {
+                                rowData.size_celana_id = matched.id;
+                                rowData.size_celana_label = `${matched.kategori_size} - ${matched.ukuran}`;
+                            }
                         } else {
-                            rowData.size_celana_id = '';
-                            rowData.size_celana_label = val;
+                            const matched = resolveSize(val);
+                            if (matched) {
+                                rowData.size_celana_id = matched.id;
+                                rowData.size_celana_label = `${matched.kategori_size} - ${matched.ukuran}`;
+                            } else {
+                                rowData.size_celana_id = '';
+                                rowData.size_celana_label = val;
+                            }
                         }
                     } else {
                         rowData[field] = val;
@@ -333,7 +445,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
             console.error('Error generating final rows:', e);
             return [];
         }
-    }, [parsedRows, mappings, hasHeaderRow, safeSizes]);
+    }, [parsedRows, mappings, hasHeaderRow, safeSizes, sizeOverrides, priorityCategories]);
 
     function handleConfirm() {
         if (!finalRows.length) return;
@@ -342,11 +454,12 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
         setMappings([]);
         setHasHeaderRow(false);
         setPrevMaxCols(0);
+        setSizeOverrides({});
         onClose();
     }
 
     return (
-        <Dialog open={open} onOpenChange={(v) => { if (!v) { setText(''); setMappings([]); setHasHeaderRow(false); setPrevMaxCols(0); onClose(); } }}>
+        <Dialog open={open} onOpenChange={(v) => { if (!v) { setText(''); setMappings([]); setHasHeaderRow(false); setPrevMaxCols(0); setSizeOverrides({}); onClose(); } }}>
             <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-6">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 uppercase text-sm font-black tracking-wide">
@@ -363,7 +476,10 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
                         className="w-full h-28 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none shadow-inner"
                         placeholder={"No\tNama Punggung\tNo. Punggung\tNama Dada\tNo. Dada\tNama Lengan\tNo. Lengan\tNo. Punggung 2\tNama Punggung 2\tSize Atasan\tSize Celana\tKeterangan\n1\tAhmad\t7\tAmd\t7\tAh\t7\t7B\tAhmad B\tS\tS\tLengan Panjang\n2\tBudi\t10\tBud\t10\tBu\t10\t10B\tBudi B\tM\tM\tKeterangan tambahan"}
                         value={text}
-                        onChange={(e) => setText(e.target.value)}
+                        onChange={(e) => {
+                            setText(e.target.value);
+                            setSizeOverrides({});
+                        }}
                         autoFocus
                     />
                     
@@ -375,7 +491,10 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
                                         type="checkbox"
                                         className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
                                         checked={hasHeaderRow}
-                                        onChange={(e) => setHasHeaderRow(e.target.checked)}
+                                        onChange={(e) => {
+                                            setHasHeaderRow(e.target.checked);
+                                            setSizeOverrides({});
+                                        }}
                                     />
                                     Baris pertama adalah Header (Abaikan baris pertama)
                                 </label>
@@ -400,6 +519,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
                                                                     const next = [...mappings];
                                                                     next[colIdx] = val;
                                                                     setMappings(next);
+                                                                    setSizeOverrides({});
                                                                 }}
                                                             >
                                                                 <SelectTrigger className="h-7 text-[11px] bg-white border-slate-300 font-semibold focus:ring-1 focus:ring-red-500">
@@ -435,23 +555,35 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
                                                         }
                                                         
                                                         if (field === 'size_id' || field === 'size_celana_id') {
-                                                            const needle = val.toLowerCase();
-                                                            const matched = safeSizes.find(
-                                                                 (s) =>
-                                                                     s.ukuran?.toLowerCase() === needle ||
-                                                                     `${s.kategori_size} - ${s.ukuran}`.toLowerCase() === needle
-                                                             );
+                                                            const overrideKey = `${rIdx}-${field}`;
+                                                            const currentOverride = sizeOverrides[overrideKey];
+                                                            const matched = currentOverride 
+                                                                ? safeSizes.find(s => s.id === currentOverride)
+                                                                : resolveSize(val);
+                                                            
                                                             return (
-                                                                <TableCell key={cIdx} className="p-2 text-xs border-l border-slate-100">
-                                                                    {matched ? (
-                                                                        <span className="text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                                                                            {matched.kategori_size} - {matched.ukuran}
-                                                                        </span>
-                                                                    ) : (
-                                                                        <span className="text-orange-500 font-semibold bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
-                                                                            {val || '—'} (tidak cocok)
-                                                                        </span>
-                                                                    )}
+                                                                <TableCell key={cIdx} className="p-1 min-w-[190px] border-l border-slate-100">
+                                                                    <Select
+                                                                        value={matched ? matched.id : NONE}
+                                                                        onValueChange={(newId) => {
+                                                                            setSizeOverrides(prev => ({
+                                                                                ...prev,
+                                                                                [overrideKey]: newId === NONE ? '' : newId
+                                                                            }));
+                                                                        }}
+                                                                    >
+                                                                        <SelectTrigger className={`h-8 text-xs font-bold ${matched ? 'text-emerald-700 bg-emerald-50 border-emerald-300' : 'text-orange-700 bg-orange-50 border-orange-300'}`}>
+                                                                            <SelectValue />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent className="max-h-56">
+                                                                            <SelectItem value={NONE} className="text-xs italic">— Tidak Cocok ({val || 'kosong'}) —</SelectItem>
+                                                                            {safeSizes.map((s) => (
+                                                                                <SelectItem key={s.id} value={s.id} className="text-xs">
+                                                                                    {s.kategori_size} - {s.ukuran}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
                                                                 </TableCell>
                                                             );
                                                         }
@@ -473,7 +605,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [] }) {
                 </div>
                 
                 <DialogFooter className="mt-4 pt-4 border-t border-slate-100">
-                    <Button variant="outline" size="sm" onClick={() => { setText(''); setMappings([]); setHasHeaderRow(false); setPrevMaxCols(0); onClose(); }}>
+                    <Button variant="outline" size="sm" onClick={() => { setText(''); setMappings([]); setHasHeaderRow(false); setPrevMaxCols(0); setSizeOverrides({}); onClose(); }}>
                         Batal
                     </Button>
                     <Button size="sm" className="bg-red-600 hover:bg-red-500 text-white font-bold" disabled={!finalRows.length} onClick={handleConfirm}>
@@ -1115,6 +1247,8 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                 open={pasteOpen}
                 onClose={() => setPasteOpen(false)}
                 sizes={masters.sizes}
+                item={item}
+                polaProduksi={masters.pola_produksi}
                 onConfirm={(rows) => {
                     const currentFilled = item.namesets.filter(
                         (ns) =>

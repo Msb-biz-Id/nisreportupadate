@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Com
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
-import { ArrowUpRight, Landmark, Building2, ChevronDown, ChevronUp, SlidersHorizontal, Info, CheckCircle2, AlertCircle, FileText, FileCheck, TrendingUp, TrendingDown, RotateCcw } from 'lucide-react';
+import { ArrowUpRight, Landmark, Building2, ChevronDown, ChevronUp, SlidersHorizontal, Info, CheckCircle2, AlertCircle, FileText, FileCheck, TrendingUp, TrendingDown, RotateCcw, Sparkles } from 'lucide-react';
 import { StatGrid } from '@/Components/Widgets';
 import { formatDate, formatRupiah } from '@/lib/utils';
 
@@ -339,63 +339,117 @@ export default function Finance({ stats }) {
                 </CardContent>
             </Card>
 
-            {/* Refund Pending Review */}
-            <Card className="border-slate-200 shadow-sm overflow-hidden">
-                <CardHeader className="flex flex-row items-center justify-between pb-3 border-b bg-slate-50/50">
-                    <div>
-                        <CardTitle className="text-base flex items-center gap-2">
-                            <RotateCcw className="h-4 w-4 text-rose-500" />
-                            Refund Pending Review
-                        </CardTitle>
-                        <CardDescription>Pengajuan refund yang menunggu verifikasi.</CardDescription>
-                    </div>
-                    <Button asChild variant="ghost" size="sm" className="text-indigo-600">
-                        <Link href={route('refunds.index') + '?status=pending_review'}>
-                            Lihat Semua <ArrowUpRight className="h-4 w-4 ml-1" />
-                        </Link>
-                    </Button>
-                </CardHeader>
-                <CardContent className="p-0">
-                    {(stats.refund_pending_list ?? []).length === 0 ? (
-                        <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
-                            <CheckCircle2 className="h-8 w-8 text-slate-300 mb-2" />
-                            <p className="text-sm">Tidak ada refund menunggu review.</p>
+            {/* Tanda Jadi & Refund Pending Section */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mt-6">
+                {/* Tanda Jadi Pending Validasi */}
+                <Card className="border-slate-200 shadow-sm overflow-hidden">
+                    <CardHeader className="flex flex-row items-center justify-between pb-3 border-b bg-slate-50/50">
+                        <div>
+                            <CardTitle className="text-base flex items-center gap-2 font-bold text-slate-900">
+                                <Sparkles className="h-4 w-4 text-amber-500" />
+                                Tanda Jadi Pending Validasi
+                            </CardTitle>
+                            <CardDescription className="text-xs text-slate-500">Pembayaran DP desain menunggu verifikasi keuangan.</CardDescription>
                         </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm border-t">
-                                <thead className="bg-slate-50/80 text-xs uppercase tracking-wider text-slate-500 border-b">
-                                    <tr>
-                                        <th className="px-5 py-3 text-left font-bold">No. Refund</th>
-                                        <th className="px-5 py-3 text-left font-bold">No. PO</th>
-                                        <th className="px-5 py-3 text-left font-bold">Jenis</th>
-                                        <th className="px-5 py-3 text-right font-bold">Nominal</th>
-                                        <th className="px-5 py-3 text-left font-bold">Diajukan Oleh / Tanggal</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {(stats.refund_pending_list ?? []).map((r) => (
-                                        <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
-                                            <td className="px-5 py-3 font-mono text-xs font-semibold text-slate-700">{r.refund_number}</td>
-                                            <td className="px-5 py-3 font-mono text-xs font-bold text-slate-900">{r.order?.no_po}</td>
-                                            <td className="px-5 py-3">
-                                                <Badge variant="outline" className="text-[10px] font-bold border-rose-200 bg-rose-50 text-rose-700 uppercase">
-                                                    {r.jenis_masalah?.replace(/_/g, ' ')}
-                                                </Badge>
-                                            </td>
-                                            <td className="px-5 py-3 text-right font-mono font-bold text-rose-600">{formatRupiah(r.nominal_refund)}</td>
-                                            <td className="px-5 py-3 text-xs">
-                                                <div className="font-semibold text-slate-800">{r.creator?.name}</div>
-                                                <div className="text-slate-400 font-mono">{formatDate(r.created_at)}</div>
-                                            </td>
+                        <Button asChild variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-700 font-semibold text-xs">
+                            <Link href={route('design-deposits.index') + '?status=pending'}>
+                                Lihat Semua <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+                            </Link>
+                        </Button>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        {(stats.dp_pending_list ?? []).length === 0 ? (
+                            <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
+                                <CheckCircle2 className="h-8 w-8 text-slate-300 mb-2" />
+                                <p className="text-sm">Tidak ada tanda jadi pending.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm border-t">
+                                    <thead className="bg-slate-50/80 text-[10px] uppercase tracking-wider text-slate-500 border-b">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left font-bold">No. Transaksi</th>
+                                            <th className="px-4 py-3 text-left font-bold">Pelanggan</th>
+                                            <th className="px-4 py-3 text-right font-bold">Nominal</th>
+                                            <th className="px-4 py-3 text-left font-bold">Tanggal</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {(stats.dp_pending_list ?? []).map((dp) => (
+                                            <tr key={dp.id} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-700">
+                                                    <div className="flex flex-col">
+                                                        <span>{dp.deposit_number}</span>
+                                                        <span className="text-[9px] text-indigo-600 font-bold uppercase">{dp.brand?.kode}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="font-semibold text-xs text-slate-800">{dp.customer?.nama ?? dp.customer_name}</div>
+                                                    <div className="text-[10px] text-slate-400 truncate max-w-[150px]">{dp.description}</div>
+                                                </td>
+                                                <td className="px-4 py-3 text-right font-mono text-xs font-bold text-indigo-600">{formatRupiah(dp.amount)}</td>
+                                                <td className="px-4 py-3 text-xs text-slate-500 font-mono">{formatDate(dp.payment_date)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Refund Pending Review */}
+                <Card className="border-slate-200 shadow-sm overflow-hidden">
+                    <CardHeader className="flex flex-row items-center justify-between pb-3 border-b bg-slate-50/50">
+                        <div>
+                            <CardTitle className="text-base flex items-center gap-2 font-bold text-slate-900">
+                                <RotateCcw className="h-4 w-4 text-rose-500" />
+                                Refund Pending Review
+                            </CardTitle>
+                            <CardDescription className="text-xs text-slate-500">Pengajuan refund yang menunggu verifikasi.</CardDescription>
                         </div>
-                    )}
-                </CardContent>
-            </Card>
+                        <Button asChild variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-700 font-semibold text-xs">
+                            <Link href={route('refunds.index') + '?status=pending_review'}>
+                                Lihat Semua <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+                            </Link>
+                        </Button>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        {(stats.refund_pending_list ?? []).length === 0 ? (
+                            <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
+                                <CheckCircle2 className="h-8 w-8 text-slate-300 mb-2" />
+                                <p className="text-sm">Tidak ada refund menunggu review.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm border-t">
+                                    <thead className="bg-slate-50/80 text-[10px] uppercase tracking-wider text-slate-500 border-b">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left font-bold">No. Refund</th>
+                                            <th className="px-4 py-3 text-left font-bold">No. PO</th>
+                                            <th className="px-4 py-3 text-right font-bold">Nominal</th>
+                                            <th className="px-4 py-3 text-left font-bold">Diajukan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(stats.refund_pending_list ?? []).map((r) => (
+                                            <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-700">{r.refund_number}</td>
+                                                <td className="px-4 py-3 font-mono text-xs font-bold text-slate-900">{r.order?.no_po}</td>
+                                                <td className="px-4 py-3 text-right font-mono text-xs font-bold text-rose-600">{formatRupiah(r.nominal_refund)}</td>
+                                                <td className="px-4 py-3 text-xs">
+                                                    <div className="font-semibold text-slate-800 text-xs">{r.creator?.name}</div>
+                                                    <div className="text-slate-400 text-[10px] font-mono">{formatDate(r.created_at)}</div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }

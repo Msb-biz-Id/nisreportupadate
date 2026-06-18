@@ -14,6 +14,7 @@ class MasterJenisPembayaran extends Model
         'nama',
         'tipe_keuangan',
         'efek_tagihan',
+        'deskripsi',
         'is_active',
     ];
 

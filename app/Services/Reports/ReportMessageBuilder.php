@@ -73,11 +73,11 @@ PROMPT;
 
         $masuk   = (int)(($statusRows['published'] ?? 0) + ($statusRows['on_progress'] ?? 0));
         $proses  = (int)($statusRows['on_progress'] ?? 0);
-        $selesai = (int)(($statusRows['selesai_produksi'] ?? 0) + ($statusRows['siap_dikirim'] ?? 0) + ($statusRows['sudah_dikirim'] ?? 0));
+        $selesai = (int)(($statusRows['selesai_produksi'] ?? 0) + ($statusRows['siap_dikirim'] ?? 0) + ($statusRows['sudah_dikirim'] ?? 0) + ($statusRows['selesai'] ?? 0));
         $delay   = (int)($statusRows['delay'] ?? 0);
 
         $terlambat = Order::query()
-            ->whereNotIn('status_po', ['draft', 'sudah_dikirim'])
+            ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
             ->where('deadline_customer', '<', today())
             ->with(['pelanggan:id,nama', 'brand:id,kode'])
             ->orderBy('deadline_customer')->limit(5)->get();
@@ -178,7 +178,7 @@ PROMPT;
             ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(5)->get();
 
         $terlambat = Order::where('brand_id', $bid)
-            ->whereNotIn('status_po', ['draft', 'sudah_dikirim'])
+            ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
             ->where('deadline_customer', '<', today())
             ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(5)->get();
 
@@ -257,7 +257,7 @@ PROMPT;
 
         $masuk   = (int)(($statusRows['published'] ?? 0) + ($statusRows['on_progress'] ?? 0));
         $proses  = (int)($statusRows['on_progress'] ?? 0);
-        $selesai = (int)(($statusRows['selesai_produksi'] ?? 0) + ($statusRows['siap_dikirim'] ?? 0) + ($statusRows['sudah_dikirim'] ?? 0));
+        $selesai = (int)(($statusRows['selesai_produksi'] ?? 0) + ($statusRows['siap_dikirim'] ?? 0) + ($statusRows['sudah_dikirim'] ?? 0) + ($statusRows['selesai'] ?? 0));
         $delay   = (int)($statusRows['delay'] ?? 0);
 
         $poTerbaru = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
@@ -268,7 +268,7 @@ PROMPT;
             ->whereBetween('deadline_customer', [now(), now()->addDays(7)])
             ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(3)->get();
 
-        $terlambat = Order::where('brand_id', $bid)->whereNotIn('status_po', ['draft', 'sudah_dikirim'])
+        $terlambat = Order::where('brand_id', $bid)->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
             ->where('deadline_customer', '<', today())
             ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(3)->get();
 
@@ -360,7 +360,7 @@ PROMPT;
 
         $masuk   = (int)(($statusRows['published'] ?? 0) + ($statusRows['on_progress'] ?? 0));
         $proses  = (int)($statusRows['on_progress'] ?? 0);
-        $selesai = (int)(($statusRows['selesai_produksi'] ?? 0) + ($statusRows['siap_dikirim'] ?? 0) + ($statusRows['sudah_dikirim'] ?? 0));
+        $selesai = (int)(($statusRows['selesai_produksi'] ?? 0) + ($statusRows['siap_dikirim'] ?? 0) + ($statusRows['sudah_dikirim'] ?? 0) + ($statusRows['selesai'] ?? 0));
         $delay   = (int)($statusRows['delay'] ?? 0);
 
         $poHariIni = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
@@ -378,7 +378,7 @@ PROMPT;
             ->whereBetween('deadline_customer', [now(), now()->addDays(3)])
             ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(3)->get();
 
-        $terlambat = Order::where('brand_id', $bid)->whereNotIn('status_po', ['draft', 'sudah_dikirim'])
+        $terlambat = Order::where('brand_id', $bid)->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
             ->where('deadline_customer', '<', today())
             ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(3)->get();
 

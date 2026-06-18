@@ -202,12 +202,7 @@ class MasterDataSeeder extends Seeder
 
     private function seedKategoriOrder(): void
     {
-        // Global only — brand bisa tambah sendiri via UI
-        $globals = ['Jersey', 'Jaket', 'Celana', 'Kaos Polos', 'Seragam', 'Hoodie', 'Polo Shirt'];
-        foreach ($globals as $nama) KategoriOrder::firstOrCreate(
-            ['brand_id' => null, 'nama' => $nama],
-            ['is_active' => true]
-        );
+        // Removed as per request
     }
 
     private function seedSumberOrder(): void

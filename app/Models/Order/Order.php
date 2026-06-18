@@ -34,7 +34,7 @@ class Order extends Model
 
     public const STATUSES = [
         'draft', 'published', 'on_progress', 'selesai_produksi',
-        'siap_dikirim', 'sudah_dikirim', 'delay', 'hold',
+        'siap_dikirim', 'sudah_dikirim', 'delay', 'hold', 'selesai',
     ];
 
     protected $fillable = [

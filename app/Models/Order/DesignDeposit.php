@@ -6,7 +6,7 @@ use App\Models\Brand;
 use App\Models\Concerns\HasUuidAndSoftDeletes;
 use App\Models\Master\BankAccount;
 use App\Models\User;
-use App\Models\Customer;
+use App\Models\Master\Customer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;

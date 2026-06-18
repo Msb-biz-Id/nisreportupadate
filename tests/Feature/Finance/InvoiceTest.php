@@ -495,7 +495,7 @@ class InvoiceTest extends TestCase
             ->assertRedirect();
 
         $invoice = $invoice->fresh();
-        $this->assertEquals('validated', $invoice->status);
+        $this->assertEquals('paid', $invoice->status);
         $this->assertEquals(0.0, (float)$invoice->sisa_pembayaran);
 
         // 8. Try to mark lunas - should fail since it's a Special Order

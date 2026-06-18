@@ -1,22 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import Cropper from 'react-easy-crop';
-import { Upload, X, RotateCw, Loader2, ZoomIn, ZoomOut, ImageOff } from 'lucide-react';
+import ReactCrop, { centerCrop, makeAspectCrop, convertToPixelCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
+import { Upload, X, RotateCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 /**
  * ImageUploader — upload + crop gambar untuk Order Form.
- *
- * Props:
- *   value      : string | null  — path tersimpan (relatif storage/app/public)
- *   onChange   : (path|null) => void
- *   purpose    : 'products' | 'orders' | 'brands'
- *   aspect     : number (default 4/3)
- *   namaPo     : string | null — untuk subfolder per-PO
- *   label      : string — label kecil di atas drop zone
- *   className  : string
+ * Menggunakan react-image-crop untuk memungkinkan crop dinamis & seret sudut/sisi.
+ * Dilengkapi fitur "Gunakan Gambar Terakhir" dan fitur zoom slider interaktif.
  */
 export default function ImageUploader({
     value,
@@ -27,18 +21,48 @@ export default function ImageUploader({
     label = '',
     className,
 }) {
-    const inputRef  = useRef(null);
-    const [src, setSrc]         = useState(null);   // base64 sumber untuk di-crop
-    const [open, setOpen]       = useState(false);  // modal crop terbuka?
-    const [crop, setCrop]       = useState({ x: 0, y: 0 });
-    const [zoom, setZoom]       = useState(1);
-    const [rotation, setRotation] = useState(0);
+    const inputRef = useRef(null);
+    const imgRef = useRef(null);
+    const [src, setSrc] = useState(null); // base64 sumber untuk di-crop
+    const [open, setOpen] = useState(false); // modal crop terbuka?
+    const [crop, setCrop] = useState(null); // react-image-crop state
     const [croppedPx, setCroppedPx] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [imageAspect, setImageAspect] = useState(aspect);
     const [cropAspect, setCropAspect] = useState(aspect);
+    const [zoom, setZoom] = useState(1); // Zoom level state
 
-    const onCropComplete = useCallback((_, px) => setCroppedPx(px), []);
+    // State untuk memantau gambar terakhir yang diunggah di sesi ini secara reaktif
+    const [lastImage, setLastImage] = useState(window.__lastUploadedImageSrc || null);
+
+    useEffect(() => {
+        const handleUpdate = () => {
+            setLastImage(window.__lastUploadedImageSrc || null);
+        };
+        window.addEventListener('last-image-updated', handleUpdate);
+        return () => window.removeEventListener('last-image-updated', handleUpdate);
+    }, []);
+
+    const onCropComplete = useCallback((c) => {
+        if (imgRef.current && c && c.width > 0 && c.height > 0) {
+            const pixelCrop = convertToPixelCrop(c, imgRef.current.width, imgRef.current.height);
+            const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
+            const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
+            setCroppedPx({
+                x: pixelCrop.x * scaleX,
+                y: pixelCrop.y * scaleY,
+                width: pixelCrop.width * scaleX,
+                height: pixelCrop.height * scaleY
+            });
+        }
+    }, []);
+
+    // Recalculate crop area when zoom changes to keep coordinates aligned
+    useEffect(() => {
+        if (imgRef.current && crop) {
+            onCropComplete(crop);
+        }
+    }, [zoom, crop, onCropComplete]);
 
     // Tutup modal dengan Escape
     useEffect(() => {
@@ -62,15 +86,23 @@ export default function ImageUploader({
             const img = new Image();
             img.onload = () => {
                 const resizedSrc = resizeImageIfNeeded(img, 1600);
-                const calculatedAspect = img.width / img.height;
-                setSrc(resizedSrc);
-                setImageAspect(calculatedAspect);
-                setCropAspect(calculatedAspect); // Default to full area/original aspect ratio
-                setCrop({ x: 0, y: 0 });
-                setZoom(1);
-                setRotation(0);
-                setCroppedPx(null);
-                setOpen(true);
+                
+                // Simpan secara global di window agar bisa digunakan kembali oleh uploader lain tanpa upload ulang
+                window.__lastUploadedImageSrc = resizedSrc;
+                window.__lastUploadedImageName = file.name;
+                window.dispatchEvent(new CustomEvent('last-image-updated'));
+
+                const imgTemp = new Image();
+                imgTemp.onload = () => {
+                    const calculatedAspect = imgTemp.width / imgTemp.height;
+                    setSrc(resizedSrc);
+                    setImageAspect(calculatedAspect);
+                    setCropAspect(aspect); // Mulai dengan aspect prop yang diinginkan
+                    setCroppedPx(null);
+                    setZoom(1);
+                    setOpen(true);
+                };
+                imgTemp.src = resizedSrc;
             };
             img.src = reader.result;
         };
@@ -81,13 +113,63 @@ export default function ImageUploader({
     function closeCrop() {
         setOpen(false);
         setSrc(null);
+        setCrop(null);
+        setCroppedPx(null);
+        setZoom(1);
+    }
+
+    // Mengubah aspek rasio crop secara dinamis
+    useEffect(() => {
+        if (imgRef.current && open) {
+            const { width, height } = imgRef.current;
+            if (cropAspect) {
+                const newCrop = centerAspectCrop(width, height, cropAspect);
+                setCrop(newCrop);
+                onCropComplete(newCrop);
+            } else {
+                const newCrop = centerFreeCrop(width, height);
+                setCrop(newCrop);
+                onCropComplete(newCrop);
+            }
+        }
+    }, [cropAspect, open]);
+
+    // Putar gambar 90 derajat searah jarum jam secara langsung pada base64 source
+    async function handleRotate() {
+        if (!src) return;
+        try {
+            const rotatedBase64 = await rotateImageBase64(src);
+            setSrc(rotatedBase64);
+            
+            // Tukar aspek rasio gambar asli
+            const nextImgAspect = 1 / imageAspect;
+            setImageAspect(nextImgAspect);
+
+            // Jika ada rasio aktif (selain bebas/null), sesuaikan rasionya
+            if (cropAspect) {
+                const nextCropAspect = 1 / cropAspect;
+                setCropAspect(nextCropAspect);
+            } else {
+                // Jika bebas, recalculate crop box dengan dimensi baru
+                setTimeout(() => {
+                    if (imgRef.current) {
+                        const { width, height } = imgRef.current;
+                        const newCrop = centerFreeCrop(width, height);
+                        setCrop(newCrop);
+                        onCropComplete(newCrop);
+                    }
+                }, 50);
+            }
+        } catch (err) {
+            toast.error('Gagal memutar gambar');
+        }
     }
 
     async function applyAndUpload() {
         if (!croppedPx || !src) return;
         setUploading(true);
         try {
-            const blob = await getCroppedBlob(src, croppedPx, rotation);
+            const blob = await getCroppedBlob(src, croppedPx);
             const fd = new FormData();
             fd.append('file', blob, `crop-${Date.now()}.jpg`);
             fd.append('purpose', purpose);
@@ -120,6 +202,20 @@ export default function ImageUploader({
             .catch(() => toast.error('Gagal menghapus'));
     }
 
+    function onImageLoad(e) {
+        setZoom(1);
+        const { width, height } = e.currentTarget;
+        if (cropAspect) {
+            const newCrop = centerAspectCrop(width, height, cropAspect);
+            setCrop(newCrop);
+            onCropComplete(newCrop);
+        } else {
+            const newCrop = centerFreeCrop(width, height);
+            setCrop(newCrop);
+            onCropComplete(newCrop);
+        }
+    }
+
     const previewUrl = value ? `/storage/${value}` : null;
 
     return (
@@ -134,15 +230,47 @@ export default function ImageUploader({
 
             {/* ── DROP ZONE / PREVIEW ── */}
             {!previewUrl ? (
-                <button
-                    type="button"
-                    onClick={pickFile}
-                    className="flex w-full min-h-[160px] flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 text-sm text-slate-400 transition hover:border-slate-400 hover:bg-slate-100 hover:text-slate-500"
-                >
-                    <Upload className="h-8 w-8 opacity-50" />
-                    {label && <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</span>}
-                    <span className="text-[11px]">Klik untuk pilih gambar · JPG/PNG/WEBP · maks 5 MB</span>
-                </button>
+                <div className="flex flex-col gap-2 w-full">
+                    <button
+                        type="button"
+                        onClick={pickFile}
+                        className="flex w-full min-h-[140px] flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 text-sm text-slate-400 transition hover:border-slate-400 hover:bg-slate-100 hover:text-slate-500"
+                    >
+                        <Upload className="h-8 w-8 opacity-50" />
+                        {label && <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</span>}
+                        <span className="text-[11px]">Klik untuk pilih gambar · JPG/PNG/WEBP</span>
+                    </button>
+                    {lastImage && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const img = new Image();
+                                img.onload = () => {
+                                    const calculatedAspect = img.width / img.height;
+                                    setSrc(lastImage);
+                                    setImageAspect(calculatedAspect);
+                                    setCropAspect(aspect);
+                                    setCroppedPx(null);
+                                    setOpen(true);
+                                };
+                                img.src = lastImage;
+                            }}
+                            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition shadow-sm text-left w-full"
+                        >
+                            <img
+                                src={lastImage}
+                                alt="Last uploaded thumbnail"
+                                className="w-8 h-8 rounded object-cover border border-slate-200 bg-white flex-shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[10px] text-slate-500 font-medium leading-none mb-0.5">Gunakan Gambar Terakhir</p>
+                                <p className="text-[11px] text-slate-800 font-bold truncate leading-tight">
+                                    {window.__lastUploadedImageName || 'Gambar Sesi Ini'}
+                                </p>
+                            </div>
+                        </button>
+                    )}
+                </div>
             ) : (
                 <div className="group relative w-full overflow-hidden rounded-lg border-2 border-slate-200 bg-slate-50">
                     <img
@@ -171,7 +299,7 @@ export default function ImageUploader({
                 </div>
             )}
 
-            {/* ── CROP MODAL via Portal (full-screen, no Dialog issues) ── */}
+            {/* ── CROP MODAL via Portal (full-screen) ── */}
             {open && createPortal(
                 <div
                     className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/95 p-4 md:p-8"
@@ -183,8 +311,8 @@ export default function ImageUploader({
                         {/* Header */}
                         <div className="flex items-center justify-between bg-slate-800 px-5 py-4 text-white">
                             <div>
-                                <h3 className="font-black uppercase tracking-wider">Potong Gambar</h3>
-                                <p className="text-xs text-slate-400 mt-0.5">Geser & zoom untuk menentukan area potong</p>
+                                <h3 className="font-black uppercase tracking-wider text-[14px]">Potong Gambar</h3>
+                                <p className="text-[11px] text-slate-400 mt-0.5">Tarik garis putus-putus atau sudut kotak untuk menentukan area potong secara bebas</p>
                             </div>
                             <button
                                 type="button"
@@ -197,37 +325,73 @@ export default function ImageUploader({
                         </div>
 
                         {/* Crop Area */}
-                        <div className="relative flex-1 bg-slate-100" style={{ minHeight: '320px', maxHeight: '55vh' }}>
+                        <div className="relative flex-1 bg-slate-100 flex items-center justify-center p-4 overflow-auto" style={{ minHeight: '320px', maxHeight: '55vh' }}>
                             {src && (
-                                <Cropper
-                                    image={src}
+                                <ReactCrop
                                     crop={crop}
-                                    zoom={zoom}
-                                    rotation={rotation}
-                                    aspect={cropAspect}
-                                    onCropChange={setCrop}
-                                    onZoomChange={setZoom}
-                                    onRotationChange={setRotation}
-                                    onCropComplete={onCropComplete}
-                                    showGrid={true}
-                                    objectFit="contain"
-                                    maxZoom={5}
-                                />
+                                    onChange={(c) => setCrop(c)}
+                                    onComplete={onCropComplete}
+                                    aspect={cropAspect || undefined}
+                                    className="max-w-full max-h-full"
+                                >
+                                    <img
+                                        ref={imgRef}
+                                        src={src}
+                                        alt="Crop Target"
+                                        onLoad={onImageLoad}
+                                        style={{
+                                            width: zoom > 1 ? `${zoom * 100}%` : '100%',
+                                            maxWidth: zoom > 1 ? 'none' : '100%',
+                                            maxHeight: zoom > 1 ? 'none' : '50vh',
+                                        }}
+                                        className="object-contain select-none"
+                                        crossOrigin="anonymous"
+                                    />
+                                </ReactCrop>
                             )}
                         </div>
 
                         {/* Controls */}
                         <div className="bg-white px-5 py-4 space-y-4 border-t border-slate-100">
+                            {/* Zoom Slider */}
+                            <div className="flex flex-col gap-1.5">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Perbesar (Zoom)</span>
+                                    <span className="text-xs font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">{zoom.toFixed(1)}x</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="3"
+                                    step="0.1"
+                                    value={zoom}
+                                    onChange={(e) => setZoom(parseFloat(e.target.value))}
+                                    className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-slate-800"
+                                />
+                            </div>
+
                             {/* Aspect Ratio Presets */}
                             <div className="flex flex-col gap-2">
-                                <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Rasio Potong (Bentuk Kotak)</span>
+                                <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Rasio Potong</span>
                                 <div className="flex flex-wrap gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setCropAspect(null)}
+                                        className={cn(
+                                            "rounded px-3 py-1.5 text-xs font-bold transition border",
+                                            cropAspect === null
+                                                ? "bg-slate-800 text-white border-slate-800"
+                                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                        )}
+                                    >
+                                        Bebas (Dinamis)
+                                    </button>
                                     <button
                                         type="button"
                                         onClick={() => setCropAspect(imageAspect)}
                                         className={cn(
                                             "rounded px-3 py-1.5 text-xs font-bold transition border",
-                                            Math.abs(cropAspect - imageAspect) < 0.01
+                                            cropAspect !== null && Math.abs(cropAspect - imageAspect) < 0.01
                                                 ? "bg-slate-800 text-white border-slate-800"
                                                 : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                                         )}
@@ -239,7 +403,7 @@ export default function ImageUploader({
                                         onClick={() => setCropAspect(1)}
                                         className={cn(
                                             "rounded px-3 py-1.5 text-xs font-bold transition border",
-                                            Math.abs(cropAspect - 1) < 0.01
+                                            cropAspect !== null && Math.abs(cropAspect - 1) < 0.01
                                                 ? "bg-slate-800 text-white border-slate-800"
                                                 : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                                         )}
@@ -251,7 +415,7 @@ export default function ImageUploader({
                                         onClick={() => setCropAspect(4 / 3)}
                                         className={cn(
                                             "rounded px-3 py-1.5 text-xs font-bold transition border",
-                                            Math.abs(cropAspect - 4/3) < 0.01
+                                            cropAspect !== null && Math.abs(cropAspect - 4 / 3) < 0.01
                                                 ? "bg-slate-800 text-white border-slate-800"
                                                 : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                                         )}
@@ -263,7 +427,7 @@ export default function ImageUploader({
                                         onClick={() => setCropAspect(16 / 9)}
                                         className={cn(
                                             "rounded px-3 py-1.5 text-xs font-bold transition border",
-                                            Math.abs(cropAspect - 16/9) < 0.01
+                                            cropAspect !== null && Math.abs(cropAspect - 16 / 9) < 0.01
                                                 ? "bg-slate-800 text-white border-slate-800"
                                                 : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                                         )}
@@ -275,7 +439,7 @@ export default function ImageUploader({
                                         onClick={() => setCropAspect(2 / 3)}
                                         className={cn(
                                             "rounded px-3 py-1.5 text-xs font-bold transition border",
-                                            Math.abs(cropAspect - 2/3) < 0.01
+                                            cropAspect !== null && Math.abs(cropAspect - 2 / 3) < 0.01
                                                 ? "bg-slate-800 text-white border-slate-800"
                                                 : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                                         )}
@@ -285,50 +449,11 @@ export default function ImageUploader({
                                 </div>
                             </div>
 
-                            {/* Aspect Ratio Slider & Zoom Slider */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                                {/* Aspect Ratio Slider */}
-                                <div className="flex flex-col gap-1.5">
-                                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Rasio Bebas (Geser Bebas)</span>
-                                    <div className="flex items-center gap-3">
-                                        <input
-                                            type="range"
-                                            min={0.3}
-                                            max={3.0}
-                                            step={0.05}
-                                            value={cropAspect}
-                                            onChange={(e) => setCropAspect(Number(e.target.value))}
-                                            className="flex-1 accent-slate-700 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                                        />
-                                        <span className="w-12 text-right text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{cropAspect.toFixed(2)}:1</span>
-                                    </div>
-                                </div>
-
-                                {/* Zoom */}
-                                <div className="flex flex-col gap-1.5">
-                                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Perbesar (Zoom)</span>
-                                    <div className="flex items-center gap-3">
-                                        <ZoomOut className="h-4 w-4 text-slate-400 shrink-0" />
-                                        <input
-                                            type="range"
-                                            min={1}
-                                            max={5}
-                                            step={0.05}
-                                            value={zoom}
-                                            onChange={(e) => setZoom(Number(e.target.value))}
-                                            className="flex-1 accent-slate-700 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                                        />
-                                        <ZoomIn className="h-4 w-4 text-slate-400 shrink-0" />
-                                        <span className="w-12 text-right text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{zoom.toFixed(1)}×</span>
-                                    </div>
-                                </div>
-                            </div>
-
                             {/* Rotation + Actions */}
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
                                 <button
                                     type="button"
-                                    onClick={() => setRotation((r) => (r + 90) % 360)}
+                                    onClick={handleRotate}
                                     className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
                                 >
                                     <RotateCw className="h-4 w-4" /> Putar 90°
@@ -366,39 +491,48 @@ export default function ImageUploader({
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 
+function centerAspectCrop(mediaWidth, mediaHeight, aspect) {
+    return centerCrop(
+        makeAspectCrop(
+            {
+                unit: '%',
+                width: 90,
+            },
+            aspect,
+            mediaWidth,
+            mediaHeight
+        ),
+        mediaWidth,
+        mediaHeight
+    );
+}
+
+function centerFreeCrop(mediaWidth, mediaHeight) {
+    return centerCrop(
+        {
+            unit: '%',
+            width: 90,
+            height: 90,
+        },
+        mediaWidth,
+        mediaHeight
+    );
+}
+
 /**
- * Hasilkan Blob JPEG dari area crop + rotasi.
- * Menggunakan 2 canvas terpisah untuk menghindari masalah reset context.
+ * Hasilkan Blob JPEG dari area crop canvas.
  */
-async function getCroppedBlob(imageSrc, areaPx, rotation = 0) {
+async function getCroppedBlob(imageSrc, areaPx) {
     const image = await loadImage(imageSrc);
-
-    // Canvas 1: gambar penuh setelah dirotasi (ukuran "safe area")
-    const safeArea = Math.ceil(Math.max(image.width, image.height) * Math.SQRT2);
-    const rotCanvas = document.createElement('canvas');
-    rotCanvas.width  = safeArea;
-    rotCanvas.height = safeArea;
-    const rotCtx = rotCanvas.getContext('2d');
-
-    rotCtx.translate(safeArea / 2, safeArea / 2);
-    rotCtx.rotate((rotation * Math.PI) / 180);
-    rotCtx.translate(-image.width / 2, -image.height / 2);
-    rotCtx.drawImage(image, 0, 0);
-
-    // Canvas 2: area crop dari canvas 1
     const cropCanvas = document.createElement('canvas');
-    cropCanvas.width  = areaPx.width;
+    cropCanvas.width = areaPx.width;
     cropCanvas.height = areaPx.height;
     const cropCtx = cropCanvas.getContext('2d');
 
-    // Koordinat sumber dalam rotCanvas: pusat gambar di (safeArea/2, safeArea/2)
-    const sx = Math.round(safeArea / 2 - image.width / 2 + areaPx.x);
-    const sy = Math.round(safeArea / 2 - image.height / 2 + areaPx.y);
-
     cropCtx.drawImage(
-        rotCanvas,
-        sx, sy, areaPx.width, areaPx.height,   // sumber
-        0, 0, areaPx.width, areaPx.height,      // tujuan
+        image,
+        areaPx.x, areaPx.y, areaPx.width, areaPx.height, // sumber
+        0, 0, areaPx.width, areaPx.height // tujuan
     );
 
     return new Promise((resolve, reject) =>
@@ -414,7 +548,7 @@ function loadImage(src) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        img.onload  = () => resolve(img);
+        img.onload = () => resolve(img);
         img.onerror = reject;
         img.src = src;
     });
@@ -442,5 +576,22 @@ function resizeImageIfNeeded(img, maxDim = 1600) {
     canvas.height = height;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0, width, height);
+    return canvas.toDataURL('image/jpeg', 0.92);
+}
+
+async function rotateImageBase64(imageSrc) {
+    const image = await loadImage(imageSrc);
+    const canvas = document.createElement('canvas');
+    
+    // Swap width and height for 90 deg rotation
+    canvas.width = image.height;
+    canvas.height = image.width;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate((90 * Math.PI) / 180);
+    ctx.translate(-image.width / 2, -image.height / 2);
+    ctx.drawImage(image, 0, 0);
+    
     return canvas.toDataURL('image/jpeg', 0.92);
 }

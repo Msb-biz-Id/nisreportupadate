@@ -278,7 +278,7 @@ class ReportRunner
 
         $orders = Order::query()
             ->when($brandId, $this->bf($brandId))
-            ->whereNotIn('status_po', ['draft', 'sudah_dikirim'])
+            ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
             ->where('deadline_customer', '<=', Carbon::now()->addDays($threshold))
             ->with(['pelanggan:id,nama'])
             ->orderBy('deadline_customer')

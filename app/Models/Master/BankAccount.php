@@ -21,6 +21,29 @@ class BankAccount extends Model
         return $this->belongsTo(Brand::class);
     }
 
+    public function getAtasNamaAttribute($value)
+    {
+        if ($this->bank === 'CASH') {
+            return 'Cash';
+        }
+
+        try {
+            if (request() && request()->hasSession()) {
+                $currentBrandId = session(\App\Support\BrandContext::SESSION_KEY) ?? (auth()->user()?->last_brand_id);
+                if ($currentBrandId) {
+                    $currentBrand = Brand::find($currentBrandId);
+                    if ($currentBrand && ($currentBrand->isResellerHub() || $currentBrand->isResellerBranch())) {
+                        return $currentBrand->getHeaderBrand()->nama_brand;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Safe fallback during console command/seeding/tests without session
+        }
+
+        return $value;
+    }
+
     public function scopeActive($q) { return $q->where('is_active', true); }
 
     public function scopeForBrand($q, $brandId)

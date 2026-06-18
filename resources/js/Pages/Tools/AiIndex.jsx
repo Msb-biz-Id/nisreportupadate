@@ -33,7 +33,7 @@ export default function AiIndex({ tools, isConfigured, recentLogs }) {
                         <h1 className="text-2xl font-bold">AI Tools</h1>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                        Asisten AI untuk mempercepat tugas-tugas admin: balas chat, copywriting, ringkas pesanan, format SPK, dan handle komplain.
+                        Asisten AI untuk mempercepat tugas-tugas admin: balas chat, copywriting, ringkas pesanan, format FO, dan handle komplain.
                     </p>
                 </div>
 
