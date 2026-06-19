@@ -30,9 +30,8 @@ class InvoiceController extends Controller
     public function pdf(Request $request, Invoice $invoice)
     {
         $user = $request->user();
-        if ($user && !$user->isSuperadmin() && !$user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])) {
-            $userBrandIds = $user->brands()->pluck('brands.id')->toArray();
-            abort_unless(in_array($invoice->brand_id, $userBrandIds), 403, 'Unauthorized brand context.');
+        if ($user && !$user->hasAccessToBrand($invoice->brand_id)) {
+            abort(403, 'Unauthorized brand context.');
         }
 
         $invoice->load(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments', 'order.iklan']);
@@ -101,9 +100,8 @@ class InvoiceController extends Controller
             }
         }
 
-        if ($user && !$user->isSuperadmin() && !$user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])) {
-            $userBrandIds = $user->brands()->pluck('brands.id')->toArray();
-            abort_unless(in_array($invoice->brand_id, $userBrandIds), 403, 'Unauthorized brand context.');
+        if ($user && !$user->hasAccessToBrand($invoice->brand_id)) {
+            abort(403, 'Unauthorized brand context.');
         }
 
         $trackingUrl = url('/track/' . ($invoice->order?->no_po ?? ''));
@@ -148,9 +146,8 @@ class InvoiceController extends Controller
             }
         }
 
-        if ($user && !$user->isSuperadmin() && !$user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])) {
-            $userBrandIds = $user->brands()->pluck('brands.id')->toArray();
-            abort_unless(in_array($invoice->brand_id, $userBrandIds), 403, 'Unauthorized brand context.');
+        if ($user && !$user->hasAccessToBrand($invoice->brand_id)) {
+            abort(403, 'Unauthorized brand context.');
         }
 
         $trackingUrl = url('/track/' . ($invoice->order?->no_po ?? ''));
