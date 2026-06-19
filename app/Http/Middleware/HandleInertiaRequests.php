@@ -35,14 +35,11 @@ class HandleInertiaRequests extends Middleware
                     'id', 'nama_brand', 'kode', 'warna_primary', 'is_active',
                 ]);
             } elseif ($user->hasRole('admin_reseller')) {
-                // Admin reseller has access to all reseller hubs + branches + IDW
-                $availableBrands = Brand::where('brand_type', Brand::TYPE_RESELLER_HUB)
+                // Admin reseller has access to their assigned brands (hubs/branches), their children, and IDW
+                $assignedIds = $user->brands()->pluck('brands.id')->toArray();
+                $availableBrands = Brand::whereIn('id', $assignedIds)
                     ->orWhere('kode', 'IDW')
-                    ->orWhere(function ($q) use ($user) {
-                        $accessibleIds = $user->brands()->pluck('brands.id');
-                        $q->where('brand_type', Brand::TYPE_RESELLER_BRANCH)
-                          ->whereIn('id', $accessibleIds);
-                    })
+                    ->orWhereIn('parent_brand_id', $assignedIds)
                     ->orderBy('nama_brand')
                     ->get(['id', 'nama_brand', 'kode', 'warna_primary', 'is_active']);
             } else {

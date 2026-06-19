@@ -88,21 +88,10 @@ class User extends Authenticatable
         }
 
         if ($this->hasRole('admin_reseller')) {
-            // Admin reseller automatically manages all reseller hubs, their branches, and IDW
+            // Admin reseller automatically manages IDW
             $brand = Brand::find($brandId);
-            if ($brand) {
-                if ($brand->kode === 'IDW') {
-                    return true;
-                }
-                if ($brand->brand_type === Brand::TYPE_RESELLER_HUB) {
-                    return true;
-                }
-                if ($brand->brand_type === Brand::TYPE_RESELLER_BRANCH && $brand->parent_brand_id) {
-                    $parent = Brand::find($brand->parent_brand_id);
-                    if ($parent && $parent->brand_type === Brand::TYPE_RESELLER_HUB) {
-                        return true;
-                    }
-                }
+            if ($brand && $brand->kode === 'IDW') {
+                return true;
             }
         }
 
