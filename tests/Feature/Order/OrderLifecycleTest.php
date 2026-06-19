@@ -815,6 +815,8 @@ class OrderLifecycleTest extends TestCase
 
     public function test_admin_brand_can_delete_draft_po(): void
     {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
         $brand = $this->setupBrandWithMasters();
         $user = $this->makeUser('admin_brand', [$brand]);
         $customer = Customer::where('brand_id', $brand->id)->first();
@@ -831,11 +833,26 @@ class OrderLifecycleTest extends TestCase
             'created_by' => $user->id,
         ]);
 
+        $order->items()->create([
+            'nama_produk' => 'Jersey A',
+            'quantity' => 1,
+            'harga_satuan' => 100000,
+            'subtotal' => 100000,
+            'gambar_desain' => 'orders/designs/desain.webp',
+            'gambar_kerah' => 'http://localhost/storage/orders/designs/kerah.webp',
+        ]);
+
+        \Illuminate\Support\Facades\Storage::disk('public')->put('orders/designs/desain.webp', 'fake content');
+        \Illuminate\Support\Facades\Storage::disk('public')->put('orders/designs/kerah.webp', 'fake content');
+
         $this->actingAsWithBrand($user, $brand)
             ->delete(route('orders.destroy', $order->id))
             ->assertRedirect(route('orders.index'));
 
         $this->assertSoftDeleted('orders', ['id' => $order->id]);
+
+        \Illuminate\Support\Facades\Storage::disk('public')->assertMissing('orders/designs/desain.webp');
+        \Illuminate\Support\Facades\Storage::disk('public')->assertMissing('orders/designs/kerah.webp');
     }
 
     public function test_draft_po_with_payments_cannot_be_deleted(): void

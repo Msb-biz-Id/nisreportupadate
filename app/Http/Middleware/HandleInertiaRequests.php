@@ -3,8 +3,10 @@
 namespace App\Http\Middleware;
 
 use App\Models\Brand;
+use App\Models\Settings\SystemSetting;
 use App\Support\BrandContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -15,12 +17,11 @@ class HandleInertiaRequests extends Middleware
     {
         return parent::version($request);
     }
-
     public function share(Request $request): array
     {
         $user = $request->user();
         $currentBrand = null;
-        $availableBrands = [];
+        $availableBrands = collect();
         $userRoles = [];
         $userPermissions = [];
 
@@ -88,13 +89,13 @@ class HandleInertiaRequests extends Middleware
             ],
             'app' => [
                 // Nama sistem dari Settings → Pengaturan → SEO (override APP_NAME di .env)
-                'name'        => \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'Circle Sportwear - Tracking PO')),
-                'description' => \App\Models\Settings\SystemSetting::get('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.'),
-                'logo_url'    => \App\Models\Settings\SystemSetting::get('seo', 'logo')
-                    ? \Illuminate\Support\Facades\Storage::disk('public')->url(\App\Models\Settings\SystemSetting::get('seo', 'logo'))
+                'name'        => SystemSetting::get('seo', 'site_name', config('app.name', 'Circle Sportwear - Tracking PO')),
+                'description' => SystemSetting::get('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.'),
+                'logo_url'    => SystemSetting::get('seo', 'logo')
+                    ? Storage::disk('public')->url(SystemSetting::get('seo', 'logo'))
                     : null,
-                'favicon_url' => \App\Models\Settings\SystemSetting::get('seo', 'favicon')
-                    ? \Illuminate\Support\Facades\Storage::disk('public')->url(\App\Models\Settings\SystemSetting::get('seo', 'favicon'))
+                'favicon_url' => SystemSetting::get('seo', 'favicon')
+                    ? Storage::disk('public')->url(SystemSetting::get('seo', 'favicon'))
                     : null,
             ],
         ];

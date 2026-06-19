@@ -5,9 +5,46 @@ namespace App\Observers;
 use App\Models\Finance\KategoriPemasukan;
 use App\Models\Finance\Pemasukan;
 use App\Models\Order\Order;
+use Illuminate\Support\Facades\Storage;
 
 class OrderObserver
 {
+    public function deleting(Order $order): void
+    {
+        // Delete order item images
+        foreach ($order->items as $item) {
+            foreach (['gambar_desain', 'gambar_kerah', 'gambar_ket_tambahan'] as $field) {
+                if ($item->$field) {
+                    $this->deleteFile($item->$field);
+                }
+            }
+        }
+
+        // Delete order payment proof files
+        foreach ($order->payments as $payment) {
+            if ($payment->proof_file) {
+                $this->deleteFile($payment->proof_file);
+            }
+        }
+    }
+
+    private function deleteFile(string $path): void
+    {
+        $normalizedPath = $path;
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            $parsed = parse_url($path);
+            $normalizedPath = ltrim($parsed['path'] ?? '', '/');
+        }
+
+        if (str_starts_with($normalizedPath, 'storage/')) {
+            $normalizedPath = substr($normalizedPath, 8);
+        }
+
+        if (Storage::disk('public')->exists($normalizedPath)) {
+            Storage::disk('public')->delete($normalizedPath);
+        }
+    }
+
     public function updated(Order $order): void
     {
         // Auto-record pemasukan saat status berubah dari draft → published
