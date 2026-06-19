@@ -652,7 +652,6 @@ class OrderLifecycleTest extends TestCase
         $customer = Customer::where('brand_id', $brand->id)->first();
         
         $size = \App\Models\Master\Size::create([
-            'kategori_size' => 'Dewasa',
             'ukuran' => 'L',
             'urutan' => 1,
             'is_active' => true,
@@ -681,9 +680,9 @@ class OrderLifecycleTest extends TestCase
                         'nomor_punggung_2' => '7-2',
                         'nama_punggung_2' => 'AHMAD PUNGGUNG 2',
                         'size_id' => $size->id,
-                        'size_label' => 'Dewasa - L',
+                        'size_label' => 'L',
                         'size_celana_id' => $size->id,
-                        'size_celana_label' => 'Dewasa - L',
+                        'size_celana_label' => 'L',
                         'keterangan' => 'Keterangan Custom',
                     ]]
                 ]],
@@ -701,7 +700,7 @@ class OrderLifecycleTest extends TestCase
         $this->assertNotNull($nameset);
         $this->assertEquals('AHMAD PUNGGUNG 2', $nameset->nama_punggung_2);
         $this->assertEquals($size->id, $nameset->size_celana_id);
-        $this->assertEquals('Dewasa - L', $nameset->size_celana_label);
+        $this->assertEquals('L', $nameset->size_celana_label);
     }
 
     public function test_nameset_entries_are_auto_sorted_by_size(): void
@@ -711,19 +710,16 @@ class OrderLifecycleTest extends TestCase
         $customer = Customer::where('brand_id', $brand->id)->first();
 
         $sizeS = \App\Models\Master\Size::create([
-            'kategori_size' => 'Laki-laki',
             'ukuran' => 'S',
             'urutan' => 2,
             'is_active' => true,
         ]);
         $sizeM = \App\Models\Master\Size::create([
-            'kategori_size' => 'Laki-laki',
             'ukuran' => 'M',
             'urutan' => 3,
             'is_active' => true,
         ]);
         $sizeKidXS = \App\Models\Master\Size::create([
-            'kategori_size' => 'Anak',
             'ukuran' => 'XS Kid',
             'urutan' => 1,
             'is_active' => true,
@@ -747,19 +743,19 @@ class OrderLifecycleTest extends TestCase
                             'nama_punggung' => 'M-Boy',
                             'nomor_punggung' => '3',
                             'size_id' => $sizeM->id,
-                            'size_label' => 'Laki-laki - M',
+                            'size_label' => 'M',
                         ],
                         [
                             'nama_punggung' => 'XS-Kid',
                             'nomor_punggung' => '1',
                             'size_id' => $sizeKidXS->id,
-                            'size_label' => 'Anak - XS Kid',
+                            'size_label' => 'XS Kid',
                         ],
                         [
                             'nama_punggung' => 'S-Boy',
                             'nomor_punggung' => '2',
                             'size_id' => $sizeS->id,
-                            'size_label' => 'Laki-laki - S',
+                            'size_label' => 'S',
                         ]
                     ]
                 ]],

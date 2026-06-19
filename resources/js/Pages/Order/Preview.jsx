@@ -1315,7 +1315,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                                 <td className="px-2 py-1 border font-medium uppercase">{ns.nama_lengan || '—'}</td>
                                                                 <td className="px-2 py-1 border text-center font-mono">{ns.nomor_lengan || '—'}</td>
                                                                 <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung_2 || '—'}</td>
-                                                                <td className="px-2 py-1 border text-center">{ns.size ? `${ns.size.kategori_size}-${ns.size.ukuran}` : (ns.size_label || '—')}</td>
+                                                                <td className="px-2 py-1 border text-center">{ns.size ? ns.size.ukuran : (ns.size_label || '—')}</td>
                                                                 <td className="px-2 py-1 border text-muted-foreground">{ns.keterangan || '—'}</td>
                                                             </tr>
                                                         ))}

@@ -104,43 +104,9 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
 
     const safeSizes = useMemo(() => {
         const arr = Array.isArray(sizes) ? [...sizes] : [];
-        const catPriority = ['LAKI-LAKI', 'UNISEX', 'PEREMPUAN', 'ANAK', 'CUSTOM'];
-        arr.sort((a, b) => {
-            let idxA = catPriority.indexOf(a.kategori_size?.toUpperCase());
-            let idxB = catPriority.indexOf(b.kategori_size?.toUpperCase());
-            if (idxA === -1) idxA = 999;
-            if (idxB === -1) idxB = 999;
-            if (idxA !== idxB) return idxA - idxB;
-            return a.id - b.id;
-        });
+        arr.sort((a, b) => (a.urutan || 0) - (b.urutan || 0));
         return arr;
     }, [sizes]);
-
-    const polaName = useMemo(() => {
-        if (!item || !item.pola_produksi_id || !Array.isArray(polaProduksi)) return '';
-        const found = polaProduksi.find(p => p.id === item.pola_produksi_id);
-        return found ? found.nama.toLowerCase() : '';
-    }, [item, polaProduksi]);
-
-    const isKidsItem = useMemo(() => {
-        const prodName = (item?.nama_produk || '').toLowerCase();
-        return prodName.includes('anak') || prodName.includes('kids') || prodName.includes('junior');
-    }, [item]);
-
-    const isFemaleItem = useMemo(() => {
-        const prodName = (item?.nama_produk || '').toLowerCase();
-        return prodName.includes('cewek') || prodName.includes('perempuan') || prodName.includes('wanita') || prodName.includes('ladies') || prodName.includes('girls') || polaName.includes('perempuan');
-    }, [item, polaName]);
-
-    const priorityCategories = useMemo(() => {
-        if (isKidsItem) {
-            return ['ANAK', 'UNISEX', 'LAKI-LAKI', 'PEREMPUAN', 'CUSTOM'];
-        }
-        if (isFemaleItem) {
-            return ['PEREMPUAN', 'UNISEX', 'LAKI-LAKI', 'ANAK', 'CUSTOM'];
-        }
-        return ['LAKI-LAKI', 'UNISEX', 'PEREMPUAN', 'ANAK', 'CUSTOM'];
-    }, [isKidsItem, isFemaleItem]);
 
     const parseInput = (inputStr) => {
         let clean = inputStr.toLowerCase().trim();
@@ -152,44 +118,13 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                      .replace(/\bxxxxxl\b/g, '5xl')
                      .replace(/\s+/g, ' ');
 
-        let category = null;
-        let sizePart = clean;
-
-        const maleRegex = /^(laki-laki|laki|cowok|pria|l)[\s\-\.]+(.+)$/i;
-        const femaleRegex = /^(perempuan|cewek|wanita|ladies|p)[\s\-\.]+(.+)$/i;
-        const unisexRegex = /^(unisex|u)[\s\-\.]+(.+)$/i;
-        const kidsRegex = /^(anak-anak|anak|kids|junior|kid|a)[\s\-\.]+(.+)$/i;
-        const customRegex = /^(custom|c)[\s\-\.]+(.+)$/i;
-
-        if (maleRegex.test(clean)) {
-            const match = clean.match(maleRegex);
-            category = 'LAKI-LAKI';
-            sizePart = match[2];
-        } else if (femaleRegex.test(clean)) {
-            const match = clean.match(femaleRegex);
-            category = 'PEREMPUAN';
-            sizePart = match[2];
-        } else if (unisexRegex.test(clean)) {
-            const match = clean.match(unisexRegex);
-            category = 'UNISEX';
-            sizePart = match[2];
-        } else if (kidsRegex.test(clean)) {
-            const match = clean.match(kidsRegex);
-            category = 'ANAK';
-            sizePart = match[2];
-        } else if (customRegex.test(clean)) {
-            const match = clean.match(customRegex);
-            category = 'CUSTOM';
-            sizePart = match[2];
-        }
-
-        sizePart = sizePart.replace(/\s+/g, '').toUpperCase();
+        let sizePart = clean.replace(/\s+/g, '').toUpperCase();
         if (sizePart === 'XXL') sizePart = '2XL';
         if (sizePart === 'XXXL') sizePart = '3XL';
         if (sizePart === 'XXXXL') sizePart = '4XL';
         if (sizePart === 'XXXXXL') sizePart = '5XL';
 
-        return { category, sizePart };
+        return { sizePart };
     };
 
     const resolveSize = (val) => {
@@ -197,47 +132,20 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
         const parsed = parseInput(val);
         if (!parsed) return null;
 
-        const { category, sizePart } = parsed;
+        const { sizePart } = parsed;
 
-        if (category) {
-            const matched = safeSizes.find(
-                (s) =>
-                    s.kategori_size?.toUpperCase() === category &&
-                    s.ukuran?.toUpperCase() === sizePart
-            );
-            if (matched) return matched;
-        }
-
-        const matches = safeSizes.filter(
+        // Exact match
+        const matched = safeSizes.find(
             (s) => s.ukuran?.toUpperCase() === sizePart
         );
+        if (matched) return matched;
 
-        if (matches.length > 0) {
-            matches.sort((a, b) => {
-                let indexA = priorityCategories.indexOf(a.kategori_size?.toUpperCase());
-                let indexB = priorityCategories.indexOf(b.kategori_size?.toUpperCase());
-                if (indexA === -1) indexA = 999;
-                if (indexB === -1) indexB = 999;
-                return indexA - indexB;
-            });
-            return matches[0];
-        }
-
-        // Fuzzy match dengan priority categories
+        // Fuzzy match
         const fuzzyMatches = safeSizes.filter(
-            (s) =>
-                `${s.kategori_size} - ${s.ukuran}`.toLowerCase().replace(/\s+/g, '') === val.toLowerCase().replace(/\s+/g, '') ||
-                s.ukuran?.toLowerCase().replace(/\s+/g, '') === val.toLowerCase().replace(/\s+/g, '')
+            (s) => s.ukuran?.toLowerCase().replace(/\s+/g, '') === val.toLowerCase().replace(/\s+/g, '')
         );
 
         if (fuzzyMatches.length > 0) {
-            fuzzyMatches.sort((a, b) => {
-                let indexA = priorityCategories.indexOf(a.kategori_size?.toUpperCase());
-                let indexB = priorityCategories.indexOf(b.kategori_size?.toUpperCase());
-                if (indexA === -1) indexA = 999;
-                if (indexB === -1) indexB = 999;
-                return indexA - indexB;
-            });
             return fuzzyMatches[0];
         }
 
@@ -416,7 +324,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                             const matched = safeSizes.find((s) => s.id === overrideVal);
                             if (matched) {
                                 rowData.size_id = matched.id;
-                                rowData.size_label = `${matched.kategori_size} - ${matched.ukuran}`;
+                                rowData.size_label = matched.ukuran;
                             }
                         } else {
                             // Skip empty values untuk mencegah data bergeser akibat gap
@@ -427,7 +335,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                                 const matched = resolveSize(val);
                                 if (matched) {
                                     rowData.size_id = matched.id;
-                                    rowData.size_label = `${matched.kategori_size} - ${matched.ukuran}`;
+                                    rowData.size_label = matched.ukuran;
                                 } else {
                                     rowData.size_id = '';
                                     rowData.size_label = val;
@@ -440,7 +348,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                             const matched = safeSizes.find((s) => s.id === overrideVal);
                             if (matched) {
                                 rowData.size_celana_id = matched.id;
-                                rowData.size_celana_label = `${matched.kategori_size} - ${matched.ukuran}`;
+                                rowData.size_celana_label = matched.ukuran;
                             }
                         } else {
                             // Skip empty values untuk mencegah data bergeser akibat gap
@@ -451,7 +359,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                                 const matched = resolveSize(val);
                                 if (matched) {
                                     rowData.size_celana_id = matched.id;
-                                    rowData.size_celana_label = `${matched.kategori_size} - ${matched.ukuran}`;
+                                    rowData.size_celana_label = matched.ukuran;
                                 } else {
                                     rowData.size_celana_id = '';
                                     rowData.size_celana_label = val;
@@ -608,7 +516,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                                                                             <SelectItem value={NONE} className="text-xs italic">— Tidak Cocok ({val || 'kosong'}) —</SelectItem>
                                                                             {safeSizes.map((s) => (
                                                                                 <SelectItem key={s.id} value={s.id} className="text-xs">
-                                                                                    {s.kategori_size} - {s.ukuran}
+                                                                                    {s.ukuran}
                                                                                 </SelectItem>
                                                                             ))}
                                                                         </SelectContent>
@@ -690,11 +598,11 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
         next[i] = { ...next[i], [field]: value };
         if (field === 'size_id') {
             const s = masters.sizes.find((x) => x.id === value);
-            next[i].size_label = s ? `${s.kategori_size} - ${s.ukuran}` : '';
+            next[i].size_label = s ? s.ukuran : '';
         }
         if (field === 'size_celana_id') {
             const s = masters.sizes.find((x) => x.id === value);
-            next[i].size_celana_label = s ? `${s.kategori_size} - ${s.ukuran}` : '';
+            next[i].size_celana_label = s ? s.ukuran : '';
         }
         onChange(index, { ...item, namesets: next });
     }
@@ -1224,7 +1132,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                                                         <SelectContent>
                                                             <SelectItem value={NONE}>— —</SelectItem>
                                                             {masters.sizes.map((s) => (
-                                                                <SelectItem key={s.id} value={s.id}>{s.kategori_size} - {s.ukuran}</SelectItem>
+                                                                <SelectItem key={s.id} value={s.id}>{s.ukuran}</SelectItem>
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
@@ -1235,7 +1143,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                                                         <SelectContent>
                                                             <SelectItem value={NONE}>— —</SelectItem>
                                                             {masters.sizes.map((s) => (
-                                                                <SelectItem key={s.id} value={s.id}>{s.kategori_size} - {s.ukuran}</SelectItem>
+                                                                <SelectItem key={s.id} value={s.id}>{s.ukuran}</SelectItem>
                                                             ))}
                                                         </SelectContent>
                                                     </Select>

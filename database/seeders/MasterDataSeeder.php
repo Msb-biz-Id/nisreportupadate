@@ -124,31 +124,21 @@ class MasterDataSeeder extends Seeder
 
     private function seedSize(): void
     {
-        // Mengikuti BRD: "33 Size Options" lintas kategori
-        $map = [
-            'ANAK' => ['XS', 'S', 'M', 'L', 'XL'],
-            'LAKI-LAKI' => ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL', '7XL', '8XL', '9XL', '10XL'],
-            'PEREMPUAN' => ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'],
-            'UNISEX' => ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL'],
-            'CUSTOM' => ['CUSTOM'],
-        ];
-        foreach ($map as $kat => $ukurans) {
-            foreach ($ukurans as $idx => $u) {
-                $size = Size::withTrashed()->where(['kategori_size' => $kat, 'ukuran' => $u])->first();
-                if ($size) {
-                    $size->update([
-                        'urutan' => $idx,
-                        'is_active' => true,
-                        'deleted_at' => null,
-                    ]);
-                } else {
-                    Size::create([
-                        'kategori_size' => $kat,
-                        'ukuran' => $u,
-                        'urutan' => $idx,
-                        'is_active' => true,
-                    ]);
-                }
+        $ukurans = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL', '7XL', '8XL', '9XL', '10XL', 'CUSTOM'];
+        foreach ($ukurans as $idx => $u) {
+            $size = Size::withTrashed()->where(['ukuran' => $u])->first();
+            if ($size) {
+                $size->update([
+                    'urutan' => $idx,
+                    'is_active' => true,
+                    'deleted_at' => null,
+                ]);
+            } else {
+                Size::create([
+                    'ukuran' => $u,
+                    'urutan' => $idx,
+                    'is_active' => true,
+                ]);
             }
         }
     }

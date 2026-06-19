@@ -10,7 +10,7 @@ class Size extends Model
 {
     use HasFactory, HasUuidAndSoftDeletes;
 
-    protected $fillable = ['kategori_size', 'ukuran', 'urutan', 'is_active'];
+    protected $fillable = ['ukuran', 'urutan', 'is_active'];
 
     protected $casts = ['is_active' => 'boolean', 'urutan' => 'integer'];
 

@@ -10,14 +10,12 @@ return new class extends Migration
     {
         Schema::create('sizes', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->string('kategori_size', 50);
-            $table->string('ukuran', 20);
+            $table->string('ukuran', 20)->unique();
             $table->integer('urutan')->default(0);
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->softDeletes();
 
-            $table->unique(['kategori_size', 'ukuran']);
             $table->index('is_active');
         });
     }

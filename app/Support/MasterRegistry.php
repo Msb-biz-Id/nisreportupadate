@@ -100,26 +100,17 @@ class MasterRegistry
                 'model' => Size::class,
                 'scope' => 'global',
                 'fields' => [
-                    ['name' => 'kategori_size', 'label' => 'Kategori', 'type' => 'select', 'required' => true, 'options' => [
-                        ['value' => 'ANAK', 'label' => 'Anak'],
-                        ['value' => 'PEREMPUAN', 'label' => 'Perempuan'],
-                        ['value' => 'LAKI-LAKI', 'label' => 'Laki-laki'],
-                        ['value' => 'UNISEX', 'label' => 'Unisex'],
-                        ['value' => 'CUSTOM', 'label' => 'Custom'],
-                    ]],
                     ['name' => 'ukuran', 'label' => 'Ukuran', 'type' => 'text', 'required' => true, 'max' => 20, 'placeholder' => 'Contoh: XS, S, M, L, 6XL'],
                     ['name' => 'urutan', 'label' => 'Urutan Tampil', 'type' => 'number', 'default' => 0],
                     ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
                 ],
                 'list_columns' => [
-                    ['key' => 'kategori_size', 'label' => 'Kategori', 'type' => 'badge'],
                     ['key' => 'ukuran', 'label' => 'Ukuran'],
                     ['key' => 'urutan', 'label' => 'Urutan'],
                     ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
                 ],
-                'search_fields' => ['kategori_size', 'ukuran'],
-                'order_by' => 'kategori_size',
-                'secondary_order' => 'urutan',
+                'search_fields' => ['ukuran'],
+                'order_by' => 'urutan',
             ],
 
             'pola-jahitan' => [

@@ -71,8 +71,7 @@ class OrderSeeder extends Seeder
             $polaLengan = PolaJahitan::where('jenis_pola', 'Lengan')->get();
             $polaKerah = PolaJahitan::where('jenis_pola', 'Kerah')->get();
             $polaBawah = PolaJahitan::where('jenis_pola', 'Bawah')->get();
-            $sizesLaki = Size::where('kategori_size', 'LAKI-LAKI')->orderBy('urutan')->limit(8)->get();
-            $sizesWanita = Size::where('kategori_size', 'PEREMPUAN')->orderBy('urutan')->limit(5)->get();
+            $sizesFlat = Size::orderBy('urutan')->limit(12)->get();
             $progresses = Progress::active()->ordered()->get();
 
             $adminUser = User::where('email', 'like', '%' . strtolower($brand->kode) . '%')
@@ -165,8 +164,8 @@ class OrderSeeder extends Seeder
                     $allItems[] = $item;
 
                     // ---- NAMESETS (jumlah = quantity, data lengkap) ----
-                    $sizes = $idx % 2 === 0 ? $sizesLaki : $sizesWanita;
-                    if ($sizes->isEmpty()) $sizes = $sizesLaki;
+                    $sizes = $sizesFlat;
+                    if ($sizes->isEmpty()) $sizes = Size::orderBy('urutan')->get();
 
                     $namaPemain = ['Andi', 'Budi', 'Citra', 'Dedi', 'Eko', 'Fani', 'Gita', 'Hadi',
                         'Irfan', 'Joko', 'Kiki', 'Lina', 'Maman', 'Nana', 'Oscar', 'Putra',
@@ -184,9 +183,9 @@ class OrderSeeder extends Seeder
                             'nama_dada'       => $n <= 5 ? strtoupper($nama) : null,
                             'nomor_dada'      => $n <= 5 ? (string) $n : null,
                             'size_id'         => $size->id,
-                            'size_label'      => $size->kategori_size . '-' . $size->ukuran,
+                            'size_label'      => $size->ukuran,
                             'size_celana_id'  => $sizeCelana?->id,
-                            'size_celana_label' => $sizeCelana ? $sizeCelana->kategori_size . '-' . $sizeCelana->ukuran : null,
+                            'size_celana_label' => $sizeCelana ? $sizeCelana->ukuran : null,
                             'urutan'          => $n,
                         ]);
                     }

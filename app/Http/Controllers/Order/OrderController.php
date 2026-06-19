@@ -1108,22 +1108,22 @@ class OrderController extends Controller
             $item['_jenis_setelan'] = !empty($item['jenis_setelan_id']) ? ($jenisSetelans[$item['jenis_setelan_id']] ?? null) : ($item['jenis_setelan'] ?? null);
             $item['_pola_produksi'] = !empty($item['pola_produksi_id']) ? ($polaProduksis[$item['pola_produksi_id']] ?? null) : ($item['pola'] ?? null);
 
-            $item['namesets'] = collect($item['namesets'] ?? [])->map(function ($ns) use ($sizes) {
-                if (!empty($ns['size_id'])) {
-                    $sz = $sizes->get($ns['size_id']);
-                    $ns['_size_label'] = $sz ? "{$sz->kategori_size} - {$sz->ukuran}" : ($ns['size_label'] ?? '-');
-                } else {
-                    $ns['_size_label'] = $ns['size_label'] ?? '-';
-                }
+             $item['namesets'] = collect($item['namesets'] ?? [])->map(function ($ns) use ($sizes) {
+                 if (!empty($ns['size_id'])) {
+                     $sz = $sizes->get($ns['size_id']);
+                     $ns['_size_label'] = $sz ? $sz->ukuran : ($ns['size_label'] ?? '-');
+                 } else {
+                     $ns['_size_label'] = $ns['size_label'] ?? '-';
+                 }
 
-                if (!empty($ns['size_celana_id'])) {
-                    $szc = $sizes->get($ns['size_celana_id']);
-                    $ns['_size_celana_label'] = $szc ? "{$szc->kategori_size} - {$szc->ukuran}" : ($ns['size_celana_label'] ?? '-');
-                } else {
-                    $ns['_size_celana_label'] = $ns['size_celana_label'] ?? '-';
-                }
-                return $ns;
-            })->all();
+                 if (!empty($ns['size_celana_id'])) {
+                     $szc = $sizes->get($ns['size_celana_id']);
+                     $ns['_size_celana_label'] = $szc ? $szc->ukuran : ($ns['size_celana_label'] ?? '-');
+                 } else {
+                     $ns['_size_celana_label'] = $ns['size_celana_label'] ?? '-';
+                 }
+                 return $ns;
+             })->all();
 
             return $item;
         });
@@ -1422,7 +1422,7 @@ class OrderController extends Controller
             'pola_jahitans_lengan' => PolaJahitan::active()
                 ->where('jenis_pola', 'like', '%Lengan%')
                 ->orderBy('nama')->get(['id', 'jenis_pola', 'nama']),
-            'sizes' => Size::active()->orderBy('kategori_size')->orderBy('urutan')->get(['id', 'kategori_size', 'ukuran']),
+            'sizes' => Size::active()->orderBy('urutan')->get(['id', 'ukuran']),
             'banks' => $banks,
             'jenis_pembayarans' => \App\Models\Finance\MasterJenisPembayaran::active()->orderBy('nama')->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan', 'deskripsi']),
         ];
@@ -1535,14 +1535,6 @@ class OrderController extends Controller
             $sizesMap = \App\Models\Master\Size::whereIn('id', array_unique($sizeIds))->get()->keyBy('id');
         }
 
-        $categoryPriority = [
-            'ANAK' => 1,
-            'LAKI-LAKI' => 2,
-            'UNISEX' => 3,
-            'PEREMPUAN' => 4,
-            'CUSTOM' => 5,
-        ];
-
         foreach ($items as $item) {
             $namesets = $item['namesets'] ?? [];
             unset($item['namesets']);
@@ -1569,22 +1561,17 @@ class OrderController extends Controller
             $created = OrderItem::create($item);
 
             // Sort namesets by size (atasan) and secondarily by size (celana)
-            usort($namesets, function ($a, $b) use ($sizesMap, $categoryPriority) {
+            usort($namesets, function ($a, $b) use ($sizesMap) {
                 // Atasan A
                 $sizeIdA = $a['size_id'] ?? null;
                 $sizeA = $sizeIdA && isset($sizesMap[$sizeIdA]) ? $sizesMap[$sizeIdA] : null;
-                $catPriA = $sizeA ? ($categoryPriority[strtoupper($sizeA->kategori_size)] ?? 99) : 999;
                 $urutanA = $sizeA ? ($sizeA->urutan ?? 9999) : 999999;
 
                 // Atasan B
                 $sizeIdB = $b['size_id'] ?? null;
                 $sizeB = $sizeIdB && isset($sizesMap[$sizeIdB]) ? $sizesMap[$sizeIdB] : null;
-                $catPriB = $sizeB ? ($categoryPriority[strtoupper($sizeB->kategori_size)] ?? 99) : 999;
                 $urutanB = $sizeB ? ($sizeB->urutan ?? 9999) : 999999;
 
-                if ($catPriA !== $catPriB) {
-                    return $catPriA <=> $catPriB;
-                }
                 if ($urutanA !== $urutanB) {
                     return $urutanA <=> $urutanB;
                 }
@@ -1592,18 +1579,13 @@ class OrderController extends Controller
                 // Celana A
                 $sizeCelanaIdA = $a['size_celana_id'] ?? null;
                 $sizeCelanaA = $sizeCelanaIdA && isset($sizesMap[$sizeCelanaIdA]) ? $sizesMap[$sizeCelanaIdA] : null;
-                $catPriCelanaA = $sizeCelanaA ? ($categoryPriority[strtoupper($sizeCelanaA->kategori_size)] ?? 99) : 999;
                 $urutanCelanaA = $sizeCelanaA ? ($sizeCelanaA->urutan ?? 9999) : 999999;
 
                 // Celana B
                 $sizeCelanaIdB = $b['size_celana_id'] ?? null;
                 $sizeCelanaB = $sizeCelanaIdB && isset($sizesMap[$sizeCelanaIdB]) ? $sizesMap[$sizeCelanaIdB] : null;
-                $catPriCelanaB = $sizeCelanaB ? ($categoryPriority[strtoupper($sizeCelanaB->kategori_size)] ?? 99) : 999;
                 $urutanCelanaB = $sizeCelanaB ? ($sizeCelanaB->urutan ?? 9999) : 999999;
 
-                if ($catPriCelanaA !== $catPriCelanaB) {
-                    return $catPriCelanaA <=> $catPriCelanaB;
-                }
                 if ($urutanCelanaA !== $urutanCelanaB) {
                     return $urutanCelanaA <=> $urutanCelanaB;
                 }
