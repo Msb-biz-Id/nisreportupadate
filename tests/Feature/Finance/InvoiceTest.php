@@ -523,4 +523,92 @@ class InvoiceTest extends TestCase
 
         $this->assertEquals('on_progress', $sendingDetail->fresh()->status);
     }
+
+    public function test_send_invoice_reminders_command_excludes_validated_payments(): void
+    {
+        $brand = $this->makeBrand();
+        $finance = $this->makeUser('admin_keuangan', [$brand]);
+        $customer = Customer::create([
+            'brand_id' => $brand->id, 'kode' => 'C_REM', 'nama' => 'Test Rem', 'nomor_hp' => '0812345678', 'is_active' => true
+        ]);
+
+        $order1 = Order::create([
+            'brand_id' => $brand->id, 'no_po' => 'PO-REM-1', 'nama_po' => 'PO Rem 1', 'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(), 'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id, 'total_tagihan' => 100000, 'published_at' => now(), 'created_by' => $finance->id,
+        ]);
+
+        $order2 = Order::create([
+            'brand_id' => $brand->id, 'no_po' => 'PO-REM-2', 'nama_po' => 'PO Rem 2', 'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(), 'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id, 'total_tagihan' => 200000, 'published_at' => now(), 'created_by' => $finance->id,
+        ]);
+
+        // Invoice 1: has status 'published' and total_bayar = 0. Should be processed.
+        $inv1 = Invoice::create([
+            'brand_id' => $brand->id, 'order_id' => $order1->id, 'invoice_number' => 'INV-REM-1',
+            'tanggal_terbit' => now()->toDateString(), 'jatuh_tempo' => now()->addDays(2)->toDateString(),
+            'status' => 'published', 'total_tagihan' => 100000, 'total_bayar' => 0, 'sisa_pembayaran' => 100000,
+            'created_by' => $finance->id,
+        ]);
+
+        // Invoice 2: has status 'published' and total_bayar > 0 (DP validated). Should NOT be processed.
+        $inv2 = Invoice::create([
+            'brand_id' => $brand->id, 'order_id' => $order2->id, 'invoice_number' => 'INV-REM-2',
+            'tanggal_terbit' => now()->toDateString(), 'jatuh_tempo' => now()->addDays(2)->toDateString(),
+            'status' => 'published', 'total_tagihan' => 200000, 'total_bayar' => 50000, 'sisa_pembayaran' => 150000,
+            'created_by' => $finance->id,
+        ]);
+
+        // Run command
+        $this->artisan('invoices:send-reminders --days=3 --dry-run')
+            ->expectsOutputToContain('Reminder (≤3 hari): 1 | Overdue: 0')
+            ->expectsOutputToContain('[DRY] REMINDER INV-REM-1')
+            ->doesntExpectOutput('[DRY] REMINDER INV-REM-2')
+            ->assertSuccessful();
+    }
+
+    public function test_send_invoice_overdues_command_excludes_validated_payments(): void
+    {
+        $brand = $this->makeBrand();
+        $finance = $this->makeUser('admin_keuangan', [$brand]);
+        $customer = Customer::create([
+            'brand_id' => $brand->id, 'kode' => 'C_OVR', 'nama' => 'Test Ovr', 'nomor_hp' => '0812345679', 'is_active' => true
+        ]);
+
+        $order1 = Order::create([
+            'brand_id' => $brand->id, 'no_po' => 'PO-OVR-1', 'nama_po' => 'PO Ovr 1', 'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(), 'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id, 'total_tagihan' => 100000, 'published_at' => now(), 'created_by' => $finance->id,
+        ]);
+
+        $order2 = Order::create([
+            'brand_id' => $brand->id, 'no_po' => 'PO-OVR-2', 'nama_po' => 'PO Ovr 2', 'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(), 'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id, 'total_tagihan' => 200000, 'published_at' => now(), 'created_by' => $finance->id,
+        ]);
+
+        // Invoice 1: has status 'published', overdue, and total_bayar = 0. Should be processed.
+        $inv1 = Invoice::create([
+            'brand_id' => $brand->id, 'order_id' => $order1->id, 'invoice_number' => 'INV-OVR-1',
+            'tanggal_terbit' => now()->subDays(10)->toDateString(), 'jatuh_tempo' => now()->subDays(1)->toDateString(),
+            'status' => 'published', 'total_tagihan' => 100000, 'total_bayar' => 0, 'sisa_pembayaran' => 100000,
+            'created_by' => $finance->id,
+        ]);
+
+        // Invoice 2: has status 'published', overdue, and total_bayar > 0 (DP validated). Should NOT be processed.
+        $inv2 = Invoice::create([
+            'brand_id' => $brand->id, 'order_id' => $order2->id, 'invoice_number' => 'INV-OVR-2',
+            'tanggal_terbit' => now()->subDays(10)->toDateString(), 'jatuh_tempo' => now()->subDays(1)->toDateString(),
+            'status' => 'published', 'total_tagihan' => 200000, 'total_bayar' => 50000, 'sisa_pembayaran' => 150000,
+            'created_by' => $finance->id,
+        ]);
+
+        // Run command
+        $this->artisan('invoices:send-reminders --days=3 --dry-run')
+            ->expectsOutputToContain('Reminder (≤3 hari): 0 | Overdue: 1')
+            ->expectsOutputToContain('[DRY] OVERDUE  INV-OVR-1')
+            ->doesntExpectOutput('[DRY] OVERDUE  INV-OVR-2')
+            ->assertSuccessful();
+    }
 }

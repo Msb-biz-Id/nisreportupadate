@@ -24,6 +24,10 @@ class SendInvoiceReminders extends Command
         // Mendekati jatuh tempo
         $reminders = Invoice::whereIn('status', ['published', 'sent'])
             ->whereNotNull('jatuh_tempo')
+            ->where(function ($query) {
+                $query->whereNull('total_bayar')
+                      ->orWhere('total_bayar', '<=', 0);
+            })
             ->whereBetween('jatuh_tempo', [today(), today()->addDays($days)])
             ->with(['order.pelanggan', 'brand'])
             ->get();
@@ -31,6 +35,10 @@ class SendInvoiceReminders extends Command
         // Sudah melewati jatuh tempo
         $overdues = Invoice::whereIn('status', ['published', 'sent'])
             ->whereNotNull('jatuh_tempo')
+            ->where(function ($query) {
+                $query->whereNull('total_bayar')
+                      ->orWhere('total_bayar', '<=', 0);
+            })
             ->where('jatuh_tempo', '<', today())
             ->with(['order.pelanggan', 'brand'])
             ->get();
