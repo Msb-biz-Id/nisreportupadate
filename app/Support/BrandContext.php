@@ -22,7 +22,16 @@ class BrandContext
         }
 
         $canSeeAll = $user->hasAccessToBrand('all');
-        $current = $request->session()->get(self::SESSION_KEY) ?? $user->last_brand_id;
+        
+        $current = $request->session()->get(self::SESSION_KEY);
+        if (! $current) {
+            $defaultBrand = $user->defaultBrand();
+            if ($defaultBrand && $brands->firstWhere('id', $defaultBrand->id)) {
+                $current = $defaultBrand->id;
+            } else {
+                $current = $user->last_brand_id;
+            }
+        }
 
         if ($current === 'all' && $canSeeAll) {
             return [
@@ -48,10 +57,11 @@ class BrandContext
                 ];
             }
             $brand = $brands->firstWhere('is_active', true) ?? $brands->first();
-            $request->session()->put(self::SESSION_KEY, $brand->id);
-            if ($user->last_brand_id !== $brand->id) {
-                $user->forceFill(['last_brand_id' => $brand->id === 'all' ? null : $brand->id])->saveQuietly();
-            }
+        }
+
+        $request->session()->put(self::SESSION_KEY, $brand->id);
+        if ($user->last_brand_id !== $brand->id) {
+            $user->forceFill(['last_brand_id' => $brand->id === 'all' ? null : $brand->id])->saveQuietly();
         }
 
         return [

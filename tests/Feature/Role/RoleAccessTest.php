@@ -632,7 +632,7 @@ class RoleAccessTest extends TestCase
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'nama_brand', 'INDOWAREHOUSE');
 
         $regular = $this->makeBrand(['brand_type' => \App\Models\Brand::TYPE_REGULAR, 'nama_brand' => 'Allegiant Owner']);
-        $hub     = $this->makeBrand(['brand_type' => \App\Models\Brand::TYPE_RESELLER_HUB, 'parent_brand_id' => $regular->id]);
+        $hub     = $this->makeBrand(['brand_type' => \App\Models\Brand::TYPE_RESELLER_HUB, 'parent_brand_id' => $regular->id, 'nama_brand' => 'INDOWAREHOUSE']);
 
         $user = $this->makeUser('admin_brand', [$hub]);
 

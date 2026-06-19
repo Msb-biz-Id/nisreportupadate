@@ -124,25 +124,52 @@ class Brand extends Model
             $globalBrand = new self();
             $globalBrand->id = $this->id;
             
-            $globalBrand->nama_brand = \App\Models\Settings\SystemSetting::get('reseller_branding', 'nama_brand') 
-                ?: (\App\Models\Settings\SystemSetting::get('seo', 'site_name') ?: 'Circle Sportwear');
-            
-            $globalBrand->logo = \App\Models\Settings\SystemSetting::get('reseller_branding', 'logo') 
-                ?: \App\Models\Settings\SystemSetting::get('seo', 'logo');
-            
-            $globalBrand->tagline = \App\Models\Settings\SystemSetting::get('reseller_branding', 'tagline') 
-                ?: (\App\Models\Settings\SystemSetting::get('seo', 'site_description') ?: 'Premium Activewear & Apparel');
-            
-            $globalBrand->email = \App\Models\Settings\SystemSetting::get('reseller_branding', 'email') 
-                ?: (\App\Models\Settings\SystemSetting::get('mail', 'mail_from_address') ?: 'cs@circlesportwear.id');
-            
-            $globalBrand->no_hp = \App\Models\Settings\SystemSetting::get('reseller_branding', 'no_hp') 
-                ?: (\App\Models\Settings\SystemSetting::get('whatsapp', 'sender_phone') ?: '08123456789');
+            $parent = $this->isResellerBranch() ? $this->parentBrand : null;
 
-            $globalBrand->alamat = \App\Models\Settings\SystemSetting::get('reseller_branding', 'alamat');
-            $globalBrand->instagram = \App\Models\Settings\SystemSetting::get('reseller_branding', 'instagram');
-            $globalBrand->tiktok = \App\Models\Settings\SystemSetting::get('reseller_branding', 'tiktok');
-            $globalBrand->facebook = \App\Models\Settings\SystemSetting::get('reseller_branding', 'facebook');
+            $globalBrand->nama_brand = $this->nama_brand 
+                ?: ($parent?->nama_brand 
+                    ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'nama_brand') 
+                        ?: (\App\Models\Settings\SystemSetting::get('seo', 'site_name') ?: 'Circle Sportwear')));
+            
+            $globalBrand->logo = $this->logo 
+                ?: ($parent?->logo 
+                    ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'logo') 
+                        ?: \App\Models\Settings\SystemSetting::get('seo', 'logo')));
+            
+            $globalBrand->tagline = $this->tagline 
+                ?: ($parent?->tagline 
+                    ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'tagline') 
+                        ?: (\App\Models\Settings\SystemSetting::get('seo', 'site_description') ?: 'Premium Activewear & Apparel')));
+            
+            $globalBrand->email = $this->email 
+                ?: ($parent?->email 
+                    ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'email') 
+                        ?: (\App\Models\Settings\SystemSetting::get('mail', 'mail_from_address') ?: 'cs@circlesportwear.id')));
+            
+            $globalBrand->no_hp = $this->no_hp 
+                ?: ($parent?->no_hp 
+                    ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'no_hp') 
+                        ?: (\App\Models\Settings\SystemSetting::get('whatsapp', 'sender_phone') ?: '08123456789')));
+
+            $globalBrand->alamat = $this->alamat 
+                ?: ($parent?->alamat 
+                    ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'alamat'));
+
+            $globalBrand->instagram = $this->instagram 
+                ?: ($parent?->instagram 
+                    ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'instagram'));
+
+            $globalBrand->tiktok = $this->tiktok 
+                ?: ($parent?->tiktok 
+                    ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'tiktok'));
+
+            $globalBrand->facebook = $this->facebook 
+                ?: ($parent?->facebook 
+                    ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'facebook'));
+
+            $globalBrand->website = $this->website 
+                ?: ($parent?->website 
+                    ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'website'));
             
             $regular = self::where('brand_type', self::TYPE_REGULAR)->first();
             if ($regular) {
@@ -153,7 +180,7 @@ class Brand extends Model
                 $globalBrand->instagram = $globalBrand->instagram ?: $regular->instagram;
                 $globalBrand->facebook = $globalBrand->facebook ?: $regular->facebook;
                 $globalBrand->tiktok = $globalBrand->tiktok ?: $regular->tiktok;
-                $globalBrand->website = $regular->website;
+                $globalBrand->website = $globalBrand->website ?: $regular->website;
             } else {
                 $globalBrand->alamat = $globalBrand->alamat ?: 'Bandung, Indonesia';
             }

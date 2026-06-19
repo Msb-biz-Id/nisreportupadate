@@ -34,7 +34,15 @@ class InvoiceController extends Controller
             abort(403, 'Unauthorized brand context.');
         }
 
-        $invoice->load(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments', 'order.iklan']);
+        $invoice->load(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments', 'order.iklan', 'order.creator.brands']);
+        if ($invoice->order) {
+            $resellerBrand = $invoice->order->resolveResellerBrand();
+            if ($resellerBrand) {
+                $resellerBrand->load('parentBrand');
+                $invoice->setRelation('brand', $resellerBrand);
+            }
+        }
+
         if (!$invoice->bank_id) {
             $bankBrandId = \App\Support\BrandContext::masterDataId($request, $invoice->brand_id);
             $defaultBank = \App\Models\Master\BankAccount::active()->where('brand_id', $bankBrandId)->first();
@@ -81,8 +89,16 @@ class InvoiceController extends Controller
             $query->whereIn('status', ['published', 'sent', 'paid']);
         }
 
-        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments.bank', 'order.progressDetails.progress', 'order.iklan'])
+        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments.bank', 'order.progressDetails.progress', 'order.iklan', 'order.creator.brands'])
             ->firstOrFail();
+
+        if ($invoice->order) {
+            $resellerBrand = $invoice->order->resolveResellerBrand();
+            if ($resellerBrand) {
+                $resellerBrand->load('parentBrand');
+                $invoice->setRelation('brand', $resellerBrand);
+            }
+        }
 
         if (!$invoice->bank_id) {
             $bankBrandId = \App\Support\BrandContext::masterDataId(request(), $invoice->brand_id);
@@ -134,8 +150,16 @@ class InvoiceController extends Controller
             $query->whereIn('status', ['published', 'sent', 'paid']);
         }
 
-        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments', 'order.iklan'])
+        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments', 'order.iklan', 'order.creator.brands'])
             ->firstOrFail();
+
+        if ($invoice->order) {
+            $resellerBrand = $invoice->order->resolveResellerBrand();
+            if ($resellerBrand) {
+                $resellerBrand->load('parentBrand');
+                $invoice->setRelation('brand', $resellerBrand);
+            }
+        }
 
         if (!$invoice->bank_id) {
             $bankBrandId = \App\Support\BrandContext::masterDataId(request(), $invoice->brand_id);

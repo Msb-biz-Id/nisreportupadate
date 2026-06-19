@@ -1159,7 +1159,14 @@ class OrderController extends Controller
             'items.polaJahitan', 'items.polaJahitanLengan',
             'items.jenisSetelan', 'items.polaProduksi',
             'items.namesets.size', 'items.namesets.sizeCelana',
+            'creator.brands',
         ]);
+
+        $resellerBrand = $order->resolveResellerBrand();
+        if ($resellerBrand) {
+            $resellerBrand->load('parentBrand');
+            $order->setRelation('brand', $resellerBrand);
+        }
 
         $this->resolveItemNamesInBatch($order);
         $headerBrand = $order->brand ? $order->brand->getHeaderBrand() : null;
@@ -1187,7 +1194,14 @@ class OrderController extends Controller
             'items.polaJahitan', 'items.polaJahitanLengan',
             'items.jenisSetelan', 'items.polaProduksi',
             'items.namesets.size', 'items.namesets.sizeCelana',
+            'creator.brands',
         ]);
+
+        $resellerBrand = $order->resolveResellerBrand();
+        if ($resellerBrand) {
+            $resellerBrand->load('parentBrand');
+            $order->setRelation('brand', $resellerBrand);
+        }
 
         $this->resolveItemNamesInBatch($order);
 
@@ -1215,7 +1229,14 @@ class OrderController extends Controller
             'items.polaJahitan', 'items.polaJahitanLengan',
             'items.jenisSetelan', 'items.polaProduksi',
             'items.namesets.size', 'items.namesets.sizeCelana',
+            'creator.brands',
         ]);
+
+        $resellerBrand = $order->resolveResellerBrand();
+        if ($resellerBrand) {
+            $resellerBrand->load('parentBrand');
+            $order->setRelation('brand', $resellerBrand);
+        }
 
         $this->resolveItemNamesInBatch($order);
 
@@ -1244,7 +1265,14 @@ class OrderController extends Controller
             'items.polaJahitan', 'items.polaJahitanLengan',
             'items.jenisSetelan', 'items.polaProduksi',
             'items.namesets.size', 'items.namesets.sizeCelana',
+            'creator.brands',
         ]);
+
+        $resellerBrand = $order->resolveResellerBrand();
+        if ($resellerBrand) {
+            $resellerBrand->load('parentBrand');
+            $order->setRelation('brand', $resellerBrand);
+        }
 
         $this->resolveItemNamesInBatch($order);
         $headerBrand = $order->brand ? $order->brand->getHeaderBrand() : null;

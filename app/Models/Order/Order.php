@@ -230,4 +230,35 @@ class Order extends Model
     {
         return $q->where('status_po', '!=', 'draft');
     }
+
+    public function resolveResellerBrand(): ?Brand
+    {
+        // 1. If the order's brand is already a reseller brand, return it.
+        $currentBrand = $this->brand;
+        if ($currentBrand && in_array($currentBrand->brand_type, [Brand::TYPE_RESELLER_HUB, Brand::TYPE_RESELLER_BRANCH])) {
+            return $currentBrand;
+        }
+
+        // 2. Otherwise, check if the pelanggan is a reseller brand by name.
+        if ($this->pelanggan) {
+            $matchedBrand = Brand::whereIn('brand_type', [Brand::TYPE_RESELLER_HUB, Brand::TYPE_RESELLER_BRANCH])
+                ->whereRaw('LOWER(nama_brand) = ?', [strtolower($this->pelanggan->nama)])
+                ->first();
+            if ($matchedBrand) {
+                return $matchedBrand;
+            }
+        }
+
+        // 3. Otherwise, check if the creator (created_by user) belongs to a reseller brand.
+        if ($this->creator) {
+            $creatorResellerBrand = $this->creator->brands()
+                ->whereIn('brand_type', [Brand::TYPE_RESELLER_HUB, Brand::TYPE_RESELLER_BRANCH])
+                ->first();
+            if ($creatorResellerBrand) {
+                return $creatorResellerBrand;
+            }
+        }
+
+        return null;
+    }
 }
