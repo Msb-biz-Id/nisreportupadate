@@ -223,12 +223,25 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
             return matches[0];
         }
 
-        const fuzzyMatch = safeSizes.find(
+        // Fuzzy match dengan priority categories
+        const fuzzyMatches = safeSizes.filter(
             (s) =>
                 `${s.kategori_size} - ${s.ukuran}`.toLowerCase().replace(/\s+/g, '') === val.toLowerCase().replace(/\s+/g, '') ||
                 s.ukuran?.toLowerCase().replace(/\s+/g, '') === val.toLowerCase().replace(/\s+/g, '')
         );
-        return fuzzyMatch || null;
+
+        if (fuzzyMatches.length > 0) {
+            fuzzyMatches.sort((a, b) => {
+                let indexA = priorityCategories.indexOf(a.kategori_size?.toUpperCase());
+                let indexB = priorityCategories.indexOf(b.kategori_size?.toUpperCase());
+                if (indexA === -1) indexA = 999;
+                if (indexB === -1) indexB = 999;
+                return indexA - indexB;
+            });
+            return fuzzyMatches[0];
+        }
+
+        return null;
     };
 
     const MAPPING_OPTIONS = [
@@ -248,9 +261,10 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
 
     function splitLine(line) {
         if (!line) return [];
-        const cleanedLine = line.replace(/\r$/, '').trim();
-        if (!cleanedLine) return [];
+        const cleanedLine = line.replace(/\r$/, '');
+        if (!cleanedLine.trim()) return [];
 
+        // Jika menggunakan tab atau multiple spaces, split dengan menjaga empty cells
         if (/\t|\s{2,}/.test(cleanedLine)) {
             return cleanedLine.split(/\t|\s{2,}/).map((c) => c.trim());
         }
@@ -405,13 +419,19 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                                 rowData.size_label = `${matched.kategori_size} - ${matched.ukuran}`;
                             }
                         } else {
-                            const matched = resolveSize(val);
-                            if (matched) {
-                                rowData.size_id = matched.id;
-                                rowData.size_label = `${matched.kategori_size} - ${matched.ukuran}`;
-                            } else {
+                            // Skip empty values untuk mencegah data bergeser akibat gap
+                            if (!val || val.trim() === '') {
                                 rowData.size_id = '';
-                                rowData.size_label = val;
+                                rowData.size_label = '';
+                            } else {
+                                const matched = resolveSize(val);
+                                if (matched) {
+                                    rowData.size_id = matched.id;
+                                    rowData.size_label = `${matched.kategori_size} - ${matched.ukuran}`;
+                                } else {
+                                    rowData.size_id = '';
+                                    rowData.size_label = val;
+                                }
                             }
                         }
                     } else if (field === 'size_celana_id') {
@@ -423,17 +443,26 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                                 rowData.size_celana_label = `${matched.kategori_size} - ${matched.ukuran}`;
                             }
                         } else {
-                            const matched = resolveSize(val);
-                            if (matched) {
-                                rowData.size_celana_id = matched.id;
-                                rowData.size_celana_label = `${matched.kategori_size} - ${matched.ukuran}`;
-                            } else {
+                            // Skip empty values untuk mencegah data bergeser akibat gap
+                            if (!val || val.trim() === '') {
                                 rowData.size_celana_id = '';
-                                rowData.size_celana_label = val;
+                                rowData.size_celana_label = '';
+                            } else {
+                                const matched = resolveSize(val);
+                                if (matched) {
+                                    rowData.size_celana_id = matched.id;
+                                    rowData.size_celana_label = `${matched.kategori_size} - ${matched.ukuran}`;
+                                } else {
+                                    rowData.size_celana_id = '';
+                                    rowData.size_celana_label = val;
+                                }
                             }
                         }
                     } else {
-                        rowData[field] = val;
+                        // Skip empty values untuk mencegah data bergeser akibat gap
+                        if (val && val.trim() !== '') {
+                            rowData[field] = val;
+                        }
                     }
                 });
                 
