@@ -14,7 +14,6 @@ use App\Models\Master\PolaJahitan;
 use App\Models\Master\Printing;
 use App\Models\Master\Product;
 use App\Models\Master\Progress;
-use App\Models\Master\Reseller;
 use App\Models\Master\Resleting;
 use App\Models\Master\Size;
 use App\Models\Master\SumberOrder;
@@ -36,7 +35,7 @@ class OrderSeeder extends Seeder
     public function run(): void
     {
         $this->call(CustomerSeeder::class);
-        // $this->seedOrders(); // Commented out to clear all dummy transactions, POs, and Invoices for manual testing
+        $this->seedOrders(); // Commented out to clear all dummy transactions, POs, and Invoices for manual testing
     }
 
     private function seedOrders(): void
@@ -75,7 +74,6 @@ class OrderSeeder extends Seeder
             $sizesLaki = Size::where('kategori_size', 'LAKI-LAKI')->orderBy('urutan')->limit(8)->get();
             $sizesWanita = Size::where('kategori_size', 'PEREMPUAN')->orderBy('urutan')->limit(5)->get();
             $progresses = Progress::active()->ordered()->get();
-            $resellers = Reseller::active()->get();
 
             $adminUser = User::where('email', 'like', '%' . strtolower($brand->kode) . '%')
                 ->whereHas('roles', fn ($q) => $q->where('name', 'admin_brand'))
@@ -92,9 +90,6 @@ class OrderSeeder extends Seeder
                 $tanggalMasuk = Carbon::parse($sc['tanggal']);
                 $deadline = $tanggalMasuk->copy()->addDays($sc['deadline_days']);
 
-                // Determine reseller (30% of orders have a reseller)
-                $resellerId = ($idx % 3 === 0 && $resellers->isNotEmpty()) ? $resellers->random()->id : null;
-
                 // Determine printing_ids (array of printing UUIDs)
                 $printingIds = $printings->isNotEmpty()
                     ? $printings->random(min(rand(1, 2), $printings->count()))->pluck('id')->toArray()
@@ -108,11 +103,10 @@ class OrderSeeder extends Seeder
                     'is_special_order'  => $sc['special'],
                     'tanggal_masuk'     => $tanggalMasuk->toDateString(),
                     'deadline_customer' => $deadline->toDateString(),
-                    'kategori_order_id' => $kategoris->random()?->id,
+                    'kategori_order_id' => $kategoris->isNotEmpty() ? $kategoris->random()->id : null,
                     'jenis_order_id'    => $jenisOrders->isNotEmpty() ? $jenisOrders->random()->id : null,
-                    'sumber_order_id'   => $sumbers->random()?->id,
+                    'sumber_order_id'   => $sumbers->isNotEmpty() ? $sumbers->random()->id : null,
                     'pelanggan_id'      => $customer->id,
-                    'reseller_id'       => $resellerId,
                     'printing_ids'      => $printingIds,
                     'iklan_id'          => ($idx % 2 === 0 && $iklans->isNotEmpty()) ? $iklans->random()->id : null,
                     'catatan'           => $sc['catatan'],
@@ -295,37 +289,37 @@ class OrderSeeder extends Seeder
                             'locked_by' => $creator->id,
                         ]);
                     }
+                }
 
-                    // Create corresponding Invoice and InvoiceItems for tracking & finance
-                    $totalTagihan = (float) $order->totalTagihan();
-                    $totalPaid = (float) $order->totalPaid();
-                    $dpAmount = (float) $order->payments()->where('payment_type', 'dp')->whereNotNull('verified_at')->sum('amount');
-                    $newSisa = max(0, $totalTagihan - $totalPaid);
-                    $invStatus = $sc['with_pelunasan'] ? 'paid' : 'published';
+                // Create corresponding Invoice and InvoiceItems for tracking & finance
+                $totalTagihan = (float) $order->totalTagihan();
+                $totalPaid = (float) $order->totalPaid();
+                $dpAmount = (float) $order->payments()->where('payment_type', 'dp')->whereNotNull('verified_at')->sum('amount');
+                $newSisa = max(0, $totalTagihan - $totalPaid);
+                $invStatus = $sc['status'] === 'draft' ? 'draft' : ($sc['with_pelunasan'] ? 'paid' : 'published');
 
-                    $invoice = Invoice::create([
-                        'brand_id' => $order->brand_id,
-                        'order_id' => $order->id,
-                        'invoice_number' => $numbers->generateInvoiceNumber($brand, $order),
-                        'tanggal_terbit' => $tanggalMasuk->toDateString(),
-                        'jatuh_tempo' => $tanggalMasuk->copy()->addDays(14)->toDateString(),
-                        'status' => $invStatus,
-                        'total_tagihan' => $totalTagihan,
-                        'total_bayar' => $totalPaid,
-                        'dp_amount' => $dpAmount,
-                        'sisa_pembayaran' => $newSisa,
-                        'created_by' => $creator->id,
+                $invoice = Invoice::create([
+                    'brand_id' => $order->brand_id,
+                    'order_id' => $order->id,
+                    'invoice_number' => $numbers->generateInvoiceNumber($brand, $order),
+                    'tanggal_terbit' => $tanggalMasuk->toDateString(),
+                    'jatuh_tempo' => $tanggalMasuk->copy()->addDays(14)->toDateString(),
+                    'status' => $invStatus,
+                    'total_tagihan' => $totalTagihan,
+                    'total_bayar' => $totalPaid,
+                    'dp_amount' => $dpAmount,
+                    'sisa_pembayaran' => $newSisa,
+                    'created_by' => $creator->id,
+                ]);
+
+                foreach ($allItems as $item) {
+                    InvoiceItem::create([
+                        'invoice_id' => $invoice->id,
+                        'produk' => $item->nama_produk . ($item->varian_label ? " ({$item->varian_label})" : ''),
+                        'jumlah' => $item->quantity,
+                        'harga_satuan' => $item->harga_satuan,
+                        'subtotal' => $item->subtotal,
                     ]);
-
-                    foreach ($allItems as $item) {
-                        InvoiceItem::create([
-                            'invoice_id' => $invoice->id,
-                            'produk' => $item->nama_produk . ($item->varian_label ? " ({$item->varian_label})" : ''),
-                            'jumlah' => $item->quantity,
-                            'harga_satuan' => $item->harga_satuan,
-                            'subtotal' => $item->subtotal,
-                        ]);
-                    }
                 }
             }
         }

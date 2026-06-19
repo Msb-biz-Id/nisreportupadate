@@ -21,24 +21,7 @@
         table { width: 100%; border-collapse: collapse; }
         td, th { padding: 5px; vertical-align: top; }
 
-        /* Draft badge */
-        .draft-badge {
-            position: absolute;
-            right: 0;
-            top: 0;
-            background: #FEE2E2;
-            color: #EF4444;
-            border: 1px solid #FCA5A5;
-            font-size: 8.5pt;
-            font-weight: bold;
-            padding: 2px 10px;
-            border-radius: 9999px;
-            text-decoration: none !important;
-            display: inline-block;
-            line-height: 1.2;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+
 
         /* Title boxes */
         .title-box        { font-weight: bold; font-size: 10.5pt; background: #d4d4d4; color: #000;
@@ -117,7 +100,7 @@
                 </td>
             </tr>
         </table>
-        <span class="draft-badge">DRAFT</span>
+
     </header>
     <footer>
         <table style="width:100%; border:none; font-size:8.5pt; font-weight:bold;">
@@ -340,7 +323,7 @@
                     @foreach($nonAddonItems as $item)
                     @php
                         $polaJ = $item['_pola_jahitan'] ?? null;
-                        $polaJStr = $polaJ ? strtoupper($polaJ->nama) : '.......';
+                        $polaJStr = $polaJ ? strtoupper($polaJ['nama']) : '.......';
                     @endphp
                     <td style="border:1px solid #000; padding:5px 6px; text-align:center;">
                         {{ $polaJStr }}
@@ -352,7 +335,7 @@
                     @foreach($nonAddonItems as $item)
                     @php
                         $polaJLengan = $item['_pola_jahitan_lengan'] ?? null;
-                        $lenganStr = $polaJLengan ? strtoupper($polaJLengan->nama) : $dv(strtoupper($item['jahitan_list_lengan'] ?? ''));
+                        $lenganStr = $polaJLengan ? strtoupper($polaJLengan['nama']) : $dv(strtoupper($item['jahitan_list_lengan'] ?? ''));
                     @endphp
                     <td style="border:1px solid #000; padding:5px 6px; text-align:center;">
                         {{ $lenganStr }}
