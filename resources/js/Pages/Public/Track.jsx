@@ -186,6 +186,55 @@ export default function Track({ po_number, found, order, brand, invoice, invoice
                                 </div>
                             </div>
 
+                            {/* Format Order (FO) Card */}
+                            <div 
+                                className="rounded-2xl border p-5 shadow-sm space-y-4"
+                                style={{
+                                    borderColor: 'rgba(99, 102, 241, 0.2)',
+                                    backgroundColor: 'rgba(99, 102, 241, 0.04)'
+                                }}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div 
+                                        className="flex items-center gap-2 font-bold text-sm text-indigo-900"
+                                    >
+                                        <Package className="h-5 w-5 text-indigo-600" />
+                                        Format Order (FO)
+                                    </div>
+                                    <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-bold text-indigo-800">
+                                        Siap Diperiksa
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-600 leading-relaxed">
+                                    Format Order (FO) berisi rincian spesifikasi desain, keterangan bahan, ukuran, dan nameset pesanan Anda. Silakan periksa kembali kecocokan data produksi sebelum proses cetak & jahit dimulai.
+                                </p>
+                                <div className="grid grid-cols-2 gap-3 pt-1">
+                                    <a
+                                        href={`/fo/${order.no_po}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 py-3 px-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+                                    >
+                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                        Pratinjau FO Web
+                                    </a>
+                                    <a
+                                        href={`/fo/${order.no_po}/pdf`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center justify-center gap-2 rounded-xl text-xs font-bold bg-white border border-indigo-200 text-indigo-600 hover:bg-slate-50 active:bg-slate-100 py-3 px-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+                                    >
+                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                        Unduh FO PDF
+                                    </a>
+                                </div>
+                            </div>
+
                             {/* Invoice Card */}
                             {/* Invoice Card */}
                             {invoices && invoices.length > 0 ? (

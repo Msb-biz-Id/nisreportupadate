@@ -609,11 +609,9 @@
                 <tr style="background:#d4d4d4; color:#000; font-weight:bold;">
                     <th style="border:1.5px solid #000; padding:6px 8px; text-align:center; width:35px;">NO</th>
                     <th style="border:1.5px solid #000; padding:6px 8px; text-align:left; width:180px;">PROSES</th>
-                    @foreach($nonAddonItems as $pi => $item)
-                    <th style="border:1.5px solid #000; padding:6px 8px; text-align:center; font-size:9pt;">
-                        NAMA {{ $pi + 1 }}
-                    </th>
-                    @endforeach
+                    <th style="border:1.5px solid #000; padding:6px 8px; text-align:center; font-size:9pt;">NAMA 1</th>
+                    <th style="border:1.5px solid #000; padding:6px 8px; text-align:center; font-size:9pt;">NAMA 2</th>
+                    <th style="border:1.5px solid #000; padding:6px 8px; text-align:center; font-size:9pt;">NAMA 3</th>
                 </tr>
             </thead>
             <tbody>
@@ -623,9 +621,9 @@
                 <tr style="{{ $mi % 2 === 0 ? 'background:#f9f9f9;' : 'background:#fff;' }}">
                     <td style="border:1px solid #000; padding:6px 8px; text-align:center; font-weight:bold;">{{ $mi + 1 }}</td>
                     <td style="border:1px solid #000; padding:6px 8px; font-weight:900; font-size:10pt;">{{ $label }}</td>
-                    @foreach($nonAddonItems as $pi)
                     <td style="border:1px solid #000; padding:6px 8px; text-align:center; min-width:80px;">&nbsp;</td>
-                    @endforeach
+                    <td style="border:1px solid #000; padding:6px 8px; text-align:center; min-width:80px;">&nbsp;</td>
+                    <td style="border:1px solid #000; padding:6px 8px; text-align:center; min-width:80px;">&nbsp;</td>
                 </tr>
                 @endforeach
                 {{-- Dynamic progress rows from DB (SETTING, etc.) --}}
@@ -636,9 +634,9 @@
                     <td style="border:1px solid #000; padding:6px 8px; font-weight:900; font-size:10pt;">
                         {{ strtoupper($prog->nama_progress) }}
                     </td>
-                    @foreach($nonAddonItems as $pi)
                     <td style="border:1px solid #000; padding:6px 8px; text-align:center; min-width:80px;">&nbsp;</td>
-                    @endforeach
+                    <td style="border:1px solid #000; padding:6px 8px; text-align:center; min-width:80px;">&nbsp;</td>
+                    <td style="border:1px solid #000; padding:6px 8px; text-align:center; min-width:80px;">&nbsp;</td>
                 </tr>
                 @endforeach
             </tbody>

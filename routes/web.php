@@ -41,6 +41,8 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::get('/track/{noPo}', [TrackingController::class, 'show'])->name('track.show');
     Route::get('/invoice/{invoiceNumber}', [InvoiceController::class, 'publicShow'])->name('invoice.public');
     Route::get('/invoice/{invoiceNumber}/pdf', [InvoiceController::class, 'publicPdf'])->name('invoice.public.pdf');
+    Route::get('/fo/{noPo}', [OrderController::class, 'publicFoPreview'])->name('orders.public.fo.preview');
+    Route::get('/fo/{noPo}/pdf', [OrderController::class, 'publicFoPdf'])->name('orders.public.fo.pdf');
 });
 
 // Webhook Sidobe — public endpoint, no auth, CSRF excluded via VerifyCsrfToken

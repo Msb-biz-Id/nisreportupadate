@@ -1205,6 +1205,62 @@ class OrderController extends Controller
         ]);
     }
 
+    public function publicFoPreview(Request $request, string $noPo)
+    {
+        $order = Order::where('no_po', $noPo)->firstOrFail();
+
+        $order->load([
+            'brand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
+            'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'items.resleting', 'items.printing',
+            'items.polaJahitan', 'items.polaJahitanLengan',
+            'items.jenisSetelan', 'items.polaProduksi',
+            'items.namesets.size', 'items.namesets.sizeCelana',
+        ]);
+
+        $this->resolveItemNamesInBatch($order);
+
+        $printings = collect();
+        if (!empty($order->printing_ids)) {
+            $printings = \App\Models\Master\Printing::whereIn('id', $order->printing_ids)->pluck('nama');
+        }
+
+        $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+
+        return Inertia::render('Order/FoPreview', [
+            'order' => $order,
+            'printings' => $printings,
+            'progresses' => $progresses,
+            'isPublic' => true,
+        ]);
+    }
+
+    public function publicFoPdf(Request $request, string $noPo)
+    {
+        $order = Order::where('no_po', $noPo)->firstOrFail();
+
+        $order->load([
+            'brand.parentBrand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
+            'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'items.resleting', 'items.printing',
+            'items.polaJahitan', 'items.polaJahitanLengan',
+            'items.jenisSetelan', 'items.polaProduksi',
+            'items.namesets.size', 'items.namesets.sizeCelana',
+        ]);
+
+        $this->resolveItemNamesInBatch($order);
+        $headerBrand = $order->brand ? $order->brand->getHeaderBrand() : null;
+        $logoData = $headerBrand ? $this->logoDataUri($headerBrand->logo) : '';
+        $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.fo', [
+            'order' => $order,
+            'headerBrand' => $headerBrand,
+            'logoData' => $logoData,
+            'progresses' => $progresses
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download("FO-{$order->no_po}.pdf");
+    }
+
     public function updateTimeline(Request $request, Order $order)
     {
         Gate::authorize('production.update-progress');

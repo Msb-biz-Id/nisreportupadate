@@ -11,7 +11,7 @@ const chunkArray = (arr, size) => {
     return chunks;
 };
 
-export default function FoPreview({ order, printings, progresses }) {
+export default function FoPreview({ order, printings, progresses, isPublic = false }) {
     const brand = order.brand || {};
     const nonAddonItems = (order.items || []).filter(item => !item.is_addon);
     const grandTotal = nonAddonItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -47,12 +47,21 @@ export default function FoPreview({ order, printings, progresses }) {
             {/* Toolbar - Hidden when printing */}
             <div className="fixed top-0 left-0 right-0 h-16 bg-slate-900 text-white flex items-center justify-between px-6 z-[9999] shadow-md print:hidden font-sans">
                 <div className="flex items-center gap-3">
-                    <Button asChild variant="ghost" size="sm" className="text-slate-400 hover:text-white rounded-lg p-2">
-                        <Link href={`/orders/${order.id}`}>
-                            <ChevronLeft className="h-5 w-5 mr-1" />
-                            Kembali ke PO
-                        </Link>
-                    </Button>
+                    {isPublic ? (
+                        <Button asChild variant="ghost" size="sm" className="text-slate-400 hover:text-white rounded-lg p-2">
+                            <Link href={`/track/${order.no_po}`}>
+                                <ChevronLeft className="h-5 w-5 mr-1" />
+                                Kembali ke Lacak Pesanan
+                            </Link>
+                        </Button>
+                    ) : (
+                        <Button asChild variant="ghost" size="sm" className="text-slate-400 hover:text-white rounded-lg p-2">
+                            <Link href={`/orders/${order.id}`}>
+                                <ChevronLeft className="h-5 w-5 mr-1" />
+                                Kembali ke PO
+                            </Link>
+                        </Button>
+                    )}
                     <div className="h-4 w-[1px] bg-slate-700"></div>
                     <span className="font-extrabold text-sm tracking-widest text-slate-200">
                         PREVIEW FO: {order.no_po}
@@ -66,7 +75,7 @@ export default function FoPreview({ order, printings, progresses }) {
                     </Button>
                     
                     <Button asChild variant="outline" className="border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white rounded-xl font-bold flex items-center gap-1.5 text-xs">
-                        <a href={route('orders.fo.pdf', order.id)} target="_blank" rel="noopener noreferrer">
+                        <a href={isPublic ? route('orders.public.fo.pdf', order.no_po) : route('orders.fo.pdf', order.id)} target="_blank" rel="noopener noreferrer">
                             <Download className="h-4 w-4" />
                             Unduh PDF
                         </a>
@@ -612,11 +621,9 @@ export default function FoPreview({ order, printings, progresses }) {
                                     <tr className="bg-slate-300 border-b border-black font-bold">
                                         <th className="border border-black p-1.5 text-center w-10">NO</th>
                                         <th className="border border-black p-1.5 w-60">PROSES</th>
-                                        {nonAddonItems.map((item, idx) => (
-                                            <th key={item.id} className="border border-black p-1.5 text-center text-[10.5px]">
-                                                NAMA {idx + 1}
-                                            </th>
-                                        ))}
+                                        <th className="border border-black p-1.5 text-center text-[10.5px]">NAMA 1</th>
+                                        <th className="border border-black p-1.5 text-center text-[10.5px]">NAMA 2</th>
+                                        <th className="border border-black p-1.5 text-center text-[10.5px]">NAMA 3</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -625,9 +632,9 @@ export default function FoPreview({ order, printings, progresses }) {
                                         <tr key={`manual-${idx}`} className={idx % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'}>
                                             <td className="border border-black p-2 text-center font-bold">{idx + 1}</td>
                                             <td className="border border-black p-2 font-black text-[12px]">{label}</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-2 text-center">&nbsp;</td>
-                                            ))}
+                                            <td className="border border-black p-2 text-center">&nbsp;</td>
+                                            <td className="border border-black p-2 text-center">&nbsp;</td>
+                                            <td className="border border-black p-2 text-center">&nbsp;</td>
                                         </tr>
                                     ))}
                                     {/* Dynamic progress rows from database (SETTING, etc.) */}
@@ -638,9 +645,9 @@ export default function FoPreview({ order, printings, progresses }) {
                                             <tr key={prog.id} className={totalIdx % 2 === 0 ? 'bg-slate-50/40' : 'bg-white'}>
                                                 <td className="border border-black p-2 text-center font-bold">{rowNum}</td>
                                                 <td className="border border-black p-2 font-black text-[12px]">{prog.nama_progress}</td>
-                                                {nonAddonItems.map(item => (
-                                                    <td key={item.id} className="border border-black p-2 text-center">&nbsp;</td>
-                                                ))}
+                                                <td className="border border-black p-2 text-center">&nbsp;</td>
+                                                <td className="border border-black p-2 text-center">&nbsp;</td>
+                                                <td className="border border-black p-2 text-center">&nbsp;</td>
                                             </tr>
                                         );
                                     })}

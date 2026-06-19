@@ -141,4 +141,36 @@ class PublicAccessTest extends TestCase
             ->where('invoices.0.invoice_number', 'INV-PUB-DRAFT-TRACK')
         );
     }
+
+    public function test_public_fo_preview_and_pdf(): void
+    {
+        $brand = $this->makeBrand();
+        $user = $this->makeUser('admin_brand', [$brand]);
+        Customer::create(['brand_id' => $brand->id, 'kode' => 'C', 'nama' => 'John Doe', 'nomor_hp' => '08122334455', 'is_active' => true]);
+
+        $order = Order::create([
+            'brand_id' => $brand->id, 'no_po' => 'PO-FO-PUB-123',
+            'nama_po' => 'Format Order Public PO', 'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => Customer::first()->id,
+            'total_tagihan' => 100000,
+            'published_at' => now(),
+            'created_by' => $user->id,
+        ]);
+
+        // Unauthenticated guest can access public FO preview
+        $response = $this->get('/fo/PO-FO-PUB-123');
+        $response->assertOk();
+        $response->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+            ->component('Order/FoPreview')
+            ->where('order.no_po', 'PO-FO-PUB-123')
+            ->where('isPublic', true)
+        );
+
+        // Unauthenticated guest can access public FO pdf download
+        $pdfResponse = $this->get('/fo/PO-FO-PUB-123/pdf');
+        $pdfResponse->assertOk();
+        $pdfResponse->assertHeader('content-disposition', 'attachment; filename=FO-PO-FO-PUB-123.pdf');
+    }
 }
