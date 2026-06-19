@@ -30,7 +30,7 @@ class CustomerSeeder extends Seeder
 
             foreach ($samples as $idx => $s) {
                 $kode = $brand->kode . '-CUST-' . str_pad((string) ($idx + 1), 3, '0', STR_PAD_LEFT);
-                Customer::firstOrCreate(
+                Customer::updateOrCreate(
                     ['brand_id' => $brand->id, 'kode' => $kode],
                     [
                         'nama' => $s['nama'],

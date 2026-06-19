@@ -1616,7 +1616,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                     <SearchableSelect
                                         value={data.pelanggan_id}
                                         onValueChange={(v) => setData('pelanggan_id', v)}
-                                        options={masters.pelanggan.map((p) => ({ value: p.id, label: `${p.kode} — ${p.nama}` }))}
+                                        options={masters.pelanggan.map((p) => ({ value: p.id, label: p.nama }))}
                                         placeholder="Pilih pelanggan"
                                     />
                                     {errors.pelanggan_id && <p className="mt-1 text-xs text-red-500">{errors.pelanggan_id}</p>}
