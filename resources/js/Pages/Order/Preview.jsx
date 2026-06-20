@@ -468,6 +468,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                 <div className="flex flex-wrap items-center gap-2">
                                     <h2 className="text-2xl font-bold font-mono">{order.no_po}</h2>
                                     <Badge variant={st.variant}>{st.label}</Badge>
+                                    {order.is_free_ongkir && <Badge variant="success" className="bg-emerald-500 hover:bg-emerald-600">Free Ongkir</Badge>}
                                     {order.is_special_order && <Badge variant="warning">Special Order</Badge>}
                                     {order.is_repeat_order && <Badge variant="outline"><RotateCw className="mr-1 h-3 w-3" />Repeat</Badge>}
                                     {order.status_po !== 'draft' && (
@@ -505,9 +506,22 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {can?.edit && order.status_po !== 'selesai' && (
-                                    <Button asChild variant="outline" size="sm">
-                                        <Link href={route('orders.edit', order.id)}><Pencil className="h-4 w-4" /> Edit</Link>
-                                    </Button>
+                                    <>
+                                        <Button asChild variant="outline" size="sm">
+                                            <Link href={route('orders.edit', order.id)}><Pencil className="h-4 w-4" /> Edit</Link>
+                                        </Button>
+                                        <Button 
+                                            onClick={() => {
+                                                if (confirm(order.is_free_ongkir ? 'Batalkan status Free Ongkir untuk PO ini?' : 'Set Free Ongkir untuk PO ini?')) {
+                                                    router.post(route('orders.toggle-free-ongkir', order.id), {}, { preserveScroll: true });
+                                                }
+                                            }} 
+                                            variant={order.is_free_ongkir ? "destructive" : "secondary"} 
+                                            size="sm"
+                                        >
+                                            {order.is_free_ongkir ? 'Batal Free Ongkir' : 'Free Ongkir'}
+                                        </Button>
+                                    </>
                                 )}
                                 {can?.publish && (
                                     <Button

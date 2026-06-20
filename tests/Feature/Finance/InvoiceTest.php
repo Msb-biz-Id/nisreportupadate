@@ -611,4 +611,132 @@ class InvoiceTest extends TestCase
             ->doesntExpectOutput('[DRY] OVERDUE  INV-OVR-2')
             ->assertSuccessful();
     }
+
+    public function test_free_ongkir_applies_correctly_on_total_tagihan_calculation(): void
+    {
+        $brand = $this->makeBrand();
+        $admin = $this->makeUser('admin_brand', [$brand]);
+        $finance = $this->makeUser('admin_keuangan', [$brand]);
+
+        $customer = Customer::create(['brand_id' => $brand->id, 'kode' => 'C_FO1', 'nama' => 'Test FO', 'nomor_hp' => '08123456', 'is_active' => true]);
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-FO-99',
+            'nama_po' => 'PO Free Ongkir',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 1000000,
+            'is_free_ongkir' => true,
+            'published_at' => now(),
+            'created_by' => $admin->id,
+        ]);
+
+        OrderItem::create([
+            'order_id' => $order->id,
+            'nama_produk' => 'Baju Keren',
+            'quantity' => 10,
+            'harga_satuan' => 100000,
+            'subtotal' => 1000000,
+        ]);
+
+        // Add a verified shipping payment to see if it gets ignored
+        OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'ongkir',
+            'amount' => 50000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $admin->id,
+            'verified_at' => now(),
+            'verified_by' => $finance->id,
+        ]);
+
+        // totalTagihan() should ignore the ongkir because is_free_ongkir is true
+        $this->assertEquals(1000000, $order->totalTagihan());
+    }
+
+    public function test_payment_verification_does_not_create_duplicate_ledger(): void
+    {
+        $brand = $this->makeBrand();
+        $admin = $this->makeUser('admin_brand', [$brand]);
+        $finance = $this->makeUser('admin_keuangan', [$brand]);
+
+        $customer = Customer::create(['brand_id' => $brand->id, 'kode' => 'C_LED1', 'nama' => 'Test Ledger', 'nomor_hp' => '08123457', 'is_active' => true]);
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-LED-99',
+            'nama_po' => 'PO Ledger Test',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 1000000,
+            'published_at' => now(),
+            'created_by' => $admin->id,
+        ]);
+
+        $invoice = Invoice::create([
+            'brand_id' => $brand->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-LED-99',
+            'tanggal_terbit' => now()->toDateString(),
+            'status' => 'draft',
+            'total_tagihan' => 1000000,
+            'sisa_pembayaran' => 1000000,
+            'created_by' => $finance->id,
+        ]);
+
+        $payment = OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'dp',
+            'amount' => 500000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $admin->id,
+        ]);
+
+        // Initially no ledger records
+        $this->assertEquals(0, \App\Models\Finance\Pemasukan::where('source_payment_id', $payment->id)->count());
+
+        // Verify the payment
+        $this->actingAsWithBrand($finance, $brand)
+            ->post(route('invoices.payments.verify', $payment->id), [
+                'bank_mutasi' => true,
+                'nominal_cocok' => true,
+                'bukti_valid' => true,
+                'verification_notes' => 'Diverifikasi',
+            ])
+            ->assertRedirect();
+
+        // Should have exactly ONE Pemasukan record in ledger (observer handles it, manual controller block was removed)
+        $this->assertEquals(1, \App\Models\Finance\Pemasukan::where('source_payment_id', $payment->id)->count());
+    }
+
+    public function test_notification_target_users_contains_no_duplicates_for_multiple_roles(): void
+    {
+        $brand = $this->makeBrand();
+        
+        // Make a user with two roles
+        $user = $this->makeUser('admin_keuangan', [$brand]);
+        $user->assignRole('owner');
+
+        // Target roles for dynamic notification
+        $payload = [
+            'no_po' => 'PO-NOTIF-99',
+            'brand_id' => $brand->id,
+            'brand_nama' => $brand->nama_brand,
+            'nominal' => 'Rp 500.000',
+        ];
+
+        // Should target roles: admin_keuangan and owner
+        $results = \App\Services\Notifications\DynamicNotificationService::dispatch('payment_submitted', $payload);
+
+        // Filter results for our specific user
+        $userNotifs = collect($results)->where('user_id', $user->id);
+
+        // User should only receive ONE notification (not duplicate matching two roles)
+        $this->assertEquals(1, $userNotifs->count());
+    }
 }

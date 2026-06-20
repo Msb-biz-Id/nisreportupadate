@@ -172,7 +172,7 @@ class DynamicNotificationService
         $sound = $config['sound'] ?? 'bell-chime';
 
         // 3. Query Target Users
-        $users = User::role($roles)->where('is_active', true)->get();
+        $users = User::role($roles)->where('is_active', true)->get()->unique('id');
 
         // 4. Filter by brand access if brand_id is specified
         if (!empty($payload['brand_id'])) {

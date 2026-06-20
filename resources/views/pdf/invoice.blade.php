@@ -189,117 +189,155 @@
         </tbody>
     </table>
 
-    <div class="totals">
-        <table>
-            @php
-                $mainItems = $invoice->items->where('is_addon', false);
-                $addonItems = $invoice->items->where('is_addon', true);
-                
-                $mainSubtotalGross = $mainItems->sum(function($item) {
-                    return $item->jumlah * $item->harga_satuan;
-                });
-                $addonSubtotalGross = $addonItems->sum(function($item) {
-                    return $item->jumlah * $item->harga_satuan;
-                });
-                $grossSubtotal = $mainSubtotalGross + $addonSubtotalGross;
+    <div style="display: table; width: 100%; margin-top: 15px;">
+        <!-- Column 1: Bank Transfer Details (Left side) -->
+        <div style="display: table-cell; width: 50%; vertical-align: top; padding-right: 20px;">
+            <div class="info-label" style="font-size: 7.5pt; color: #6B7280; text-transform: uppercase; margin-bottom: 5px;">Rekening Pembayaran Resmi</div>
+            <div style="border: 1px solid #E5E7EB; border-radius: 6px; padding: 12px; background: #F9FAFB;">
+                @if (!empty($invoice->bank))
+                    <strong style="font-size: 10pt; color: #111827;">{{ $invoice->bank->bank ?? '' }}</strong><br>
+                    <span style="font-size: 9pt; color: #374151;">Atas Nama: {{ $invoice->bank->atas_nama ?? '' }}</span><br>
+                    <span style="font-family: monospace; font-size: 11pt; font-weight: bold; color: #1E40AF; display: inline-block; margin-top: 4px;">{{ $invoice->bank->nomor_rekening ?? '' }}</span>
+                @else
+                    <strong style="color: #DC2626;">Hubungi Admin Resmi untuk Rekening Pembayaran</strong>
+                @endif
+            </div>
+        </div>
 
-                $diskonValue = (float) $invoice->diskon_value;
-                $diskonNominal = $invoice->diskon_type === 'persen'
-                    ? ($grossSubtotal * $diskonValue / 100)
-                    : $diskonValue;
+        <!-- Column 2: Financial Summary (Right side) -->
+        <div style="display: table-cell; width: 50%; vertical-align: top;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 9pt;">
+                @php
+                    $mainItems = $invoice->items->where('is_addon', false);
+                    $addonItems = $invoice->items->where('is_addon', true);
+                    
+                    $mainSubtotalGross = $mainItems->sum(function($item) {
+                        return $item->jumlah * $item->harga_satuan;
+                    });
+                    $addonSubtotalGross = $addonItems->sum(function($item) {
+                        return $item->jumlah * $item->harga_satuan;
+                    });
+                    $grossSubtotal = $mainSubtotalGross + $addonSubtotalGross;
 
-                $additionPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'tambahan_produk') : collect();
-                $cashbackPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'cashback') : collect();
-                $returnPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'return') : collect();
-            @endphp
+                    $diskonValue = (float) $invoice->diskon_value;
+                    $diskonNominal = $invoice->diskon_type === 'persen'
+                        ? ($grossSubtotal * $diskonValue / 100)
+                        : $diskonValue;
 
-            @if($addonItems->isNotEmpty())
-                <tr><td class="label">Subtotal Produk Inti (Gross)</td><td class="value">Rp {{ number_format($mainSubtotalGross, 0, ',', '.') }}</td></tr>
-                <tr><td class="label">Subtotal Add-ons (Gross)</td><td class="value">Rp {{ number_format($addonSubtotalGross, 0, ',', '.') }}</td></tr>
-            @else
-                <tr><td class="label">Total Harga Produk (Gross)</td><td class="value">Rp {{ number_format($grossSubtotal, 0, ',', '.') }}</td></tr>
-            @endif
+                    $additionPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'tambahan_produk') : collect();
+                    $cashbackPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'cashback') : collect();
+                    $returnPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'return') : collect();
+                @endphp
 
-            @if ($diskonNominal > 0)
+                <!-- Total Harga -->
                 <tr>
-                    <td class="label">Diskon @if($invoice->diskon_type === 'persen') ({{ number_format($invoice->diskon_value, 0) }}%) @endif</td>
-                    <td class="value">- Rp {{ number_format($diskonNominal, 0, ',', '.') }}</td>
+                    <td style="padding: 4px 0; color: #6B7280;">Total Harga</td>
+                    <td style="padding: 4px 0; text-align: right; font-family: monospace;">Rp {{ number_format($grossSubtotal, 0, ',', '.') }}</td>
                 </tr>
-            @endif
 
-            @if ($invoice->biaya_pengiriman > 0)
-                <tr><td class="label">Ongkir ({{ $invoice->jasa_pengiriman ?? '' }})</td><td class="value">Rp {{ number_format($invoice->biaya_pengiriman, 0, ',', '.') }}</td></tr>
-            @endif
+                <!-- Total Diskon -->
+                <tr>
+                    <td style="padding: 4px 0; color: #6B7280;">Total Diskon</td>
+                    <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #DC2626;">
+                        @if ($diskonNominal > 0)
+                            - Rp {{ number_format($diskonNominal, 0, ',', '.') }}
+                        @else
+                            Rp 0
+                        @endif
+                    </td>
+                </tr>
 
-            @if ($additionPayments->isNotEmpty())
-                <tr><td class="label">Tambahan Produk</td><td class="value">+ Rp {{ number_format($additionPayments->sum('amount'), 0, ',', '.') }}</td></tr>
-            @endif
+                <!-- Ongkir -->
+                @if ($invoice->order?->is_free_ongkir)
+                    <tr>
+                        <td style="padding: 4px 0; color: #6B7280;">Ongkir ({{ $invoice->jasa_pengiriman ?? 'Bebas Ongkir' }})</td>
+                        <td style="padding: 4px 0; text-align: right; color: #059669; font-weight: bold;">Gratis Ongkir</td>
+                    </tr>
+                @elseif ($invoice->biaya_pengiriman > 0)
+                    <tr>
+                        <td style="padding: 4px 0; color: #6B7280;">Ongkir ({{ $invoice->jasa_pengiriman ?? '' }})</td>
+                        <td style="padding: 4px 0; text-align: right; font-family: monospace;">Rp {{ number_format($invoice->biaya_pengiriman, 0, ',', '.') }}</td>
+                    </tr>
+                @endif
 
-            @if ($cashbackPayments->isNotEmpty())
-                <tr><td class="label">Cashback</td><td class="value">- Rp {{ number_format($cashbackPayments->sum('amount'), 0, ',', '.') }}</td></tr>
-            @endif
+                <!-- Other Adjustments (Tambahan, Cashback, Return) -->
+                @if ($additionPayments->isNotEmpty())
+                    <tr>
+                        <td style="padding: 4px 0; color: #6B7280;">Tambahan Produk</td>
+                        <td style="padding: 4px 0; text-align: right; font-family: monospace;">+ Rp {{ number_format($additionPayments->sum('amount'), 0, ',', '.') }}</td>
+                    </tr>
+                @endif
 
-            @if ($returnPayments->isNotEmpty())
-                <tr><td class="label">Returns / Refunds</td><td class="value">- Rp {{ number_format($returnPayments->sum('amount'), 0, ',', '.') }}</td></tr>
-            @endif
+                @if ($cashbackPayments->isNotEmpty())
+                    <tr>
+                        <td style="padding: 4px 0; color: #6B7280;">Cashback</td>
+                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #DC2626;">- Rp {{ number_format($cashbackPayments->sum('amount'), 0, ',', '.') }}</td>
+                    </tr>
+                @endif
 
-            <tr style="border-top: 1px solid #E5E7EB;">
-                <td class="label" style="font-weight: bold; color: #1F2937;">Total Tagihan (Nett)</td>
-                <td class="value" style="font-weight: bold; color: #1F2937;">Rp {{ number_format($invoice->total_tagihan, 0, ',', '.') }}</td>
-            </tr>
+                @if ($returnPayments->isNotEmpty())
+                    <tr>
+                        <td style="padding: 4px 0; color: #6B7280;">Returns / Refunds</td>
+                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #DC2626;">- Rp {{ number_format($returnPayments->sum('amount'), 0, ',', '.') }}</td>
+                    </tr>
+                @endif
 
-            @if ($invoice->order?->payments && $invoice->order->payments->whereNotNull('verified_at')->isNotEmpty())
-                @foreach ($invoice->order->payments->whereNotNull('verified_at') as $p)
-                    @if (in_array($p->payment_type, ['dp', 'pelunasan', 'lainnya']))
-                        @php
-                            $label = $p->payment_type === 'dp' ? 'DP Diterima' : ($p->payment_type === 'pelunasan' ? 'Pelunasan Diterima' : 'Pembayaran Lainnya');
-                        @endphp
-                        <tr>
-                            <td class="label">{{ $label }}</td>
-                            <td class="value">- Rp {{ number_format($p->amount, 0, ',', '.') }}</td>
-                        </tr>
-                    @endif
-                @endforeach
-            @elseif ($invoice->dp_amount > 0)
-                <tr><td class="label">DP Diterima</td><td class="value">- Rp {{ number_format($invoice->dp_amount, 0, ',', '.') }}</td></tr>
-            @endif
-            <tr class="grand"><td>SISA TAGIHAN</td><td class="value">Rp {{ number_format($invoice->sisa_pembayaran, 0, ',', '.') }}</td></tr>
-        </table>
+                <!-- Total yang Harus Dibayar -->
+                <tr style="border-top: 1px solid #E5E7EB; border-bottom: 2px solid #1F2937;">
+                    <td style="padding: 6px 0; font-weight: bold; color: #1F2937;">Total yang Harus Dibayar</td>
+                    <td style="padding: 6px 0; text-align: right; font-family: monospace; font-weight: bold; color: #1F2937; font-size: 10.5pt;">Rp {{ number_format($invoice->total_tagihan, 0, ',', '.') }}</td>
+                </tr>
+
+                <!-- DP -->
+                @php
+                    $totalDPAndBayar = $invoice->total_bayar > 0 ? $invoice->total_bayar : $invoice->dp_amount;
+                @endphp
+                <tr>
+                    <td style="padding: 4px 0; color: #6B7280;">DP</td>
+                    <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">- Rp {{ number_format($totalDPAndBayar, 0, ',', '.') }}</td>
+                </tr>
+
+                <!-- Sisa -->
+                <tr style="border-top: 2px solid #1F2937;">
+                    <td style="padding: 8px 0; font-weight: bold; font-size: 11pt; color: #111827;">SISA</td>
+                    <td style="padding: 8px 0; text-align: right; font-family: monospace; font-weight: bold; font-size: 11.5pt; color: #DC2626;">Rp {{ number_format($invoice->sisa_pembayaran, 0, ',', '.') }}</td>
+                </tr>
+            </table>
+        </div>
     </div>
 
-    <div class="qr-section">
-        <div>
-            @if (!empty($invoice->bank))
-                <div class="info-label">Transfer ke</div>
-                <strong>{{ $invoice->bank->bank ?? '' }}</strong><br>
-                {{ $invoice->bank->atas_nama ?? '' }}<br>
-                <span style="font-family: monospace; font-size: 11pt;">{{ $invoice->bank->nomor_rekening ?? '' }}</span>
-            @else
-                <div class="info-label">Transfer ke</div>
-                <strong style="color: #DC2626;">Hubungi Admin Resmi untuk Rekening Pembayaran</strong>
+    <div style="display: table; width: 100%; margin-top: 25px; border-top: 1px solid #E5E7EB; padding-top: 15px;">
+        <!-- Left side: Thank you note + Security advice -->
+        <div style="display: table-cell; vertical-align: top; padding-right: 20px;">
+            <div style="font-weight: bold; font-size: 10.5pt; color: #111827; margin-bottom: 4px;">Terima kasih atas pembayaran Anda!</div>
+            @if ($invoice->peraturan)
+                <div style="font-size: 8pt; color: #4B5563; line-height: 1.4; margin-bottom: 8px;">{{ $invoice->peraturan }}</div>
             @endif
+
+            <div style="padding: 8px 10px; border: 1px dashed #D97706; background-color: #FEF3C7; border-radius: 6px; color: #92400E; font-size: 7.5pt; line-height: 1.3; margin-bottom: 8px;">
+                <strong>⚠️ Imbauan Keamanan Pembayaran:</strong> Demi keamanan transaksi, mohon <strong>TIDAK MELAKUKAN</strong> transfer ke rekening mana pun selain rekening resmi atas nama <strong>{{ $invoice->bank ? $invoice->bank->atas_nama : ($headerBrand ? $headerBrand->nama_brand : ($invoice->brand ? $invoice->brand->getHeaderBrand()->nama_brand : 'brand kami')) }}</strong>.
+            </div>
+
+            <div style="font-size: 7.5pt; color: #6B7280; line-height: 1.3;">
+                <strong>Cara Cek Pesanan:</strong> Kunjungi link <strong>/track/{{ $invoice->order?->no_po ?? '' }}</strong> atau scan QR code di samping untuk memantau status pesanan secara langsung.
+            </div>
         </div>
+
+        <!-- Right side: QR Code -->
         @if (!empty($qrCodeData))
-            <div style="text-align: right;">
-                <img class="qr-image" src="{{ $qrCodeData }}" alt="QR Code">
-                <div style="font-size: 7pt; color: #6B7280; margin-top: 4px;">Scan untuk tracking</div>
+            <div style="display: table-cell; width: 110px; text-align: center; vertical-align: top;">
+                <img src="{{ $qrCodeData }}" alt="QR Code" style="width: 90px; height: 90px; display: block; margin: 0 auto;">
+                <div style="font-size: 7.5pt; color: #4B5563; margin-top: 6px; font-weight: bold; line-height: 1.2;">
+                    Scan QR untuk cek pesanan
+                </div>
             </div>
         @endif
     </div>
-    <div style="margin-top: 8px; padding: 8px; border: 1px dashed #D97706; background-color: #FEF3C7; border-radius: 4px; color: #92400E; font-size: 8pt; line-height: 1.3;">
-        <strong>⚠️ Himbauan Keamanan Pembayaran:</strong> Demi keamanan transaksi, mohon <strong>TIDAK MELAKUKAN</strong> scan barcode/QR atau melakukan transfer ke rekening mana pun selain rekening resmi atas nama <strong>{{ $invoice->bank ? $invoice->bank->atas_nama : ($headerBrand ? $headerBrand->nama_brand : ($invoice->brand ? $invoice->brand->getHeaderBrand()->nama_brand : 'brand kami')) }}</strong>. Jangan pernah mengirimkan dana ke rekening perorangan/sales/rekening lain di luar informasi resmi yang tertera. Selalu konfirmasi transaksi melalui kontak resmi brand kami.
-    </div>
 
-    <div class="footer">
-        <strong>Terima kasih atas kepercayaan Anda!</strong>
-        @if ($invoice->peraturan)
-            <div style="margin-top: 6px;">{{ $invoice->peraturan }}</div>
-        @endif
-        <ol class="faq">
-            <li><strong>Cara tracking pesanan?</strong> Scan QR code di atas atau kunjungi /track/{{ $invoice->order?->no_po ?? '' }}.</li>
-            <li><strong>Pembayaran:</strong> Transfer via rekening di atas, kirim bukti ke WA admin.</li>
-            <li><strong>Komplain:</strong> Hubungi admin melalui WhatsApp resmi dalam 3x24 jam setelah barang diterima.</li>
-        </ol>
+    <div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #F3F4F6; font-size: 7.5pt; color: #9CA3AF;">
+        <span style="font-weight: bold; color: #4B5563;">Ketentuan Lainnya:</span>
+        <span style="margin-left: 10px;">• Bukti pembayaran wajib dikirimkan ke WhatsApp admin.</span>
+        <span style="margin-left: 10px;">• Batas waktu komplain produk maksimal 3x24 jam sejak barang diterima.</span>
     </div>
 </body>
 </html>

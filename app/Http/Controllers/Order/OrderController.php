@@ -369,8 +369,8 @@ class OrderController extends Controller
                 'brand_id'        => $order->brand_id,
                 'order_id'        => $order->id,
                 'invoice_number'  => $this->numbers->generateInvoiceNumber($brand, $order),
-                'tanggal_terbit'  => now()->toDateString(),
-                'jatuh_tempo'     => now()->addDays(14)->toDateString(),
+                'tanggal_terbit'  => $order->tanggal_masuk,
+                'jatuh_tempo'     => $order->deadline_customer,
                 'status'          => 'draft',
                 'total_tagihan'   => $totalTagihan,
                 'bank_id'         => $data['bank_id'],
@@ -464,6 +464,8 @@ class OrderController extends Controller
                     'sisa_pembayaran' => $newSisa,
                     'status' => $newSisa <= 0 ? 'paid' : $invoice->status,
                     'bank_id' => $data['bank_id'],
+                    'tanggal_terbit' => $order->tanggal_masuk,
+                    'jatuh_tempo' => $order->deadline_customer,
                 ]);
             }
         });
@@ -940,6 +942,88 @@ class OrderController extends Controller
             : 'Bypass DP dinonaktifkan. Syarat DP minimal berlaku kembali.';
 
         return back()->with('success', $msg);
+    }
+
+    public function toggleFreeOngkir(Request $request, Order $order)
+    {
+        Gate::authorize('order.update');
+        $this->guardBrandOwnership($request, $order);
+
+        $order->update([
+            'is_free_ongkir' => !$order->is_free_ongkir,
+        ]);
+
+        // Recalculate invoice if exists
+        $invoice = $order->invoices()->first();
+        if ($invoice) {
+            $grossSubtotal = (float) $order->items->sum(fn($item) => $item->quantity * $item->harga_satuan);
+            $diskonValue = (float) $invoice->diskon_value;
+            $diskonNominal = $invoice->diskon_type === 'persen'
+                ? ($grossSubtotal * $diskonValue / 100)
+                : $diskonValue;
+
+            $biayaPengiriman = $order->is_free_ongkir ? 0.0 : (float) $invoice->biaya_pengiriman;
+            
+            $penambahanExcludingOngkir = (float) $order->payments()
+                ->whereNotNull('verified_at')
+                ->where(function ($q) {
+                    $q->whereHas('masterJenisPembayaran', function ($mj) {
+                        $mj->where('efek_tagihan', 'penambahan')->where('nama', '!=', 'Ongkir');
+                    })->orWhere(function ($qp) {
+                        $qp->whereNull('master_jenis_pembayaran_id')
+                           ->where('payment_type', 'tambahan_produk');
+                    });
+                })
+                ->sum('amount');
+
+            $pengurangan = (float) $order->payments()
+                ->whereNotNull('verified_at')
+                ->where(function ($q) {
+                    $q->whereHas('masterJenisPembayaran', function ($mj) {
+                        $mj->where('efek_tagihan', 'pengurangan');
+                    })->orWhere(function ($qp) {
+                        $qp->whereNull('master_jenis_pembayaran_id')
+                           ->whereIn('payment_type', ['cashback', 'return']);
+                    });
+                })
+                ->sum('amount');
+
+            $invoiceTotalTagihan = max(0, $grossSubtotal - $diskonNominal + $biayaPengiriman + $penambahanExcludingOngkir - $pengurangan);
+            $totalPaid = (float) $order->totalPaid();
+            $sisaPembayaran = $order->is_special_order ? 0.0 : max(0, $invoiceTotalTagihan - $totalPaid);
+
+            $invoice->update([
+                'biaya_pengiriman' => $biayaPengiriman,
+                'total_tagihan' => $invoiceTotalTagihan,
+                'sisa_pembayaran' => $sisaPembayaran,
+                'status' => $sisaPembayaran <= 0 ? 'paid' : $invoice->status,
+            ]);
+
+            // Sync is_lunas PO
+            if ($sisaPembayaran <= 0 || $order->is_special_order) {
+                $order->update([
+                    'is_lunas' => true,
+                    'lunas_at' => now(),
+                    'lunas_by' => auth()->id(),
+                ]);
+            } else {
+                if ($order->is_lunas) {
+                    $order->update([
+                        'is_lunas' => false,
+                        'lunas_at' => null,
+                        'lunas_by' => null,
+                    ]);
+                }
+            }
+        }
+
+        // Also update order's total_tagihan field
+        $order->update(['total_tagihan' => $order->totalTagihan()]);
+
+        $statusText = $order->is_free_ongkir ? 'diaktifkan' : 'dinonaktifkan';
+        \App\Services\ActivityLogger::log('toggle-free-ongkir', 'order', $order, "Status Free Ongkir {$statusText} untuk PO {$order->no_po}");
+
+        return back()->with('success', "Status Free Ongkir berhasil {$statusText}.");
     }
 
     public function addPayment(Request $request, Order $order)

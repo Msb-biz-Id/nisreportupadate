@@ -570,8 +570,8 @@ class InvoiceController extends Controller
                 'brand_id' => $order->brand_id,
                 'order_id' => $order->id,
                 'invoice_number' => $this->numbers->generateInvoiceNumber($order->brand, $order),
-                'tanggal_terbit' => now()->toDateString(),
-                'jatuh_tempo' => now()->addDays(14)->toDateString(),
+                'tanggal_terbit' => $order->tanggal_masuk ?? now()->toDateString(),
+                'jatuh_tempo' => $order->deadline_customer ? $order->deadline_customer : now()->addDays(14)->toDateString(),
                 'status' => 'draft',
                 'total_tagihan' => $totalTagihan,
                 'total_bayar' => $totalPaid,
@@ -658,9 +658,11 @@ class InvoiceController extends Controller
                 ->sum('amount');
         }
 
-        $biayaPengiriman = $biayaPengirimanFromOrder > 0 
-            ? $biayaPengirimanFromOrder 
-            : (float) ($data['biaya_pengiriman'] ?? 0);
+        $biayaPengiriman = ($order && $order->is_free_ongkir)
+            ? 0.0
+            : ($biayaPengirimanFromOrder > 0 
+                ? $biayaPengirimanFromOrder 
+                : (float) ($data['biaya_pengiriman'] ?? 0));
 
         // 3. Fetch shipping service from production (stored in orders.nama_ekspedisi)
         $jasaPengiriman = ($order && $order->nama_ekspedisi) 
@@ -895,53 +897,6 @@ class InvoiceController extends Controller
                         'total_bayar' => $totalPaid,
                         'sisa_pembayaran' => $newSisa,
                         'status' => $newSisa <= 0 ? 'paid' : $invoice->status,
-                    ]);
-                }
-
-                // Sinkronisasi dengan sistem keuangan
-                $master = $payment->masterJenisPembayaran;
-                $paymentName = $master ? $master->nama : strtoupper($payment->payment_type ?? 'Pembayaran');
-                
-                if ($master && $master->tipe_keuangan === 'pemasukan' || (!$master && !in_array($payment->payment_type, ['cashback', 'return']))) {
-                    $kategori = KategoriPemasukan::firstOrCreate(
-                        ['brand_id' => $order->brand_id, 'nama_kategori' => 'Pembayaran PO'],
-                        [
-                            'deskripsi' => 'Pembayaran pesanan dari customer',
-                            'is_system'  => true,
-                            'is_active'  => true,
-                        ]
-                    );
-
-                    Pemasukan::create([
-                        'brand_id'             => $order->brand_id,
-                        'kategori_pemasukan_id' => $kategori->id,
-                        'order_id'             => $order->id,
-                        'source_payment_id'    => $payment->id,
-                        'tanggal'              => $payment->payment_date,
-                        'nominal'              => $payment->amount,
-                        'keterangan'           => "{$paymentName} PO {$order->no_po} — {$order->pelanggan?->nama}",
-                        'is_auto'              => true,
-                        'created_by'           => $request->user()->id,
-                    ]);
-                } elseif ($master && $master->tipe_keuangan === 'pengeluaran' || (!$master && in_array($payment->payment_type, ['cashback', 'return']))) {
-                    $kategori = KategoriPengeluaran::firstOrCreate(
-                        ['brand_id' => $order->brand_id, 'nama_kategori' => 'Refund / Cashback PO'],
-                        [
-                            'deskripsi' => 'Pengembalian dana atau cashback ke customer',
-                            'is_system'  => true,
-                            'is_active'  => true,
-                        ]
-                    );
-
-                    Pengeluaran::create([
-                        'brand_id'               => $order->brand_id,
-                        'kategori_pengeluaran_id' => $kategori->id,
-                        'source_payment_id'      => $payment->id,
-                        'tanggal'                => $payment->payment_date,
-                        'nominal'                => $payment->amount,
-                        'keterangan'             => "{$paymentName} PO {$order->no_po} — {$order->pelanggan?->nama}",
-                        'is_auto'                => true,
-                        'created_by'             => $request->user()->id,
                     ]);
                 }
             }

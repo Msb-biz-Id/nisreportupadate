@@ -68,27 +68,21 @@ class OrderPaymentObserver
             $order->update(['total_tagihan' => $order->totalTagihan()]);
         }
 
+        // Record ledger immediately if verified upon creation (except conversions/refunds)
         if ($payment->verified_at !== null) {
-            $this->recordLedger($payment);
-
-            // Dispatch verified notification
-            if ($order) {
-                $formattedAmount = 'Rp ' . number_format($payment->amount, 0, ',', '.');
-                \App\Services\Notifications\DynamicNotificationService::dispatch('payment_verified', [
-                    'no_po' => $order->no_po,
-                    'brand_id' => $order->brand_id,
-                    'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
-                    'nominal' => $formattedAmount,
-                    'action_url' => route('orders.show', $order->id),
-                ]);
+            $notes = $payment->notes ?? '';
+            if (!str_contains($notes, 'Konversi Tanda Jadi') && !str_contains($notes, 'Refund otomatis')) {
+                $this->recordLedger($payment);
             }
-        } else {
-            // Dispatch submitted notification
+        }
+
+        // Dispatch submitted notification untuk payment baru yang belum verified
+        if ($payment->verified_at === null) {
             if ($order) {
                 $formattedAmount = 'Rp ' . number_format($payment->amount, 0, ',', '.');
                 \App\Services\Notifications\DynamicNotificationService::dispatch('payment_submitted', [
                     'no_po' => $order->no_po,
-                    'brand_id' => $order->brand_id,
+                    'brand_id' => $order->brand->id,
                     'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
                     'nominal' => $formattedAmount,
                     'action_url' => route('orders.show', $order->id),

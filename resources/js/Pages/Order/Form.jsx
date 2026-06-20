@@ -382,7 +382,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
             console.error('Error generating final rows:', e);
             return [];
         }
-    }, [parsedRows, mappings, hasHeaderRow, safeSizes, sizeOverrides, priorityCategories]);
+    }, [parsedRows, mappings, hasHeaderRow, safeSizes, sizeOverrides]);
 
     function handleConfirm() {
         if (!finalRows.length) return;

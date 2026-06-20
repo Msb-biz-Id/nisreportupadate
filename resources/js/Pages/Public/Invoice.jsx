@@ -342,7 +342,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                             <div className="space-y-4 max-w-sm">
                                 {invoice.bank && (
                                     <div className="space-y-1.5 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                                        <span className="text-[10px] font-bold tracking-wider text-slate-400 block uppercase">Metode Pembayaran Resmi</span>
+                                        <span className="text-[10px] font-bold tracking-wider text-slate-400 block uppercase">Rekening Pembayaran Resmi</span>
                                         <div className="text-sm font-extrabold text-slate-800">{invoice.bank.bank}</div>
                                         <div className="text-xs font-semibold text-slate-500">Atas Nama: {invoice.bank.atas_nama}</div>
                                         <div className="font-mono font-black text-indigo-700 text-base select-all bg-indigo-50/50 py-1.5 px-3 rounded-lg border border-indigo-100/50 inline-block">
@@ -353,10 +353,10 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                 <div className="space-y-2 p-4 bg-amber-50/75 rounded-2xl border border-amber-100 shadow-sm text-amber-800 text-[11px] leading-relaxed">
                                     <div className="flex items-center gap-1.5 font-bold text-amber-900">
                                         <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                                        ⚠️ Himbauan Keamanan Pembayaran
+                                        ⚠️ Imbauan Keamanan Pembayaran
                                     </div>
                                     <p>
-                                        Demi keamanan transaksi, mohon <strong>TIDAK MELAKUKAN</strong> scan barcode/QR atau melakukan transfer ke rekening mana pun selain rekening resmi atas nama {invoice.bank ? <strong>{invoice.bank.atas_nama}</strong> : <strong>{brand.nama_brand}</strong>}. Jangan pernah mengirimkan dana ke rekening perorangan/sales/rekening lain di luar informasi resmi yang tertera. Selalu konfirmasi transaksi melalui kontak resmi brand kami.
+                                        Demi keamanan transaksi, mohon <strong>TIDAK MELAKUKAN</strong> transfer ke rekening mana pun selain rekening resmi atas nama {invoice.bank ? <strong>{invoice.bank.atas_nama}</strong> : <strong>{brand.nama_brand}</strong>}. Jangan pernah mengirimkan dana ke rekening perorangan/sales/rekening lain di luar informasi resmi yang tertera. Selalu konfirmasi transaksi melalui kontak resmi brand kami.
                                     </p>
                                 </div>
                             </div>
@@ -369,27 +369,12 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                     const addonSubtotalGross = addonItems.reduce((s, x) => s + (Number(x.jumlah) * Number(x.harga_satuan)), 0);
                                     const grossSubtotal = mainSubtotalGross + addonSubtotalGross;
 
-                                    if (addonItems.length > 0) {
-                                        return (
-                                            <>
-                                                <div className="flex justify-between items-center text-xs">
-                                                    <span className="font-semibold text-slate-400">Subtotal Produk Inti (Gross)</span>
-                                                    <span className="font-mono font-bold text-slate-700">{formatRupiah(mainSubtotalGross)}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center text-xs">
-                                                    <span className="font-semibold text-slate-400">Subtotal Add-on (Gross)</span>
-                                                    <span className="font-mono font-bold text-slate-700">{formatRupiah(addonSubtotalGross)}</span>
-                                                </div>
-                                            </>
-                                        );
-                                    } else {
-                                        return (
-                                            <div className="flex justify-between items-center text-xs">
-                                                <span className="font-semibold text-slate-400">Total Harga Produk (Gross)</span>
-                                                <span className="font-mono font-bold text-slate-700">{formatRupiah(grossSubtotal)}</span>
-                                            </div>
-                                        );
-                                    }
+                                    return (
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="font-semibold text-slate-400">Total Harga</span>
+                                            <span className="font-mono font-bold text-slate-700">{formatRupiah(grossSubtotal)}</span>
+                                        </div>
+                                    );
                                 })()}
 
                                 {(() => {
@@ -404,19 +389,26 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                         ? (grossSubtotal * diskonValue / 100)
                                         : diskonValue;
 
-                                    return diskonNominal > 0 ? (
-                                        <div className="flex justify-between items-center text-xs text-red-500 font-bold">
-                                            <span>Diskon {invoice.diskon_type === 'persen' ? `(${diskonValue}%)` : ''}</span>
-                                            <span className="font-mono">- {formatRupiah(diskonNominal)}</span>
+                                    return (
+                                        <div className="flex justify-between items-center text-xs text-slate-700">
+                                            <span className="font-semibold text-slate-400">Total Diskon</span>
+                                            <span className="font-mono">{diskonNominal > 0 ? '-' : ''} {formatRupiah(diskonNominal)}</span>
                                         </div>
-                                    ) : null;
+                                    );
                                 })()}
 
-                                {Number(invoice.biaya_pengiriman || 0) > 0 && (
-                                    <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                                {invoice.order?.is_free_ongkir ? (
+                                    <div className="flex justify-between items-center text-xs font-bold text-emerald-600">
                                         <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}</span>
-                                        <span className="font-mono">+ {formatRupiah(Number(invoice.biaya_pengiriman))}</span>
+                                        <span className="font-mono">Gratis Ongkir</span>
                                     </div>
+                                ) : (
+                                    Number(invoice.biaya_pengiriman || 0) > 0 && (
+                                        <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+                                            <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}</span>
+                                            <span className="font-mono">+ {formatRupiah(Number(invoice.biaya_pengiriman))}</span>
+                                        </div>
+                                    )
                                 )}
 
                                 {additionPayments.length > 0 && (
@@ -441,37 +433,21 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                 )}
 
                                 <div className="flex justify-between items-center text-xs font-bold border-t pt-2 border-slate-150">
-                                    <span className="text-slate-800">Total Tagihan (Nett)</span>
+                                    <span className="text-slate-800">Total yang Harus Dibayar</span>
                                     <span className="font-mono text-slate-800">{formatRupiah(Number(invoice.total_tagihan))}</span>
                                 </div>
 
-                                {dpPayments.length > 0 && (
-                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
-                                        <span>Total DP Masuk</span>
-                                        <span className="font-mono">- {formatRupiah(dpPayments.reduce((s, x) => s + Number(x.amount), 0))}</span>
-                                    </div>
-                                )}
-
-                                {pelunasanPayments.length > 0 && (
-                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
-                                        <span>Pelunasan Masuk</span>
-                                        <span className="font-mono">- {formatRupiah(pelunasanPayments.reduce((s, x) => s + Number(x.amount), 0))}</span>
-                                    </div>
-                                )}
-
-                                {lainnyaPayments.length > 0 && (
-                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
-                                        <span>Pembayaran Lainnya</span>
-                                        <span className="font-mono">- {formatRupiah(lainnyaPayments.reduce((s, x) => s + Number(x.amount), 0))}</span>
-                                    </div>
-                                )}
+                                <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
+                                    <span>DP</span>
+                                    <span className="font-mono">- {formatRupiah(Number(invoice.total_bayar > 0 ? invoice.total_bayar : invoice.dp_amount))}</span>
+                                </div>
 
                                 <div 
                                     className={`flex justify-between items-center border-t border-slate-200 pt-3 text-lg font-black ${
                                         invoice.sisa_pembayaran > 0 ? 'text-rose-600' : 'text-emerald-600'
                                     }`}
                                 >
-                                    <span>Sisa Pembayaran</span>
+                                    <span>Sisa</span>
                                     <span className="font-mono">{formatRupiah(invoice.sisa_pembayaran)}</span>
                                 </div>
                             </div>
@@ -479,14 +455,26 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
 
                         {/* Footer Tracking Banner */}
                         {qr_code && (
-                            <div className="flex flex-col gap-4 border-t bg-slate-50 p-6 md:p-8 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="space-y-1">
-                                    <div className="text-[10px] font-extrabold tracking-widest text-slate-400 uppercase">E-Tracking System</div>
-                                    <div className="text-xs font-semibold text-slate-700">Scan QR Code disamping untuk memantau status pengerjaan produksi secara realtime di workshop kami.</div>
+                            <div className="flex flex-col gap-6 border-t bg-slate-50 p-6 md:p-8 md:flex-row md:items-start md:justify-between">
+                                <div className="space-y-4 max-w-xl">
+                                    <div>
+                                        <h4 className="text-sm font-bold text-slate-800">Terima kasih atas pembayaran Anda!</h4>
+                                        {invoice.peraturan && (
+                                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{invoice.peraturan}</p>
+                                        )}
+                                    </div>
+                                    <div className="text-xs text-slate-600 leading-relaxed space-y-1">
+                                        <div><strong>Cara Cek Pesanan:</strong></div>
+                                        <div>
+                                            Kunjungi link <a href={tracking_url} className="text-indigo-600 hover:underline font-semibold">{window.location.origin}/track/{invoice.order?.no_po}</a> atau scan QR code di samping untuk memantau status pesanan secara langsung.
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="text-center bg-white p-3 rounded-2xl border shadow-sm shrink-0 self-center">
+                                <div className="text-center bg-white p-4 rounded-2xl border shadow-sm shrink-0 self-center md:self-start">
                                     <img src={qr_code} alt="QR Tracking" className="mx-auto h-28 w-28" />
-                                    <div className="mt-1.5 text-[9px] font-bold" style={{ color: brand.warna_primary || '#4F46E5' }}>SECURE PO MONITOR</div>
+                                    <div className="mt-2 text-[10px] font-extrabold text-slate-700 tracking-wide uppercase">
+                                        Scan QR untuk cek pesanan
+                                    </div>
                                 </div>
                             </div>
                         )}

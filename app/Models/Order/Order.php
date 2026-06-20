@@ -38,7 +38,7 @@ class Order extends Model
     ];
 
     protected $fillable = [
-        'brand_id', 'no_po', 'nama_po', 'status_po', 'is_special_order',
+        'brand_id', 'no_po', 'nama_po', 'status_po', 'is_special_order', 'is_free_ongkir',
         'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date',
         'kategori_order_id', 'jenis_order_id', 'sumber_order_id', 'paket_order_id',
         'jenis_setelan_id', 'pola_produksi_id',
@@ -59,6 +59,7 @@ class Order extends Model
         'end_production_date' => 'date',
         'published_at' => 'datetime',
         'is_special_order' => 'boolean',
+        'is_free_ongkir' => 'boolean',
         'is_repeat_order' => 'boolean',
         'is_lunas' => 'boolean',
         'is_dp_bypassed' => 'boolean',
@@ -123,7 +124,15 @@ class Order extends Model
         $subtotal = (float) $this->items->sum('subtotal');
         
         $penambahan = (float) $this->payments
-            ->filter(fn($p) => $p->verified_at !== null && $p->masterJenisPembayaran?->efek_tagihan === 'penambahan')
+            ->filter(function ($p) {
+                if ($p->verified_at === null || $p->masterJenisPembayaran?->efek_tagihan !== 'penambahan') {
+                    return false;
+                }
+                if ($this->is_free_ongkir && strtolower($p->masterJenisPembayaran?->nama ?? '') === 'ongkir') {
+                    return false;
+                }
+                return true;
+            })
             ->sum('amount');
             
         $pengurangan = (float) $this->payments
@@ -131,9 +140,12 @@ class Order extends Model
             ->sum('amount');
         
         // Fallback for old data without master_jenis_pembayaran_id
-        $ongkir = (float) $this->payments
-            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'ongkir')
-            ->sum('amount');
+        $ongkir = 0.0;
+        if (!$this->is_free_ongkir) {
+            $ongkir = (float) $this->payments
+                ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'ongkir')
+                ->sum('amount');
+        }
             
         $tambahan = (float) $this->payments
             ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'tambahan_produk')
