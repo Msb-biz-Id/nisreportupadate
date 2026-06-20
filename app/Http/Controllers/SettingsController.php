@@ -9,6 +9,7 @@ use App\Services\Notifications\TelegramClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
+use Spatie\Permission\Models\Role;
 
 class SettingsController extends Controller
 {
@@ -133,7 +134,7 @@ class SettingsController extends Controller
                 'mail_from_name' => SystemSetting::get('mail', 'mail_from_name', 'Circle Sportwear'),
             ],
             'notification_matrix' => $decodedMatrix,
-            'available_roles' => ['superadmin', 'owner', 'admin_brand', 'admin_reseller', 'admin_produksi', 'admin_keuangan'],
+            'available_roles' => Role::orderBy('name')->pluck('name')->toArray(),
             'reports' => [
                 'enable_auto_report'    => (bool)  SystemSetting::get('reports', 'enable_auto_report', false),
                 'daily_report_time'     => SystemSetting::get('reports', 'daily_report_time', '08:00'),
@@ -263,7 +264,7 @@ class SettingsController extends Controller
  
          return Inertia::render('Settings/Notifications', [
              'notification_matrix' => $decodedMatrix,
-             'available_roles' => ['superadmin', 'owner', 'admin_brand', 'admin_reseller', 'admin_produksi', 'admin_keuangan'],
+             'available_roles' => Role::orderBy('name')->pluck('name')->toArray(),
              'available_sounds' => $availableSounds
          ]);
      }
@@ -446,7 +447,7 @@ class SettingsController extends Controller
             'matrix.*.telegram' => ['required', 'boolean'],
             'matrix.*.os_desktop' => ['required', 'boolean'],
             'matrix.*.roles' => ['nullable', 'array'],
-            'matrix.*.roles.*' => ['string', 'in:superadmin,owner,admin_brand,admin_reseller,admin_produksi,admin_keuangan'],
+            'matrix.*.roles.*' => ['string', \Illuminate\Validation\Rule::in(Role::pluck('name')->toArray())],
             'matrix.*.sound' => ['required', 'string', 'max:50'],
         ]);
 

@@ -3,12 +3,22 @@ import { Link } from '@inertiajs/react';
 import Chart from '@/Components/Chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
+import { Badge } from '@/Components/ui/badge';
 import { StatGrid, StatusBreakdown, POListWidget, TopList } from '@/Components/Widgets';
 import { formatDate, formatRupiah } from '@/lib/utils';
-import { Target, Sparkles, RotateCcw, CheckCircle2, ArrowUpRight } from 'lucide-react';
+import { Target, Sparkles, RotateCcw, CheckCircle2, ArrowUpRight, Wallet, Landmark, RefreshCw, Clock, Coins, FileText } from 'lucide-react';
 
 export default function AdminBrand({ stats }) {
     const [metric, setMetric] = useState('omset');
+    const getBankColor = (bankName) => {
+        const name = bankName ? bankName.toLowerCase() : '';
+        if (name.includes('bca')) return 'bg-blue-600 text-white';
+        if (name.includes('mandiri')) return 'bg-amber-500 text-slate-900 border-amber-600';
+        if (name.includes('bri')) return 'bg-sky-700 text-white';
+        if (name.includes('bni')) return 'bg-teal-600 text-white';
+        if (name.includes('cash') || name.includes('tunai')) return 'bg-emerald-600 text-white';
+        return 'bg-slate-600 text-white';
+    };
     const trend = stats.trend_harian ?? [];
     const trendDates = trend.map((t) => new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }));
     const trendValues = trend.map((t) => t.count);
@@ -127,6 +137,305 @@ export default function AdminBrand({ stats }) {
                     </Card>
                 </div>
             )}
+
+            {/* Ringkasan Keuangan & Sinkronisasi Mingguan */}
+            <div className="space-y-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <Coins className="h-5 w-5 text-indigo-600" />
+                            Ringkasan Keuangan & Sinkronisasi Mingguan
+                        </h2>
+                        <p className="text-xs text-muted-foreground">
+                            Pantau saldo kas/bank dan persiapkan setoran & sinkronisasi mingguan setiap hari Sabtu.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Saldo Akun / Rekening Koran Grid */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {(stats.ringkasan_keuangan ?? []).map((account) => {
+                        const isCash = account.bank.toUpperCase() === 'CASH';
+                        return (
+                            <Card key={account.id} className="relative overflow-hidden transition-all hover:shadow-md border-slate-200 bg-white">
+                                <div className={`h-1.5 w-full ${isCash ? 'bg-emerald-500' : 'bg-indigo-600'}`} />
+                                <CardHeader className="p-4 pb-2">
+                                    <div className="flex items-center justify-between">
+                                        <Badge className={`px-2 py-0.5 text-[9px] font-black tracking-wider uppercase font-mono border-0 text-white ${getBankColor(account.bank)}`}>
+                                            {account.bank}
+                                        </Badge>
+                                        {isCash ? (
+                                            <Wallet className="h-4 w-4 text-emerald-500" />
+                                        ) : (
+                                            <Landmark className="h-4 w-4 text-indigo-500" />
+                                        )}
+                                    </div>
+                                    <CardTitle className="text-sm font-black mt-2 font-mono tracking-tight text-slate-800">
+                                        {account.nomor_rekening}
+                                    </CardTitle>
+                                    <CardDescription className="text-[11px] truncate text-slate-500 font-semibold">
+                                        A/N: {account.atas_nama}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-4 pt-2 space-y-2 border-t bg-slate-50/20">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-muted-foreground flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            Terverifikasi
+                                        </span>
+                                        <span className="font-mono font-bold text-slate-800">{formatRupiah(account.total_verified)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-muted-foreground flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                            Pending Validasi
+                                        </span>
+                                        <span className="font-mono font-bold text-amber-600">{formatRupiah(account.total_pending)}</span>
+                                    </div>
+                                    <div className="pt-2 border-t flex items-center justify-between text-xs font-black">
+                                        <span className="text-slate-700">Total Akumulasi</span>
+                                        <span className="font-mono text-indigo-700 text-[13px]">{formatRupiah(account.total_all)}</span>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
+                </div>
+
+                {/* Panduan Aksi & Setoran Hari Sabtu */}
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                    {/* Setoran Uang Tunai */}
+                    <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-br from-emerald-50/10 to-white">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-800">
+                                <Wallet className="h-4 w-4 text-emerald-650" /> Setoran Uang Tunai (CASH)
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                                Akumulasi dana tunai terkumpul untuk disetor ke Admin Keuangan.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="p-3 bg-emerald-50/40 border border-emerald-100/80 rounded-xl">
+                                <div className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">Tunai Masuk Minggu Ini</div>
+                                <div className="text-2xl font-black text-emerald-700 font-mono tracking-tight mt-1">
+                                    {formatRupiah(
+                                        (stats.ringkasan_keuangan ?? [])
+                                            .filter(a => a.bank.toUpperCase() === 'CASH')
+                                            .reduce((sum, a) => sum + a.week_total, 0)
+                                    )}
+                                </div>
+                                <div className="flex justify-between items-center mt-2 pt-2 border-t border-emerald-100 text-[10px] text-emerald-800 font-semibold">
+                                    <span>Verified: {formatRupiah(
+                                        (stats.ringkasan_keuangan ?? [])
+                                            .filter(a => a.bank.toUpperCase() === 'CASH')
+                                            .reduce((sum, a) => sum + a.week_verified, 0)
+                                    )}</span>
+                                    <span>Pending: {formatRupiah(
+                                        (stats.ringkasan_keuangan ?? [])
+                                            .filter(a => a.bank.toUpperCase() === 'CASH')
+                                            .reduce((sum, a) => sum + a.week_pending, 0)
+                                    )}</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 text-xs text-slate-600 font-medium">
+                                <div className="flex gap-2">
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">1</span>
+                                    <span>Hitung fisik uang tunai di laci/kas fisik Anda.</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">2</span>
+                                    <span>Setorkan fisik uang tunai ke Admin Keuangan setiap hari Sabtu.</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">3</span>
+                                    <span>Minta Admin Keuangan memverifikasi pembayaran CASH yang pending.</span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Sinkronisasi Rekening Bank */}
+                    <Card className="border-l-4 border-l-indigo-600 bg-gradient-to-br from-indigo-50/10 to-white">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-800">
+                                <Landmark className="h-4 w-4 text-indigo-600" /> Sinkronisasi Rekening Bank
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                                Akumulasi dana masuk via transfer bank untuk pencocokan mutasi.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="p-3 bg-indigo-50/40 border border-indigo-100/80 rounded-xl">
+                                <div className="text-[10px] text-indigo-800 font-bold uppercase tracking-wider">Transfer Masuk Minggu Ini</div>
+                                <div className="text-2xl font-black text-indigo-750 font-mono tracking-tight mt-1">
+                                    {formatRupiah(
+                                        (stats.ringkasan_keuangan ?? [])
+                                            .filter(a => a.bank.toUpperCase() !== 'CASH')
+                                            .reduce((sum, a) => sum + a.week_total, 0)
+                                    )}
+                                </div>
+                                <div className="flex justify-between items-center mt-2 pt-2 border-t border-indigo-100 text-[10px] text-indigo-800 font-semibold">
+                                    <span>Verified: {formatRupiah(
+                                        (stats.ringkasan_keuangan ?? [])
+                                            .filter(a => a.bank.toUpperCase() !== 'CASH')
+                                            .reduce((sum, a) => sum + a.week_verified, 0)
+                                    )}</span>
+                                    <span>Pending: {formatRupiah(
+                                        (stats.ringkasan_keuangan ?? [])
+                                            .filter(a => a.bank.toUpperCase() !== 'CASH')
+                                            .reduce((sum, a) => sum + a.week_pending, 0)
+                                    )}</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 text-xs text-slate-600 font-medium">
+                                <div className="flex gap-2">
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold">1</span>
+                                    <span>Cek mutasi m-banking per hari Sabtu secara berkala.</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold">2</span>
+                                    <span>Cocokkan data rekening koran dengan pembayaran pending di bawah.</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold">3</span>
+                                    <span>Koordinasikan ke Keuangan untuk validasi mutasi yang sesuai.</span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Ringkasan Status Transaksi Minggu Ini */}
+                    <Card className="border-l-4 border-l-slate-400 bg-slate-50/10">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-800">
+                                <RefreshCw className="h-4 w-4 text-slate-600" /> Status Sinkronisasi Pembayaran
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                                Status verifikasi pembayaran terdaftar dalam minggu ini.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {(() => {
+                                const weeklyTotal = (stats.ringkasan_keuangan ?? []).reduce((sum, a) => sum + a.week_total, 0);
+                                const weeklyVerified = (stats.ringkasan_keuangan ?? []).reduce((sum, a) => sum + a.week_verified, 0);
+                                const weeklyPending = (stats.ringkasan_keuangan ?? []).reduce((sum, a) => sum + a.week_pending, 0);
+                                const verifiedPct = weeklyTotal > 0 ? Math.round((weeklyVerified / weeklyTotal) * 100) : 0;
+                                
+                                return (
+                                    <>
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between text-xs font-bold text-slate-700">
+                                                <span>Kemajuan Validasi Keuangan</span>
+                                                <span>{verifiedPct}% Terverifikasi</span>
+                                            </div>
+                                            <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden shadow-inner border border-slate-200">
+                                                <div 
+                                                    className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
+                                                    style={{ width: `${verifiedPct}%` }} 
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2 pt-1">
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-slate-500 font-medium">Dana Terverifikasi</span>
+                                                <span className="font-mono font-bold text-emerald-600">{formatRupiah(weeklyVerified)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-slate-500 font-medium">Dana Menunggu Verifikasi</span>
+                                                <span className="font-mono font-bold text-amber-600">{formatRupiah(weeklyPending)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs pt-1 border-t font-bold">
+                                                <span className="text-slate-700">Total Pembayaran Masuk</span>
+                                                <span className="font-mono text-slate-900">{formatRupiah(weeklyTotal)}</span>
+                                            </div>
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* 10 Transaksi Pembayaran Terbaru */}
+                <Card className="border-slate-200 shadow-sm overflow-hidden">
+                    <CardHeader className="flex flex-row items-center justify-between pb-3 border-b bg-slate-50/50">
+                        <div>
+                            <CardTitle className="text-sm flex items-center gap-2 font-bold text-slate-900">
+                                <FileText className="h-4 w-4 text-indigo-500" />
+                                Mutasi Pembayaran Masuk Terbaru (10 Terakhir)
+                            </CardTitle>
+                            <CardDescription className="text-xs text-slate-500 font-medium">
+                                Gunakan tabel ini untuk mencocokkan mutasi rekening koran atau tanda terima tunai.
+                            </CardDescription>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        {(stats.recent_payments ?? []).length === 0 ? (
+                            <div className="py-12 flex flex-col items-center justify-center text-muted-foreground bg-white">
+                                <Clock className="h-8 w-8 text-slate-300 mb-2" />
+                                <p className="text-sm">Tidak ada riwayat pembayaran masuk.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto bg-white">
+                                <table className="w-full text-xs border-t">
+                                    <thead className="bg-slate-50/80 text-[10px] uppercase tracking-wider text-slate-500 border-b font-bold">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left">Tanggal</th>
+                                            <th className="px-4 py-3 text-left">No. PO</th>
+                                            <th className="px-4 py-3 text-left">Pelanggan</th>
+                                            <th className="px-4 py-3 text-left">Akun Pembayaran</th>
+                                            <th className="px-4 py-3 text-right">Jumlah</th>
+                                            <th className="px-4 py-3 text-center">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(stats.recent_payments ?? []).map((p) => (
+                                            <tr key={p.id} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-4 py-3 font-mono text-slate-500 font-medium">{formatDate(p.payment_date)}</td>
+                                                <td className="px-4 py-3 font-mono font-bold text-slate-800">
+                                                    <div className="flex flex-col">
+                                                        <span>{p.no_po}</span>
+                                                        <span className="text-[9px] text-muted-foreground font-medium truncate max-w-[120px]">{p.nama_po}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="font-semibold text-slate-800">{p.pelanggan}</div>
+                                                    {p.notes && <div className="text-[10px] text-slate-400 italic max-w-[150px] truncate">Notes: "{p.notes}"</div>}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Badge className={`px-1.5 py-0 text-[9px] font-extrabold uppercase font-mono border-0 text-white ${getBankColor(p.bank)}`}>
+                                                            {p.bank}
+                                                        </Badge>
+                                                        <span className="font-mono text-slate-500 font-medium">{p.nomor_rekening}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-right font-mono font-extrabold text-slate-900 text-[13px]">
+                                                    {formatRupiah(p.amount)}
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    {p.verified ? (
+                                                        <Badge className="bg-emerald-50 hover:bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[9px] inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full">
+                                                            <span className="w-1 h-1 rounded-full bg-emerald-500"></span> Verified
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge className="bg-amber-50 hover:bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[9px] inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Pending
+                                                        </Badge>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <Card className="lg:col-span-2">

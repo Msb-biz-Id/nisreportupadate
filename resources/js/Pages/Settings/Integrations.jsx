@@ -345,9 +345,10 @@ function NotificationMatrixSection({ matrix, availableRoles }) {
         superadmin: 'Superadmin',
         owner: 'Owner',
         admin_brand: 'Admin Brand',
-        reseller: 'Reseller',
+        admin_reseller: 'Admin Reseller',
         admin_produksi: 'Produksi',
-        admin_keuangan: 'Keuangan'
+        admin_keuangan: 'Keuangan',
+        supervisor: 'Supervisor'
     };
 
     function toggleChannel(eventKey, channelField, checked) {
@@ -499,7 +500,7 @@ function NotificationMatrixSection({ matrix, availableRoles }) {
                                                                 className="rounded border-gray-300 text-primary focus:ring-primary h-3 w-3 transition-transform group-hover:scale-105"
                                                             />
                                                             <span className={eventConfig.roles?.includes(role) ? "font-bold text-gray-800" : "text-muted-foreground"}>
-                                                                {roleLabels[role] || role}
+                                                                {roleLabels[role] || role.split(/[_-]/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                                                             </span>
                                                         </label>
                                                     ))}

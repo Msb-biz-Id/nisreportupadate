@@ -141,6 +141,109 @@ class DashboardService
                         ->orderByDesc('created_at')
                         ->limit(10)
                         ->get(),
+                    'ringkasan_keuangan' => (function () use ($brandId) {
+                        $bankAccounts = \App\Models\Master\BankAccount::query()
+                            ->when($brandId, function ($q) use ($brandId) {
+                                return is_array($brandId)
+                                    ? $q->whereIn('brand_id', $brandId)
+                                    : $q->where('brand_id', $brandId);
+                            })
+                            ->active()
+                            ->get();
+
+                        $bankIds = $bankAccounts->pluck('id')->toArray();
+                        $verifiedSums = [];
+                        $pendingSums = [];
+                        $thisWeekPayments = collect();
+
+                        if (!empty($bankIds)) {
+                            $verifiedSums = OrderPayment::query()
+                                ->whereIn('bank_id', $bankIds)
+                                ->whereNotNull('verified_at')
+                                ->select('bank_id', DB::raw('SUM(amount) as total'))
+                                ->groupBy('bank_id')
+                                ->pluck('total', 'bank_id')
+                                ->toArray();
+
+                            $pendingSums = OrderPayment::query()
+                                ->whereIn('bank_id', $bankIds)
+                                ->whereNull('verified_at')
+                                ->select('bank_id', DB::raw('SUM(amount) as total'))
+                                ->groupBy('bank_id')
+                                ->pluck('total', 'bank_id')
+                                ->toArray();
+
+                            $startOfWeek = now()->startOfWeek();
+
+                            $thisWeekPayments = OrderPayment::query()
+                                ->whereIn('bank_id', $bankIds)
+                                ->where('payment_date', '>=', $startOfWeek->toDateString())
+                                ->select('bank_id',
+                                    DB::raw('SUM(CASE WHEN verified_at IS NOT NULL THEN amount ELSE 0 END) as verified_week'),
+                                    DB::raw('SUM(CASE WHEN verified_at IS NULL THEN amount ELSE 0 END) as pending_week')
+                                )
+                                ->groupBy('bank_id')
+                                ->get()
+                                ->keyBy('bank_id');
+                        }
+
+                        return $bankAccounts->map(function ($bank) use ($verifiedSums, $pendingSums, $thisWeekPayments) {
+                            $verified = (float) ($verifiedSums[$bank->id] ?? 0.0);
+                            $pending = (float) ($pendingSums[$bank->id] ?? 0.0);
+                            $weekData = $thisWeekPayments->get($bank->id);
+                            $verifiedWeek = $weekData ? (float) $weekData->verified_week : 0.0;
+                            $pendingWeek = $weekData ? (float) $weekData->pending_week : 0.0;
+
+                            return [
+                                'id' => $bank->id,
+                                'bank' => $bank->bank,
+                                'atas_nama' => $bank->atas_nama,
+                                'nomor_rekening' => $bank->nomor_rekening,
+                                'total_verified' => $verified,
+                                'total_pending' => $pending,
+                                'total_all' => $verified + $pending,
+                                'week_verified' => $verifiedWeek,
+                                'week_pending' => $pendingWeek,
+                                'week_total' => $verifiedWeek + $pendingWeek,
+                            ];
+                        })->values()->toArray();
+                    })(),
+                    'recent_payments' => (function () use ($brandId) {
+                        $bankAccounts = \App\Models\Master\BankAccount::query()
+                            ->when($brandId, function ($q) use ($brandId) {
+                                return is_array($brandId)
+                                    ? $q->whereIn('brand_id', $brandId)
+                                    : $q->where('brand_id', $brandId);
+                            })
+                            ->active()
+                            ->pluck('id')
+                            ->toArray();
+
+                        if (empty($bankAccounts)) {
+                            return [];
+                        }
+
+                        return OrderPayment::query()
+                            ->whereIn('bank_id', $bankAccounts)
+                            ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'bank:id,bank,nomor_rekening'])
+                            ->orderByDesc('payment_date')
+                            ->orderByDesc('created_at')
+                            ->limit(10)
+                            ->get()
+                            ->map(fn ($p) => [
+                                'id' => $p->id,
+                                'no_po' => $p->order?->no_po,
+                                'nama_po' => $p->order?->nama_po,
+                                'pelanggan' => $p->order?->pelanggan?->nama ?? '-',
+                                'amount' => (float) $p->amount,
+                                'payment_date' => $p->payment_date?->toDateString(),
+                                'bank' => $p->bank?->bank,
+                                'nomor_rekening' => $p->bank?->nomor_rekening,
+                                'verified' => !empty($p->verified_at),
+                                'notes' => $p->notes,
+                            ])
+                            ->all();
+                    })(),
                 ];
             },
             CacheService::TTL_SHORT
