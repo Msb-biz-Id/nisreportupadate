@@ -515,7 +515,7 @@ class OrderController extends Controller
         }
 
         $brandId = $order->brand_id;
-        $banks = BankAccount::active()->where('brand_id', $brandId)->orderBy('bank')->get(['id', 'bank', 'atas_nama', 'nomor_rekening']);
+        $banks = BankAccount::active()->where('brand_id', \App\Support\BrandContext::masterDataId($request, $brandId))->orderBy('bank')->get(['id', 'bank', 'atas_nama', 'nomor_rekening']);
         $jenis_pembayarans = \App\Models\Finance\MasterJenisPembayaran::active()->orderBy('nama')->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan', 'deskripsi']);
 
         // Computed DP info — frontend uses these exact values to stay in sync with backend
@@ -1486,7 +1486,35 @@ class OrderController extends Controller
             $allRelevantBrandIds = array_unique(array_merge($userBrandIds, [$masterBrandId, $currentBrandId]));
             $banksQuery->whereIn('brand_id', $allRelevantBrandIds);
         }
-        $banks = $banksQuery->orderBy('bank')->get(['id', 'bank', 'atas_nama', 'nomor_rekening', 'brand_id']);
+        $rawBanks = $banksQuery->orderBy('bank')->get(['id', 'bank', 'atas_nama', 'nomor_rekening', 'brand_id']);
+        
+        $banks = collect();
+        $accessibleBrands = ($user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])))
+            ? Brand::all()
+            : ($user ? $user->brands : collect());
+
+        foreach ($accessibleBrands as $brand) {
+            $brandId = $brand->id;
+            $mBrandId = \App\Support\BrandContext::masterDataId(request(), $brandId);
+
+            foreach ($rawBanks as $bank) {
+                if ($bank->brand_id === $brandId) {
+                    $banks->push($bank);
+                } elseif ($mBrandId && $bank->brand_id === $mBrandId) {
+                    $cloned = clone $bank;
+                    $cloned->brand_id = $brandId;
+                    $banks->push($cloned);
+                }
+            }
+        }
+        
+        foreach ($rawBanks as $bank) {
+            $banks->push($bank);
+        }
+
+        $banks = $banks->unique(function ($item) {
+            return $item->id . '-' . $item->brand_id;
+        })->values();
 
         return [
             'kategori_orders' => KategoriOrder::active()->where($masterQ)->orderBy('nama')->get(['id', 'nama']),

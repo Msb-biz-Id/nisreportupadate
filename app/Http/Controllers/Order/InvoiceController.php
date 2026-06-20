@@ -434,9 +434,27 @@ class InvoiceController extends Controller
             ->orderByDesc('created_at')
             ->get(['id', 'no_po', 'nama_po', 'total_tagihan']);
 
-        $bankAccounts = \App\Models\Master\BankAccount::where('is_active', true)
-            ->whereIn('brand_id', $userBrandIds)
+        $rawBankAccounts = \App\Models\Master\BankAccount::where('is_active', true)
             ->get(['id', 'bank', 'atas_nama', 'nomor_rekening', 'brand_id']);
+
+        $bankAccounts = collect();
+        foreach ($brands as $brand) {
+            $brandId = $brand->id;
+            $masterBrandId = \App\Support\BrandContext::masterDataId($request, $brandId);
+
+            foreach ($rawBankAccounts as $bank) {
+                if ($bank->brand_id === $brandId) {
+                    $bankAccounts->push($bank);
+                } elseif ($masterBrandId && $bank->brand_id === $masterBrandId) {
+                    $cloned = clone $bank;
+                    $cloned->brand_id = $brandId;
+                    $bankAccounts->push($cloned);
+                }
+            }
+        }
+        $bankAccounts = $bankAccounts->unique(function ($item) {
+            return $item->id . '-' . $item->brand_id;
+        })->values();
 
         $customers = \App\Models\Master\Customer::where('is_active', true)
             ->whereIn('brand_id', $userBrandIds)
