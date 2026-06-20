@@ -365,6 +365,8 @@ class OrderController extends Controller
             $totalTagihan = (float) $order->total_tagihan;
             $dp = 0;
 
+            $diskonNominalFromOrder = (float) $order->items->sum('discount_amount');
+
             $invoice = Invoice::create([
                 'brand_id'        => $order->brand_id,
                 'order_id'        => $order->id,
@@ -376,6 +378,8 @@ class OrderController extends Controller
                 'bank_id'         => $data['bank_id'],
                 'dp_amount'       => $dp,
                 'sisa_pembayaran' => $order->is_special_order ? 0.0 : max(0, $totalTagihan - $dp),
+                'diskon_type'     => $diskonNominalFromOrder > 0 ? 'nominal' : null,
+                'diskon_value'    => $diskonNominalFromOrder > 0 ? $diskonNominalFromOrder : 0.0,
                 'created_by'      => $user->id,
             ]);
 
@@ -458,6 +462,8 @@ class OrderController extends Controller
                 $totalPaid = $order->totalPaid();
                 $newSisa = $order->is_special_order ? 0.0 : max(0, $totalTagihan - $totalPaid);
 
+                $diskonNominalFromOrder = (float) $order->items->sum('discount_amount');
+
                 $invoice->update([
                     'total_tagihan' => $totalTagihan,
                     'total_bayar' => $totalPaid,
@@ -466,6 +472,8 @@ class OrderController extends Controller
                     'bank_id' => $data['bank_id'],
                     'tanggal_terbit' => $order->tanggal_masuk,
                     'jatuh_tempo' => $order->deadline_customer,
+                    'diskon_type' => $diskonNominalFromOrder > 0 ? 'nominal' : $invoice->diskon_type,
+                    'diskon_value' => $diskonNominalFromOrder > 0 ? $diskonNominalFromOrder : $invoice->diskon_value,
                 ]);
             }
         });

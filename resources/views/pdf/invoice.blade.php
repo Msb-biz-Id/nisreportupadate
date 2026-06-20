@@ -219,10 +219,13 @@
                     });
                     $grossSubtotal = $mainSubtotalGross + $addonSubtotalGross;
 
+                    $itemDiskonSum = (float) $invoice->items->sum('discount_amount');
                     $diskonValue = (float) $invoice->diskon_value;
-                    $diskonNominal = $invoice->diskon_type === 'persen'
-                        ? ($grossSubtotal * $diskonValue / 100)
-                        : $diskonValue;
+                    $diskonNominal = $itemDiskonSum > 0
+                        ? $itemDiskonSum
+                        : ($invoice->diskon_type === 'persen'
+                            ? ($grossSubtotal * $diskonValue / 100)
+                            : $diskonValue);
 
                     $additionPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'tambahan_produk') : collect();
                     $cashbackPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'cashback') : collect();

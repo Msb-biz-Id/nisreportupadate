@@ -425,6 +425,24 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
     const isDpSufficient  = dp_info ? Boolean(dp_info.is_sufficient)   : (totalPaid >= minDp || order.is_dp_bypassed);
     const sisaTagihan     = Math.max(0, totalTagihan - totalPaid);
 
+    // Financial breakdown calculations
+    const grossSubtotal = (order.items ?? []).reduce((s, x) => s + (Number(x.quantity) * Number(x.harga_satuan)), 0);
+    const itemDiskonSum = (order.items ?? []).reduce((s, x) => s + Number(x.discount_amount || 0), 0);
+    const invoiceDiskonValue = invoice ? Number(invoice.diskon_value || 0) : 0;
+    const invoiceDiskonNominal = invoice && invoice.diskon_type === 'persen'
+        ? (grossSubtotal * invoiceDiskonValue / 100)
+        : invoiceDiskonValue;
+    const totalDiskon = itemDiskonSum > 0 ? itemDiskonSum : invoiceDiskonNominal;
+
+    const additionPayments = (order.payments ?? []).filter(p => p.verified_at && p.payment_type === 'tambahan_produk');
+    const cashbackPayments = (order.payments ?? []).filter(p => p.verified_at && p.payment_type === 'cashback');
+    const returnPayments   = (order.payments ?? []).filter(p => p.verified_at && p.payment_type === 'return');
+    const ongkirPayments   = (order.payments ?? []).filter(p => p.verified_at && p.payment_type === 'ongkir');
+
+    const totalAddition = additionPayments.reduce((s, x) => s + Number(x.amount), 0);
+    const totalCashback = cashbackPayments.reduce((s, x) => s + Number(x.amount), 0);
+    const totalReturn   = returnPayments.reduce((s, x) => s + Number(x.amount), 0);
+
     function bypassDp() {
         if (!confirm(order.is_dp_bypassed ? 'Nonaktifkan bypass DP?' : 'Bypass minimal DP untuk PO ini?')) return;
         router.post(route('orders.bypass-dp', order.id), {}, { preserveScroll: true });
@@ -1039,7 +1057,28 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                             </CardHeader>
                             {!collapsedSections.pembayaran && (
                                 <CardContent className="space-y-1.5 text-sm pt-4">
-                                    <div className="flex justify-between"><span className="text-muted-foreground">Total Tagihan</span><span className="font-mono font-semibold">{formatRupiah(totalTagihan)}</span></div>
+                                    <div className="flex justify-between"><span className="text-muted-foreground">Total Harga</span><span className="font-mono">{formatRupiah(grossSubtotal)}</span></div>
+                                    {totalDiskon > 0 && (
+                                        <div className="flex justify-between text-rose-600"><span className="text-muted-foreground text-rose-600">Total Diskon</span><span className="font-mono">- {formatRupiah(totalDiskon)}</span></div>
+                                    )}
+                                    {order.is_free_ongkir ? (
+                                        <div className="flex justify-between text-emerald-600 font-medium"><span className="text-muted-foreground text-emerald-600">Ongkir</span><span className="font-mono">Gratis Ongkir</span></div>
+                                    ) : (
+                                        (invoice?.biaya_pengiriman > 0 || (ongkirPayments && ongkirPayments.reduce((s, x) => s + Number(x.amount), 0) > 0)) && (
+                                            <div className="flex justify-between"><span className="text-muted-foreground">Ongkir</span><span className="font-mono">+ {formatRupiah(invoice?.biaya_pengiriman > 0 ? Number(invoice.biaya_pengiriman) : ongkirPayments.reduce((s, x) => s + Number(x.amount), 0))}</span></div>
+                                        )
+                                    )}
+                                    {totalAddition > 0 && (
+                                        <div className="flex justify-between"><span className="text-muted-foreground">Tambahan Produk</span><span className="font-mono">+ {formatRupiah(totalAddition)}</span></div>
+                                    )}
+                                    {totalCashback > 0 && (
+                                        <div className="flex justify-between text-rose-600"><span className="text-muted-foreground text-rose-600">Cashback</span><span className="font-mono">- {formatRupiah(totalCashback)}</span></div>
+                                    )}
+                                    {totalReturn > 0 && (
+                                        <div className="flex justify-between text-rose-600"><span className="text-muted-foreground text-rose-600">Return / Refund</span><span className="font-mono">- {formatRupiah(totalReturn)}</span></div>
+                                    )}
+                                    <Separator className="my-1.5" />
+                                    <div className="flex justify-between font-semibold"><span className="text-slate-800">Total Tagihan</span><span className="font-mono font-bold text-slate-800">{formatRupiah(totalTagihan)}</span></div>
                                     <div className="flex justify-between"><span className="text-muted-foreground">Sudah Diverifikasi</span><span className="font-mono text-emerald-600">{formatRupiah(totalPaid)}</span></div>
                                     {pendingPaid > 0 && (
                                         <div className="flex justify-between"><span className="text-muted-foreground">Menunggu Validasi</span><span className="font-mono text-amber-600">{formatRupiah(pendingPaid)}</span></div>

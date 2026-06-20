@@ -384,10 +384,13 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                     const addonSubtotalGross = addonItems.reduce((s, x) => s + (Number(x.jumlah) * Number(x.harga_satuan)), 0);
                                     const grossSubtotal = mainSubtotalGross + addonSubtotalGross;
 
+                                    const itemDiskonSum = (invoice.items ?? []).reduce((s, x) => s + Number(x.discount_amount || 0), 0);
                                     const diskonValue = Number(invoice.diskon_value || 0);
-                                    const diskonNominal = invoice.diskon_type === 'persen'
-                                        ? (grossSubtotal * diskonValue / 100)
-                                        : diskonValue;
+                                    const diskonNominal = itemDiskonSum > 0
+                                        ? itemDiskonSum
+                                        : (invoice.diskon_type === 'persen'
+                                            ? (grossSubtotal * diskonValue / 100)
+                                            : diskonValue);
 
                                     return (
                                         <div className="flex justify-between items-center text-xs text-slate-700">
