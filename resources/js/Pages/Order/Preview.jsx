@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import {
     Package, User, MapPin, CalendarClock, Pencil, Send, RotateCw, Trash2, Lock, Unlock,
     CreditCard, ListChecks, AlertTriangle, Receipt, FileText, ExternalLink, CheckCircle2, XCircle, Eye,
-    ChevronDown, ChevronUp, Copy, Check,
+    ChevronDown, ChevronUp, Copy, Check, Printer, Truck, Settings, MoreVertical
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
@@ -11,6 +11,7 @@ import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Separator } from '@/Components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/Components/ui/dropdown-menu';
 import { Label } from '@/Components/ui/label';
 import { Textarea } from '@/Components/ui/textarea';
 import { Input } from '@/Components/ui/input';
@@ -504,115 +505,163 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     </Button>
                                 </div>
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                                {can?.edit && order.status_po !== 'selesai' && (
-                                    <>
-                                        <Button asChild variant="outline" size="sm">
-                                            <Link href={route('orders.edit', order.id)}><Pencil className="h-4 w-4" /> Edit</Link>
-                                        </Button>
-                                        <Button 
-                                            onClick={() => {
-                                                if (confirm(order.is_free_ongkir ? 'Batalkan status Free Ongkir untuk PO ini?' : 'Set Free Ongkir untuk PO ini?')) {
-                                                    router.post(route('orders.toggle-free-ongkir', order.id), {}, { preserveScroll: true });
-                                                }
-                                            }} 
-                                            variant={order.is_free_ongkir ? "destructive" : "secondary"} 
-                                            size="sm"
-                                        >
-                                            {order.is_free_ongkir ? 'Batal Free Ongkir' : 'Free Ongkir'}
-                                        </Button>
-                                    </>
-                                )}
+                            <div className="flex flex-wrap items-center gap-2">
+                                {/* 1. Primary Workflow Action (Standout) */}
                                 {can?.publish && (
                                     <Button
                                         onClick={publish}
                                         size="sm"
-                                        className={!isDpSufficient ? "opacity-60 cursor-not-allowed bg-slate-400 hover:bg-slate-400 text-white" : ""}
+                                        className={`font-semibold shadow-sm flex items-center gap-1.5 ${
+                                            !isDpSufficient 
+                                                ? "opacity-60 cursor-not-allowed bg-slate-400 hover:bg-slate-400 text-white" 
+                                                : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                                        }`}
                                         title={!isDpSufficient ? `Pembayaran DP belum mencapai minimal ${(minDpPercentage * 100).toFixed(0)}%` : "Terbitkan PO ke Produksi"}
                                     >
-                                        <Send className="h-4 w-4" /> Terbitkan
+                                        <Send className="h-3.5 w-3.5" /> Terbitkan
                                     </Button>
                                 )}
-                                {can?.bypass_dp && order.status_po === 'draft' && (!isDpSufficient || order.is_dp_bypassed) && (
-                                    <Button onClick={bypassDp} variant={order.is_dp_bypassed ? "destructive" : "secondary"} size="sm">
-                                        {order.is_dp_bypassed ? 'Batalkan Bypass DP' : 'Bypass DP'}
-                                    </Button>
-                                )}
-                                {can?.repeat && (
-                                    <Button onClick={repeatOrder} variant="outline" size="sm"><RotateCw className="h-4 w-4" /> Repeat Order</Button>
-                                )}
+
                                 {order.status_po === 'sudah_dikirim' && (user?.roles?.includes('admin_brand') || user?.roles?.includes('owner') || user?.roles?.includes('superadmin')) && (
                                     <Button
                                         onClick={completeOrder}
                                         size="sm"
                                         className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5 shadow-sm shadow-emerald-100 animate-pulse"
                                     >
-                                        <CheckCircle2 className="h-4 w-4" /> Selesaikan Pesanan
+                                        <CheckCircle2 className="h-3.5 w-3.5" /> Selesaikan Pesanan
                                     </Button>
                                 )}
-                                <Button asChild variant="outline" size="sm">
-                                    <a href={route('orders.fo.preview', order.id)} target="_blank" rel="noopener noreferrer">
-                                        <Eye className="h-4 w-4" /> Preview FO
-                                    </a>
-                                </Button>
-                                <Button asChild variant="outline" size="sm">
-                                    <a href={route('orders.fo.pdf', order.id)} target="_blank" rel="noopener noreferrer">
-                                        <FileText className="h-4 w-4" /> FO PDF
-                                    </a>
-                                </Button>
-                                {order.invoices?.length > 0 && (
-                                    <>
-                                        <Button asChild variant="outline" size="sm">
-                                            <a href={route('invoice.public', order.invoices[0].invoice_number)} target="_blank" rel="noopener noreferrer">
-                                                <Receipt className="h-4 w-4" /> Invoice
-                                            </a>
-                                        </Button>
-                                        <Button asChild size="sm">
-                                            <a href={route('invoice.public.pdf', order.invoices[0].invoice_number)} target="_blank" rel="noopener noreferrer">
-                                                <FileText className="h-4 w-4" /> Cetak Invoice
-                                            </a>
-                                        </Button>
-                                    </>
-                                )}
-                                {order.status_po !== 'draft' && order.status_po !== 'selesai' && isLocked && (
-                                    can?.unlock ? (
-                                        <Button variant="outline" size="sm" onClick={() => setOpenUnlock(true)}>
-                                            <Unlock className="h-4 w-4 mr-1" /> Unlock PO
-                                        </Button>
-                                    ) : (
-                                        (order.lock_status?.unlock_requested_by || order.lock_status?.unlockRequestedBy) ? (
-                                            <Button variant="outline" size="sm" disabled className="opacity-75">
-                                                <RotateCw className="h-4 w-4 mr-1 animate-spin" /> Menunggu Unlock
-                                            </Button>
-                                        ) : (
-                                            <Button variant="outline" size="sm" onClick={() => setOpenUnlock(true)}>
-                                                <Unlock className="h-4 w-4 mr-1" /> Minta Unlock
-                                            </Button>
-                                        )
-                                    )
-                                )}
-                                {order.status_po !== 'draft' && order.status_po !== 'selesai' && !isLocked && (
-                                    can?.unlock ? (
-                                        <Button variant="outline" size="sm" onClick={() => setOpenRelock(true)}>
-                                            <Lock className="h-4 w-4 mr-1" /> Re-lock PO
-                                        </Button>
-                                    ) : (
-                                        (order.lock_status?.relock_requested_by || order.lock_status?.relockRequestedBy) ? (
-                                            <Button variant="outline" size="sm" disabled className="opacity-75">
-                                                <RotateCw className="h-4 w-4 mr-1 animate-spin" /> Menunggu Re-lock
-                                            </Button>
-                                        ) : (
-                                            <Button variant="outline" size="sm" onClick={() => setOpenRelock(true)}>
-                                                <Lock className="h-4 w-4 mr-1" /> Minta Re-lock
-                                            </Button>
-                                        )
-                                    )
-                                )}
-                                {can?.delete && order.status_po !== 'selesai' && (
-                                    <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setConfirmDelete(true)}>
-                                        <Trash2 className="h-4 w-4" /> Hapus
+
+                                {/* 2. Edit Action */}
+                                {can?.edit && order.status_po !== 'selesai' && (
+                                    <Button asChild variant="outline" size="sm" className="font-medium text-slate-700 border-slate-200 hover:bg-slate-50">
+                                        <Link href={route('orders.edit', order.id)}><Pencil className="h-3.5 w-3.5 mr-1" /> Edit</Link>
                                     </Button>
                                 )}
+
+                                {/* 3. Dokumen & Cetak Dropdown */}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" size="sm" className="font-medium text-slate-700 border-slate-200 hover:bg-slate-50 flex items-center gap-1.5">
+                                            <FileText className="h-3.5 w-3.5 text-slate-500" />
+                                            Dokumen & Cetak
+                                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48 bg-white border border-slate-200 p-1 shadow-md rounded-lg z-50">
+                                        <DropdownMenuItem asChild>
+                                            <a href={route('orders.fo.preview', order.id)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md">
+                                                <Eye className="h-4 w-4 text-slate-400" /> Preview FO
+                                            </a>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem asChild>
+                                            <a href={route('orders.fo.pdf', order.id)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md">
+                                                <Printer className="h-4 w-4 text-slate-400" /> Unduh FO PDF
+                                            </a>
+                                        </DropdownMenuItem>
+                                        {order.invoices?.length > 0 && (
+                                            <>
+                                                <DropdownMenuSeparator className="my-1 border-t border-slate-100" />
+                                                <DropdownMenuItem asChild>
+                                                    <a href={route('invoice.public', order.invoices[0].invoice_number)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md">
+                                                        <Receipt className="h-4 w-4 text-slate-400" /> Lihat Invoice
+                                                    </a>
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem asChild>
+                                                    <a href={route('invoice.public.pdf', order.invoices[0].invoice_number)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md font-semibold text-indigo-600">
+                                                        <Printer className="h-4 w-4 text-indigo-400" /> Cetak Invoice PDF
+                                                    </a>
+                                                </DropdownMenuItem>
+                                            </>
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+
+                                {/* 4. Aksi Tambahan & Pengaturan Dropdown */}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" size="sm" className="font-medium text-slate-700 border-slate-200 hover:bg-slate-50 flex items-center gap-1.5" title="Aksi & Pengaturan PO">
+                                            <Settings className="h-3.5 w-3.5 text-slate-500" />
+                                            Aksi Lainnya
+                                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-52 bg-white border border-slate-200 p-1 shadow-md rounded-lg z-50">
+                                        {/* Toggle Free Ongkir */}
+                                        {can?.edit && order.status_po !== 'selesai' && (
+                                            <DropdownMenuItem 
+                                                onClick={() => {
+                                                    if (confirm(order.is_free_ongkir ? 'Batalkan status Free Ongkir untuk PO ini?' : 'Set Free Ongkir untuk PO ini?')) {
+                                                        router.post(route('orders.toggle-free-ongkir', order.id), {}, { preserveScroll: true });
+                                                    }
+                                                }}
+                                                className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md"
+                                            >
+                                                <Truck className="h-4 w-4 text-slate-400" />
+                                                {order.is_free_ongkir ? 'Batal Free Ongkir' : 'Set Free Ongkir'}
+                                            </DropdownMenuItem>
+                                        )}
+
+                                        {/* Bypass DP */}
+                                        {can?.bypass_dp && order.status_po === 'draft' && (!isDpSufficient || order.is_dp_bypassed) && (
+                                            <DropdownMenuItem 
+                                                onClick={bypassDp}
+                                                className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md"
+                                            >
+                                                <CreditCard className="h-4 w-4 text-slate-400" />
+                                                {order.is_dp_bypassed ? 'Batalkan Bypass DP' : 'Bypass DP'}
+                                            </DropdownMenuItem>
+                                        )}
+
+                                        {/* Repeat Order */}
+                                        {can?.repeat && (
+                                            <DropdownMenuItem 
+                                                onClick={repeatOrder}
+                                                className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md"
+                                            >
+                                                <RotateCw className="h-4 w-4 text-slate-400" />
+                                                Repeat Order
+                                            </DropdownMenuItem>
+                                        )}
+
+                                        {/* Unlock / Relock PO */}
+                                        {order.status_po !== 'draft' && order.status_po !== 'selesai' && isLocked && (
+                                            <DropdownMenuItem 
+                                                onClick={() => setOpenUnlock(true)}
+                                                className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md"
+                                                disabled={(order.lock_status?.unlock_requested_by || order.lock_status?.unlockRequestedBy) && !can?.unlock}
+                                            >
+                                                <Unlock className="h-4 w-4 text-slate-400" />
+                                                {can?.unlock ? 'Unlock PO' : (order.lock_status?.unlock_requested_by || order.lock_status?.unlockRequestedBy) ? 'Menunggu Unlock' : 'Minta Unlock'}
+                                            </DropdownMenuItem>
+                                        )}
+
+                                        {order.status_po !== 'draft' && order.status_po !== 'selesai' && !isLocked && (
+                                            <DropdownMenuItem 
+                                                onClick={() => setOpenRelock(true)}
+                                                className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md"
+                                                disabled={(order.lock_status?.relock_requested_by || order.lock_status?.relockRequestedBy) && !can?.unlock}
+                                            >
+                                                <Lock className="h-4 w-4 text-slate-400" />
+                                                {can?.unlock ? 'Re-lock PO' : (order.lock_status?.relock_requested_by || order.lock_status?.relockRequestedBy) ? 'Menunggu Re-lock' : 'Minta Re-lock'}
+                                            </DropdownMenuItem>
+                                        )}
+
+                                        {/* Danger zone / Delete */}
+                                        {can?.delete && order.status_po !== 'selesai' && (
+                                            <>
+                                                <DropdownMenuSeparator className="my-1 border-t border-slate-100" />
+                                                <DropdownMenuItem 
+                                                    onClick={() => setConfirmDelete(true)}
+                                                    className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-rose-600 hover:bg-rose-50 rounded-md font-semibold"
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-rose-500" />
+                                                    Hapus PO
+                                                </DropdownMenuItem>
+                                            </>
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
                         </div>
                     </CardHeader>
