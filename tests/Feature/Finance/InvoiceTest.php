@@ -714,29 +714,4 @@ class InvoiceTest extends TestCase
         $this->assertEquals(1, \App\Models\Finance\Pemasukan::where('source_payment_id', $payment->id)->count());
     }
 
-    public function test_notification_target_users_contains_no_duplicates_for_multiple_roles(): void
-    {
-        $brand = $this->makeBrand();
-        
-        // Make a user with two roles
-        $user = $this->makeUser('admin_keuangan', [$brand]);
-        $user->assignRole('owner');
-
-        // Target roles for dynamic notification
-        $payload = [
-            'no_po' => 'PO-NOTIF-99',
-            'brand_id' => $brand->id,
-            'brand_nama' => $brand->nama_brand,
-            'nominal' => 'Rp 500.000',
-        ];
-
-        // Should target roles: admin_keuangan and owner
-        $results = \App\Services\Notifications\DynamicNotificationService::dispatch('payment_submitted', $payload);
-
-        // Filter results for our specific user
-        $userNotifs = collect($results)->where('user_id', $user->id);
-
-        // User should only receive ONE notification (not duplicate matching two roles)
-        $this->assertEquals(1, $userNotifs->count());
-    }
 }

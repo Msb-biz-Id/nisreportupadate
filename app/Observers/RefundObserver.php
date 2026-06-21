@@ -10,14 +10,7 @@ class RefundObserver
 {
     public function created(Refund $refund): void
     {
-        // Dispatch "refund_submitted" notification
-        \App\Services\Notifications\DynamicNotificationService::dispatch('refund_submitted', [
-            'no_po' => $refund->order?->no_po ?? '-',
-            'brand_id' => $refund->brand_id,
-            'brand_nama' => $refund->brand?->nama_brand ?? 'Circle Sportwear',
-            'nominal' => 'Rp ' . number_format($refund->nominal_refund, 0, ',', '.'),
-            'action_url' => route('refunds.index'),
-        ]);
+        //
     }
 
     public function updated(Refund $refund): void
@@ -56,23 +49,6 @@ class RefundObserver
                     'notes' => "Refund otomatis dari pengajuan: {$refund->refund_number} — {$refund->alasan}",
                 ]);
 
-                // Dispatch "refund_processed" notification
-                \App\Services\Notifications\DynamicNotificationService::dispatch('refund_processed', [
-                    'no_po' => $refund->order?->no_po ?? '-',
-                    'brand_id' => $refund->brand_id,
-                    'brand_nama' => $refund->brand?->nama_brand ?? 'Circle Sportwear',
-                    'status' => 'Diterima (Published)',
-                    'action_url' => route('refunds.index'),
-                ]);
-            } elseif ($refund->status === 'rejected') {
-                // Dispatch "refund_processed" notification
-                \App\Services\Notifications\DynamicNotificationService::dispatch('refund_processed', [
-                    'no_po' => $refund->order?->no_po ?? '-',
-                    'brand_id' => $refund->brand_id,
-                    'brand_nama' => $refund->brand?->nama_brand ?? 'Circle Sportwear',
-                    'status' => 'Ditolak',
-                    'action_url' => route('refunds.index'),
-                ]);
             }
         }
     }

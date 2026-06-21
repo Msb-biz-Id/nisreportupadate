@@ -74,8 +74,6 @@ class HandleInertiaRequests extends Middleware
                     'roles' => $userRoles,
                     'permissions' => $userPermissions,
                     'is_superadmin' => $user->isSuperadmin(),
-                    'unread_notifications_count' => $user->notifications()->where('is_read', false)->count(),
-                    'recent_notifications' => $user->notifications()->take(10)->get(),
                 ] : null,
             ],
             'brandContext' => [

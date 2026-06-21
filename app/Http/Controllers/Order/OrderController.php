@@ -29,7 +29,6 @@ use App\Models\Order\OrderNameset;
 use App\Models\Order\OrderPayment;
 use App\Services\NumberGenerator;
 use App\Services\POStatusManager;
-use App\Services\Notifications\DynamicNotificationService;
 use App\Support\BrandContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -589,12 +588,7 @@ class OrderController extends Controller
 
         \App\Services\ActivityLogger::log('publish', 'order', $order, "Publish PO {$order->no_po}");
 
-        DynamicNotificationService::dispatch('order_published', [
-            'no_po' => $order->no_po,
-            'brand_id' => $order->brand_id,
-            'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
-            'action_url' => "/orders/{$order->id}"
-        ]);
+
 
         return back()->with('success', 'PO berhasil diterbitkan dan masuk ke dashboard produksi.');
     }
@@ -630,12 +624,7 @@ class OrderController extends Controller
             \App\Services\ActivityLogger::log('complete', 'order', $order, "Selesaikan PO {$order->no_po}");
         });
 
-        DynamicNotificationService::dispatch('order_completed', [
-            'no_po' => $order->no_po,
-            'brand_id' => $order->brand_id,
-            'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
-            'action_url' => "/orders/{$order->id}"
-        ]);
+
 
         return back()->with('success', 'PO berhasil diselesaikan.');
     }

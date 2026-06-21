@@ -22,7 +22,6 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\Tools\AiToolsController;
 use App\Http\Controllers\UploadController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\BrandTargetController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -211,7 +210,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/backup/gdrive/redirect', [\App\Http\Controllers\BackupController::class, 'redirectToGoogle'])->name('backup.gdrive.redirect');
         Route::get('/backup/gdrive/callback', [\App\Http\Controllers\BackupController::class, 'handleGoogleCallback'])->name('backup.gdrive.callback');
         Route::post('/backup/gdrive/disconnect', [\App\Http\Controllers\BackupController::class, 'disconnectGoogle'])->name('backup.gdrive.disconnect');
-        Route::get('/notifikasi', [SettingsController::class, 'notifications'])->name('notifikasi');
+
         Route::put('/integrasi/ai', [SettingsController::class, 'updateAi'])->name('integrasi.ai');
         Route::put('/integrasi/whatsapp', [SettingsController::class, 'updateWhatsapp'])->name('integrasi.whatsapp');
         Route::put('/integrasi/telegram', [SettingsController::class, 'updateTelegram'])->name('integrasi.telegram');
@@ -219,7 +218,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/integrasi/seo', [SettingsController::class, 'updateSeo'])->name('integrasi.seo');
         Route::put('/integrasi/reseller-branding', [SettingsController::class, 'updateResellerBranding'])->name('integrasi.reseller-branding');
         Route::put('/integrasi/mail', [SettingsController::class, 'updateMail'])->name('integrasi.mail');
-        Route::put('/integrasi/matrix', [SettingsController::class, 'updateMatrix'])->name('integrasi.matrix');
+
         Route::post('/integrasi/test/ai', [SettingsController::class, 'testAi'])->name('integrasi.test.ai');
         Route::post('/integrasi/test/whatsapp', [SettingsController::class, 'testWhatsapp'])->name('integrasi.test.whatsapp');
         Route::post('/integrasi/test/telegram', [SettingsController::class, 'testTelegram'])->name('integrasi.test.telegram');
@@ -238,13 +237,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Phase 6.1: Audit Log
     Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
 
-    // In-App Notifications
-    Route::prefix('notifications')->name('notifications.')->group(function () {
-        Route::get('/', [NotificationController::class, 'index'])->name('index');
-        Route::post('/{notification}/read', [NotificationController::class, 'markAsRead'])->name('read');
-        Route::post('/read-all', [NotificationController::class, 'markAllAsRead'])->name('read-all');
-        Route::delete('/{notification}', [NotificationController::class, 'destroy'])->name('destroy');
-    });
+
 });
 
 Route::middleware('auth')->group(function () {

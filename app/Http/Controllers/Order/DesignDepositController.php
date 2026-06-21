@@ -55,13 +55,7 @@ class DesignDepositController extends Controller
             return $deposit;
         });
 
-        \App\Services\Notifications\DynamicNotificationService::dispatch('payment_submitted', [
-            'no_po' => 'Tanda Jadi ' . $deposit->deposit_number,
-            'brand_id' => $deposit->brand_id,
-            'brand_nama' => $brand->nama_brand,
-            'nominal' => 'Rp ' . number_format($deposit->amount, 0, ',', '.'),
-            'action_url' => "/invoices"
-        ]);
+
 
         return back()->with('success', 'Tanda Jadi (Design Deposit) berhasil disimpan. Menunggu validasi Admin Keuangan.');
     }

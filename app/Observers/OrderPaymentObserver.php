@@ -80,13 +80,6 @@ class OrderPaymentObserver
         if ($payment->verified_at === null) {
             if ($order) {
                 $formattedAmount = 'Rp ' . number_format($payment->amount, 0, ',', '.');
-                \App\Services\Notifications\DynamicNotificationService::dispatch('payment_submitted', [
-                    'no_po' => $order->no_po,
-                    'brand_id' => $order->brand->id,
-                    'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
-                    'nominal' => $formattedAmount,
-                    'action_url' => route('orders.show', $order->id),
-                ]);
             }
         }
     }
@@ -105,13 +98,6 @@ class OrderPaymentObserver
             // Dispatch verified notification
             if ($order) {
                 $formattedAmount = 'Rp ' . number_format($payment->amount, 0, ',', '.');
-                \App\Services\Notifications\DynamicNotificationService::dispatch('payment_verified', [
-                    'no_po' => $order->no_po,
-                    'brand_id' => $order->brand_id,
-                    'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
-                    'nominal' => $formattedAmount,
-                    'action_url' => route('orders.show', $order->id),
-                ]);
             }
         }
     }

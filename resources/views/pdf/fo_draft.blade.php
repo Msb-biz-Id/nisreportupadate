@@ -4,6 +4,19 @@
     <meta charset="utf-8">
     <title>FO DRAFT - {{ $brand->nama_brand }}</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP&family=Noto+Sans+Arabic&display=swap');
+        
+        .cjk-font {
+            font-family: 'Noto Sans JP', sans-serif !important;
+            text-transform: none !important;
+        }
+        .arabic-font {
+            font-family: 'Noto Sans Arabic', sans-serif !important;
+            text-transform: none !important;
+            direction: rtl;
+            unicode-bidi: embed;
+        }
+
         /* === CSS TEMPLATE DASAR PDF A4 (Polished) === */
         * { box-sizing: border-box; }
         @page { margin: 15mm 12mm 15mm 12mm; }
@@ -508,31 +521,31 @@
 
             @php
                 $cols = [];
-                $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 5];
+                $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 3];
                 if ($hasNamaPunggung) {
-                    $cols[] = ['type' => 'nama_punggung', 'label' => 'NAMA PUNGGUNG', 'weight' => 22, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_punggung', 'label' => 'NO. PUNGGUNG', 'weight' => 8];
+                    $cols[] = ['type' => 'nama_punggung', 'label' => 'NAMA PUNGGUNG', 'weight' => 24, 'align' => 't-left'];
+                    $cols[] = ['type' => 'no_punggung', 'label' => 'NO. PUNGGUNG', 'weight' => 6];
                 }
                 if ($hasNamaDada) {
-                    $cols[] = ['type' => 'nama_dada', 'label' => 'NAMA DADA', 'weight' => 16, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 8];
+                    $cols[] = ['type' => 'nama_dada', 'label' => 'NAMA DADA', 'weight' => 18, 'align' => 't-left'];
+                    $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 6];
                 }
                 if ($hasNamaLengan) {
-                    $cols[] = ['type' => 'nama_lengan', 'label' => 'NAMA LENGAN', 'weight' => 16, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 8];
+                    $cols[] = ['type' => 'nama_lengan', 'label' => 'NAMA LENGAN', 'weight' => 18, 'align' => 't-left'];
+                    $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 6];
                 }
                 if ($hasNamaPunggung2) {
-                    $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 22, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 8];
+                    $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 24, 'align' => 't-left'];
+                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 6];
                 }
                 if ($hasSizeAtasan) {
-                    $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 8];
+                    $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 6];
                 }
                 if ($hasSizeBawahan) {
-                    $cols[] = ['type' => 'size_celana', 'label' => 'SIZE CELANA', 'weight' => 9];
+                    $cols[] = ['type' => 'size_celana', 'label' => 'SIZE CELANA', 'weight' => 6];
                 }
                 if ($hasKeterangan) {
-                    $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 20, 'align' => 't-left'];
+                    $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 26, 'align' => 't-left'];
                 }
 
                 $totalWeight = collect($cols)->sum('weight');
@@ -567,35 +580,35 @@
                             @if($col['type'] === 'no')
                                 <td>{{ $i + 1 }}.</td>
                             @elseif($col['type'] === 'nama_punggung')
-                                <td class="t-left">{{ strtoupper($ns['nama_punggung'] ?? '') ?: '' }}</td>
+                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_punggung')
-                                <td>{{ $ns['nomor_punggung'] ?? '' }}</td>
+                                <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_punggung'] ?? '') !!}</td>
                             @elseif($col['type'] === 'nama_dada')
-                                <td class="t-left">{{ strtoupper($ns['nama_dada'] ?? '') ?: '' }}</td>
+                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_dada'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_dada')
-                                <td>{{ $ns['nomor_dada'] ?? '' }}</td>
+                                <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_dada'] ?? '') !!}</td>
                             @elseif($col['type'] === 'nama_lengan')
-                                <td class="t-left">{{ strtoupper($ns['nama_lengan'] ?? '') ?: '' }}</td>
+                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_lengan'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_lengan')
-                                <td>{{ $ns['nomor_lengan'] ?? '' }}</td>
+                                <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_lengan'] ?? '') !!}</td>
                             @elseif($col['type'] === 'nama_punggung_2')
-                                <td class="t-left">{{ strtoupper($ns['nama_punggung_2'] ?? '') ?: '' }}</td>
+                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung_2'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_punggung_2')
-                                <td>{{ $ns['nomor_punggung_2'] ?? '' }}</td>
+                                <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_punggung_2'] ?? '') !!}</td>
                             @elseif($col['type'] === 'size')
                                 @php
                                     $parts = explode('-', $ns['_size_label'] ?? $ns['size_label'] ?? '');
                                     $sv = trim(end($parts));
                                 @endphp
-                                <td>{{ $sv ?: '' }}</td>
+                                <td>{!! \App\Support\PdfHelper::formatText($sv) !!}</td>
                             @elseif($col['type'] === 'size_celana')
                                 @php
                                     $parts = explode('-', $ns['_size_celana_label'] ?? $ns['size_celana_label'] ?? '');
                                     $svc = trim(end($parts));
                                 @endphp
-                                <td>{{ $svc ?: '' }}</td>
+                                <td>{!! \App\Support\PdfHelper::formatText($svc) !!}</td>
                             @elseif($col['type'] === 'keterangan')
-                                <td class="t-left">{{ $ns['keterangan'] ?: '' }}</td>
+                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['keterangan'] ?? '') !!}</td>
                             @endif
                         @endforeach
                     </tr>
@@ -716,31 +729,31 @@
             @if($lampFilled->isNotEmpty())
             @php
                 $cols = [];
-                $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 5];
+                $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 3];
                 if ($hasLampNamaPunggung) {
-                    $cols[] = ['type' => 'nama_punggung', 'label' => 'NAMA PUNGGUNG', 'weight' => 22, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_punggung', 'label' => 'NO. PUNGGUNG', 'weight' => 8];
+                    $cols[] = ['type' => 'nama_punggung', 'label' => 'NAMA PUNGGUNG', 'weight' => 24, 'align' => 't-left'];
+                    $cols[] = ['type' => 'no_punggung', 'label' => 'NO. PUNGGUNG', 'weight' => 6];
                 }
                 if ($hasLampNamaDada) {
-                    $cols[] = ['type' => 'nama_dada', 'label' => 'NAMA DADA', 'weight' => 16, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 8];
+                    $cols[] = ['type' => 'nama_dada', 'label' => 'NAMA DADA', 'weight' => 18, 'align' => 't-left'];
+                    $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 6];
                 }
                 if ($hasLampNamaLengan) {
-                    $cols[] = ['type' => 'nama_lengan', 'label' => 'NAMA LENGAN', 'weight' => 16, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 8];
+                    $cols[] = ['type' => 'nama_lengan', 'label' => 'NAMA LENGAN', 'weight' => 18, 'align' => 't-left'];
+                    $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 6];
                 }
                 if ($hasLampNamaPunggung2) {
-                    $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 22, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 8];
+                    $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 24, 'align' => 't-left'];
+                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 6];
                 }
                 if ($hasLampSizeAtasan) {
-                    $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 8];
+                    $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 6];
                 }
                 if ($hasLampSizeBawahan) {
-                    $cols[] = ['type' => 'size_celana', 'label' => 'SIZE CELANA', 'weight' => 9];
+                    $cols[] = ['type' => 'size_celana', 'label' => 'SIZE CELANA', 'weight' => 6];
                 }
                 if ($hasLampKeterangan) {
-                    $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 20, 'align' => 't-left'];
+                    $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 26, 'align' => 't-left'];
                 }
 
                 $totalWeight = collect($cols)->sum('weight');
@@ -774,35 +787,35 @@
                             @if($col['type'] === 'no')
                                 <td>{{ $i + 1 }}.</td>
                             @elseif($col['type'] === 'nama_punggung')
-                                <td class="t-left">{{ strtoupper($ns['nama_punggung'] ?? '') ?: '.......' }}</td>
+                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_punggung')
-                                <td>{{ $ns['nomor_punggung'] ?? '.......' }}</td>
+                                <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_punggung'] ?? '') !!}</td>
                             @elseif($col['type'] === 'nama_dada')
-                                <td class="t-left">{{ strtoupper($ns['nama_dada'] ?? '') ?: '' }}</td>
+                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_dada'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_dada')
-                                <td>{{ $ns['nomor_dada'] ?? '' }}</td>
+                                <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_dada'] ?? '') !!}</td>
                             @elseif($col['type'] === 'nama_lengan')
-                                <td class="t-left">{{ strtoupper($ns['nama_lengan'] ?? '') ?: '.......' }}</td>
+                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_lengan'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_lengan')
-                                <td>{{ $ns['nomor_lengan'] ?? '.......' }}</td>
+                                <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_lengan'] ?? '') !!}</td>
                             @elseif($col['type'] === 'nama_punggung_2')
-                                <td class="t-left">{{ strtoupper($ns['nama_punggung_2'] ?? '') ?: '.......' }}</td>
+                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung_2'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_punggung_2')
-                                <td>{{ $ns['nomor_punggung_2'] ?? '.......' }}</td>
+                                <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_punggung_2'] ?? '') !!}</td>
                             @elseif($col['type'] === 'size')
                                 @php
                                     $parts = explode('-', $ns['_size_label'] ?? $ns['size_label'] ?? '');
                                     $sv = trim(end($parts));
                                 @endphp
-                                <td>{{ $sv ?: '.......' }}</td>
+                                <td>{!! \App\Support\PdfHelper::formatText($sv) !!}</td>
                             @elseif($col['type'] === 'size_celana')
                                 @php
                                     $parts = explode('-', $ns['_size_celana_label'] ?? $ns['size_celana_label'] ?? '');
                                     $svc = trim(end($parts));
                                 @endphp
-                                <td>{{ $svc ?: '.......' }}</td>
+                                <td>{!! \App\Support\PdfHelper::formatText($svc) !!}</td>
                             @elseif($col['type'] === 'keterangan')
-                                <td class="t-left">{{ $ns['keterangan'] ?: '.......' }}</td>
+                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['keterangan'] ?? '') !!}</td>
                             @endif
                         @endforeach
                     </tr>

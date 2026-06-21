@@ -4,6 +4,19 @@
     <meta charset="utf-8">
     <title>Invoice {{ $invoice->invoice_number }}</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP&family=Noto+Sans+Arabic&display=swap');
+        
+        .cjk-font {
+            font-family: 'Noto Sans JP', sans-serif !important;
+            text-transform: none !important;
+        }
+        .arabic-font {
+            font-family: 'Noto Sans Arabic', sans-serif !important;
+            text-transform: none !important;
+            direction: rtl;
+            unicode-bidi: embed;
+        }
+
         * { box-sizing: border-box; }
         body { font-family: 'DejaVu Sans', sans-serif; font-size: 9.5pt; color: #1F2937; margin: 0; }
         @page { margin: 14mm; }
@@ -100,7 +113,7 @@
         <div>
             <div class="info-label">Tagihan kepada</div>
             <div class="info-card">
-                <strong>{{ $invoice->order?->pelanggan?->nama ?? '-' }}</strong><br>
+                <strong>{!! \App\Support\PdfHelper::formatText($invoice->order?->pelanggan?->nama ?? '-') !!}</strong><br>
                 {{ maskPhoneNumber($invoice->order?->pelanggan?->nomor_hp ?? '') }}<br>
                 @if ($invoice->order?->pelanggan?->email ?? '')
                     {{ maskEmailAddress($invoice->order?->pelanggan?->email) }}<br>
@@ -119,7 +132,7 @@
             <div class="info-label">Referensi PO</div>
             <div class="info-card">
                 <strong style="font-family: monospace;">{{ $invoice->order?->no_po ?? '—' }}</strong><br>
-                {{ $invoice->order?->nama_po ?? '—' }}<br>
+                {!! \App\Support\PdfHelper::formatText($invoice->order?->nama_po ?? '—') !!}<br>
                 <span style="color:#6B7280; font-size: 8pt;">Tgl Order: {{ $invoice->order?->tanggal_masuk ? \Carbon\Carbon::parse($invoice->order?->tanggal_masuk)->translatedFormat('d M Y') : '—' }}</span>
                 @if($invoice->order?->iklan)
                     <br><span style="font-size: 8pt; color: #047857; font-weight: bold;">Promo: {{ $invoice->order?->iklan?->nama }}{{ $invoice->order?->iklan?->platform ? ' (' . $invoice->order?->iklan?->platform . ')' : '' }}</span>
@@ -153,7 +166,7 @@
                     <tr>
                         <td>{{ $rowNum++ }}</td>
                         <td>
-                            <div>{{ $item->produk }}</div>
+                            <div>{!! \App\Support\PdfHelper::formatText($item->produk) !!}</div>
                             @if (!empty($item->discount_amount) && $item->discount_amount > 0)
                                 <div style="font-size: 8pt; color: #DC2626; font-weight: bold; margin-top: 2px;">
                                     Diskon: {{ $item->discount_type === 'persen' ? (number_format($item->discount_value, 0) . '%') : ('Rp ' . number_format($item->discount_value, 0, ',', '.') . '/pcs') }} (-Rp {{ number_format($item->discount_amount, 0, ',', '.') }})
@@ -173,7 +186,7 @@
                     <tr>
                         <td>{{ $rowNum++ }}</td>
                         <td>
-                            <div>{{ $item->produk }}</div>
+                            <div>{!! \App\Support\PdfHelper::formatText($item->produk) !!}</div>
                             @if (!empty($item->discount_amount) && $item->discount_amount > 0)
                                 <div style="font-size: 8pt; color: #DC2626; font-weight: bold; margin-top: 2px;">
                                     Diskon: {{ $item->discount_type === 'persen' ? (number_format($item->discount_value, 0) . '%') : ('Rp ' . number_format($item->discount_value, 0, ',', '.') . '/pcs') }} (-Rp {{ number_format($item->discount_amount, 0, ',', '.') }})
@@ -314,7 +327,7 @@
         <div style="display: table-cell; vertical-align: top; padding-right: 20px;">
             <div style="font-weight: bold; font-size: 10.5pt; color: #111827; margin-bottom: 4px;">Terima kasih atas pembayaran Anda!</div>
             @if ($invoice->peraturan)
-                <div style="font-size: 8pt; color: #4B5563; line-height: 1.4; margin-bottom: 8px;">{{ $invoice->peraturan }}</div>
+                <div style="font-size: 8pt; color: #4B5563; line-height: 1.4; margin-bottom: 8px;">{!! \App\Support\PdfHelper::formatText($invoice->peraturan) !!}</div>
             @endif
 
             <div style="padding: 8px 10px; border: 1px dashed #D97706; background-color: #FEF3C7; border-radius: 6px; color: #92400E; font-size: 7.5pt; line-height: 1.3; margin-bottom: 8px;">

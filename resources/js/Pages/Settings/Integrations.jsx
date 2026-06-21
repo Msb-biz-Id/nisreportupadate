@@ -11,7 +11,6 @@ import { Switch } from '@/Components/ui/switch';
 import { Badge } from '@/Components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Separator } from '@/Components/ui/separator';
-import { playNotificationSound } from '@/Services/audio';
 import { cn } from '@/lib/utils';
 
 function StatusBadge({ ok }) {
