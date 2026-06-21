@@ -102,8 +102,9 @@ class UserSeeder extends Seeder
             $brandDrv->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
         ]);
 
-        // Admin Reseller demo — diarahkan ke brand Telulas (TLS)
-        if ($brandTelulas) {
+        // Admin Reseller demo — diarahkan ke brand INDOWAREHOUSE (IDW)
+        $brandIdw = Brand::where('kode', 'IDW')->first();
+        if ($brandIdw) {
             $adminReseller = User::updateOrCreate(
                 ['email' => 'indonesiasportwarehouse@gmail.com'],
                 [
@@ -116,9 +117,10 @@ class UserSeeder extends Seeder
             );
             $adminReseller->syncRoles(['admin_reseller']);
             $adminReseller->brands()->sync([
-                $brandTelulas->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
+                $brandIdw->id => ['is_default' => true, 'assigned_at' => now(), 'assigned_by' => $super->id],
             ]);
         }
+
 
         // Admin Produksi
         $produksi = User::updateOrCreate(

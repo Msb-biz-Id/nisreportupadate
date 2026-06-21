@@ -742,7 +742,7 @@ function formatTimeAgo(dateString) {
 
 
 function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead, onDelete, onNavigate }) {
-    const [open, setOpen] = React.useState(false);
+    const [open, setOpen] = useState(false);
 
     return (
         <DropdownMenu open={open} onOpenChange={setOpen}>

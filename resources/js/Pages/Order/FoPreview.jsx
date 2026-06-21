@@ -156,12 +156,21 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                         {/* Right Column Box */}
                         <div className="col-span-5">
                             <div className="border-[2px] border-black p-3 text-center bg-white min-h-[110px] flex flex-col justify-center">
-                                <div className="text-xl font-black leading-tight">
-                                    {displayBrand.nama_brand || 'BRAND'}
-                                </div>
+                                {!(order.reseller_display_brand || (brand && (brand.brand_type === 'reseller_hub' || brand.brand_type === 'reseller_branch'))) ? (
+                                    <div className="text-xl font-black leading-tight">
+                                        {displayBrand.nama_brand || 'BRAND'}
+                                    </div>
+                                ) : (
+                                    <div className="text-[12px] font-bold leading-tight">
+                                        RESELLER:<br />
+                                        <span className="text-[14px] font-black text-black">
+                                            {(order.reseller_display_brand?.nama_brand || brand?.nama_brand)?.toUpperCase()}
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="text-[12px] font-bold mt-2 pt-2 border-t border-black">
                                     JENIS PRINTING:<br />
-                                    <span className="text-[13px] font-black text-red-600">{printingStr}</span>
+                                    <span className="text-[13px] font-black text-black">{printingStr}</span>
                                 </div>
                                 {order.paket_order && (
                                     <div className="text-[12px] font-bold mt-2 pt-2 border-t border-black">

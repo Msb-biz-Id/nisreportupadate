@@ -38,7 +38,7 @@ class Order extends Model
     ];
 
     protected $fillable = [
-        'brand_id', 'no_po', 'nama_po', 'status_po', 'is_special_order', 'is_free_ongkir',
+        'brand_id', 'reseller_display_brand_id', 'no_po', 'nama_po', 'status_po', 'is_special_order', 'is_free_ongkir',
         'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date',
         'kategori_order_id', 'jenis_order_id', 'sumber_order_id', 'paket_order_id',
         'jenis_setelan_id', 'pola_produksi_id',
@@ -70,6 +70,7 @@ class Order extends Model
     ];
 
     public function brand(): BelongsTo { return $this->belongsTo(Brand::class); }
+    public function resellerDisplayBrand(): BelongsTo { return $this->belongsTo(Brand::class, 'reseller_display_brand_id'); }
     public function pelanggan(): BelongsTo { return $this->belongsTo(Customer::class, 'pelanggan_id'); }
     public function kategoriOrder(): BelongsTo { return $this->belongsTo(KategoriOrder::class, 'kategori_order_id'); }
     public function jenisOrder(): BelongsTo { return $this->belongsTo(JenisOrder::class, 'jenis_order_id'); }

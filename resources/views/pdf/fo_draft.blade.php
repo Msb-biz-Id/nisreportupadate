@@ -127,10 +127,10 @@
 
     </header>
     <footer>
-        <table style="width:100%; border:none; font-size:8.5pt; font-weight:bold;">
+        <table style="width:100%; border:none; font-size:7pt; font-weight:bold;">
             <tr>
                 <td style="text-align:left; width:40%;">HALAMAN <span class="page-num"></span></td>
-                <td style="text-align:right; width:60%; color:#b91c1c;">NAMA ORDER: {{ strtoupper($raw['nama_po'] ?? '—') }}</td>
+                <td style="text-align:right; width:60%; color:#b91c1c;">{{ $raw['no_po'] ?? 'DRAFT' }}</td>
             </tr>
         </table>
     </footer>
@@ -197,12 +197,24 @@
                 <!-- Right Side: Brand & Paket Box -->
                 <td style="width: 40%; padding: 0 0 0 15px; vertical-align: top; text-align: center;">
                     <div style="border: 2px solid #000; padding: 12px 10px; min-height: 110px; background: #fff; text-align: center;">
-                        <div style="font-size: 15pt; font-weight: 900; line-height: 1.2;">
-                            {{ strtoupper($brand->nama_brand) }}
-                        </div>
+                        @if(isset($resellerDisplayBrand) && $resellerDisplayBrand)
+                            <div style="font-size: 11pt; font-weight: 900; color: #000; line-height: 1.2;">
+                                RESELLER:<br>
+                                <span style="font-size: 12.5pt; font-weight: 900;">{{ strtoupper($resellerDisplayBrand->nama_brand) }}</span>
+                            </div>
+                        @elseif(isset($brand) && $brand && ($brand->isResellerHub() || $brand->isResellerBranch()))
+                            <div style="font-size: 11pt; font-weight: 900; color: #000; line-height: 1.2;">
+                                RESELLER:<br>
+                                <span style="font-size: 12.5pt; font-weight: 900;">{{ strtoupper($brand->nama_brand) }}</span>
+                            </div>
+                        @else
+                            <div style="font-size: 15pt; font-weight: 900; line-height: 1.2;">
+                                {{ strtoupper($brand->nama_brand) }}
+                            </div>
+                        @endif
                         <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
                             JENIS PRINTING:<br>
-                            <span style="font-size: 12pt; font-weight: 900; color: red;">{{ strtoupper($printingStr) }}</span>
+                            <span style="font-size: 12pt; font-weight: 900; color: #000;">{{ strtoupper($printingStr) }}</span>
                         </div>
                         @if(isset($paketOrder) && $paketOrder)
                             <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">

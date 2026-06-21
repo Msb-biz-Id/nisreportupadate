@@ -1210,9 +1210,15 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
 }
 
 
-export default function OrderForm({ mode, masters, order, current_brand_id, reseller_branches = [], is_reseller_hub = false }) {
+export default function OrderForm({ mode, masters, order, current_brand_id, reseller_branches = [], is_reseller_hub = false, reseller_hubs = [] }) {
     const isEdit = mode === 'edit';
     const [showSummaryDropdown, setShowSummaryDropdown] = useState(false);
+
+    const activeResellerHubId = useMemo(() => {
+        if (!current_brand_id || !reseller_hubs) return '';
+        const matchingHub = reseller_hubs.find(h => h.id === current_brand_id);
+        return matchingHub ? matchingHub.id : '';
+    }, [current_brand_id, reseller_hubs]);
 
     const { data, setData, post, put, processing, errors } = useForm({
         nama_po: order?.nama_po ?? '',
@@ -1224,6 +1230,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
         paket_order_id: order?.paket_order_id ?? '',
         pelanggan_id: order?.pelanggan_id ?? '',
         branch_brand_id: order?.branch_brand_id ?? '',
+        reseller_display_brand_id: order ? (order.reseller_display_brand_id ?? '') : activeResellerHubId,
         bank_id: order?.bank_id ?? '',
         printing_ids: order?.printing_ids ?? [],
         iklan_id: order?.iklan_id ?? '',
@@ -1646,6 +1653,22 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                             placeholder="— Pakai brand aktif (default) —"
                                         />
                                         {errors.branch_brand_id && <p className="mt-1 text-xs text-red-500">{errors.branch_brand_id}</p>}
+                                    </div>
+                                )}
+                                {/* Selector Reseller Hub: tampil ketika brand regular memiliki reseller hub terkait */}
+                                {reseller_hubs && reseller_hubs.length > 0 && (
+                                    <div className="flex flex-col col-span-2">
+                                        <FieldLabel>
+                                            Reseller Hub
+                                            <span className="ml-1 text-[10px] text-muted-foreground font-normal">(pilih reseller hub untuk ditampilkan di FO)</span>
+                                        </FieldLabel>
+                                        <SearchableSelect
+                                            value={data.reseller_display_brand_id}
+                                            onValueChange={(v) => setData('reseller_display_brand_id', v)}
+                                            options={reseller_hubs.map((b) => ({ value: b.id, label: `${b.kode} — ${b.nama_brand}` }))}
+                                            placeholder="— Tidak menampilkan reseller hub (default) —"
+                                        />
+                                        {errors.reseller_display_brand_id && <p className="mt-1 text-xs text-red-500">{errors.reseller_display_brand_id}</p>}
                                     </div>
                                 )}
                                 <div className="flex flex-col col-span-1">

@@ -91,6 +91,9 @@ class BrandSeeder extends Seeder
 
         // Reseller nyata — masing-masing entitas reseller mandiri (tipe: reseller_hub)
         // Bisa punya branch sendiri nanti. Master data shared di level hub.
+        $idwBrand = Brand::where('kode', 'IDW')->first();
+        $idwBrandId = $idwBrand ? $idwBrand->id : null;
+
         $resellerBrands = [
             ['nama_brand' => 'Telulas',       'kode' => 'TLS', 'warna_primary' => '#F59E0B'],
             ['nama_brand' => 'Pamos',         'kode' => 'PMS', 'warna_primary' => '#3B82F6'],
@@ -99,7 +102,7 @@ class BrandSeeder extends Seeder
             ['nama_brand' => 'Balga',         'kode' => 'BLG', 'warna_primary' => '#8B5CF6'],
         ];
         foreach ($resellerBrands as $data) {
-            Brand::firstOrCreate(
+            Brand::updateOrCreate(
                 ['kode' => $data['kode']],
                 array_merge([
                     'tagline'    => '',
@@ -109,8 +112,10 @@ class BrandSeeder extends Seeder
                     'alamat'     => 'Indonesia',
                     'is_active'  => true,
                     'brand_type' => Brand::TYPE_RESELLER_HUB,
+                    'parent_brand_id' => $idwBrandId,
                 ], $data)
             );
         }
     }
 }
+

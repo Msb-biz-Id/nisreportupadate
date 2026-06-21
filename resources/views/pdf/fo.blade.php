@@ -113,10 +113,10 @@
         </table>
     </header>
     <footer>
-        <table style="width:100%; border:none; font-size:8.5pt; font-weight:bold;">
+        <table style="width:100%; border:none; font-size:7pt; font-weight:bold;">
             <tr>
                 <td style="text-align:left; width:40%;">HALAMAN <span class="page-num"></span></td>
-                <td style="text-align:right; width:60%; color:#b91c1c;">NAMA ORDER: {{ strtoupper($order->nama_po) }} · {{ $order->no_po }}</td>
+                <td style="text-align:right; width:60%; color:#b91c1c;">{{ $order->no_po }}</td>
             </tr>
         </table>
     </footer>
@@ -195,9 +195,20 @@
                 <!-- Right Side: Printing Box -->
                 <td style="width: 40%; padding: 0 0 0 15px; vertical-align: top;">
                     <div style="border: 2px solid #000; padding: 12px 10px; background: #fff; text-align: center; min-height: 75px;">
+                        @if($order->resellerDisplayBrand)
+                        <div style="font-size: 10.5pt; font-weight: 900; color: #000; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px;">
+                            RESELLER:<br>
+                            <span>{{ strtoupper($order->resellerDisplayBrand->nama_brand) }}</span>
+                        </div>
+                        @elseif($order->brand && ($order->brand->isResellerHub() || $order->brand->isResellerBranch()))
+                        <div style="font-size: 10.5pt; font-weight: 900; color: #000; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px;">
+                            RESELLER:<br>
+                            <span>{{ strtoupper($order->brand->nama_brand) }}</span>
+                        </div>
+                        @endif
                         <div style="font-size: 10pt; font-weight: bold; line-height: 1.2;">
                             JENIS PRINTING:<br>
-                            <span style="font-size: 12pt; font-weight: 900; color: red;">{{ strtoupper($printingStr) }}</span>
+                            <span style="font-size: 12pt; font-weight: 900; color: #000;">{{ strtoupper($printingStr) }}</span>
                         </div>
                     </div>
                 </td>

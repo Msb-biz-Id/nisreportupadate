@@ -273,6 +273,12 @@ class OrderController extends Controller
 
         $masterBrandId = BrandContext::masterDataId($request, $brandId);
 
+        $resellerHubs = Brand::where('brand_type', Brand::TYPE_RESELLER_HUB)
+            ->active()
+            ->orderBy('nama_brand')
+            ->get(['id', 'nama_brand', 'kode'])
+            ->toArray();
+
         return Inertia::render('Order/Form', [
             'mode'    => 'create',
             'masters' => $this->mastersForForm($masterBrandId, $brandId),
@@ -283,6 +289,7 @@ class OrderController extends Controller
                 ? $this->resolveResellerBrandsForForm($user, $brandId)
                 : [],
             'is_reseller_hub' => $user->hasRole('admin_reseller') && $user->brands()->count() > 1,
+            'reseller_hubs' => $resellerHubs,
         ]);
     }
 
@@ -301,6 +308,12 @@ class OrderController extends Controller
 
         $masterBrandId = BrandContext::masterDataId($request, $order->brand_id);
 
+        $resellerHubs = Brand::where('brand_type', Brand::TYPE_RESELLER_HUB)
+            ->active()
+            ->orderBy('nama_brand')
+            ->get(['id', 'nama_brand', 'kode'])
+            ->toArray();
+
         return Inertia::render('Order/Form', [
             'mode' => 'edit',
             'masters' => $this->mastersForForm($masterBrandId, $order->brand_id),
@@ -308,6 +321,7 @@ class OrderController extends Controller
             'current_brand_id' => $order->brand_id,
             'reseller_branches' => [],
             'is_reseller_hub' => false,
+            'reseller_hubs' => $resellerHubs,
         ]);
     }
 
@@ -338,6 +352,7 @@ class OrderController extends Controller
         $order = DB::transaction(function () use ($brand, $data, $user) {
             $order = Order::create([
                 'brand_id' => $brand->id,
+                'reseller_display_brand_id' => $data['reseller_display_brand_id'] ?? null,
                 'no_po' => $this->numbers->generateOrderNumber($brand, $data['nama_po']),
                 'nama_po' => $data['nama_po'],
                 'status_po' => 'draft',
@@ -417,6 +432,7 @@ class OrderController extends Controller
         DB::transaction(function () use ($order, $data, $user) {
             $updateData = [
                 'nama_po' => $data['nama_po'],
+                'reseller_display_brand_id' => $data['reseller_display_brand_id'] ?? null,
                 'is_special_order' => $data['is_special_order'] ?? false,
                 'tanggal_masuk' => $data['tanggal_masuk'],
                 'deadline_customer' => $data['deadline_customer'],
@@ -1079,6 +1095,7 @@ class OrderController extends Controller
         $raw     = $request->all();
 
         $pelanggan  = !empty($raw['pelanggan_id'])      ? Customer::find($raw['pelanggan_id'])           : null;
+        $resellerDisplayBrand = !empty($raw['reseller_display_brand_id']) ? Brand::find($raw['reseller_display_brand_id']) : null;
         $kategori   = !empty($raw['kategori_order_id']) ? KategoriOrder::find($raw['kategori_order_id']) : null;
         $jenisOrder = !empty($raw['jenis_order_id'])    ? JenisOrder::find($raw['jenis_order_id'])       : null;
         $sumber     = !empty($raw['sumber_order_id'])   ? SumberOrder::find($raw['sumber_order_id'])     : null;
@@ -1230,7 +1247,7 @@ class OrderController extends Controller
         }
         $progresses = \App\Models\Master\Progress::active()->ordered()->get();
 
-        $pdf = Pdf::loadView('pdf.fo_draft', compact('brand', 'headerBrand', 'logoData', 'raw', 'pelanggan', 'kategori', 'jenisOrder', 'sumber', 'paketOrder', 'items', 'printingNames', 'progresses'))
+        $pdf = Pdf::loadView('pdf.fo_draft', compact('brand', 'resellerDisplayBrand', 'headerBrand', 'logoData', 'raw', 'pelanggan', 'kategori', 'jenisOrder', 'sumber', 'paketOrder', 'items', 'printingNames', 'progresses'))
             ->setPaper('a4', 'portrait');
 
         $filename = 'FO-DRAFT-' . $brand->kode . '-' . now()->format('YmdHis') . '.pdf';
@@ -1243,7 +1260,7 @@ class OrderController extends Controller
         $this->guardBrandOwnership($request, $order);
 
         $order->load([
-            'brand.parentBrand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
+            'brand.parentBrand', 'resellerDisplayBrand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
             'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'items.resleting', 'items.printing',
             'items.polaJahitan', 'items.polaJahitanLengan',
             'items.jenisSetelan', 'items.polaProduksi',
@@ -1278,7 +1295,7 @@ class OrderController extends Controller
         $this->guardBrandOwnership($request, $order);
 
         $order->load([
-            'brand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
+            'brand', 'resellerDisplayBrand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
             'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'items.resleting', 'items.printing',
             'items.polaJahitan', 'items.polaJahitanLengan',
             'items.jenisSetelan', 'items.polaProduksi',
@@ -1321,7 +1338,7 @@ class OrderController extends Controller
         $order = Order::where('no_po', $noPo)->firstOrFail();
 
         $order->load([
-            'brand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
+            'brand', 'resellerDisplayBrand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
             'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'items.resleting', 'items.printing',
             'items.polaJahitan', 'items.polaJahitanLengan',
             'items.jenisSetelan', 'items.polaProduksi',
@@ -1576,6 +1593,7 @@ class OrderController extends Controller
             'pola_produksi_id'  => ['nullable', 'uuid', 'exists:pola_produksi,id'],
             'pelanggan_id' => ['required', 'uuid', 'exists:customers,id'],
             'branch_brand_id' => ['nullable', 'uuid', 'exists:brands,id'],
+            'reseller_display_brand_id' => ['nullable', 'uuid', 'exists:brands,id'],
             'printing_ids' => ['nullable', 'array'],
             'printing_ids.*' => ['uuid', 'exists:printings,id'],
             'iklan_id' => ['nullable', 'uuid', 'exists:iklans,id'],
