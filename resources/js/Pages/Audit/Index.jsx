@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
-import { Search, Shield, User as UserIcon } from 'lucide-react';
+import { Search, Shield, User as UserIcon, Copy, Check } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -29,6 +29,37 @@ export default function AuditIndex({ logs, filters, modules, activities }) {
     const [activity, setActivity] = useState(filters?.activity ?? 'all');
     const [from, setFrom] = useState(filters?.from ?? '');
     const [to, setTo] = useState(filters?.to ?? '');
+
+    const [copied, setCopied] = useState(false);
+    const handleCopyExcel = () => {
+        const headers = ['Waktu', 'User', 'Email', 'Brand', 'Modul', 'Aktivitas', 'Deskripsi', 'IP Address', 'User Agent'];
+        const rows = [headers.join('\t')];
+        
+        logs.data.forEach((l) => {
+            const row = [
+                formatDateTime(l.created_at),
+                l.user?.name ?? 'System',
+                l.user?.email ?? '—',
+                l.brand?.kode ?? '—',
+                MODULE_LABEL[l.module] ?? l.module,
+                l.activity,
+                l.description ?? '—',
+                l.ip_address ?? '—',
+                l.user_agent ?? '—'
+            ];
+            rows.push(row.join('\t'));
+        });
+        
+        const textToCopy = rows.join('\n');
+        navigator.clipboard.writeText(textToCopy)
+            .then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            })
+            .catch(err => {
+                console.error('Failed to copy audit log data:', err);
+            });
+    };
 
     function apply(overrides = {}) {
         router.get(route('audit.index'), {
@@ -85,8 +116,32 @@ export default function AuditIndex({ logs, filters, modules, activities }) {
                             <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} title="Sampai" />
                         </div>
 
-                        <div className="mb-3 flex justify-end">
-                            <Button size="sm" onClick={() => apply()}>Terapkan</Button>
+                        <div className="mb-3 flex justify-between items-center">
+                            <span className="text-xs text-muted-foreground italic">
+                                *Menyalin data log pada halaman aktif ini
+                            </span>
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleCopyExcel}
+                                    className="flex items-center gap-1.5"
+                                >
+                                    {copied ? (
+                                        <>
+                                            <Check className="h-4 w-4 text-emerald-600 animate-in fade-in zoom-in duration-200" />
+                                            Tersalin!
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Copy className="h-4 w-4 text-slate-500" />
+                                            Salin untuk Excel
+                                        </>
+                                    )}
+                                </Button>
+                                <Button size="sm" onClick={() => apply()}>Terapkan</Button>
+                            </div>
                         </div>
 
                         <div className="overflow-hidden rounded-lg border">

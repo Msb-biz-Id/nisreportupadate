@@ -1295,16 +1295,24 @@ class OrderController extends Controller
         $this->resolveItemNamesInBatch($order);
 
         $printings = collect();
+        $printingNames = collect();
         if (!empty($order->printing_ids)) {
             $printings = \App\Models\Master\Printing::whereIn('id', $order->printing_ids)->pluck('nama');
+            $printingNames = $printings;
         }
+        $printingStr = $printingNames && $printingNames->count() > 0 ? $printingNames->join(', ') : '';
 
         $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+
+        // Get header brand for FO display (uses getHeaderBrand() to respect system settings)
+        $headerBrand = $order->brand ? $order->brand->getHeaderBrand() : null;
 
         return Inertia::render('Order/FoPreview', [
             'order' => $order,
             'printings' => $printings,
+            'printingStr' => $printingStr,
             'progresses' => $progresses,
+            'headerBrand' => $headerBrand,
         ]);
     }
 
@@ -1330,16 +1338,24 @@ class OrderController extends Controller
         $this->resolveItemNamesInBatch($order);
 
         $printings = collect();
+        $printingNames = collect();
         if (!empty($order->printing_ids)) {
             $printings = \App\Models\Master\Printing::whereIn('id', $order->printing_ids)->pluck('nama');
+            $printingNames = $printings;
         }
+        $printingStr = $printingNames && $printingNames->count() > 0 ? $printingNames->join(', ') : '';
 
         $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+
+        // Get header brand for FO display (uses getHeaderBrand() to respect system settings)
+        $headerBrand = $order->brand ? $order->brand->getHeaderBrand() : null;
 
         return Inertia::render('Order/FoPreview', [
             'order' => $order,
             'printings' => $printings,
+            'printingStr' => $printingStr,
             'progresses' => $progresses,
+            'headerBrand' => $headerBrand,
             'isPublic' => true,
         ]);
     }

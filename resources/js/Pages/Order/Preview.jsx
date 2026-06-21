@@ -63,7 +63,7 @@ function UnlockDialog({ order, open, onOpenChange, canUnlock }) {
                     <DialogHeader>
                         <DialogTitle>{canUnlock ? 'Unlock PO' : 'Minta Unlock PO'}</DialogTitle>
                         <DialogDescription>
-                            {canUnlock 
+                            {canUnlock
                                 ? 'Setelah unlock, PO bisa diubah. Setiap perubahan akan tercatat di Change Log. Re-lock setelah selesai edit.'
                                 : 'Anda mengajukan permohonan untuk membuka kunci PO ini. Setelah disetujui oleh Owner atau Supervisor, PO baru dapat diubah.'}
                         </DialogDescription>
@@ -96,7 +96,7 @@ function RelockDialog({ order, open, onOpenChange, canUnlock }) {
                     <DialogHeader>
                         <DialogTitle>{canUnlock ? 'Re-lock PO' : 'Minta Re-lock PO'}</DialogTitle>
                         <DialogDescription>
-                            {canUnlock 
+                            {canUnlock
                                 ? 'Kunci kembali PO ini agar tidak bisa diubah secara tidak sengaja.'
                                 : 'Anda mengajukan permohonan untuk mengunci kembali PO ini. Setelah disetujui oleh Owner atau Supervisor, PO akan dikunci kembali.'}
                         </DialogDescription>
@@ -118,7 +118,7 @@ function RelockDialog({ order, open, onOpenChange, canUnlock }) {
 
 function PaymentTypeInfo({ selectedJp, amount }) {
     if (!selectedJp) return null;
-    
+
     return (
         <div className="sm:col-span-2 p-3 rounded-lg border text-xs flex flex-col gap-2 bg-slate-50 border-slate-200">
             <div className="flex items-start gap-2.5">
@@ -128,7 +128,7 @@ function PaymentTypeInfo({ selectedJp, amount }) {
                         <div>
                             <p className="font-semibold text-amber-900">Menaikkan Total Tagihan PO</p>
                             <p className="text-slate-600 mt-0.5">
-                                Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai biaya tambahan (misal: Ongkir, Penambahan Produk). 
+                                Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai biaya tambahan (misal: Ongkir, Penambahan Produk).
                                 Menginput ini akan menambah harga keseluruhan PO sebesar <strong>{formatRupiah(amount)}</strong>.
                             </p>
                         </div>
@@ -140,7 +140,7 @@ function PaymentTypeInfo({ selectedJp, amount }) {
                         <div>
                             <p className="font-semibold text-rose-900">Menurunkan Total Tagihan PO</p>
                             <p className="text-slate-600 mt-0.5">
-                                Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai potongan tagihan (misal: Return/Diskon, Cashback). 
+                                Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai potongan tagihan (misal: Return/Diskon, Cashback).
                                 Menginput ini akan memotong total harga keseluruhan PO sebesar <strong>{formatRupiah(amount)}</strong>.
                             </p>
                         </div>
@@ -152,7 +152,7 @@ function PaymentTypeInfo({ selectedJp, amount }) {
                         <div>
                             <p className="font-semibold text-emerald-950">Pembayaran Kas (Mengurangi Sisa Tagihan)</p>
                             <p className="text-slate-600 mt-0.5">
-                                Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai realisasi pembayaran (DP / Pelunasan). 
+                                Tipe <strong>{selectedJp.nama}</strong> bertindak sebagai realisasi pembayaran (DP / Pelunasan).
                                 Menginput ini akan langsung mengurangi sisa pembayaran PO sebesar <strong>{formatRupiah(amount)}</strong> tanpa mengubah total nilai PO.
                             </p>
                         </div>
@@ -343,7 +343,7 @@ function EditPaymentDialog({ payment, open, onOpenChange, banks, jenis_pembayara
 function TimelineForm({ order, onDone }) {
     const { data, setData, patch, processing } = useForm({
         start_production_date: order.start_production_date?.slice(0, 10) ?? '',
-        end_production_date:   order.end_production_date?.slice(0, 10) ?? '',
+        end_production_date: order.end_production_date?.slice(0, 10) ?? '',
     });
 
     function submit(e) {
@@ -418,12 +418,12 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
 
     // Use server-computed values (dp_info) to stay in sync with backend publish logic.
     // Falls back to client calculation if dp_info is absent (e.g., older cached page).
-    const totalTagihan    = dp_info ? Number(dp_info.total_tagihan)    : Number(order.total_tagihan || 0);
-    const totalPaid       = dp_info ? Number(dp_info.total_paid)       : Math.max(0, (order.payments ?? []).filter(p => p.verified_at).reduce((s, p) => s + (isDeduction(p) ? -Number(p.amount) : Number(p.amount)), 0));
+    const totalTagihan = dp_info ? Number(dp_info.total_tagihan) : Number(order.total_tagihan || 0);
+    const totalPaid = dp_info ? Number(dp_info.total_paid) : Math.max(0, (order.payments ?? []).filter(p => p.verified_at).reduce((s, p) => s + (isDeduction(p) ? -Number(p.amount) : Number(p.amount)), 0));
     const minDpPercentage = dp_info ? Number(dp_info.min_dp_percentage) : (order.brand?.min_dp_percentage != null ? Number(order.brand.min_dp_percentage) : 0.50);
-    const minDp           = dp_info ? Number(dp_info.min_dp)           : totalTagihan * minDpPercentage;
-    const isDpSufficient  = dp_info ? Boolean(dp_info.is_sufficient)   : (totalPaid >= minDp || order.is_dp_bypassed);
-    const sisaTagihan     = Math.max(0, totalTagihan - totalPaid);
+    const minDp = dp_info ? Number(dp_info.min_dp) : totalTagihan * minDpPercentage;
+    const isDpSufficient = dp_info ? Boolean(dp_info.is_sufficient) : (totalPaid >= minDp || order.is_dp_bypassed);
+    const sisaTagihan = Math.max(0, totalTagihan - totalPaid);
 
     // Financial breakdown calculations
     const grossSubtotal = (order.items ?? []).reduce((s, x) => s + (Number(x.quantity) * Number(x.harga_satuan)), 0);
@@ -436,12 +436,12 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
 
     const additionPayments = (order.payments ?? []).filter(p => p.verified_at && p.payment_type === 'tambahan_produk');
     const cashbackPayments = (order.payments ?? []).filter(p => p.verified_at && p.payment_type === 'cashback');
-    const returnPayments   = (order.payments ?? []).filter(p => p.verified_at && p.payment_type === 'return');
-    const ongkirPayments   = (order.payments ?? []).filter(p => p.verified_at && p.payment_type === 'ongkir');
+    const returnPayments = (order.payments ?? []).filter(p => p.verified_at && p.payment_type === 'return');
+    const ongkirPayments = (order.payments ?? []).filter(p => p.verified_at && p.payment_type === 'ongkir');
 
     const totalAddition = additionPayments.reduce((s, x) => s + Number(x.amount), 0);
     const totalCashback = cashbackPayments.reduce((s, x) => s + Number(x.amount), 0);
-    const totalReturn   = returnPayments.reduce((s, x) => s + Number(x.amount), 0);
+    const totalReturn = returnPayments.reduce((s, x) => s + Number(x.amount), 0);
 
     function bypassDp() {
         if (!confirm(order.is_dp_bypassed ? 'Nonaktifkan bypass DP?' : 'Bypass minimal DP untuk PO ini?')) return;
@@ -504,9 +504,9 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
                                         Tracking Publik:
                                     </span>
-                                    <a 
-                                        href={`/track/${order.no_po}`} 
-                                        target="_blank" 
+                                    <a
+                                        href={`/track/${order.no_po}`}
+                                        target="_blank"
                                         rel="noopener noreferrer"
                                         className="font-mono bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md px-2 py-0.5 text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1.5"
                                     >
@@ -529,11 +529,10 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     <Button
                                         onClick={publish}
                                         size="sm"
-                                        className={`font-semibold shadow-sm flex items-center gap-1.5 ${
-                                            !isDpSufficient 
-                                                ? "opacity-60 cursor-not-allowed bg-slate-400 hover:bg-slate-400 text-white" 
+                                        className={`font-semibold shadow-sm flex items-center gap-1.5 ${!isDpSufficient
+                                                ? "opacity-60 cursor-not-allowed bg-slate-400 hover:bg-slate-400 text-white"
                                                 : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                                        }`}
+                                            }`}
                                         title={!isDpSufficient ? `Pembayaran DP belum mencapai minimal ${(minDpPercentage * 100).toFixed(0)}%` : "Terbitkan PO ke Produksi"}
                                     >
                                         <Send className="h-3.5 w-3.5" /> Terbitkan
@@ -607,7 +606,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     <DropdownMenuContent align="end" className="w-52 bg-white border border-slate-200 p-1 shadow-md rounded-lg z-50">
                                         {/* Toggle Free Ongkir */}
                                         {can?.edit && order.status_po !== 'selesai' && (
-                                            <DropdownMenuItem 
+                                            <DropdownMenuItem
                                                 onClick={() => {
                                                     if (confirm(order.is_free_ongkir ? 'Batalkan status Free Ongkir untuk PO ini?' : 'Set Free Ongkir untuk PO ini?')) {
                                                         router.post(route('orders.toggle-free-ongkir', order.id), {}, { preserveScroll: true });
@@ -622,7 +621,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
 
                                         {/* Bypass DP */}
                                         {can?.bypass_dp && order.status_po === 'draft' && (!isDpSufficient || order.is_dp_bypassed) && (
-                                            <DropdownMenuItem 
+                                            <DropdownMenuItem
                                                 onClick={bypassDp}
                                                 className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md"
                                             >
@@ -633,7 +632,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
 
                                         {/* Repeat Order */}
                                         {can?.repeat && (
-                                            <DropdownMenuItem 
+                                            <DropdownMenuItem
                                                 onClick={repeatOrder}
                                                 className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md"
                                             >
@@ -644,7 +643,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
 
                                         {/* Unlock / Relock PO */}
                                         {order.status_po !== 'draft' && order.status_po !== 'selesai' && isLocked && (
-                                            <DropdownMenuItem 
+                                            <DropdownMenuItem
                                                 onClick={() => setOpenUnlock(true)}
                                                 className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md"
                                                 disabled={(order.lock_status?.unlock_requested_by || order.lock_status?.unlockRequestedBy) && !can?.unlock}
@@ -655,7 +654,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         )}
 
                                         {order.status_po !== 'draft' && order.status_po !== 'selesai' && !isLocked && (
-                                            <DropdownMenuItem 
+                                            <DropdownMenuItem
                                                 onClick={() => setOpenRelock(true)}
                                                 className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md"
                                                 disabled={(order.lock_status?.relock_requested_by || order.lock_status?.relockRequestedBy) && !can?.unlock}
@@ -669,7 +668,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         {can?.delete && order.status_po !== 'selesai' && (
                                             <>
                                                 <DropdownMenuSeparator className="my-1 border-t border-slate-100" />
-                                                <DropdownMenuItem 
+                                                <DropdownMenuItem
                                                     onClick={() => setConfirmDelete(true)}
                                                     className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-rose-600 hover:bg-rose-50 rounded-md font-semibold"
                                                 >
@@ -694,7 +693,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                 <h4 className="text-sm font-bold">Permohonan Unlock PO 🔓</h4>
                                 <p className="text-xs text-amber-700 leading-relaxed font-medium">
                                     Diajukan oleh: <strong>{(order.lock_status?.unlock_requested_by || order.lock_status?.unlockRequestedBy)?.name || 'Admin'}</strong>
-                                    {((order.lock_status?.unlock_requested_by || order.lock_status?.unlockRequestedBy)?.roles?.length > 0) && 
+                                    {((order.lock_status?.unlock_requested_by || order.lock_status?.unlockRequestedBy)?.roles?.length > 0) &&
                                         ` (${(order.lock_status?.unlock_requested_by || order.lock_status?.unlockRequestedBy)?.roles[0].name})`}
                                     <br />
                                     Alasan: <span className="italic">"{order.lock_status?.unlock_request_reason || order.lock_status?.unlockRequestReason}"</span>
@@ -703,9 +702,9 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                         </div>
                         {can?.unlock && (
                             <div className="flex gap-2 self-end sm:self-center shrink-0">
-                                <Button 
-                                    size="sm" 
-                                    variant="outline" 
+                                <Button
+                                    size="sm"
+                                    variant="outline"
                                     className="border-amber-300 hover:bg-amber-100/50"
                                     onClick={() => {
                                         if (confirm('Setujui permohonan unlock PO ini?')) {
@@ -715,9 +714,9 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                 >
                                     Setujui
                                 </Button>
-                                <Button 
-                                    size="sm" 
-                                    variant="destructive" 
+                                <Button
+                                    size="sm"
+                                    variant="destructive"
                                     onClick={() => {
                                         if (confirm('Tolak permohonan unlock PO ini?')) {
                                             router.post(route('orders.unlock.reject', order.id), {}, { preserveScroll: true });
@@ -739,7 +738,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                 <h4 className="text-sm font-bold">Permohonan Re-lock PO 🔒</h4>
                                 <p className="text-xs text-amber-700 leading-relaxed font-medium">
                                     Diajukan oleh: <strong>{(order.lock_status?.relock_requested_by || order.lock_status?.relockRequestedBy)?.name || 'Admin'}</strong>
-                                    {((order.lock_status?.relock_requested_by || order.lock_status?.relockRequestedBy)?.roles?.length > 0) && 
+                                    {((order.lock_status?.relock_requested_by || order.lock_status?.relockRequestedBy)?.roles?.length > 0) &&
                                         ` (${(order.lock_status?.relock_requested_by || order.lock_status?.relockRequestedBy)?.roles[0].name})`}
                                 </p>
                                 {(order.lock_status?.relock_request_reason || order.lock_status?.relockRequestReason) && (
@@ -751,9 +750,9 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                         </div>
                         {can?.unlock && (
                             <div className="flex gap-2 self-end sm:self-center shrink-0">
-                                <Button 
-                                    size="sm" 
-                                    variant="outline" 
+                                <Button
+                                    size="sm"
+                                    variant="outline"
                                     className="border-amber-300 hover:bg-amber-100/50"
                                     onClick={() => {
                                         if (confirm('Setujui permohonan re-lock PO ini?')) {
@@ -763,9 +762,9 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                 >
                                     Setujui
                                 </Button>
-                                <Button 
-                                    size="sm" 
-                                    variant="destructive" 
+                                <Button
+                                    size="sm"
+                                    variant="destructive"
                                     onClick={() => {
                                         if (confirm('Tolak permohonan re-lock PO ini?')) {
                                             router.post(route('orders.relock.reject', order.id), {}, { preserveScroll: true });
@@ -802,9 +801,9 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
 
                 {/* Control Panel (Buka/Tutup Semua) */}
                 <div className="flex justify-end gap-2 my-1">
-                    <Button 
+                    <Button
                         type="button"
-                        variant="outline" 
+                        variant="outline"
                         size="sm"
                         className="text-xs h-8 px-3 rounded-lg border-slate-200 bg-white hover:bg-slate-50 text-slate-600 flex items-center gap-1.5 shadow-sm font-medium"
                         onClick={() => setCollapsedSections({
@@ -820,9 +819,9 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                     >
                         <ChevronDown className="h-3.5 w-3.5 rotate-180 text-slate-500" /> Buka Semua
                     </Button>
-                    <Button 
+                    <Button
                         type="button"
-                        variant="outline" 
+                        variant="outline"
                         size="sm"
                         className="text-xs h-8 px-3 rounded-lg border-slate-200 bg-white hover:bg-slate-50 text-slate-600 flex items-center gap-1.5 shadow-sm font-medium"
                         onClick={() => setCollapsedSections({
@@ -935,16 +934,15 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                             order.change_logs.map((cl) => {
                                                 const isSystemAction = cl.field_changed.startsWith('_');
                                                 const fieldLabel = FIELD_LABELS[cl.field_changed] ?? cl.field_changed;
-                                                
+
                                                 return (
                                                     <div key={cl.id} className="relative pl-6 pb-2 border-l-2 border-slate-100 last:pb-0 last:border-l-0">
                                                         {/* Timeline Dot */}
-                                                        <div className={`absolute -left-[6px] top-1.5 h-[10px] w-[10px] rounded-full border-2 ${
-                                                            cl.field_changed === '_unlock' ? 'bg-amber-500 border-amber-200' :
-                                                            cl.field_changed === '_relock' ? 'bg-emerald-500 border-emerald-200' :
-                                                            'bg-blue-500 border-blue-200'
-                                                        }`} />
-                                                        
+                                                        <div className={`absolute -left-[6px] top-1.5 h-[10px] w-[10px] rounded-full border-2 ${cl.field_changed === '_unlock' ? 'bg-amber-500 border-amber-200' :
+                                                                cl.field_changed === '_relock' ? 'bg-emerald-500 border-emerald-200' :
+                                                                    'bg-blue-500 border-blue-200'
+                                                            }`} />
+
                                                         <div className="flex flex-col gap-1">
                                                             <div className="flex flex-wrap items-center justify-between gap-1 text-xs">
                                                                 <span className="font-semibold text-slate-700">
@@ -954,7 +952,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                                     {formatDateTime(cl.created_at)}
                                                                 </span>
                                                             </div>
-                                                            
+
                                                             {!isSystemAction && (
                                                                 <div className="text-xs text-slate-500 flex items-center gap-1.5">
                                                                     <span className="line-through bg-slate-50 px-1 py-0.5 rounded text-slate-400">{cl.old_value || '—'}</span>
@@ -962,7 +960,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                                     <span className="font-semibold bg-slate-50 px-1 py-0.5 rounded text-slate-700">{cl.new_value || '—'}</span>
                                                                 </div>
                                                             )}
-                                                            
+
                                                             <div className="text-xs text-slate-600 flex flex-wrap items-center gap-1 mt-0.5">
                                                                 <span className="font-medium text-slate-500">Oleh:</span>
                                                                 <span className="font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded-md text-[10px]">{cl.changer?.name || 'Sistem'}</span>
@@ -1087,13 +1085,12 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
 
                                     {/* DP Status for draft PO */}
                                     {order.status_po === 'draft' && (
-                                        <div className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs ${
-                                            order.is_dp_bypassed
+                                        <div className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs ${order.is_dp_bypassed
                                                 ? 'border-blue-200 bg-blue-50/60 text-blue-700'
                                                 : isDpSufficient
                                                     ? 'border-emerald-200 bg-emerald-50/60 text-emerald-700'
                                                     : 'border-amber-200 bg-amber-50/60 text-amber-700'
-                                        }`}>
+                                            }`}>
                                             <div className="flex items-center gap-1.5">
                                                 {order.is_dp_bypassed
                                                     ? <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />
@@ -1121,28 +1118,28 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     {/* Status Lunas */}
                                     <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
                                         <div className="flex items-center gap-2">
-                                             {(order.is_lunas || order.is_special_order)
-                                                 ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                                                 : <XCircle className="h-4 w-4 text-rose-400" />
-                                             }
-                                             <span className="text-sm font-semibold">
-                                                 {(order.is_lunas || order.is_special_order) ? 'Lunas' : 'Belum Lunas'}
-                                             </span>
-                                             {order.is_lunas && order.lunas_at && (
-                                                 <span className="text-[10px] text-muted-foreground">{formatDate(order.lunas_at)}</span>
-                                             )}
-                                         </div>
-                                         {can?.mark_lunas && !order.is_special_order && order.status_po !== 'selesai' && (
-                                             <Button
-                                                 size="xs"
-                                                 variant={order.is_lunas ? 'outline' : 'default'}
-                                                 className={order.is_lunas ? 'text-xs h-7' : 'text-xs h-7 bg-emerald-600 hover:bg-emerald-700'}
-                                                 onClick={() => router.post(route('orders.mark-lunas', order.id), {}, { preserveScroll: true })}
-                                             >
-                                                 {order.is_lunas ? 'Batalkan' : 'Tandai Lunas'}
-                                             </Button>
-                                         )}
-                                     </div>
+                                            {(order.is_lunas || order.is_special_order)
+                                                ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                                : <XCircle className="h-4 w-4 text-rose-400" />
+                                            }
+                                            <span className="text-sm font-semibold">
+                                                {(order.is_lunas || order.is_special_order) ? 'Lunas' : 'Belum Lunas'}
+                                            </span>
+                                            {order.is_lunas && order.lunas_at && (
+                                                <span className="text-[10px] text-muted-foreground">{formatDate(order.lunas_at)}</span>
+                                            )}
+                                        </div>
+                                        {can?.mark_lunas && !order.is_special_order && order.status_po !== 'selesai' && (
+                                            <Button
+                                                size="xs"
+                                                variant={order.is_lunas ? 'outline' : 'default'}
+                                                className={order.is_lunas ? 'text-xs h-7' : 'text-xs h-7 bg-emerald-600 hover:bg-emerald-700'}
+                                                onClick={() => router.post(route('orders.mark-lunas', order.id), {}, { preserveScroll: true })}
+                                            >
+                                                {order.is_lunas ? 'Batalkan' : 'Tandai Lunas'}
+                                            </Button>
+                                        )}
+                                    </div>
 
                                     {/* Payment History */}
                                     {(order.payments ?? []).length > 0 && (
@@ -1165,18 +1162,18 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                                     {p.verified_at ? '✓ VERIFIED' : '⏳ PENDING'}
                                                                 </Badge>
                                                                 {can?.edit_payment && order.status_po !== 'selesai' && (
-                                                                     <button
-                                                                         onClick={() => {
-                                                                             setSelectedPayment(p);
-                                                                             setOpenEditPayment(true);
-                                                                         }}
-                                                                         className="ml-1 p-0.5 rounded text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
-                                                                         title="Edit record pembayaran ini"
-                                                                     >
-                                                                         <Pencil className="h-3.5 w-3.5" />
-                                                                     </button>
-                                                                 )}
-                                                                 {can?.delete_payment && order.status_po !== 'selesai' && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setSelectedPayment(p);
+                                                                            setOpenEditPayment(true);
+                                                                        }}
+                                                                        className="ml-1 p-0.5 rounded text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                                                                        title="Edit record pembayaran ini"
+                                                                    >
+                                                                        <Pencil className="h-3.5 w-3.5" />
+                                                                    </button>
+                                                                )}
+                                                                {can?.delete_payment && order.status_po !== 'selesai' && (
                                                                     <button
                                                                         onClick={() => {
                                                                             const msg = p.verified_at
@@ -1195,7 +1192,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    
+
                                                     {p.verified_at && (
                                                         <div className="mt-1.5 rounded-lg border border-slate-100 bg-white p-2.5 space-y-2 shadow-sm">
                                                             <div className="flex items-center justify-between text-[10px] font-bold text-slate-700">
@@ -1205,7 +1202,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                                 </span>
                                                                 <span className="text-slate-900 font-bold bg-slate-100 px-1.5 py-0.5 rounded text-[9px]">{p.verifier?.name ?? 'Finance Admin'}</span>
                                                             </div>
-                                                            
+
                                                             {p.verification_checks && (
                                                                 <div className="grid grid-cols-3 gap-1 pt-1 border-t border-slate-50">
                                                                     <div className="flex items-center gap-1 text-[9px] font-semibold">
@@ -1225,7 +1222,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                                     </div>
                                                                 </div>
                                                             )}
-                                                            
+
                                                             {p.verification_notes ? (
                                                                 <div className="text-[10px] text-slate-600 bg-slate-50 p-1.5 rounded-md border border-slate-100 font-medium italic">
                                                                     "{p.verification_notes}"
@@ -1265,172 +1262,172 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                     </CardHeader>
                     {!collapsedSections.items && (
                         <CardContent className="space-y-3">
-                        {(order.items ?? []).map((item, idx) => {
-                            const SETELAN_LABEL = { stell: 'Stell', non_stell: 'Non-Stell', atasan_saja: 'Atasan Saja', bawahan_saja: 'Bawahan Saja' };
-                            // Bahan Atasan: dari bahan_kain_ids (multi) atau bahan_kain (single)
-                            const bahanAtasanStr = item.bahan_kain_ids?.length
-                                ? (item.bahan_kains_names ?? item.bahan_kain?.nama ?? '')
-                                : item.bahan_kain?.nama ?? '';
-                            // Bahan Bawahan: dari bahan_kain_bawahan_ids atau bahan_kain_bawahan
-                            const bahanBawahanStr = item.bahan_kain_bawahan_ids?.length
-                                ? (item.bahan_kain_bawahan_names ?? item.bahan_kain_bawahan?.nama ?? '')
-                                : item.bahan_kain_bawahan?.nama ?? '';
-                            // Logo: dari logo_names (server-resolved) atau logo_ids atau single logo
-                            const logoStr = item.logo_names?.length
-                                ? item.logo_names.join(', ')
-                                : item.logo?.nama ?? '';
+                            {(order.items ?? []).map((item, idx) => {
+                                const SETELAN_LABEL = { stell: 'Stell', non_stell: 'Non-Stell', atasan_saja: 'Atasan Saja', bawahan_saja: 'Bawahan Saja' };
+                                // Bahan Atasan: dari bahan_kain_ids (multi) atau bahan_kain (single)
+                                const bahanAtasanStr = item.bahan_kain_ids?.length
+                                    ? (item.bahan_kains_names ?? item.bahan_kain?.nama ?? '')
+                                    : item.bahan_kain?.nama ?? '';
+                                // Bahan Bawahan: dari bahan_kain_bawahan_ids atau bahan_kain_bawahan
+                                const bahanBawahanStr = item.bahan_kain_bawahan_ids?.length
+                                    ? (item.bahan_kain_bawahan_names ?? item.bahan_kain_bawahan?.nama ?? '')
+                                    : item.bahan_kain_bawahan?.nama ?? '';
+                                // Logo: dari logo_names (server-resolved) atau logo_ids atau single logo
+                                const logoStr = item.logo_names?.length
+                                    ? item.logo_names.join(', ')
+                                    : item.logo?.nama ?? '';
 
-                            const specFields = [
-                                item.jenis_setelan && { label: 'Setelan', value: SETELAN_LABEL[item.jenis_setelan] ?? item.jenis_setelan },
-                                item.pola && { label: 'Pola', value: item.pola === 'perempuan' ? 'Perempuan' : 'Standart' },
-                                bahanAtasanStr && { label: 'Bahan Atasan', value: bahanAtasanStr },
-                                bahanBawahanStr && { label: 'Bahan Bawahan', value: bahanBawahanStr },
-                                item.warna && { label: 'Warna', value: item.warna },
-                                item.jml_atasan && { label: 'Jml Atasan', value: item.jml_atasan },
-                                item.jml_bawahan && { label: 'Jml Bawahan', value: item.jml_bawahan },
-                                logoStr && { label: 'Logo', value: logoStr },
-                                item.jenis_rib && { label: 'Jenis RIB', value: item.jenis_rib },
-                                item.tutup_kerah && { label: 'Tutup Kerah', value: item.tutup_kerah },
-                                item.list_kerah && { label: 'List Kerah', value: item.list_kerah },
-                                item.list_lengan && { label: 'List Lengan', value: item.list_lengan },
-                                item.list_samping_celana && { label: 'List Samping Celana', value: item.list_samping_celana },
-                                item.list_bawah_celana && { label: 'List Bawah Celana', value: item.list_bawah_celana },
-                            ].filter(Boolean);
-                            const jahitanFields = [
-                                item.pola_jahitan?.nama && {
-                                    label: 'Pola Jahitan',
-                                    value: item.pola_jahitan.nama
-                                },
-                                // Jahitan List Lengan: dari relasi pola_jahitan_lengan (UUID) atau string lama
-                                (item.pola_jahitan_lengan?.nama || item.jahitan_list_lengan) && {
-                                    label: 'Jahitan List Lengan',
-                                    value: item.pola_jahitan_lengan?.nama ?? item.jahitan_list_lengan
-                                },
-                            ].filter(Boolean);
-                            const hasImages = item.gambar_desain || item.gambar_kerah || item.gambar_ket_tambahan
-                                           || item.ket_atasan || item.ket_bawahan || item.jenis_kerah;
+                                const specFields = [
+                                    item.jenis_setelan && { label: 'Setelan', value: SETELAN_LABEL[item.jenis_setelan] ?? item.jenis_setelan },
+                                    item.pola && { label: 'Pola', value: item.pola === 'perempuan' ? 'Perempuan' : 'Standart' },
+                                    bahanAtasanStr && { label: 'Bahan Atasan', value: bahanAtasanStr },
+                                    bahanBawahanStr && { label: 'Bahan Bawahan', value: bahanBawahanStr },
+                                    item.warna && { label: 'Warna', value: item.warna },
+                                    item.jml_atasan && { label: 'Jml Atasan', value: item.jml_atasan },
+                                    item.jml_bawahan && { label: 'Jml Bawahan', value: item.jml_bawahan },
+                                    logoStr && { label: 'Logo', value: logoStr },
+                                    item.jenis_rib && { label: 'Jenis RIB', value: item.jenis_rib },
+                                    item.tutup_kerah && { label: 'Tutup Kerah', value: item.tutup_kerah },
+                                    item.list_kerah && { label: 'List Kerah', value: item.list_kerah },
+                                    item.list_lengan && { label: 'List Lengan', value: item.list_lengan },
+                                    item.list_samping_celana && { label: 'List Samping Celana', value: item.list_samping_celana },
+                                    item.list_bawah_celana && { label: 'List Bawah Celana', value: item.list_bawah_celana },
+                                ].filter(Boolean);
+                                const jahitanFields = [
+                                    item.pola_jahitan?.nama && {
+                                        label: 'Pola Jahitan',
+                                        value: item.pola_jahitan.nama
+                                    },
+                                    // Jahitan List Lengan: dari relasi pola_jahitan_lengan (UUID) atau string lama
+                                    (item.pola_jahitan_lengan?.nama || item.jahitan_list_lengan) && {
+                                        label: 'Jahitan List Lengan',
+                                        value: item.pola_jahitan_lengan?.nama ?? item.jahitan_list_lengan
+                                    },
+                                ].filter(Boolean);
+                                const hasImages = item.gambar_desain || item.gambar_kerah || item.gambar_ket_tambahan
+                                    || item.ket_atasan || item.ket_bawahan || item.jenis_kerah;
 
-                            return (
-                                <div key={item.id} className="rounded-lg border p-3 space-y-3">
-                                    {/* Header item */}
-                                    <div className="flex flex-wrap items-start justify-between gap-2">
-                                        <div>
-                                            <div className="font-medium">{idx + 1}. {item.nama_produk} {item.varian_label && <Badge variant="outline" className="ml-1">{item.varian_label}</Badge>}</div>
-                                            <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
-                                                <span>Qty: <span className="font-mono font-semibold">{item.quantity}</span> × {formatRupiah(item.harga_satuan)}</span>
-                                                {Number(item.discount_value) > 0 && (
-                                                    <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/10">
-                                                        Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(Number(item.discount_value))}/pcs`}
-                                                        <span>(-{formatRupiah(Number(item.discount_amount))})</span>
-                                                    </span>
+                                return (
+                                    <div key={item.id} className="rounded-lg border p-3 space-y-3">
+                                        {/* Header item */}
+                                        <div className="flex flex-wrap items-start justify-between gap-2">
+                                            <div>
+                                                <div className="font-medium">{idx + 1}. {item.nama_produk} {item.varian_label && <Badge variant="outline" className="ml-1">{item.varian_label}</Badge>}</div>
+                                                <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
+                                                    <span>Qty: <span className="font-mono font-semibold">{item.quantity}</span> × {formatRupiah(item.harga_satuan)}</span>
+                                                    {Number(item.discount_value) > 0 && (
+                                                        <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/10">
+                                                            Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(Number(item.discount_value))}/pcs`}
+                                                            <span>(-{formatRupiah(Number(item.discount_amount))})</span>
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="text-right font-mono font-semibold">{formatRupiah(item.subtotal)}</div>
+                                        </div>
+
+                                        {/* Spesifikasi */}
+                                        {specFields.length > 0 && (
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md bg-slate-50 p-2.5 text-xs sm:grid-cols-3 lg:grid-cols-4">
+                                                {specFields.map((f) => (
+                                                    <div key={f.label}>
+                                                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{f.label}</span>
+                                                        <p className="font-medium text-slate-800">{f.value}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Jahitan & Resleting */}
+                                        {(jahitanFields.length > 0 || item.resleting?.nama) && (
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md border border-slate-100 p-2.5 text-xs sm:grid-cols-3">
+                                                {jahitanFields.map((f) => (
+                                                    <div key={f.label}>
+                                                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{f.label}</span>
+                                                        <p className="font-medium text-slate-800">{f.value}</p>
+                                                    </div>
+                                                ))}
+                                                {item.resleting?.nama && (
+                                                    <div>
+                                                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Resleting</span>
+                                                        <p className="font-medium text-slate-800">{item.resleting.nama}</p>
+                                                    </div>
                                                 )}
                                             </div>
-                                        </div>
-                                        <div className="text-right font-mono font-semibold">{formatRupiah(item.subtotal)}</div>
-                                    </div>
+                                        )}
 
-                                    {/* Spesifikasi */}
-                                    {specFields.length > 0 && (
-                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md bg-slate-50 p-2.5 text-xs sm:grid-cols-3 lg:grid-cols-4">
-                                            {specFields.map((f) => (
-                                                <div key={f.label}>
-                                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{f.label}</span>
-                                                    <p className="font-medium text-slate-800">{f.value}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Jahitan & Resleting */}
-                                    {(jahitanFields.length > 0 || item.resleting?.nama) && (
-                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md border border-slate-100 p-2.5 text-xs sm:grid-cols-3">
-                                            {jahitanFields.map((f) => (
-                                                <div key={f.label}>
-                                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{f.label}</span>
-                                                    <p className="font-medium text-slate-800">{f.value}</p>
-                                                </div>
-                                            ))}
-                                            {item.resleting?.nama && (
-                                                <div>
-                                                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Resleting</span>
-                                                    <p className="font-medium text-slate-800">{item.resleting.nama}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Referensi */}
-                                    {hasImages && (
-                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                            {(item.gambar_desain || item.ket_atasan || item.ket_bawahan) && (
-                                                <div className="space-y-1.5">
-                                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Referensi Desain</p>
-                                                    {item.gambar_desain && <img src={`/storage/${item.gambar_desain}`} alt="Desain" className="max-h-36 rounded border object-contain" />}
-                                                    {item.ket_atasan && <p className="text-xs"><span className="font-semibold">Atasan:</span> {item.ket_atasan}</p>}
-                                                    {item.ket_bawahan && <p className="text-xs"><span className="font-semibold">Bawahan:</span> {item.ket_bawahan}</p>}
-                                                </div>
-                                            )}
-                                            {(item.gambar_kerah || item.jenis_kerah) && (
-                                                <div className="space-y-1.5">
-                                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Referensi Kerah</p>
-                                                    {item.gambar_kerah && <img src={`/storage/${item.gambar_kerah}`} alt="Kerah" className="max-h-36 rounded border object-contain" />}
-                                                    {item.jenis_kerah && <p className="text-xs"><span className="font-semibold">Jenis Kerah:</span> {item.jenis_kerah}</p>}
-                                                </div>
-                                            )}
-                                            {item.gambar_ket_tambahan && (
-                                                <div className="space-y-1.5">
-                                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Keterangan Tambahan</p>
-                                                    <img src={`/storage/${item.gambar_ket_tambahan}`} alt="Ket Tambahan" className="max-h-36 rounded border object-contain" />
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Nameset */}
-                                    {!item.is_addon && item.namesets?.length > 0 && (
-                                        <details className="mt-1">
-                                            <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Nameset ({item.namesets.length})</summary>
-                                            <div className="mt-2 overflow-x-auto">
-                                                <table className="w-full border-collapse text-xs">
-                                                    <thead>
-                                                        <tr className="bg-slate-100 text-slate-600 uppercase tracking-wide">
-                                                            <th className="px-2 py-1.5 border font-semibold w-8 text-center">No</th>
-                                                            <th className="px-2 py-1.5 border font-semibold">Nama Punggung</th>
-                                                            <th className="px-2 py-1.5 border font-semibold text-center">No. Punggung</th>
-                                                            <th className="px-2 py-1.5 border font-semibold">Nama Dada</th>
-                                                            <th className="px-2 py-1.5 border font-semibold text-center">No. Dada</th>
-                                                            <th className="px-2 py-1.5 border font-semibold">Nama Lengan</th>
-                                                            <th className="px-2 py-1.5 border font-semibold text-center">No. Lengan</th>
-                                                            <th className="px-2 py-1.5 border font-semibold text-center">No. Punggung 2</th>
-                                                            <th className="px-2 py-1.5 border font-semibold text-center">Size</th>
-                                                            <th className="px-2 py-1.5 border font-semibold">Keterangan</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {item.namesets.map((ns, ni) => (
-                                                            <tr key={ns.id} className="border-b hover:bg-slate-50">
-                                                                <td className="px-2 py-1 border text-center font-bold text-slate-500">{ni + 1}</td>
-                                                                <td className="px-2 py-1 border font-medium uppercase">{ns.nama_punggung || '—'}</td>
-                                                                <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung || '—'}</td>
-                                                                <td className="px-2 py-1 border font-medium uppercase">{ns.nama_dada || '—'}</td>
-                                                                <td className="px-2 py-1 border text-center font-mono">{ns.nomor_dada || '—'}</td>
-                                                                <td className="px-2 py-1 border font-medium uppercase">{ns.nama_lengan || '—'}</td>
-                                                                <td className="px-2 py-1 border text-center font-mono">{ns.nomor_lengan || '—'}</td>
-                                                                <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung_2 || '—'}</td>
-                                                                <td className="px-2 py-1 border text-center">{ns.size ? ns.size.ukuran : (ns.size_label || '—')}</td>
-                                                                <td className="px-2 py-1 border text-muted-foreground">{ns.keterangan || '—'}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
+                                        {/* Referensi */}
+                                        {hasImages && (
+                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                {(item.gambar_desain || item.ket_atasan || item.ket_bawahan) && (
+                                                    <div className="space-y-1.5">
+                                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Referensi Desain</p>
+                                                        {item.gambar_desain && <img src={`/storage/${item.gambar_desain}`} alt="Desain" className="max-h-36 rounded border object-contain" />}
+                                                        {item.ket_atasan && <p className="text-xs"><span className="font-semibold">Atasan:</span> {item.ket_atasan}</p>}
+                                                        {item.ket_bawahan && <p className="text-xs"><span className="font-semibold">Bawahan:</span> {item.ket_bawahan}</p>}
+                                                    </div>
+                                                )}
+                                                {(item.gambar_kerah || item.jenis_kerah) && (
+                                                    <div className="space-y-1.5">
+                                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Referensi Kerah</p>
+                                                        {item.gambar_kerah && <img src={`/storage/${item.gambar_kerah}`} alt="Kerah" className="max-h-36 rounded border object-contain" />}
+                                                        {item.jenis_kerah && <p className="text-xs"><span className="font-semibold">Jenis Kerah:</span> {item.jenis_kerah}</p>}
+                                                    </div>
+                                                )}
+                                                {item.gambar_ket_tambahan && (
+                                                    <div className="space-y-1.5">
+                                                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Keterangan Tambahan</p>
+                                                        <img src={`/storage/${item.gambar_ket_tambahan}`} alt="Ket Tambahan" className="max-h-36 rounded border object-contain" />
+                                                    </div>
+                                                )}
                                             </div>
-                                        </details>
-                                    )}
-                                </div>
-                            );
-                        })}
-                        {order.items?.length === 0 && <p className="text-center text-sm text-muted-foreground">Belum ada item.</p>}
-                    </CardContent>
+                                        )}
+
+                                        {/* Nameset */}
+                                        {!item.is_addon && item.namesets?.length > 0 && (
+                                            <details className="mt-1">
+                                                <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Nameset ({item.namesets.length})</summary>
+                                                <div className="mt-2 overflow-x-auto">
+                                                    <table className="w-full border-collapse text-xs">
+                                                        <thead>
+                                                            <tr className="bg-slate-100 text-slate-600 uppercase tracking-wide">
+                                                                <th className="px-2 py-1.5 border font-semibold w-8 text-center">No</th>
+                                                                <th className="px-2 py-1.5 border font-semibold">Nama Punggung</th>
+                                                                <th className="px-2 py-1.5 border font-semibold text-center">No. Punggung</th>
+                                                                <th className="px-2 py-1.5 border font-semibold">Nama Dada</th>
+                                                                <th className="px-2 py-1.5 border font-semibold text-center">No. Dada</th>
+                                                                <th className="px-2 py-1.5 border font-semibold">Nama Lengan</th>
+                                                                <th className="px-2 py-1.5 border font-semibold text-center">No. Lengan</th>
+                                                                <th className="px-2 py-1.5 border font-semibold text-center">No. Punggung 2</th>
+                                                                <th className="px-2 py-1.5 border font-semibold text-center">Size</th>
+                                                                <th className="px-2 py-1.5 border font-semibold">Keterangan</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {item.namesets.map((ns, ni) => (
+                                                                <tr key={ns.id} className="border-b hover:bg-slate-50">
+                                                                    <td className="px-2 py-1 border text-center font-bold text-slate-500">{ni + 1}</td>
+                                                                    <td className="px-2 py-1 border font-medium uppercase">{ns.nama_punggung || '—'}</td>
+                                                                    <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung || '—'}</td>
+                                                                    <td className="px-2 py-1 border font-medium uppercase">{ns.nama_dada || '—'}</td>
+                                                                    <td className="px-2 py-1 border text-center font-mono">{ns.nomor_dada || '—'}</td>
+                                                                    <td className="px-2 py-1 border font-medium uppercase">{ns.nama_lengan || '—'}</td>
+                                                                    <td className="px-2 py-1 border text-center font-mono">{ns.nomor_lengan || '—'}</td>
+                                                                    <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung_2 || '—'}</td>
+                                                                    <td className="px-2 py-1 border text-center">{ns.size ? ns.size.ukuran : (ns.size_label || '—')}</td>
+                                                                    <td className="px-2 py-1 border text-muted-foreground">{ns.keterangan || '—'}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </details>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                            {order.items?.length === 0 && <p className="text-center text-sm text-muted-foreground">Belum ada item.</p>}
+                        </CardContent>
                     )}
                 </Card>
 
@@ -1460,28 +1457,28 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                         </CardHeader>
                         {!collapsedSections.progress && (
                             <CardContent>
-                            <ol className="relative space-y-3 border-l-2 border-border pl-5">
-                                {order.progress_details
-                                    .slice()
-                                    .sort((a, b) => (a.progress?.urutan ?? 0) - (b.progress?.urutan ?? 0))
-                                    .map((d) => {
-                                        const ps = PROGRESS_STATUS[d.status] ?? { label: d.status, variant: 'outline' };
-                                        return (
-                                            <li key={d.id} className="relative">
-                                                <span className="absolute -left-[27px] flex h-4 w-4 items-center justify-center rounded-full ring-2 ring-background" style={{ background: d.progress?.warna || '#3B82F6' }} />
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="font-medium">{d.progress?.urutan}. {d.progress?.nama_progress}</span>
-                                                    <Badge variant={ps.variant}>{ps.label}</Badge>
-                                                    {d.has_reject && <Badge variant="destructive"><AlertTriangle className="mr-1 h-3 w-3" />Ada Rijek</Badge>}
-                                                </div>
-                                                {d.catatan && <p className="text-xs text-muted-foreground">{d.catatan}</p>}
-                                                {d.kendala && <p className="text-xs text-destructive">⚠ {d.kendala}</p>}
-                                                {d.completed_at && <p className="text-xs text-muted-foreground">Selesai: {formatDateTime(d.completed_at)}</p>}
-                                            </li>
-                                        );
-                                    })}
-                            </ol>
-                        </CardContent>
+                                <ol className="relative space-y-3 border-l-2 border-border pl-5">
+                                    {order.progress_details
+                                        .slice()
+                                        .sort((a, b) => (a.progress?.urutan ?? 0) - (b.progress?.urutan ?? 0))
+                                        .map((d) => {
+                                            const ps = PROGRESS_STATUS[d.status] ?? { label: d.status, variant: 'outline' };
+                                            return (
+                                                <li key={d.id} className="relative">
+                                                    <span className="absolute -left-[27px] flex h-4 w-4 items-center justify-center rounded-full ring-2 ring-background" style={{ background: d.progress?.warna || '#3B82F6' }} />
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="font-medium">{d.progress?.urutan}. {d.progress?.nama_progress}</span>
+                                                        <Badge variant={ps.variant}>{ps.label}</Badge>
+                                                        {d.has_reject && <Badge variant="destructive"><AlertTriangle className="mr-1 h-3 w-3" />Ada Rijek</Badge>}
+                                                    </div>
+                                                    {d.catatan && <p className="text-xs text-muted-foreground">{d.catatan}</p>}
+                                                    {d.kendala && <p className="text-xs text-destructive">⚠ {d.kendala}</p>}
+                                                    {d.completed_at && <p className="text-xs text-muted-foreground">Selesai: {formatDateTime(d.completed_at)}</p>}
+                                                </li>
+                                            );
+                                        })}
+                                </ol>
+                            </CardContent>
                         )}
                     </Card>
                 )}
@@ -1506,109 +1503,109 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                     </CardHeader>
                     {!collapsedSections.rijekRefund && (
                         <CardContent className="space-y-6">
-                        {/* Summary Grid */}
-                        <div className="grid grid-cols-2 gap-4 rounded-lg bg-muted/40 p-4">
-                            <div className="text-center sm:text-left">
-                                <div className="text-xs text-muted-foreground">Total Item Rijek</div>
-                                <div className="mt-1 text-2xl font-bold text-amber-600 font-mono">
-                                    {(order.rijeks ?? []).reduce((sum, r) => sum + Number(r.jumlah), 0)} pcs
+                            {/* Summary Grid */}
+                            <div className="grid grid-cols-2 gap-4 rounded-lg bg-muted/40 p-4">
+                                <div className="text-center sm:text-left">
+                                    <div className="text-xs text-muted-foreground">Total Item Rijek</div>
+                                    <div className="mt-1 text-2xl font-bold text-amber-600 font-mono">
+                                        {(order.rijeks ?? []).reduce((sum, r) => sum + Number(r.jumlah), 0)} pcs
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                                        Dari {(order.rijeks ?? []).length} insiden produksi
+                                    </div>
                                 </div>
-                                <div className="text-[10px] text-muted-foreground mt-0.5">
-                                    Dari {(order.rijeks ?? []).length} insiden produksi
+                                <div className="text-center sm:text-left border-l pl-4">
+                                    <div className="text-xs text-muted-foreground">Total Refund Dana</div>
+                                    <div className="mt-1 text-2xl font-bold text-emerald-600 font-mono">
+                                        {formatRupiah((order.refunds ?? []).reduce((sum, r) => sum + Number(r.nominal_refund), 0))}
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                                        Dari {(order.refunds ?? []).length} pengajuan refund
+                                    </div>
                                 </div>
                             </div>
-                            <div className="text-center sm:text-left border-l pl-4">
-                                <div className="text-xs text-muted-foreground">Total Refund Dana</div>
-                                <div className="mt-1 text-2xl font-bold text-emerald-600 font-mono">
-                                    {formatRupiah((order.refunds ?? []).reduce((sum, r) => sum + Number(r.nominal_refund), 0))}
-                                </div>
-                                <div className="text-[10px] text-muted-foreground mt-0.5">
-                                    Dari {(order.refunds ?? []).length} pengajuan refund
-                                </div>
+
+                            {/* Rijek Detail Table */}
+                            <div>
+                                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                    Rincian Rijek Produksi ({(order.rijeks ?? []).length})
+                                </h4>
+                                {order.rijeks?.length > 0 ? (
+                                    <div className="overflow-x-auto rounded-md border">
+                                        <table className="w-full text-left text-xs">
+                                            <thead>
+                                                <tr className="bg-muted/50 border-b text-muted-foreground">
+                                                    <th className="p-2">Tahapan</th>
+                                                    <th className="p-2">Jenis / Tingkat</th>
+                                                    <th className="p-2 text-right">Jumlah</th>
+                                                    <th className="p-2">Kendala</th>
+                                                    <th className="p-2">Penanganan</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {order.rijeks.map((r) => (
+                                                    <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
+                                                        <td className="p-2 font-medium">{r.progress?.nama_progress ?? '—'}</td>
+                                                        <td className="p-2">
+                                                            <span className="capitalize">{r.jenis}</span>
+                                                            <Badge variant={r.tingkat === 'berat' ? 'destructive' : r.tingkat === 'sedang' ? 'warning' : 'outline'} className="ml-1 text-[9px] py-0 px-1 font-semibold uppercase">
+                                                                {r.tingkat}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="p-2 text-right font-mono font-semibold text-amber-600">{r.jumlah} pcs</td>
+                                                        <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.kendala}>{r.kendala}</td>
+                                                        <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.penanganan}>{r.penanganan || '—'}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-muted-foreground italic pl-1">Belum ada rijek tercatat pada PO ini.</p>
+                                )}
                             </div>
-                        </div>
 
-                        {/* Rijek Detail Table */}
-                        <div>
-                            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Rincian Rijek Produksi ({(order.rijeks ?? []).length})
-                            </h4>
-                            {order.rijeks?.length > 0 ? (
-                                <div className="overflow-x-auto rounded-md border">
-                                    <table className="w-full text-left text-xs">
-                                        <thead>
-                                            <tr className="bg-muted/50 border-b text-muted-foreground">
-                                                <th className="p-2">Tahapan</th>
-                                                <th className="p-2">Jenis / Tingkat</th>
-                                                <th className="p-2 text-right">Jumlah</th>
-                                                <th className="p-2">Kendala</th>
-                                                <th className="p-2">Penanganan</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {order.rijeks.map((r) => (
-                                                <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
-                                                    <td className="p-2 font-medium">{r.progress?.nama_progress ?? '—'}</td>
-                                                    <td className="p-2">
-                                                        <span className="capitalize">{r.jenis}</span>
-                                                        <Badge variant={r.tingkat === 'berat' ? 'destructive' : r.tingkat === 'sedang' ? 'warning' : 'outline'} className="ml-1 text-[9px] py-0 px-1 font-semibold uppercase">
-                                                            {r.tingkat}
-                                                        </Badge>
-                                                    </td>
-                                                    <td className="p-2 text-right font-mono font-semibold text-amber-600">{r.jumlah} pcs</td>
-                                                    <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.kendala}>{r.kendala}</td>
-                                                    <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.penanganan}>{r.penanganan || '—'}</td>
+                            {/* Refund Detail Table */}
+                            <div>
+                                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                    Rincian Refund Dana ({(order.refunds ?? []).length})
+                                </h4>
+                                {order.refunds?.length > 0 ? (
+                                    <div className="overflow-x-auto rounded-md border">
+                                        <table className="w-full text-left text-xs">
+                                            <thead>
+                                                <tr className="bg-muted/50 border-b text-muted-foreground">
+                                                    <th className="p-2">No Refund</th>
+                                                    <th className="p-2">Jenis Masalah</th>
+                                                    <th className="p-2">Alasan</th>
+                                                    <th className="p-2 text-right">Qty Item</th>
+                                                    <th className="p-2 text-right">Nominal</th>
+                                                    <th className="p-2">Status</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ) : (
-                                <p className="text-xs text-muted-foreground italic pl-1">Belum ada rijek tercatat pada PO ini.</p>
-                            )}
-                        </div>
-
-                        {/* Refund Detail Table */}
-                        <div>
-                            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Rincian Refund Dana ({(order.refunds ?? []).length})
-                            </h4>
-                            {order.refunds?.length > 0 ? (
-                                <div className="overflow-x-auto rounded-md border">
-                                    <table className="w-full text-left text-xs">
-                                        <thead>
-                                            <tr className="bg-muted/50 border-b text-muted-foreground">
-                                                <th className="p-2">No Refund</th>
-                                                <th className="p-2">Jenis Masalah</th>
-                                                <th className="p-2">Alasan</th>
-                                                <th className="p-2 text-right">Qty Item</th>
-                                                <th className="p-2 text-right">Nominal</th>
-                                                <th className="p-2">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {order.refunds.map((r) => (
-                                                <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
-                                                    <td className="p-2 font-mono font-medium">{r.refund_number}</td>
-                                                    <td className="p-2 capitalize">{r.jenis_masalah?.replace('_', ' ') || '—'}</td>
-                                                    <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.alasan}>{r.alasan}</td>
-                                                    <td className="p-2 text-right font-mono">{r.jumlah_item} pcs</td>
-                                                    <td className="p-2 text-right font-mono font-semibold text-emerald-600">{formatRupiah(r.nominal_refund)}</td>
-                                                    <td className="p-2">
-                                                        <Badge variant={r.status === 'published' ? 'success' : r.status === 'rejected' ? 'destructive' : 'warning'} className="text-[9px] py-0 px-1 font-semibold uppercase">
-                                                            {r.status}
-                                                        </Badge>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ) : (
-                                <p className="text-xs text-muted-foreground italic pl-1">Belum ada pengajuan refund pada PO ini.</p>
-                            )}
-                        </div>
-                    </CardContent>
+                                            </thead>
+                                            <tbody>
+                                                {order.refunds.map((r) => (
+                                                    <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
+                                                        <td className="p-2 font-mono font-medium">{r.refund_number}</td>
+                                                        <td className="p-2 capitalize">{r.jenis_masalah?.replace('_', ' ') || '—'}</td>
+                                                        <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.alasan}>{r.alasan}</td>
+                                                        <td className="p-2 text-right font-mono">{r.jumlah_item} pcs</td>
+                                                        <td className="p-2 text-right font-mono font-semibold text-emerald-600">{formatRupiah(r.nominal_refund)}</td>
+                                                        <td className="p-2">
+                                                            <Badge variant={r.status === 'published' ? 'success' : r.status === 'rejected' ? 'destructive' : 'warning'} className="text-[9px] py-0 px-1 font-semibold uppercase">
+                                                                {r.status}
+                                                            </Badge>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-muted-foreground italic pl-1">Belum ada pengajuan refund pada PO ini.</p>
+                                )}
+                            </div>
+                        </CardContent>
                     )}
                 </Card>
             </div>

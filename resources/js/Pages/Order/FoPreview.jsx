@@ -11,14 +11,16 @@ const chunkArray = (arr, size) => {
     return chunks;
 };
 
-export default function FoPreview({ order, printings, progresses, isPublic = false }) {
+export default function FoPreview({ order, printings, printingStr: propPrintingStr, progresses, headerBrand, isPublic = false }) {
     const brand = order.brand || {};
     const nonAddonItems = (order.items || []).filter(item => !item.is_addon);
     const grandTotal = nonAddonItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
     const totalAtasan = (order.items || []).reduce((sum, item) => sum + Number(item.jml_atasan || 0), 0) || grandTotal;
     const totalBawahan = (order.items || []).reduce((sum, item) => sum + Number(item.jml_bawahan || 0), 0);
 
-    const printingStr = printings && printings.length > 0 ? printings.join(', ') : '.......';
+    // Use headerBrand from props (respects system settings), fallback to brand
+    const displayBrand = headerBrand || brand;
+    const printingStr = propPrintingStr || (printings && printings.length > 0 ? printings.join(', ') : '.......');
 
     const standarSizes = [
         'XS ANAK', 'S ANAK', 'M ANAK', 'L ANAK', 'XL ANAK',
@@ -42,8 +44,8 @@ export default function FoPreview({ order, printings, progresses, isPublic = fal
 
     return (
         <>
-            <Head title={`FO ${order.no_po} - ${brand.nama_brand || ''}`} />
-            
+            <Head title={`FO ${order.no_po} - ${displayBrand.nama_brand || ''}`} />
+
             {/* Toolbar - Hidden when printing */}
             <div className="fixed top-0 left-0 right-0 h-16 bg-slate-900 text-white flex items-center justify-between px-6 z-[9999] shadow-md print:hidden font-sans">
                 <div className="flex items-center gap-3">
@@ -67,20 +69,20 @@ export default function FoPreview({ order, printings, progresses, isPublic = fal
                         PREVIEW FO: {order.no_po}
                     </span>
                 </div>
-                
+
                 <div className="flex items-center gap-3">
                     <Button onClick={() => window.print()} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-sm text-xs">
                         <Printer className="h-4 w-4" />
                         Cetak / Simpan PDF
                     </Button>
-                    
+
                     <Button asChild variant="outline" className="border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white rounded-xl font-bold flex items-center gap-1.5 text-xs">
                         <a href={isPublic ? route('orders.public.fo.pdf', order.no_po) : route('orders.fo.pdf', order.id)} target="_blank" rel="noopener noreferrer">
                             <Download className="h-4 w-4" />
                             Unduh PDF
                         </a>
                     </Button>
-                    
+
                     <Button onClick={() => window.close()} variant="destructive" className="rounded-xl font-bold flex items-center gap-1.5 text-xs">
                         <X className="h-4 w-4" />
                         Tutup
@@ -90,10 +92,10 @@ export default function FoPreview({ order, printings, progresses, isPublic = fal
 
             {/* Main Page Container */}
             <div className="min-h-screen bg-slate-100/60 pt-20 pb-12 print:pt-0 print:pb-0 print:bg-white font-mono text-[13px] text-black uppercase tracking-tight select-none">
-                
+
                 {/* Paper sheet representation */}
                 <div className="mx-auto w-[210mm] min-h-[297mm] bg-white border border-slate-200 p-[15mm] shadow-lg print:border-none print:shadow-none print:p-0 print:m-0 print:w-full">
-                    
+
                     {/* Header - Fixed height simulation */}
                     <div className="border-b border-slate-400 pb-2 mb-4">
                         <div className="flex justify-between items-end">
@@ -101,7 +103,7 @@ export default function FoPreview({ order, printings, progresses, isPublic = fal
                                 MESIN PRINT: ....................
                             </div>
                             <div className="w-[40%] text-center font-black text-lg underline">
-                                FORMAT ORDER {brand.nama_brand || 'BRAND'}
+                                FORMAT ORDER {displayBrand.nama_brand?.toUpperCase() || 'BRAND'}
                             </div>
                             <div className="w-[30%] text-right font-normal text-slate-600 text-[10px]">
                                 MESIN PRES: ....................
@@ -130,6 +132,13 @@ export default function FoPreview({ order, printings, progresses, isPublic = fal
                                         <td className="py-0.5">:</td>
                                         <td className="font-bold py-0.5">{order.nama_po}</td>
                                     </tr>
+                                    {brand && (brand.brand_type === 'reseller_hub' || brand.brand_type === 'reseller_branch') && (
+                                        <tr>
+                                            <td className="font-black py-0.5">RESELLER</td>
+                                            <td className="py-0.5">:</td>
+                                            <td className="font-bold py-0.5">{brand.nama_brand?.toUpperCase() || ''}</td>
+                                        </tr>
+                                    )}
                                     <tr>
                                         <td className="font-black py-0.5">TOTAL ATASAN</td>
                                         <td className="py-0.5">:</td>
@@ -148,7 +157,7 @@ export default function FoPreview({ order, printings, progresses, isPublic = fal
                         <div className="col-span-5">
                             <div className="border-[2px] border-black p-3 text-center bg-white min-h-[110px] flex flex-col justify-center">
                                 <div className="text-xl font-black leading-tight">
-                                    {brand.nama_brand || 'BRAND'}
+                                    {displayBrand.nama_brand || 'BRAND'}
                                 </div>
                                 <div className="text-[12px] font-bold mt-2 pt-2 border-t border-black">
                                     JENIS PRINTING:<br />
@@ -364,7 +373,7 @@ export default function FoPreview({ order, printings, progresses, isPublic = fal
                                     <div className="bg-slate-300 font-bold text-[13px] border border-black p-1.5 text-center">
                                         REFERENSI DESAIN {item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}
                                     </div>
-                                    
+
                                     <div className="border border-black border-t-0 p-1 mb-2 bg-white flex justify-center items-center min-h-[200px]">
                                         {item.gambar_desain ? (
                                             <img src={`/storage/${item.gambar_desain}`} className="max-w-full max-h-[500px] object-contain block mx-auto" alt="Desain" />
@@ -427,7 +436,7 @@ export default function FoPreview({ order, printings, progresses, isPublic = fal
 
                     {/* Namesets List per item */}
                     {nonAddonItems.map(item => {
-                        const filledNamesets = (item.namesets || []).filter(ns => 
+                        const filledNamesets = (item.namesets || []).filter(ns =>
                             ns.nama_punggung || ns.nomor_punggung ||
                             ns.nama_dada || ns.nomor_dada ||
                             ns.nama_lengan || ns.nomor_lengan ||
@@ -557,7 +566,7 @@ export default function FoPreview({ order, printings, progresses, isPublic = fal
                                 {/* Rekap Size */}
                                 <div className="mt-4 text-center">
                                     <div className="font-bold text-[12px] underline mb-1.5">JUMLAH KESELURUHAN: {filledNamesets.length} PCS</div>
-                                    
+
                                     {sizeAtasanRecap.length > 0 && (
                                         <div className="mb-2">
                                             {sizeBawahanRecap.length > 0 && <div className="text-[10.5px] font-bold mb-1">REKAP SIZE ATASAN</div>}
@@ -654,7 +663,7 @@ export default function FoPreview({ order, printings, progresses, isPublic = fal
                                 </tbody>
                             </table>
                             <div className="mt-3 font-bold text-[10px] text-slate-500 text-right">
-                                DICETAK: {new Date().toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · {brand.nama_brand || ''}
+                                DICETAK: {new Date().toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · {displayBrand.nama_brand || ''}
                             </div>
                         </div>
                     )}
@@ -664,9 +673,9 @@ export default function FoPreview({ order, printings, progresses, isPublic = fal
                         <div className="text-center font-black text-[14.5px] underline mb-3 border-b-2 border-black pb-1 text-left">
                             LAMPIRAN: DATA PESANAN
                         </div>
-                        
+
                         {nonAddonItems.map(item => {
-                            const filledNamesets = (item.namesets || []).filter(ns => 
+                            const filledNamesets = (item.namesets || []).filter(ns =>
                                 ns.nama_punggung || ns.nomor_punggung ||
                                 ns.nama_dada || ns.nomor_dada ||
                                 ns.nama_lengan || ns.nomor_lengan ||

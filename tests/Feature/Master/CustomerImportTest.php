@@ -18,10 +18,7 @@ class CustomerImportTest extends TestCase
     {
         parent::setUp();
         // Enable import by default for testing
-        \App\Models\Settings\SystemSetting::updateOrCreate(
-            ['group' => 'system', 'key' => 'customer_import_enabled'],
-            ['value' => true]
-        );
+        \App\Models\Settings\SystemSetting::set('system', 'customer_import_enabled', '1');
     }
 
     public function test_admin_brand_can_download_import_template(): void
