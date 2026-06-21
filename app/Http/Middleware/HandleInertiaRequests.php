@@ -30,19 +30,20 @@ class HandleInertiaRequests extends Middleware
             $userPermissions = $user->getAllPermissions()->pluck('name')->all();
 
             $canSeeAllGlobalBrands = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+            $nameCol = 'nama_brand';
 
             if ($canSeeAllGlobalBrands) {
-                $availableBrands = Brand::orderBy('nama_brand')->get([
+                $availableBrands = Brand::orderBy($nameCol)->get([
                     'id', 'nama_brand', 'kode', 'warna_primary', 'is_active',
                 ]);
             } elseif ($user->hasRole('admin_reseller')) {
                 // Admin reseller only has access to their explicitly assigned brands
                 $availableBrands = $user->brands()
-                    ->orderBy('nama_brand')
+                    ->orderBy($nameCol)
                     ->get(['brands.id', 'nama_brand', 'kode', 'warna_primary', 'is_active']);
             } else {
                 $availableBrands = $user->brands()
-                    ->orderBy('nama_brand')
+                    ->orderBy($nameCol)
                     ->get(['brands.id', 'nama_brand', 'kode', 'warna_primary', 'is_active']);
             }
 
@@ -58,6 +59,9 @@ class HandleInertiaRequests extends Middleware
 
             $currentBrand = BrandContext::resolve($request, $user, $availableBrands);
         }
+
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $publicDisk */
+        $publicDisk = Storage::disk('public');
 
         return [
             ...parent::share($request),
@@ -98,10 +102,10 @@ class HandleInertiaRequests extends Middleware
                 'name'        => SystemSetting::get('seo', 'site_name', config('app.name', 'Circle Sportwear - Tracking PO')),
                 'description' => SystemSetting::get('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.'),
                 'logo_url'    => SystemSetting::get('seo', 'logo')
-                    ? Storage::disk('public')->url(SystemSetting::get('seo', 'logo'))
+                    ? $publicDisk->url(SystemSetting::get('seo', 'logo'))
                     : null,
                 'favicon_url' => SystemSetting::get('seo', 'favicon')
-                    ? Storage::disk('public')->url(SystemSetting::get('seo', 'favicon'))
+                    ? $publicDisk->url(SystemSetting::get('seo', 'favicon'))
                     : null,
             ],
         ];

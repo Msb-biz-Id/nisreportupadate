@@ -12,11 +12,11 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        $brandAlg = Brand::where('kode', 'ALG')->first();
-        $brandCrl = Brand::where('kode', 'CRL')->first();
-        $brandDrv = Brand::where('kode', 'DRV')->first();
+        $brandAlg = Brand::where(['kode' => 'ALG'])->first();
+        $brandCrl = Brand::where(['kode' => 'CRL'])->first();
+        $brandDrv = Brand::where(['kode' => 'DRV'])->first();
         // Demo reseller account — pakai Telulas (TLS) sebagai contoh
-        $brandTelulas = Brand::where('kode', 'TLS')->first();
+        $brandTelulas = Brand::where(['kode' => 'TLS'])->first();
 
         // Superadmin (akses semua brand)
         $super = User::updateOrCreate(
@@ -103,7 +103,7 @@ class UserSeeder extends Seeder
         ]);
 
         // Admin Reseller demo — diarahkan ke brand INDOWAREHOUSE (IDW)
-        $brandIdw = Brand::where('kode', 'IDW')->first();
+        $brandIdw = Brand::where(['kode' => 'IDW'])->first();
         if ($brandIdw) {
             $adminReseller = User::updateOrCreate(
                 ['email' => 'indonesiasportwarehouse@gmail.com'],

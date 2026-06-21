@@ -33,9 +33,8 @@ class DesignDepositController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        $customer = \App\Models\Master\Customer::where('id', $data['customer_id'])
-            ->where('brand_id', $data['brand_id'])
-            ->firstOrFail();
+        $customer = \App\Models\Master\Customer::where(['brand_id' => $data['brand_id']])
+            ->findOrFail($data['customer_id']);
 
         $data['customer_name'] = $customer->nama;
 
@@ -121,6 +120,7 @@ class DesignDepositController extends Controller
             $order->update(['total_tagihan' => $order->totalTagihan()]);
 
             // Recalculate associated invoice totals if it exists
+            /** @var \App\Models\Order\Invoice|null $invoice */
             $invoice = $order->invoices()->first();
             if ($invoice) {
                 $totalTagihan = $order->totalTagihan();

@@ -39,7 +39,7 @@ class OrderPaymentObserver
                 'lainnya' => 'Lainnya',
             ];
             $nama = $map[$payment->payment_type] ?? 'Lainnya';
-            $master = \App\Models\Finance\MasterJenisPembayaran::where('nama', $nama)->first();
+            $master = \App\Models\Finance\MasterJenisPembayaran::where(['nama' => $nama])->first();
             if ($master) {
                 $payment->master_jenis_pembayaran_id = $master->id;
             }
@@ -47,9 +47,10 @@ class OrderPaymentObserver
 
         // Automatically sequence DP
         if ($payment->payment_type === 'dp') {
-            $lastDp = OrderPayment::where('order_id', $payment->order_id)
-                ->where('payment_type', 'dp')
-                ->max('dp_sequence');
+            $lastDp = OrderPayment::where([
+                'order_id' => $payment->order_id,
+                'payment_type' => 'dp',
+            ])->max('dp_sequence');
             $payment->dp_sequence = ($lastDp ?? 0) + 1;
         }
 
@@ -79,7 +80,7 @@ class OrderPaymentObserver
         // Dispatch submitted notification untuk payment baru yang belum verified
         if ($payment->verified_at === null) {
             if ($order) {
-                $formattedAmount = 'Rp ' . number_format($payment->amount, 0, ',', '.');
+                $formattedAmount = 'Rp ' . number_format((float) $payment->amount, 0, ',', '.');
                 \App\Services\Notifications\IdealNotificationService::dispatch('payment_submitted', [
                     'no_po' => $order->no_po,
                     'brand_id' => $order->brand->id,
@@ -104,7 +105,7 @@ class OrderPaymentObserver
 
             // Dispatch verified notification
             if ($order) {
-                $formattedAmount = 'Rp ' . number_format($payment->amount, 0, ',', '.');
+                $formattedAmount = 'Rp ' . number_format((float) $payment->amount, 0, ',', '.');
                 \App\Services\Notifications\IdealNotificationService::dispatch('payment_verified', [
                     'no_po' => $order->no_po,
                     'brand_id' => $order->brand_id,
@@ -131,7 +132,7 @@ class OrderPaymentObserver
 
         if (! $payment->is_debit) {
             // Record as Pengeluaran
-            if (Pengeluaran::where('source_payment_id', $payment->id)->exists()) {
+            if (Pengeluaran::where(['source_payment_id' => $payment->id])->exists()) {
                 return;
             }
 
@@ -165,7 +166,7 @@ class OrderPaymentObserver
             ]);
         } else {
             // Record as Pemasukan
-            if (Pemasukan::where('source_payment_id', $payment->id)->exists()) {
+            if (Pemasukan::where(['source_payment_id' => $payment->id])->exists()) {
                 return;
             }
 

@@ -38,6 +38,7 @@ use App\Exports\POComprehensiveExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Inertia\Inertia;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Auth;
 
 class OrderController extends Controller
 {
@@ -269,7 +270,7 @@ class OrderController extends Controller
         Gate::authorize('order.create');
         $user    = $request->user();
         $brandId = BrandContext::current($request);
-        abort_unless($brandId, 400, 'Brand aktif belum dipilih');
+        abort_unless(!empty($brandId), 400, 'Brand aktif belum dipilih');
 
         $masterBrandId = BrandContext::masterDataId($request, $brandId);
 
@@ -329,7 +330,7 @@ class OrderController extends Controller
     {
         Gate::authorize('order.create');
         $brandId = BrandContext::current($request);
-        abort_unless($brandId, 400);
+        abort_unless(!empty($brandId), 400);
 
         $data = $this->validatePayload($request);
         $user = $request->user();
@@ -339,7 +340,7 @@ class OrderController extends Controller
         $effectiveBrandId = $brandId;
         if (! empty($data['branch_brand_id'])) {
             // Validasi: brand yang dipilih harus accessible oleh user ini
-            $selectedBrand = Brand::where('id', $data['branch_brand_id'])->first();
+            $selectedBrand = Brand::find($data['branch_brand_id']);
             abort_unless(
                 $selectedBrand && ($user->isSuperadmin() || $user->hasAccessToBrand($selectedBrand->id)),
                 403, 'Tidak memiliki akses ke brand tersebut.'
@@ -456,6 +457,7 @@ class OrderController extends Controller
             $order->update(['total_tagihan' => $order->is_special_order ? 0.0 : $order->items()->sum('subtotal')]);
 
             // Sync invoice
+            /** @var \App\Models\Order\Invoice|null $invoice */
             $invoice = $order->invoices()->first();
             if ($invoice) {
                 $invoice->items()->delete();
@@ -975,6 +977,7 @@ class OrderController extends Controller
         ]);
 
         // Recalculate invoice if exists
+        /** @var \App\Models\Order\Invoice|null $invoice */
         $invoice = $order->invoices()->first();
         if ($invoice) {
             $grossSubtotal = (float) $order->items->sum(fn($item) => $item->quantity * $item->harga_satuan);
@@ -1025,7 +1028,7 @@ class OrderController extends Controller
                 $order->update([
                     'is_lunas' => true,
                     'lunas_at' => now(),
-                    'lunas_by' => auth()->id(),
+                    'lunas_by' => Auth::id(),
                 ]);
             } else {
                 if ($order->is_lunas) {
@@ -1088,7 +1091,7 @@ class OrderController extends Controller
 
     public function draftPdf(Request $request): \Illuminate\Http\Response
     {
-        abort_unless(auth()->check(), 401);
+        abort_unless(Auth::check(), 401);
 
         $brandId = BrandContext::current($request);
         $brand   = Brand::with('parentBrand')->findOrFail($brandId);
@@ -1432,8 +1435,8 @@ class OrderController extends Controller
         $user = $request->user();
 
         // Format dates consistently to check for changes
-        $oldStartStr = $oldStart ? \Carbon\Carbon::parse($oldStart)->toDateString() : null;
-        $newStartStr = $newStart ? \Carbon\Carbon::parse($newStart)->toDateString() : null;
+        $oldStartStr = $oldStart instanceof \DateTimeInterface ? $oldStart->format('Y-m-d') : ($oldStart ? \Carbon\Carbon::parse((string) $oldStart)->format('Y-m-d') : null);
+        $newStartStr = $newStart instanceof \DateTimeInterface ? $newStart->format('Y-m-d') : ($newStart ? \Carbon\Carbon::parse((string) $newStart)->format('Y-m-d') : null);
         if ($oldStartStr !== $newStartStr) {
             \App\Models\Order\POChangeLog::create([
                 'order_id' => $order->id,
@@ -1445,8 +1448,8 @@ class OrderController extends Controller
             ]);
         }
 
-        $oldEndStr = $oldEnd ? \Carbon\Carbon::parse($oldEnd)->toDateString() : null;
-        $newEndStr = $newEnd ? \Carbon\Carbon::parse($newEnd)->toDateString() : null;
+        $oldEndStr = $oldEnd instanceof \DateTimeInterface ? $oldEnd->format('Y-m-d') : ($oldEnd ? \Carbon\Carbon::parse((string) $oldEnd)->format('Y-m-d') : null);
+        $newEndStr = $newEnd instanceof \DateTimeInterface ? $newEnd->format('Y-m-d') : ($newEnd ? \Carbon\Carbon::parse((string) $newEnd)->format('Y-m-d') : null);
         if ($oldEndStr !== $newEndStr) {
             \App\Models\Order\POChangeLog::create([
                 'order_id' => $order->id,
@@ -1506,7 +1509,8 @@ class OrderController extends Controller
             $w->where('brand_id', $masterBrandId)->orWhereNull('brand_id');
         });
 
-        $user = auth()->user();
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
         $userBrandIds = ($user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])))
             ? null
             : ($user ? $user->brands()->pluck('brands.id')->toArray() : []);
@@ -1665,7 +1669,7 @@ class OrderController extends Controller
 
     private function syncItems(Order $order, array $items): void
     {
-        $order->items()->each(function ($i) {
+        $order->items()->each(function (\App\Models\Order\OrderItem $i) {
             $i->namesets()->delete();
             $i->delete();
         });
@@ -1756,7 +1760,8 @@ class OrderController extends Controller
     {
         // Untuk simplicity, payment hanya ditambah (tidak overwrite existing).
         // CRUD pembayaran lengkap tersedia via addPayment().
-        $user = auth()->user();
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
         $isFinanceOrAdmin = $user && ($user->hasRole('superadmin') || $user->hasRole('owner') || $user->hasRole('admin_keuangan'));
 
         foreach ($payments as $p) {

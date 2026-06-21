@@ -12,7 +12,7 @@ class WhatsappChannel
     /**
      * Send the given notification.
      */
-    public function send($notifiable, Notification $notification): void
+    public function send(mixed $notifiable, Notification $notification): void
     {
         if (! method_exists($notification, 'toWhatsapp')) {
             return;

@@ -15,6 +15,7 @@ use App\Models\Master\SumberOrder;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -222,7 +223,7 @@ class Order extends Model
         return max(0, $this->totalTagihan() - $this->totalPaid());
     }
 
-    public function getTotalTagihanAttribute($value)
+    public function getTotalTagihanAttribute(mixed $value)
     {
         if ($this->is_special_order) {
             return 0.0;
@@ -230,18 +231,19 @@ class Order extends Model
         return (float) $value;
     }
 
-    public function scopeForBrand($q, string|array|null $brandId)
+    public function scopeForBrand(Builder $q, string|array|null $brandId)
     {
         if (empty($brandId) || $brandId === 'all') return $q;
         if (is_array($brandId)) {
             return empty($brandId) ? $q->whereRaw('0=1') : $q->whereIn('brand_id', $brandId);
         }
-        return $q->where('brand_id', $brandId);
+        return $q->where(['brand_id' => $brandId]);
     }
 
-    public function scopePublished($q)
+    public function scopePublished(Builder $q)
     {
-        return $q->where('status_po', '!=', 'draft');
+        $statusPoCol = 'status_po';
+        return $q->where($statusPoCol, '!=', 'draft');
     }
 
     public function resolveResellerBrand(): ?Brand

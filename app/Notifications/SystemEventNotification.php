@@ -164,7 +164,7 @@ class SystemEventNotification extends Notification implements ShouldQueue
         };
     }
 
-    private function getNotifiableId($payload): ?string
+    private function getNotifiableId(array $payload): ?string
     {
         return $payload['user_id'] ?? null;
     }

@@ -132,7 +132,8 @@
             if (!empty($order->printing_ids)) {
                 $printingNames = \App\Models\Master\Printing::whereIn('id', $order->printing_ids)->pluck('nama');
             }
-            $printingStr = $printingNames->isNotEmpty() ? $printingNames->implode(', ') : '.......';
+            $commaSep = ', ';
+            $printingStr = $printingNames->isNotEmpty() ? $printingNames->implode($commaSep) : '.......';
         @endphp
 
         <!-- Standardized KOP Header -->
@@ -404,53 +405,61 @@
             <table style="width: 100%; border-collapse: collapse; border: none; margin-top: 5px;">
                 <tr>
                     @if($hasKerah)
-                    <td style="width: {{ $hasTambahan ? '50%' : '100%' }}; padding-right: {{ $hasTambahan ? '5px' : '0' }}; border: none; vertical-align: top;">
-                        <div class="img-wrapper" style="padding:6px; margin-bottom:0;">
-                            <div class="title-box-center" style="margin-top:0; font-size: 9pt;">
-                                JENIS KERAH: {{ strtoupper($item->jenis_kerah ?? '.......') }}
-                            </div>
-                            <div style="border:1px solid #000; border-top:none; padding:6px; text-align:center; background:#fff;">
-                                @if($item->gambar_kerah)
-                                    @php
-                                        $kPath = storage_path('app/public/' . $item->gambar_kerah);
-                                        $kUrl = asset('storage/' . $item->gambar_kerah);
-                                    @endphp
-                                    @if(file_exists($kPath))
-                                    <div style="text-align:center;">
-                                        <img src="{{ (isset($isWebPreview) && $isWebPreview) ? $kUrl : $kPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
-                                    </div>
+                        @if($hasTambahan)
+                        <td style="width: 50%; padding-right: 5px; border: none; vertical-align: top;">
+                        @else
+                        <td style="width: 100%; padding-right: 0; border: none; vertical-align: top;">
+                        @endif
+                            <div class="img-wrapper" style="padding:6px; margin-bottom:0;">
+                                <div class="title-box-center" style="margin-top:0; font-size: 9pt;">
+                                    JENIS KERAH: {{ strtoupper($item->jenis_kerah ?? '.......') }}
+                                </div>
+                                <div style="border:1px solid #000; border-top:none; padding:6px; text-align:center; background:#fff;">
+                                    @if($item->gambar_kerah)
+                                        @php
+                                            $kPath = storage_path('app/public/' . $item->gambar_kerah);
+                                            $kUrl = asset('storage/' . $item->gambar_kerah);
+                                        @endphp
+                                        @if(file_exists($kPath))
+                                        <div style="text-align:center;">
+                                            <img src="{{ (isset($isWebPreview) && $isWebPreview) ? $kUrl : $kPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
+                                        </div>
+                                        @else
+                                        <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR KERAH TIDAK DITEMUKAN ]</div>
+                                        @endif
                                     @else
-                                    <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR KERAH TIDAK DITEMUKAN ]</div>
+                                    <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR KERAH BELUM DIUNGGAH ]</div>
                                     @endif
-                                @else
-                                <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR KERAH BELUM DIUNGGAH ]</div>
-                                @endif
+                                </div>
                             </div>
-                        </div>
-                    </td>
+                        </td>
                     @endif
 
                     @if($hasTambahan)
-                    <td style="width: {{ $hasKerah ? '50%' : '100%' }}; padding-left: {{ $hasKerah ? '5px' : '0' }}; border: none; vertical-align: top;">
-                        <div class="img-wrapper" style="padding:6px; margin-bottom:0;">
-                            <div class="title-box-center" style="margin-top:0; font-size: 9pt;">
-                                KETERANGAN TAMBAHAN
-                            </div>
-                            <div style="border:1px solid #000; border-top:none; padding:6px; text-align:center; background:#fff;">
-                                @php
-                                    $ktPath = storage_path('app/public/' . $item->gambar_ket_tambahan);
-                                    $ktUrl = asset('storage/' . $item->gambar_ket_tambahan);
-                                @endphp
-                                @if(file_exists($ktPath))
-                                <div style="text-align:center;">
-                                    <img src="{{ (isset($isWebPreview) && $isWebPreview) ? $ktUrl : $ktPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
+                        @if($hasKerah)
+                        <td style="width: 50%; padding-left: 5px; border: none; vertical-align: top;">
+                        @else
+                        <td style="width: 100%; padding-left: 0; border: none; vertical-align: top;">
+                        @endif
+                            <div class="img-wrapper" style="padding:6px; margin-bottom:0;">
+                                <div class="title-box-center" style="margin-top:0; font-size: 9pt;">
+                                    KETERANGAN TAMBAHAN
                                 </div>
-                                @else
-                                <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR TIDAK DITEMUKAN ]</div>
-                                @endif
+                                <div style="border:1px solid #000; border-top:none; padding:6px; text-align:center; background:#fff;">
+                                    @php
+                                        $ktPath = storage_path('app/public/' . $item->gambar_ket_tambahan);
+                                        $ktUrl = asset('storage/' . $item->gambar_ket_tambahan);
+                                    @endphp
+                                    @if(file_exists($ktPath))
+                                    <div style="text-align:center;">
+                                        <img src="{{ (isset($isWebPreview) && $isWebPreview) ? $ktUrl : $ktPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
+                                    </div>
+                                    @else
+                                    <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR TIDAK DITEMUKAN ]</div>
+                                    @endif
+                                </div>
                             </div>
-                        </div>
-                    </td>
+                        </td>
                     @endif
                 </tr>
             </table>
@@ -539,7 +548,8 @@
                     $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 45, 'align' => 't-left'];
                 }
 
-                $totalWeight = collect($cols)->sum('weight');
+                $weightKey = 'weight';
+                $totalWeight = collect($cols)->sum($weightKey);
                 foreach ($cols as &$col) {
                     $col['pct'] = round(($col['weight'] / $totalWeight) * 100, 1);
                 }
@@ -554,7 +564,7 @@
             <table class="{{ $tableClass }}" style="border-top:none; table-layout: fixed; width: 100%;">
                 <colgroup>
                     @foreach($cols as $col)
-                        <col style="width: {{ $col['pct'] }}%;">
+                        <col width="{{ $col['pct'] }}%">
                     @endforeach
                 </colgroup>
                 <thead>
@@ -653,7 +663,7 @@
                 {{-- Manual static rows --}}
                 @php $manualRows = ['ADMIN', 'DESAIN', 'FORMAT ORDER']; @endphp
                 @foreach($manualRows as $mi => $label)
-                <tr style="{{ $mi % 2 === 0 ? 'background:#f9f9f9;' : 'background:#fff;' }}">
+                <tr @if($mi % 2 === 0) style="background:#f9f9f9;" @else style="background:#fff;" @endif>
                     <td style="border:1px solid #000; padding:6px 8px; text-align:center; font-weight:bold;">{{ $mi + 1 }}</td>
                     <td style="border:1px solid #000; padding:6px 8px; font-weight:900; font-size:10pt;">{{ $label }}</td>
                     <td style="border:1px solid #000; padding:6px 8px; text-align:center; min-width:80px;">&nbsp;</td>
@@ -664,7 +674,7 @@
                 {{-- Dynamic progress rows from DB (SETTING, etc.) --}}
                 @foreach($progresses as $idx => $prog)
                 @php $rowNum = count($manualRows) + $idx + 1; $totalIdx = count($manualRows) + $idx; @endphp
-                <tr style="{{ $totalIdx % 2 === 0 ? 'background:#f9f9f9;' : 'background:#fff;' }}">
+                <tr @if($totalIdx % 2 === 0) style="background:#f9f9f9;" @else style="background:#fff;" @endif>
                     <td style="border:1px solid #000; padding:6px 8px; text-align:center; font-weight:bold;">{{ $rowNum }}</td>
                     <td style="border:1px solid #000; padding:6px 8px; font-weight:900; font-size:10pt;">
                         {{ strtoupper($prog->nama_progress) }}
@@ -739,7 +749,8 @@
                     $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 45, 'align' => 't-left'];
                 }
 
-                $totalWeight = collect($cols)->sum('weight');
+                $weightKey = 'weight';
+                $totalWeight = collect($cols)->sum($weightKey);
                 foreach ($cols as &$col) {
                     $col['pct'] = round(($col['weight'] / $totalWeight) * 100, 1);
                 }
@@ -751,7 +762,7 @@
             <table class="{{ $tableClass }}" style="margin-bottom:12px; table-layout: fixed; width: 100%;">
                 <colgroup>
                     @foreach($cols as $col)
-                        <col style="width: {{ $col['pct'] }}%;">
+                        <col width="{{ $col['pct'] }}%">
                     @endforeach
                 </colgroup>
                 <thead>

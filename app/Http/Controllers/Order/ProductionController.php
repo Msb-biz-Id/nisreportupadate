@@ -28,12 +28,14 @@ class ProductionController extends Controller
             default                          => BrandContext::current($request),
         };
 
+        $statusPoCol = 'status_po';
+        $deadlineCol = 'deadline_customer';
         $orders = Order::query()
             ->forBrand($brandId)
             ->published()
-            ->where('status_po', '!=', 'sudah_dikirim')
+            ->where($statusPoCol, '!=', 'sudah_dikirim')
             ->with('pelanggan:id,nama')
-            ->orderBy('deadline_customer')
+            ->orderBy($deadlineCol)
             ->get();
 
         $statusColors = [
@@ -71,10 +73,10 @@ class ProductionController extends Controller
                 'status_po'        => $order->status_po,
                 'status_label'     => $statusLabels[$order->status_po] ?? $order->status_po,
                 'color'            => $statusColors[$order->status_po] ?? '#94A3B8',
-                'tanggal_masuk'    => $order->tanggal_masuk?->toDateString(),
-                'deadline_customer'=> $order->deadline_customer?->toDateString(),
-                'start'            => $start?->toDateString(),
-                'end'              => $end?->toDateString(),
+                'tanggal_masuk'    => $order->tanggal_masuk ? \Carbon\Carbon::parse((string) $order->tanggal_masuk)->format('Y-m-d') : null,
+                'deadline_customer'=> $order->deadline_customer ? \Carbon\Carbon::parse((string) $order->deadline_customer)->format('Y-m-d') : null,
+                'start'            => $start ? \Carbon\Carbon::parse((string) $start)->format('Y-m-d') : null,
+                'end'              => $end ? \Carbon\Carbon::parse((string) $end)->format('Y-m-d') : null,
                 'days_remaining'   => $order->deadline_customer
                     ? now()->startOfDay()->diffInDays($order->deadline_customer, false)
                     : null,
@@ -99,14 +101,16 @@ class ProductionController extends Controller
             default                          => BrandContext::current($request),
         };
 
+        $statusPoCol = 'status_po';
+        $deadlineCol = 'deadline_customer';
         $orders = Order::query()
             ->forBrand($brandId)
             ->published()
-            ->whereNotIn('status_po', ['sudah_dikirim', 'selesai'])
+            ->whereNotIn($statusPoCol, ['sudah_dikirim', 'selesai'])
             ->with(['pelanggan:id,nama', 'lockStatus', 'brand:id,kode,warna_primary', 'paketOrder:id,nama,warna,prioritas'])
             ->withCount(['rijeks as has_rijek' => fn ($q) => $q->whereNull('resolved_at')])
             ->withSum('items', 'quantity')
-            ->orderBy('deadline_customer')
+            ->orderBy($deadlineCol)
             ->get();
 
         $columns = [
@@ -134,7 +138,7 @@ class ProductionController extends Controller
                 'pelanggan'         => $order->pelanggan?->nama,
                 'brand_kode'        => $order->brand?->kode,
                 'brand_warna'       => $order->brand?->warna_primary,
-                'deadline_customer' => $order->deadline_customer?->toDateString(),
+                'deadline_customer' => $order->deadline_customer ? \Carbon\Carbon::parse((string) $order->deadline_customer)->format('Y-m-d') : null,
                 'is_locked'         => $order->isLocked(),
                 'is_special_order'  => (bool) $order->is_special_order,
                 'has_rijek'         => $order->has_rijek > 0,
@@ -238,7 +242,7 @@ class ProductionController extends Controller
         ]);
 
         $details = OrderProgressDetail::whereIn('id', $data['ids'])
-            ->where('order_id', $order->id)
+            ->where(['order_id' => $order->id])
             ->with('progress')
             ->get();
 
@@ -302,9 +306,10 @@ class ProductionController extends Controller
         ]);
 
         if (! empty($data['progress_id'])) {
-            OrderProgressDetail::where('order_id', $order->id)
-                ->where('progress_id', $data['progress_id'])
-                ->update(['has_reject' => true]);
+            OrderProgressDetail::where([
+                'order_id' => $order->id,
+                'progress_id' => $data['progress_id'],
+            ])->update(['has_reject' => true]);
         }
 
         $stageName = 'Produksi';
@@ -350,19 +355,22 @@ class ProductionController extends Controller
         $rijek->update($data);
 
         if (! empty($data['progress_id'])) {
-            OrderProgressDetail::where('order_id', $order->id)
-                ->where('progress_id', $data['progress_id'])
-                ->update(['has_reject' => true]);
+            OrderProgressDetail::where([
+                'order_id' => $order->id,
+                'progress_id' => $data['progress_id'],
+            ])->update(['has_reject' => true]);
         }
 
         if (! empty($oldProgressId) && $oldProgressId !== ($data['progress_id'] ?? null)) {
-            $otherExists = Rijek::where('order_id', $order->id)
-                ->where('progress_id', $oldProgressId)
-                ->exists();
+            $otherExists = Rijek::where([
+                'order_id' => $order->id,
+                'progress_id' => $oldProgressId,
+            ])->exists();
             if (! $otherExists) {
-                OrderProgressDetail::where('order_id', $order->id)
-                    ->where('progress_id', $oldProgressId)
-                    ->update(['has_reject' => false]);
+                OrderProgressDetail::where([
+                    'order_id' => $order->id,
+                    'progress_id' => $oldProgressId,
+                ])->update(['has_reject' => false]);
             }
         }
 
@@ -383,13 +391,15 @@ class ProductionController extends Controller
         $rijek->delete();
 
         if (! empty($progressId)) {
-            $otherExists = Rijek::where('order_id', $order->id)
-                ->where('progress_id', $progressId)
-                ->exists();
+            $otherExists = Rijek::where([
+                'order_id' => $order->id,
+                'progress_id' => $progressId,
+            ])->exists();
             if (! $otherExists) {
-                OrderProgressDetail::where('order_id', $order->id)
-                    ->where('progress_id', $progressId)
-                    ->update(['has_reject' => false]);
+                OrderProgressDetail::where([
+                    'order_id' => $order->id,
+                    'progress_id' => $progressId,
+                ])->update(['has_reject' => false]);
             }
         }
 

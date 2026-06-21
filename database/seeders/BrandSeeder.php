@@ -91,7 +91,7 @@ class BrandSeeder extends Seeder
 
         // Reseller nyata — masing-masing entitas reseller mandiri (tipe: reseller_hub)
         // Bisa punya branch sendiri nanti. Master data shared di level hub.
-        $idwBrand = Brand::where('kode', 'IDW')->first();
+        $idwBrand = Brand::where(['kode' => 'IDW'])->first();
         $idwBrandId = $idwBrand ? $idwBrand->id : null;
 
         $resellerBrands = [

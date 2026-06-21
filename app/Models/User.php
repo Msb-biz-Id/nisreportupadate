@@ -96,7 +96,7 @@ class User extends Authenticatable
         }
 
         // Direct brand assignment
-        if ($this->brands()->where('brands.id', $brandId)->exists()) {
+        if ($this->brands()->where(['brands.id' => $brandId])->exists()) {
             return true;
         }
 

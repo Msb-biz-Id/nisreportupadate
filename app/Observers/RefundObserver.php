@@ -14,7 +14,7 @@ class RefundObserver
             'no_po' => $refund->order?->no_po ?? '-',
             'brand_id' => $refund->brand_id,
             'brand_nama' => $refund->brand?->nama_brand ?? 'Circle Sportwear',
-            'nominal' => 'Rp ' . number_format($refund->nominal_refund, 0, ',', '.'),
+            'nominal' => 'Rp ' . number_format((float) $refund->nominal_refund, 0, ',', '.'),
             'action_url' => route('refunds.index'),
         ]);
     }
@@ -26,9 +26,10 @@ class RefundObserver
             if ($refund->status === 'published') {
                 $kategori = $this->getOrCreateKategoriRefund($refund->brand_id);
 
-                $exists = Pengeluaran::where('refund_id', $refund->id)
-                    ->where('kategori_pengeluaran_id', $kategori->id)
-                    ->exists();
+                $exists = Pengeluaran::where([
+                    'refund_id' => $refund->id,
+                    'kategori_pengeluaran_id' => $kategori->id,
+                ])->exists();
 
                 if (! $exists) {
                     Pengeluaran::create([

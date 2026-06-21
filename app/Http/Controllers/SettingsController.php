@@ -17,7 +17,8 @@ class SettingsController extends Controller
     {
         Gate::authorize('settings.system');
 
-
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $publicDisk */
+        $publicDisk = \Illuminate\Support\Facades\Storage::disk('public');
 
         return Inertia::render('Settings/Integrations', [
             'ai' => [
@@ -53,9 +54,9 @@ class SettingsController extends Controller
                 'site_name' => SystemSetting::get('seo', 'site_name', 'Circle Sportwear - Tracking PO'),
                 'site_description' => SystemSetting::get('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.'),
                 'logo' => SystemSetting::get('seo', 'logo'),
-                'logo_url' => SystemSetting::get('seo', 'logo') ? \Illuminate\Support\Facades\Storage::disk('public')->url(SystemSetting::get('seo', 'logo')) : null,
+                'logo_url' => SystemSetting::get('seo', 'logo') ? $publicDisk->url(SystemSetting::get('seo', 'logo')) : null,
                 'favicon' => SystemSetting::get('seo', 'favicon'),
-                'favicon_url' => SystemSetting::get('seo', 'favicon') ? \Illuminate\Support\Facades\Storage::disk('public')->url(SystemSetting::get('seo', 'favicon')) : null,
+                'favicon_url' => SystemSetting::get('seo', 'favicon') ? $publicDisk->url(SystemSetting::get('seo', 'favicon')) : null,
             ],
             'reseller_branding' => [
                 'nama_brand' => SystemSetting::get('reseller_branding', 'nama_brand', 'Circle Reseller'),
@@ -67,7 +68,7 @@ class SettingsController extends Controller
                 'tiktok' => SystemSetting::get('reseller_branding', 'tiktok', ''),
                 'facebook' => SystemSetting::get('reseller_branding', 'facebook', ''),
                 'logo' => SystemSetting::get('reseller_branding', 'logo'),
-                'logo_url' => SystemSetting::get('reseller_branding', 'logo') ? \Illuminate\Support\Facades\Storage::disk('public')->url(SystemSetting::get('reseller_branding', 'logo')) : null,
+                'logo_url' => SystemSetting::get('reseller_branding', 'logo') ? $publicDisk->url(SystemSetting::get('reseller_branding', 'logo')) : null,
             ],
             'mail' => [
                 'mail_host' => SystemSetting::get('mail', 'mail_host', 'smtp.mailtrap.io'),
@@ -80,7 +81,7 @@ class SettingsController extends Controller
                 'mail_from_name' => SystemSetting::get('mail', 'mail_from_name', 'Circle Sportwear'),
             ],
             'notification_matrix' => [],
-            'available_roles' => Role::orderBy('name')->pluck('name')->toArray(),
+            'available_roles' => Role::all()->sortBy($nameField = 'name')->pluck($nameField)->toArray(),
             'reports' => [
                 'enable_auto_report'    => (bool)  SystemSetting::get('reports', 'enable_auto_report', false),
                 'daily_report_time'     => SystemSetting::get('reports', 'daily_report_time', '08:00'),
@@ -435,7 +436,7 @@ class SettingsController extends Controller
 
         return Inertia::render('Settings/Notifications', [
             'notification_matrix' => $decodedMatrix,
-            'available_roles' => Role::orderBy('name')->pluck('name')->toArray(),
+            'available_roles' => Role::all()->sortBy($nameField = 'name')->pluck($nameField)->toArray(),
             'available_sounds' => $availableSounds
         ]);
     }

@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Schema;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -37,7 +38,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Load Dynamic System Settings for Mail and SEO
         try {
-            if (\Schema::hasTable('system_settings')) {
+            if (Schema::hasTable('system_settings')) {
                 // Dynamic Mail config
                 $mailHost = \App\Models\Settings\SystemSetting::get('mail', 'mail_host');
                 if ($mailHost) {
