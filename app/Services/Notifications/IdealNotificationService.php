@@ -1,0 +1,131 @@
+<?php
+
+namespace App\Services\Notifications;
+
+use App\Models\User;
+use App\Notifications\SystemEventNotification;
+use App\Models\Settings\SystemSetting;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Notification;
+
+class IdealNotificationService
+{
+    /**
+     * Dispatch system event notification to target users with deduplication lock.
+     */
+    public static function dispatch(string $eventKey, array $payload): array
+    {
+        $noPo = $payload['no_po'] ?? '';
+        $stage = $payload['stage'] ?? '';
+        $status = $payload['status'] ?? '';
+        $brandId = $payload['brand_id'] ?? null;
+
+        // 1. Deduplication Lock (Cache lock for 15 seconds)
+        $fingerprint = md5($eventKey . '_' . $noPo . '_' . $stage . '_' . $status . '_' . $brandId);
+        $lockKey = 'notif_lock_' . $fingerprint;
+
+        if (Cache::has($lockKey)) {
+            return []; // Ignore duplicate request
+        }
+        Cache::put($lockKey, true, 15);
+
+        // 2. Fetch Notification Matrix Configuration
+        $settingsJson = SystemSetting::get('notification_matrix', $eventKey);
+        $settings = $settingsJson ? json_decode($settingsJson, true) : null;
+
+        if (empty($settings)) {
+            $defaults = [
+                'order_published' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_produksi', 'owner'],
+                    'sound' => 'success-tada'
+                ],
+                'progress_updated' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'admin_reseller', 'owner'],
+                    'sound' => 'bell-chime'
+                ],
+                'rijek_reported' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'owner'],
+                    'sound' => 'warning-alert'
+                ],
+                'refund_submitted' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_keuangan', 'owner'],
+                    'sound' => 'cash-register'
+                ],
+                'refund_processed' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'admin_reseller', 'owner'],
+                    'sound' => 'bell-chime'
+                ],
+                'payment_submitted' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_keuangan', 'owner'],
+                    'sound' => 'cash-register'
+                ],
+                'payment_verified' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'owner'],
+                    'sound' => 'success-tada'
+                ],
+            ];
+            $settings = $defaults[$eventKey] ?? [
+                'in_app' => true,
+                'whatsapp' => false,
+                'telegram' => false,
+                'os_desktop' => true,
+                'roles' => ['owner'],
+                'sound' => 'bell-chime'
+            ];
+        }
+
+        // 3. Resolve Target Users by RBAC Roles
+        $roles = $settings['roles'] ?? [];
+        if (empty($roles)) {
+            return [];
+        }
+
+        $usersQuery = User::role($roles);
+
+        // 4. Filter by Brand Access (unless superadmin, owner, keuangan, or produksi)
+        if ($brandId) {
+            $users = $usersQuery->get()->filter(function ($u) use ($brandId) {
+                return $u->isSuperadmin() || 
+                       $u->hasRole(['owner', 'admin_keuangan', 'admin_produksi']) || 
+                       $u->hasAccessToBrand($brandId);
+            });
+        } else {
+            $users = $usersQuery->get();
+        }
+
+        // 5. Send Notification
+        if ($users->isNotEmpty()) {
+            Notification::send($users, new SystemEventNotification($eventKey, $payload, $settings));
+        }
+
+        return $users->pluck('id')->toArray();
+    }
+}

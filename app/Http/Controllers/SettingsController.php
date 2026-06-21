@@ -328,6 +328,140 @@ class SettingsController extends Controller
         );
     }
 
+    public function notifications(Request $request)
+    {
+        Gate::authorize('settings.system');
+
+        $matrix = SystemSetting::getGroup('notification_matrix');
+        if (empty($matrix)) {
+            $defaults = [
+                'order_published' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_produksi', 'owner'],
+                    'sound' => 'success-tada'
+                ],
+                'progress_updated' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'admin_reseller', 'owner'],
+                    'sound' => 'bell-chime'
+                ],
+                'rijek_reported' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'owner'],
+                    'sound' => 'warning-alert'
+                ],
+                'refund_submitted' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_keuangan', 'owner'],
+                    'sound' => 'cash-register'
+                ],
+                'refund_processed' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'admin_reseller', 'owner'],
+                    'sound' => 'bell-chime'
+                ],
+                'payment_submitted' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_keuangan', 'owner'],
+                    'sound' => 'cash-register'
+                ],
+                'payment_verified' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'owner'],
+                    'sound' => 'success-tada'
+                ],
+            ];
+            foreach ($defaults as $key => $val) {
+                SystemSetting::set('notification_matrix', $key, json_encode($val));
+            }
+            $matrix = SystemSetting::getGroup('notification_matrix');
+        }
+
+        $decodedMatrix = [];
+        foreach ($matrix as $key => $val) {
+            $decodedMatrix[$key] = is_string($val) ? json_decode($val, true) : $val;
+        }
+
+        $soundsPath = public_path('sounds');
+        if (!is_dir($soundsPath)) {
+            @mkdir($soundsPath, 0755, true);
+        }
+
+        $defaultSounds = [
+            ['value' => 'bell-chime', 'label' => 'Pleasant Bell 🔔'],
+            ['value' => 'success-tada', 'label' => 'Success Tada 🎉'],
+            ['value' => 'warning-alert', 'label' => 'Sweep Alert ⚠️'],
+            ['value' => 'cash-register', 'label' => 'Coins Register 🪙'],
+        ];
+
+        $mp3Files = glob($soundsPath . '/*.mp3');
+        $customSounds = [];
+        if ($mp3Files) {
+            foreach ($mp3Files as $file) {
+                $filename = basename($file, '.mp3');
+                $isDefault = in_array($filename, ['bell-chime', 'success-tada', 'warning-alert', 'cash-register']);
+                if (!$isDefault) {
+                    $labelName = ucwords(str_replace(['-', '_'], ' ', $filename));
+                    $customSounds[] = [
+                        'value' => $filename,
+                        'label' => $labelName . ' 🎵'
+                    ];
+                }
+            }
+        }
+
+        $availableSounds = array_merge($defaultSounds, $customSounds);
+
+        return Inertia::render('Settings/Notifications', [
+            'notification_matrix' => $decodedMatrix,
+            'available_roles' => Role::orderBy('name')->pluck('name')->toArray(),
+            'available_sounds' => $availableSounds
+        ]);
+    }
+
+    public function updateMatrix(Request $request)
+    {
+        Gate::authorize('settings.system');
+
+        $data = $request->validate([
+            'matrix' => ['required', 'array'],
+            'matrix.*.in_app' => ['required', 'boolean'],
+            'matrix.*.whatsapp' => ['required', 'boolean'],
+            'matrix.*.telegram' => ['required', 'boolean'],
+            'matrix.*.os_desktop' => ['required', 'boolean'],
+            'matrix.*.roles' => ['nullable', 'array'],
+            'matrix.*.roles.*' => ['string', \Illuminate\Validation\Rule::in(Role::pluck('name')->toArray())],
+            'matrix.*.sound' => ['required', 'string', 'max:50'],
+        ]);
+
+        foreach ($data['matrix'] as $key => $val) {
+            SystemSetting::set('notification_matrix', $key, json_encode($val));
+        }
+
+        return back()->with('success', 'Pengaturan matriks notifikasi dinamis berhasil disimpan.');
+    }
+
     private function maskCsv(?string $csv): array
     {
         if (! $csv) return [];

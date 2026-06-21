@@ -10,7 +10,18 @@
     <meta charset="utf-8">
     <title>FO {{ $order->no_po }}</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP&family=Noto+Sans+Arabic&display=swap');
+        @font-face {
+            font-family: 'Noto Sans JP';
+            font-style: normal;
+            font-weight: 400;
+            src: url('https://raw.githubusercontent.com/shogo82148/noto-sans-japanese/master/fonts/NotoSansJP-Regular.ttf') format('truetype');
+        }
+        @font-face {
+            font-family: 'Noto Sans Arabic';
+            font-style: normal;
+            font-weight: 400;
+            src: url('https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf') format('truetype');
+        }
         
         .cjk-font {
             font-family: 'Noto Sans JP', sans-serif !important;
@@ -490,31 +501,31 @@
 
             @php
                 $cols = [];
-                $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 3];
+                $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 2.5];
                 if ($hasNamaPunggung) {
                     $cols[] = ['type' => 'nama_punggung', 'label' => 'NAMA PUNGGUNG', 'weight' => 24, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_punggung', 'label' => 'NO. PUNGGUNG', 'weight' => 6];
+                    $cols[] = ['type' => 'no_punggung', 'label' => 'NO. PUNGGUNG', 'weight' => 4.5];
                 }
                 if ($hasNamaDada) {
                     $cols[] = ['type' => 'nama_dada', 'label' => 'NAMA DADA', 'weight' => 18, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 6];
+                    $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 4.5];
                 }
                 if ($hasNamaLengan) {
                     $cols[] = ['type' => 'nama_lengan', 'label' => 'NAMA LENGAN', 'weight' => 18, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 6];
+                    $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 4.5];
                 }
                 if ($hasNamaPunggung2) {
                     $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 24, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 6];
+                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 4.5];
                 }
                 if ($hasSizeAtasan) {
-                    $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 6];
+                    $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 4.5];
                 }
                 if ($hasSizeBawahan) {
-                    $cols[] = ['type' => 'size_celana', 'label' => 'SIZE CELANA', 'weight' => 6];
+                    $cols[] = ['type' => 'size_celana', 'label' => 'SIZE CELANA', 'weight' => 4.5];
                 }
                 if ($hasKeterangan) {
-                    $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 26, 'align' => 't-left'];
+                    $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 45, 'align' => 't-left'];
                 }
 
                 $totalWeight = collect($cols)->sum('weight');
@@ -690,31 +701,31 @@
             @if($lampFilled->isNotEmpty())
             @php
                 $cols = [];
-                $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 3];
+                $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 2.5];
                 if ($hasLampNamaPunggung) {
                     $cols[] = ['type' => 'nama_punggung', 'label' => 'NAMA PUNGGUNG', 'weight' => 24, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_punggung', 'label' => 'NO. PUNGGUNG', 'weight' => 6];
+                    $cols[] = ['type' => 'no_punggung', 'label' => 'NO. PUNGGUNG', 'weight' => 4.5];
                 }
                 if ($hasLampNamaDada) {
                     $cols[] = ['type' => 'nama_dada', 'label' => 'NAMA DADA', 'weight' => 18, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 6];
+                    $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 4.5];
                 }
                 if ($hasLampNamaLengan) {
                     $cols[] = ['type' => 'nama_lengan', 'label' => 'NAMA LENGAN', 'weight' => 18, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 6];
+                    $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 4.5];
                 }
                 if ($hasLampNamaPunggung2) {
                     $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 24, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 6];
+                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 4.5];
                 }
                 if ($hasLampSizeAtasan) {
-                    $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 6];
+                    $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 4.5];
                 }
                 if ($hasLampSizeBawahan) {
-                    $cols[] = ['type' => 'size_celana', 'label' => 'SIZE CELANA', 'weight' => 6];
+                    $cols[] = ['type' => 'size_celana', 'label' => 'SIZE CELANA', 'weight' => 4.5];
                 }
                 if ($hasLampKeterangan) {
-                    $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 26, 'align' => 't-left'];
+                    $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 45, 'align' => 't-left'];
                 }
 
                 $totalWeight = collect($cols)->sum('weight');

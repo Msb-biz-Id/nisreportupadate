@@ -109,8 +109,4 @@ class User extends Authenticatable
         return false;
     }
 
-    public function notifications(): HasMany
-    {
-        return $this->hasMany(Notification::class)->latest();
-    }
 }

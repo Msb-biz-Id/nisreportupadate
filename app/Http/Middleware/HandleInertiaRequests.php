@@ -74,6 +74,17 @@ class HandleInertiaRequests extends Middleware
                     'roles' => $userRoles,
                     'permissions' => $userPermissions,
                     'is_superadmin' => $user->isSuperadmin(),
+                    'unread_notifications_count' => $user->unreadNotifications()->count(),
+                    'recent_notifications' => $user->notifications()->take(10)->get()->map(fn ($n) => [
+                        'id' => $n->id,
+                        'title' => $n->data['title'] ?? '',
+                        'body' => $n->data['body'] ?? '',
+                        'no_po' => $n->data['no_po'] ?? '',
+                        'action_url' => $n->data['action_url'] ?? '',
+                        'sound' => $n->data['sound'] ?? 'bell-chime',
+                        'is_read' => ! is_null($n->read_at),
+                        'created_at' => $n->created_at->toIso8601String(),
+                    ])->values()->all(),
                 ] : null,
             ],
             'brandContext' => [

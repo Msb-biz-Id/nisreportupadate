@@ -17,7 +17,15 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->singleton(\App\Services\Notifications\SidobeClient::class, function () {
+            return \App\Services\Notifications\SidobeClient::fromSettings();
+        });
+        $this->app->singleton(\App\Services\Notifications\TelegramClient::class, function () {
+            return \App\Services\Notifications\TelegramClient::fromSettings();
+        });
+        $this->app->singleton(\App\Services\Ai\GeminiClient::class, function () {
+            return \App\Services\Ai\GeminiClient::fromSettings();
+        });
     }
 
     public function boot(): void

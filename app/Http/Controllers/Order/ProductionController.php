@@ -206,7 +206,13 @@ class ProductionController extends Controller
             ]);
         }
 
-
+        \App\Services\Notifications\IdealNotificationService::dispatch('progress_updated', [
+            'no_po' => $order->no_po,
+            'brand_id' => $order->brand_id,
+            'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
+            'stage' => $detail->progress->nama_progress ?? '-',
+            'action_url' => "/produksi/progress/{$order->id}"
+        ]);
 
         return back()->with('success', 'Progress berhasil diperbarui.');
     }
@@ -257,7 +263,13 @@ class ProductionController extends Controller
                 ]);
             }
 
-
+            \App\Services\Notifications\IdealNotificationService::dispatch('progress_updated', [
+                'no_po' => $order->no_po,
+                'brand_id' => $order->brand_id,
+                'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
+                'stage' => $detail->progress->nama_progress ?? '-',
+                'action_url' => "/produksi/progress/{$order->id}"
+            ]);
         }
 
         return back()->with('success', 'Progress berhasil diperbarui secara massal.');
@@ -303,7 +315,13 @@ class ProductionController extends Controller
             }
         }
 
-
+        \App\Services\Notifications\IdealNotificationService::dispatch('rijek_reported', [
+            'no_po' => $order->no_po,
+            'brand_id' => $order->brand_id,
+            'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
+            'stage' => $stageName,
+            'action_url' => "/produksi/progress/{$order->id}"
+        ]);
 
         return back()->with('success', 'Rijek berhasil dicatat.');
     }
