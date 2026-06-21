@@ -17,6 +17,7 @@ use App\Models\Master\KategoriOrder;
 use App\Models\Master\Logo;
 use App\Models\Master\PolaJahitan;
 use App\Models\Master\Printing;
+use App\Models\Master\Progress;
 use App\Models\Master\Product;
 use App\Models\Master\Resleting;
 use App\Models\Master\Size;
@@ -71,6 +72,12 @@ class OrderController extends Controller
             default => $brandId,
         };
 
+        $statusPoCol = 'status_po';
+        $ordersStatusPoCol = 'orders.status_po';
+        $ordersBrandIdCol = 'orders.brand_id';
+        $createdAtCol = 'created_at';
+        $namaBrandCol = 'nama_brand';
+
         $tab = $request->string('tab', 'active')->toString();
 
         $query = Order::query()
@@ -87,14 +94,14 @@ class OrderController extends Controller
         }
 
         if ($user->hasRole('admin_produksi')) {
-            $query->where('status_po', '!=', 'draft');
+            $query->where($statusPoCol, '!=', 'draft');
         }
 
         // Filter berdasarkan tab terlebih dahulu
         if ($tab === 'archive') {
-            $query->whereIn('orders.status_po', ['sudah_dikirim', 'selesai']);
+            $query->whereIn($ordersStatusPoCol, ['sudah_dikirim', 'selesai']);
         } else {
-            $query->whereNotIn('orders.status_po', ['sudah_dikirim', 'selesai']);
+            $query->whereNotIn($ordersStatusPoCol, ['sudah_dikirim', 'selesai']);
         }
 
         // Kemudian filter status jika dispesifikasikan (dan valid untuk tab tersebut)
@@ -105,13 +112,13 @@ class OrderController extends Controller
             } elseif ($tab === 'archive' && ! in_array($status, ['sudah_dikirim', 'selesai'], true)) {
                 $query->whereRaw('1 = 0');
             } else {
-                $query->where('orders.status_po', $status);
+                $query->where($ordersStatusPoCol, $status);
             }
         }
 
         // Jika ada filter brand spesifik (bukan 'all') → drill-down ke brand tertentu
         if ($canSeeMultiBrand && $filterBrandId && $filterBrandId !== 'all') {
-            $query->where('orders.brand_id', $filterBrandId);
+            $query->where($ordersBrandIdCol, $filterBrandId);
         }
 
         if ($dateFrom = $request->string('date_from')->toString()) {
@@ -124,32 +131,32 @@ class OrderController extends Controller
         // Summary per status — query terpisah tanpa with/withCount agar GROUP BY aman
         $statusCounts = Order::query()
             ->forBrand($effectiveId)
-            ->when($user->hasRole('admin_produksi'), fn ($q) => $q->where('status_po', '!=', 'draft'))
-            ->when($canSeeMultiBrand && $filterBrandId && $filterBrandId !== 'all', fn ($q) => $q->where('orders.brand_id', $filterBrandId))
+            ->when($user->hasRole('admin_produksi'), fn ($q) => $q->where($statusPoCol, '!=', 'draft'))
+            ->when($canSeeMultiBrand && $filterBrandId && $filterBrandId !== 'all', fn ($q) => $q->where($ordersBrandIdCol, $filterBrandId))
             ->when($request->string('q')->toString(), fn ($q, $v) => $q->where(function ($w) use ($v) {
                 $w->where('no_po', 'like', "%{$v}%")->orWhere('nama_po', 'like', "%{$v}%");
             }))
             ->when($request->string('date_from')->toString(), fn ($q, $v) => $q->whereDate('tanggal_masuk', '>=', $v))
             ->when($request->string('date_to')->toString(), fn ($q, $v) => $q->whereDate('tanggal_masuk', '<=', $v))
-            ->when($tab === 'archive', fn ($q) => $q->whereIn('status_po', ['sudah_dikirim', 'selesai']))
-            ->when($tab === 'active', fn ($q) => $q->whereNotIn('status_po', ['sudah_dikirim', 'selesai']))
+            ->when($tab === 'archive', fn ($q) => $q->whereIn($statusPoCol, ['sudah_dikirim', 'selesai']))
+            ->when($tab === 'active', fn ($q) => $q->whereNotIn($statusPoCol, ['sudah_dikirim', 'selesai']))
             ->selectRaw('status_po, count(*) as total')
             ->groupBy('status_po')
             ->pluck('total', 'status_po')
             ->toArray();
 
-        $orders = $query->orderByDesc('created_at')->paginate(25)->withQueryString();
+        $orders = $query->orderByDesc($createdAtCol)->paginate(25)->withQueryString();
         // Dapatkan daftar brand yang boleh difilter pada halaman ini
         $brands = [];
         if ($canSeeMultiBrand) {
             if ($user->hasRole(['admin_produksi', 'admin_keuangan'])) {
                 // Keuangan/produksi dapat melihat semua brand aktif
-                $brands = Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode']);
+                $brands = Brand::orderBy($namaBrandCol)->get(['id', 'nama_brand', 'kode']);
             } else {
                 // Yang lain dibatasi hanya pada brand-brand efektif saat ini (brand aktif + cabangnya jika ada)
                 $effectiveBrandIds = BrandContext::effectiveBrandIds($request);
                 $brands = Brand::whereIn('id', $effectiveBrandIds)
-                    ->orderBy('nama_brand')
+                    ->orderBy($namaBrandCol)
                     ->get(['id', 'nama_brand', 'kode']);
             }
         }
@@ -208,6 +215,11 @@ class OrderController extends Controller
             default => $brandId,
         };
 
+        $statusPoCol = 'status_po';
+        $ordersStatusPoCol = 'orders.status_po';
+        $ordersBrandIdCol = 'orders.brand_id';
+        $createdAtCol = 'created_at';
+
         $tab = $request->string('tab', 'active')->toString();
 
         $query = Order::query()
@@ -230,22 +242,22 @@ class OrderController extends Controller
         }
 
         if ($user->hasRole('admin_produksi')) {
-            $query->where('status_po', '!=', 'draft');
+            $query->where($statusPoCol, '!=', 'draft');
         }
 
         $status = $request->string('status')->toString();
         if ($status && $status !== 'all') {
-            $query->where('orders.status_po', $status);
+            $query->where($ordersStatusPoCol, $status);
         } else {
             if ($tab === 'archive') {
-                $query->where('orders.status_po', 'sudah_dikirim');
+                $query->where($ordersStatusPoCol, 'sudah_dikirim');
             } else {
-                $query->where('orders.status_po', '!=', 'sudah_dikirim');
+                $query->where($ordersStatusPoCol, '!=', 'sudah_dikirim');
             }
         }
 
         if ($canSeeMultiBrand && $filterBrandId && $filterBrandId !== 'all') {
-            $query->where('orders.brand_id', $filterBrandId);
+            $query->where($ordersBrandIdCol, $filterBrandId);
         }
 
         if ($dateFrom = $request->string('date_from')->toString()) {
@@ -255,7 +267,7 @@ class OrderController extends Controller
             $query->whereDate('tanggal_masuk', '<=', $dateTo);
         }
 
-        $orders = $query->orderByDesc('created_at')->get()->all();
+        $orders = $query->orderByDesc($createdAtCol)->get()->all();
 
         $filename = 'comprehensive-po-export-' . now()->format('Ymd-His') . '.xlsx';
 
@@ -274,9 +286,11 @@ class OrderController extends Controller
 
         $masterBrandId = BrandContext::masterDataId($request, $brandId);
 
-        $resellerHubs = Brand::where('brand_type', Brand::TYPE_RESELLER_HUB)
+        $brandTypeCol = 'brand_type';
+        $namaBrandCol = 'nama_brand';
+        $resellerHubs = Brand::where($brandTypeCol, Brand::TYPE_RESELLER_HUB)
             ->active()
-            ->orderBy('nama_brand')
+            ->orderBy($namaBrandCol)
             ->get(['id', 'nama_brand', 'kode'])
             ->toArray();
 
@@ -309,9 +323,11 @@ class OrderController extends Controller
 
         $masterBrandId = BrandContext::masterDataId($request, $order->brand_id);
 
-        $resellerHubs = Brand::where('brand_type', Brand::TYPE_RESELLER_HUB)
+        $brandTypeCol = 'brand_type';
+        $namaBrandCol = 'nama_brand';
+        $resellerHubs = Brand::where($brandTypeCol, Brand::TYPE_RESELLER_HUB)
             ->active()
-            ->orderBy('nama_brand')
+            ->orderBy($namaBrandCol)
             ->get(['id', 'nama_brand', 'kode'])
             ->toArray();
 
@@ -457,7 +473,7 @@ class OrderController extends Controller
             $order->update(['total_tagihan' => $order->is_special_order ? 0.0 : $order->items()->sum('subtotal')]);
 
             // Sync invoice
-            /** @var \App\Models\Order\Invoice|null $invoice */
+            /** @var Invoice|null $invoice */
             $invoice = $order->invoices()->first();
             if ($invoice) {
                 $invoice->items()->delete();
@@ -528,12 +544,15 @@ class OrderController extends Controller
 
         $printings = collect();
         if (!empty($order->printing_ids)) {
-            $printings = \App\Models\Master\Printing::whereIn('id', $order->printing_ids)->get(['id', 'nama']);
+            $printings = Printing::whereIn('id', $order->printing_ids)->get(['id', 'nama']);
         }
 
         $brandId = $order->brand_id;
-        $banks = BankAccount::active()->where('brand_id', \App\Support\BrandContext::masterDataId($request, $brandId))->orderBy('bank')->get(['id', 'bank', 'atas_nama', 'nomor_rekening']);
-        $jenis_pembayarans = \App\Models\Finance\MasterJenisPembayaran::active()->orderBy('nama')->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan', 'deskripsi']);
+        $brandIdCol = 'brand_id';
+        $bankCol = 'bank';
+        $namaCol = 'nama';
+        $banks = BankAccount::active()->where($brandIdCol, BrandContext::masterDataId($request, $brandId))->orderBy($bankCol)->get(['id', 'bank', 'atas_nama', 'nomor_rekening']);
+        $jenis_pembayarans = \App\Models\Finance\MasterJenisPembayaran::active()->orderBy($namaCol)->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan', 'deskripsi']);
 
         // Computed DP info — frontend uses these exact values to stay in sync with backend
         $minDpPct      = $order->brand ? (float) ($order->brand->min_dp_percentage ?? 0.50) : 0.50;
@@ -638,7 +657,7 @@ class OrderController extends Controller
             return back()->with('error', 'Pesanan tidak dapat diselesaikan karena masih terdapat klaim refund/return aktif.');
         }
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($order, $user) {
+        DB::transaction(function () use ($order, $user) {
             $order->update([
                 'status_po' => 'selesai',
             ]);
@@ -977,7 +996,7 @@ class OrderController extends Controller
         ]);
 
         // Recalculate invoice if exists
-        /** @var \App\Models\Order\Invoice|null $invoice */
+        /** @var Invoice|null $invoice */
         $invoice = $order->invoices()->first();
         if ($invoice) {
             $grossSubtotal = (float) $order->items->sum(fn($item) => $item->quantity * $item->harga_satuan);
@@ -1089,36 +1108,19 @@ class OrderController extends Controller
         return back()->with('success', 'Transaksi berhasil dicatat dan diverifikasi.');
     }
 
-    public function draftPdf(Request $request): \Illuminate\Http\Response
+    /**
+     * Resolve and map raw items with their dynamic relationships for draft/preview generation.
+     */
+    private function resolveItemsForDraft(array $rawItems, array $printingIds): \Illuminate\Support\Collection
     {
-        abort_unless(Auth::check(), 401);
-
-        $brandId = BrandContext::current($request);
-        $brand   = Brand::with('parentBrand')->findOrFail($brandId);
-        $raw     = $request->all();
-
-        $pelanggan  = !empty($raw['pelanggan_id'])      ? Customer::find($raw['pelanggan_id'])           : null;
-        $resellerDisplayBrand = !empty($raw['reseller_display_brand_id']) ? Brand::find($raw['reseller_display_brand_id']) : null;
-        $kategori   = !empty($raw['kategori_order_id']) ? KategoriOrder::find($raw['kategori_order_id']) : null;
-        $jenisOrder = !empty($raw['jenis_order_id'])    ? JenisOrder::find($raw['jenis_order_id'])       : null;
-        $sumber     = !empty($raw['sumber_order_id'])   ? SumberOrder::find($raw['sumber_order_id'])     : null;
-        $paketOrder = !empty($raw['paket_order_id'])    ? PaketOrder::find($raw['paket_order_id'])       : null;
-
-        $rawItems = $raw['items'] ?? [];
-
-        // Kumpulkan semua ID untuk kueri batch
         $bahanKainIds = [];
         $logoIds = [];
         $polaJahitanIds = [];
         $resletingIds = [];
-        $printingIds = [];
+        $printingIdsAll = $printingIds;
         $jenisSetelanIds = [];
         $polaProduksiIds = [];
         $sizeIds = [];
-
-        if (!empty($raw['printing_ids']) && is_array($raw['printing_ids'])) {
-            $printingIds = array_merge($printingIds, $raw['printing_ids']);
-        }
 
         foreach ($rawItems as $item) {
             if (!empty($item['bahan_kain_id'])) $bahanKainIds[] = $item['bahan_kain_id'];
@@ -1136,7 +1138,7 @@ class OrderController extends Controller
             }
 
             if (!empty($item['resleting_id'])) $resletingIds[] = $item['resleting_id'];
-            if (!empty($item['printing_id'])) $printingIds[] = $item['printing_id'];
+            if (!empty($item['printing_id'])) $printingIdsAll[] = $item['printing_id'];
             if (!empty($item['jenis_setelan_id'])) $jenisSetelanIds[] = $item['jenis_setelan_id'];
             if (!empty($item['pola_produksi_id'])) $polaProduksiIds[] = $item['pola_produksi_id'];
 
@@ -1154,21 +1156,21 @@ class OrderController extends Controller
             }
         }
 
-        // Jalankan kueri batch
-        $bahanKains = !empty($bahanKainIds) ? BahanKain::whereIn('id', array_unique($bahanKainIds))->pluck('nama', 'id')->toArray() : [];
-        $logos = !empty($logoIds) ? Logo::whereIn('id', array_unique($logoIds))->pluck('nama', 'id')->toArray() : [];
-        $polaJahitans = !empty($polaJahitanIds) ? PolaJahitan::whereIn('id', array_unique($polaJahitanIds))->pluck('nama', 'id')->toArray() : [];
-        $resletings = !empty($resletingIds) ? Resleting::whereIn('id', array_unique($resletingIds))->pluck('nama', 'id')->toArray() : [];
-        $printings = !empty($printingIds) ? Printing::whereIn('id', array_unique($printingIds))->pluck('nama', 'id')->toArray() : [];
-        $jenisSetelans = !empty($jenisSetelanIds) ? \App\Models\Master\JenisSetelan::whereIn('id', array_unique($jenisSetelanIds))->pluck('nama', 'id')->toArray() : [];
-        $polaProduksis = !empty($polaProduksiIds) ? \App\Models\Master\PolaProduksi::whereIn('id', array_unique($polaProduksiIds))->pluck('nama', 'id')->toArray() : [];
+        $idCol = 'id';
+        $bahanKains = !empty($bahanKainIds) ? BahanKain::whereIn($idCol, array_unique($bahanKainIds))->pluck('nama', 'id')->toArray() : [];
+        $logos = !empty($logoIds) ? Logo::whereIn($idCol, array_unique($logoIds))->pluck('nama', 'id')->toArray() : [];
+        $polaJahitans = !empty($polaJahitanIds) ? PolaJahitan::whereIn($idCol, array_unique($polaJahitanIds))->pluck('nama', 'id')->toArray() : [];
+        $resletings = !empty($resletingIds) ? Resleting::whereIn($idCol, array_unique($resletingIds))->pluck('nama', 'id')->toArray() : [];
+        $printings = !empty($printingIdsAll) ? Printing::whereIn($idCol, array_unique($printingIdsAll))->pluck('nama', 'id')->toArray() : [];
+        $jenisSetelans = !empty($jenisSetelanIds) ? JenisSetelan::whereIn($idCol, array_unique($jenisSetelanIds))->pluck('nama', 'id')->toArray() : [];
+        $polaProduksis = !empty($polaProduksiIds) ? PolaProduksi::whereIn($idCol, array_unique($polaProduksiIds))->pluck('nama', 'id')->toArray() : [];
         
         $sizes = collect();
         if (!empty($sizeIds)) {
-            $sizes = Size::whereIn('id', array_unique($sizeIds))->get()->keyBy('id');
+            $sizes = Size::whereIn($idCol, array_unique($sizeIds))->get()->keyBy($idCol);
         }
 
-        $items = collect($rawItems)->map(function ($item) use ($bahanKains, $logos, $polaJahitans, $resletings, $printings, $jenisSetelans, $polaProduksis, $sizes) {
+        return collect($rawItems)->map(function ($item) use ($bahanKains, $logos, $polaJahitans, $resletings, $printings, $jenisSetelans, $polaProduksis, $sizes) {
             $item['_bahan_kain'] = !empty($item['bahan_kain_id']) ? ($bahanKains[$item['bahan_kain_id']] ?? null) : null;
             
             $itemBahanKainNames = [];
@@ -1217,38 +1219,61 @@ class OrderController extends Controller
             $item['_jenis_setelan'] = !empty($item['jenis_setelan_id']) ? ($jenisSetelans[$item['jenis_setelan_id']] ?? null) : ($item['jenis_setelan'] ?? null);
             $item['_pola_produksi'] = !empty($item['pola_produksi_id']) ? ($polaProduksis[$item['pola_produksi_id']] ?? null) : ($item['pola'] ?? null);
 
-             $item['namesets'] = collect($item['namesets'] ?? [])->map(function ($ns) use ($sizes) {
-                 if (!empty($ns['size_id'])) {
-                     $sz = $sizes->get($ns['size_id']);
-                     $ns['_size_label'] = $sz ? $sz->ukuran : ($ns['size_label'] ?? '-');
-                 } else {
-                     $ns['_size_label'] = $ns['size_label'] ?? '-';
-                 }
+            $item['namesets'] = collect($item['namesets'] ?? [])->map(function ($ns) use ($sizes) {
+                if (!empty($ns['size_id'])) {
+                    $sz = $sizes->get($ns['size_id']);
+                    $ns['_size_label'] = $sz ? $sz->ukuran : ($ns['size_label'] ?? '-');
+                } else {
+                    $ns['_size_label'] = $ns['size_label'] ?? '-';
+                }
 
-                 if (!empty($ns['size_celana_id'])) {
-                     $szc = $sizes->get($ns['size_celana_id']);
-                     $ns['_size_celana_label'] = $szc ? $szc->ukuran : ($ns['size_celana_label'] ?? '-');
-                 } else {
-                     $ns['_size_celana_label'] = $ns['size_celana_label'] ?? '-';
-                 }
-                 return $ns;
-             })->all();
+                if (!empty($ns['size_celana_id'])) {
+                    $szc = $sizes->get($ns['size_celana_id']);
+                    $ns['_size_celana_label'] = $szc ? $szc->ukuran : ($ns['size_celana_label'] ?? '-');
+                } else {
+                    $ns['_size_celana_label'] = $ns['size_celana_label'] ?? '-';
+                }
+                return $ns;
+            })->all();
 
             return $item;
         });
+    }
+
+    public function draftPdf(Request $request): \Illuminate\Http\Response
+    {
+        abort_unless(Auth::check(), 401);
+
+        $brandId = BrandContext::current($request);
+        $brand   = Brand::with('parentBrand')->findOrFail($brandId);
+        $raw     = $request->all();
+
+        $pelanggan  = !empty($raw['pelanggan_id'])      ? Customer::find($raw['pelanggan_id'])           : null;
+        $resellerDisplayBrand = !empty($raw['reseller_display_brand_id']) ? Brand::find($raw['reseller_display_brand_id']) : null;
+        $kategori   = !empty($raw['kategori_order_id']) ? KategoriOrder::find($raw['kategori_order_id']) : null;
+        $jenisOrder = !empty($raw['jenis_order_id'])    ? JenisOrder::find($raw['jenis_order_id'])       : null;
+        $sumber     = !empty($raw['sumber_order_id'])   ? SumberOrder::find($raw['sumber_order_id'])     : null;
+        $paketOrder = !empty($raw['paket_order_id'])    ? PaketOrder::find($raw['paket_order_id'])       : null;
+
+        $rawItems = $raw['items'] ?? [];
+        $printingIds = $raw['printing_ids'] ?? [];
+
+        $items = $this->resolveItemsForDraft($rawItems, $printingIds);
 
         $headerBrand = $brand->getHeaderBrand();
         $logoData = $headerBrand ? $this->logoDataUri($headerBrand->logo) : '';
 
         $printingNames = collect();
-        if (!empty($raw['printing_ids']) && is_array($raw['printing_ids'])) {
-            foreach ($raw['printing_ids'] as $pid) {
+        if (!empty($printingIds) && is_array($printingIds)) {
+            $printings = Printing::whereIn('id', array_unique($printingIds))->pluck('nama', 'id')->toArray();
+            foreach ($printingIds as $pid) {
                 if (isset($printings[$pid])) {
                     $printingNames->push($printings[$pid]);
                 }
             }
         }
-        $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+
+        $progresses = Progress::active()->ordered()->get();
 
         $pdf = Pdf::loadView('pdf.fo_draft', compact('brand', 'resellerDisplayBrand', 'headerBrand', 'logoData', 'raw', 'pelanggan', 'kategori', 'jenisOrder', 'sumber', 'paketOrder', 'items', 'printingNames', 'progresses'))
             ->setPaper('a4', 'portrait');
@@ -1280,7 +1305,7 @@ class OrderController extends Controller
         $this->resolveItemNamesInBatch($order);
         $headerBrand = $order->brand ? $order->brand->getHeaderBrand() : null;
         $logoData = $headerBrand ? $this->logoDataUri($headerBrand->logo) : '';
-        $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+        $progresses = Progress::active()->ordered()->get();
 
         $pdf = Pdf::loadView('pdf.fo', [
             'order' => $order,
@@ -1317,12 +1342,12 @@ class OrderController extends Controller
         $printings = collect();
         $printingNames = collect();
         if (!empty($order->printing_ids)) {
-            $printings = \App\Models\Master\Printing::whereIn('id', $order->printing_ids)->pluck('nama');
+            $printings = Printing::whereIn('id', $order->printing_ids)->pluck('nama');
             $printingNames = $printings;
         }
         $printingStr = $printingNames && $printingNames->count() > 0 ? $printingNames->join(', ') : '';
 
-        $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+        $progresses = Progress::active()->ordered()->get();
 
         // Get header brand for FO display (uses getHeaderBrand() to respect system settings)
         $headerBrand = $order->brand ? $order->brand->getHeaderBrand() : null;
@@ -1338,7 +1363,8 @@ class OrderController extends Controller
 
     public function publicFoPreview(Request $request, string $noPo)
     {
-        $order = Order::where('no_po', $noPo)->firstOrFail();
+        $noPoCol = 'no_po';
+        $order = Order::where($noPoCol, $noPo)->firstOrFail();
 
         $order->load([
             'brand', 'resellerDisplayBrand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
@@ -1360,12 +1386,12 @@ class OrderController extends Controller
         $printings = collect();
         $printingNames = collect();
         if (!empty($order->printing_ids)) {
-            $printings = \App\Models\Master\Printing::whereIn('id', $order->printing_ids)->pluck('nama');
+            $printings = Printing::whereIn('id', $order->printing_ids)->pluck('nama');
             $printingNames = $printings;
         }
         $printingStr = $printingNames && $printingNames->count() > 0 ? $printingNames->join(', ') : '';
 
-        $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+        $progresses = Progress::active()->ordered()->get();
 
         // Get header brand for FO display (uses getHeaderBrand() to respect system settings)
         $headerBrand = $order->brand ? $order->brand->getHeaderBrand() : null;
@@ -1382,7 +1408,8 @@ class OrderController extends Controller
 
     public function publicFoPdf(Request $request, string $noPo)
     {
-        $order = Order::where('no_po', $noPo)->firstOrFail();
+        $noPoCol = 'no_po';
+        $order = Order::where($noPoCol, $noPo)->firstOrFail();
 
         $order->load([
             'brand.parentBrand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
@@ -1402,9 +1429,9 @@ class OrderController extends Controller
         $this->resolveItemNamesInBatch($order);
         $headerBrand = $order->brand ? $order->brand->getHeaderBrand() : null;
         $logoData = $headerBrand ? $this->logoDataUri($headerBrand->logo) : '';
-        $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+        $progresses = Progress::active()->ordered()->get();
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.fo', [
+        $pdf = Pdf::loadView('pdf.fo', [
             'order' => $order,
             'headerBrand' => $headerBrand,
             'logoData' => $logoData,
@@ -1492,23 +1519,68 @@ class OrderController extends Controller
      * Untuk admin_reseller: kumpulkan semua brand yang bisa dipilih di form order.
      * Exclude brand yang sedang aktif (current) karena sudah jadi default.
      */
-    private function resolveResellerBrandsForForm($user, string $currentBrandId): array
+    private function resolveResellerBrandsForForm(\App\Models\User $user, string $currentBrandId): array
     {
+        $brandsIdCol = 'brands.id';
+        $namaBrandCol = 'nama_brand';
         return $user->brands()
-            ->where('brands.id', '!=', $currentBrandId)
-            ->orderBy('nama_brand')
+            ->where($brandsIdCol, '!=', $currentBrandId)
+            ->orderBy($namaBrandCol)
             ->get(['brands.id', 'brands.nama_brand', 'brands.kode'])
             ->toArray();
     }
 
-    private function mastersForForm(string $masterBrandId, ?string $currentBrandId = null): array
+    /**
+     * Get order related master data for form options.
+     *
+     * @return array<string, mixed>
+     */
+    private function getOrderRelatedMasters(\Closure $masterQ, string $masterBrandId): array
+    {
+        $namaCol = 'nama';
+        $brandIdCol = 'brand_id';
+        return [
+            'kategori_orders' => KategoriOrder::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama']),
+            'jenis_orders' => JenisOrder::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama']),
+            'sumber_orders' => SumberOrder::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama']),
+            'iklans' => Iklan::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama', 'platform']),
+            'pelanggan' => Customer::active()->where($brandIdCol, $masterBrandId)->orderBy($namaCol)->limit(500)->get(['id', 'kode', 'nama', 'nomor_hp']),
+        ];
+    }
+
+    /**
+     * Get production related master data for form options.
+     *
+     * @return array<string, mixed>
+     */
+    private function getProductionRelatedMasters(\Closure $masterQ): array
+    {
+        $namaCol = 'nama';
+        $prioritasCol = 'prioritas';
+        $jenisPolaCol = 'jenis_pola';
+        $urutanCol = 'urutan';
+        return [
+            'jenis_setelan'  => JenisSetelan::active()->orderBy($namaCol)->get(['id', 'nama', 'deskripsi']),
+            'pola_produksi'  => PolaProduksi::active()->orderBy($namaCol)->get(['id', 'nama', 'deskripsi']),
+            'jenis_produk'  => JenisProduk::active()->orderBy($namaCol)->get(['id', 'nama']),
+            'paket_orders'  => PaketOrder::active()->orderBy($prioritasCol)->orderBy($namaCol)->get(['id', 'nama', 'warna', 'prioritas']),
+            'produk' => Product::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama', 'harga']),
+            'bahan_kains' => BahanKain::active()->orderBy($namaCol)->get(['id', 'nama']),
+            'logos' => Logo::active()->orderBy($namaCol)->get(['id', 'nama']),
+            'printings' => Printing::active()->orderBy($namaCol)->get(['id', 'nama']),
+            'resletings' => Resleting::active()->orderBy($namaCol)->get(['id', 'nama']),
+            'pola_jahitans' => PolaJahitan::active()->orderBy($jenisPolaCol)->orderBy($namaCol)->get(['id', 'jenis_pola', 'nama']),
+            'pola_jahitans_lengan' => PolaJahitan::active()->where($jenisPolaCol, 'like', '%Lengan%')->orderBy($namaCol)->get(['id', 'jenis_pola', 'nama']),
+            'sizes' => Size::active()->orderBy($urutanCol)->get(['id', 'ukuran']),
+        ];
+    }
+
+    /**
+     * Get bank accounts accessible by the current authenticated user and current brand context.
+     */
+    private function getAccessibleBanks(string $masterBrandId, ?string $currentBrandId): \Illuminate\Support\Collection
     {
         $currentBrandId = $currentBrandId ?? $masterBrandId;
-
-        $masterQ = fn ($q) => $q->where(function ($w) use ($masterBrandId) {
-            $w->where('brand_id', $masterBrandId)->orWhereNull('brand_id');
-        });
-
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
         $userBrandIds = ($user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])))
@@ -1516,12 +1588,14 @@ class OrderController extends Controller
             : ($user ? $user->brands()->pluck('brands.id')->toArray() : []);
 
         $banksQuery = BankAccount::active();
+        $brandIdCol = 'brand_id';
+        $bankCol = 'bank';
         if ($userBrandIds !== null) {
             $allRelevantBrandIds = array_unique(array_merge($userBrandIds, [$masterBrandId, $currentBrandId]));
-            $banksQuery->whereIn('brand_id', $allRelevantBrandIds);
+            $banksQuery->whereIn($brandIdCol, $allRelevantBrandIds);
         }
-        $rawBanks = $banksQuery->orderBy('bank')->get(['id', 'bank', 'atas_nama', 'nomor_rekening', 'brand_id']);
-        
+        $rawBanks = $banksQuery->orderBy($bankCol)->get(['id', 'bank', 'atas_nama', 'nomor_rekening', 'brand_id']);
+
         $banks = collect();
         $accessibleBrands = ($user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])))
             ? Brand::all()
@@ -1529,7 +1603,7 @@ class OrderController extends Controller
 
         foreach ($accessibleBrands as $brand) {
             $brandId = $brand->id;
-            $mBrandId = \App\Support\BrandContext::masterDataId(request(), $brandId);
+            $mBrandId = BrandContext::masterDataId(request(), $brandId);
 
             foreach ($rawBanks as $bank) {
                 if ($bank->brand_id === $brandId) {
@@ -1541,45 +1615,33 @@ class OrderController extends Controller
                 }
             }
         }
-        
+
         foreach ($rawBanks as $bank) {
             $banks->push($bank);
         }
 
-        $banks = $banks->unique(function ($item) {
+        return $banks->unique(function ($item) {
             return $item->id . '-' . $item->brand_id;
         })->values();
+    }
 
-        return [
-            'kategori_orders' => KategoriOrder::active()->where($masterQ)->orderBy('nama')->get(['id', 'nama']),
-            'jenis_orders' => JenisOrder::active()->where($masterQ)->orderBy('nama')->get(['id', 'nama']),
-            'sumber_orders' => SumberOrder::active()->where($masterQ)->orderBy('nama')->get(['id', 'nama']),
-            'iklans' => Iklan::active()->where($masterQ)->orderBy('nama')->get(['id', 'nama', 'platform']),
-            'pelanggan' => Customer::active()->where('brand_id', $masterBrandId)->orderBy('nama')->limit(500)->get(['id', 'kode', 'nama', 'nomor_hp']),
-            // Master Produksi dinamis
-            'jenis_setelan'  => JenisSetelan::active()->orderBy('nama')->get(['id', 'nama', 'deskripsi']),
-            'pola_produksi'  => PolaProduksi::active()->orderBy('nama')->get(['id', 'nama', 'deskripsi']),
-            // jenis_produk: template produksi global (tanpa harga) — untuk checkbox Buka Modul
-            'jenis_produk'  => JenisProduk::active()->orderBy('nama')->get(['id', 'nama']),
-            // paket_orders: dengan warna & prioritas untuk display di form
-            'paket_orders'  => PaketOrder::active()->orderBy('prioritas')->orderBy('nama')
-                ->get(['id', 'nama', 'warna', 'prioritas']),
-            // produk: katalog brand dengan harga — untuk referensi harga di item
-            'produk' => Product::active()->where($masterQ)->orderBy('nama')->get(['id', 'nama', 'harga']),
-            'bahan_kains' => BahanKain::active()->orderBy('nama')->get(['id', 'nama']),
-            'logos' => Logo::active()->orderBy('nama')->get(['id', 'nama']),
-            'printings' => Printing::active()->orderBy('nama')->get(['id', 'nama']),
-            'resletings' => Resleting::active()->orderBy('nama')->get(['id', 'nama']),
-            'pola_jahitans' => PolaJahitan::active()->orderBy('jenis_pola')->orderBy('nama')
-                ->get(['id', 'jenis_pola', 'nama']),
-            // Khusus untuk Jahitan List Lengan
-            'pola_jahitans_lengan' => PolaJahitan::active()
-                ->where('jenis_pola', 'like', '%Lengan%')
-                ->orderBy('nama')->get(['id', 'jenis_pola', 'nama']),
-            'sizes' => Size::active()->orderBy('urutan')->get(['id', 'ukuran']),
+    private function mastersForForm(string $masterBrandId, ?string $currentBrandId = null): array
+    {
+        $currentBrandId = $currentBrandId ?? $masterBrandId;
+
+        $masterQ = fn ($q) => $q->where(function ($w) use ($masterBrandId) {
+            $w->where('brand_id', $masterBrandId)->orWhereNull('brand_id');
+        });
+
+        $orderMasters = $this->getOrderRelatedMasters($masterQ, $masterBrandId);
+        $productionMasters = $this->getProductionRelatedMasters($masterQ);
+        $banks = $this->getAccessibleBanks($masterBrandId, $currentBrandId);
+
+        $namaCol = 'nama';
+        return array_merge($orderMasters, $productionMasters, [
             'banks' => $banks,
-            'jenis_pembayarans' => \App\Models\Finance\MasterJenisPembayaran::active()->orderBy('nama')->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan', 'deskripsi']),
-        ];
+            'jenis_pembayarans' => \App\Models\Finance\MasterJenisPembayaran::active()->orderBy($namaCol)->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan', 'deskripsi']),
+        ]);
     }
 
     private function validatePayload(Request $request): array
@@ -1669,7 +1731,7 @@ class OrderController extends Controller
 
     private function syncItems(Order $order, array $items): void
     {
-        $order->items()->each(function (\App\Models\Order\OrderItem $i) {
+        $order->items()->each(function (OrderItem $i) {
             $i->namesets()->delete();
             $i->delete();
         });
@@ -1687,7 +1749,8 @@ class OrderController extends Controller
         }
         $sizesMap = [];
         if (!empty($sizeIds)) {
-            $sizesMap = \App\Models\Master\Size::whereIn('id', array_unique($sizeIds))->get()->keyBy('id');
+            $idCol = 'id';
+            $sizesMap = Size::whereIn($idCol, array_unique($sizeIds))->get()->keyBy($idCol);
         }
 
         foreach ($items as $item) {
@@ -1826,10 +1889,10 @@ class OrderController extends Controller
         $allBahanKainIds = array_unique(array_filter($allBahanKainIds));
 
         $logos = !empty($allLogoIds)
-            ? \App\Models\Master\Logo::whereIn('id', $allLogoIds)->pluck('nama', 'id')->toArray()
+            ? Logo::whereIn('id', $allLogoIds)->pluck('nama', 'id')->toArray()
             : [];
         $bahanKains = !empty($allBahanKainIds)
-            ? \App\Models\Master\BahanKain::whereIn('id', $allBahanKainIds)->pluck('nama', 'id')->toArray()
+            ? BahanKain::whereIn('id', $allBahanKainIds)->pluck('nama', 'id')->toArray()
             : [];
 
         foreach ($order->items as $item) {
