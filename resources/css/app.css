@@ -89,4 +89,14 @@
     .scrollbar-thin::-webkit-scrollbar-thumb:hover {
         background: hsl(var(--muted-foreground) / 0.5);
     }
+
+    .cjk-font {
+        font-family: 'Noto Sans JP', sans-serif !important;
+        text-transform: none !important;
+    }
+
+    .arabic-font {
+        font-family: 'Noto Sans Arabic', sans-serif !important;
+        text-transform: none !important;
+    }
 }

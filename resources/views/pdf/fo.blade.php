@@ -14,13 +14,13 @@
             font-family: 'Noto Sans JP';
             font-style: normal;
             font-weight: 400;
-            src: url('https://raw.githubusercontent.com/shogo82148/noto-sans-japanese/master/fonts/NotoSansJP-Regular.ttf') format('truetype');
+            src: url('{{ public_path("fonts/NotoSansJP-Regular.ttf") }}') format('truetype');
         }
         @font-face {
             font-family: 'Noto Sans Arabic';
             font-style: normal;
             font-weight: 400;
-            src: url('https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf') format('truetype');
+            src: url('{{ public_path("fonts/NotoSansArabic-Regular.ttf") }}') format('truetype');
         }
         
         .cjk-font {
@@ -30,8 +30,14 @@
         .arabic-font {
             font-family: 'Noto Sans Arabic', sans-serif !important;
             text-transform: none !important;
-            direction: rtl;
-            unicode-bidi: embed;
+            /*
+             * ArPHP::utf8Glyphs() sudah mengubah teks Arab ke visual-order (pre-shaped).
+             * JANGAN pakai direction:rtl karena DOMPDF tidak bisa melakukan BiDi reorder
+             * dan justru akan membalik ulang karakter yang sudah di-reshape.
+             * Biarkan DOMPDF render dari kiri-ke-kanan (LTR) seperti teks biasa.
+             */
+            direction: ltr;
+            unicode-bidi: bidi-override;
         }
 
         /* === CSS TEMPLATE DASAR PDF A4 (Polished) === */

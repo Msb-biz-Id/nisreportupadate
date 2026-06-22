@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { Printer, Download, X, ChevronLeft } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
+import { renderFormattedText } from '@/lib/utils';
 
 const chunkArray = (arr, size) => {
     const chunks = [];
@@ -130,7 +131,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                     <tr>
                                         <td className="font-black py-0.5">NAMA ORDER</td>
                                         <td className="py-0.5">:</td>
-                                        <td className="font-bold py-0.5">{order.nama_po}</td>
+                                        <td className="font-bold py-0.5">{renderFormattedText(order.nama_po)}</td>
                                     </tr>
                                     {brand && (brand.brand_type === 'reseller_hub' || brand.brand_type === 'reseller_branch') && (
                                         <tr>
@@ -189,7 +190,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                 CATATAN ORDER
                             </div>
                             <div className="border border-black px-2.5 py-1.5 font-bold text-[12.5px] bg-white">
-                                {order.catatan}
+                                {renderFormattedText(order.catatan)}
                             </div>
                         </div>
                     )}
@@ -396,11 +397,11 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <tr>
                                                 <td className="w-1/2 border-r border-black p-2 bg-white text-center">
                                                     <div className="bg-slate-300 font-bold p-1 text-center border border-black mb-1">KETERANGAN ATASAN</div>
-                                                    <div className="font-bold py-1">{item.ket_atasan || '.......'}</div>
+                                                    <div className="font-bold py-1">{renderFormattedText(item.ket_atasan || '.......')}</div>
                                                 </td>
                                                 <td className="w-1/2 p-2 bg-white text-center">
                                                     <div className="bg-slate-300 font-bold p-1 text-center border border-black mb-1">KETERANGAN BAWAHAN</div>
-                                                    <div className="font-bold py-1">{item.ket_bawahan || '.......'}</div>
+                                                    <div className="font-bold py-1">{renderFormattedText(item.ket_bawahan || '.......')}</div>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -414,7 +415,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         {(item.jenis_kerah || item.gambar_kerah) && (
                                             <div className="border-2 border-black p-1.5 bg-white">
                                                 <div className="bg-slate-300 font-bold text-[11px] border border-black p-1 text-center">
-                                                    JENIS KERAH: {item.jenis_kerah || '.......'}
+                                                    JENIS KERAH: {renderFormattedText(item.jenis_kerah || '.......')}
                                                 </div>
                                                 <div className="border border-black border-t-0 p-1 flex justify-center items-center min-h-[140px] bg-white">
                                                     {item.gambar_kerah ? (
@@ -549,17 +550,17 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                                 {finalCols.map((col, cidx) => {
                                                     let val = '';
                                                     if (col.type === 'no') val = `${idx + 1}.`;
-                                                    else if (col.type === 'nama_punggung') val = ns.nama_punggung || '';
+                                                    else if (col.type === 'nama_punggung') val = renderFormattedText(ns.nama_punggung || '');
                                                     else if (col.type === 'no_punggung') val = ns.nomor_punggung || '';
-                                                    else if (col.type === 'nama_dada') val = ns.nama_dada || '';
+                                                    else if (col.type === 'nama_dada') val = renderFormattedText(ns.nama_dada || '');
                                                     else if (col.type === 'no_dada') val = ns.nomor_dada || '';
-                                                    else if (col.type === 'nama_lengan') val = ns.nama_lengan || '';
+                                                    else if (col.type === 'nama_lengan') val = renderFormattedText(ns.nama_lengan || '');
                                                     else if (col.type === 'no_lengan') val = ns.nomor_lengan || '';
-                                                    else if (col.type === 'nama_punggung_2') val = ns.nama_punggung_2 || '';
+                                                    else if (col.type === 'nama_punggung_2') val = renderFormattedText(ns.nama_punggung_2 || '');
                                                     else if (col.type === 'no_punggung_2') val = ns.nomor_punggung_2 || '';
                                                     else if (col.type === 'size') val = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim() || '';
                                                     else if (col.type === 'size_celana') val = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim() || '';
-                                                    else if (col.type === 'keterangan') val = ns.keterangan || '';
+                                                    else if (col.type === 'keterangan') val = renderFormattedText(ns.keterangan || '');
 
                                                     return (
                                                         <td key={cidx} className={`border-r border-black p-1 ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
@@ -758,17 +759,17 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                                     {finalCols.map((col, cidx) => {
                                                         let val = '';
                                                         if (col.type === 'no') val = `${idx + 1}.`;
-                                                        else if (col.type === 'nama_punggung') val = ns.nama_punggung || '.......';
+                                                        else if (col.type === 'nama_punggung') val = renderFormattedText(ns.nama_punggung || '.......');
                                                         else if (col.type === 'no_punggung') val = ns.nomor_punggung || '.......';
-                                                        else if (col.type === 'nama_dada') val = ns.nama_dada || '';
+                                                        else if (col.type === 'nama_dada') val = renderFormattedText(ns.nama_dada || '');
                                                         else if (col.type === 'no_dada') val = ns.nomor_dada || '';
-                                                        else if (col.type === 'nama_lengan') val = ns.nama_lengan || '.......';
+                                                        else if (col.type === 'nama_lengan') val = renderFormattedText(ns.nama_lengan || '.......');
                                                         else if (col.type === 'no_lengan') val = ns.nomor_lengan || '.......';
-                                                        else if (col.type === 'nama_punggung_2') val = ns.nama_punggung_2 || '.......';
+                                                        else if (col.type === 'nama_punggung_2') val = renderFormattedText(ns.nama_punggung_2 || '.......');
                                                         else if (col.type === 'no_punggung_2') val = ns.nomor_punggung_2 || '.......';
                                                         else if (col.type === 'size') val = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim() || '.......';
                                                         else if (col.type === 'size_celana') val = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim() || '.......';
-                                                        else if (col.type === 'keterangan') val = ns.keterangan || '.......';
+                                                        else if (col.type === 'keterangan') val = renderFormattedText(ns.keterangan || '.......');
 
                                                         return (
                                                             <td key={cidx} className={`border-r border-black p-1 ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>

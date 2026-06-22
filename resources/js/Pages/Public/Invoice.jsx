@@ -2,7 +2,7 @@ import { Head } from '@inertiajs/react';
 import { Download, ExternalLink, ShieldCheck, CheckCircle2, AlertCircle, ArrowDownLeft, ArrowUpRight, HelpCircle, Globe } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
-import { formatDate, formatRupiah } from '@/lib/utils';
+import { formatDate, formatRupiah, renderFormattedText } from '@/lib/utils';
 import usePublicSecurity from '@/hooks/usePublicSecurity';
 
 const STATUS_BADGE = {
@@ -172,7 +172,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-b p-6 md:p-8 bg-slate-50/50">
                             <div className="space-y-1">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">DIBAYAR OLEH</span>
-                                <h4 className="font-bold text-slate-800 text-base">{invoice.order?.pelanggan?.nama || '—'}</h4>
+                                <h4 className="font-bold text-slate-800 text-base">{renderFormattedText(invoice.order?.pelanggan?.nama || '—')}</h4>
                                 <div className="text-xs text-slate-600 font-medium">{maskPhone(invoice.order?.pelanggan?.nomor_hp)}</div>
                                 <div className="text-xs text-slate-500 font-medium">{maskEmail(invoice.order?.pelanggan?.email)}</div>
                             </div>
@@ -224,7 +224,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                                                 <tr key={item.id} className="hover:bg-slate-50/20">
                                                                     <td className="py-3 px-4 text-xs font-medium text-slate-400">{rowNum++}</td>
                                                                     <td className="py-3 px-4">
-                                                                        <div className="font-semibold text-slate-800">{item.produk}</div>
+                                                                        <div className="font-semibold text-slate-800">{renderFormattedText(item.produk)}</div>
                                                                         {Number(item.discount_amount) > 0 && (
                                                                             <div className="text-[10px] text-rose-500 font-bold mt-0.5">
                                                                                 Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(item.discount_value)}/pcs`} (-{formatRupiah(item.discount_amount)})
@@ -249,7 +249,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                                                 <tr key={item.id} className="hover:bg-slate-50/20">
                                                                     <td className="py-3 px-4 text-xs font-medium text-slate-400">{rowNum++}</td>
                                                                     <td className="py-3 px-4">
-                                                                        <div className="font-semibold text-slate-800">{item.produk}</div>
+                                                                        <div className="font-semibold text-slate-800">{renderFormattedText(item.produk)}</div>
                                                                         {Number(item.discount_amount) > 0 && (
                                                                             <div className="text-[10px] text-rose-500 font-bold mt-0.5">
                                                                                 Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(item.discount_value)}/pcs`} (-{formatRupiah(item.discount_amount)})
@@ -318,7 +318,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                                                 )}
                                                                 <div>
                                                                     <span className="font-bold text-slate-800">{displayType}</span>
-                                                                    {p.notes && <span className="block text-[10px] text-slate-500 mt-0.5">{p.notes}</span>}
+                                                                    {p.notes && <span className="block text-[10px] text-slate-500 mt-0.5">{renderFormattedText(p.notes)}</span>}
                                                                 </div>
                                                             </div>
                                                         </td>
@@ -463,7 +463,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                     <div>
                                         <h4 className="text-sm font-bold text-slate-800">Terima kasih atas pembayaran Anda!</h4>
                                         {invoice.peraturan && (
-                                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{invoice.peraturan}</p>
+                                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{renderFormattedText(invoice.peraturan)}</p>
                                         )}
                                     </div>
                                     <div className="text-xs text-slate-600 leading-relaxed space-y-1">

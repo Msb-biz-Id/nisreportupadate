@@ -1,5 +1,6 @@
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import React from 'react';
 
 export function cn(...inputs) {
     return twMerge(clsx(inputs));
@@ -63,4 +64,64 @@ export function roleLabel(slug) {
         .split(' ')
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
+}
+
+/**
+ * Detects CJK and Arabic characters in text and wraps them in spans with specific font-family classes.
+ * Useful for browser rendering to ensure high-fidelity typography.
+ *
+ * @param {string|null|undefined} text
+ * @returns {React.ReactNode[]|string}
+ */
+export function renderFormattedText(text) {
+    if (text === null || text === undefined || text === '') return '';
+    const textStr = String(text);
+
+    // Regex matching CJK and Arabic unicode blocks
+    const regex = /([\u3000-\u303F\u3040-\u309F\u30A0-\u30FF\uFF00-\uFFEF\u4E00-\u9FAF\u3400-\u4DBF]+)|([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+)/g;
+
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    // Reset regex state
+    regex.lastIndex = 0;
+
+    while ((match = regex.exec(textStr)) !== null) {
+        const index = match.index;
+        const matchedStr = match[0];
+
+        // Add preceding normal text
+        if (index > lastIndex) {
+            parts.push(textStr.substring(lastIndex, index));
+        }
+
+        if (match[1]) {
+            // CJK characters
+            parts.push(
+                React.createElement(
+                    'span',
+                    { key: index, className: 'cjk-font' },
+                    matchedStr
+                )
+            );
+        } else if (match[2]) {
+            // Arabic characters (native browser layout handles bidirectional and shaping, but needs the font)
+            parts.push(
+                React.createElement(
+                    'span',
+                    { key: index, className: 'arabic-font', dir: 'rtl' },
+                    matchedStr
+                )
+            );
+        }
+
+        lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < textStr.length) {
+        parts.push(textStr.substring(lastIndex));
+    }
+
+    return parts.length > 0 ? parts : textStr;
 }

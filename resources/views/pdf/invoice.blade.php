@@ -4,7 +4,18 @@
     <meta charset="utf-8">
     <title>Invoice {{ $invoice->invoice_number }}</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP&family=Noto+Sans+Arabic&display=swap');
+        @font-face {
+            font-family: 'Noto Sans JP';
+            font-style: normal;
+            font-weight: 400;
+            src: url('{{ public_path("fonts/NotoSansJP-Regular.ttf") }}') format('truetype');
+        }
+        @font-face {
+            font-family: 'Noto Sans Arabic';
+            font-style: normal;
+            font-weight: 400;
+            src: url('{{ public_path("fonts/NotoSansArabic-Regular.ttf") }}') format('truetype');
+        }
         
         .cjk-font {
             font-family: 'Noto Sans JP', sans-serif !important;
@@ -13,8 +24,9 @@
         .arabic-font {
             font-family: 'Noto Sans Arabic', sans-serif !important;
             text-transform: none !important;
-            direction: rtl;
-            unicode-bidi: embed;
+            /* ArPHP::utf8Glyphs() sudah reshape — gunakan ltr agar tidak di-reverse ulang */
+            direction: ltr;
+            unicode-bidi: bidi-override;
         }
 
         * { box-sizing: border-box; }
