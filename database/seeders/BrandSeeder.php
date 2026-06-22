@@ -32,8 +32,8 @@ class BrandSeeder extends Seeder
                 'tagline' => 'Jersey Elit Harga irit',
                 'deskripsi' => 'Jersey Elit Harga irit',
                 'email' => 'circlesportwear@gmail.com',
-                'no_hp' => '082139220211',
-                'whatsapp' => '085189537776',
+                'no_hp' => '6285136562550',
+                'whatsapp' => '6285136562550',
                 'alamat' => 'Ruko Green Flower, Jl. Soekarno Hatta No.7, Karangmulyo, Sukomulyo, Kec. Lamongan, Kabupaten Lamongan, Jawa Timur 62216',
                 'facebook' => 'circle sportwear indonesia',
                 'instagram' => 'circlesportwear',
@@ -48,8 +48,8 @@ class BrandSeeder extends Seeder
                 'tagline' => 'Jersey ekonomis terbaik di kelasnya',
                 'deskripsi' => 'Jersey ekonomis terbaik di kelasnya',
                 'email' => 'sportweardrive@gmail.com',
-                'no_hp' => '085143849390',
-                'whatsapp' => '085188644498',
+                'no_hp' => '6285143849390',
+                'whatsapp' => '6285143849390',
                 'alamat' => 'Perumahan Green Flower, Ruko Green Flower, Jl. Soekarno Hatta No.7, Karangmulyo, Sukomulyo, Kec. Lamongan, Kabupaten Lamongan, Jawa Timur 62216',
                 'facebook' => 'DRIVE. Sportwear',
                 'instagram' => 'drivesportwear',
@@ -100,6 +100,8 @@ class BrandSeeder extends Seeder
             ['nama_brand' => 'Sfitt Apparel', 'kode' => 'SFT', 'warna_primary' => '#10B981'],
             ['nama_brand' => 'Sir Sportware', 'kode' => 'SIR', 'warna_primary' => '#EF4444'],
             ['nama_brand' => 'Balga',         'kode' => 'BLG', 'warna_primary' => '#8B5CF6'],
+            ['nama_brand' => 'No Brand',      'kode' => 'NOB', 'warna_primary' => '#6B7280'],
+            ['nama_brand' => 'Indra Ruteng',  'kode' => 'IRT', 'warna_primary' => '#3B82F6'],
         ];
         foreach ($resellerBrands as $data) {
             Brand::updateOrCreate(
@@ -118,4 +120,3 @@ class BrandSeeder extends Seeder
         }
     }
 }
-

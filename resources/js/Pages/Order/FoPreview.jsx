@@ -465,26 +465,26 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                         const hasSB = filledNamesets.some(ns => ns.size_celana_id || ns.size_celana_label);
                         const hasKet = filledNamesets.some(ns => ns.keterangan);
 
-                        const cols = [{ type: 'no', label: 'NO.', weight: 3 }];
+                        const cols = [{ type: 'no', label: 'NO.', weight: 6 }];
                         if (hasNP) {
-                            cols.push({ type: 'nama_punggung', label: 'NAMA PUNGGUNG', weight: 24, align: 'text-left pl-1.5' });
-                            cols.push({ type: 'no_punggung', label: 'NO. PUNGGUNG', weight: 6 });
+                            cols.push({ type: 'nama_punggung', label: 'NAMA PUNGGUNG', weight: 22, align: 'text-left pl-1.5' });
+                            cols.push({ type: 'no_punggung', label: 'NO. PUNGGUNG', weight: 12 });
                         }
                         if (hasND) {
                             cols.push({ type: 'nama_dada', label: 'NAMA DADA', weight: 18, align: 'text-left pl-1.5' });
-                            cols.push({ type: 'no_dada', label: 'NO. DADA', weight: 6 });
+                            cols.push({ type: 'no_dada', label: 'NO. DADA', weight: 12 });
                         }
                         if (hasNL) {
                             cols.push({ type: 'nama_lengan', label: 'NAMA LENGAN', weight: 18, align: 'text-left pl-1.5' });
-                            cols.push({ type: 'no_lengan', label: 'NO. LENGAN', weight: 6 });
+                            cols.push({ type: 'no_lengan', label: 'NO. LENGAN', weight: 12 });
                         }
                         if (hasNP2) {
-                            cols.push({ type: 'nama_punggung_2', label: 'NAMA PUNGGUNG 2', weight: 24, align: 'text-left pl-1.5' });
-                            cols.push({ type: 'no_punggung_2', label: 'NO. PUNGGUNG 2', weight: 6 });
+                            cols.push({ type: 'nama_punggung_2', label: 'NAMA PUNGGUNG 2', weight: 22, align: 'text-left pl-1.5' });
+                            cols.push({ type: 'no_punggung_2', label: 'NO. PUNGGUNG 2', weight: 12 });
                         }
-                        if (hasSA) cols.push({ type: 'size', label: 'SIZE', weight: 6 });
-                        if (hasSB) cols.push({ type: 'size_celana', label: 'SIZE CELANA', weight: 6 });
-                        if (hasKet) cols.push({ type: 'keterangan', label: 'KETERANGAN', weight: 26, align: 'text-left pl-1.5' });
+                        if (hasSA) cols.push({ type: 'size', label: 'SIZE', weight: 10 });
+                        if (hasSB) cols.push({ type: 'size_celana', label: 'SIZE CELANA', weight: 12 });
+                        if (hasKet) cols.push({ type: 'keterangan', label: 'KETERANGAN', weight: 18, align: 'text-left pl-1.5' });
 
                         const totalWeight = cols.reduce((sum, col) => sum + col.weight, 0);
                         const finalCols = cols.map(col => ({
@@ -538,7 +538,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                     <thead>
                                         <tr className="bg-slate-300 border-b border-black font-bold">
                                             {finalCols.map((col, idx) => (
-                                                <th key={idx} className={`border-r border-black p-1 ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
+                                                <th key={idx} style={{ width: `${col.pct}%` }} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
                                                     {col.label}
                                                 </th>
                                             ))}
@@ -563,7 +563,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                                     else if (col.type === 'keterangan') val = renderFormattedText(ns.keterangan || '');
 
                                                     return (
-                                                        <td key={cidx} className={`border-r border-black p-1 ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
+                                                        <td key={cidx} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
                                                             {val}
                                                         </td>
                                                     );
@@ -704,26 +704,26 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                             const hasSB = filledNamesets.some(ns => ns.size_celana_id || ns.size_celana_label);
                             const hasKet = filledNamesets.some(ns => ns.keterangan);
 
-                            const cols = [{ type: 'no', label: 'NO.', weight: 5 }];
+                            const cols = [{ type: 'no', label: 'NO.', weight: 6 }];
                             if (hasNP) {
                                 cols.push({ type: 'nama_punggung', label: 'NAMA PUNGGUNG', weight: 22, align: 'text-left pl-1.5' });
-                                cols.push({ type: 'no_punggung', label: 'NO. PUNGGUNG', weight: 8 });
+                                cols.push({ type: 'no_punggung', label: 'NO. PUNGGUNG', weight: 12 });
                             }
                             if (hasND) {
-                                cols.push({ type: 'nama_dada', label: 'NAMA DADA', weight: 16, align: 'text-left pl-1.5' });
-                                cols.push({ type: 'no_dada', label: 'NO. DADA', weight: 8 });
+                                cols.push({ type: 'nama_dada', label: 'NAMA DADA', weight: 18, align: 'text-left pl-1.5' });
+                                cols.push({ type: 'no_dada', label: 'NO. DADA', weight: 12 });
                             }
                             if (hasNL) {
-                                cols.push({ type: 'nama_lengan', label: 'NAMA LENGAN', weight: 16, align: 'text-left pl-1.5' });
-                                cols.push({ type: 'no_lengan', label: 'NO. LENGAN', weight: 8 });
+                                cols.push({ type: 'nama_lengan', label: 'NAMA LENGAN', weight: 18, align: 'text-left pl-1.5' });
+                                cols.push({ type: 'no_lengan', label: 'NO. LENGAN', weight: 12 });
                             }
                             if (hasNP2) {
                                 cols.push({ type: 'nama_punggung_2', label: 'NAMA PUNGGUNG 2', weight: 22, align: 'text-left pl-1.5' });
-                                cols.push({ type: 'no_punggung_2', label: 'NO. PUNGGUNG 2', weight: 8 });
+                                cols.push({ type: 'no_punggung_2', label: 'NO. PUNGGUNG 2', weight: 12 });
                             }
-                            if (hasSA) cols.push({ type: 'size', label: 'SIZE', weight: 8 });
-                            if (hasSB) cols.push({ type: 'size_celana', label: 'SIZE CELANA', weight: 9 });
-                            if (hasKet) cols.push({ type: 'keterangan', label: 'KETERANGAN', weight: 20, align: 'text-left pl-1.5' });
+                            if (hasSA) cols.push({ type: 'size', label: 'SIZE', weight: 10 });
+                            if (hasSB) cols.push({ type: 'size_celana', label: 'SIZE CELANA', weight: 12 });
+                            if (hasKet) cols.push({ type: 'keterangan', label: 'KETERANGAN', weight: 18, align: 'text-left pl-1.5' });
 
                             const totalWeight = cols.reduce((sum, col) => sum + col.weight, 0);
                             const finalCols = cols.map(col => ({
@@ -747,7 +747,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         <thead>
                                             <tr className="bg-slate-300 border-b border-black font-bold">
                                                 {finalCols.map((col, idx) => (
-                                                    <th key={idx} className={`border-r border-black p-1 ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
+                                                    <th key={idx} style={{ width: `${col.pct}%` }} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
                                                         {col.label}
                                                     </th>
                                                 ))}
@@ -772,7 +772,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                                         else if (col.type === 'keterangan') val = renderFormattedText(ns.keterangan || '.......');
 
                                                         return (
-                                                            <td key={cidx} className={`border-r border-black p-1 ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
+                                                            <td key={cidx} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
                                                                 {val}
                                                             </td>
                                                         );

@@ -46,7 +46,7 @@
         .info-card strong { font-size: 10pt; }
 
         table.items { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-        table.items th { background: {{ $invoice->brand?->warna_primary ?? '#1E40AF' }}; color: white; padding: 8px; text-align: left; font-size: 9pt; }
+        table.items th { color: white; padding: 8px; text-align: left; font-size: 9pt; }
         table.items td { border-bottom: 1px solid #E5E7EB; padding: 7px 8px; }
         table.items .right { text-align: right; }
 
@@ -64,7 +64,6 @@
         .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #E5E7EB; font-size: 8pt; color: #6B7280; }
         .footer strong { color: #1F2937; }
         .faq { margin-top: 8px; font-size: 7.5pt; }
-        .faq li { margin-bottom: 4px; }
     </style>
 </head>
 <body>
@@ -153,14 +152,17 @@
         </div>
     </div>
 
+    @php
+        $primaryColor = $invoice->brand?->warna_primary ?? '#1E40AF';
+    @endphp
     <table class="items">
         <thead>
             <tr>
-                <th width="40">#</th>
-                <th>Produk</th>
-                <th class="right" width="80">Qty</th>
-                <th class="right" width="120">Harga Satuan</th>
-                <th class="right" width="140">Subtotal</th>
+                <th style="background-color: {{ $primaryColor }};" width="40">#</th>
+                <th style="background-color: {{ $primaryColor }};">Produk</th>
+                <th style="background-color: {{ $primaryColor }};" class="right" width="80">Qty</th>
+                <th style="background-color: {{ $primaryColor }};" class="right" width="120">Harga Satuan</th>
+                <th style="background-color: {{ $primaryColor }};" class="right" width="140">Subtotal</th>
             </tr>
         </thead>
         <tbody>

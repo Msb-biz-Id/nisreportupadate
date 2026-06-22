@@ -6,11 +6,16 @@ use App\Models\Brand;
 use App\Models\Master\Customer;
 use App\Models\Master\CustomerType;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Schema;
 
 class CustomerSeeder extends Seeder
 {
     public function run(): void
     {
+        Schema::disableForeignKeyConstraints();
+        Customer::truncate();
+        Schema::enableForeignKeyConstraints();
+
         $targetBrands = Brand::whereIn('kode', ['ALG', 'CRL', 'DRV', 'IDW'])->get();
         foreach ($targetBrands as $brand) {
             $type = CustomerType::where(function ($q) use ($brand) {

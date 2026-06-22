@@ -179,7 +179,7 @@
                         <tr>
                             <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">NAMA ORDER</td>
                             <td style="font-weight: bold; padding: 3px 0;">:</td>
-                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ strtoupper($raw['nama_po'] ?? '') ?: '.......' }}</td>
+                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{!! !empty($raw['nama_po']) ? \App\Support\PdfHelper::formatText($raw['nama_po']) : '.......' !!}</td>
                         </tr>
                         @if($brand && ($brand->isResellerHub() || $brand->isResellerBranch()))
                         <tr>
@@ -236,7 +236,7 @@
         @if(!empty($raw['catatan']))
         <div class="title-box" style="margin-top:0;">CATATAN ORDER</div>
         <div style="border:1px solid #000; padding:6px 10px; font-weight:bold; margin-bottom:15px; font-size: 9.5pt;">
-            {{ strtoupper($raw['catatan']) }}
+            {!! \App\Support\PdfHelper::formatText($raw['catatan']) !!}
         </div>
         @endif
 
@@ -427,11 +427,11 @@
                     <tr>
                         <td style="width:50%; vertical-align:top; padding:6px; border-right:1px solid #000;">
                             <div style="background:#d4d4d4; font-weight:900; padding:4px; text-align:center; margin-bottom:4px; border:1px solid #000;">KETERANGAN ATASAN</div>
-                            <div style="padding:2px; text-align:center; font-weight:bold;">{{ $dv(strtoupper($item['ket_atasan'] ?? '')) }}</div>
+                            <div style="padding:2px; text-align:center; font-weight:bold;">{!! !empty($item['ket_atasan']) ? \App\Support\PdfHelper::formatText($item['ket_atasan']) : '.......' !!}</div>
                         </td>
                         <td style="width:50%; vertical-align:top; padding:6px;">
                             <div style="background:#d4d4d4; font-weight:900; padding:4px; text-align:center; margin-bottom:4px; border:1px solid #000;">KETERANGAN BAWAHAN</div>
-                            <div style="padding:2px; text-align:center; font-weight:bold;">{{ $dv(strtoupper($item['ket_bawahan'] ?? '')) }}</div>
+                            <div style="padding:2px; text-align:center; font-weight:bold;">{!! !empty($item['ket_bawahan']) ? \App\Support\PdfHelper::formatText($item['ket_bawahan']) : '.......' !!}</div>
                         </td>
                     </tr>
                 </table>
@@ -558,31 +558,31 @@
 
             @php
                 $cols = [];
-                $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 2.5];
+                $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 6];
                 if ($hasNamaPunggung) {
-                    $cols[] = ['type' => 'nama_punggung', 'label' => 'NAMA PUNGGUNG', 'weight' => 24, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_punggung', 'label' => 'NO. PUNGGUNG', 'weight' => 4.5];
+                    $cols[] = ['type' => 'nama_punggung', 'label' => 'NAMA PUNGGUNG', 'weight' => 22, 'align' => 't-left'];
+                    $cols[] = ['type' => 'no_punggung', 'label' => 'NO. PUNGGUNG', 'weight' => 12];
                 }
                 if ($hasNamaDada) {
                     $cols[] = ['type' => 'nama_dada', 'label' => 'NAMA DADA', 'weight' => 18, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 4.5];
+                    $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 12];
                 }
                 if ($hasNamaLengan) {
                     $cols[] = ['type' => 'nama_lengan', 'label' => 'NAMA LENGAN', 'weight' => 18, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 4.5];
+                    $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 12];
                 }
                 if ($hasNamaPunggung2) {
-                    $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 24, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 4.5];
+                    $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 22, 'align' => 't-left'];
+                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 12];
                 }
                 if ($hasSizeAtasan) {
-                    $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 4.5];
+                    $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 10];
                 }
                 if ($hasSizeBawahan) {
-                    $cols[] = ['type' => 'size_celana', 'label' => 'SIZE CELANA', 'weight' => 4.5];
+                    $cols[] = ['type' => 'size_celana', 'label' => 'SIZE CELANA', 'weight' => 12];
                 }
                 if ($hasKeterangan) {
-                    $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 45, 'align' => 't-left'];
+                    $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 18, 'align' => 't-left'];
                 }
 
                 $weightKey = 'weight';
@@ -607,7 +607,7 @@
                 <thead>
                     <tr>
                         @foreach($cols as $col)
-                            <th class="{{ $col['align'] ?? '' }}">{{ $col['label'] }}</th>
+                            <th class="{{ $col['align'] ?? '' }}" style="width: {{ $col['pct'] }}%;">{{ $col['label'] }}</th>
                         @endforeach
                     </tr>
                 </thead>
@@ -691,7 +691,7 @@
         <div class="page-break"></div>
 
         <div style="font-size:12pt; font-weight:900; text-decoration:underline; margin-bottom:10px; border-bottom:2px solid #000; padding-bottom:4px; text-align:center;">
-            CHECKLIST PRODUKSI — {{ strtoupper($raw['nama_po'] ?? '') }}
+            CHECKLIST PRODUKSI — {!! \App\Support\PdfHelper::formatText($raw['nama_po'] ?? '') !!}
         </div>
 
         <table style="width:100%; border-collapse:collapse; font-size:10pt;">
@@ -756,42 +756,54 @@
                     !empty($ns['keterangan'])
                 );
 
-                $hasLampNamaPunggung = $lampFilled->contains(fn($ns) => !empty($ns['nama_punggung']) || !empty($ns['nomor_punggung']));
-                $hasLampNamaDada     = $lampFilled->contains(fn($ns) => !empty($ns['nama_dada'])     || !empty($ns['nomor_dada']));
-                $hasLampNamaLengan   = $lampFilled->contains(fn($ns) => !empty($ns['nama_lengan'])   || !empty($ns['nomor_lengan']));
-                $hasLampNamaPunggung2 = $lampFilled->contains(fn($ns) => !empty($ns['nama_punggung_2']) || !empty($ns['nomor_punggung_2']));
-                $hasLampSizeAtasan   = $lampFilled->contains(fn($ns) => !empty($ns['size_id'])       || !empty($ns['size_label']));
-                $hasLampSizeBawahan  = $lampFilled->contains(fn($ns) => !empty($ns['size_celana_id'])|| !empty($ns['size_celana_label']));
-                $hasLampKeterangan   = $lampFilled->contains(fn($ns) => !empty($ns['keterangan']));
+                $hasLampNamaPunggung  = $lampFilled->contains(fn($ns) => !empty($ns['nama_punggung']));
+                $hasLampNoPunggung    = $lampFilled->contains(fn($ns) => !empty($ns['nomor_punggung']));
+                $hasLampNamaDada      = $lampFilled->contains(fn($ns) => !empty($ns['nama_dada']));
+                $hasLampNoDada        = $lampFilled->contains(fn($ns) => !empty($ns['nomor_dada']));
+                $hasLampNamaLengan    = $lampFilled->contains(fn($ns) => !empty($ns['nama_lengan']));
+                $hasLampNoLengan      = $lampFilled->contains(fn($ns) => !empty($ns['nomor_lengan']));
+                $hasLampNamaPunggung2 = $lampFilled->contains(fn($ns) => !empty($ns['nama_punggung_2']));
+                $hasLampNoPunggung2   = $lampFilled->contains(fn($ns) => !empty($ns['nomor_punggung_2']));
+                $hasLampSizeAtasan    = $lampFilled->contains(fn($ns) => !empty($ns['size_id'])       || !empty($ns['size_label']));
+                $hasLampSizeBawahan   = $lampFilled->contains(fn($ns) => !empty($ns['size_celana_id'])|| !empty($ns['size_celana_label']));
+                $hasLampKeterangan    = $lampFilled->contains(fn($ns) => !empty($ns['keterangan']));
             @endphp
             @if($lampFilled->isNotEmpty())
             @php
                 $cols = [];
-                $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 2.5];
+                $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 6];
                 if ($hasLampNamaPunggung) {
-                    $cols[] = ['type' => 'nama_punggung', 'label' => 'NAMA PUNGGUNG', 'weight' => 24, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_punggung', 'label' => 'NO. PUNGGUNG', 'weight' => 4.5];
+                    $cols[] = ['type' => 'nama_punggung', 'label' => 'NAMA PUNGGUNG', 'weight' => 22, 'align' => 't-left'];
+                }
+                if ($hasLampNoPunggung) {
+                    $cols[] = ['type' => 'no_punggung', 'label' => 'NO. PUNGGUNG', 'weight' => 12];
                 }
                 if ($hasLampNamaDada) {
                     $cols[] = ['type' => 'nama_dada', 'label' => 'NAMA DADA', 'weight' => 18, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 4.5];
+                }
+                if ($hasLampNoDada) {
+                    $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 12];
                 }
                 if ($hasLampNamaLengan) {
                     $cols[] = ['type' => 'nama_lengan', 'label' => 'NAMA LENGAN', 'weight' => 18, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 4.5];
+                }
+                if ($hasLampNoLengan) {
+                    $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 12];
                 }
                 if ($hasLampNamaPunggung2) {
-                    $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 24, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 4.5];
+                    $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 22, 'align' => 't-left'];
+                }
+                if ($hasLampNoPunggung2) {
+                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 12];
                 }
                 if ($hasLampSizeAtasan) {
-                    $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 4.5];
+                    $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 10];
                 }
                 if ($hasLampSizeBawahan) {
-                    $cols[] = ['type' => 'size_celana', 'label' => 'SIZE CELANA', 'weight' => 4.5];
+                    $cols[] = ['type' => 'size_celana', 'label' => 'SIZE CELANA', 'weight' => 12];
                 }
                 if ($hasLampKeterangan) {
-                    $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 45, 'align' => 't-left'];
+                    $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 18, 'align' => 't-left'];
                 }
 
                 $weightKey = 'weight';
@@ -815,7 +827,7 @@
                 <thead>
                     <tr>
                         @foreach($cols as $col)
-                            <th class="{{ $col['align'] ?? '' }}">{{ $col['label'] }}</th>
+                            <th class="{{ $col['align'] ?? '' }}" style="width: {{ $col['pct'] }}%;">{{ $col['label'] }}</th>
                         @endforeach
                     </tr>
                 </thead>

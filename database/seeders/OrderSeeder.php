@@ -29,13 +29,24 @@ use App\Models\User;
 use App\Services\NumberGenerator;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 class OrderSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call(CustomerSeeder::class);
-        $this->seedOrders(); // Commented out to clear all dummy transactions, POs, and Invoices for manual testing
+        Schema::disableForeignKeyConstraints();
+        InvoiceItem::truncate();
+        Invoice::truncate();
+        POLockStatus::truncate();
+        OrderProgressDetail::truncate();
+        OrderPayment::truncate();
+        OrderNameset::truncate();
+        OrderItem::truncate();
+        Order::truncate();
+        Schema::enableForeignKeyConstraints();
+
+        $this->seedOrders();
     }
 
     private function seedOrders(): void
