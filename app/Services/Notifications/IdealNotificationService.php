@@ -20,6 +20,30 @@ class IdealNotificationService
         $status = $payload['status'] ?? '';
         $brandId = $payload['brand_id'] ?? null;
 
+        // Automatically resolve reseller brand to enforce strict brand isolation for notifications
+        if (!empty($noPo)) {
+            if (str_starts_with($noPo, 'Tanda Jadi ')) {
+                $depNo = str_replace('Tanda Jadi ', '', $noPo);
+                $deposit = \App\Models\Order\DesignDeposit::where('deposit_number', $depNo)->with('customer.brand')->first();
+                if ($deposit && $deposit->customer && $deposit->customer->brand && $deposit->customer->brand->isReseller()) {
+                    $resellerBrand = $deposit->customer->brand;
+                    $brandId = $resellerBrand->id;
+                    $payload['brand_id'] = $resellerBrand->id;
+                    $payload['brand_nama'] = $resellerBrand->nama_brand;
+                }
+            } else {
+                $order = \App\Models\Order\Order::where('no_po', $noPo)->first();
+                if ($order) {
+                    $resellerBrand = $order->resolveResellerBrand();
+                    if ($resellerBrand) {
+                        $brandId = $resellerBrand->id;
+                        $payload['brand_id'] = $resellerBrand->id;
+                        $payload['brand_nama'] = $resellerBrand->nama_brand;
+                    }
+                }
+            }
+        }
+
         // 1. Deduplication Lock (Cache lock for 15 seconds)
         $fingerprint = md5($eventKey . '_' . $noPo . '_' . $stage . '_' . $status . '_' . $brandId);
         $lockKey = 'notif_lock_' . $fingerprint;

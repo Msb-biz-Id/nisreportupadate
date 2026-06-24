@@ -21,7 +21,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
 
     // Use headerBrand from props (respects system settings), fallback to brand
     const displayBrand = headerBrand || brand;
-    const printingStr = propPrintingStr || (printings && printings.length > 0 ? printings.join(', ') : '.......');
+    const printingStr = propPrintingStr || (printings && printings.length > 0 ? printings.join(', ') : '');
 
     const standarSizes = [
         'XS ANAK', 'S ANAK', 'M ANAK', 'L ANAK', 'XL ANAK',
@@ -98,13 +98,13 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                 <div className="mx-auto w-[210mm] min-h-[297mm] bg-white border border-slate-200 p-[15mm] shadow-lg print:border-none print:shadow-none print:p-0 print:m-0 print:w-full">
 
                     {/* Header - Fixed height simulation */}
-                    <div className="border-b border-slate-400 pb-2 mb-4">
+                    <div className="mb-4">
                         <div className="flex justify-between items-end">
                             <div className="w-[30%] text-left font-normal text-slate-600 text-[10px]">
                                 MESIN PRINT: ....................
                             </div>
                             <div className="w-[40%] text-center font-black text-lg underline">
-                                FORMAT ORDER {displayBrand.nama_brand?.toUpperCase() || 'BRAND'}
+                                FORMAT ORDER
                             </div>
                             <div className="w-[30%] text-right font-normal text-slate-600 text-[10px]">
                                 MESIN PRES: ....................
@@ -133,11 +133,11 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         <td className="py-0.5">:</td>
                                         <td className="font-bold py-0.5">{renderFormattedText(order.nama_po)}</td>
                                     </tr>
-                                    {brand && (brand.brand_type === 'reseller_hub' || brand.brand_type === 'reseller_branch') && (
+                                    {(order.reseller_display_brand || (brand && (brand.brand_type === 'reseller_hub' || brand.brand_type === 'reseller_branch') && brand.parent_brand_id)) && (
                                         <tr>
                                             <td className="font-black py-0.5">RESELLER</td>
                                             <td className="py-0.5">:</td>
-                                            <td className="font-bold py-0.5">{brand.nama_brand?.toUpperCase() || ''}</td>
+                                            <td className="font-bold py-0.5">{(order.reseller_display_brand ? order.reseller_display_brand.nama_brand : brand.nama_brand)?.toUpperCase() || ''}</td>
                                         </tr>
                                     )}
                                     <tr>
@@ -148,7 +148,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                     <tr>
                                         <td className="font-black py-0.5">TOTAL BAWAHAN</td>
                                         <td className="py-0.5">:</td>
-                                        <td className="font-bold py-0.5">{totalBawahan > 0 ? `${totalBawahan} PCS` : '....... PCS'}</td>
+                                        <td className="font-bold py-0.5">{totalBawahan > 0 ? `${totalBawahan} PCS` : '0 PCS'}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -157,22 +157,39 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                         {/* Right Column Box */}
                         <div className="col-span-5">
                             <div className="border-[2px] border-black p-3 text-center bg-white min-h-[110px] flex flex-col justify-center">
-                                {!(order.reseller_display_brand || (brand && (brand.brand_type === 'reseller_hub' || brand.brand_type === 'reseller_branch'))) ? (
-                                    <div className="text-xl font-black leading-tight">
-                                        {displayBrand.nama_brand || 'BRAND'}
-                                    </div>
+                                {order.reseller_display_brand ? (
+                                    <>
+                                        <div className="text-[12px] font-bold mb-2 pb-2 border-b border-dashed border-black">
+                                            RESELLER:<br />
+                                            <span className="text-[14px] font-black text-black">{order.reseller_display_brand.nama_brand?.toUpperCase()}</span>
+                                        </div>
+                                        <div className="text-[12px] font-bold">
+                                            JENIS PRINTING:<br />
+                                            <span className="text-[13px] font-black text-black">{printingStr}</span>
+                                        </div>
+                                    </>
+                                ) : (brand && (brand.brand_type === 'reseller_hub' || brand.brand_type === 'reseller_branch') && brand.parent_brand_id) ? (
+                                    <>
+                                        <div className="text-[12px] font-bold mb-2 pb-2 border-b border-dashed border-black">
+                                            RESELLER:<br />
+                                            <span className="text-[14px] font-black text-black">{brand.nama_brand?.toUpperCase()}</span>
+                                        </div>
+                                        <div className="text-[12px] font-bold">
+                                            JENIS PRINTING:<br />
+                                            <span className="text-[13px] font-black text-black">{printingStr}</span>
+                                        </div>
+                                    </>
                                 ) : (
-                                    <div className="text-[12px] font-bold leading-tight">
-                                        RESELLER:<br />
-                                        <span className="text-[14px] font-black text-black">
-                                            {(order.reseller_display_brand?.nama_brand || brand?.nama_brand)?.toUpperCase()}
-                                        </span>
-                                    </div>
+                                    <>
+                                        <div className="text-xl font-black leading-tight">
+                                            {displayBrand.nama_brand || 'BRAND'}
+                                        </div>
+                                        <div className="text-[12px] font-bold mt-2 pt-2 border-t border-black">
+                                            JENIS PRINTING:<br />
+                                            <span className="text-[13px] font-black text-black">{printingStr}</span>
+                                        </div>
+                                    </>
                                 )}
-                                <div className="text-[12px] font-bold mt-2 pt-2 border-t border-black">
-                                    JENIS PRINTING:<br />
-                                    <span className="text-[13px] font-black text-black">{printingStr}</span>
-                                </div>
                                 {order.paket_order && (
                                     <div className="text-[12px] font-bold mt-2 pt-2 border-t border-black">
                                         PAKET ORDER:<br />
@@ -212,12 +229,39 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {/* BAHAN */}
+                                        {/* JENIS SETELAN */}
                                         <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">BAHAN</td>
+                                            <td className="border border-black p-1.5 font-bold bg-slate-100">JENIS SETELAN</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.bahan_kains_names || item.bahan_kain?.nama || '.......'}
+                                                    {item.jenis_setelan?.nama || item.jenis_setelan || ''}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                        {/* POLA */}
+                                        <tr>
+                                            <td className="border border-black p-1.5 font-bold bg-slate-100">POLA</td>
+                                            {nonAddonItems.map(item => (
+                                                <td key={item.id} className="border border-black p-1.5 text-center">
+                                                    {item.pola_produksi?.nama || item.pola || ''}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                        {/* BAHAN ATASAN */}
+                                        <tr>
+                                            <td className="border border-black p-1.5 font-bold bg-slate-100">BAHAN ATASAN</td>
+                                            {nonAddonItems.map(item => (
+                                                <td key={item.id} className="border border-black p-1.5 text-center">
+                                                    {item.bahan_kains_names || item.bahan_kain?.nama || ''}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                        {/* BAHAN BAWAHAN */}
+                                        <tr>
+                                            <td className="border border-black p-1.5 font-bold bg-slate-100">BAHAN BAWAHAN</td>
+                                            {nonAddonItems.map(item => (
+                                                <td key={item.id} className="border border-black p-1.5 text-center">
+                                                    {item.bahan_kain_bawahan_names || item.bahan_kain_bawahan?.nama || ''}
                                                 </td>
                                             ))}
                                         </tr>
@@ -235,7 +279,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <td className="border border-black p-1.5 font-bold bg-slate-100">JUMLAH BAWAHAN</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.jml_bawahan || '.......'}
+                                                    {item.jml_bawahan || ''}
                                                 </td>
                                             ))}
                                         </tr>
@@ -244,7 +288,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <td className="border border-black p-1.5 font-bold bg-slate-100">WARNA</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.warna || '.......'}
+                                                    {item.warna || ''}
                                                 </td>
                                             ))}
                                         </tr>
@@ -254,7 +298,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             {nonAddonItems.map(item => {
                                                 const logoStr = item.logo_names && item.logo_names.length > 0
                                                     ? item.logo_names.join(', ')
-                                                    : (item.logo?.nama || '.......');
+                                                    : (item.logo?.nama || '');
                                                 return (
                                                     <td key={item.id} className="border border-black p-1.5 text-center">
                                                         {logoStr}
@@ -267,7 +311,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <td className="border border-black p-1.5 font-bold bg-slate-100">JENIS RIB</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.jenis_rib || '.......'}
+                                                    {item.jenis_rib || ''}
                                                 </td>
                                             ))}
                                         </tr>
@@ -276,7 +320,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <td className="border border-black p-1.5 font-bold bg-slate-100">LIST KERAH</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.list_kerah || '.......'}
+                                                    {item.list_kerah || ''}
                                                 </td>
                                             ))}
                                         </tr>
@@ -285,7 +329,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <td className="border border-black p-1.5 font-bold bg-slate-100">LIST LENGAN</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.list_lengan || '.......'}
+                                                    {item.list_lengan || ''}
                                                 </td>
                                             ))}
                                         </tr>
@@ -294,7 +338,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <td className="border border-black p-1.5 font-bold bg-slate-100">LIST SAMPING CELANA</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.list_samping_celana || '.......'}
+                                                    {item.list_samping_celana || ''}
                                                 </td>
                                             ))}
                                         </tr>
@@ -303,7 +347,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <td className="border border-black p-1.5 font-bold bg-slate-100">LIST BAWAH CELANA</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.list_bawah_celana || '.......'}
+                                                    {item.list_bawah_celana || ''}
                                                 </td>
                                             ))}
                                         </tr>
@@ -312,7 +356,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <td className="border border-black p-1.5 font-bold bg-slate-100">TUTUP KERAH</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.tutup_kerah || '.......'}
+                                                    {item.tutup_kerah || ''}
                                                 </td>
                                             ))}
                                         </tr>
@@ -344,7 +388,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <td className="border border-black p-1.5 font-bold text-left bg-slate-100">POLA JAHITAN</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.pola_jahitan?.nama || '.......'}
+                                                    {item.pola_jahitan?.nama || ''}
                                                 </td>
                                             ))}
                                         </tr>
@@ -353,7 +397,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <td className="border border-black p-1.5 font-bold text-left bg-slate-100">JAHITAN LIST LENGAN</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.pola_jahitan_lengan?.nama || item.jahitan_list_lengan || '.......'}
+                                                    {item.pola_jahitan_lengan?.nama || item.jahitan_list_lengan || ''}
                                                 </td>
                                             ))}
                                         </tr>
@@ -362,7 +406,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <td className="border border-black p-1.5 font-bold text-left bg-slate-100">JENIS RESLETING</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.resleting?.nama || '.......'}
+                                                    {item.resleting?.nama || ''}
                                                 </td>
                                             ))}
                                         </tr>
@@ -397,11 +441,11 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <tr>
                                                 <td className="w-1/2 border-r border-black p-2 bg-white text-center">
                                                     <div className="bg-slate-300 font-bold p-1 text-center border border-black mb-1">KETERANGAN ATASAN</div>
-                                                    <div className="font-bold py-1">{renderFormattedText(item.ket_atasan || '.......')}</div>
+                                                    <div className="font-bold py-1">{renderFormattedText(item.ket_atasan || '')}</div>
                                                 </td>
                                                 <td className="w-1/2 p-2 bg-white text-center">
                                                     <div className="bg-slate-300 font-bold p-1 text-center border border-black mb-1">KETERANGAN BAWAHAN</div>
-                                                    <div className="font-bold py-1">{renderFormattedText(item.ket_bawahan || '.......')}</div>
+                                                    <div className="font-bold py-1">{renderFormattedText(item.ket_bawahan || '')}</div>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -415,7 +459,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         {(item.jenis_kerah || item.gambar_kerah) && (
                                             <div className="border-2 border-black p-1.5 bg-white">
                                                 <div className="bg-slate-300 font-bold text-[11px] border border-black p-1 text-center">
-                                                    JENIS KERAH: {renderFormattedText(item.jenis_kerah || '.......')}
+                                                    JENIS KERAH: {renderFormattedText(item.jenis_kerah || '')}
                                                 </div>
                                                 <div className="border border-black border-t-0 p-1 flex justify-center items-center min-h-[140px] bg-white">
                                                     {item.gambar_kerah ? (
@@ -447,40 +491,60 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                     {/* Namesets List per item */}
                     {nonAddonItems.map(item => {
                         const filledNamesets = (item.namesets || []).filter(ns =>
-                            ns.nama_punggung || ns.nomor_punggung ||
-                            ns.nama_dada || ns.nomor_dada ||
-                            ns.nama_lengan || ns.nomor_lengan ||
-                            ns.nama_punggung_2 || ns.nomor_punggung_2 ||
-                            ns.size_id || ns.size_label ||
-                            ns.size_celana_id || ns.size_celana_label ||
-                            ns.keterangan
+                            (ns.nama_punggung || '').toString().trim() || (ns.nomor_punggung || '').toString().trim() ||
+                            (ns.nama_dada || '').toString().trim() || (ns.nomor_dada || '').toString().trim() ||
+                            (ns.nama_lengan || '').toString().trim() || (ns.nomor_lengan || '').toString().trim() ||
+                            (ns.nama_punggung_2 || '').toString().trim() || (ns.nomor_punggung_2 || '').toString().trim() ||
+                            (ns.size_id) || (ns.size_label || '').toString().trim() ||
+                            (ns.size_celana_id) || (ns.size_celana_label || '').toString().trim() ||
+                            (ns.keterangan || '').toString().trim()
                         );
                         if (filledNamesets.length === 0) return null;
 
-                        const hasNP = filledNamesets.some(ns => ns.nama_punggung || ns.nomor_punggung);
-                        const hasND = filledNamesets.some(ns => ns.nama_dada || ns.nomor_dada);
-                        const hasNL = filledNamesets.some(ns => ns.nama_lengan || ns.nomor_lengan);
-                        const hasNP2 = filledNamesets.some(ns => ns.nama_punggung_2 || ns.nomor_punggung_2);
-                        const hasSA = filledNamesets.some(ns => ns.size_id || ns.size_label);
-                        const hasSB = filledNamesets.some(ns => ns.size_celana_id || ns.size_celana_label);
-                        const hasKet = filledNamesets.some(ns => ns.keterangan);
+                        const hasCustomization = filledNamesets.some(ns =>
+                            (ns.nama_punggung || '').toString().trim() || (ns.nomor_punggung || '').toString().trim() ||
+                            (ns.nama_dada || '').toString().trim() || (ns.nomor_dada || '').toString().trim() ||
+                            (ns.nama_lengan || '').toString().trim() || (ns.nomor_lengan || '').toString().trim() ||
+                            (ns.nama_punggung_2 || '').toString().trim() || (ns.nomor_punggung_2 || '').toString().trim() ||
+                            (ns.keterangan || '').toString().trim()
+                        );
+
+                        const hasNamaPunggung = filledNamesets.some(ns => (ns.nama_punggung || '').toString().trim());
+                        const hasNoPunggung = filledNamesets.some(ns => (ns.nomor_punggung || '').toString().trim());
+                        const hasNamaDada = filledNamesets.some(ns => (ns.nama_dada || '').toString().trim());
+                        const hasNoDada = filledNamesets.some(ns => (ns.nomor_dada || '').toString().trim());
+                        const hasNamaLengan = filledNamesets.some(ns => (ns.nama_lengan || '').toString().trim());
+                        const hasNoLengan = filledNamesets.some(ns => (ns.nomor_lengan || '').toString().trim());
+                        const hasNamaPunggung2 = filledNamesets.some(ns => (ns.nama_punggung_2 || '').toString().trim());
+                        const hasNoPunggung2 = filledNamesets.some(ns => (ns.nomor_punggung_2 || '').toString().trim());
+                        const hasSA = filledNamesets.some(ns => ns.size_id || (ns.size_label || '').toString().trim());
+                        const hasSB = filledNamesets.some(ns => ns.size_celana_id || (ns.size_celana_label || '').toString().trim());
+                        const hasKet = filledNamesets.some(ns => (ns.keterangan || '').toString().trim());
 
                         const cols = [{ type: 'no', label: 'NO.', weight: 6 }];
-                        if (hasNP) {
+                        if (hasNamaPunggung) {
                             cols.push({ type: 'nama_punggung', label: 'NAMA PUNGGUNG', weight: 22, align: 'text-left pl-1.5' });
+                        }
+                        if (hasNoPunggung) {
                             cols.push({ type: 'no_punggung', label: 'NO. PUNGGUNG', weight: 12 });
                         }
-                        if (hasND) {
+                        if (hasNamaDada) {
                             cols.push({ type: 'nama_dada', label: 'NAMA DADA', weight: 18, align: 'text-left pl-1.5' });
+                        }
+                        if (hasNoDada) {
                             cols.push({ type: 'no_dada', label: 'NO. DADA', weight: 12 });
                         }
-                        if (hasNL) {
+                        if (hasNamaLengan) {
                             cols.push({ type: 'nama_lengan', label: 'NAMA LENGAN', weight: 18, align: 'text-left pl-1.5' });
+                        }
+                        if (hasNoLengan) {
                             cols.push({ type: 'no_lengan', label: 'NO. LENGAN', weight: 12 });
                         }
-                        if (hasNP2) {
-                            cols.push({ type: 'nama_punggung_2', label: 'NAMA PUNGGUNG 2', weight: 22, align: 'text-left pl-1.5' });
+                        if (hasNoPunggung2) {
                             cols.push({ type: 'no_punggung_2', label: 'NO. PUNGGUNG 2', weight: 12 });
+                        }
+                        if (hasNamaPunggung2) {
+                            cols.push({ type: 'nama_punggung_2', label: 'NAMA PUNGGUNG 2', weight: 22, align: 'text-left pl-1.5' });
                         }
                         if (hasSA) cols.push({ type: 'size', label: 'SIZE', weight: 10 });
                         if (hasSB) cols.push({ type: 'size_celana', label: 'SIZE CELANA', weight: 12 });
@@ -529,49 +593,51 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                 <div className="bg-slate-300 font-bold text-[12.5px] border border-black p-1.5 text-center">
                                     DATA PESANAN {item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}
                                 </div>
-                                <table className="w-full table-fixed border-collapse border border-black border-t-0 text-center">
-                                    <colgroup>
-                                        {finalCols.map((col, idx) => (
-                                            <col key={idx} style={{ width: `${col.pct}%` }} />
-                                        ))}
-                                    </colgroup>
-                                    <thead>
-                                        <tr className="bg-slate-300 border-b border-black font-bold">
+                                {hasCustomization && (
+                                    <table className="w-full table-fixed border-collapse border border-black border-t-0 text-center">
+                                        <colgroup>
                                             {finalCols.map((col, idx) => (
-                                                <th key={idx} style={{ width: `${col.pct}%` }} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
-                                                    {col.label}
-                                                </th>
+                                                <col key={idx} style={{ width: `${col.pct}%` }} />
                                             ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filledNamesets.map((ns, idx) => (
-                                            <tr key={ns.id} className="border-b border-black bg-white hover:bg-slate-50/50">
-                                                {finalCols.map((col, cidx) => {
-                                                    let val = '';
-                                                    if (col.type === 'no') val = `${idx + 1}.`;
-                                                    else if (col.type === 'nama_punggung') val = renderFormattedText(ns.nama_punggung || '');
-                                                    else if (col.type === 'no_punggung') val = ns.nomor_punggung || '';
-                                                    else if (col.type === 'nama_dada') val = renderFormattedText(ns.nama_dada || '');
-                                                    else if (col.type === 'no_dada') val = ns.nomor_dada || '';
-                                                    else if (col.type === 'nama_lengan') val = renderFormattedText(ns.nama_lengan || '');
-                                                    else if (col.type === 'no_lengan') val = ns.nomor_lengan || '';
-                                                    else if (col.type === 'nama_punggung_2') val = renderFormattedText(ns.nama_punggung_2 || '');
-                                                    else if (col.type === 'no_punggung_2') val = ns.nomor_punggung_2 || '';
-                                                    else if (col.type === 'size') val = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim() || '';
-                                                    else if (col.type === 'size_celana') val = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim() || '';
-                                                    else if (col.type === 'keterangan') val = renderFormattedText(ns.keterangan || '');
-
-                                                    return (
-                                                        <td key={cidx} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
-                                                            {val}
-                                                        </td>
-                                                    );
-                                                })}
+                                        </colgroup>
+                                        <thead>
+                                            <tr className="bg-slate-300 border-b border-black font-bold">
+                                                {finalCols.map((col, idx) => (
+                                                    <th key={idx} style={{ width: `${col.pct}%` }} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
+                                                        {col.label}
+                                                    </th>
+                                                ))}
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            {filledNamesets.map((ns, idx) => (
+                                                <tr key={ns.id} className="border-b border-black bg-white hover:bg-slate-50/50">
+                                                    {finalCols.map((col, cidx) => {
+                                                        let val = '';
+                                                        if (col.type === 'no') val = `${idx + 1}.`;
+                                                        else if (col.type === 'nama_punggung') val = renderFormattedText(ns.nama_punggung || '');
+                                                        else if (col.type === 'no_punggung') val = ns.nomor_punggung || '';
+                                                        else if (col.type === 'nama_dada') val = renderFormattedText(ns.nama_dada || '');
+                                                        else if (col.type === 'no_dada') val = ns.nomor_dada || '';
+                                                        else if (col.type === 'nama_lengan') val = renderFormattedText(ns.nama_lengan || '');
+                                                        else if (col.type === 'no_lengan') val = ns.nomor_lengan || '';
+                                                        else if (col.type === 'nama_punggung_2') val = renderFormattedText(ns.nama_punggung_2 || '');
+                                                        else if (col.type === 'no_punggung_2') val = ns.nomor_punggung_2 || '';
+                                                        else if (col.type === 'size') val = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim() || '';
+                                                        else if (col.type === 'size_celana') val = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim() || '';
+                                                        else if (col.type === 'keterangan') val = renderFormattedText(ns.keterangan || '');
+
+                                                        return (
+                                                            <td key={cidx} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
+                                                                {val}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
 
                                 {/* Rekap Size */}
                                 <div className="mt-4 text-center">
@@ -679,112 +745,139 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                     )}
 
                     {/* Lampiran Data Pesanan */}
-                    <div className="mt-8 border-t-2 border-dashed border-slate-400 pt-8 print:break-before-page print:pt-4">
-                        <div className="text-center font-black text-[14.5px] underline mb-3 border-b-2 border-black pb-1 text-left">
-                            LAMPIRAN: DATA PESANAN
-                        </div>
-
-                        {nonAddonItems.map(item => {
-                            const filledNamesets = (item.namesets || []).filter(ns =>
-                                ns.nama_punggung || ns.nomor_punggung ||
-                                ns.nama_dada || ns.nomor_dada ||
-                                ns.nama_lengan || ns.nomor_lengan ||
-                                ns.nama_punggung_2 || ns.nomor_punggung_2 ||
-                                ns.size_id || ns.size_label ||
-                                ns.size_celana_id || ns.size_celana_label ||
-                                ns.keterangan
+                    {(() => {
+                        const hasAnyLampFilled = nonAddonItems.some(item => {
+                            const lampFilled = (item.namesets || []).filter(ns =>
+                                (ns.nama_punggung || '').toString().trim() || (ns.nomor_punggung || '').toString().trim() ||
+                                (ns.nama_dada || '').toString().trim() || (ns.nomor_dada || '').toString().trim() ||
+                                (ns.nama_lengan || '').toString().trim() || (ns.nomor_lengan || '').toString().trim() ||
+                                (ns.nama_punggung_2 || '').toString().trim() || (ns.nomor_punggung_2 || '').toString().trim() ||
+                                (ns.keterangan || '').toString().trim()
                             );
-                            if (filledNamesets.length === 0) return null;
+                            return lampFilled.length > 0;
+                        });
 
-                            const hasNP = filledNamesets.some(ns => ns.nama_punggung || ns.nomor_punggung);
-                            const hasND = filledNamesets.some(ns => ns.nama_dada || ns.nomor_dada);
-                            const hasNL = filledNamesets.some(ns => ns.nama_lengan || ns.nomor_lengan);
-                            const hasNP2 = filledNamesets.some(ns => ns.nama_punggung_2 || ns.nomor_punggung_2);
-                            const hasSA = filledNamesets.some(ns => ns.size_id || ns.size_label);
-                            const hasSB = filledNamesets.some(ns => ns.size_celana_id || ns.size_celana_label);
-                            const hasKet = filledNamesets.some(ns => ns.keterangan);
+                        if (!hasAnyLampFilled) return null;
 
-                            const cols = [{ type: 'no', label: 'NO.', weight: 6 }];
-                            if (hasNP) {
-                                cols.push({ type: 'nama_punggung', label: 'NAMA PUNGGUNG', weight: 22, align: 'text-left pl-1.5' });
-                                cols.push({ type: 'no_punggung', label: 'NO. PUNGGUNG', weight: 12 });
-                            }
-                            if (hasND) {
-                                cols.push({ type: 'nama_dada', label: 'NAMA DADA', weight: 18, align: 'text-left pl-1.5' });
-                                cols.push({ type: 'no_dada', label: 'NO. DADA', weight: 12 });
-                            }
-                            if (hasNL) {
-                                cols.push({ type: 'nama_lengan', label: 'NAMA LENGAN', weight: 18, align: 'text-left pl-1.5' });
-                                cols.push({ type: 'no_lengan', label: 'NO. LENGAN', weight: 12 });
-                            }
-                            if (hasNP2) {
-                                cols.push({ type: 'nama_punggung_2', label: 'NAMA PUNGGUNG 2', weight: 22, align: 'text-left pl-1.5' });
-                                cols.push({ type: 'no_punggung_2', label: 'NO. PUNGGUNG 2', weight: 12 });
-                            }
-                            if (hasSA) cols.push({ type: 'size', label: 'SIZE', weight: 10 });
-                            if (hasSB) cols.push({ type: 'size_celana', label: 'SIZE CELANA', weight: 12 });
-                            if (hasKet) cols.push({ type: 'keterangan', label: 'KETERANGAN', weight: 18, align: 'text-left pl-1.5' });
-
-                            const totalWeight = cols.reduce((sum, col) => sum + col.weight, 0);
-                            const finalCols = cols.map(col => ({
-                                ...col,
-                                pct: ((col.weight / totalWeight) * 100).toFixed(1)
-                            }));
-
-                            const useDense = finalCols.length > 7;
-
-                            return (
-                                <div key={item.id} className="mb-6">
-                                    <div className="font-bold text-[11px] mb-1">
-                                        DATA PESANAN: {item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}
-                                    </div>
-                                    <table className="w-full table-fixed border-collapse border border-black text-center mb-3">
-                                        <colgroup>
-                                            {finalCols.map((col, idx) => (
-                                                <col key={idx} style={{ width: `${col.pct}%` }} />
-                                            ))}
-                                        </colgroup>
-                                        <thead>
-                                            <tr className="bg-slate-300 border-b border-black font-bold">
-                                                {finalCols.map((col, idx) => (
-                                                    <th key={idx} style={{ width: `${col.pct}%` }} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
-                                                        {col.label}
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filledNamesets.map((ns, idx) => (
-                                                <tr key={ns.id} className="border-b border-black bg-white hover:bg-slate-50/50">
-                                                    {finalCols.map((col, cidx) => {
-                                                        let val = '';
-                                                        if (col.type === 'no') val = `${idx + 1}.`;
-                                                        else if (col.type === 'nama_punggung') val = renderFormattedText(ns.nama_punggung || '.......');
-                                                        else if (col.type === 'no_punggung') val = ns.nomor_punggung || '.......';
-                                                        else if (col.type === 'nama_dada') val = renderFormattedText(ns.nama_dada || '');
-                                                        else if (col.type === 'no_dada') val = ns.nomor_dada || '';
-                                                        else if (col.type === 'nama_lengan') val = renderFormattedText(ns.nama_lengan || '.......');
-                                                        else if (col.type === 'no_lengan') val = ns.nomor_lengan || '.......';
-                                                        else if (col.type === 'nama_punggung_2') val = renderFormattedText(ns.nama_punggung_2 || '.......');
-                                                        else if (col.type === 'no_punggung_2') val = ns.nomor_punggung_2 || '.......';
-                                                        else if (col.type === 'size') val = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim() || '.......';
-                                                        else if (col.type === 'size_celana') val = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim() || '.......';
-                                                        else if (col.type === 'keterangan') val = renderFormattedText(ns.keterangan || '.......');
-
-                                                        return (
-                                                            <td key={cidx} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
-                                                                {val}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                        return (
+                            <div className="mt-8 border-t-2 border-dashed border-slate-400 pt-8 print:break-before-page print:pt-4">
+                                <div className="text-center font-black text-[14.5px] underline mb-3 border-b-2 border-black pb-1 text-left">
+                                    LAMPIRAN: DATA PESANAN
                                 </div>
-                            );
-                        })}
-                    </div>
+
+                                {nonAddonItems.map(item => {
+                                    const lampFilled = (item.namesets || []).filter(ns =>
+                                        (ns.nama_punggung || '').toString().trim() || (ns.nomor_punggung || '').toString().trim() ||
+                                        (ns.nama_dada || '').toString().trim() || (ns.nomor_dada || '').toString().trim() ||
+                                        (ns.nama_lengan || '').toString().trim() || (ns.nomor_lengan || '').toString().trim() ||
+                                        (ns.nama_punggung_2 || '').toString().trim() || (ns.nomor_punggung_2 || '').toString().trim() ||
+                                        (ns.keterangan || '').toString().trim()
+                                    );
+                                    if (lampFilled.length === 0) return null;
+
+                                    const hasNamaPunggung = lampFilled.some(ns => (ns.nama_punggung || '').toString().trim());
+                                    const hasNoPunggung = lampFilled.some(ns => (ns.nomor_punggung || '').toString().trim());
+                                    const hasNamaDada = lampFilled.some(ns => (ns.nama_dada || '').toString().trim());
+                                    const hasNoDada = lampFilled.some(ns => (ns.nomor_dada || '').toString().trim());
+                                    const hasNamaLengan = lampFilled.some(ns => (ns.nama_lengan || '').toString().trim());
+                                    const hasNoLengan = lampFilled.some(ns => (ns.nomor_lengan || '').toString().trim());
+                                    const hasNamaPunggung2 = lampFilled.some(ns => (ns.nama_punggung_2 || '').toString().trim());
+                                    const hasNoPunggung2 = lampFilled.some(ns => (ns.nomor_punggung_2 || '').toString().trim());
+                                    const hasSA = lampFilled.some(ns => ns.size_id || (ns.size_label || '').toString().trim());
+                                    const hasSB = lampFilled.some(ns => ns.size_celana_id || (ns.size_celana_label || '').toString().trim());
+                                    const hasKet = lampFilled.some(ns => (ns.keterangan || '').toString().trim());
+
+                                    const cols = [{ type: 'no', label: 'NO.', weight: 6 }];
+                                    if (hasNamaPunggung) {
+                                        cols.push({ type: 'nama_punggung', label: 'NAMA PUNGGUNG', weight: 22, align: 'text-left pl-1.5' });
+                                    }
+                                    if (hasNoPunggung) {
+                                        cols.push({ type: 'no_punggung', label: 'NO. PUNGGUNG', weight: 12 });
+                                    }
+                                    if (hasNamaDada) {
+                                        cols.push({ type: 'nama_dada', label: 'NAMA DADA', weight: 18, align: 'text-left pl-1.5' });
+                                    }
+                                    if (hasNoDada) {
+                                        cols.push({ type: 'no_dada', label: 'NO. DADA', weight: 12 });
+                                    }
+                                    if (hasNamaLengan) {
+                                        cols.push({ type: 'nama_lengan', label: 'NAMA LENGAN', weight: 18, align: 'text-left pl-1.5' });
+                                    }
+                                    if (hasNoLengan) {
+                                        cols.push({ type: 'no_lengan', label: 'NO. LENGAN', weight: 12 });
+                                    }
+                                    if (hasNoPunggung2) {
+                                        cols.push({ type: 'no_punggung_2', label: 'NO. PUNGGUNG 2', weight: 12 });
+                                    }
+                                    if (hasNamaPunggung2) {
+                                        cols.push({ type: 'nama_punggung_2', label: 'NAMA PUNGGUNG 2', weight: 22, align: 'text-left pl-1.5' });
+                                    }
+                                    if (hasSA) cols.push({ type: 'size', label: 'SIZE', weight: 10 });
+                                    if (hasSB) cols.push({ type: 'size_celana', label: 'SIZE CELANA', weight: 12 });
+                                    if (hasKet) cols.push({ type: 'keterangan', label: 'KETERANGAN', weight: 18, align: 'text-left pl-1.5' });
+
+                                    const totalWeight = cols.reduce((sum, col) => sum + col.weight, 0);
+                                    const finalCols = cols.map(col => ({
+                                        ...col,
+                                        pct: ((col.weight / totalWeight) * 100).toFixed(1)
+                                    }));
+
+                                    const useDense = finalCols.length > 7;
+
+                                    return (
+                                        <div key={item.id} className="mb-6">
+                                            <div className="font-bold text-[11px] mb-1">
+                                                DATA PESANAN: {item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}
+                                            </div>
+                                            <table className="w-full table-fixed border-collapse border border-black text-center mb-3">
+                                                <colgroup>
+                                                    {finalCols.map((col, idx) => (
+                                                        <col key={idx} style={{ width: `${col.pct}%` }} />
+                                                    ))}
+                                                </colgroup>
+                                                <thead>
+                                                    <tr className="bg-slate-300 border-b border-black font-bold">
+                                                        {finalCols.map((col, idx) => (
+                                                            <th key={idx} style={{ width: `${col.pct}%` }} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
+                                                                {col.label}
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {lampFilled.map((ns, idx) => (
+                                                        <tr key={ns.id} className="border-b border-black bg-white hover:bg-slate-50/50">
+                                                            {finalCols.map((col, cidx) => {
+                                                                let val = '';
+                                                                if (col.type === 'no') val = `${idx + 1}.`;
+                                                                else if (col.type === 'nama_punggung') val = renderFormattedText(ns.nama_punggung || '');
+                                                                else if (col.type === 'no_punggung') val = ns.nomor_punggung || '';
+                                                                else if (col.type === 'nama_dada') val = renderFormattedText(ns.nama_dada || '');
+                                                                else if (col.type === 'no_dada') val = ns.nomor_dada || '';
+                                                                else if (col.type === 'nama_lengan') val = renderFormattedText(ns.nama_lengan || '');
+                                                                else if (col.type === 'no_lengan') val = ns.nomor_lengan || '';
+                                                                else if (col.type === 'nama_punggung_2') val = renderFormattedText(ns.nama_punggung_2 || '');
+                                                                else if (col.type === 'no_punggung_2') val = ns.nomor_punggung_2 || '';
+                                                                else if (col.type === 'size') val = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim() || '';
+                                                                else if (col.type === 'size_celana') val = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim() || '';
+                                                                else if (col.type === 'keterangan') val = renderFormattedText(ns.keterangan || '');
+
+                                                                return (
+                                                                    <td key={cidx} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
+                                                                        {val}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
         </>

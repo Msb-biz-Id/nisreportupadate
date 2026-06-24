@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
  *   clearable    – show X button to clear
  *   className
  */
-export function SearchableSelect({ value, onValueChange, options = [], placeholder = '— Pilih —', clearable = true, className }) {
+export function SearchableSelect({ value, onValueChange, options = [], placeholder = '— Pilih —', clearable = true, disabled = false, className }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     const ref = useRef(null);
@@ -45,14 +45,15 @@ export function SearchableSelect({ value, onValueChange, options = [], placehold
         <div ref={ref} className={cn('relative', className)}>
             <button
                 type="button"
-                onClick={() => setOpen((o) => !o)}
-                className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                disabled={disabled}
+                onClick={() => !disabled && setOpen((o) => !o)}
+                className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
                 <span className={cn('truncate', !selected && 'text-muted-foreground')}>
                     {selected ? selected.label : placeholder}
                 </span>
                 <span className="flex shrink-0 items-center gap-1 pl-1">
-                    {clearable && selected && (
+                    {clearable && selected && !disabled && (
                         <X
                             className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground"
                             onClick={(e) => { e.stopPropagation(); onValueChange(''); }}

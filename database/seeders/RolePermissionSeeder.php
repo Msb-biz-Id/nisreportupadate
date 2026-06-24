@@ -62,7 +62,6 @@ class RolePermissionSeeder extends Seeder
             'admin_brand' => [
                 'master.brand', 'master.produk',
                 'order.view', 'order.create', 'order.update', 'order.delete', 'order.publish', 'order.refund',
-                'finance.manage-invoice',
                 'report.view', 'report.export',
                 'settings.notification',
                 'dashboard.view-brand',

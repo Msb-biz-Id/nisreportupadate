@@ -1023,12 +1023,20 @@ export default function AppLayout({ title, header, children }) {
     };
 
     // WebSocket broadcaster listener + Slow Polling Fallback Sync
+    const notificationsRef = useRef(notifications);
+    notificationsRef.current = notifications;
+    const mountTime = useRef(new Date(Date.now() - 30000)); // 30 seconds buffer for clock drift
+
+    // Sync initial state if it changes in Inertia
+    useEffect(() => {
+        if (user) {
+            setNotifications(user.recent_notifications || []);
+            setUnreadCount(user.unread_notifications_count || 0);
+        }
+    }, [user?.recent_notifications, user?.unread_notifications_count]);
+
     useEffect(() => {
         if (!user) return;
-
-        // Sync initial state if it changes in Inertia
-        setNotifications(user.recent_notifications || []);
-        setUnreadCount(user.unread_notifications_count || 0);
 
         let channel = null;
         let isEchoConnected = false;
@@ -1050,7 +1058,7 @@ export default function AppLayout({ title, header, children }) {
                 });
         }
 
-        // 30 seconds slow fallback sync (skipped if Echo receives messages)
+        // 15 seconds polling fallback sync (skipped if Echo receives messages)
         const interval = setInterval(() => {
             if (isEchoConnected) return;
 
@@ -1058,21 +1066,28 @@ export default function AppLayout({ title, header, children }) {
                 .then((res) => {
                     const latest = res.data.notifications?.data || [];
                     const serverUnread = res.data.unread_count ?? 0;
+                    const currentNotifs = notificationsRef.current;
                     
-                    if (latest.length > 0 && latest[0].id !== notifications[0]?.id) {
-                        const newNotifs = latest.filter(n => !notifications.some(existing => existing.id === n.id));
+                    if (latest.length > 0 && latest[0].id !== currentNotifs[0]?.id) {
+                        const newNotifs = latest.filter(n => {
+                            const isNew = !currentNotifs.some(existing => existing.id === n.id);
+                            const createdTime = new Date(n.created_at);
+                            return isNew && createdTime >= mountTime.current;
+                        });
                         if (newNotifs.length > 0) {
                             newNotifs.reverse().forEach((n) => {
                                 handleNewNotification(n);
                             });
                         }
-                    } else {
+                    }
+                    // Always sync the unread count from server
+                    setUnreadCount(serverUnread);
+                    if (latest.length > 0) {
                         setNotifications(latest.slice(0, 10));
-                        setUnreadCount(serverUnread);
                     }
                 })
                 .catch((err) => console.debug('Polling notifications skipped or offline:', err));
-        }, 30000);
+        }, 15000);
 
         return () => {
             if (channel && window.Echo) {
@@ -1080,7 +1095,7 @@ export default function AppLayout({ title, header, children }) {
             }
             clearInterval(interval);
         };
-    }, [user, notifications]);
+    }, [user?.id]);
 
     const markAsRead = (id) => {
         axios.post(route('notifications.read', id))

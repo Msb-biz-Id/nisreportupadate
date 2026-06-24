@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Label } from '@/Components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
+import { SearchableSelect } from '@/Components/ui/searchable-select';
 
 export default function RegionPicker({ value, onChange }) {
     const [provinces, setProvinces] = useState([]);
@@ -44,7 +44,7 @@ export default function RegionPicker({ value, onChange }) {
         const p = provinces.find((x) => x.code === code);
         onChange({
             ...value,
-            provinsi_code: code,
+            provinsi_code: code || '',
             provinsi_nama: p?.name ?? '',
             kabupaten_code: '', kabupaten_nama: '',
             kecamatan_code: '', kecamatan_nama: '',
@@ -55,7 +55,7 @@ export default function RegionPicker({ value, onChange }) {
         const c = cities.find((x) => x.code === code);
         onChange({
             ...value,
-            kabupaten_code: code,
+            kabupaten_code: code || '',
             kabupaten_nama: c?.name ?? '',
             kecamatan_code: '', kecamatan_nama: '',
             desa_code: '', desa_nama: '',
@@ -65,7 +65,7 @@ export default function RegionPicker({ value, onChange }) {
         const d = districts.find((x) => x.code === code);
         onChange({
             ...value,
-            kecamatan_code: code,
+            kecamatan_code: code || '',
             kecamatan_nama: d?.name ?? '',
             desa_code: '', desa_nama: '',
         });
@@ -74,56 +74,60 @@ export default function RegionPicker({ value, onChange }) {
         const v = villages.find((x) => x.code === code);
         onChange({
             ...value,
-            desa_code: code,
+            desa_code: code || '',
             desa_nama: v?.name ?? '',
         });
     }
+
+    const provinceOptions = provinces.map((p) => ({ value: p.code, label: p.name }));
+    const cityOptions = cities.map((c) => ({ value: c.code, label: c.name }));
+    const districtOptions = districts.map((d) => ({ value: d.code, label: d.name }));
+    const villageOptions = villages.map((v) => ({ value: v.code, label: v.name }));
 
     return (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
                 <Label>Provinsi</Label>
-                <Select value={value.provinsi_code || ''} onValueChange={pickProvince}>
-                    <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pilih provinsi" /></SelectTrigger>
-                    <SelectContent className="max-h-72">
-                        {provinces.map((p) => (
-                            <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                <SearchableSelect
+                    value={value.provinsi_code || ''}
+                    onValueChange={pickProvince}
+                    options={provinceOptions}
+                    placeholder="Pilih provinsi"
+                    className="mt-1.5"
+                />
             </div>
             <div>
                 <Label>Kabupaten / Kota</Label>
-                <Select value={value.kabupaten_code || ''} onValueChange={pickCity} disabled={!value.provinsi_code}>
-                    <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pilih kabupaten" /></SelectTrigger>
-                    <SelectContent className="max-h-72">
-                        {cities.map((c) => (
-                            <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                <SearchableSelect
+                    value={value.kabupaten_code || ''}
+                    onValueChange={pickCity}
+                    options={cityOptions}
+                    placeholder="Pilih kabupaten"
+                    disabled={!value.provinsi_code}
+                    className="mt-1.5"
+                />
             </div>
             <div>
                 <Label>Kecamatan</Label>
-                <Select value={value.kecamatan_code || ''} onValueChange={pickDistrict} disabled={!value.kabupaten_code}>
-                    <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pilih kecamatan" /></SelectTrigger>
-                    <SelectContent className="max-h-72">
-                        {districts.map((d) => (
-                            <SelectItem key={d.code} value={d.code}>{d.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                <SearchableSelect
+                    value={value.kecamatan_code || ''}
+                    onValueChange={pickDistrict}
+                    options={districtOptions}
+                    placeholder="Pilih kecamatan"
+                    disabled={!value.kabupaten_code}
+                    className="mt-1.5"
+                />
             </div>
             <div>
                 <Label>Desa / Kelurahan</Label>
-                <Select value={value.desa_code || ''} onValueChange={pickVillage} disabled={!value.kecamatan_code}>
-                    <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pilih desa" /></SelectTrigger>
-                    <SelectContent className="max-h-72">
-                        {villages.map((v) => (
-                            <SelectItem key={v.code} value={v.code}>{v.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                <SearchableSelect
+                    value={value.desa_code || ''}
+                    onValueChange={pickVillage}
+                    options={villageOptions}
+                    placeholder="Pilih desa"
+                    disabled={!value.kecamatan_code}
+                    className="mt-1.5"
+                />
             </div>
         </div>
     );

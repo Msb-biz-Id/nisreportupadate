@@ -14,14 +14,15 @@ class TrackingController extends Controller
      */
     public function index()
     {
-        return Inertia::render('Public/TrackIndex')
+        $response = Inertia::render('Public/TrackIndex')
             ->withViewData(['title' => 'Lacak Progress Pesanan'])
-            ->toResponse(request())
-            ->withHeaders([
-                'X-Robots-Tag' => 'noindex, nofollow, noarchive, nosnippet',
-                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
-                'Pragma' => 'no-cache',
-            ]);
+            ->toResponse(request());
+
+        $response->headers->set('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+
+        return $response;
     }
 
     /**
@@ -43,7 +44,8 @@ class TrackingController extends Controller
 
         $invoices = [];
         if ($order) {
-            $user = auth()->user();
+            /** @var \App\Models\User|null $user */
+            $user = \Illuminate\Support\Facades\Auth::user();
             $isAuthorized = $user && (
                 $user->isSuperadmin() ||
                 $user->hasRole('owner') ||
@@ -72,7 +74,7 @@ class TrackingController extends Controller
             }
         }
 
-        return Inertia::render('Public/Track', [
+        $response = Inertia::render('Public/Track', [
             'po_number' => $noPo,
             'found' => (bool) $order,
             'order' => $order ? $this->maskOrder($order) : null,
@@ -87,12 +89,13 @@ class TrackingController extends Controller
                 'whatsapp' => $brand->whatsapp ?? $brand->no_hp,
             ] : null,
         ])->withViewData(['title' => "Tracking $noPo"])
-          ->toResponse(request())
-          ->withHeaders([
-              'X-Robots-Tag' => 'noindex, nofollow, noarchive, nosnippet',
-              'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
-              'Pragma' => 'no-cache',
-          ]);
+          ->toResponse(request());
+
+        $response->headers->set('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+
+        return $response;
     }
 
     private function maskOrder(Order $order): array

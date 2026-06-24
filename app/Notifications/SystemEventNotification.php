@@ -21,7 +21,11 @@ class SystemEventNotification extends Notification implements ShouldQueue
         public string $eventKey,
         public array $payload,
         public array $settings
-    ) {}
+    ) {
+        if (app()->environment('local')) {
+            $this->connection = 'sync';
+        }
+    }
 
     /**
      * Get the notification's delivery channels.

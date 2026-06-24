@@ -21,7 +21,7 @@ class BankAccount extends Model
         return $this->belongsTo(Brand::class);
     }
 
-    public function getAtasNamaAttribute($value)
+    public function getAtasNamaAttribute(?string $value)
     {
         if ($this->bank === 'CASH') {
             return 'Cash';
@@ -29,10 +29,10 @@ class BankAccount extends Model
 
         try {
             if (request() && request()->hasSession()) {
-                $currentBrandId = session(\App\Support\BrandContext::SESSION_KEY) ?? (auth()->user()?->last_brand_id);
+                $currentBrandId = session(\App\Support\BrandContext::SESSION_KEY) ?? (\Illuminate\Support\Facades\Auth::user()?->last_brand_id);
                 if ($currentBrandId) {
                     $currentBrand = Brand::find($currentBrandId);
-                    if ($currentBrand && ($currentBrand->isResellerHub() || $currentBrand->isResellerBranch())) {
+                    if ($currentBrand && $currentBrand->isReseller()) {
                         return $currentBrand->getHeaderBrand()->nama_brand;
                     }
                 }
@@ -44,9 +44,9 @@ class BankAccount extends Model
         return $value;
     }
 
-    public function scopeActive($q) { return $q->where('is_active', true); }
+    public function scopeActive(\Illuminate\Database\Eloquent\Builder $q) { return $q->where('is_active', true); }
 
-    public function scopeForBrand($q, $brandId)
+    public function scopeForBrand(\Illuminate\Database\Eloquent\Builder $q, ?string $brandId)
     {
         return $q->where('brand_id', $brandId);
     }

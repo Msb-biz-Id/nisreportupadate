@@ -289,6 +289,7 @@ class OrderController extends Controller
         $brandTypeCol = 'brand_type';
         $namaBrandCol = 'nama_brand';
         $resellerHubs = Brand::where($brandTypeCol, Brand::TYPE_RESELLER_HUB)
+            ->where('parent_brand_id', $brandId)
             ->active()
             ->orderBy($namaBrandCol)
             ->get(['id', 'nama_brand', 'kode'])
@@ -326,6 +327,7 @@ class OrderController extends Controller
         $brandTypeCol = 'brand_type';
         $namaBrandCol = 'nama_brand';
         $resellerHubs = Brand::where($brandTypeCol, Brand::TYPE_RESELLER_HUB)
+            ->where('parent_brand_id', $order->brand_id)
             ->active()
             ->orderBy($namaBrandCol)
             ->get(['id', 'nama_brand', 'kode'])
@@ -1083,7 +1085,7 @@ class OrderController extends Controller
         ]);
 
         $user = $request->user();
-        $isFinanceOrAdmin = $user->hasRole('superadmin') || $user->hasRole('owner') || $user->hasRole('admin_keuangan');
+        $isFinanceOrAdmin = $user->isSuperadmin() || $user->hasRole('admin_keuangan');
 
         $payment = OrderPayment::create([
             ...$data,
@@ -1242,6 +1244,8 @@ class OrderController extends Controller
 
     public function draftPdf(Request $request): \Illuminate\Http\Response
     {
+        ini_set('max_execution_time', 120);
+        ini_set('memory_limit', '512M');
         abort_unless(Auth::check(), 401);
 
         $brandId = BrandContext::current($request);
@@ -1284,6 +1288,8 @@ class OrderController extends Controller
 
     public function foPdf(Request $request, Order $order)
     {
+        ini_set('max_execution_time', 120);
+        ini_set('memory_limit', '512M');
         Gate::authorize('order.view');
         $this->guardBrandOwnership($request, $order);
 
@@ -1408,6 +1414,8 @@ class OrderController extends Controller
 
     public function publicFoPdf(Request $request, string $noPo)
     {
+        ini_set('max_execution_time', 120);
+        ini_set('memory_limit', '512M');
         $noPoCol = 'no_po';
         $order = Order::where($noPoCol, $noPo)->firstOrFail();
 
@@ -1682,7 +1690,9 @@ class OrderController extends Controller
             'items.*.bahan_kain_bawahan_ids' => ['nullable', 'array'],
             'items.*.bahan_kain_bawahan_ids.*' => ['uuid', 'exists:bahan_kains,id'],
             'items.*.jenis_setelan' => ['nullable', Rule::in(['stell', 'non_stell', 'atasan_saja', 'bawahan_saja'])],
+            'items.*.jenis_setelan_id' => ['nullable', 'uuid', 'exists:jenis_setelan,id'],
             'items.*.pola' => ['nullable', 'string', 'max:50'],
+            'items.*.pola_produksi_id' => ['nullable', 'uuid', 'exists:pola_produksi,id'],
             'items.*.logo_id' => ['nullable', 'uuid'],
             'items.*.logo_ids' => ['nullable', 'array'],
             'items.*.logo_ids.*' => ['uuid', 'exists:logos,id'],
@@ -1736,26 +1746,40 @@ class OrderController extends Controller
             $i->delete();
         });
 
-        $sizeIds = [];
-        foreach ($items as $item) {
-            foreach ($item['namesets'] ?? [] as $ns) {
-                if (!empty($ns['size_id'])) {
-                    $sizeIds[] = $ns['size_id'];
-                }
-                if (!empty($ns['size_celana_id'])) {
-                    $sizeIds[] = $ns['size_celana_id'];
-                }
-            }
-        }
-        $sizesMap = [];
-        if (!empty($sizeIds)) {
-            $idCol = 'id';
-            $sizesMap = Size::whereIn($idCol, array_unique($sizeIds))->get()->keyBy($idCol);
-        }
-
         foreach ($items as $item) {
             $namesets = $item['namesets'] ?? [];
             unset($item['namesets']);
+
+            // Sanitize and filter out empty nameset records
+            $filteredNamesets = [];
+            foreach ($namesets as $originalIdx => $ns) {
+                $hasData = false;
+                foreach ([
+                    'nama_punggung', 'nomor_punggung', 'nama_dada', 'nomor_dada',
+                    'nama_lengan', 'nomor_lengan', 'nomor_punggung_2', 'nama_punggung_2',
+                    'size_id', 'size_label', 'size_celana_id', 'size_celana_label', 'keterangan'
+                ] as $field) {
+                    if (isset($ns[$field]) && trim((string)$ns[$field]) !== '') {
+                        $hasData = true;
+                        break;
+                    }
+                }
+
+                if ($hasData) {
+                    $sanitizedNs = [];
+                    foreach ($ns as $key => $val) {
+                        if (is_string($val)) {
+                            $trimmed = trim($val);
+                            $sanitizedNs[$key] = ($trimmed === '') ? null : $trimmed;
+                        } else {
+                            $sanitizedNs[$key] = $val;
+                        }
+                    }
+                    $sanitizedNs['_original_index'] = $originalIdx;
+                    $filteredNamesets[] = $sanitizedNs;
+                }
+            }
+            $namesets = $filteredNamesets;
 
             $item['order_id'] = $order->id;
 
@@ -1778,40 +1802,8 @@ class OrderController extends Controller
 
             $created = OrderItem::create($item);
 
-            // Sort namesets by size (atasan) and secondarily by size (celana)
-            usort($namesets, function ($a, $b) use ($sizesMap) {
-                // Atasan A
-                $sizeIdA = $a['size_id'] ?? null;
-                $sizeA = $sizeIdA && isset($sizesMap[$sizeIdA]) ? $sizesMap[$sizeIdA] : null;
-                $urutanA = $sizeA ? ($sizeA->urutan ?? 9999) : 999999;
-
-                // Atasan B
-                $sizeIdB = $b['size_id'] ?? null;
-                $sizeB = $sizeIdB && isset($sizesMap[$sizeIdB]) ? $sizesMap[$sizeIdB] : null;
-                $urutanB = $sizeB ? ($sizeB->urutan ?? 9999) : 999999;
-
-                if ($urutanA !== $urutanB) {
-                    return $urutanA <=> $urutanB;
-                }
-
-                // Celana A
-                $sizeCelanaIdA = $a['size_celana_id'] ?? null;
-                $sizeCelanaA = $sizeCelanaIdA && isset($sizesMap[$sizeCelanaIdA]) ? $sizesMap[$sizeCelanaIdA] : null;
-                $urutanCelanaA = $sizeCelanaA ? ($sizeCelanaA->urutan ?? 9999) : 999999;
-
-                // Celana B
-                $sizeCelanaIdB = $b['size_celana_id'] ?? null;
-                $sizeCelanaB = $sizeCelanaIdB && isset($sizesMap[$sizeCelanaIdB]) ? $sizesMap[$sizeCelanaIdB] : null;
-                $urutanCelanaB = $sizeCelanaB ? ($sizeCelanaB->urutan ?? 9999) : 999999;
-
-                if ($urutanCelanaA !== $urutanCelanaB) {
-                    return $urutanCelanaA <=> $urutanCelanaB;
-                }
-
-                return 0;
-            });
-
             foreach ($namesets as $idx => $ns) {
+                unset($ns['_original_index']);
                 $ns['order_item_id'] = $created->id;
                 $ns['urutan'] = $idx;
                 OrderNameset::create($ns);

@@ -248,15 +248,16 @@ class Order extends Model
 
     public function resolveResellerBrand(): ?Brand
     {
-        // 1. If the order's brand is already a reseller brand, return it.
+        // 1. If the order's brand is already a reseller brand entity, return it.
         $currentBrand = $this->brand;
-        if ($currentBrand && in_array($currentBrand->brand_type, [Brand::TYPE_RESELLER_HUB, Brand::TYPE_RESELLER_BRANCH])) {
+        if ($currentBrand && $currentBrand->isReseller()) {
             return $currentBrand;
         }
 
         // 2. Otherwise, check if the pelanggan is a reseller brand by name.
         if ($this->pelanggan) {
             $matchedBrand = Brand::whereIn('brand_type', [Brand::TYPE_RESELLER_HUB, Brand::TYPE_RESELLER_BRANCH])
+                ->where('parent_brand_id', $this->brand_id)
                 ->whereRaw('LOWER(nama_brand) = ?', [strtolower($this->pelanggan->nama)])
                 ->first();
             if ($matchedBrand) {
@@ -264,10 +265,12 @@ class Order extends Model
             }
         }
 
-        // 3. Otherwise, check if the creator (created_by user) belongs to a reseller brand.
+        // 3. Otherwise, check if the creator belongs to a reseller brand
+        //    that is a child of THIS order's brand (prevent cross-brand contamination).
         if ($this->creator) {
             $creatorResellerBrand = $this->creator->brands()
                 ->whereIn('brand_type', [Brand::TYPE_RESELLER_HUB, Brand::TYPE_RESELLER_BRANCH])
+                ->where('parent_brand_id', $this->brand_id)
                 ->first();
             if ($creatorResellerBrand) {
                 return $creatorResellerBrand;

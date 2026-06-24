@@ -1384,45 +1384,64 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         )}
 
                                         {/* Nameset */}
-                                        {!item.is_addon && item.namesets?.length > 0 && (
-                                            <details className="mt-1">
-                                                <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Nameset ({item.namesets.length})</summary>
-                                                <div className="mt-2 overflow-x-auto">
-                                                    <table className="w-full border-collapse text-xs">
-                                                        <thead>
-                                                            <tr className="bg-slate-100 text-slate-600 uppercase tracking-wide">
-                                                                <th className="px-2 py-1.5 border font-semibold w-8 text-center">No</th>
-                                                                <th className="px-2 py-1.5 border font-semibold">Nama Punggung</th>
-                                                                <th className="px-2 py-1.5 border font-semibold text-center">No. Punggung</th>
-                                                                <th className="px-2 py-1.5 border font-semibold">Nama Dada</th>
-                                                                <th className="px-2 py-1.5 border font-semibold text-center">No. Dada</th>
-                                                                <th className="px-2 py-1.5 border font-semibold">Nama Lengan</th>
-                                                                <th className="px-2 py-1.5 border font-semibold text-center">No. Lengan</th>
-                                                                <th className="px-2 py-1.5 border font-semibold text-center">No. Punggung 2</th>
-                                                                <th className="px-2 py-1.5 border font-semibold text-center">Size</th>
-                                                                <th className="px-2 py-1.5 border font-semibold">Keterangan</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {item.namesets.map((ns, ni) => (
-                                                                <tr key={ns.id} className="border-b hover:bg-slate-50">
-                                                                    <td className="px-2 py-1 border text-center font-bold text-slate-500">{ni + 1}</td>
-                                                                    <td className="px-2 py-1 border font-medium uppercase">{ns.nama_punggung || '—'}</td>
-                                                                    <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung || '—'}</td>
-                                                                    <td className="px-2 py-1 border font-medium uppercase">{ns.nama_dada || '—'}</td>
-                                                                    <td className="px-2 py-1 border text-center font-mono">{ns.nomor_dada || '—'}</td>
-                                                                    <td className="px-2 py-1 border font-medium uppercase">{ns.nama_lengan || '—'}</td>
-                                                                    <td className="px-2 py-1 border text-center font-mono">{ns.nomor_lengan || '—'}</td>
-                                                                    <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung_2 || '—'}</td>
-                                                                    <td className="px-2 py-1 border text-center">{ns.size ? ns.size.ukuran : (ns.size_label || '—')}</td>
-                                                                    <td className="px-2 py-1 border text-muted-foreground">{ns.keterangan || '—'}</td>
+                                        {!item.is_addon && item.namesets?.length > 0 && (() => {
+                                            const nss = item.namesets || [];
+                                            const hasNamaPunggung = nss.some(ns => (ns.nama_punggung || '').toString().trim());
+                                            const hasNoPunggung = nss.some(ns => (ns.nomor_punggung || '').toString().trim());
+                                            const hasNamaDada = nss.some(ns => (ns.nama_dada || '').toString().trim());
+                                            const hasNoDada = nss.some(ns => (ns.nomor_dada || '').toString().trim());
+                                            const hasNamaLengan = nss.some(ns => (ns.nama_lengan || '').toString().trim());
+                                            const hasNoLengan = nss.some(ns => (ns.nomor_lengan || '').toString().trim());
+                                            const hasNoPunggung2 = nss.some(ns => (ns.nomor_punggung_2 || '').toString().trim());
+                                            const hasNamaPunggung2 = nss.some(ns => (ns.nama_punggung_2 || '').toString().trim());
+                                            const hasSA = nss.some(ns => ns.size_id || (ns.size_label || '').toString().trim());
+                                            const hasSB = nss.some(ns => ns.size_celana_id || (ns.size_celana_label || '').toString().trim());
+                                            const hasKet = nss.some(ns => (ns.keterangan || '').toString().trim());
+
+                                            return (
+                                                <details className="mt-1" open>
+                                                    <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Nameset ({item.namesets.length})</summary>
+                                                    <div className="mt-2 overflow-x-auto">
+                                                        <table className="w-full border-collapse text-xs">
+                                                            <thead>
+                                                                <tr className="bg-slate-100 text-slate-600 uppercase tracking-wide">
+                                                                    <th className="px-2 py-1.5 border font-semibold w-8 text-center">No</th>
+                                                                    {hasNamaPunggung && <th className="px-2 py-1.5 border font-semibold">Nama Punggung</th>}
+                                                                    {hasNoPunggung && <th className="px-2 py-1.5 border font-semibold text-center">No. Punggung</th>}
+                                                                    {hasNamaDada && <th className="px-2 py-1.5 border font-semibold">Nama Dada</th>}
+                                                                    {hasNoDada && <th className="px-2 py-1.5 border font-semibold text-center">No. Dada</th>}
+                                                                    {hasNamaLengan && <th className="px-2 py-1.5 border font-semibold">Nama Lengan</th>}
+                                                                    {hasNoLengan && <th className="px-2 py-1.5 border font-semibold text-center">No. Lengan</th>}
+                                                                    {hasNoPunggung2 && <th className="px-2 py-1.5 border font-semibold text-center">No. Punggung 2</th>}
+                                                                    {hasNamaPunggung2 && <th className="px-2 py-1.5 border font-semibold">Nama Punggung 2</th>}
+                                                                    {hasSA && <th className="px-2 py-1.5 border font-semibold text-center">Size</th>}
+                                                                    {hasSB && <th className="px-2 py-1.5 border font-semibold text-center">Size Celana</th>}
+                                                                    {hasKet && <th className="px-2 py-1.5 border font-semibold">Keterangan</th>}
                                                                 </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </details>
-                                        )}
+                                                            </thead>
+                                                            <tbody>
+                                                                {nss.map((ns, ni) => (
+                                                                    <tr key={ns.id || ni} className="border-b hover:bg-slate-50">
+                                                                        <td className="px-2 py-1 border text-center font-bold text-slate-500">{ni + 1}</td>
+                                                                        {hasNamaPunggung && <td className="px-2 py-1 border font-medium uppercase">{ns.nama_punggung || '—'}</td>}
+                                                                        {hasNoPunggung && <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung || '—'}</td>}
+                                                                        {hasNamaDada && <td className="px-2 py-1 border font-medium uppercase">{ns.nama_dada || '—'}</td>}
+                                                                        {hasNoDada && <td className="px-2 py-1 border text-center font-mono">{ns.nomor_dada || '—'}</td>}
+                                                                        {hasNamaLengan && <td className="px-2 py-1 border font-medium uppercase">{ns.nama_lengan || '—'}</td>}
+                                                                        {hasNoLengan && <td className="px-2 py-1 border text-center font-mono">{ns.nomor_lengan || '—'}</td>}
+                                                                        {hasNoPunggung2 && <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung_2 || '—'}</td>}
+                                                                        {hasNamaPunggung2 && <td className="px-2 py-1 border font-medium uppercase">{ns.nama_punggung_2 || '—'}</td>}
+                                                                        {hasSA && <td className="px-2 py-1 border text-center">{ns.size ? ns.size.ukuran : (ns.size_label || '—')}</td>}
+                                                                        {hasSB && <td className="px-2 py-1 border text-center">{ns.size_celana ? ns.size_celana.ukuran : (ns.size_celana_label || '—')}</td>}
+                                                                        {hasKet && <td className="px-2 py-1 border text-muted-foreground">{ns.keterangan || '—'}</td>}
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </details>
+                                            );
+                                        })()}
                                     </div>
                                 );
                             })}

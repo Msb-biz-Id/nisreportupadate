@@ -178,6 +178,16 @@ class OrderSeeder extends Seeder
                     $sizes = $sizesFlat;
                     if ($sizes->isEmpty()) $sizes = Size::orderBy('urutan')->get();
 
+                    $lang = $sc['lang'] ?? 'latin';
+                    $customNames = [];
+                    if ($lang === 'ja') {
+                        $customNames = $this->japaneseNamesets();
+                    } elseif ($lang === 'ar') {
+                        $customNames = $this->arabicNamesets();
+                    } elseif ($lang === 'mixed') {
+                        $customNames = $this->mixedNamesets();
+                    }
+
                     $namaPemain = ['Andi', 'Budi', 'Citra', 'Dedi', 'Eko', 'Fani', 'Gita', 'Hadi',
                         'Irfan', 'Joko', 'Kiki', 'Lina', 'Maman', 'Nana', 'Oscar', 'Putra',
                         'Qori', 'Rina', 'Susi', 'Tono', 'Udin', 'Vina', 'Wawan', 'Xena', 'Yudi'];
@@ -185,14 +195,26 @@ class OrderSeeder extends Seeder
                     for ($n = 1; $n <= $qty; $n++) {
                         $size = $sizes[($n - 1) % $sizes->count()];
                         $sizeCelana = $setelan === 'stell' ? $sizes[($n) % $sizes->count()] : null;
-                        $nama = $namaPemain[($n - 1) % count($namaPemain)];
+
+                        if (!empty($customNames)) {
+                            $cData = $customNames[($n - 1) % count($customNames)];
+                            $namaPunggung = $cData['nama_punggung'];
+                            $namaDada = $cData['nama_dada'] ?? null;
+                            $namaLengan = $cData['nama_lengan'] ?? null;
+                        } else {
+                            $nama = $namaPemain[($n - 1) % count($namaPemain)];
+                            $namaPunggung = strtoupper($nama);
+                            $namaDada = $n <= 5 ? strtoupper($nama) : null;
+                            $namaLengan = null;
+                        }
 
                         OrderNameset::create([
                             'order_item_id'   => $item->id,
-                            'nama_punggung'   => strtoupper($nama),
+                            'nama_punggung'   => $namaPunggung,
                             'nomor_punggung'  => (string) $n,
-                            'nama_dada'       => $n <= 5 ? strtoupper($nama) : null,
+                            'nama_dada'       => $namaDada,
                             'nomor_dada'      => $n <= 5 ? (string) $n : null,
+                            'nama_lengan'     => $namaLengan,
                             'size_id'         => $size->id,
                             'size_label'      => $size->ukuran,
                             'size_celana_id'  => $sizeCelana?->id,
@@ -434,6 +456,87 @@ class OrderSeeder extends Seeder
                 'varian_labels' => ['Anggota'],
                 'catatan' => 'Baru masuk, belum ada pembayaran.',
             ],
+            // ---- Varied Japanese & Arabic scenarios ----
+            [
+                'nama_po' => 'Jersey Tim Sakura Tokyo テスト',
+                'tanggal' => '2026-06-05', 'deadline_days' => 14, 'special' => false,
+                'status' => 'on_progress', 'progress_offset' => 5,
+                'with_dp' => true, 'dp_pct' => 0.5, 'with_pelunasan' => false,
+                'items' => 1, 'quantities' => [10],
+                'varian_labels' => ['Anime Division'],
+                'catatan' => 'Test order dengan karakter Jepang (Hiragana/Katakana/Kanji) untuk layout multi-font.',
+                'lang' => 'ja',
+            ],
+            [
+                'nama_po' => 'Jersey Klub Arab Al-Ittihad عربي',
+                'tanggal' => '2026-06-10', 'deadline_days' => 12, 'special' => false,
+                'status' => 'published', 'progress_offset' => 2,
+                'with_dp' => true, 'dp_pct' => 0.5, 'with_pelunasan' => false,
+                'items' => 1, 'quantities' => [10],
+                'varian_labels' => ['Timur Tengah'],
+                'catatan' => 'Test order dengan tulisan Arab/RTL.',
+                'lang' => 'ar',
+            ],
+            [
+                'nama_po' => 'Jersey Mixed Internasional 国際 دولい',
+                'tanggal' => '2026-06-15', 'deadline_days' => 15, 'special' => true,
+                'status' => 'siap_dikirim', 'progress_offset' => 11,
+                'with_dp' => true, 'dp_pct' => 0.5, 'with_pelunasan' => true,
+                'items' => 1, 'quantities' => [12],
+                'varian_labels' => ['Global Esports'],
+                'catatan' => 'Campuran karakter Latin, Jepang, dan Arab.',
+                'lang' => 'mixed',
+            ],
+        ];
+    }
+
+    private function japaneseNamesets(): array
+    {
+        return [
+            ['nama_punggung' => '田中 健一', 'nama_dada' => 'タナカ', 'nama_lengan' => 'たなか'],
+            ['nama_punggung' => '鈴木 二郎', 'nama_dada' => 'スズキ', 'nama_lengan' => 'すずき'],
+            ['nama_punggung' => '佐藤 三花', 'nama_dada' => 'サトウ', 'nama_lengan' => 'さとう'],
+            ['nama_punggung' => '山本 四季', 'nama_dada' => 'ヤマモト', 'nama_lengan' => 'やまもと'],
+            ['nama_punggung' => '松本 五郎', 'nama_dada' => 'マツモト', 'nama_lengan' => 'まつもと'],
+            ['nama_punggung' => 'けんじ', 'nama_dada' => 'ケンジ', 'nama_lengan' => 'けんじ'],
+            ['nama_punggung' => 'サクラ', 'nama_dada' => 'サクラ', 'nama_lengan' => 'さくら'],
+            ['nama_punggung' => '龍 神風', 'nama_dada' => 'リュウ', 'nama_lengan' => 'りゅう'],
+            ['nama_punggung' => 'アカギ リョウ', 'nama_dada' => 'アカギ', 'nama_lengan' => 'あかぎ'],
+            ['nama_punggung' => '光 速 丸', 'nama_dada' => 'コウソク', 'nama_lengan' => 'こうそく'],
+        ];
+    }
+
+    private function arabicNamesets(): array
+    {
+        return [
+            ['nama_punggung' => 'محمد علي', 'nama_dada' => 'محمد', 'nama_lengan' => 'علي'],
+            ['nama_punggung' => 'أحمد الكريم', 'nama_dada' => 'أحمد', 'nama_lengan' => 'كريم'],
+            ['nama_punggung' => 'عبد الرحمن', 'nama_dada' => 'عبدالرحمن', 'nama_lengan' => 'رحمن'],
+            ['nama_punggung' => 'فيصل الأمين', 'nama_dada' => 'فيصل', 'nama_lengan' => 'أمين'],
+            ['nama_punggung' => 'سعد المطيري', 'nama_dada' => 'سعد', 'nama_lengan' => 'مطيري'],
+            ['nama_punggung' => 'خالد بن عمر', 'nama_dada' => 'خالد', 'nama_lengan' => 'عمر'],
+            ['nama_punggung' => 'ناصر الدوسري', 'nama_dada' => 'ناصر', 'nama_lengan' => 'دوسري'],
+            ['nama_punggung' => 'راشد الغامدي', 'nama_dada' => 'راشد', 'nama_lengan' => 'غامدي'],
+            ['nama_punggung' => 'عمر الشهري', 'nama_dada' => 'عمر', 'nama_lengan' => 'شهري'],
+            ['nama_punggung' => 'يوسف النجار', 'nama_dada' => 'يوسف', 'nama_lengan' => 'نجار'],
+        ];
+    }
+
+    private function mixedNamesets(): array
+    {
+        return [
+            ['nama_punggung' => 'SUPARMAN', 'nama_dada' => 'SUPARMAN', 'nama_lengan' => null],
+            ['nama_punggung' => 'BUDI SANTOSO', 'nama_dada' => 'BUDI', 'nama_lengan' => null],
+            ['nama_punggung' => '田中 健二', 'nama_dada' => 'タナカ', 'nama_lengan' => 'たなか'],
+            ['nama_punggung' => 'アオイ', 'nama_dada' => 'アオイ', 'nama_lengan' => null],
+            ['nama_punggung' => 'محمد علي', 'nama_dada' => 'محمد', 'nama_lengan' => 'علي'],
+            ['nama_punggung' => 'أحمد سعيد', 'nama_dada' => 'أحمد', 'nama_lengan' => null],
+            ['nama_punggung' => 'WAHYU P.', 'nama_dada' => 'WAHYU', 'nama_lengan' => null],
+            ['nama_punggung' => '龍 神', 'nama_dada' => '龍神', 'nama_lengan' => null],
+            ['nama_punggung' => 'عبد الله', 'nama_dada' => 'عبدالله', 'nama_lengan' => null],
+            ['nama_punggung' => 'REZA F.', 'nama_dada' => 'REZA', 'nama_lengan' => null],
+            ['nama_punggung' => 'HIRO 浩', 'nama_dada' => 'HIRO', 'nama_lengan' => '浩'],
+            ['nama_punggung' => 'ALI عَلِي', 'nama_dada' => 'ALI', 'nama_lengan' => 'عَلِي'],
         ];
     }
 }

@@ -14,6 +14,7 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
         $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        \Illuminate\Support\Facades\Cache::flush();
     }
 
     /**

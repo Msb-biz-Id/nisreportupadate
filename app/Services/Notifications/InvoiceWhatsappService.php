@@ -21,6 +21,14 @@ class InvoiceWhatsappService
      */
     public function send(Invoice $invoice, string $condition = 'new_invoice'): array
     {
+        if ($invoice->order) {
+            $resellerBrand = $invoice->order->resolveResellerBrand();
+            if ($resellerBrand) {
+                $resellerBrand->load('parentBrand');
+                $invoice->setRelation('brand', $resellerBrand);
+            }
+        }
+
         $phone = $this->phoneFromInvoice($invoice);
 
         if ($phone === '') {
@@ -36,6 +44,14 @@ class InvoiceWhatsappService
      */
     public function buildMessage(Invoice $invoice, string $condition): string
     {
+        if ($invoice->order) {
+            $resellerBrand = $invoice->order->resolveResellerBrand();
+            if ($resellerBrand) {
+                $resellerBrand->load('parentBrand');
+                $invoice->setRelation('brand', $resellerBrand);
+            }
+        }
+
         $pelanggan  = $invoice->order?->pelanggan?->nama ?? 'Pelanggan';
         $brand      = $invoice->brand?->nama_brand ?? '';
         $invNumber  = $invoice->invoice_number;

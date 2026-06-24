@@ -101,4 +101,90 @@ class PdfHelper
 
         return $processed;
     }
+
+    private static array $tempFiles = [];
+
+    /**
+     * Resolve image path for DOMPDF.
+     *
+     * If the image is a WebP format, it will be dynamically converted to a temporary PNG
+     * file because DOMPDF has performance issues/bugs rendering WebP.
+     * For other formats, it normalizes and returns the absolute local filepath.
+     *
+     * @param string|null $path Relative path in storage/app/public/
+     * @return string Absolute file path or empty string if not found
+     */
+    public static function resolveImageForPdf(?string $path): string
+    {
+        if (empty($path)) {
+            return '';
+        }
+
+        $fullPath = storage_path('app/public/' . $path);
+        if (!file_exists($fullPath)) {
+            return '';
+        }
+
+        // Normalize slashes and resolve drive letters on Windows
+        $realPath = realpath($fullPath);
+        if (!$realPath) {
+            return $fullPath;
+        }
+
+        try {
+            $extension = strtolower(pathinfo($realPath, PATHINFO_EXTENSION));
+
+            if ($extension === 'webp' || mime_content_type($realPath) === 'image/webp') {
+                if (function_exists('imagecreatefromwebp')) {
+                    $im = @imagecreatefromwebp($realPath);
+                    if ($im) {
+                        $tempDir = storage_path('app/public/temp');
+                        if (!is_dir($tempDir)) {
+                            @mkdir($tempDir, 0777, true);
+                        }
+                        $tempFile = tempnam($tempDir, 'fo_webp_conv_');
+                        if ($tempFile) {
+                            $pngPath = $tempFile . '.png';
+                            ob_start();
+                            imagepng($im);
+                            $pngData = ob_get_clean();
+                            file_put_contents($pngPath, $pngData);
+                            imagedestroy($im);
+                            unlink($tempFile);
+
+                            self::registerTempFile($pngPath);
+
+                            return $pngPath;
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // fallback
+        }
+
+        return $realPath;
+    }
+
+    private static function registerTempFile(string $path): void
+    {
+        self::$tempFiles[] = $path;
+        
+        static $registered = false;
+        if (!$registered) {
+            register_shutdown_function(fn() => self::cleanupTempFiles());
+            $registered = true;
+        }
+    }
+
+    public static function cleanupTempFiles(): void
+    {
+        foreach (self::$tempFiles as $file) {
+            if (file_exists($file)) {
+                @unlink($file);
+            }
+        }
+        self::$tempFiles = [];
+    }
 }
+

@@ -36,6 +36,11 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
+        // Set default locale to Indonesian
+        config(['app.locale' => 'id']);
+        app()->setLocale('id');
+        \Illuminate\Support\Carbon::setLocale('id');
+
         // Load Dynamic System Settings for Mail and SEO
         try {
             if (Schema::hasTable('system_settings')) {

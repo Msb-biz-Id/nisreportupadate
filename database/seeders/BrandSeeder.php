@@ -70,13 +70,32 @@ class BrandSeeder extends Seeder
                 'instagram' => 'indowarehouse_',
                 'warna_primary' => '#EF4444',
                 'is_active' => true,
-                'brand_type' => Brand::TYPE_REGULAR,
+                'brand_type' => Brand::TYPE_RESELLER_HUB,
             ],
         ];
 
         foreach ($regularBrands as $data) {
             Brand::updateOrCreate(['kode' => $data['kode']], $data);
         }
+
+        // No Brand milik Allegiant (reseller_hub, anak dari ALG)
+        $algBrand = Brand::where('kode', 'ALG')->first();
+        Brand::updateOrCreate(
+            ['kode' => 'NOB-ALG'],
+            [
+                'nama_brand'      => 'No Brand',
+                'kode'            => 'NOB-ALG',
+                'tagline'         => '',
+                'deskripsi'       => 'Order tanpa brand — Allegiant',
+                'email'           => 'nobrand.alg@allegiant.local',
+                'no_hp'           => '',
+                'alamat'          => 'Indonesia',
+                'warna_primary'   => '#6B7280',
+                'is_active'       => true,
+                'brand_type'      => Brand::TYPE_RESELLER_HUB,
+                'parent_brand_id' => $algBrand?->id,
+            ]
+        );
 
         // Hapus data reseller demo lama (RSL, RSL-BDG, RSL-JKT) jika masih ada
         Brand::whereIn('kode', ['RSL', 'RSL-BDG', 'RSL-JKT'])->delete();
@@ -95,14 +114,17 @@ class BrandSeeder extends Seeder
         $idwBrandId = $idwBrand ? $idwBrand->id : null;
 
         $resellerBrands = [
-            ['nama_brand' => 'Telulas',       'kode' => 'TLS', 'warna_primary' => '#F59E0B'],
-            ['nama_brand' => 'Pamos',         'kode' => 'PMS', 'warna_primary' => '#3B82F6'],
-            ['nama_brand' => 'Sfitt Apparel', 'kode' => 'SFT', 'warna_primary' => '#10B981'],
-            ['nama_brand' => 'Sir Sportware', 'kode' => 'SIR', 'warna_primary' => '#EF4444'],
-            ['nama_brand' => 'Balga',         'kode' => 'BLG', 'warna_primary' => '#8B5CF6'],
-            ['nama_brand' => 'No Brand',      'kode' => 'NOB', 'warna_primary' => '#6B7280'],
-            ['nama_brand' => 'Indra Ruteng',  'kode' => 'IRT', 'warna_primary' => '#3B82F6'],
+            ['nama_brand' => 'Telulas',       'kode' => 'TLS',     'warna_primary' => '#F59E0B'],
+            ['nama_brand' => 'Pamos',         'kode' => 'PMS',     'warna_primary' => '#3B82F6'],
+            ['nama_brand' => 'Sfitt Apparel', 'kode' => 'SFT',     'warna_primary' => '#10B981'],
+            ['nama_brand' => 'Sir Sportware', 'kode' => 'SIR',     'warna_primary' => '#EF4444'],
+            ['nama_brand' => 'Balga',         'kode' => 'BLG',     'warna_primary' => '#8B5CF6'],
+            ['nama_brand' => 'No Brand',      'kode' => 'NOB-IDW', 'warna_primary' => '#6B7280'],
+            ['nama_brand' => 'Indra Ruteng',  'kode' => 'IRT',     'warna_primary' => '#3B82F6'],
         ];
+
+        // Hapus kode lama NOB jika masih ada (diganti NOB-IDW)
+        Brand::where('kode', 'NOB')->delete();
         foreach ($resellerBrands as $data) {
             Brand::updateOrCreate(
                 ['kode' => $data['kode']],

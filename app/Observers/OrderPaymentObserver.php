@@ -80,14 +80,22 @@ class OrderPaymentObserver
         // Dispatch submitted notification untuk payment baru yang belum verified
         if ($payment->verified_at === null) {
             if ($order) {
-                $formattedAmount = 'Rp ' . number_format((float) $payment->amount, 0, ',', '.');
-                \App\Services\Notifications\IdealNotificationService::dispatch('payment_submitted', [
-                    'no_po' => $order->no_po,
-                    'brand_id' => $order->brand->id,
-                    'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
-                    'nominal' => $formattedAmount,
-                    'action_url' => route('orders.show', $order->id),
-                ]);
+                try {
+                    $formattedAmount = 'Rp ' . number_format((float) $payment->amount, 0, ',', '.');
+                    \App\Services\Notifications\IdealNotificationService::dispatch('payment_submitted', [
+                        'no_po' => $order->no_po,
+                        'brand_id' => $order->brand_id,
+                        'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
+                        'nominal' => $formattedAmount,
+                        'action_url' => '/invoices/payments/pending',
+                    ]);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to dispatch payment_submitted notification', [
+                        'payment_id' => $payment->id,
+                        'order_id' => $order->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
         }
     }
@@ -105,14 +113,22 @@ class OrderPaymentObserver
 
             // Dispatch verified notification
             if ($order) {
-                $formattedAmount = 'Rp ' . number_format((float) $payment->amount, 0, ',', '.');
-                \App\Services\Notifications\IdealNotificationService::dispatch('payment_verified', [
-                    'no_po' => $order->no_po,
-                    'brand_id' => $order->brand_id,
-                    'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
-                    'nominal' => $formattedAmount,
-                    'action_url' => route('orders.show', $order->id),
-                ]);
+                try {
+                    $formattedAmount = 'Rp ' . number_format((float) $payment->amount, 0, ',', '.');
+                    \App\Services\Notifications\IdealNotificationService::dispatch('payment_verified', [
+                        'no_po' => $order->no_po,
+                        'brand_id' => $order->brand_id,
+                        'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
+                        'nominal' => $formattedAmount,
+                        'action_url' => '/orders/' . $order->id,
+                    ]);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to dispatch payment_verified notification', [
+                        'payment_id' => $payment->id,
+                        'order_id' => $order->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
         }
     }

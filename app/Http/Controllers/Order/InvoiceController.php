@@ -72,11 +72,11 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function publicShow(string $invoiceNumber)
+    public function publicShow(Request $request, string $invoiceNumber)
     {
         $query = Invoice::where('invoice_number', $invoiceNumber);
 
-        $user = auth()->user();
+        $user = $request->user();
         $isAuthorized = $user && (
             $user->isSuperadmin() ||
             $user->hasRole('owner') ||
@@ -101,7 +101,7 @@ class InvoiceController extends Controller
         }
 
         if (!$invoice->bank_id) {
-            $bankBrandId = \App\Support\BrandContext::masterDataId(request(), $invoice->brand_id);
+            $bankBrandId = \App\Support\BrandContext::masterDataId($request, $invoice->brand_id);
             $defaultBank = \App\Models\Master\BankAccount::active()->where('brand_id', $bankBrandId)->first();
             if ($defaultBank) {
                 $invoice->setRelation('bank', $defaultBank);
@@ -122,22 +122,24 @@ class InvoiceController extends Controller
 
         $trackingUrl = url('/track/' . ($invoice->order?->no_po ?? ''));
 
-        return Inertia::render('Public/Invoice', [
+        $response = Inertia::render('Public/Invoice', [
             'invoice' => $invoice,
             'qr_code' => $this->qrCodeDataUri($trackingUrl),
             'tracking_url' => $trackingUrl,
-        ])->toResponse(request())->withHeaders([
-            'X-Robots-Tag' => 'noindex, nofollow, noarchive, nosnippet',
-            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
-            'Pragma' => 'no-cache',
-        ]);
+        ])->toResponse($request);
+
+        $response->headers->set('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+
+        return $response;
     }
 
-    public function publicPdf(string $invoiceNumber)
+    public function publicPdf(Request $request, string $invoiceNumber)
     {
         $query = Invoice::where('invoice_number', $invoiceNumber);
 
-        $user = auth()->user();
+        $user = $request->user();
         $isAuthorized = $user && (
             $user->isSuperadmin() ||
             $user->hasRole('owner') ||
@@ -162,7 +164,7 @@ class InvoiceController extends Controller
         }
 
         if (!$invoice->bank_id) {
-            $bankBrandId = \App\Support\BrandContext::masterDataId(request(), $invoice->brand_id);
+            $bankBrandId = \App\Support\BrandContext::masterDataId($request, $invoice->brand_id);
             $defaultBank = \App\Models\Master\BankAccount::active()->where('brand_id', $bankBrandId)->first();
             if ($defaultBank) {
                 $invoice->setRelation('bank', $defaultBank);
@@ -327,9 +329,9 @@ class InvoiceController extends Controller
                 'brand_id' => $selectedBrandId,
             ],
             'can' => [
-                'create' => $request->user()->can('finance.manage-invoice'),
-                'validate' => $request->user()->can('finance.manage-invoice'),
-                'publish' => $request->user()->can('finance.manage-invoice'),
+                'create' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+                'validate' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+                'publish' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
             ],
         ]);
     }
@@ -479,9 +481,9 @@ class InvoiceController extends Controller
             ],
             'statuses' => Invoice::STATUSES,
             'can' => [
-                'create' => $request->user()->can('finance.manage-invoice'),
-                'validate' => $request->user()->can('finance.view'),
-                'publish' => $request->user()->can('finance.manage-invoice'),
+                'create' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+                'validate' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+                'publish' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
             ],
         ]);
     }
@@ -568,14 +570,17 @@ class InvoiceController extends Controller
                 'brand_id' => $selectedBrandId,
             ],
             'can' => [
-                'validate' => $request->user()->can('finance.manage-invoice'),
+                'validate' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
             ],
         ]);
     }
 
     public function createFromOrder(Request $request, Order $order)
     {
-        Gate::authorize('finance.manage-invoice');
+        abort_unless(
+            $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+            403, 'Hanya Admin Keuangan dan Superadmin yang dapat membuat invoice.'
+        );
         abort_if(Invoice::where('order_id', $order->id)->exists(), 422, 'Invoice untuk PO ini sudah ada.');
 
         $order->load('items', 'payments', 'brand');
@@ -597,7 +602,7 @@ class InvoiceController extends Controller
                 // dp_amount = total verified payments at invoice creation (supports both old payment_type and new master_jenis_pembayaran)
                 'dp_amount' => $totalPaid,
                 'sisa_pembayaran' => $order->sisaTagihan(),
-                'created_by' => auth()->id(),
+                'created_by' => \Illuminate\Support\Facades\Auth::id(),
             ]);
 
             foreach ($order->items as $item) {
@@ -623,7 +628,10 @@ class InvoiceController extends Controller
 
     public function validateInvoice(Request $request, Invoice $invoice)
     {
-        Gate::authorize('finance.manage-invoice');
+        abort_unless(
+            $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+            403, 'Hanya Admin Keuangan dan Superadmin yang dapat memvalidasi invoice.'
+        );
 
         $data = $request->validate([
             'diskon_type' => ['nullable', Rule::in(['persen', 'nominal'])],
@@ -741,7 +749,7 @@ class InvoiceController extends Controller
                 $order->update([
                     'is_lunas' => true,
                     'lunas_at' => now(),
-                    'lunas_by' => auth()->id(),
+                    'lunas_by' => \Illuminate\Support\Facades\Auth::id(),
                 ]);
             }
         });
@@ -751,7 +759,10 @@ class InvoiceController extends Controller
 
     public function cancelValidation(Request $request, Invoice $invoice)
     {
-        Gate::authorize('finance.manage-invoice');
+        abort_unless(
+            $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+            403, 'Hanya Admin Keuangan dan Superadmin yang dapat membatalkan validasi invoice.'
+        );
         abort_unless(in_array($invoice->status, ['validated', 'paid'], true), 422, 'Invoice harus berstatus validated atau paid.');
 
         DB::transaction(function () use ($invoice) {
@@ -776,7 +787,10 @@ class InvoiceController extends Controller
 
     public function publish(Request $request, Invoice $invoice)
     {
-        Gate::authorize('finance.manage-invoice');
+        abort_unless(
+            $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+            403, 'Hanya Admin Keuangan dan Superadmin yang dapat mempublikasikan invoice.'
+        );
         abort_unless(in_array($invoice->status, ['draft', 'validated'], true), 422);
 
         $invoice->update(['status' => 'published']);
@@ -808,7 +822,10 @@ class InvoiceController extends Controller
      */
     public function sendWhatsapp(Request $request, Invoice $invoice)
     {
-        Gate::authorize('finance.manage-invoice');
+        abort_unless(
+            $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+            403, 'Hanya Admin Keuangan dan Superadmin yang dapat mengirim invoice via WhatsApp.'
+        );
         abort_unless(in_array($invoice->status, ['published', 'sent', 'overdue'], true), 422, 'Invoice harus berstatus published/sent/overdue untuk dikirim WA.');
 
         $condition = $request->input('condition', 'new_invoice');
@@ -836,7 +853,10 @@ class InvoiceController extends Controller
 
     public function verifyPayment(Request $request, OrderPayment $payment)
     {
-        Gate::authorize('finance.manage-invoice');
+        abort_unless(
+            $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+            403, 'Hanya Admin Keuangan dan Superadmin yang dapat memverifikasi pembayaran.'
+        );
 
         $data = $request->validate([
             'bank_mutasi' => ['required', 'boolean'],
@@ -925,11 +945,10 @@ class InvoiceController extends Controller
 
     public function updatePayment(Request $request, OrderPayment $payment)
     {
-        Gate::authorize('finance.manage-invoice');
-
-        if ($request->user()->hasRole('admin_brand')) {
-            abort(403, 'Hanya Admin Keuangan yang dapat mengubah data pembayaran.');
-        }
+        abort_unless(
+            $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+            403, 'Hanya Admin Keuangan dan Superadmin yang dapat mengubah data pembayaran.'
+        );
 
         $request->validate([
             'master_jenis_pembayaran_id' => 'required|exists:master_jenis_pembayarans,id',
@@ -1091,11 +1110,10 @@ class InvoiceController extends Controller
 
     public function destroyPayment(Request $request, OrderPayment $payment)
     {
-        Gate::authorize('finance.manage-invoice');
-
-        if ($request->user()->hasRole('admin_brand')) {
-            abort(403, 'Hanya Admin Keuangan yang dapat menghapus data pembayaran.');
-        }
+        abort_unless(
+            $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+            403, 'Hanya Admin Keuangan dan Superadmin yang dapat menghapus data pembayaran.'
+        );
 
         $order        = $payment->order;
         $wasVerified  = $payment->verified_at !== null;

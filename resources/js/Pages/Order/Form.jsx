@@ -101,6 +101,40 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
     const [mappings, setMappings] = useState([]);
     const [prevMaxCols, setPrevMaxCols] = useState(0);
     const [sizeOverrides, setSizeOverrides] = useState({});
+    const [importMode, setImportMode] = useState('replace');
+
+    const detectedDelimiter = useMemo(() => {
+        if (!text) return null;
+        let tabs = 0;
+        let semicolons = 0;
+        let commas = 0;
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            if (char === '\t') tabs++;
+            else if (char === ';') semicolons++;
+            else if (char === ',') commas++;
+        }
+        if (tabs > 0) return '\t';
+        if (semicolons > 0) return ';';
+        if (commas > 0) return ',';
+
+        const lines = text.split(/\r\n|\r|\n/);
+        let multiSpaceLinesCount = 0;
+        let nonBlankLines = 0;
+        lines.forEach(line => {
+            const cleaned = line.replace(/\r$/, '');
+            if (cleaned.trim()) {
+                nonBlankLines++;
+                if (/\s{2,}/.test(cleaned)) {
+                    multiSpaceLinesCount++;
+                }
+            }
+        });
+        if (nonBlankLines > 0 && (multiSpaceLinesCount / nonBlankLines) >= 0.5) {
+            return /\s{2,}/;
+        }
+        return null;
+    }, [text]);
 
     const safeSizes = useMemo(() => {
         const arr = Array.isArray(sizes) ? [...sizes] : [];
@@ -167,22 +201,66 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
         { value: 'keterangan', label: 'Keterangan' },
     ];
 
-    function splitLine(line) {
+    function splitLine(line, delimiter) {
         if (!line) return [];
         const cleanedLine = line.replace(/\r$/, '');
-        if (!cleanedLine.trim()) return [];
+        if (delimiter) {
+            return cleanedLine.split(delimiter).map((c) => c.trim());
+        }
+        return [cleanedLine.trim()];
+    }
 
-        // Jika menggunakan tab atau multiple spaces, split dengan menjaga empty cells
-        if (/\t|\s{2,}/.test(cleanedLine)) {
-            return cleanedLine.split(/\t|\s{2,}/).map((c) => c.trim());
+    function guessColumnField(colIdx, rows, mappedFieldsCount) {
+        const values = rows.map(r => r[colIdx]).filter(v => v !== undefined && v !== null && v.trim() !== '');
+        if (values.length === 0) return 'ignore';
+
+        let sizeMatchCount = 0;
+        let numericCount = 0;
+        let stringCount = 0;
+
+        const sizeWords = new Set(['xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', '7xl', '8xl', '9xl', '10xl', 'xxl', 'xxxl', 's anak', 'm anak', 'l anak', 'xl anak', 'xs anak']);
+
+        values.forEach(val => {
+            const clean = val.toLowerCase().trim();
+            if (sizeWords.has(clean)) {
+                sizeMatchCount++;
+            }
+            if (/^\d+$/.test(clean)) {
+                numericCount++;
+            } else {
+                stringCount++;
+            }
+        });
+
+        if (sizeMatchCount / values.length >= 0.5) {
+            if (mappedFieldsCount.size_id > 0) {
+                return 'size_celana_id';
+            }
+            return 'size_id';
         }
-        if (cleanedLine.includes(';')) {
-            return cleanedLine.split(';').map((c) => c.trim());
+
+        if (numericCount / values.length >= 0.7) {
+            if (mappedFieldsCount.nomor_punggung === 0) return 'nomor_punggung';
+            if (mappedFieldsCount.nomor_dada === 0) return 'nomor_dada';
+            if (mappedFieldsCount.nomor_lengan === 0) return 'nomor_lengan';
+            if (mappedFieldsCount.nomor_punggung_2 === 0) return 'nomor_punggung_2';
+            return 'ignore';
         }
-        if (cleanedLine.includes(',')) {
-            return cleanedLine.split(',').map((c) => c.trim());
+
+        if (stringCount / values.length >= 0.5) {
+            const avgLength = values.reduce((sum, v) => sum + v.length, 0) / values.length;
+            if (avgLength > 15) {
+                return 'keterangan';
+            }
+            
+            if (mappedFieldsCount.nama_punggung === 0) return 'nama_punggung';
+            if (mappedFieldsCount.nama_dada === 0) return 'nama_dada';
+            if (mappedFieldsCount.nama_lengan === 0) return 'nama_lengan';
+            if (mappedFieldsCount.nama_punggung_2 === 0) return 'nama_punggung_2';
+            return 'keterangan';
         }
-        return [cleanedLine];
+
+        return 'ignore';
     }
 
     function detectHeaders(firstRowCols) {
@@ -221,29 +299,33 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
         }
         
         return {
-            isHeader: matchCount >= 2 || (firstRowCols.length === 1 && matchCount === 1),
+            isHeader: matchCount >= 1,
             fields: matchedFields
         };
     }
 
-    function getDefaultMappings(numCols) {
+    function getDefaultMappings(rows, numCols) {
         const defaults = [];
-        const fields = [
-            'nama_punggung',
-            'nomor_punggung',
-            'nama_dada',
-            'nomor_dada',
-            'nama_lengan',
-            'nomor_lengan',
-            'nomor_punggung_2',
-            'nama_punggung_2',
-            'size_id',
-            'size_celana_id',
-            'keterangan',
-        ];
+        const mappedFieldsCount = {
+            nama_punggung: 0,
+            nomor_punggung: 0,
+            nama_dada: 0,
+            nomor_dada: 0,
+            nama_lengan: 0,
+            nomor_lengan: 0,
+            nomor_punggung_2: 0,
+            nama_punggung_2: 0,
+            size_id: 0,
+            size_celana_id: 0,
+            keterangan: 0
+        };
         
         for (let i = 0; i < numCols; i++) {
-            defaults.push(fields[i] || 'ignore');
+            const guessed = guessColumnField(i, rows, mappedFieldsCount);
+            defaults.push(guessed);
+            if (guessed !== 'ignore') {
+                mappedFieldsCount[guessed] = (mappedFieldsCount[guessed] || 0) + 1;
+            }
         }
         return defaults;
     }
@@ -252,7 +334,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
         try {
             if (!text.trim()) return [];
             const rows = text.split(/\r\n|\r|\n/)
-                .map((line) => splitLine(line))
+                .map((line) => splitLine(line, detectedDelimiter))
                 .filter((r) => r && r.length > 0 && r.some(Boolean));
             console.log('Parsed Excel Rows:', rows);
             return rows;
@@ -260,11 +342,23 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
             console.error('Error parsing pasted text:', e);
             return [];
         }
-    }, [text]);
+    }, [text, detectedDelimiter]);
 
     const maxCols = useMemo(() => {
         return parsedRows.length > 0 ? Math.max(...parsedRows.map((r) => r.length)) : 0;
     }, [parsedRows]);
+
+    const handleHeaderRowToggle = (checked) => {
+        setHasHeaderRow(checked);
+        const firstRow = parsedRows[0] || [];
+        if (checked) {
+            const detection = detectHeaders(firstRow);
+            setMappings(detection.fields);
+        } else {
+            setMappings(getDefaultMappings(parsedRows, maxCols));
+        }
+        setSizeOverrides({});
+    };
 
     useEffect(() => {
         if (maxCols === 0) {
@@ -279,13 +373,8 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
             const firstRow = parsedRows[0] || [];
             const detection = detectHeaders(firstRow);
             
-            if (detection.isHeader) {
-                setHasHeaderRow(true);
-                setMappings(detection.fields);
-            } else {
-                setHasHeaderRow(false);
-                setMappings(getDefaultMappings(maxCols));
-            }
+            setHasHeaderRow(detection.isHeader);
+            setMappings(detection.isHeader ? detection.fields : getDefaultMappings(parsedRows, maxCols));
             setPrevMaxCols(maxCols);
             setSizeOverrides({});
         }
@@ -386,17 +475,18 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
 
     function handleConfirm() {
         if (!finalRows.length) return;
-        onConfirm(finalRows);
+        onConfirm(finalRows, importMode);
         setText('');
         setMappings([]);
         setHasHeaderRow(false);
         setPrevMaxCols(0);
         setSizeOverrides({});
+        setImportMode('replace');
         onClose();
     }
 
     return (
-        <Dialog open={open} onOpenChange={(v) => { if (!v) { setText(''); setMappings([]); setHasHeaderRow(false); setPrevMaxCols(0); setSizeOverrides({}); onClose(); } }}>
+        <Dialog open={open} onOpenChange={(v) => { if (!v) { setText(''); setMappings([]); setHasHeaderRow(false); setPrevMaxCols(0); setSizeOverrides({}); setImportMode('replace'); onClose(); } }}>
             <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-6">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 uppercase text-sm font-black tracking-wide">
@@ -422,19 +512,48 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                     
                     {parsedRows.length > 0 && (
                         <div className="space-y-3 pt-2">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 border border-slate-200 p-3 rounded-xl">
-                                <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-700 uppercase">
-                                    <input
-                                        type="checkbox"
-                                        className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
-                                        checked={hasHeaderRow}
-                                        onChange={(e) => {
-                                            setHasHeaderRow(e.target.checked);
-                                            setSizeOverrides({});
-                                        }}
-                                    />
-                                    Baris pertama adalah Header (Abaikan baris pertama)
-                                </label>
+                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-50 border border-slate-200 p-3 rounded-xl">
+                                <div className="flex flex-wrap items-center gap-4">
+                                    <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-700 uppercase">
+                                        <input
+                                            type="checkbox"
+                                            className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                                            checked={hasHeaderRow}
+                                            onChange={(e) => {
+                                                handleHeaderRowToggle(e.target.checked);
+                                            }}
+                                        />
+                                        Baris pertama adalah Header (Abaikan baris pertama)
+                                    </label>
+                                    
+                                    <div className="h-4 w-[1px] bg-slate-300 hidden sm:block"></div>
+                                    
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase">Metode Impor:</span>
+                                        <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-bold text-slate-700">
+                                            <input
+                                                type="radio"
+                                                name="import_mode"
+                                                value="replace"
+                                                className="w-3.5 h-3.5 text-red-600 focus:ring-red-500 cursor-pointer"
+                                                checked={importMode === 'replace'}
+                                                onChange={() => setImportMode('replace')}
+                                            />
+                                            Ganti Data yang Ada
+                                        </label>
+                                        <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-bold text-slate-700">
+                                            <input
+                                                type="radio"
+                                                name="import_mode"
+                                                value="append"
+                                                className="w-3.5 h-3.5 text-red-600 focus:ring-red-500 cursor-pointer"
+                                                checked={importMode === 'append'}
+                                                onChange={() => setImportMode('append')}
+                                            />
+                                            Tambahkan
+                                        </label>
+                                    </div>
+                                </div>
                                 <span className="text-xs font-black text-slate-500 bg-white px-2.5 py-1 border border-slate-200 rounded-lg shadow-sm">
                                     DATA SIAP IMPORT: {finalRows.length} BARIS
                                 </span>
@@ -592,6 +711,11 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
     function removeNameset(i) {
         const nextNamesets = item.namesets.filter((_, idx) => idx !== i);
         onChange(index, { ...item, namesets: nextNamesets, quantity: nextNamesets.length });
+    }
+    function clearNameset() {
+        if (window.confirm("Apakah Anda yakin ingin menghapus semua data nameset untuk produk ini?")) {
+            onChange(index, { ...item, namesets: [], quantity: 0 });
+        }
     }
     function patchNameset(i, field, value) {
         const next = [...item.namesets];
@@ -1062,6 +1186,18 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                             </button>
                             <button
                                 type="button"
+                                onClick={clearNameset}
+                                disabled={item.namesets.length === 0}
+                                className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold transition shadow-sm ${
+                                    item.namesets.length > 0
+                                        ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 cursor-pointer'
+                                        : 'bg-gray-50 text-gray-400 border border-gray-200 cursor-not-allowed opacity-60'
+                                }`}
+                            >
+                                <Trash2 className="h-3.5 w-3.5" /> Hapus Data
+                            </button>
+                            <button
+                                type="button"
                                 onClick={() => { setNamesetOpen(true); addNameset(); }}
                                 className="flex items-center gap-1 bg-slate-800 text-white hover:bg-slate-700 px-3 py-1.5 rounded-md text-xs font-bold transition shadow-sm"
                             >
@@ -1186,22 +1322,27 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                 sizes={masters.sizes}
                 item={item}
                 polaProduksi={masters.pola_produksi}
-                onConfirm={(rows) => {
-                    const currentFilled = item.namesets.filter(
-                        (ns) =>
-                            ns.nama_punggung ||
-                            ns.nomor_punggung ||
-                            ns.nama_dada ||
-                            ns.nomor_dada ||
-                            ns.nama_lengan ||
-                            ns.nomor_lengan ||
-                            ns.nomor_punggung_2 ||
-                            ns.nama_punggung_2 ||
-                            ns.size_id ||
-                            ns.size_celana_id ||
-                            ns.keterangan
-                    );
-                    const nextNamesets = [...currentFilled, ...rows];
+                onConfirm={(rows, mode = 'replace') => {
+                    let nextNamesets;
+                    if (mode === 'replace') {
+                        nextNamesets = rows;
+                    } else {
+                        const currentFilled = item.namesets.filter(
+                            (ns) =>
+                                ns.nama_punggung ||
+                                ns.nomor_punggung ||
+                                ns.nama_dada ||
+                                ns.nomor_dada ||
+                                ns.nama_lengan ||
+                                ns.nomor_lengan ||
+                                ns.nomor_punggung_2 ||
+                                ns.nama_punggung_2 ||
+                                ns.size_id ||
+                                ns.size_celana_id ||
+                                ns.keterangan
+                        );
+                        nextNamesets = [...currentFilled, ...rows];
+                    }
                     onChange(index, { ...item, namesets: nextNamesets, quantity: nextNamesets.length });
                 }}
             />
@@ -1455,7 +1596,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
 
             <form onSubmit={submit} className="space-y-0">
                 {/* ===== STICKY HEADER BAR ===== */}
-                <div className="sticky top-16 z-30 bg-slate-900/95 text-white px-6 py-4 flex flex-col lg:flex-row justify-between items-center border-b-4 border-red-600 rounded-b-xl mb-6 shadow-xl backdrop-blur-sm">
+                <div className="sticky top-16 z-30 bg-slate-900/95 text-white px-6 py-4 flex flex-col lg:flex-row justify-between items-start lg:items-center border-b-4 border-red-600 rounded-b-xl mb-6 shadow-xl backdrop-blur-sm gap-4">
                     <div className="flex items-center gap-3 w-full lg:w-auto">
                         <Package2 className="h-6 w-6 text-red-500 shrink-0" />
                         <div>
@@ -1469,8 +1610,8 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                         </div>
                     </div>
 
-                    {/* ===== STICKY SUMMARY DETAILS ===== */}
-                    <div className="flex flex-wrap items-center gap-3 my-3 lg:my-0">
+                    {/* ===== STICKY ACTIONS & DETAILS GROUP ===== */}
+                    <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
                         <div className="relative">
                             <button
                                 type="button"
@@ -1487,7 +1628,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
 
                             {showSummaryDropdown && (
                                 <div 
-                                    className="absolute left-1/2 -translate-x-1/2 lg:left-0 lg:translate-x-0 mt-2 w-80 bg-white border border-slate-200 text-slate-800 rounded-2xl shadow-2xl p-4 z-50 space-y-3"
+                                    className="absolute left-1/2 -translate-x-1/2 lg:left-auto lg:right-0 lg:translate-x-0 mt-2 w-80 bg-white border border-slate-200 text-slate-800 rounded-2xl shadow-2xl p-4 z-50 space-y-3"
                                     onMouseLeave={() => setShowSummaryDropdown(false)}
                                 >
                                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -1566,32 +1707,32 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                 </div>
                             )}
                         </div>
-                    </div>
 
-                    <div className="flex gap-2 w-full lg:w-auto justify-end">
-                        <button
-                            type="button"
-                            onClick={downloadDraftPdf}
-                            disabled={pdfLoading}
-                            className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition uppercase tracking-wide disabled:opacity-50 shadow-md"
-                        >
-                            <FileDown className="h-4 w-4" />
-                            {pdfLoading ? 'Loading...' : 'Download PDF'}
-                        </button>
-                        <Link
-                            href={isEdit ? route('orders.show', order.id) : route('orders.index')}
-                            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition uppercase tracking-wide shadow-md border border-slate-700"
-                        >
-                            Batal
-                        </Link>
-                        <button
-                            type="submit"
-                            disabled={processing}
-                            className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-xl text-xs font-black transition shadow-lg shadow-red-600/30 uppercase tracking-wide disabled:opacity-50"
-                        >
-                            <Save className="h-4 w-4" />
-                            {isEdit ? 'Simpan Perubahan' : 'Simpan Draft'}
-                        </button>
+                        <div className="flex flex-wrap gap-2 items-center">
+                            <button
+                                type="button"
+                                onClick={downloadDraftPdf}
+                                disabled={pdfLoading}
+                                className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition uppercase tracking-wide disabled:opacity-50 shadow-md"
+                            >
+                                <FileDown className="h-4 w-4" />
+                                {pdfLoading ? 'Loading...' : 'Download PDF'}
+                            </button>
+                            <Link
+                                href={isEdit ? route('orders.show', order.id) : route('orders.index')}
+                                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition uppercase tracking-wide shadow-md border border-slate-700"
+                            >
+                                Batal
+                            </Link>
+                            <button
+                                type="submit"
+                                disabled={processing}
+                                className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-xl text-xs font-black transition shadow-lg shadow-red-600/30 uppercase tracking-wide disabled:opacity-50"
+                            >
+                                <Save className="h-4 w-4" />
+                                {isEdit ? 'Simpan Perubahan' : 'Simpan Draft'}
+                            </button>
+                        </div>
                     </div>
                 </div>
 

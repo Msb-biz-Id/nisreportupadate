@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             FinanceSeeder::class,
             CustomerSeeder::class,
             OrderSeeder::class,
+            MultiFontTestSeeder::class,
         ]);
     }
 }

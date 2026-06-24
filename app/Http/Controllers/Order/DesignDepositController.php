@@ -66,9 +66,10 @@ class DesignDepositController extends Controller
 
     public function verify(Request $request, DesignDeposit $deposit)
     {
-        if (!$request->user()->can('finance.view')) {
-            abort(403, 'Hanya Admin Keuangan yang dapat memverifikasi Tanda Jadi.');
-        }
+        abort_unless(
+            $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+            403, 'Hanya Admin Keuangan dan Superadmin yang dapat memverifikasi Tanda Jadi.'
+        );
         abort_unless($deposit->status === 'pending', 422, 'Hanya status pending yang bisa diverifikasi.');
 
         DB::transaction(function () use ($deposit, $request) {
@@ -140,9 +141,10 @@ class DesignDepositController extends Controller
 
     public function refund(Request $request, DesignDeposit $deposit)
     {
-        if (!$request->user()->can('finance.view')) {
-            abort(403, 'Hanya Admin Keuangan yang dapat melakukan refund Tanda Jadi.');
-        }
+        abort_unless(
+            $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+            403, 'Hanya Admin Keuangan dan Superadmin yang dapat melakukan refund Tanda Jadi.'
+        );
         abort_unless(in_array($deposit->status, ['pending', 'verified']), 422, 'Hanya Tanda Jadi pending atau verified yang bisa direfund.');
 
         DB::transaction(function () use ($deposit, $request) {
@@ -198,9 +200,10 @@ class DesignDepositController extends Controller
 
     public function destroy(Request $request, DesignDeposit $deposit)
     {
-        if (!$request->user()->can('finance.view')) {
-            abort(403, 'Hanya Admin Keuangan yang dapat menghapus Tanda Jadi.');
-        }
+        abort_unless(
+            $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+            403, 'Hanya Admin Keuangan dan Superadmin yang dapat menghapus Tanda Jadi.'
+        );
         abort_unless($deposit->status === 'pending', 422, 'Hanya Tanda Jadi pending yang bisa dihapus.');
         
         $deposit->delete();

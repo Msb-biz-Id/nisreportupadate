@@ -83,22 +83,22 @@ class Brand extends Model
         return $this->hasMany(\App\Models\Master\BankAccount::class);
     }
 
-    public function scopeActive($query)
+    public function scopeActive(\Illuminate\Database\Eloquent\Builder $query)
     {
         return $query->where('is_active', true);
     }
 
-    public function scopeRegular($query)
+    public function scopeRegular(\Illuminate\Database\Eloquent\Builder $query)
     {
         return $query->where('brand_type', self::TYPE_REGULAR);
     }
 
-    public function scopeResellerHub($query)
+    public function scopeResellerHub(\Illuminate\Database\Eloquent\Builder $query)
     {
         return $query->where('brand_type', self::TYPE_RESELLER_HUB);
     }
 
-    public function scopeResellerBranch($query)
+    public function scopeResellerBranch(\Illuminate\Database\Eloquent\Builder $query)
     {
         return $query->where('brand_type', self::TYPE_RESELLER_BRANCH);
     }
@@ -113,6 +113,11 @@ class Brand extends Model
         return $this->brand_type === self::TYPE_RESELLER_BRANCH;
     }
 
+    public function isReseller(): bool
+    {
+        return ($this->isResellerHub() || $this->isResellerBranch()) && $this->parent_brand_id !== null;
+    }
+
     public function isRegular(): bool
     {
         return $this->brand_type === self::TYPE_REGULAR;
@@ -124,7 +129,7 @@ class Brand extends Model
             $globalBrand = new self();
             $globalBrand->id = $this->id;
             
-            $parent = $this->isResellerBranch() ? $this->parentBrand : null;
+            $parent = $this->parent_brand_id ? $this->parentBrand : null;
 
             $globalBrand->nama_brand = $this->nama_brand 
                 ?: ($parent?->nama_brand 
@@ -171,19 +176,7 @@ class Brand extends Model
                 ?: ($parent?->website 
                     ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'website'));
             
-            $regular = self::where('brand_type', self::TYPE_REGULAR)->first();
-            if ($regular) {
-                $globalBrand->alamat = $globalBrand->alamat ?: $regular->alamat;
-                $globalBrand->no_hp = $globalBrand->no_hp ?: $regular->no_hp;
-                $globalBrand->email = $globalBrand->email ?: $regular->email;
-                $globalBrand->tagline = $globalBrand->tagline ?: $regular->tagline;
-                $globalBrand->instagram = $globalBrand->instagram ?: $regular->instagram;
-                $globalBrand->facebook = $globalBrand->facebook ?: $regular->facebook;
-                $globalBrand->tiktok = $globalBrand->tiktok ?: $regular->tiktok;
-                $globalBrand->website = $globalBrand->website ?: $regular->website;
-            } else {
-                $globalBrand->alamat = $globalBrand->alamat ?: 'Bandung, Indonesia';
-            }
+            $globalBrand->alamat = $globalBrand->alamat ?: 'Bandung, Indonesia';
             
             return $globalBrand;
         }

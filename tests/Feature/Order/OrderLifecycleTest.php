@@ -703,7 +703,7 @@ class OrderLifecycleTest extends TestCase
         $this->assertEquals('L', $nameset->size_celana_label);
     }
 
-    public function test_nameset_entries_are_auto_sorted_by_size(): void
+    public function test_nameset_entries_preserve_original_input_order(): void
     {
         $brand = $this->setupBrandWithMasters();
         $user = $this->makeUser('admin_brand', [$brand]);
@@ -770,13 +770,69 @@ class OrderLifecycleTest extends TestCase
         $namesets = $item->namesets()->get();
         $this->assertCount(3, $namesets);
 
-        $this->assertEquals('XS-Kid', $namesets[0]->nama_punggung);
-        $this->assertEquals('S-Boy', $namesets[1]->nama_punggung);
-        $this->assertEquals('M-Boy', $namesets[2]->nama_punggung);
+        $this->assertEquals('M-Boy', $namesets[0]->nama_punggung);
+        $this->assertEquals('XS-Kid', $namesets[1]->nama_punggung);
+        $this->assertEquals('S-Boy', $namesets[2]->nama_punggung);
 
         $this->assertEquals(0, $namesets[0]->urutan);
         $this->assertEquals(1, $namesets[1]->urutan);
         $this->assertEquals(2, $namesets[2]->urutan);
+    }
+
+    public function test_nameset_entries_with_empty_fields_are_filtered_and_sanitized(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $user = $this->makeUser('admin_brand', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+
+        $sizeS = \App\Models\Master\Size::create([
+            'ukuran' => 'S',
+            'urutan' => 2,
+            'is_active' => true,
+        ]);
+
+        $bank = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->first();
+
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('orders.store'), [
+                'nama_po' => 'PO Sanitized Nameset Test',
+                'tanggal_masuk' => now()->toDateString(),
+                'deadline_customer' => now()->addDays(14)->toDateString(),
+                'pelanggan_id' => $customer->id,
+                'bank_id' => $bank->id,
+                'items' => [[
+                    'nama_produk' => 'Jersey Test',
+                    'quantity' => 1,
+                    'harga_satuan' => 100000,
+                    'namesets' => [
+                        [
+                            'nama_punggung' => '  TrimmedName  ', // should be trimmed
+                            'nomor_punggung' => '10',
+                            'size_id' => $sizeS->id,
+                            'size_label' => 'S',
+                        ],
+                        [
+                            'nama_punggung' => '', // entirely empty record
+                            'nomor_punggung' => '',
+                            'nama_dada' => null,
+                            'size_id' => null,
+                            'size_label' => '',
+                        ]
+                    ]
+                ]],
+            ])
+            ->assertRedirect();
+
+        $order = Order::where('nama_po', 'PO Sanitized Nameset Test')->first();
+        $this->assertNotNull($order);
+        $item = $order->items()->first();
+        $this->assertNotNull($item);
+
+        $namesets = $item->namesets()->get();
+        // The entirely empty record should be filtered out, so count is 1.
+        $this->assertCount(1, $namesets);
+        // The name should be trimmed.
+        $this->assertEquals('TrimmedName', $namesets[0]->nama_punggung);
     }
 
     public function test_published_po_is_locked_by_default_and_cannot_be_edited_unless_unlocked(): void
@@ -1520,6 +1576,61 @@ class OrderLifecycleTest extends TestCase
             'subject_type' => get_class($order),
             'subject_id' => $order->id,
         ]);
+    }
+
+    public function test_order_items_can_save_jenis_setelan_and_pola_produksi_and_render_in_pdf(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $user = $this->makeUser('admin_brand', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+        $bank = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->first();
+
+        $jenisSetelan = \App\Models\Master\JenisSetelan::create([
+            'id' => '019e2969-0000-0000-0000-000000000101',
+            'nama' => 'Setelan Futsal A',
+            'is_active' => true,
+        ]);
+
+        $polaProduksi = \App\Models\Master\PolaProduksi::create([
+            'id' => '019e2969-0000-0000-0000-000000000201',
+            'nama' => 'Pola Raglan A',
+            'is_active' => true,
+        ]);
+
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('orders.store'), [
+                'nama_po' => 'PO Master Data Test',
+                'tanggal_masuk' => now()->toDateString(),
+                'deadline_customer' => now()->addDays(14)->toDateString(),
+                'pelanggan_id' => $customer->id,
+                'bank_id' => $bank->id,
+                'items' => [[
+                    'nama_produk' => 'Jersey Test',
+                    'quantity' => 10,
+                    'harga_satuan' => 100000,
+                    'jenis_setelan_id' => $jenisSetelan->id,
+                    'pola_produksi_id' => $polaProduksi->id,
+                ]],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('order_items', [
+            'nama_produk' => 'Jersey Test',
+            'jenis_setelan_id' => $jenisSetelan->id,
+            'pola_produksi_id' => $polaProduksi->id,
+        ]);
+
+        $order = Order::where('nama_po', 'PO Master Data Test')->first();
+        $this->assertNotNull($order);
+
+        // Access the public FO PDF endpoint and verify it returns 200/download
+        $this->actingAsWithBrand($user, $brand)
+            ->get(route('orders.fo.pdf', $order->id))
+            ->assertStatus(200);
+            
+        // Test the public tracking FO PDF endpoint as well
+        $response = $this->get(route('orders.public.fo.pdf', $order->no_po));
+        $response->assertStatus(200);
     }
 }
 

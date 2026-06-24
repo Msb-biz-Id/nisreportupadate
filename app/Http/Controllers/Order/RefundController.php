@@ -101,7 +101,7 @@ class RefundController extends Controller
             'jenis_options' => Refund::JENIS_MASALAH,
             'can' => [
                 'create' => $request->user()->can('order.refund'),
-                'review' => $request->user()->can('finance.manage-refund'),
+                'review' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
             ],
         ]);
     }
@@ -197,7 +197,10 @@ class RefundController extends Controller
 
     public function publish(Request $request, Refund $refund)
     {
-        Gate::authorize('finance.manage-refund');
+        abort_unless(
+            $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+            403, 'Hanya Admin Keuangan dan Superadmin yang dapat menerbitkan refund.'
+        );
         abort_unless(in_array($refund->status, ['pending_review', 'approved'], true), 422);
 
         $refund->update([
@@ -213,7 +216,10 @@ class RefundController extends Controller
 
     public function reject(Request $request, Refund $refund)
     {
-        Gate::authorize('finance.manage-refund');
+        abort_unless(
+            $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+            403, 'Hanya Admin Keuangan dan Superadmin yang dapat menolak refund.'
+        );
         abort_unless($refund->status === 'pending_review', 422);
 
         $data = $request->validate([

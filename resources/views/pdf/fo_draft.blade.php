@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>FO DRAFT - {{ $brand->nama_brand }}</title>
+    <title>FO DRAFT - {{ (isset($resellerDisplayBrand) && $resellerDisplayBrand) ? $resellerDisplayBrand->nama_brand : $brand->nama_brand }}</title>
     <style>
         @font-face {
             font-family: 'Noto Sans JP';
@@ -64,8 +64,8 @@
                         font-weight: bold; padding: 6px 10px; margin: 10px 0 0; letter-spacing: 0.5px; }
 
         /* Spec table */
-        .spec-table { border: 1px solid #000; margin-bottom: 5px; width: 100%; }
-        .spec-table th, .spec-table td { border: 1px solid #000; padding: 5px 6px; font-size: 9.5pt; text-align: center; font-weight: normal; }
+        .spec-table { border: 1px solid #000; margin-bottom: 5px; width: 100%; page-break-inside: avoid; }
+        .spec-table th, .spec-table td { border: 1px solid #000; padding: 3px 5px; font-size: 8pt; text-align: center; font-weight: normal; }
         .spec-table th { background: #d4d4d4; font-weight: bold; }
         .spec-row-head { width: 25%; text-align: left !important; background: #f2f2f2; font-weight: bold; }
 
@@ -101,7 +101,7 @@
             text-align: center;
             font-size: 85pt;
             font-weight: 900;
-            color: rgba(0, 0, 0, 0.06);
+            color: #e5e5e5;
             transform: rotate(-30deg);
             z-index: 99999;
             pointer-events: none;
@@ -121,7 +121,7 @@
                     MESIN PRINT: ....................
                 </td>
                 <td style="width: 50%; text-align: center; font-size: 11pt; font-weight: bold; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: underline; text-transform: uppercase;">
-                    FORMAT ORDER {{ strtoupper(($headerBrand ?? ($brand ? $brand->getHeaderBrand() : null))?->nama_brand ?? 'BRAND') }}
+                    FORMAT ORDER
                 </td>
                 <td style="width: 25%; text-align: right; font-size: 7.5pt; font-weight: normal; color: #444; vertical-align: bottom; padding: 0 0 5px 0; border: none; text-decoration: none; text-transform: uppercase;">
                     MESIN PRES: ....................
@@ -150,15 +150,15 @@
             $commaSep = ', ';
             $kategoriStr = $nonAddonItems->pluck($prodCol)->filter()->map('strtoupper')->implode($commaSep);
             $totalAtasan = $nonAddonItems->sum(fn($i) => (int)($i['jml_atasan'] ?: ($i['quantity'] ?? 0)));
-            $totalBawahan = $nonAddonItems->sum(fn($i) => (int)($i['jml_bawahan'] ?? 0)) ?: '.......';
+            $totalBawahan = $nonAddonItems->sum(fn($i) => (int)($i['jml_bawahan'] ?? 0)) ?: '0';
             if (!isset($printingNames)) {
                 $printingNames = collect();
                 if (!empty($raw['printing_ids'])) {
                     $printingNames = \App\Models\Master\Printing::whereIn('id', $raw['printing_ids'])->pluck('nama');
                 }
             }
-            $printingStr = $printingNames->isNotEmpty() ? $printingNames->implode(', ') : '.......';
-            $dv = fn($v) => trim((string)($v ?? '')) ?: '.......';
+            $printingStr = $printingNames->isNotEmpty() ? $printingNames->implode(', ') : '';
+            $dv = fn($v) => trim((string)($v ?? ''));
         @endphp
 
         <table style="width: 100%; margin-bottom: 15px; border-collapse: collapse;">
@@ -169,23 +169,23 @@
                         <tr>
                             <td style="width: 160px; font-weight: bold; font-size: 10.5pt; padding: 3px 0;">TANGGAL MASUK</td>
                             <td style="width: 15px; font-weight: bold; padding: 3px 0;">:</td>
-                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ !empty($raw['tanggal_masuk']) ? strtoupper(\Carbon\Carbon::parse($raw['tanggal_masuk'])->translatedFormat('d F Y')) : '.......' }}</td>
+                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ !empty($raw['tanggal_masuk']) ? strtoupper(\Carbon\Carbon::parse($raw['tanggal_masuk'])->translatedFormat('d F Y')) : '' }}</td>
                         </tr>
                         <tr style="color: red;">
                             <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0; color: red;">DATELINE</td>
                             <td style="font-weight: bold; padding: 3px 0; color: red;">:</td>
-                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold; color: red;">{{ !empty($raw['deadline_customer']) ? strtoupper(\Carbon\Carbon::parse($raw['deadline_customer'])->translatedFormat('d F Y')) : '.......' }}</td>
+                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold; color: red;">{{ !empty($raw['deadline_customer']) ? strtoupper(\Carbon\Carbon::parse($raw['deadline_customer'])->translatedFormat('d F Y')) : '' }}</td>
                         </tr>
                         <tr>
                             <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">NAMA ORDER</td>
                             <td style="font-weight: bold; padding: 3px 0;">:</td>
-                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{!! !empty($raw['nama_po']) ? \App\Support\PdfHelper::formatText($raw['nama_po']) : '.......' !!}</td>
+                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{!! !empty($raw['nama_po']) ? \App\Support\PdfHelper::formatText($raw['nama_po']) : '' !!}</td>
                         </tr>
-                        @if($brand && ($brand->isResellerHub() || $brand->isResellerBranch()))
+                        @if((isset($resellerDisplayBrand) && $resellerDisplayBrand) || ($brand && $brand->isReseller()))
                         <tr>
                             <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">RESELLER</td>
                             <td style="font-weight: bold; padding: 3px 0;">:</td>
-                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ strtoupper($brand->nama_brand) }}</td>
+                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ strtoupper((isset($resellerDisplayBrand) && $resellerDisplayBrand) ? $resellerDisplayBrand->nama_brand : $brand->nama_brand) }}</td>
                         </tr>
                         @endif
                         <tr>
@@ -208,7 +208,7 @@
                                 RESELLER:<br>
                                 <span style="font-size: 12.5pt; font-weight: 900;">{{ strtoupper($resellerDisplayBrand->nama_brand) }}</span>
                             </div>
-                        @elseif(isset($brand) && $brand && ($brand->isResellerHub() || $brand->isResellerBranch()))
+                        @elseif(isset($brand) && $brand && $brand->isReseller())
                             <div style="font-size: 11pt; font-weight: 900; color: #000; line-height: 1.2;">
                                 RESELLER:<br>
                                 <span style="font-size: 12.5pt; font-weight: 900;">{{ strtoupper($brand->nama_brand) }}</span>
@@ -240,160 +240,161 @@
         </div>
         @endif
 
-        {{-- ===== KETERANGAN MATERIAL (SIDE-BY-SIDE SPEC TABLE) ===== --}}
+        {{-- ===== KETERANGAN MATERIAL & JAHITAN (CONSOLIDATED ON ONE PAGE) ===== --}}
         @if($nonAddonItems->isNotEmpty())
-        <div style="color: #000; font-weight: bold; font-size: 11pt; margin-bottom: 5px; text-transform: uppercase;">KETERANGAN MATERIAL</div>
-        <table class="spec-table" style="margin-top:0;">
-            <thead>
-                <tr>
-                    <th style="width: 25%; text-align: left;">JENIS PESANAN</th>
-                    @foreach($nonAddonItems as $item)
-                    <th>{{ strtoupper(($item['varian_label'] ?? '') ?: ($item['nama_produk'] ?? '')) }}</th>
-                    @endforeach
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td class="spec-row-head">JENIS SETELAN</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ $dv(strtoupper($item['_jenis_setelan'] ?? $item['jenis_setelan'] ?? '')) }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">POLA</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ $dv(strtoupper($item['_pola_produksi'] ?? $item['pola'] ?? '')) }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">BAHAN ATASAN</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ $dv(strtoupper($item['_bahan_kain_names'] ?? $item['_bahan_kain'] ?? '')) }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">BAHAN BAWAHAN</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ $dv(strtoupper($item['_bahan_kain_bawahan_names'] ?? $item['_bahan_kain_bawahan'] ?? '')) }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">WARNA</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ $dv(strtoupper($item['warna'] ?? '')) }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">JENIS LOGO</td>
-                    @foreach($nonAddonItems as $item)
-                    @php
-                        $logoDisplay = !empty($item['_logos']) ? strtoupper(implode(', ', $item['_logos'])) : strtoupper($item['_logo'] ?? '');
-                        $logoDisplay = $logoDisplay ?: '.......';
-                    @endphp
-                    <td>{{ $logoDisplay }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">JUMLAH ATASAN</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ $item['jml_atasan'] ?: ($item['quantity'] ?? '.......') }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">JUMLAH BAWAHAN</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ $item['jml_bawahan'] ?: '.......' }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">JENIS RIB</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ $dv(strtoupper($item['jenis_rib'] ?? '')) }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">TUTUP KERAH</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ $dv(strtoupper($item['tutup_kerah'] ?? '')) }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">LIST KERAH</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ $dv(strtoupper($item['list_kerah'] ?? '')) }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">LIST LENGAN</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ $dv(strtoupper($item['list_lengan'] ?? '')) }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">LIST SAMPING CELANA</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ $dv(strtoupper($item['list_samping_celana'] ?? '')) }}</td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td class="spec-row-head">LIST BAWAH CELANA</td>
-                    @foreach($nonAddonItems as $item)
-                    <td>{{ $dv(strtoupper($item['list_bawah_celana'] ?? '')) }}</td>
-                    @endforeach
-                </tr>
-            </tbody>
-        </table>
-        @endif
+        <div style="page-break-inside: avoid;">
+            {{-- ===== KETERANGAN MATERIAL (SIDE-BY-SIDE SPEC TABLE) ===== --}}
+            <div style="color: #000; font-weight: bold; font-size: 11pt; margin-bottom: 5px; text-transform: uppercase;">KETERANGAN MATERIAL</div>
+            <table class="spec-table" style="margin-top:0;">
+                <thead>
+                    <tr>
+                        <th style="width: 25%; text-align: left;">JENIS PESANAN</th>
+                        @foreach($nonAddonItems as $item)
+                        <th>{{ strtoupper(($item['varian_label'] ?? '') ?: ($item['nama_produk'] ?? '')) }}</th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="spec-row-head">JENIS SETELAN</td>
+                        @foreach($nonAddonItems as $item)
+                        <td>{{ $dv(strtoupper($item['_jenis_setelan'] ?? $item['jenis_setelan'] ?? '')) }}</td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">POLA</td>
+                        @foreach($nonAddonItems as $item)
+                        <td>{{ $dv(strtoupper($item['_pola_produksi'] ?? $item['pola'] ?? '')) }}</td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">BAHAN ATASAN</td>
+                        @foreach($nonAddonItems as $item)
+                        <td>{{ $dv(strtoupper($item['_bahan_kain_names'] ?? $item['_bahan_kain'] ?? '')) }}</td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">BAHAN BAWAHAN</td>
+                        @foreach($nonAddonItems as $item)
+                        <td>{{ $dv(strtoupper($item['_bahan_kain_bawahan_names'] ?? $item['_bahan_kain_bawahan'] ?? '')) }}</td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">WARNA</td>
+                        @foreach($nonAddonItems as $item)
+                        <td>{{ $dv(strtoupper($item['warna'] ?? '')) }}</td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">JENIS LOGO</td>
+                        @foreach($nonAddonItems as $item)
+                        @php
+                            $logoDisplay = !empty($item['_logos']) ? strtoupper(implode(', ', $item['_logos'])) : strtoupper($item['_logo'] ?? '');
+                            $logoDisplay = $logoDisplay ?: '';
+                        @endphp
+                        <td>{{ $logoDisplay }}</td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">JUMLAH ATASAN</td>
+                        @foreach($nonAddonItems as $item)
+                        <td>{{ $item['jml_atasan'] ?: ($item['quantity'] ?? '') }}</td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">JUMLAH BAWAHAN</td>
+                        @foreach($nonAddonItems as $item)
+                        <td>{{ $item['jml_bawahan'] ?: '' }}</td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">JENIS RIB</td>
+                        @foreach($nonAddonItems as $item)
+                        <td>{{ $dv(strtoupper($item['jenis_rib'] ?? '')) }}</td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">TUTUP KERAH</td>
+                        @foreach($nonAddonItems as $item)
+                        <td>{{ $dv(strtoupper($item['tutup_kerah'] ?? '')) }}</td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">LIST KERAH</td>
+                        @foreach($nonAddonItems as $item)
+                        <td>{{ $dv(strtoupper($item['list_kerah'] ?? '')) }}</td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">LIST LENGAN</td>
+                        @foreach($nonAddonItems as $item)
+                        <td>{{ $dv(strtoupper($item['list_lengan'] ?? '')) }}</td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">LIST SAMPING CELANA</td>
+                        @foreach($nonAddonItems as $item)
+                        <td>{{ $dv(strtoupper($item['list_samping_celana'] ?? '')) }}</td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">LIST BAWAH CELANA</td>
+                        @foreach($nonAddonItems as $item)
+                        <td>{{ $dv(strtoupper($item['list_bawah_celana'] ?? '')) }}</td>
+                        @endforeach
+                    </tr>
+                </tbody>
+            </table>
 
-        {{-- ===== KETERANGAN JAHITAN ===== --}}
-        @if($nonAddonItems->isNotEmpty())
-        <div style="color: #000; font-weight: bold; font-size: 11pt; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase;">KETERANGAN JAHITAN</div>
-        <table style="width:100%; border:1px solid #000; border-collapse:collapse; font-size:9.5pt; margin-bottom:15px;">
-            <thead>
-                <tr style="background:#d4d4d4; font-weight:bold;">
-                    <th style="border:1px solid #000; padding:5px 6px; text-align:left; width:250px;">JAHITAN / DETAIL</th>
-                    @foreach($nonAddonItems as $item)
-                    <th style="border:1px solid #000; padding:5px 6px; text-align:center;">
-                        {{ strtoupper(($item['varian_label'] ?? '') ?: ($item['nama_produk'] ?? '')) }}
-                    </th>
-                    @endforeach
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td style="border:1px solid #000; padding:5px 6px; font-weight:bold; text-align:left;">POLA JAHITAN</td>
-                    @foreach($nonAddonItems as $item)
-                    @php
-                        $polaJ = $item['_pola_jahitan'] ?? null;
-                        $polaJStr = $polaJ ? strtoupper($polaJ['nama']) : '.......';
-                    @endphp
-                    <td style="border:1px solid #000; padding:5px 6px; text-align:center;">
-                        {{ $polaJStr }}
-                    </td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td style="border:1px solid #000; padding:5px 6px; font-weight:bold; text-align:left;">JAHITAN LIST LENGAN</td>
-                    @foreach($nonAddonItems as $item)
-                    @php
-                        $polaJLengan = $item['_pola_jahitan_lengan'] ?? null;
-                        $lenganStr = $polaJLengan ? strtoupper($polaJLengan['nama']) : $dv(strtoupper($item['jahitan_list_lengan'] ?? ''));
-                    @endphp
-                    <td style="border:1px solid #000; padding:5px 6px; text-align:center;">
-                        {{ $lenganStr }}
-                    </td>
-                    @endforeach
-                </tr>
-                <tr>
-                    <td style="border:1px solid #000; padding:5px 6px; font-weight:bold; text-align:left;">JENIS RESLETING</td>
-                    @foreach($nonAddonItems as $item)
-                    <td style="border:1px solid #000; padding:5px 6px; text-align:center;">
-                        {{ $dv(strtoupper($item['_resleting'] ?? '')) }}
-                    </td>
-                    @endforeach
-                </tr>
-            </tbody>
-        </table>
+            {{-- ===== KETERANGAN JAHITAN ===== --}}
+            <div style="color: #000; font-weight: bold; font-size: 11pt; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase;">KETERANGAN JAHITAN</div>
+            <table class="spec-table" style="margin-bottom:15px;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left; width:25%;">JAHITAN / DETAIL</th>
+                        @foreach($nonAddonItems as $item)
+                        <th>
+                            {{ strtoupper(($item['varian_label'] ?? '') ?: ($item['nama_produk'] ?? '')) }}
+                        </th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="spec-row-head">POLA JAHITAN</td>
+                        @foreach($nonAddonItems as $item)
+                        @php
+                            $polaJ = $item['_pola_jahitan'] ?? null;
+                            $polaJStr = $polaJ ? strtoupper($polaJ['nama']) : '';
+                        @endphp
+                        <td>
+                            {{ $polaJStr }}
+                        </td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">JAHITAN LIST LENGAN</td>
+                        @foreach($nonAddonItems as $item)
+                        @php
+                            $polaJLengan = $item['_pola_jahitan_lengan'] ?? null;
+                            $lenganStr = $polaJLengan ? strtoupper($polaJLengan['nama']) : $dv(strtoupper($item['jahitan_list_lengan'] ?? ''));
+                        @endphp
+                        <td>
+                            {{ $lenganStr }}
+                        </td>
+                        @endforeach
+                    </tr>
+                    <tr>
+                        <td class="spec-row-head">JENIS RESLETING</td>
+                        @foreach($nonAddonItems as $item)
+                        <td>
+                            {{ $dv(strtoupper($item['_resleting'] ?? '')) }}
+                        </td>
+                        @endforeach
+                    </tr>
+                </tbody>
+            </table>
+        </div>
         @endif
 
         {{-- ===== REFERENSI DESAIN & GAMBAR (PER ITEM) ===== --}}
@@ -411,8 +412,8 @@
                 </div>
 
                 @if(!empty($item['gambar_desain']))
-                    @php $dPath = storage_path('app/public/' . $item['gambar_desain']); @endphp
-                    @if(file_exists($dPath))
+                    @php $dPath = \App\Support\PdfHelper::resolveImageForPdf($item['gambar_desain']); @endphp
+                    @if(!empty($dPath) && file_exists($dPath))
                     <div class="img-box" style="border-top:none; padding:2px; margin-bottom:6px;">
                         <img src="{{ $dPath }}" style="max-width: 100%; max-height: 520px; display: block; margin: 0 auto;">
                     </div>
@@ -427,11 +428,11 @@
                     <tr>
                         <td style="width:50%; vertical-align:top; padding:6px; border-right:1px solid #000;">
                             <div style="background:#d4d4d4; font-weight:900; padding:4px; text-align:center; margin-bottom:4px; border:1px solid #000;">KETERANGAN ATASAN</div>
-                            <div style="padding:2px; text-align:center; font-weight:bold;">{!! !empty($item['ket_atasan']) ? \App\Support\PdfHelper::formatText($item['ket_atasan']) : '.......' !!}</div>
+                            <div style="padding:2px; text-align:center; font-weight:bold;">{!! \App\Support\PdfHelper::formatText($item['ket_atasan'] ?? '') !!}</div>
                         </td>
                         <td style="width:50%; vertical-align:top; padding:6px;">
                             <div style="background:#d4d4d4; font-weight:900; padding:4px; text-align:center; margin-bottom:4px; border:1px solid #000;">KETERANGAN BAWAHAN</div>
-                            <div style="padding:2px; text-align:center; font-weight:bold;">{!! !empty($item['ket_bawahan']) ? \App\Support\PdfHelper::formatText($item['ket_bawahan']) : '.......' !!}</div>
+                            <div style="padding:2px; text-align:center; font-weight:bold;">{!! \App\Support\PdfHelper::formatText($item['ket_bawahan'] ?? '') !!}</div>
                         </td>
                     </tr>
                 </table>
@@ -453,12 +454,12 @@
                         @endif
                             <div class="img-wrapper" style="padding:6px; margin-bottom:0;">
                                 <div class="title-box-center" style="margin-top:0; font-size: 9pt;">
-                                    JENIS KERAH: {{ strtoupper($item['jenis_kerah'] ?? '.......') }}
+                                    JENIS KERAH: {{ strtoupper($item['jenis_kerah'] ?? '') }}
                                 </div>
                                 <div style="border:1px solid #000; border-top:none; padding:6px; text-align:center; background:#fff;">
                                     @if(!empty($item['gambar_kerah']))
-                                        @php $kPath = storage_path('app/public/' . $item['gambar_kerah']); @endphp
-                                        @if(file_exists($kPath))
+                                        @php $kPath = \App\Support\PdfHelper::resolveImageForPdf($item['gambar_kerah']); @endphp
+                                        @if(!empty($kPath) && file_exists($kPath))
                                         <div style="text-align:center;">
                                             <img src="{{ $kPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
                                         </div>
@@ -484,8 +485,8 @@
                                     KETERANGAN TAMBAHAN
                                 </div>
                                 <div style="border:1px solid #000; border-top:none; padding:6px; text-align:center; background:#fff;">
-                                    @php $ktPath = storage_path('app/public/' . $item['gambar_ket_tambahan']); @endphp
-                                    @if(file_exists($ktPath))
+                                    @php $ktPath = \App\Support\PdfHelper::resolveImageForPdf($item['gambar_ket_tambahan']); @endphp
+                                    @if(!empty($ktPath) && file_exists($ktPath))
                                     <div style="text-align:center;">
                                         <img src="{{ $ktPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
                                     </div>
@@ -512,22 +513,34 @@
             @php
                 $namesets = collect($item['namesets'] ?? []);
                 $filled   = $namesets->filter(fn($ns) =>
-                    !empty($ns['nama_punggung']) || !empty($ns['nomor_punggung']) ||
-                    !empty($ns['nama_dada'])     || !empty($ns['nomor_dada'])     ||
-                    !empty($ns['nama_lengan'])   || !empty($ns['nomor_lengan'])   ||
-                    !empty($ns['nama_punggung_2']) || !empty($ns['nomor_punggung_2']) ||
-                    !empty($ns['size_id'])       || !empty($ns['size_label'])     ||
-                    !empty($ns['size_celana_id'])|| !empty($ns['size_celana_label']) ||
-                    !empty($ns['keterangan'])
+                    !empty(trim($ns['nama_punggung'] ?? '')) || !empty(trim($ns['nomor_punggung'] ?? '')) ||
+                    !empty(trim($ns['nama_dada'] ?? ''))     || !empty(trim($ns['nomor_dada'] ?? ''))     ||
+                    !empty(trim($ns['nama_lengan'] ?? ''))   || !empty(trim($ns['nomor_lengan'] ?? ''))   ||
+                    !empty(trim($ns['nama_punggung_2'] ?? '')) || !empty(trim($ns['nomor_punggung_2'] ?? '')) ||
+                    !empty(trim($ns['size_id'] ?? ''))       || !empty(trim($ns['size_label'] ?? ''))     ||
+                    !empty(trim($ns['size_celana_id'] ?? ''))|| !empty(trim($ns['size_celana_label'] ?? '')) ||
+                    !empty(trim($ns['keterangan'] ?? ''))
                 );
 
-                $hasNamaPunggung = $filled->contains(fn($ns) => !empty($ns['nama_punggung']) || !empty($ns['nomor_punggung']));
-                $hasNamaDada     = $filled->contains(fn($ns) => !empty($ns['nama_dada'])     || !empty($ns['nomor_dada']));
-                $hasNamaLengan   = $filled->contains(fn($ns) => !empty($ns['nama_lengan'])   || !empty($ns['nomor_lengan']));
-                $hasNamaPunggung2 = $filled->contains(fn($ns) => !empty($ns['nama_punggung_2']) || !empty($ns['nomor_punggung_2']));
-                $hasSizeAtasan   = $filled->contains(fn($ns) => !empty($ns['size_id'])       || !empty($ns['size_label']));
-                $hasSizeBawahan  = $filled->contains(fn($ns) => !empty($ns['size_celana_id'])|| !empty($ns['size_celana_label']));
-                $hasKeterangan   = $filled->contains(fn($ns) => !empty($ns['keterangan']));
+                $hasCustomization = $filled->contains(fn($ns) =>
+                    !empty(trim($ns['nama_punggung'] ?? '')) || !empty(trim($ns['nomor_punggung'] ?? '')) ||
+                    !empty(trim($ns['nama_dada'] ?? ''))     || !empty(trim($ns['nomor_dada'] ?? ''))     ||
+                    !empty(trim($ns['nama_lengan'] ?? ''))   || !empty(trim($ns['nomor_lengan'] ?? ''))   ||
+                    !empty(trim($ns['nama_punggung_2'] ?? '')) || !empty(trim($ns['nomor_punggung_2'] ?? '')) ||
+                    !empty(trim($ns['keterangan'] ?? ''))
+                );
+
+                $hasNamaPunggung = $filled->contains(fn($ns) => !empty(trim($ns['nama_punggung'] ?? '')));
+                $hasNoPunggung   = $filled->contains(fn($ns) => !empty(trim($ns['nomor_punggung'] ?? '')));
+                $hasNamaDada     = $filled->contains(fn($ns) => !empty(trim($ns['nama_dada'] ?? '')));
+                $hasNoDada       = $filled->contains(fn($ns) => !empty(trim($ns['nomor_dada'] ?? '')));
+                $hasNamaLengan   = $filled->contains(fn($ns) => !empty(trim($ns['nama_lengan'] ?? '')));
+                $hasNoLengan     = $filled->contains(fn($ns) => !empty(trim($ns['nomor_lengan'] ?? '')));
+                $hasNamaPunggung2 = $filled->contains(fn($ns) => !empty(trim($ns['nama_punggung_2'] ?? '')));
+                $hasNoPunggung2   = $filled->contains(fn($ns) => !empty(trim($ns['nomor_punggung_2'] ?? '')));
+                $hasSizeAtasan   = $filled->contains(fn($ns) => !empty(trim($ns['size_id'] ?? ''))       || !empty(trim($ns['size_label'] ?? '')));
+                $hasSizeBawahan  = $filled->contains(fn($ns) => !empty(trim($ns['size_celana_id'] ?? ''))|| !empty(trim($ns['size_celana_label'] ?? '')));
+                $hasKeterangan   = $filled->contains(fn($ns) => !empty(trim($ns['keterangan'] ?? '')));
 
                 $sizeAtasanRaw = [];
                 $sizeBawahanRaw = [];
@@ -561,19 +574,27 @@
                 $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 6];
                 if ($hasNamaPunggung) {
                     $cols[] = ['type' => 'nama_punggung', 'label' => 'NAMA PUNGGUNG', 'weight' => 22, 'align' => 't-left'];
+                }
+                if ($hasNoPunggung) {
                     $cols[] = ['type' => 'no_punggung', 'label' => 'NO. PUNGGUNG', 'weight' => 12];
                 }
                 if ($hasNamaDada) {
                     $cols[] = ['type' => 'nama_dada', 'label' => 'NAMA DADA', 'weight' => 18, 'align' => 't-left'];
+                }
+                if ($hasNoDada) {
                     $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 12];
                 }
                 if ($hasNamaLengan) {
                     $cols[] = ['type' => 'nama_lengan', 'label' => 'NAMA LENGAN', 'weight' => 18, 'align' => 't-left'];
+                }
+                if ($hasNoLengan) {
                     $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 12];
+                }
+                if ($hasNoPunggung2) {
+                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 12];
                 }
                 if ($hasNamaPunggung2) {
                     $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 22, 'align' => 't-left'];
-                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 12];
                 }
                 if ($hasSizeAtasan) {
                     $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 10];
@@ -595,9 +616,14 @@
                 $tableClass = count($cols) > 7 ? 'ns-table ns-table-dense' : 'ns-table';
             @endphp
 
+            @if(!$hasCustomization)
+            <div class="title-box-center" style="font-size:11.5pt; border-bottom: 1px solid #000;">
+            @else
             <div class="title-box-center" style="font-size:11.5pt;">
+            @endif
                 DATA PESANAN {{ strtoupper($item['nama_produk'] ?? '') }} @if(!empty($item['varian_label'])) — {{ strtoupper($item['varian_label']) }}@endif
             </div>
+            @if($hasCustomization)
             <table class="{{ $tableClass }}" style="border-top:none; table-layout: fixed; width: 100%;">
                 <colgroup>
                     @foreach($cols as $col)
@@ -607,7 +633,7 @@
                 <thead>
                     <tr>
                         @foreach($cols as $col)
-                            <th class="{{ $col['align'] ?? '' }}" style="width: {{ $col['pct'] }}%;">{{ $col['label'] }}</th>
+                            <th class="{{ $col['align'] ?? '' }}" width="{{ $col['pct'] }}%">{{ $col['label'] }}</th>
                         @endforeach
                     </tr>
                 </thead>
@@ -653,6 +679,7 @@
                     @endforeach
                 </tbody>
             </table>
+            @endif
 
             {{-- REKAP SIZE --}}
             <div class="rekap-container">
@@ -733,11 +760,30 @@
         </table>
 
         <div style="margin-top:8px; font-size:8.5pt; color:#555; text-align:right;">
-            Dicetak: {{ now()->translatedFormat('d M Y, H:i') }} · {{ strtoupper($brand->nama_brand) }} (DRAFT)
+            Dicetak: {{ now()->translatedFormat('d M Y, H:i') }} · {{ strtoupper((isset($resellerDisplayBrand) && $resellerDisplayBrand) ? $resellerDisplayBrand->nama_brand : $brand->nama_brand) }} (DRAFT)
         </div>
         @endif
 
         {{-- ===== LAMPIRAN ===== --}}
+        @php
+            $hasAnyLampFilled = false;
+            foreach ($nonAddonItems as $item) {
+                $namesets = collect($item['namesets'] ?? []);
+                $lampFilled = $namesets->filter(fn($ns) =>
+                    !empty(trim($ns['nama_punggung'] ?? '')) || !empty(trim($ns['nomor_punggung'] ?? '')) ||
+                    !empty(trim($ns['nama_dada'] ?? ''))     || !empty(trim($ns['nomor_dada'] ?? ''))     ||
+                    !empty(trim($ns['nama_lengan'] ?? ''))   || !empty(trim($ns['nomor_lengan'] ?? ''))   ||
+                    !empty(trim($ns['nama_punggung_2'] ?? '')) || !empty(trim($ns['nomor_punggung_2'] ?? '')) ||
+                    !empty(trim($ns['keterangan'] ?? ''))
+                );
+                if ($lampFilled->isNotEmpty()) {
+                    $hasAnyLampFilled = true;
+                    break;
+                }
+            }
+        @endphp
+
+        @if($hasAnyLampFilled)
         <div class="page-break"></div>
         <div style="font-size:12pt; font-weight:900; text-decoration:underline; margin-bottom:10px; border-bottom:2px solid #000; padding-bottom:4px;">
             LAMPIRAN: DATA PESANAN
@@ -747,26 +793,24 @@
             @php
                 $namesets = collect($item['namesets'] ?? []);
                 $lampFilled = $namesets->filter(fn($ns) =>
-                    !empty($ns['nama_punggung']) || !empty($ns['nomor_punggung']) ||
-                    !empty($ns['nama_dada'])     || !empty($ns['nomor_dada'])     ||
-                    !empty($ns['nama_lengan'])   || !empty($ns['nomor_lengan'])   ||
-                    !empty($ns['nama_punggung_2']) || !empty($ns['nomor_punggung_2']) ||
-                    !empty($ns['size_id'])       || !empty($ns['size_label'])     ||
-                    !empty($ns['size_celana_id'])|| !empty($ns['size_celana_label']) ||
-                    !empty($ns['keterangan'])
+                    !empty(trim($ns['nama_punggung'] ?? '')) || !empty(trim($ns['nomor_punggung'] ?? '')) ||
+                    !empty(trim($ns['nama_dada'] ?? ''))     || !empty(trim($ns['nomor_dada'] ?? ''))     ||
+                    !empty(trim($ns['nama_lengan'] ?? ''))   || !empty(trim($ns['nomor_lengan'] ?? ''))   ||
+                    !empty(trim($ns['nama_punggung_2'] ?? '')) || !empty(trim($ns['nomor_punggung_2'] ?? '')) ||
+                    !empty(trim($ns['keterangan'] ?? ''))
                 );
 
-                $hasLampNamaPunggung  = $lampFilled->contains(fn($ns) => !empty($ns['nama_punggung']));
-                $hasLampNoPunggung    = $lampFilled->contains(fn($ns) => !empty($ns['nomor_punggung']));
-                $hasLampNamaDada      = $lampFilled->contains(fn($ns) => !empty($ns['nama_dada']));
-                $hasLampNoDada        = $lampFilled->contains(fn($ns) => !empty($ns['nomor_dada']));
-                $hasLampNamaLengan    = $lampFilled->contains(fn($ns) => !empty($ns['nama_lengan']));
-                $hasLampNoLengan      = $lampFilled->contains(fn($ns) => !empty($ns['nomor_lengan']));
-                $hasLampNamaPunggung2 = $lampFilled->contains(fn($ns) => !empty($ns['nama_punggung_2']));
-                $hasLampNoPunggung2   = $lampFilled->contains(fn($ns) => !empty($ns['nomor_punggung_2']));
-                $hasLampSizeAtasan    = $lampFilled->contains(fn($ns) => !empty($ns['size_id'])       || !empty($ns['size_label']));
-                $hasLampSizeBawahan   = $lampFilled->contains(fn($ns) => !empty($ns['size_celana_id'])|| !empty($ns['size_celana_label']));
-                $hasLampKeterangan    = $lampFilled->contains(fn($ns) => !empty($ns['keterangan']));
+                $hasLampNamaPunggung  = $lampFilled->contains(fn($ns) => !empty(trim($ns['nama_punggung'] ?? '')));
+                $hasLampNoPunggung    = $lampFilled->contains(fn($ns) => !empty(trim($ns['nomor_punggung'] ?? '')));
+                $hasLampNamaDada      = $lampFilled->contains(fn($ns) => !empty(trim($ns['nama_dada'] ?? '')));
+                $hasLampNoDada        = $lampFilled->contains(fn($ns) => !empty(trim($ns['nomor_dada'] ?? '')));
+                $hasLampNamaLengan    = $lampFilled->contains(fn($ns) => !empty(trim($ns['nama_lengan'] ?? '')));
+                $hasLampNoLengan      = $lampFilled->contains(fn($ns) => !empty(trim($ns['nomor_lengan'] ?? '')));
+                $hasLampNamaPunggung2 = $lampFilled->contains(fn($ns) => !empty(trim($ns['nama_punggung_2'] ?? '')));
+                $hasLampNoPunggung2   = $lampFilled->contains(fn($ns) => !empty(trim($ns['nomor_punggung_2'] ?? '')));
+                $hasLampSizeAtasan    = $lampFilled->contains(fn($ns) => !empty(trim($ns['size_id'] ?? ''))       || !empty(trim($ns['size_label'] ?? '')));
+                $hasLampSizeBawahan   = $lampFilled->contains(fn($ns) => !empty(trim($ns['size_celana_id'] ?? ''))|| !empty(trim($ns['size_celana_label'] ?? '')));
+                $hasLampKeterangan    = $lampFilled->contains(fn($ns) => !empty(trim($ns['keterangan'] ?? '')));
             @endphp
             @if($lampFilled->isNotEmpty())
             @php
@@ -790,11 +834,11 @@
                 if ($hasLampNoLengan) {
                     $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 12];
                 }
-                if ($hasLampNamaPunggung2) {
-                    $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 22, 'align' => 't-left'];
-                }
                 if ($hasLampNoPunggung2) {
                     $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 12];
+                }
+                if ($hasLampNamaPunggung2) {
+                    $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 22, 'align' => 't-left'];
                 }
                 if ($hasLampSizeAtasan) {
                     $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 10];
@@ -827,7 +871,7 @@
                 <thead>
                     <tr>
                         @foreach($cols as $col)
-                            <th class="{{ $col['align'] ?? '' }}" style="width: {{ $col['pct'] }}%;">{{ $col['label'] }}</th>
+                            <th class="{{ $col['align'] ?? '' }}" width="{{ $col['pct'] }}%">{{ $col['label'] }}</th>
                         @endforeach
                     </tr>
                 </thead>
@@ -875,6 +919,7 @@
             </table>
             @endif
         @endforeach
+        @endif
 
     </main>
 </body>

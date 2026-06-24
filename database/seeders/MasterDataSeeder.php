@@ -53,11 +53,29 @@ class MasterDataSeeder extends Seeder
     {
         \Illuminate\Support\Facades\DB::table('bahan_kains')->delete();
         $items = [
-            'Milano Collmax', 'Milano Premium', 'Topo', 'Airwalk', 'Smash',
-            'Teraria', 'Lotto Alle Halus', 'Lotto Drive Kasar', 'Waffle', 'Straw',
-            'Curly', 'Pique', 'Senna', 'Olino', 'Century',
-            'Scuba', 'Dropnidel', 'Jaquard Tripel S', 'Parasut', 'Mikro Dk Lite',
-            'Monochrome', 'Rib', 'Evistra (Kemeja)', 'Pales (Bendera)', 'Satin (Bendera)',
+            'Milano Coolmax Tech',
+            'Milano Premium',
+            'Airwalk',
+            'Smash',
+            'Emboss Curly',
+            'Emboss Straw',
+            'Emboss Topo',
+            'Jacquard Teraria',
+            'Wafle',
+            'Pique',
+            'Senna',
+            'Olino',
+            'Century',
+            'Scuba',
+            'Dropnidel',
+            'Jacquard Triple S',
+            'Parasut',
+            'Mikro Dk Lite',
+            'Monochrome',
+            'Rib',
+            'Evistra (Kemeja)',
+            'Peles (Bendera)',
+            'Satin (Bendera)',
         ];
         foreach ($items as $nama) BahanKain::firstOrCreate(['nama' => $nama], ['is_active' => true]);
     }
@@ -148,7 +166,11 @@ class MasterDataSeeder extends Seeder
         \Illuminate\Support\Facades\DB::table('pola_jahitans')->delete();
         // Pola Jahitan Utama — untuk field "Pola Jahitan" di form
         $polaUtama = [
-            'Standart', 'Raglan 1.0', 'Raglan 2.0', 'Pecah Pola Custom', 'Reglan Stick',
+            'Standart',
+            'Raglan 1.0',
+            'Raglan 2.0',
+            'Pecah Pola Custom',
+            'Reglan Stick',
         ];
         foreach ($polaUtama as $nama) {
             PolaJahitan::firstOrCreate(
@@ -310,8 +332,4 @@ class MasterDataSeeder extends Seeder
             ['is_active' => true]
         );
     }
-
-
-
-
 }
