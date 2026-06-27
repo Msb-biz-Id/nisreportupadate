@@ -3,10 +3,12 @@
         <div style="margin-bottom: 8px;">
             <img src="{{ $logoData }}" alt="{{ $brand?->nama_brand ?? 'Brand Logo' }}" style="max-height: 58px; max-width: 180px; object-fit: contain;">
         </div>
+        <div class="brand" style="color: #000000; font-weight: 900; font-size: 16pt; letter-spacing: -0.5px; margin-bottom: 4px;">{{ $brand?->nama_brand ?? 'Circle Sportwear' }}</div>
     @elseif ($brand?->logo)
         <div style="margin-bottom: 8px;">
             <img src="{{ public_path('storage/' . $brand->logo) }}" alt="{{ $brand?->nama_brand ?? 'Brand Logo' }}" style="max-height: 58px; max-width: 180px; object-fit: contain;">
         </div>
+        <div class="brand" style="color: #000000; font-weight: 900; font-size: 16pt; letter-spacing: -0.5px; margin-bottom: 4px;">{{ $brand?->nama_brand ?? 'Circle Sportwear' }}</div>
     @else
         <div class="brand" style="color: #000000; font-weight: 900; font-size: 20pt; letter-spacing: -0.5px;">{{ $brand?->nama_brand ?? 'Circle Sportwear' }}</div>
     @endif
@@ -66,7 +68,7 @@
         @endif
         @if ($brand?->tiktok)
             <a href="https://tiktok.com/@{{ ltrim($brand->tiktok, '@') }}" target="_blank" style="display: inline-block; text-decoration: none; background: #111827; border: 1px solid #111827; border-radius: 4px; padding: 2px 6px; font-size: 7.5pt; font-weight: bold; color: #FFFFFF; margin-bottom: 4px;">
-                <img src="{{ $compTiktokDataUri }}" style="width: 9px; height: 9px; vertical-align: middle; margin-right: 2px; margin-top: 1.5px;"><span style="vertical-align: middle; font-weight: bold;">TikTok: <span>@</span>{{ ltrim($brand->tiktok, '@') }}</span>
+                <img src="{{ $compTiktokDataUri }}" style="width: 9px; height: 9px; vertical-align: middle; margin-right: 2px; margin-top: 1.5px;"><span style="vertical-align: middle; font-weight: bold;"><span>@</span>{{ ltrim($brand->tiktok, '@') }}</span>
             </a>
         @endif
     </div>

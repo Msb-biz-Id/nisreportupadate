@@ -64,10 +64,10 @@ class RefundController extends Controller
             });
         }
         if ($startDate = $request->string('start_date')->toString()) {
-            $query->whereDate('created_at', '>=', $startDate);
+            $query->where('created_at', '>=', \Illuminate\Support\Carbon::parse($startDate)->startOfDay());
         }
         if ($endDate = $request->string('end_date')->toString()) {
-            $query->whereDate('created_at', '<=', $endDate);
+            $query->where('created_at', '<=', \Illuminate\Support\Carbon::parse($endDate)->endOfDay());
         }
 
         $allFiltered = (clone $query)->without(['order.pelanggan', 'brand', 'creator', 'reviewer', 'publisher'])->orderByDesc('created_at')->get()->map(fn ($ref) => [

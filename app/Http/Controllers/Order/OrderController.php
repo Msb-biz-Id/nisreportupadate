@@ -122,10 +122,10 @@ class OrderController extends Controller
         }
 
         if ($dateFrom = $request->string('date_from')->toString()) {
-            $query->whereDate('tanggal_masuk', '>=', $dateFrom);
+            $query->where('tanggal_masuk', '>=', $dateFrom . ' 00:00:00');
         }
         if ($dateTo = $request->string('date_to')->toString()) {
-            $query->whereDate('tanggal_masuk', '<=', $dateTo);
+            $query->where('tanggal_masuk', '<=', $dateTo . ' 23:59:59');
         }
 
         // Summary per status — query terpisah tanpa with/withCount agar GROUP BY aman
@@ -136,8 +136,8 @@ class OrderController extends Controller
             ->when($request->string('q')->toString(), fn ($q, $v) => $q->where(function ($w) use ($v) {
                 $w->where('no_po', 'like', "%{$v}%")->orWhere('nama_po', 'like', "%{$v}%");
             }))
-            ->when($request->string('date_from')->toString(), fn ($q, $v) => $q->whereDate('tanggal_masuk', '>=', $v))
-            ->when($request->string('date_to')->toString(), fn ($q, $v) => $q->whereDate('tanggal_masuk', '<=', $v))
+            ->when($request->string('date_from')->toString(), fn ($q, $v) => $q->where('tanggal_masuk', '>=', $v . ' 00:00:00'))
+            ->when($request->string('date_to')->toString(), fn ($q, $v) => $q->where('tanggal_masuk', '<=', $v . ' 23:59:59'))
             ->when($tab === 'archive', fn ($q) => $q->whereIn($statusPoCol, ['sudah_dikirim', 'selesai']))
             ->when($tab === 'active', fn ($q) => $q->whereNotIn($statusPoCol, ['sudah_dikirim', 'selesai']))
             ->selectRaw('status_po, count(*) as total')
@@ -261,10 +261,10 @@ class OrderController extends Controller
         }
 
         if ($dateFrom = $request->string('date_from')->toString()) {
-            $query->whereDate('tanggal_masuk', '>=', $dateFrom);
+            $query->where('tanggal_masuk', '>=', $dateFrom . ' 00:00:00');
         }
         if ($dateTo = $request->string('date_to')->toString()) {
-            $query->whereDate('tanggal_masuk', '<=', $dateTo);
+            $query->where('tanggal_masuk', '<=', $dateTo . ' 23:59:59');
         }
 
         $orders = $query->orderByDesc($createdAtCol)->get()->all();
@@ -392,7 +392,7 @@ class OrderController extends Controller
             ]);
 
             $this->syncItems($order, $data['items'] ?? []);
-            $order->update(['total_tagihan' => $order->is_special_order ? 0.0 : $order->items()->sum('subtotal')]);
+            $order->update(['total_tagihan' => $order->items()->sum('subtotal')]);
 
             $order->load('items');
             $totalTagihan = (float) $order->total_tagihan;
@@ -410,7 +410,7 @@ class OrderController extends Controller
                 'total_tagihan'   => $totalTagihan,
                 'bank_id'         => $data['bank_id'],
                 'dp_amount'       => $dp,
-                'sisa_pembayaran' => $order->is_special_order ? 0.0 : max(0, $totalTagihan - $dp),
+                'sisa_pembayaran' => max(0, $totalTagihan - $dp),
                 'diskon_type'     => $diskonNominalFromOrder > 0 ? 'nominal' : null,
                 'diskon_value'    => $diskonNominalFromOrder > 0 ? $diskonNominalFromOrder : 0.0,
                 'created_by'      => $user->id,
@@ -448,7 +448,16 @@ class OrderController extends Controller
         $data = $this->validatePayload($request);
         $user = $request->user();
 
-        DB::transaction(function () use ($order, $data, $user) {
+        $versionManager = app(\App\Services\POVersionManager::class);
+
+        // Ensure baseline version exists
+        if ($order->versions()->count() === 0) {
+            $versionManager->saveVersion($order, $user, 'Initial baseline state');
+        }
+
+        $oldSnapshot = $versionManager->buildSnapshot($order);
+
+        DB::transaction(function () use ($order, $data, $user, $versionManager, $oldSnapshot) {
             $updateData = [
                 'nama_po' => $data['nama_po'],
                 'reseller_display_brand_id' => $data['reseller_display_brand_id'] ?? null,
@@ -472,7 +481,8 @@ class OrderController extends Controller
             $order->update($updateData);
 
             $this->syncItems($order, $data['items'] ?? []);
-            $order->update(['total_tagihan' => $order->is_special_order ? 0.0 : $order->items()->sum('subtotal')]);
+            $order->load('items');
+            $order->update(['total_tagihan' => $order->items->sum('subtotal')]);
 
             // Sync invoice
             /** @var Invoice|null $invoice */
@@ -495,7 +505,7 @@ class OrderController extends Controller
 
                 $totalTagihan = $order->totalTagihan();
                 $totalPaid = $order->totalPaid();
-                $newSisa = $order->is_special_order ? 0.0 : max(0, $totalTagihan - $totalPaid);
+                $newSisa = max(0, $totalTagihan - $totalPaid);
 
                 $diskonNominalFromOrder = (float) $order->items->sum('discount_amount');
 
@@ -511,9 +521,48 @@ class OrderController extends Controller
                     'diskon_value' => $diskonNominalFromOrder > 0 ? $diskonNominalFromOrder : $invoice->diskon_value,
                 ]);
             }
+
+            // Save new version and log unified changes
+            $changeReason = $data['change_reason'] ?? 'Pembaruan detail PO';
+            $order->load(['items.namesets']);
+            $versionManager->saveVersion($order, $user, $changeReason);
+
+            $newSnapshot = $versionManager->buildSnapshot($order);
+            $versionManager->logChanges($order, $user, $oldSnapshot, $newSnapshot, $changeReason);
         });
 
         return redirect()->route('orders.show', $order->id)->with('success', 'PO berhasil diperbarui.');
+    }
+
+    public function getVersionComparison(Request $request, Order $order)
+    {
+        Gate::authorize('order.view');
+        $this->guardBrandOwnership($request, $order);
+
+        $v1Number = (int) $request->query('v1');
+        $v2Number = (int) $request->query('v2');
+
+        $v1 = $order->versions()->where('version', $v1Number)->firstOrFail();
+        $v2 = $order->versions()->where('version', $v2Number)->firstOrFail();
+
+        $versionManager = app(\App\Services\POVersionManager::class);
+        $diffs = $versionManager->compareSnapshots($v1->metadata, $v2->metadata);
+
+        return response()->json([
+            'v1' => [
+                'version' => $v1->version,
+                'creator' => $v1->creator?->name,
+                'created_at' => $v1->created_at->toIso8601String(),
+                'change_reason' => $v1->change_reason,
+            ],
+            'v2' => [
+                'version' => $v2->version,
+                'creator' => $v2->creator?->name,
+                'created_at' => $v2->created_at->toIso8601String(),
+                'change_reason' => $v2->change_reason,
+            ],
+            'diffs' => $diffs,
+        ]);
     }
 
     public function show(Request $request, Order $order)
@@ -561,11 +610,14 @@ class OrderController extends Controller
         $computedTotal = (float) $order->totalTagihan();
         $computedPaid  = (float) $order->totalPaid();
 
+        $versions = $order->versions()->with('creator:id,name')->orderBy('version', 'desc')->get();
+
         return Inertia::render('Order/Preview', [
             'order' => $order,
             'printings' => $printings,
             'banks' => $banks,
             'jenis_pembayarans' => $jenis_pembayarans,
+            'versions' => $versions,
             'dp_info' => [
                 'total_tagihan'    => $computedTotal,
                 'total_paid'       => $computedPaid,
@@ -1035,7 +1087,7 @@ class OrderController extends Controller
 
             $invoiceTotalTagihan = max(0, $grossSubtotal - $diskonNominal + $biayaPengiriman + $penambahanExcludingOngkir - $pengurangan);
             $totalPaid = (float) $order->totalPaid();
-            $sisaPembayaran = $order->is_special_order ? 0.0 : max(0, $invoiceTotalTagihan - $totalPaid);
+            $sisaPembayaran = max(0, $invoiceTotalTagihan - $totalPaid);
 
             $invoice->update([
                 'biaya_pengiriman' => $biayaPengiriman,
@@ -1045,7 +1097,7 @@ class OrderController extends Controller
             ]);
 
             // Sync is_lunas PO
-            if ($sisaPembayaran <= 0 || $order->is_special_order) {
+            if ($sisaPembayaran <= 0) {
                 $order->update([
                     'is_lunas' => true,
                     'lunas_at' => now(),
@@ -1656,6 +1708,7 @@ class OrderController extends Controller
     {
         return $request->validate([
             'nama_po' => ['required', 'string', 'max:255'],
+            'change_reason' => ['nullable', 'string', 'max:255'],
             'is_special_order' => ['boolean'],
             'tanggal_masuk' => ['required', 'date'],
             'deadline_customer' => ['required', 'date', 'after_or_equal:tanggal_masuk'],
@@ -1848,16 +1901,49 @@ class OrderController extends Controller
 
     private function logoDataUri(?string $logoPath): string
     {
-        if (!$logoPath) return '';
+        if (empty($logoPath)) return '';
         try {
-            $fullPath = public_path('storage/' . $logoPath);
-            if (file_exists($fullPath)) {
+            // Clean/normalize path
+            $normalizedPath = $logoPath;
+            
+            // If it's a URL, parse and get the path component
+            if (str_starts_with($logoPath, 'http://') || str_starts_with($logoPath, 'https://')) {
+                $parsed = parse_url($logoPath);
+                $normalizedPath = ltrim($parsed['path'] ?? '', '/');
+            }
+            
+            // Strip leading slashes and storage prefix
+            $normalizedPath = ltrim($normalizedPath, '/');
+            if (str_starts_with($normalizedPath, 'storage/')) {
+                $normalizedPath = substr($normalizedPath, 8);
+            }
+
+            // Try candidate paths in order of preference
+            $candidates = [
+                storage_path('app/public/' . $normalizedPath),
+                public_path('storage/' . $normalizedPath),
+                public_path($normalizedPath),
+                $logoPath, // fallback
+            ];
+
+            $fullPath = null;
+            foreach ($candidates as $candidate) {
+                if (!empty($candidate) && file_exists($candidate) && !is_dir($candidate)) {
+                    $fullPath = $candidate;
+                    break;
+                }
+            }
+
+            if ($fullPath) {
                 $type = pathinfo($fullPath, PATHINFO_EXTENSION);
+                if (empty($type)) {
+                    $type = 'png';
+                }
                 $data = file_get_contents($fullPath);
                 return 'data:image/' . $type . ';base64,' . base64_encode($data);
             }
         } catch (\Throwable $e) {
-            // fallback
+            \Illuminate\Support\Facades\Log::error("logoDataUri failed in OrderController for {$logoPath}: " . $e->getMessage());
         }
         return '';
     }

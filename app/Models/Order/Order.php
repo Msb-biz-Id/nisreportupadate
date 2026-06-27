@@ -24,14 +24,7 @@ class Order extends Model
 {
     use HasFactory, HasUuidAndSoftDeletes;
 
-    protected static function booted()
-    {
-        static::saving(function ($order) {
-            if ($order->is_special_order) {
-                $order->total_tagihan = 0.0;
-            }
-        });
-    }
+
 
     public const STATUSES = [
         'draft', 'published', 'on_progress', 'selesai_produksi',
@@ -94,6 +87,7 @@ class Order extends Model
     public function changeLogs(): HasMany { return $this->hasMany(POChangeLog::class); }
     public function invoices(): HasMany { return $this->hasMany(Invoice::class); }
     public function refunds(): HasMany { return $this->hasMany(Refund::class); }
+    public function versions(): HasMany { return $this->hasMany(POVersion::class); }
 
     public function isLocked(): bool
     {
@@ -111,10 +105,6 @@ class Order extends Model
 
     public function totalTagihan(): float
     {
-        if ($this->is_special_order) {
-            return 0.0;
-        }
-
         // Ensure relations are loaded to prevent N+1 and minimize queries
         if (!$this->relationLoaded('items')) {
             $this->load('items');
@@ -166,10 +156,6 @@ class Order extends Model
 
     public function totalPaid(): float
     {
-        if ($this->is_special_order) {
-            return 0.0;
-        }
-
         // Ensure relations are loaded to prevent N+1 and minimize queries
         if (!$this->relationLoaded('payments') || $this->payments->contains(fn($p) => !$p->relationLoaded('masterJenisPembayaran'))) {
             $this->load('payments.masterJenisPembayaran');
@@ -217,17 +203,11 @@ class Order extends Model
 
     public function sisaTagihan(): float
     {
-        if ($this->is_special_order) {
-            return 0.0;
-        }
         return max(0, $this->totalTagihan() - $this->totalPaid());
     }
 
     public function getTotalTagihanAttribute(mixed $value)
     {
-        if ($this->is_special_order) {
-            return 0.0;
-        }
         return (float) $value;
     }
 

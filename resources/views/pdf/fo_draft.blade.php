@@ -16,9 +16,19 @@
             font-weight: 400;
             src: url('{{ public_path("fonts/NotoSansArabic-Regular.ttf") }}') format('truetype');
         }
+        @font-face {
+            font-family: 'Noto Sans Javanese';
+            font-style: normal;
+            font-weight: 400;
+            src: url('{{ public_path("fonts/NotoSansJavanese-Regular.ttf") }}') format('truetype');
+        }
         
         .cjk-font {
             font-family: 'Noto Sans JP', sans-serif !important;
+            text-transform: none !important;
+        }
+        .javanese-font {
+            font-family: 'Noto Sans Javanese', sans-serif !important;
             text-transform: none !important;
         }
         .arabic-font {
@@ -204,18 +214,18 @@
                 <td style="width: 40%; padding: 0 0 0 15px; vertical-align: top; text-align: center;">
                     <div style="border: 2px solid #000; padding: 12px 10px; min-height: 110px; background: #fff; text-align: center;">
                         @if(isset($resellerDisplayBrand) && $resellerDisplayBrand)
-                            <div style="font-size: 11pt; font-weight: 900; color: #000; line-height: 1.2;">
+                            <div style="font-size: 11pt; font-weight: 900; color: #000; line-height: 1.2; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px;">
                                 RESELLER:<br>
                                 <span style="font-size: 12.5pt; font-weight: 900;">{{ strtoupper($resellerDisplayBrand->nama_brand) }}</span>
                             </div>
                         @elseif(isset($brand) && $brand && $brand->isReseller())
-                            <div style="font-size: 11pt; font-weight: 900; color: #000; line-height: 1.2;">
+                            <div style="font-size: 11pt; font-weight: 900; color: #000; line-height: 1.2; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px;">
                                 RESELLER:<br>
                                 <span style="font-size: 12.5pt; font-weight: 900;">{{ strtoupper($brand->nama_brand) }}</span>
                             </div>
                         @else
-                            <div style="font-size: 15pt; font-weight: 900; line-height: 1.2;">
-                                {{ strtoupper($brand->nama_brand) }}
+                            <div style="font-size: 15pt; font-weight: 900; line-height: 1.2; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px;">
+                                {{ strtoupper($brand->nama_brand ?? 'BRAND') }}
                             </div>
                         @endif
                         <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
@@ -397,12 +407,29 @@
         </div>
         @endif
 
-        {{-- ===== REFERENSI DESAIN & GAMBAR (PER ITEM) ===== --}}
+        @php
+            $standarSizes = ['XS ANAK','S ANAK','M ANAK','L ANAK','XL ANAK',
+                             'XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL','7XL','8XL','9XL','10XL'];
+        @endphp
+
+        {{-- ===== DETAIL PER ITEM (DESAIN & NAMESET) ===== --}}
         @foreach ($nonAddonItems as $item)
             @php
                 $hasDesain = !empty($item['gambar_desain']) || !empty($item['ket_atasan']) || !empty($item['ket_bawahan'])
                           || !empty($item['jenis_kerah']) || !empty($item['gambar_kerah']) || !empty($item['gambar_ket_tambahan']);
+
+                $namesets = collect($item['namesets'] ?? []);
+                $filled   = $namesets->filter(fn($ns) =>
+                    !empty(trim($ns['nama_punggung'] ?? '')) || !empty(trim($ns['nomor_punggung'] ?? '')) ||
+                    !empty(trim($ns['nama_dada'] ?? ''))     || !empty(trim($ns['nomor_dada'] ?? ''))     ||
+                    !empty(trim($ns['nama_lengan'] ?? ''))   || !empty(trim($ns['nomor_lengan'] ?? ''))   ||
+                    !empty(trim($ns['nama_punggung_2'] ?? '')) || !empty(trim($ns['nomor_punggung_2'] ?? '')) ||
+                    !empty(trim($ns['size_id'] ?? ''))       || !empty(trim($ns['size_label'] ?? ''))     ||
+                    !empty(trim($ns['size_celana_id'] ?? ''))|| !empty(trim($ns['size_celana_label'] ?? '')) ||
+                    !empty(trim($ns['keterangan'] ?? ''))
+                );
             @endphp
+
             @if($hasDesain)
             <div class="page-break"></div>
 
@@ -413,15 +440,15 @@
 
                 @if(!empty($item['gambar_desain']))
                     @php $dPath = \App\Support\PdfHelper::resolveImageForPdf($item['gambar_desain']); @endphp
-                    @if(!empty($dPath) && file_exists($dPath))
+                    @if(!empty($dPath))
                     <div class="img-box" style="border-top:none; padding:2px; margin-bottom:6px;">
                         <img src="{{ $dPath }}" style="max-width: 100%; max-height: 520px; display: block; margin: 0 auto;">
                     </div>
                     @else
-                    <div class="img-box" style="border-top:none; height:120px; line-height:120px; color:#999; font-weight:bold;">[ GAMBAR DESAIN TIDAK DITEMUKAN ]</div>
+                    <div class="img-box" style="border-top:none; height:60px; line-height:60px; color:#64748b; font-style:italic; font-size:9.5pt;">Gambar desain tidak ditemukan</div>
                     @endif
                 @else
-                <div class="img-box" style="border-top:none; height:120px; line-height:120px; color:#999; font-weight:bold;">[ GAMBAR DESAIN BELUM DIUNGGAH ]</div>
+                <div class="img-box" style="border-top:none; height:60px; line-height:60px; color:#64748b; font-style:italic; font-size:9.5pt;">Gambar desain belum diunggah</div>
                 @endif
 
                 <table style="width:100%; border-collapse:collapse; border:1px solid #000; font-size:10pt; margin-bottom:0;">
@@ -459,15 +486,15 @@
                                 <div style="border:1px solid #000; border-top:none; padding:6px; text-align:center; background:#fff;">
                                     @if(!empty($item['gambar_kerah']))
                                         @php $kPath = \App\Support\PdfHelper::resolveImageForPdf($item['gambar_kerah']); @endphp
-                                        @if(!empty($kPath) && file_exists($kPath))
+                                        @if(!empty($kPath))
                                         <div style="text-align:center;">
                                             <img src="{{ $kPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
                                         </div>
                                         @else
-                                        <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR KERAH TIDAK DITEMUKAN ]</div>
+                                        <div style="color:#64748b; font-style:italic; font-size: 8.5pt; padding:15px 0;">Gambar kerah tidak ditemukan</div>
                                         @endif
                                     @else
-                                    <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR KERAH BELUM DIUNGGAH ]</div>
+                                    <div style="color:#64748b; font-style:italic; font-size: 8.5pt; padding:15px 0;">Gambar kerah belum diunggah</div>
                                     @endif
                                 </div>
                             </div>
@@ -486,12 +513,12 @@
                                 </div>
                                 <div style="border:1px solid #000; border-top:none; padding:6px; text-align:center; background:#fff;">
                                     @php $ktPath = \App\Support\PdfHelper::resolveImageForPdf($item['gambar_ket_tambahan']); @endphp
-                                    @if(!empty($ktPath) && file_exists($ktPath))
+                                    @if(!empty($ktPath))
                                     <div style="text-align:center;">
                                         <img src="{{ $ktPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
                                     </div>
                                     @else
-                                    <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR TIDAK DITEMUKAN ]</div>
+                                    <div style="color:#64748b; font-style:italic; font-size: 8.5pt; padding:15px 0;">Gambar tambahan tidak ditemukan</div>
                                     @endif
                                 </div>
                             </div>
@@ -501,27 +528,11 @@
             </table>
             @endif
             @endif
-        @endforeach
 
-        {{-- ===== NAMESETS DATA (PER ITEM) ===== --}}
-        @php
-            $standarSizes = ['XS ANAK','S ANAK','M ANAK','L ANAK','XL ANAK',
-                             'XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL','7XL','8XL','9XL','10XL'];
-        @endphp
+            @if($filled->isNotEmpty())
+            <div class="page-break"></div>
 
-        @foreach ($nonAddonItems as $item)
             @php
-                $namesets = collect($item['namesets'] ?? []);
-                $filled   = $namesets->filter(fn($ns) =>
-                    !empty(trim($ns['nama_punggung'] ?? '')) || !empty(trim($ns['nomor_punggung'] ?? '')) ||
-                    !empty(trim($ns['nama_dada'] ?? ''))     || !empty(trim($ns['nomor_dada'] ?? ''))     ||
-                    !empty(trim($ns['nama_lengan'] ?? ''))   || !empty(trim($ns['nomor_lengan'] ?? ''))   ||
-                    !empty(trim($ns['nama_punggung_2'] ?? '')) || !empty(trim($ns['nomor_punggung_2'] ?? '')) ||
-                    !empty(trim($ns['size_id'] ?? ''))       || !empty(trim($ns['size_label'] ?? ''))     ||
-                    !empty(trim($ns['size_celana_id'] ?? ''))|| !empty(trim($ns['size_celana_label'] ?? '')) ||
-                    !empty(trim($ns['keterangan'] ?? ''))
-                );
-
                 $hasCustomization = $filled->contains(fn($ns) =>
                     !empty(trim($ns['nama_punggung'] ?? '')) || !empty(trim($ns['nomor_punggung'] ?? '')) ||
                     !empty(trim($ns['nama_dada'] ?? ''))     || !empty(trim($ns['nomor_dada'] ?? ''))     ||
@@ -564,12 +575,7 @@
                 $sizeBawahanRecap = [];
                 foreach ($standarSizes as $s) { if (isset($sizeBawahanRaw[$s])) $sizeBawahanRecap[$s] = $sizeBawahanRaw[$s]; }
                 foreach ($sizeBawahanRaw as $s => $c) { if (!in_array($s, $standarSizes)) $sizeBawahanRecap[$s] = $c; }
-            @endphp
 
-            @if($filled->isNotEmpty())
-            <div class="page-break"></div>
-
-            @php
                 $cols = [];
                 $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 6];
                 if ($hasNamaPunggung) {

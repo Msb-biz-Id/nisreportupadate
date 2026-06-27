@@ -116,6 +116,199 @@ function RelockDialog({ order, open, onOpenChange, canUnlock }) {
     );
 }
 
+function CompareVersionsDialog({ order, versions = [], open, onOpenChange, initialV1, initialV2 }) {
+    const [v1, setV1] = useState(initialV1 ? String(initialV1) : '');
+    const [v2, setV2] = useState(initialV2 ? String(initialV2) : '');
+    const [compareData, setCompareData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        if (initialV1) setV1(String(initialV1));
+        if (initialV2) setV2(String(initialV2));
+    }, [initialV1, initialV2]);
+
+    const fetchComparison = (ver1, ver2) => {
+        if (!ver1 || !ver2) return;
+        setLoading(true);
+        setError(null);
+        setCompareData(null);
+
+        fetch(route('orders.versions.compare', { order: order.id, v1: ver1, v2: ver2 }))
+            .then(res => {
+                if (!res.ok) throw new Error('Gagal memuat data perbandingan');
+                return res.json();
+            })
+            .then(data => {
+                setCompareData(data);
+                setLoading(false);
+            })
+            .catch(err => {
+                setError(err.message);
+                setLoading(false);
+            });
+    };
+
+    useEffect(() => {
+        if (open && v1 && v2) {
+            fetchComparison(v1, v2);
+        }
+    }, [open, v1, v2]);
+
+    const formatDiffValue = (field, val) => {
+        if (val === null || val === undefined || val === '') return '—';
+        if (typeof val === 'boolean') return val ? 'Ya' : 'Tidak';
+        
+        const num = Number(val);
+        if (!isNaN(num) && (
+            field.includes('tagihan') || 
+            field.includes('harga') || 
+            field.includes('subtotal') || 
+            field.includes('amount') || 
+            (field.includes('discount_value') && !field.includes('type'))
+        )) {
+            return formatRupiah(num);
+        }
+        return String(val);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-6 overflow-hidden">
+                <DialogHeader className="pb-4 border-b">
+                    <DialogTitle className="text-lg font-bold text-slate-900">Perbandingan Versi Detail PO</DialogTitle>
+                    <DialogDescription>
+                        Bandingkan perubahan data PO secara granular antar versi snapshot.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="flex flex-wrap items-end gap-4 py-4 bg-slate-50 p-4 rounded-xl border border-slate-100 mt-2">
+                    <div className="flex-1 min-w-[200px]">
+                        <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Versi Pembanding (Lama)</Label>
+                        <Select value={v1} onValueChange={(val) => setV1(val)}>
+                            <SelectTrigger className="w-full bg-white">
+                                <SelectValue placeholder="Pilih Versi" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {versions.map((ver) => (
+                                    <SelectItem key={ver.version} value={String(ver.version)}>
+                                        Versi {ver.version} ({formatDateTime(ver.created_at)} - {ver.creator?.name || 'Sistem'})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex items-center justify-center pb-2.5">
+                        <span className="text-slate-400 font-bold">VS</span>
+                    </div>
+
+                    <div className="flex-1 min-w-[200px]">
+                        <Label className="text-xs font-semibold text-slate-600 mb-1.5 block">Versi Target (Baru)</Label>
+                        <Select value={v2} onValueChange={(val) => setV2(val)}>
+                            <SelectTrigger className="w-full bg-white">
+                                <SelectValue placeholder="Pilih Versi" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {versions.map((ver) => (
+                                    <SelectItem key={ver.version} value={String(ver.version)}>
+                                        Versi {ver.version} ({formatDateTime(ver.created_at)} - {ver.creator?.name || 'Sistem'})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto min-h-[300px] mt-4 pr-1">
+                    {loading && (
+                        <div className="flex flex-col items-center justify-center py-20 space-y-3">
+                            <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+                            <p className="text-sm font-medium text-slate-500">Memuat data perbandingan...</p>
+                        </div>
+                    )}
+
+                    {error && (
+                        <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-xl p-4 flex items-center gap-2">
+                            <XCircle className="h-5 w-5 shrink-0" />
+                            <p>{error}</p>
+                        </div>
+                    )}
+
+                    {!loading && !error && compareData && (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50/50 p-3 rounded-lg border border-slate-100">
+                                <div>
+                                    <span className="font-semibold text-slate-500 block mb-1">Catatan Versi {compareData.v1.version}:</span>
+                                    <p className="text-slate-700 italic">"{compareData.v1.change_reason || '—'}"</p>
+                                    <span className="text-[10px] text-slate-400 block mt-1">Oleh: {compareData.v1.creator || 'Sistem'} · {formatDateTime(compareData.v1.created_at)}</span>
+                                </div>
+                                <div className="border-l pl-4">
+                                    <span className="font-semibold text-slate-500 block mb-1">Catatan Versi {compareData.v2.version}:</span>
+                                    <p className="text-slate-700 italic">"{compareData.v2.change_reason || '—'}"</p>
+                                    <span className="text-[10px] text-slate-400 block mt-1">Oleh: {compareData.v2.creator || 'Sistem'} · {formatDateTime(compareData.v2.created_at)}</span>
+                                </div>
+                            </div>
+
+                            {compareData.diffs.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 text-center">
+                                    <CheckCircle2 className="h-12 w-12 text-emerald-500 mb-3" />
+                                    <h4 className="text-sm font-bold text-slate-800">Tidak Ada Perbedaan</h4>
+                                    <p className="text-xs text-slate-500 max-w-md mt-1">
+                                        Seluruh data PO di antara kedua versi ini identik. Tidak ada perubahan yang terdeteksi.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="border rounded-xl overflow-hidden bg-white shadow-sm">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-xs border-collapse">
+                                            <thead>
+                                                <tr className="border-b bg-slate-50/80">
+                                                    <th className="p-3 text-left font-semibold text-slate-600 w-1/3">Elemen / Kolom</th>
+                                                    <th className="p-3 text-left font-semibold text-red-800 bg-red-50/30 w-1/3">Versi {compareData.v1.version} (Lama)</th>
+                                                    <th className="p-3 text-left font-semibold text-emerald-800 bg-emerald-50/30 w-1/3">Versi {compareData.v2.version} (Baru)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {compareData.diffs.map((diff, index) => (
+                                                    <tr key={index} className="hover:bg-slate-50/30 transition-colors">
+                                                        <td className="p-3 font-semibold text-slate-700">{diff.label}</td>
+                                                        <td className="p-3 text-slate-600 bg-red-50/10 line-through">
+                                                            {formatDiffValue(diff.field, diff.old)}
+                                                        </td>
+                                                        <td className="p-3 text-slate-900 bg-emerald-50/10 font-bold">
+                                                            {formatDiffValue(diff.field, diff.new)}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {!loading && !compareData && !error && (
+                        <div className="flex flex-col items-center justify-center py-20 text-center">
+                            <AlertTriangle className="h-10 w-10 text-amber-500 mb-2" />
+                            <p className="text-sm font-semibold text-slate-700">Pilih dua versi untuk dibandingkan</p>
+                            <p className="text-xs text-slate-500 mt-1">Tentukan versi pembanding dan target di atas.</p>
+                        </div>
+                    )}
+                </div>
+
+                <DialogFooter className="pt-4 border-t mt-4 flex justify-end">
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                        Tutup
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+
 function PaymentTypeInfo({ selectedJp, amount }) {
     if (!selectedJp) return null;
 
@@ -369,7 +562,7 @@ function TimelineForm({ order, onDone }) {
     );
 }
 
-export default function OrderPreview({ order, can, dp_info = null, printings = [], banks = [], jenis_pembayarans = [] }) {
+export default function OrderPreview({ order, can, dp_info = null, printings = [], banks = [], jenis_pembayarans = [], versions = [] }) {
     const { auth } = usePage().props;
     const user = auth?.user;
     const [openUnlock, setOpenUnlock] = useState(false);
@@ -380,11 +573,15 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
     const [openEditPayment, setOpenEditPayment] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState(null);
     const [copied, setCopied] = useState(false);
+    const [openCompare, setOpenCompare] = useState(false);
+    const [selectedV1, setSelectedV1] = useState('');
+    const [selectedV2, setSelectedV2] = useState('');
     const [collapsedSections, setCollapsedSections] = useState({
         pelanggan: true,
         timeline: true,
         pembayaran: true,
         changeLog: true,
+        versionHistory: true,
         detailPo: true,
         items: true,
         progress: true,
@@ -811,6 +1008,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                             timeline: false,
                             pembayaran: false,
                             changeLog: false,
+                            versionHistory: false,
                             detailPo: false,
                             items: false,
                             progress: false,
@@ -829,6 +1027,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                             timeline: true,
                             pembayaran: true,
                             changeLog: true,
+                            versionHistory: true,
                             detailPo: true,
                             items: true,
                             progress: true,
@@ -980,6 +1179,87 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                             })
                                         ) : (
                                             <div className="text-xs text-slate-400 italic text-center py-4">Belum ada riwayat perubahan</div>
+                                        )}
+                                    </CardContent>
+                                )}
+                            </Card>
+
+                            {/* Riwayat Versi PO */}
+                            <Card className="border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+                                <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3 cursor-pointer select-none" onClick={() => toggleSection('versionHistory')}>
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                                            <RotateCw className="h-4 w-4 text-slate-500" /> Riwayat Versi PO
+                                        </CardTitle>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100/50" onClick={(e) => { e.stopPropagation(); toggleSection('versionHistory'); }}>
+                                            {collapsedSections.versionHistory ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronUp className="h-4 w-4 text-slate-500" />}
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                {!collapsedSections.versionHistory && (
+                                    <CardContent className="p-4 space-y-4">
+                                        {versions.length > 1 && (
+                                            <div className="flex justify-between items-center bg-blue-50/30 p-2.5 rounded-xl border border-blue-100/50 mb-2">
+                                                <span className="text-xs text-blue-800 font-medium">Bandingkan versi detail PO</span>
+                                                <Button 
+                                                    size="sm" 
+                                                    variant="outline" 
+                                                    className="h-7 text-xs bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
+                                                    onClick={() => {
+                                                        const latest = versions[0]?.version || '';
+                                                        const prev = versions[1]?.version || latest;
+                                                        setSelectedV1(prev);
+                                                        setSelectedV2(latest);
+                                                        setOpenCompare(true);
+                                                    }}
+                                                >
+                                                    Mulai Bandingkan
+                                                </Button>
+                                            </div>
+                                        )}
+                                        {versions.length > 0 ? (
+                                            <div className="space-y-3">
+                                                {versions.map((ver, idx) => {
+                                                    const prevVer = versions[idx + 1];
+                                                    return (
+                                                        <div key={ver.id} className="relative pl-6 pb-3 border-l-2 border-slate-100 last:pb-0 last:border-l-0">
+                                                            <div className="absolute -left-[6px] top-1.5 h-[10px] w-[10px] rounded-full border-2 bg-blue-500 border-blue-100" />
+                                                            
+                                                            <div className="flex flex-col gap-1">
+                                                                <div className="flex items-center justify-between gap-1 text-xs">
+                                                                    <span className="font-bold text-slate-805">
+                                                                        Versi {ver.version} {idx === 0 && <Badge variant="success" className="text-[9px] py-0 px-1 hover:bg-emerald-100 ml-1">Terbaru</Badge>}
+                                                                    </span>
+                                                                    <span className="text-slate-400 font-medium">
+                                                                        {formatDateTime(ver.created_at)}
+                                                                    </span>
+                                                                </div>
+
+                                                                <div className="text-xs text-slate-650 bg-slate-50/50 p-2 rounded-lg border border-slate-100/30 mt-1">
+                                                                    <p className="italic text-slate-700">"{ver.change_reason || 'Pembaruan data PO'}"</p>
+                                                                    <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-100/50 text-[10px] text-slate-500">
+                                                                        <span>Oleh: <strong className="text-slate-700">{ver.creator?.name || 'Sistem'}</strong></span>
+                                                                        {prevVer && (
+                                                                            <button 
+                                                                                onClick={() => {
+                                                                                    setSelectedV1(prevVer.version);
+                                                                                    setSelectedV2(ver.version);
+                                                                                    setOpenCompare(true);
+                                                                                }}
+                                                                                className="text-blue-600 font-semibold hover:underline flex items-center gap-0.5"
+                                                                            >
+                                                                                Bandingkan dgn v{prevVer.version} →
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="text-xs text-slate-400 italic text-center py-4">Belum ada riwayat versi detail PO</div>
                                         )}
                                     </CardContent>
                                 )}
@@ -1277,8 +1557,12 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     ? item.logo_names.join(', ')
                                     : item.logo?.nama ?? '';
 
+                                const jenisSetelanVal = typeof item.jenis_setelan === 'object'
+                                    ? (item.jenis_setelan?.nama ?? '')
+                                    : (SETELAN_LABEL[item.jenis_setelan] ?? item.jenis_setelan ?? '');
+
                                 const specFields = [
-                                    item.jenis_setelan && { label: 'Setelan', value: SETELAN_LABEL[item.jenis_setelan] ?? item.jenis_setelan },
+                                    item.jenis_setelan && { label: 'Setelan', value: jenisSetelanVal },
                                     item.pola && { label: 'Pola', value: item.pola === 'perempuan' ? 'Perempuan' : 'Standart' },
                                     bahanAtasanStr && { label: 'Bahan Atasan', value: bahanAtasanStr },
                                     bahanBawahanStr && { label: 'Bahan Bawahan', value: bahanBawahanStr },
@@ -1332,7 +1616,9 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                 {specFields.map((f) => (
                                                     <div key={f.label}>
                                                         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{f.label}</span>
-                                                        <p className="font-medium text-slate-800">{f.value}</p>
+                                                        <p className="font-medium text-slate-800">
+                                                            {typeof f.value === 'object' ? (f.value?.nama ?? f.value?.ukuran ?? JSON.stringify(f.value)) : f.value}
+                                                        </p>
                                                     </div>
                                                 ))}
                                             </div>
@@ -1344,7 +1630,9 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                 {jahitanFields.map((f) => (
                                                     <div key={f.label}>
                                                         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{f.label}</span>
-                                                        <p className="font-medium text-slate-800">{f.value}</p>
+                                                        <p className="font-medium text-slate-800">
+                                                            {typeof f.value === 'object' ? (f.value?.nama ?? f.value?.ukuran ?? JSON.stringify(f.value)) : f.value}
+                                                        </p>
                                                     </div>
                                                 ))}
                                                 {item.resleting?.nama && (
@@ -1423,14 +1711,14 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                                 {nss.map((ns, ni) => (
                                                                     <tr key={ns.id || ni} className="border-b hover:bg-slate-50">
                                                                         <td className="px-2 py-1 border text-center font-bold text-slate-500">{ni + 1}</td>
-                                                                        {hasNamaPunggung && <td className="px-2 py-1 border font-medium uppercase">{ns.nama_punggung || '—'}</td>}
+                                                                        {hasNamaPunggung && <td className="px-2 py-1 border font-medium">{ns.nama_punggung || '—'}</td>}
                                                                         {hasNoPunggung && <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung || '—'}</td>}
-                                                                        {hasNamaDada && <td className="px-2 py-1 border font-medium uppercase">{ns.nama_dada || '—'}</td>}
+                                                                        {hasNamaDada && <td className="px-2 py-1 border font-medium">{ns.nama_dada || '—'}</td>}
                                                                         {hasNoDada && <td className="px-2 py-1 border text-center font-mono">{ns.nomor_dada || '—'}</td>}
-                                                                        {hasNamaLengan && <td className="px-2 py-1 border font-medium uppercase">{ns.nama_lengan || '—'}</td>}
+                                                                        {hasNamaLengan && <td className="px-2 py-1 border font-medium">{ns.nama_lengan || '—'}</td>}
                                                                         {hasNoLengan && <td className="px-2 py-1 border text-center font-mono">{ns.nomor_lengan || '—'}</td>}
                                                                         {hasNoPunggung2 && <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung_2 || '—'}</td>}
-                                                                        {hasNamaPunggung2 && <td className="px-2 py-1 border font-medium uppercase">{ns.nama_punggung_2 || '—'}</td>}
+                                                                        {hasNamaPunggung2 && <td className="px-2 py-1 border font-medium">{ns.nama_punggung_2 || '—'}</td>}
                                                                         {hasSA && <td className="px-2 py-1 border text-center">{ns.size ? ns.size.ukuran : (ns.size_label || '—')}</td>}
                                                                         {hasSB && <td className="px-2 py-1 border text-center">{ns.size_celana ? ns.size_celana.ukuran : (ns.size_celana_label || '—')}</td>}
                                                                         {hasKet && <td className="px-2 py-1 border text-muted-foreground">{ns.keterangan || '—'}</td>}
@@ -1631,6 +1919,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
 
             <UnlockDialog order={order} open={openUnlock} onOpenChange={setOpenUnlock} canUnlock={can?.unlock} />
             <RelockDialog order={order} open={openRelock} onOpenChange={setOpenRelock} canUnlock={can?.unlock} />
+            <CompareVersionsDialog order={order} versions={versions} open={openCompare} onOpenChange={setOpenCompare} initialV1={selectedV1} initialV2={selectedV2} />
             <AddPaymentDialog order={order} open={openPayment} onOpenChange={setOpenPayment} banks={banks} jenis_pembayarans={jenis_pembayarans} />
             <EditPaymentDialog payment={selectedPayment} open={openEditPayment} onOpenChange={setOpenEditPayment} banks={banks} jenis_pembayarans={jenis_pembayarans} />
 

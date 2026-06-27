@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     Search, Receipt, CheckCircle2, ExternalLink, Copy, Calendar,
     ShieldCheck, Clock, Banknote, AlertTriangle, Plus, Sparkles,
@@ -80,6 +80,100 @@ const DEPOSIT_STATUS_VARIANT = {
     expired: 'secondary'
 };
 
+const StickyScrollbar = ({ targetRef, minWidth = '1200px' }) => {
+    const scrollbarRef = useRef(null);
+    const [show, setShow] = useState(false);
+    const [width, setWidth] = useState(minWidth);
+
+    useEffect(() => {
+        const target = targetRef.current;
+        if (!target) return;
+
+        let frameId = null;
+        const updateSize = () => {
+            if (frameId) cancelAnimationFrame(frameId);
+            frameId = requestAnimationFrame(() => {
+                const scrollWidth = target.scrollWidth;
+                const clientWidth = target.clientWidth;
+                const hasOverflow = scrollWidth > clientWidth;
+                setShow((prev) => (prev !== hasOverflow ? hasOverflow : prev));
+                setWidth((prev) => {
+                    const nextWidth = `${scrollWidth}px`;
+                    return prev !== nextWidth ? nextWidth : prev;
+                });
+            });
+        };
+
+        updateSize();
+        const resizeObserver = new ResizeObserver(updateSize);
+        resizeObserver.observe(target);
+
+        let isSyncingTarget = false;
+        let isSyncingScrollbar = false;
+
+        const handleTargetScroll = () => {
+            if (isSyncingScrollbar) {
+                isSyncingScrollbar = false;
+                return;
+            }
+            if (scrollbarRef.current) {
+                isSyncingTarget = true;
+                scrollbarRef.current.scrollLeft = target.scrollLeft;
+            }
+        };
+
+        const handleScrollbarScroll = () => {
+            if (isSyncingTarget) {
+                isSyncingTarget = false;
+                return;
+            }
+            if (scrollbarRef.current) {
+                isSyncingScrollbar = true;
+                target.scrollLeft = scrollbarRef.current.scrollLeft;
+            }
+        };
+
+        target.addEventListener('scroll', handleTargetScroll);
+        const scrollbarEl = scrollbarRef.current;
+        if (scrollbarEl) {
+            scrollbarEl.addEventListener('scroll', handleScrollbarScroll);
+        }
+
+        return () => {
+            if (frameId) cancelAnimationFrame(frameId);
+            resizeObserver.disconnect();
+            target.removeEventListener('scroll', handleTargetScroll);
+            if (scrollbarEl) {
+                scrollbarEl.removeEventListener('scroll', handleScrollbarScroll);
+            }
+        };
+    }, [targetRef]);
+
+    if (!show) return null;
+
+    return (
+        <>
+            <style>{`
+                .hide-scrollbar-x::-webkit-scrollbar {
+                    height: 0px;
+                    background: transparent;
+                }
+                .hide-scrollbar-x {
+                    scrollbar-width: none;
+                    -ms-overflow-style: none;
+                }
+            `}</style>
+            <div
+                ref={scrollbarRef}
+                className="sticky bottom-0 left-0 right-0 z-40 w-full overflow-x-auto bg-slate-50 border-t border-slate-200"
+                style={{ height: '12px' }}
+            >
+                <div style={{ width, height: '1px' }} />
+            </div>
+        </>
+    );
+};
+
 export default function InvoiceList({ 
     invoices, 
     all_filtered_invoices = [], 
@@ -94,6 +188,7 @@ export default function InvoiceList({
     can = {} 
 }) {
     const { auth, brandContext } = usePage().props;
+    const tableContainerRef = useRef(null);
     const user = auth?.user;
     const hasFinanceView = user?.permissions?.includes('finance.view') || user?.roles?.includes('superadmin') || user?.roles?.includes('owner') || user?.roles?.includes('admin_keuangan');
     const dashboardUrl = hasFinanceView ? route('invoices.index') : route('dashboard');
@@ -677,38 +772,41 @@ export default function InvoiceList({
 
                 {/* Tabs Content */}
                 <Card className="border border-slate-150 shadow-sm overflow-hidden rounded-2xl">
-                    <CardContent className="p-0">
-                        {activeTab === 'belum_lunas' && (
-                            <Table>
+                    <CardContent className="p-6 pt-0">
+                        <div ref={tableContainerRef} className="overflow-auto max-h-[calc(100vh-320px)] rounded-lg border hide-scrollbar-x">
+                            {activeTab === 'belum_lunas' && (
+                            <Table className="min-w-[1200px] border-collapse">
                                 <TableHeader className="bg-slate-50">
                                     <TableRow>
-                                        <TableHead className="font-bold text-slate-700">No. Invoice</TableHead>
-                                        <TableHead className="font-bold text-slate-700">No. PO</TableHead>
-                                        <TableHead className="font-bold text-slate-700">Pelanggan</TableHead>
-                                        <TableHead className="font-bold text-slate-700">Tgl Terbit</TableHead>
-                                        <TableHead className="font-bold text-slate-700 text-right">Total Tagihan</TableHead>
-                                        <TableHead className="font-bold text-slate-700 text-right text-orange-600">Sisa Tagihan</TableHead>
-                                        <TableHead className="font-bold text-slate-700">Status</TableHead>
-                                        <TableHead className="font-bold text-slate-700 text-right">Aksi</TableHead>
+                                        <TableHead className="sticky top-0 left-0 z-30 bg-slate-50 font-bold text-slate-700 min-w-[150px] w-[150px] shadow-[inset_-1px_0_0_0_#e2e8f0]">No. Invoice</TableHead>
+                                        <TableHead className="sticky top-0 left-[150px] z-30 bg-slate-50 font-bold text-slate-700 min-w-[180px] w-[180px] shadow-[inset_-1px_0_0_0_#e2e8f0]">No. PO</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[180px]">Nama PO</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[180px]">Pelanggan</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[120px]">Tgl Terbit</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[130px]">Total Tagihan</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right text-orange-600 min-w-[130px]">Sisa Tagihan</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[100px]">Status</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[160px]">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {unpaidInvoices.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} className="py-16 text-center text-sm text-slate-400 italic">
+                                            <TableCell colSpan={9} className="py-16 text-center text-sm text-slate-400 italic">
                                                 Tidak ada invoice belum lunas.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
                                         unpaidInvoices.map((iv) => (
-                                            <TableRow key={iv.id} className="hover:bg-slate-50/50">
-                                                <TableCell className="font-mono text-xs font-bold text-slate-800">{iv.invoice_number}</TableCell>
-                                                <TableCell className="font-mono text-xs text-slate-500">{iv.order?.no_po}</TableCell>
-                                                <TableCell className="font-bold text-slate-800">{iv.order?.pelanggan?.nama ?? '-'}</TableCell>
-                                                <TableCell className="text-xs text-slate-500">{formatDate(iv.tanggal_terbit)}</TableCell>
-                                                <TableCell className="text-right font-mono text-xs font-bold">{formatRupiah(iv.total_tagihan)}</TableCell>
-                                                <TableCell className="text-right font-mono text-xs font-black text-orange-600">{formatRupiah(iv.sisa_pembayaran)}</TableCell>
-                                                <TableCell><Badge variant={STATUS_VARIANT[iv.status] ?? 'outline'}>{iv.status}</Badge></TableCell>
+                                            <TableRow key={iv.id} className="group hover:bg-slate-50/50">
+                                                <TableCell className="sticky left-0 z-10 bg-white font-mono text-xs font-bold text-slate-800 min-w-[150px] w-[150px] shadow-[inset_-1px_0_0_0_#e2e8f0] group-hover:bg-slate-50 transition-colors">{iv.invoice_number}</TableCell>
+                                                <TableCell className="sticky left-[150px] z-10 bg-white font-mono text-xs text-slate-500 min-w-[180px] w-[180px] shadow-[inset_-1px_0_0_0_#e2e8f0] group-hover:bg-slate-50 transition-colors">{iv.order?.no_po}</TableCell>
+                                                <TableCell className="text-xs text-slate-600 font-medium min-w-[180px]">{iv.order?.nama_po ?? '-'}</TableCell>
+                                                <TableCell className="font-bold text-slate-800 min-w-[180px]">{iv.order?.pelanggan?.nama ?? '-'}</TableCell>
+                                                <TableCell className="text-xs text-slate-500 min-w-[120px]">{formatDate(iv.tanggal_terbit)}</TableCell>
+                                                <TableCell className="text-right font-mono text-xs font-bold min-w-[130px]">{formatRupiah(iv.total_tagihan)}</TableCell>
+                                                <TableCell className="text-right font-mono text-xs font-black text-orange-600 min-w-[130px]">{formatRupiah(iv.sisa_pembayaran)}</TableCell>
+                                                <TableCell className="min-w-[100px]"><Badge variant={STATUS_VARIANT[iv.status] ?? 'outline'}>{iv.status}</Badge></TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="flex justify-end gap-1.5">
                                                         <Button asChild size="xs" variant="outline" className="text-xs py-1 rounded-lg">
@@ -761,37 +859,39 @@ export default function InvoiceList({
                         )}
 
                         {activeTab === 'sudah_lunas' && (
-                            <Table>
+                            <Table className="min-w-[1200px] border-collapse">
                                 <TableHeader className="bg-slate-50">
                                     <TableRow>
-                                        <TableHead className="font-bold text-slate-700">No. Invoice</TableHead>
-                                        <TableHead className="font-bold text-slate-700">No. PO</TableHead>
-                                        <TableHead className="font-bold text-slate-700">Pelanggan</TableHead>
-                                        <TableHead className="font-bold text-slate-700">Tgl Terbit</TableHead>
-                                        <TableHead className="font-bold text-slate-700 text-right">Total Tagihan</TableHead>
-                                        <TableHead className="font-bold text-slate-700 text-right text-emerald-600">Total Terbayar</TableHead>
-                                        <TableHead className="font-bold text-slate-700">Status</TableHead>
-                                        <TableHead className="font-bold text-slate-700 text-right">Aksi</TableHead>
+                                        <TableHead className="sticky top-0 left-0 z-30 bg-slate-50 font-bold text-slate-700 min-w-[150px] w-[150px] shadow-[inset_-1px_0_0_0_#e2e8f0]">No. Invoice</TableHead>
+                                        <TableHead className="sticky top-0 left-[150px] z-30 bg-slate-50 font-bold text-slate-700 min-w-[180px] w-[180px] shadow-[inset_-1px_0_0_0_#e2e8f0]">No. PO</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[180px]">Nama PO</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[180px]">Pelanggan</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[120px]">Tgl Terbit</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[130px]">Total Tagihan</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right text-emerald-600 min-w-[130px]">Total Terbayar</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[100px]">Status</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[160px]">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {paidInvoices.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} className="py-16 text-center text-sm text-slate-400 italic">
+                                            <TableCell colSpan={9} className="py-16 text-center text-sm text-slate-400 italic">
                                                 Tidak ada invoice lunas.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
                                         paidInvoices.map((iv) => (
-                                            <TableRow key={iv.id} className="hover:bg-slate-50/50">
-                                                <TableCell className="font-mono text-xs font-bold text-slate-800">{iv.invoice_number}</TableCell>
-                                                <TableCell className="font-mono text-xs text-slate-500">{iv.order?.no_po}</TableCell>
-                                                <TableCell className="font-bold text-slate-800">{iv.order?.pelanggan?.nama ?? '-'}</TableCell>
-                                                <TableCell className="text-xs text-slate-500">{formatDate(iv.tanggal_terbit)}</TableCell>
-                                                <TableCell className="text-right font-mono text-xs font-bold">{formatRupiah(iv.total_tagihan)}</TableCell>
-                                                <TableCell className="text-right font-mono text-xs font-black text-emerald-600">{formatRupiah(iv.total_tagihan)}</TableCell>
-                                                <TableCell><Badge variant="success">LUNAS</Badge></TableCell>
-                                                <TableCell className="text-right">
+                                            <TableRow key={iv.id} className="group hover:bg-slate-50/50">
+                                                <TableCell className="sticky left-0 z-10 bg-white font-mono text-xs font-bold text-slate-800 min-w-[150px] w-[150px] shadow-[inset_-1px_0_0_0_#e2e8f0] group-hover:bg-slate-50 transition-colors">{iv.invoice_number}</TableCell>
+                                                <TableCell className="sticky left-[150px] z-10 bg-white font-mono text-xs text-slate-500 min-w-[180px] w-[180px] shadow-[inset_-1px_0_0_0_#e2e8f0] group-hover:bg-slate-50 transition-colors">{iv.order?.no_po}</TableCell>
+                                                <TableCell className="text-xs text-slate-600 font-medium min-w-[180px]">{iv.order?.nama_po ?? '-'}</TableCell>
+                                                <TableCell className="font-bold text-slate-800 min-w-[180px]">{iv.order?.pelanggan?.nama ?? '-'}</TableCell>
+                                                <TableCell className="text-xs text-slate-500 min-w-[120px]">{formatDate(iv.tanggal_terbit)}</TableCell>
+                                                <TableCell className="text-right font-mono text-xs font-bold min-w-[130px]">{formatRupiah(iv.total_tagihan)}</TableCell>
+                                                <TableCell className="text-right font-mono text-xs font-black text-emerald-600 min-w-[130px]">{formatRupiah(iv.total_tagihan)}</TableCell>
+                                                <TableCell className="min-w-[100px]"><Badge variant="success">LUNAS</Badge></TableCell>
+                                                <TableCell className="text-right min-w-[160px]">
                                                     <div className="flex justify-end gap-1.5">
                                                         <Button asChild size="xs" variant="outline" className="text-xs py-1 rounded-lg">
                                                             <a href={route('invoice.public', iv.invoice_number)} target="_blank" rel="noopener noreferrer">
@@ -822,17 +922,17 @@ export default function InvoiceList({
                         )}
 
                         {activeTab === 'tanda_jadi' && (
-                            <Table>
+                            <Table className="min-w-[1200px] border-collapse">
                                 <TableHeader className="bg-slate-50">
                                     <TableRow>
-                                        <TableHead className="font-bold text-slate-700">No. Tanda Jadi</TableHead>
-                                        <TableHead className="font-bold text-slate-700">Brand</TableHead>
-                                        <TableHead className="font-bold text-slate-700">Customer</TableHead>
-                                        <TableHead className="font-bold text-slate-700">Deskripsi Desain</TableHead>
-                                        <TableHead className="font-bold text-slate-700">Tanggal</TableHead>
-                                        <TableHead className="font-bold text-slate-700 text-right">Nominal</TableHead>
-                                        <TableHead className="font-bold text-slate-700">Status</TableHead>
-                                        <TableHead className="font-bold text-slate-700 text-right">Aksi</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">No. Tanda Jadi</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Brand</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Customer</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Deskripsi Desain</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Tanggal</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right">Nominal</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Status</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -917,8 +1017,10 @@ export default function InvoiceList({
                                 </TableBody>
                             </Table>
                         )}
+                        </div>
                     </CardContent>
                 </Card>
+                <StickyScrollbar targetRef={tableContainerRef} minWidth="1200px" />
 
                 {/* MODALS & DIALOGS */}
 

@@ -24,7 +24,7 @@ class SettingsController extends Controller
             'ai' => [
                 'gemini_api_keys_masked' => $this->maskCsv(SystemSetting::get('ai', 'gemini_api_keys')),
                 'has_keys' => ! empty(SystemSetting::get('ai', 'gemini_api_keys')),
-                'model' => SystemSetting::get('ai', 'model', 'gemini-1.5-flash'),
+                'model' => SystemSetting::get('ai', 'model', 'gemini-2.5-flash'),
                 'temperature' => (float) SystemSetting::get('ai', 'temperature', 0.7),
                 'max_tokens' => (int) SystemSetting::get('ai', 'max_tokens', 2048),
                 'is_configured' => GeminiClient::fromSettings()->isConfigured(),
@@ -49,6 +49,7 @@ class SettingsController extends Controller
                 'whatsapp_enabled' => (bool) SystemSetting::get('system', 'whatsapp_enabled', true),
                 'telegram_enabled' => (bool) SystemSetting::get('system', 'telegram_enabled', false),
                 'customer_import_enabled' => (bool) SystemSetting::get('system', 'customer_import_enabled', false),
+                'theme_color' => SystemSetting::get('system', 'theme_color', '#a8001c'),
             ],
             'seo' => [
                 'site_name' => SystemSetting::get('seo', 'site_name', 'Circle Sportwear - Tracking PO'),
@@ -277,12 +278,14 @@ class SettingsController extends Controller
             'whatsapp_enabled' => ['boolean'],
             'telegram_enabled' => ['boolean'],
             'customer_import_enabled' => ['boolean'],
+            'theme_color' => ['required', 'string', 'regex:/^#[a-fA-F0-9]{6}$/'],
         ]);
 
         SystemSetting::set('system', 'notification_channel', $data['notification_channel']);
         SystemSetting::set('system', 'whatsapp_enabled', $data['whatsapp_enabled'] ? '1' : '0');
         SystemSetting::set('system', 'telegram_enabled', $data['telegram_enabled'] ? '1' : '0');
         SystemSetting::set('system', 'customer_import_enabled', $data['customer_import_enabled'] ? '1' : '0');
+        SystemSetting::set('system', 'theme_color', $data['theme_color']);
 
         return back()->with('success', 'Pengaturan sistem tersimpan.');
     }

@@ -71,9 +71,10 @@ function AiSection({ ai }) {
                             <Select value={data.model} onValueChange={(v) => setData('model', v)}>
                                 <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash (cepat)</SelectItem>
-                                    <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro (presisi)</SelectItem>
-                                    <SelectItem value="gemini-2.0-flash-exp">Gemini 2.0 Flash (experimental)</SelectItem>
+                                    <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash (Terbaru & Cepat)</SelectItem>
+                                    <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro (Presisi Tinggi)</SelectItem>
+                                    <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash (Warisan - Cepat)</SelectItem>
+                                    <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro (Warisan - Presisi)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -256,6 +257,7 @@ function SystemSection({ sys }) {
         whatsapp_enabled: !!sys.whatsapp_enabled,
         telegram_enabled: !!sys.telegram_enabled,
         customer_import_enabled: !!sys.customer_import_enabled,
+        theme_color: sys.theme_color || '#a8001c',
     });
 
     function submit(e) {
@@ -264,13 +266,34 @@ function SystemSection({ sys }) {
     }
 
     return (
-        <Card className="shadow-md border-t-4 border-t-violet-500">
+        <Card className="shadow-md border-t-4 border-t-primary">
             <CardHeader className="border-b pb-4">
-                <CardTitle className="flex items-center gap-2 text-base"><Settings className="h-4.5 w-4.5 text-violet-600" /> Channel Default & Master Switches</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-base"><Settings className="h-4.5 w-4.5 text-primary" /> Channel Default & Master Switches</CardTitle>
                 <CardDescription>Pilih channel notifikasi default untuk laporan terjadwal.</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
                 <form onSubmit={submit} className="space-y-4">
+                    <div className="space-y-2 border-b pb-4 mb-4">
+                        <Label className="text-xs font-semibold text-gray-700">Warna Tema Utama (Global Primary Color)</Label>
+                        <div className="flex gap-3 items-center">
+                            <Input
+                                type="color"
+                                value={data.theme_color}
+                                onChange={(e) => setData('theme_color', e.target.value)}
+                                className="h-10 w-14 p-1 cursor-pointer border rounded-xl"
+                            />
+                            <Input
+                                type="text"
+                                value={data.theme_color}
+                                onChange={(e) => setData('theme_color', e.target.value)}
+                                placeholder="#e94560"
+                                className="h-10 w-36 font-mono text-sm uppercase rounded-xl"
+                            />
+                            <div className="text-xs text-muted-foreground">
+                                Pilih warna dasar untuk tombol, aktif sidebar, dan aksen UI lainnya. Default: <b>#a8001c</b> (Merah Premium).
+                            </div>
+                        </div>
+                    </div>
                     <div>
                         <Label className="text-xs font-semibold text-gray-700">Channel Default Laporan</Label>
                         <Select value={data.notification_channel} onValueChange={(v) => setData('notification_channel', v)}>

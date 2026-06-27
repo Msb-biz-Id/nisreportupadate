@@ -1,3 +1,4 @@
+import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import { Printer, Download, X, ChevronLeft } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
@@ -16,8 +17,8 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
     const brand = order.brand || {};
     const nonAddonItems = (order.items || []).filter(item => !item.is_addon);
     const grandTotal = nonAddonItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-    const totalAtasan = (order.items || []).reduce((sum, item) => sum + Number(item.jml_atasan || 0), 0) || grandTotal;
-    const totalBawahan = (order.items || []).reduce((sum, item) => sum + Number(item.jml_bawahan || 0), 0);
+    const totalAtasan = nonAddonItems.reduce((sum, item) => sum + Number(item.jml_atasan || 0), 0) || grandTotal;
+    const totalBawahan = nonAddonItems.reduce((sum, item) => sum + Number(item.jml_bawahan || 0), 0);
 
     // Use headerBrand from props (respects system settings), fallback to brand
     const displayBrand = headerBrand || brand;
@@ -416,80 +417,11 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                         </div>
                     )}
 
-                    {/* Referensi Desain per item */}
+                    {/* Referensi Desain & Nameset List per item */}
+                    {/* Referensi Desain (Semua Item) */}
                     {nonAddonItems.map(item => {
                         const hasImages = item.gambar_desain || item.ket_atasan || item.ket_bawahan || item.jenis_kerah || item.gambar_kerah || item.gambar_ket_tambahan;
-                        if (!hasImages) return null;
-
-                        return (
-                            <div key={item.id} className="mt-8 border-t-2 border-dashed border-slate-400 pt-8 print:break-before-page print:pt-4">
-                                <div className="border-2 border-black p-1.5 mb-3 bg-white">
-                                    <div className="bg-slate-300 font-bold text-[13px] border border-black p-1.5 text-center">
-                                        REFERENSI DESAIN {item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}
-                                    </div>
-
-                                    <div className="border border-black border-t-0 p-1 mb-2 bg-white flex justify-center items-center min-h-[200px]">
-                                        {item.gambar_desain ? (
-                                            <img src={`/storage/${item.gambar_desain}`} className="max-w-full max-h-[500px] object-contain block mx-auto" alt="Desain" />
-                                        ) : (
-                                            <div className="text-slate-400 font-bold text-center">[ GAMBAR DESAIN BELUM DIUNGGAH ]</div>
-                                        )}
-                                    </div>
-
-                                    <table className="w-full border-collapse border border-black">
-                                        <tbody>
-                                            <tr>
-                                                <td className="w-1/2 border-r border-black p-2 bg-white text-center">
-                                                    <div className="bg-slate-300 font-bold p-1 text-center border border-black mb-1">KETERANGAN ATASAN</div>
-                                                    <div className="font-bold py-1">{renderFormattedText(item.ket_atasan || '')}</div>
-                                                </td>
-                                                <td className="w-1/2 p-2 bg-white text-center">
-                                                    <div className="bg-slate-300 font-bold p-1 text-center border border-black mb-1">KETERANGAN BAWAHAN</div>
-                                                    <div className="font-bold py-1">{renderFormattedText(item.ket_bawahan || '')}</div>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* Kerah & Tambahan side by side */}
-                                {(item.jenis_kerah || item.gambar_kerah || item.gambar_ket_tambahan) && (
-                                    <div className="grid grid-cols-2 gap-2 mt-2">
-                                        {/* Kerah Box */}
-                                        {(item.jenis_kerah || item.gambar_kerah) && (
-                                            <div className="border-2 border-black p-1.5 bg-white">
-                                                <div className="bg-slate-300 font-bold text-[11px] border border-black p-1 text-center">
-                                                    JENIS KERAH: {renderFormattedText(item.jenis_kerah || '')}
-                                                </div>
-                                                <div className="border border-black border-t-0 p-1 flex justify-center items-center min-h-[140px] bg-white">
-                                                    {item.gambar_kerah ? (
-                                                        <img src={`/storage/${item.gambar_kerah}`} className="max-w-full max-h-[130px] object-contain block mx-auto" alt="Kerah" />
-                                                    ) : (
-                                                        <div className="text-slate-400 font-bold text-[11px]">[ GAMBAR KERAH BELUM DIUNGGAH ]</div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Tambahan Box */}
-                                        {item.gambar_ket_tambahan && (
-                                            <div className="border-2 border-black p-1.5 bg-white">
-                                                <div className="bg-slate-300 font-bold text-[11px] border border-black p-1 text-center">
-                                                    KETERANGAN TAMBAHAN
-                                                </div>
-                                                <div className="border border-black border-t-0 p-1 flex justify-center items-center min-h-[140px] bg-white">
-                                                    <img src={`/storage/${item.gambar_ket_tambahan}`} className="max-w-full max-h-[130px] object-contain block mx-auto" alt="Tambahan" />
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-
-                    {/* Namesets List per item */}
-                    {nonAddonItems.map(item => {
+                        
                         const filledNamesets = (item.namesets || []).filter(ns =>
                             (ns.nama_punggung || '').toString().trim() || (ns.nomor_punggung || '').toString().trim() ||
                             (ns.nama_dada || '').toString().trim() || (ns.nomor_dada || '').toString().trim() ||
@@ -499,199 +431,280 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                             (ns.size_celana_id) || (ns.size_celana_label || '').toString().trim() ||
                             (ns.keterangan || '').toString().trim()
                         );
-                        if (filledNamesets.length === 0) return null;
+                        const hasNamesets = filledNamesets.length > 0;
 
-                        const hasCustomization = filledNamesets.some(ns =>
-                            (ns.nama_punggung || '').toString().trim() || (ns.nomor_punggung || '').toString().trim() ||
-                            (ns.nama_dada || '').toString().trim() || (ns.nomor_dada || '').toString().trim() ||
-                            (ns.nama_lengan || '').toString().trim() || (ns.nomor_lengan || '').toString().trim() ||
-                            (ns.nama_punggung_2 || '').toString().trim() || (ns.nomor_punggung_2 || '').toString().trim() ||
-                            (ns.keterangan || '').toString().trim()
-                        );
+                        if (!hasImages && !hasNamesets) return null;
 
-                        const hasNamaPunggung = filledNamesets.some(ns => (ns.nama_punggung || '').toString().trim());
-                        const hasNoPunggung = filledNamesets.some(ns => (ns.nomor_punggung || '').toString().trim());
-                        const hasNamaDada = filledNamesets.some(ns => (ns.nama_dada || '').toString().trim());
-                        const hasNoDada = filledNamesets.some(ns => (ns.nomor_dada || '').toString().trim());
-                        const hasNamaLengan = filledNamesets.some(ns => (ns.nama_lengan || '').toString().trim());
-                        const hasNoLengan = filledNamesets.some(ns => (ns.nomor_lengan || '').toString().trim());
-                        const hasNamaPunggung2 = filledNamesets.some(ns => (ns.nama_punggung_2 || '').toString().trim());
-                        const hasNoPunggung2 = filledNamesets.some(ns => (ns.nomor_punggung_2 || '').toString().trim());
-                        const hasSA = filledNamesets.some(ns => ns.size_id || (ns.size_label || '').toString().trim());
-                        const hasSB = filledNamesets.some(ns => ns.size_celana_id || (ns.size_celana_label || '').toString().trim());
-                        const hasKet = filledNamesets.some(ns => (ns.keterangan || '').toString().trim());
+                        // Variables needed for Nameset List (if hasNamesets is true)
+                        let hasCustomization = false;
+                        let finalCols = [];
+                        let useDense = false;
+                        let sizeAtasanRecap = [];
+                        let sizeBawahanRecap = [];
 
-                        const cols = [{ type: 'no', label: 'NO.', weight: 6 }];
-                        if (hasNamaPunggung) {
-                            cols.push({ type: 'nama_punggung', label: 'NAMA PUNGGUNG', weight: 22, align: 'text-left pl-1.5' });
-                        }
-                        if (hasNoPunggung) {
-                            cols.push({ type: 'no_punggung', label: 'NO. PUNGGUNG', weight: 12 });
-                        }
-                        if (hasNamaDada) {
-                            cols.push({ type: 'nama_dada', label: 'NAMA DADA', weight: 18, align: 'text-left pl-1.5' });
-                        }
-                        if (hasNoDada) {
-                            cols.push({ type: 'no_dada', label: 'NO. DADA', weight: 12 });
-                        }
-                        if (hasNamaLengan) {
-                            cols.push({ type: 'nama_lengan', label: 'NAMA LENGAN', weight: 18, align: 'text-left pl-1.5' });
-                        }
-                        if (hasNoLengan) {
-                            cols.push({ type: 'no_lengan', label: 'NO. LENGAN', weight: 12 });
-                        }
-                        if (hasNoPunggung2) {
-                            cols.push({ type: 'no_punggung_2', label: 'NO. PUNGGUNG 2', weight: 12 });
-                        }
-                        if (hasNamaPunggung2) {
-                            cols.push({ type: 'nama_punggung_2', label: 'NAMA PUNGGUNG 2', weight: 22, align: 'text-left pl-1.5' });
-                        }
-                        if (hasSA) cols.push({ type: 'size', label: 'SIZE', weight: 10 });
-                        if (hasSB) cols.push({ type: 'size_celana', label: 'SIZE CELANA', weight: 12 });
-                        if (hasKet) cols.push({ type: 'keterangan', label: 'KETERANGAN', weight: 18, align: 'text-left pl-1.5' });
+                        if (hasNamesets) {
+                            hasCustomization = filledNamesets.some(ns =>
+                                (ns.nama_punggung || '').toString().trim() || (ns.nomor_punggung || '').toString().trim() ||
+                                (ns.nama_dada || '').toString().trim() || (ns.nomor_dada || '').toString().trim() ||
+                                (ns.nama_lengan || '').toString().trim() || (ns.nomor_lengan || '').toString().trim() ||
+                                (ns.nama_punggung_2 || '').toString().trim() || (ns.nomor_punggung_2 || '').toString().trim() ||
+                                (ns.keterangan || '').toString().trim()
+                            );
 
-                        const totalWeight = cols.reduce((sum, col) => sum + col.weight, 0);
-                        const finalCols = cols.map(col => ({
-                            ...col,
-                            pct: ((col.weight / totalWeight) * 100).toFixed(1)
-                        }));
+                            const hasNamaPunggung = filledNamesets.some(ns => (ns.nama_punggung || '').toString().trim());
+                            const hasNoPunggung = filledNamesets.some(ns => (ns.nomor_punggung || '').toString().trim());
+                            const hasNamaDada = filledNamesets.some(ns => (ns.nama_dada || '').toString().trim());
+                            const hasNoDada = filledNamesets.some(ns => (ns.nomor_dada || '').toString().trim());
+                            const hasNamaLengan = filledNamesets.some(ns => (ns.nama_lengan || '').toString().trim());
+                            const hasNoLengan = filledNamesets.some(ns => (ns.nomor_lengan || '').toString().trim());
+                            const hasNamaPunggung2 = filledNamesets.some(ns => (ns.nama_punggung_2 || '').toString().trim());
+                            const hasNoPunggung2 = filledNamesets.some(ns => (ns.nomor_punggung_2 || '').toString().trim());
+                            const hasSA = filledNamesets.some(ns => ns.size_id || (ns.size_label || '').toString().trim());
+                            const hasSB = filledNamesets.some(ns => ns.size_celana_id || (ns.size_celana_label || '').toString().trim());
+                            const hasKet = filledNamesets.some(ns => (ns.keterangan || '').toString().trim());
 
-                        const useDense = finalCols.length > 7;
-
-                        // Size counts
-                        const sizeAtasanRaw = {};
-                        const sizeBawahanRaw = {};
-                        filledNamesets.forEach(ns => {
-                            if (ns.size_id || ns.size_label) {
-                                const sz = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim();
-                                if (sz) sizeAtasanRaw[sz] = (sizeAtasanRaw[sz] || 0) + 1;
+                            const cols = [{ type: 'no', label: 'NO.', weight: 6 }];
+                            if (hasNamaPunggung) {
+                                cols.push({ type: 'nama_punggung', label: 'NAMA', weight: 22, align: 'text-left pl-1.5 normal-case' });
                             }
-                            if (ns.size_celana_id || ns.size_celana_label) {
-                                const sz = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim();
-                                if (sz) sizeBawahanRaw[sz] = (sizeBawahanRaw[sz] || 0) + 1;
+                            if (hasNoPunggung) {
+                                cols.push({ type: 'no_punggung', label: 'NO. PUNGGUNG', weight: 12 });
                             }
-                        });
+                            if (hasNamaDada) {
+                                cols.push({ type: 'nama_dada', label: 'NAMA DADA', weight: 18, align: 'text-left pl-1.5 normal-case' });
+                            }
+                            if (hasNoDada) {
+                                cols.push({ type: 'no_dada', label: 'NO. DADA', weight: 12 });
+                            }
+                            if (hasNamaLengan) {
+                                cols.push({ type: 'nama_lengan', label: 'NAMA LENGAN', weight: 18, align: 'text-left pl-1.5 normal-case' });
+                            }
+                            if (hasNoLengan) {
+                                cols.push({ type: 'no_lengan', label: 'NO. LENGAN', weight: 12 });
+                            }
+                            if (hasNoPunggung2) {
+                                cols.push({ type: 'no_punggung_2', label: 'NO. PUNGGUNG 2', weight: 12 });
+                            }
+                            if (hasNamaPunggung2) {
+                                cols.push({ type: 'nama_punggung_2', label: 'NAMA PUNGGUNG 2', weight: 22, align: 'text-left pl-1.5 normal-case' });
+                            }
+                            if (hasSA) cols.push({ type: 'size', label: 'SIZE', weight: 10 });
+                            if (hasSB) cols.push({ type: 'size_celana', label: 'SIZE CELANA', weight: 12 });
+                            if (hasKet) cols.push({ type: 'keterangan', label: 'KETERANGAN', weight: 18, align: 'text-left pl-1.5' });
 
-                        const sizeAtasanRecap = [];
-                        standarSizes.forEach(s => {
-                            if (sizeAtasanRaw[s]) sizeAtasanRecap.push({ size: s, count: sizeAtasanRaw[s] });
-                        });
-                        Object.keys(sizeAtasanRaw).forEach(s => {
-                            if (!standarSizes.includes(s)) sizeAtasanRecap.push({ size: s, count: sizeAtasanRaw[s] });
-                        });
+                            const totalWeight = cols.reduce((sum, col) => sum + col.weight, 0);
+                            finalCols = cols.map(col => ({
+                                ...col,
+                                pct: ((col.weight / totalWeight) * 100).toFixed(1)
+                            }));
 
-                        const sizeBawahanRecap = [];
-                        standarSizes.forEach(s => {
-                            if (sizeBawahanRaw[s]) sizeBawahanRecap.push({ size: s, count: sizeBawahanRaw[s] });
-                        });
-                        Object.keys(sizeBawahanRaw).forEach(s => {
-                            if (!standarSizes.includes(s)) sizeBawahanRecap.push({ size: s, count: sizeBawahanRaw[s] });
-                        });
+                            useDense = finalCols.length > 7;
+
+                            // Size counts
+                            const sizeAtasanRaw = {};
+                            const sizeBawahanRaw = {};
+                            filledNamesets.forEach(ns => {
+                                if (ns.size_id || ns.size_label) {
+                                    const sz = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim();
+                                    if (sz) sizeAtasanRaw[sz] = (sizeAtasanRaw[sz] || 0) + 1;
+                                }
+                                if (ns.size_celana_id || ns.size_celana_label) {
+                                    const sz = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim();
+                                    if (sz) sizeBawahanRaw[sz] = (sizeBawahanRaw[sz] || 0) + 1;
+                                }
+                            });
+
+                            standarSizes.forEach(s => {
+                                if (sizeAtasanRaw[s]) sizeAtasanRecap.push({ size: s, count: sizeAtasanRaw[s] });
+                            });
+                            Object.keys(sizeAtasanRaw).forEach(s => {
+                                if (!standarSizes.includes(s)) sizeAtasanRecap.push({ size: s, count: sizeAtasanRaw[s] });
+                            });
+
+                            standarSizes.forEach(s => {
+                                if (sizeBawahanRaw[s]) sizeBawahanRecap.push({ size: s, count: sizeBawahanRaw[s] });
+                            });
+                            Object.keys(sizeBawahanRaw).forEach(s => {
+                                if (!standarSizes.includes(s)) sizeBawahanRecap.push({ size: s, count: sizeBawahanRaw[s] });
+                            });
+                        }
 
                         return (
-                            <div key={item.id} className="mt-8 border-t-2 border-dashed border-slate-400 pt-8 print:break-before-page print:pt-4">
-                                <div className="bg-slate-300 font-bold text-[12.5px] border border-black p-1.5 text-center">
-                                    DATA PESANAN {item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}
-                                </div>
-                                {hasCustomization && (
-                                    <table className="w-full table-fixed border-collapse border border-black border-t-0 text-center">
-                                        <colgroup>
-                                            {finalCols.map((col, idx) => (
-                                                <col key={idx} style={{ width: `${col.pct}%` }} />
-                                            ))}
-                                        </colgroup>
-                                        <thead>
-                                            <tr className="bg-slate-300 border-b border-black font-bold">
-                                                {finalCols.map((col, idx) => (
-                                                    <th key={idx} style={{ width: `${col.pct}%` }} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
-                                                        {col.label}
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filledNamesets.map((ns, idx) => (
-                                                <tr key={ns.id} className="border-b border-black bg-white hover:bg-slate-50/50">
-                                                    {finalCols.map((col, cidx) => {
-                                                        let val = '';
-                                                        if (col.type === 'no') val = `${idx + 1}.`;
-                                                        else if (col.type === 'nama_punggung') val = renderFormattedText(ns.nama_punggung || '');
-                                                        else if (col.type === 'no_punggung') val = ns.nomor_punggung || '';
-                                                        else if (col.type === 'nama_dada') val = renderFormattedText(ns.nama_dada || '');
-                                                        else if (col.type === 'no_dada') val = ns.nomor_dada || '';
-                                                        else if (col.type === 'nama_lengan') val = renderFormattedText(ns.nama_lengan || '');
-                                                        else if (col.type === 'no_lengan') val = ns.nomor_lengan || '';
-                                                        else if (col.type === 'nama_punggung_2') val = renderFormattedText(ns.nama_punggung_2 || '');
-                                                        else if (col.type === 'no_punggung_2') val = ns.nomor_punggung_2 || '';
-                                                        else if (col.type === 'size') val = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim() || '';
-                                                        else if (col.type === 'size_celana') val = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim() || '';
-                                                        else if (col.type === 'keterangan') val = renderFormattedText(ns.keterangan || '');
+                            <React.Fragment key={`item-block-${item.id}`}>
+                                {/* Referensi Desain */}
+                                {hasImages && (
+                                    <div key={`design-${item.id}`} className="mt-8 border-t-2 border-dashed border-slate-400 pt-8 print:break-before-page print:pt-4">
+                                        <div className="border-2 border-black p-1.5 mb-3 bg-white">
+                                            <div className="bg-slate-300 font-bold text-[13px] border border-black p-1.5 text-center">
+                                                REFERENSI DESAIN {item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}
+                                            </div>
 
-                                                        return (
-                                                            <td key={cidx} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
-                                                                {val}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            <div className="border border-black border-t-0 p-1 mb-2 bg-white flex justify-center items-center min-h-[200px]">
+                                                {item.gambar_desain ? (
+                                                    <img src={`/storage/${item.gambar_desain}`} className="max-w-full max-h-[500px] object-contain block mx-auto" alt="Desain" />
+                                                ) : (
+                                                    <div className="text-slate-500 italic text-[13px] text-center py-4">Gambar desain belum diunggah</div>
+                                                )}
+                                            </div>
+
+                                            <table className="w-full border-collapse border border-black">
+                                                <tbody>
+                                                    <tr>
+                                                        <td className="w-1/2 border-r border-black p-2 bg-white text-center">
+                                                            <div className="bg-slate-300 font-bold p-1 text-center border border-black mb-1">KETERANGAN ATASAN</div>
+                                                            <div className="font-bold py-1">{renderFormattedText(item.ket_atasan || '')}</div>
+                                                        </td>
+                                                        <td className="w-1/2 p-2 bg-white text-center">
+                                                            <div className="bg-slate-300 font-bold p-1 text-center border border-black mb-1">KETERANGAN BAWAHAN</div>
+                                                            <div className="font-bold py-1">{renderFormattedText(item.ket_bawahan || '')}</div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Kerah & Tambahan side by side */}
+                                        {(item.jenis_kerah || item.gambar_kerah || item.gambar_ket_tambahan) && (
+                                            <div className="grid grid-cols-2 gap-2 mt-2">
+                                                {/* Kerah Box */}
+                                                {(item.jenis_kerah || item.gambar_kerah) && (
+                                                    <div className="border-2 border-black p-1.5 bg-white">
+                                                        <div className="bg-slate-300 font-bold text-[11px] border border-black p-1 text-center">
+                                                            JENIS KERAH: {renderFormattedText(item.jenis_kerah || '')}
+                                                        </div>
+                                                        <div className="border border-black border-t-0 p-1 flex justify-center items-center min-h-[140px] bg-white">
+                                                            {item.gambar_kerah ? (
+                                                                <img src={`/storage/${item.gambar_kerah}`} className="max-w-full max-h-[130px] object-contain block mx-auto" alt="Kerah" />
+                                                            ) : (
+                                                                <div className="text-slate-500 italic text-[11.5px] text-center py-2">Gambar kerah belum diunggah</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Tambahan Box */}
+                                                {item.gambar_ket_tambahan && (
+                                                    <div className="border-2 border-black p-1.5 bg-white">
+                                                        <div className="bg-slate-300 font-bold text-[11px] border border-black p-1 text-center">
+                                                            KETERANGAN TAMBAHAN
+                                                        </div>
+                                                        <div className="border border-black border-t-0 p-1 flex justify-center items-center min-h-[140px] bg-white">
+                                                            <img src={`/storage/${item.gambar_ket_tambahan}`} className="max-w-full max-h-[130px] object-contain block mx-auto" alt="Tambahan" />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
 
-                                {/* Rekap Size */}
-                                <div className="mt-4 text-center">
-                                    <div className="font-bold text-[12px] underline mb-1.5">JUMLAH KESELURUHAN: {filledNamesets.length} PCS</div>
-
-                                    {sizeAtasanRecap.length > 0 && (
-                                        <div className="mb-2">
-                                            {sizeBawahanRecap.length > 0 && <div className="text-[10.5px] font-bold mb-1">REKAP SIZE ATASAN</div>}
-                                            {chunkArray(sizeAtasanRecap, 10).map((chunk, cidx) => (
-                                                <table key={cidx} className="mx-auto border-collapse border-2 border-black text-center mb-1.5">
-                                                    <thead>
-                                                        <tr className="bg-slate-300 font-bold border-b border-black">
-                                                            {chunk.map((rec, idx) => (
-                                                                <th key={idx} className="border-r border-black px-3 py-1 font-bold text-[11px]">{rec.size}</th>
-                                                            ))}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <tr className="bg-white">
-                                                            {chunk.map((rec, idx) => (
-                                                                <td key={idx} className="border-r border-black px-3 py-1 text-[11px]">{rec.count}</td>
-                                                            ))}
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            ))}
+                                {/* Nameset List & Rekap Size */}
+                                {hasNamesets && (
+                                    <div key={`nameset-block-${item.id}`} className="mt-8 border-t-2 border-dashed border-slate-400 pt-8 print:break-before-page print:pt-4">
+                                        <div className="bg-slate-300 font-bold text-[12.5px] border border-black p-1.5 text-center">
+                                            DATA PESANAN {item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}
                                         </div>
-                                    )}
+                                        {hasCustomization && (
+                                            <table className="w-full table-fixed border-collapse border border-black border-t-0 text-center">
+                                                <colgroup>
+                                                    {finalCols.map((col, idx) => (
+                                                        <col key={idx} style={{ width: `${col.pct}%` }} />
+                                                    ))}
+                                                </colgroup>
+                                                <thead>
+                                                    <tr className="bg-slate-300 border-b border-black font-bold">
+                                                        {finalCols.map((col, idx) => (
+                                                            <th key={idx} style={{ width: `${col.pct}%` }} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
+                                                                {col.label}
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {filledNamesets.map((ns, idx) => (
+                                                        <tr key={ns.id} className="border-b border-black bg-white hover:bg-slate-50/50">
+                                                            {finalCols.map((col, cidx) => {
+                                                                let val = '';
+                                                                if (col.type === 'no') val = `${idx + 1}.`;
+                                                                else if (col.type === 'nama_punggung') val = renderFormattedText(ns.nama_punggung || '');
+                                                                else if (col.type === 'no_punggung') val = ns.nomor_punggung || '';
+                                                                else if (col.type === 'nama_dada') val = renderFormattedText(ns.nama_dada || '');
+                                                                else if (col.type === 'no_dada') val = ns.nomor_dada || '';
+                                                                else if (col.type === 'nama_lengan') val = renderFormattedText(ns.nama_lengan || '');
+                                                                else if (col.type === 'no_lengan') val = ns.nomor_lengan || '';
+                                                                else if (col.type === 'nama_punggung_2') val = renderFormattedText(ns.nama_punggung_2 || '');
+                                                                else if (col.type === 'no_punggung_2') val = ns.nomor_punggung_2 || '';
+                                                                else if (col.type === 'size') val = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim() || '';
+                                                                else if (col.type === 'size_celana') val = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim() || '';
+                                                                else if (col.type === 'keterangan') val = renderFormattedText(ns.keterangan || '');
 
-                                    {sizeBawahanRecap.length > 0 && (
-                                        <div className="mt-3">
-                                            <div className="text-[10.5px] font-bold mb-1">REKAP SIZE BAWAHAN</div>
-                                            {chunkArray(sizeBawahanRecap, 10).map((chunk, cidx) => (
-                                                <table key={cidx} className="mx-auto border-collapse border-2 border-black text-center mb-1.5">
-                                                    <thead>
-                                                        <tr className="bg-slate-300 font-bold border-b border-black">
-                                                            {chunk.map((rec, idx) => (
-                                                                <th key={idx} className="border-r border-black px-3 py-1 font-bold text-[11px]">{rec.size}</th>
-                                                            ))}
+                                                                return (
+                                                                    <td key={cidx} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
+                                                                        {val}
+                                                                    </td>
+                                                                );
+                                                            })}
                                                         </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <tr className="bg-white">
-                                                            {chunk.map((rec, idx) => (
-                                                                <td key={idx} className="border-r border-black px-3 py-1 text-[11px]">{rec.count}</td>
-                                                            ))}
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            ))}
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+
+                                        {/* Rekap Size */}
+                                        <div className="mt-4 text-center">
+                                            <div className="font-bold text-[12px] underline mb-1.5">JUMLAH KESELURUHAN: {filledNamesets.length} PCS</div>
+
+                                            {sizeAtasanRecap.length > 0 && (
+                                                <div className="mb-2">
+                                                    {sizeBawahanRecap.length > 0 && <div className="text-[10.5px] font-bold mb-1">REKAP SIZE ATASAN</div>}
+                                                    {chunkArray(sizeAtasanRecap, 10).map((chunk, cidx) => (
+                                                        <table key={cidx} className="mx-auto border-collapse border-2 border-black text-center mb-1.5">
+                                                            <thead>
+                                                                <tr className="bg-slate-300 font-bold border-b border-black">
+                                                                    {chunk.map((rec, idx) => (
+                                                                        <th key={idx} className="border-r border-black px-3 py-1 font-bold text-[11px]">{rec.size}</th>
+                                                                    ))}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr className="bg-white">
+                                                                    {chunk.map((rec, idx) => (
+                                                                        <td key={idx} className="border-r border-black px-3 py-1 text-[11px]">{rec.count}</td>
+                                                                    ))}
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {sizeBawahanRecap.length > 0 && (
+                                                <div className="mt-3">
+                                                    <div className="text-[10.5px] font-bold mb-1">REKAP SIZE BAWAHAN</div>
+                                                    {chunkArray(sizeBawahanRecap, 10).map((chunk, cidx) => (
+                                                        <table key={cidx} className="mx-auto border-collapse border-2 border-black text-center mb-1.5">
+                                                            <thead>
+                                                                <tr className="bg-slate-300 font-bold border-b border-black">
+                                                                    {chunk.map((rec, idx) => (
+                                                                        <th key={idx} className="border-r border-black px-3 py-1 font-bold text-[11px]">{rec.size}</th>
+                                                                    ))}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr className="bg-white">
+                                                                    {chunk.map((rec, idx) => (
+                                                                        <td key={idx} className="border-r border-black px-3 py-1 text-[11px]">{rec.count}</td>
+                                                                    ))}
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                            </div>
+                                    </div>
+                                )}
+                            </React.Fragment>
                         );
                     })}
 

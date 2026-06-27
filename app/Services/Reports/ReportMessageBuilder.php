@@ -88,13 +88,13 @@ PROMPT;
             ->with(['pelanggan:id,nama', 'brand:id,kode'])
             ->orderBy('deadline_customer')->limit(5)->get();
 
-        $revToday = Order::where('status_po', '!=', 'draft')->whereDate('tanggal_masuk', today())->sum('total_tagihan');
-        $revWeek  = Order::where('status_po', '!=', 'draft')->whereBetween('tanggal_masuk', [now()->startOfWeek(), now()->endOfWeek()])->sum('total_tagihan');
-        $revMonth = Order::where('status_po', '!=', 'draft')->whereYear('tanggal_masuk', now()->year)->whereMonth('tanggal_masuk', now()->month)->sum('total_tagihan');
+        $revToday = Order::where('status_po', '!=', 'draft')->where('tanggal_masuk', today()->toDateString())->sum('total_tagihan');
+        $revWeek  = Order::where('status_po', '!=', 'draft')->whereBetween('tanggal_masuk', [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()])->sum('total_tagihan');
+        $revMonth = Order::where('status_po', '!=', 'draft')->whereBetween('tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])->sum('total_tagihan');
 
         $topBrands = Order::query()
             ->where('status_po', '!=', 'draft')
-            ->whereYear('tanggal_masuk', now()->year)->whereMonth('tanggal_masuk', now()->month)
+            ->whereBetween('tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
             ->select('brand_id', DB::raw('COUNT(*) as total'), DB::raw('SUM(total_tagihan) as revenue'))
             ->groupBy('brand_id')
             ->with('brand:id,nama_brand,kode')
@@ -164,11 +164,11 @@ PROMPT;
         $bid = $brand->id;
 
         $dalamProses    = Order::where('brand_id', $bid)->where('status_po', 'on_progress')->count();
-        $masukHariIni   = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereDate('tanggal_masuk', today())->count();
-        $selesaiHariIni = Order::where('brand_id', $bid)->where('status_po', 'selesai_produksi')->whereDate('updated_at', today())->count();
+        $masukHariIni   = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->where('tanggal_masuk', today()->toDateString())->count();
+        $selesaiHariIni = Order::where('brand_id', $bid)->where('status_po', 'selesai_produksi')->whereBetween('updated_at', [today()->startOfDay(), today()->endOfDay()])->count();
 
         $poMasuk = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
-            ->whereDate('tanggal_masuk', today())
+            ->where('tanggal_masuk', today()->toDateString())
             ->with(['pelanggan:id,nama', 'items:order_id,nama_produk,quantity'])
             ->orderByDesc('tanggal_masuk')->limit(5)->get();
 
@@ -272,18 +272,18 @@ PROMPT;
             ->where('deadline_customer', '<', today())
             ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(3)->get();
 
-        $revToday = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereDate('tanggal_masuk', today())->sum('total_tagihan');
-        $revWeek  = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereBetween('tanggal_masuk', [now()->startOfWeek(), now()->endOfWeek()])->sum('total_tagihan');
-        $revMonth = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereYear('tanggal_masuk', now()->year)->whereMonth('tanggal_masuk', now()->month)->sum('total_tagihan');
+        $revToday = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->where('tanggal_masuk', today()->toDateString())->sum('total_tagihan');
+        $revWeek  = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereBetween('tanggal_masuk', [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()])->sum('total_tagihan');
+        $revMonth = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereBetween('tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])->sum('total_tagihan');
 
         $newPelanggan = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
-            ->whereYear('tanggal_masuk', now()->year)->whereMonth('tanggal_masuk', now()->month)
+            ->whereBetween('tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
             ->distinct('pelanggan_id')->count('pelanggan_id');
 
         $topProduk = OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->where('orders.brand_id', $bid)->where('orders.status_po', '!=', 'draft')
-            ->whereYear('orders.tanggal_masuk', now()->year)->whereMonth('orders.tanggal_masuk', now()->month)
+            ->whereBetween('orders.tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
             ->select('order_items.nama_produk', DB::raw('SUM(order_items.quantity) as total_qty'))
             ->groupBy('order_items.nama_produk')->orderByDesc('total_qty')->first();
 
@@ -364,14 +364,14 @@ PROMPT;
         $delay   = (int)($statusRows['delay'] ?? 0);
 
         $poHariIni = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
-            ->whereDate('tanggal_masuk', today())
+            ->where('tanggal_masuk', today()->toDateString())
             ->with(['pelanggan:id,nama', 'items:order_id,quantity'])->limit(3)->get();
 
         $poProduksi = Order::where('brand_id', $bid)->where('status_po', 'on_progress')
             ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(3)->get();
 
         $poSelesai = Order::where('brand_id', $bid)->where('status_po', 'selesai_produksi')
-            ->whereDate('updated_at', today())
+            ->whereBetween('updated_at', [today()->startOfDay(), today()->endOfDay()])
             ->with(['pelanggan:id,nama', 'items:order_id,quantity'])->limit(3)->get();
 
         $deadlines = Order::where('brand_id', $bid)->whereIn('status_po', ['published', 'on_progress'])
@@ -382,10 +382,10 @@ PROMPT;
             ->where('deadline_customer', '<', today())
             ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(3)->get();
 
-        $revToday     = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereDate('tanggal_masuk', today())->sum('total_tagihan');
-        $revWeek      = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereBetween('tanggal_masuk', [now()->startOfWeek(), now()->endOfWeek()])->sum('total_tagihan');
-        $revMonth     = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereYear('tanggal_masuk', now()->year)->whereMonth('tanggal_masuk', now()->month)->sum('total_tagihan');
-        $revLastMonth = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereYear('tanggal_masuk', now()->subMonth()->year)->whereMonth('tanggal_masuk', now()->subMonth()->month)->sum('total_tagihan');
+        $revToday     = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->where('tanggal_masuk', today()->toDateString())->sum('total_tagihan');
+        $revWeek      = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereBetween('tanggal_masuk', [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()])->sum('total_tagihan');
+        $revMonth     = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereBetween('tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])->sum('total_tagihan');
+        $revLastMonth = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereBetween('tanggal_masuk', [now()->subMonth()->startOfMonth()->toDateString(), now()->subMonth()->endOfMonth()->toDateString()])->sum('total_tagihan');
 
         $growth    = $revLastMonth > 0 ? round((($revMonth - $revLastMonth) / $revLastMonth) * 100, 1) : 0;
         $growthStr = $growth >= 0 ? "📈 +{$growth}% vs bulan lalu" : "📉 {$growth}% vs bulan lalu";
@@ -393,12 +393,12 @@ PROMPT;
         $topProduk = OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->where('orders.brand_id', $bid)->where('orders.status_po', '!=', 'draft')
-            ->whereYear('orders.tanggal_masuk', now()->year)->whereMonth('orders.tanggal_masuk', now()->month)
+            ->whereBetween('orders.tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
             ->select('order_items.nama_produk', DB::raw('SUM(order_items.quantity) as total_qty'))
             ->groupBy('order_items.nama_produk')->orderByDesc('total_qty')->first();
 
         $topCustomer = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
-            ->whereYear('tanggal_masuk', now()->year)->whereMonth('tanggal_masuk', now()->month)
+            ->whereBetween('tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
             ->select('pelanggan_id', DB::raw('COUNT(*) as total'))
             ->groupBy('pelanggan_id')->with('pelanggan:id,nama')->orderByDesc('total')->first();
 
@@ -483,12 +483,12 @@ PROMPT;
     {
         $bid = $brand->id;
 
-        $pemasukanToday   = Pemasukan::where('brand_id', $bid)->whereDate('tanggal', today())->sum('nominal');
-        $pengeluaranToday = Pengeluaran::where('brand_id', $bid)->whereDate('tanggal', today())->sum('nominal');
+        $pemasukanToday   = Pemasukan::where('brand_id', $bid)->where('tanggal', today()->toDateString())->sum('nominal');
+        $pengeluaranToday = Pengeluaran::where('brand_id', $bid)->where('tanggal', today()->toDateString())->sum('nominal');
         $labaToday        = $pemasukanToday - $pengeluaranToday;
 
-        $pemasukanMonth   = Pemasukan::where('brand_id', $bid)->whereYear('tanggal', now()->year)->whereMonth('tanggal', now()->month)->sum('nominal');
-        $pengeluaranMonth = Pengeluaran::where('brand_id', $bid)->whereYear('tanggal', now()->year)->whereMonth('tanggal', now()->month)->sum('nominal');
+        $pemasukanMonth   = Pemasukan::where('brand_id', $bid)->whereBetween('tanggal', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])->sum('nominal');
+        $pengeluaranMonth = Pengeluaran::where('brand_id', $bid)->whereBetween('tanggal', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])->sum('nominal');
         $labaMonth        = $pemasukanMonth - $pengeluaranMonth;
 
         $refundPending = Refund::where('brand_id', $bid)->where('status', 'pending_review')

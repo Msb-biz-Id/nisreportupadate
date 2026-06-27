@@ -9,15 +9,55 @@
         @php
             $faviconPath = \App\Models\Settings\SystemSetting::get('seo', 'favicon');
             $faviconUrl = $faviconPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($faviconPath) : asset('favicon.ico');
+            
+            $themeColor = \App\Models\Settings\SystemSetting::get('system', 'theme_color', '#a8001c');
+            $hex = ltrim($themeColor, '#');
+            if (strlen($hex) == 3) {
+                $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+            }
+            $r = hexdec(substr($hex, 0, 2)) / 255;
+            $g = hexdec(substr($hex, 2, 2)) / 255;
+            $b = hexdec(substr($hex, 4, 2)) / 255;
+            $max = max($r, $g, $b);
+            $min = min($r, $g, $b);
+            $h = 0; $s = 0; $l = ($max + $min) / 2;
+            if ($max != $min) {
+                $d = $max - $min;
+                $s = $l > 0.5 ? $d / (2 - $max - $min) : $d / ($max + $min);
+                if ($max == $r) {
+                    $h = ($g - $b) / $d + ($g < $b ? 6 : 0);
+                } elseif ($max == $g) {
+                    $h = ($b - $r) / $d + 2;
+                } else {
+                    $h = ($r - $g) / $d + 4;
+                }
+                $h /= 6;
+            }
+            $h = round($h * 360);
+            $s = round($s * 100);
+            $l = round($l * 100);
+            
+            $hslColor = "$h $s% $l%";
+            $accentColor = "$h $s% 96%";
         @endphp
         <link rel="icon" type="image/x-icon" href="{{ $faviconUrl }}">
 
         <!-- PWA Meta and Links -->
         <link rel="manifest" href="/manifest.json">
-        <meta name="theme-color" content="#3b82f6">
+        <meta name="theme-color" content="{{ $themeColor }}">
         <link rel="apple-touch-icon" href="/pwa-icon-192.png">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+        <style>
+            :root {
+                --primary: {{ $hslColor }} !important;
+                --ring: {{ $hslColor }} !important;
+                --sidebar-accent: {{ $hslColor }} !important;
+                --accent: {{ $accentColor }} !important;
+                --accent-foreground: {{ $hslColor }} !important;
+            }
+        </style>
 
         <!-- Service Worker Registration -->
         <script>
@@ -43,7 +83,7 @@
         <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|figtree:400,500,600&display=swap" rel="stylesheet" />
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;700&family=Noto+Sans+JP:wght@400;750&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;700&family=Noto+Sans+JP:wght@400;750&family=Noto+Sans+Javanese:wght@400;700&display=swap" rel="stylesheet">
 
         <!-- Scripts -->
         @routes

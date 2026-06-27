@@ -22,7 +22,7 @@ class SystemEventNotification extends Notification implements ShouldQueue
         public array $payload,
         public array $settings
     ) {
-        if (app()->environment('local')) {
+        if (app()->environment('local') && config('queue.default') === 'sync') {
             $this->connection = 'sync';
         }
     }

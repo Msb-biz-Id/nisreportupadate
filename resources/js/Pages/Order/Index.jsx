@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Search, Eye, Package, RotateCw, Copy, Check, X, Calendar, Download } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader } from '@/Components/ui/card';
@@ -24,7 +24,102 @@ const STATUS_LABEL = {
 
 const NONE = '__none__';
 
+const StickyScrollbar = ({ targetRef, minWidth = '1300px' }) => {
+    const scrollbarRef = useRef(null);
+    const [show, setShow] = useState(false);
+    const [width, setWidth] = useState(minWidth);
+
+    useEffect(() => {
+        const target = targetRef.current;
+        if (!target) return;
+
+        let frameId = null;
+        const updateSize = () => {
+            if (frameId) cancelAnimationFrame(frameId);
+            frameId = requestAnimationFrame(() => {
+                const scrollWidth = target.scrollWidth;
+                const clientWidth = target.clientWidth;
+                const hasOverflow = scrollWidth > clientWidth;
+                setShow((prev) => (prev !== hasOverflow ? hasOverflow : prev));
+                setWidth((prev) => {
+                    const nextWidth = `${scrollWidth}px`;
+                    return prev !== nextWidth ? nextWidth : prev;
+                });
+            });
+        };
+
+        updateSize();
+        const resizeObserver = new ResizeObserver(updateSize);
+        resizeObserver.observe(target);
+
+        let isSyncingTarget = false;
+        let isSyncingScrollbar = false;
+
+        const handleTargetScroll = () => {
+            if (isSyncingScrollbar) {
+                isSyncingScrollbar = false;
+                return;
+            }
+            if (scrollbarRef.current) {
+                isSyncingTarget = true;
+                scrollbarRef.current.scrollLeft = target.scrollLeft;
+            }
+        };
+
+        const handleScrollbarScroll = () => {
+            if (isSyncingTarget) {
+                isSyncingTarget = false;
+                return;
+            }
+            if (scrollbarRef.current) {
+                isSyncingScrollbar = true;
+                target.scrollLeft = scrollbarRef.current.scrollLeft;
+            }
+        };
+
+        target.addEventListener('scroll', handleTargetScroll);
+        const scrollbarEl = scrollbarRef.current;
+        if (scrollbarEl) {
+            scrollbarEl.addEventListener('scroll', handleScrollbarScroll);
+        }
+
+        return () => {
+            if (frameId) cancelAnimationFrame(frameId);
+            resizeObserver.disconnect();
+            target.removeEventListener('scroll', handleTargetScroll);
+            if (scrollbarEl) {
+                scrollbarEl.removeEventListener('scroll', handleScrollbarScroll);
+            }
+        };
+    }, [targetRef]);
+
+    if (!show) return null;
+
+    return (
+        <>
+            <style>{`
+                .hide-scrollbar-x::-webkit-scrollbar {
+                    height: 0px;
+                    background: transparent;
+                }
+                .hide-scrollbar-x {
+                    scrollbar-width: none;
+                    -ms-overflow-style: none;
+                }
+            `}</style>
+            <div
+                ref={scrollbarRef}
+                className="sticky bottom-0 left-0 right-0 z-40 w-full overflow-x-auto bg-slate-50 border-t border-slate-200"
+                style={{ height: '12px' }}
+            >
+                <div style={{ width, height: '1px' }} />
+            </div>
+        </>
+    );
+};
+
 export default function OrderIndex({ orders, filters, statuses, statusCounts, brands, can }) {
+    const tableContainerRef = useRef(null);
     const [search, setSearch]     = useState(filters?.q ?? '');
     const [status, setStatus]     = useState(filters?.status ?? 'all');
     const [brandId, setBrandId]   = useState(filters?.brand_id ?? '');
@@ -422,27 +517,27 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                             </div>
                         </div>
 
-                        <div className="overflow-hidden rounded-lg border">
-                            <Table>
+                        <div ref={tableContainerRef} className="overflow-auto max-h-[calc(100vh-320px)] rounded-lg border hide-scrollbar-x">
+                            <Table className="min-w-[1300px] border-collapse">
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>No. PO</TableHead>
-                                        <TableHead>Nama PO</TableHead>
-                                        {can?.filter_by_brand && <TableHead>Brand</TableHead>}
-                                        <TableHead>Pelanggan</TableHead>
-                                        <TableHead>Tgl Masuk</TableHead>
-                                        <TableHead>Deadline</TableHead>
-                                        <TableHead className="text-right">Total</TableHead>
-                                        <TableHead>Paket</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-center">Items</TableHead>
-                                        <TableHead className="text-right">Aksi</TableHead>
+                                        <TableHead className="sticky top-0 left-0 z-30 bg-slate-50 font-bold text-slate-700 min-w-[200px] w-[200px] shadow-[inset_-1px_0_0_0_#e2e8f0]">No. PO</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[180px]">Nama PO</TableHead>
+                                        {can?.filter_by_brand && <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[80px]">Brand</TableHead>}
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[180px]">Pelanggan</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[100px]">Tgl Masuk</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[100px]">Deadline</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[120px]">Total</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[100px]">Paket</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[100px]">Status</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-center min-w-[80px]">Items</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[120px]">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {orders.data.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={can?.filter_by_brand ? 10 : 9} className="py-8 text-center text-sm text-muted-foreground">
+                                            <TableCell colSpan={can?.filter_by_brand ? 11 : 10} className="py-8 text-center text-sm text-muted-foreground">
                                                 Belum ada PO yang cocok dengan filter.
                                             </TableCell>
                                         </TableRow>
@@ -450,20 +545,20 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                     {orders.data.map((o) => {
                                         const st = STATUS_LABEL[o.status_po] ?? { label: o.status_po, variant: 'outline' };
                                         return (
-                                            <TableRow key={o.id}>
-                                                <TableCell className="font-mono text-xs">{o.no_po}</TableCell>
-                                                <TableCell>
+                                            <TableRow key={o.id} className="group hover:bg-slate-50/50">
+                                                <TableCell className="sticky left-0 z-10 bg-white font-mono text-xs font-bold text-slate-800 min-w-[200px] w-[200px] shadow-[inset_-1px_0_0_0_#e2e8f0] group-hover:bg-slate-50 transition-colors">{o.no_po}</TableCell>
+                                                <TableCell className="min-w-[180px]">
                                                     <div className="font-medium">{o.nama_po}</div>
                                                     {o.is_repeat_order && <Badge variant="outline" className="mt-1 text-[10px]"><RotateCw className="mr-1 h-3 w-3" />Repeat</Badge>}
                                                 </TableCell>
                                                 {can?.filter_by_brand && (
-                                                    <TableCell className="text-xs text-muted-foreground">{o.brand?.kode ?? '-'}</TableCell>
+                                                    <TableCell className="text-xs text-muted-foreground min-w-[80px]">{o.brand?.kode ?? '-'}</TableCell>
                                                 )}
-                                                <TableCell>{o.pelanggan?.nama ?? '-'}</TableCell>
-                                                <TableCell className="text-xs">{formatDate(o.tanggal_masuk)}</TableCell>
-                                                <TableCell className="text-xs">{formatDate(o.deadline_customer)}</TableCell>
-                                                <TableCell className="text-right font-mono text-xs">{formatRupiah(o.total_tagihan)}</TableCell>
-                                                <TableCell>
+                                                <TableCell className="min-w-[180px]">{o.pelanggan?.nama ?? '-'}</TableCell>
+                                                <TableCell className="text-xs min-w-[100px]">{formatDate(o.tanggal_masuk)}</TableCell>
+                                                <TableCell className="text-xs min-w-[100px]">{formatDate(o.deadline_customer)}</TableCell>
+                                                <TableCell className="text-right font-mono text-xs min-w-[120px]">{formatRupiah(o.total_tagihan)}</TableCell>
+                                                <TableCell className="min-w-[100px]">
                                                     {o.paket_order ? (
                                                         <span
                                                             className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
@@ -474,11 +569,11 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                                         </span>
                                                     ) : <span className="text-xs text-muted-foreground">-</span>}
                                                 </TableCell>
-                                                <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
-                                                <TableCell className="text-center">
+                                                <TableCell className="min-w-[100px]"><Badge variant={st.variant}>{st.label}</Badge></TableCell>
+                                                <TableCell className="text-center min-w-[80px]">
                                                     <Badge variant="outline">{o.items_count ?? 0}</Badge>
                                                 </TableCell>
-                                                <TableCell className="text-right">
+                                                <TableCell className="text-right min-w-[120px]">
                                                     <div className="flex justify-end gap-1">
                                                         <Button asChild size="icon" variant="ghost" title="Preview">
                                                             <Link href={route('orders.show', o.id)}>
@@ -505,6 +600,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                 </TableBody>
                             </Table>
                         </div>
+                        <StickyScrollbar targetRef={tableContainerRef} minWidth="1300px" />
 
                         <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                             <span>

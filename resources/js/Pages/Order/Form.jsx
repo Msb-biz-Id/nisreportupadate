@@ -1239,19 +1239,19 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                                             <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
                                                 <td className="p-1.5 text-center text-xs font-bold text-slate-500">{i + 1}</td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nama_punggung || ''} onChange={(e) => patchNameset(i, 'nama_punggung', e.target.value)} className="h-7 text-xs font-medium uppercase" />
+                                                    <Input value={ns.nama_punggung || ''} onChange={(e) => patchNameset(i, 'nama_punggung', e.target.value)} className="h-7 text-xs font-medium" />
                                                 </td>
                                                 <td className="p-1.5">
                                                     <Input value={ns.nomor_punggung || ''} onChange={(e) => patchNameset(i, 'nomor_punggung', e.target.value)} className="h-7 text-xs font-black text-center" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nama_dada || ''} onChange={(e) => patchNameset(i, 'nama_dada', e.target.value)} className="h-7 text-xs font-medium uppercase" />
+                                                    <Input value={ns.nama_dada || ''} onChange={(e) => patchNameset(i, 'nama_dada', e.target.value)} className="h-7 text-xs font-medium" />
                                                 </td>
                                                 <td className="p-1.5">
                                                     <Input value={ns.nomor_dada || ''} onChange={(e) => patchNameset(i, 'nomor_dada', e.target.value)} className="h-7 text-xs font-black text-center" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nama_lengan || ''} onChange={(e) => patchNameset(i, 'nama_lengan', e.target.value)} className="h-7 text-xs font-medium uppercase" />
+                                                    <Input value={ns.nama_lengan || ''} onChange={(e) => patchNameset(i, 'nama_lengan', e.target.value)} className="h-7 text-xs font-medium" />
                                                 </td>
                                                 <td className="p-1.5">
                                                     <Input value={ns.nomor_lengan || ''} onChange={(e) => patchNameset(i, 'nomor_lengan', e.target.value)} className="h-7 text-xs font-black text-center" />
@@ -1260,7 +1260,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                                                     <Input value={ns.nomor_punggung_2 || ''} onChange={(e) => patchNameset(i, 'nomor_punggung_2', e.target.value)} className="h-7 text-xs font-black text-center" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nama_punggung_2 || ''} onChange={(e) => patchNameset(i, 'nama_punggung_2', e.target.value)} className="h-7 text-xs font-medium uppercase" />
+                                                    <Input value={ns.nama_punggung_2 || ''} onChange={(e) => patchNameset(i, 'nama_punggung_2', e.target.value)} className="h-7 text-xs font-medium" />
                                                 </td>
                                                 <td className="p-1.5">
                                                     <Select value={ns.size_id || NONE} onValueChange={(v) => patchNameset(i, 'size_id', v === NONE ? '' : v)}>

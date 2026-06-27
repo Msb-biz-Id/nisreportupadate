@@ -28,19 +28,17 @@ export default function usePublicSecurity() {
         document.addEventListener('keydown', handleKeyDown);
 
         // 3. DevTools Countermeasure (Active Debugger Loop)
-        // If developer tools are opened, this loop will trigger the debugger, instantly freezing their inspect console.
+        // Check at a sane interval and without recursion to avoid crashing the browser tab's call stack.
         const debugInterval = setInterval(() => {
             try {
-                (function debuggerLurker(i) {
-                    if (("" + i / i).length !== 1 || i % 20 === 0) {
-                        (function() {}).constructor("debugger")();
-                    } else {
-                        debugger;
-                    }
-                    debuggerLurker(++i);
-                })(0);
+                const start = performance.now();
+                debugger;
+                const end = performance.now();
+                if (end - start > 100) {
+                    (function() {}).constructor("debugger")();
+                }
             } catch (err) {}
-        }, 100);
+        }, 1000);
 
         return () => {
             document.removeEventListener('contextmenu', handleContextMenu);
@@ -49,3 +47,4 @@ export default function usePublicSecurity() {
         };
     }, []);
 }
+

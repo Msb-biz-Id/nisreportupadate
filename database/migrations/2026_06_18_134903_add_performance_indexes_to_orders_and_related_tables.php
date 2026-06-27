@@ -228,7 +228,7 @@ return new class extends Migration
             $table->dropIndex('idx_deposit_customer');
             $table->dropIndex('idx_deposit_status');
             $table->dropIndex('idx_deposit_converted');
-            $table->dropIndexable('idx_deposit_verified');
+            $table->dropIndex('idx_deposit_verified');
             $table->dropIndex('idx_deposit_bank');
         });
 

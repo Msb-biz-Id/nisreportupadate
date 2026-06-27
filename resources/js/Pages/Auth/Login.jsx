@@ -23,20 +23,12 @@ export default function Login({ status, canResetPassword }) {
 
             {/* Left panel */}
             <div
-                className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 text-white relative overflow-hidden"
-                style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%)' }}
+                className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 text-white relative overflow-hidden bg-black"
             >
-                {/* Background decorative circles */}
-                <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full opacity-10"
-                    style={{ background: 'radial-gradient(circle, #e94560, transparent)' }} />
-                <div className="absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full opacity-10"
-                    style={{ background: 'radial-gradient(circle, #533483, transparent)' }} />
-
                 {/* Logo */}
                 <div className="relative z-10">
                     <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl px-5 py-3 border border-white/20">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg"
-                            style={{ background: 'linear-gradient(135deg, #e94560, #533483)' }}>
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg bg-primary">
                             N
                         </div>
                         <span className="font-semibold tracking-widest text-sm uppercase">NIS Report</span>
@@ -51,7 +43,7 @@ export default function Login({ status, canResetPassword }) {
                     <h1 className="text-5xl font-black leading-tight tracking-tight">
                         KELOLA ORDER<br />
                         APPAREL CUSTOM<br />
-                        <span style={{ color: '#e94560' }}>LEBIH MUDAH.</span>
+                        <span style={{ color: 'hsl(var(--primary))' }}>LEBIH MUDAH.</span>
                     </h1>
                     <p className="text-white/60 text-sm max-w-xs leading-relaxed">
                         Sistem manajemen order kaos, jersey, dan apparel custom untuk bisnis multi-brand Indonesia.
@@ -71,8 +63,7 @@ export default function Login({ status, canResetPassword }) {
                     {/* Mobile logo */}
                     <div className="lg:hidden mb-8 flex justify-center">
                         <div className="inline-flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg text-white"
-                                style={{ background: 'linear-gradient(135deg, #e94560, #533483)' }}>
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg text-white bg-primary">
                                 N
                             </div>
                             <span className="font-bold text-gray-800">NIS Report</span>
@@ -114,7 +105,7 @@ export default function Login({ status, canResetPassword }) {
                                         autoFocus
                                         onChange={(e) => setData('email', e.target.value)}
                                         placeholder="admin@nisreport.local"
-                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition"
+                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition"
                                     />
                                 </div>
                                 <InputError message={errors.email} className="mt-1.5" />
@@ -137,7 +128,7 @@ export default function Login({ status, canResetPassword }) {
                                         autoComplete="current-password"
                                         onChange={(e) => setData('password', e.target.value)}
                                         placeholder="••••••••••"
-                                        className="w-full pl-10 pr-11 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 focus:bg-white transition"
+                                        className="w-full pl-10 pr-11 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition"
                                     />
                                     <button
                                         type="button"
@@ -151,27 +142,26 @@ export default function Login({ status, canResetPassword }) {
                             </div>
 
                             {/* Submit */}
-                            <button
-                                type="submit"
-                                disabled={processing}
-                                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-white font-semibold text-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
-                                style={{ background: 'linear-gradient(135deg, #1a1a2e, #0f3460)' }}
-                            >
-                                <LogIn className="h-4 w-4" />
-                                {processing ? 'Memproses...' : 'Masuk'}
-                            </button>
+                             <button
+                                 type="submit"
+                                 disabled={processing}
+                                 className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-white font-semibold text-sm transition disabled:opacity-60 disabled:cursor-not-allowed shadow-md hover:-translate-y-0.5 active:translate-y-0 duration-150 bg-black hover:bg-neutral-900"
+                             >
+                                 <LogIn className="h-4 w-4" />
+                                 {processing ? 'Memproses...' : 'Masuk'}
+                             </button>
 
                             {/* Forgot password */}
-                            {canResetPassword && (
-                                <div className="text-center">
-                                    <Link
-                                        href={route('password.request')}
-                                        className="text-xs font-semibold tracking-widest uppercase text-blue-600 hover:text-blue-800 transition"
-                                    >
-                                        Kesulitan masuk? Lupa password
-                                    </Link>
-                                </div>
-                            )}
+                             {canResetPassword && (
+                                  <div className="text-center">
+                                      <Link
+                                          href={route('password.request')}
+                                          className="text-xs font-semibold tracking-widest uppercase text-primary hover:opacity-85 transition"
+                                      >
+                                          Kesulitan masuk? Lupa password
+                                      </Link>
+                                  </div>
+                             )}
                         </form>
                     </div>
 

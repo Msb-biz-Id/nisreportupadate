@@ -25,8 +25,20 @@
                 src: url('{{ public_path("fonts/NotoSansArabic-Regular.ttf") }}') format('truetype');
             }
 
+            @font-face {
+                font-family: 'Noto Sans Javanese';
+                font-style: normal;
+                font-weight: 400;
+                src: url('{{ public_path("fonts/NotoSansJavanese-Regular.ttf") }}') format('truetype');
+            }
+
             .cjk-font {
                 font-family: 'Noto Sans JP', sans-serif !important;
+                text-transform: none !important;
+            }
+
+            .javanese-font {
+                font-family: 'Noto Sans Javanese', sans-serif !important;
                 text-transform: none !important;
             }
 
@@ -269,6 +281,10 @@
                 font-size: 9.5pt;
                 margin-bottom: 4px;
             }
+
+            .ns-name {
+                text-transform: none !important;
+            }
         </style>
     </head>
 
@@ -305,6 +321,8 @@
             $nonAddonItems = $order->items->filter(fn($i) => empty($i->is_addon))->values();
             $addonItems = $order->items->filter(fn($i) => !empty($i->is_addon))->values();
             $grandTotal = $nonAddonItems->sum('quantity');
+            $totalAtasan = $nonAddonItems->sum(fn($i) => (int)($i->jml_atasan ?: $i->quantity));
+            $totalBawahan = $nonAddonItems->sum(fn($i) => (int)($i->jml_bawahan ?? 0));
             $printingNames = collect();
             if (!empty($order->printing_ids)) {
             $printingNames = \App\Models\Master\Printing::whereIn('id', $order->printing_ids)->pluck('nama');
@@ -344,33 +362,43 @@
                             <tr>
                                 <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">TOTAL ATASAN</td>
                                 <td style="font-weight: bold; padding: 3px 0;">:</td>
-                                <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ $order->items->sum('jml_atasan') ?: $grandTotal }} PCS</td>
+                                <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ $totalAtasan }} PCS</td>
                             </tr>
                             <tr>
                                 <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">TOTAL BAWAHAN</td>
                                 <td style="font-weight: bold; padding: 3px 0;">:</td>
-                                <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ $order->items->sum('jml_bawahan') ?: '0' }} PCS</td>
+                                <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ $totalBawahan ?: '0' }} PCS</td>
                             </tr>
                         </table>
                     </td>
                     <!-- Right Side: Printing Box -->
                     <td style="width: 40%; padding: 0 0 0 15px; vertical-align: top;">
                         <div style="border: 2px solid #000; padding: 12px 10px; background: #fff; text-align: center; min-height: 75px;">
-                            @if($order->resellerDisplayBrand)
-                            <div style="font-size: 10.5pt; font-weight: 900; color: #000; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px;">
-                                RESELLER:<br>
-                                <span>{{ strtoupper($order->resellerDisplayBrand->nama_brand) }}</span>
-                            </div>
-                            @elseif($order->brand && $order->brand->isReseller())
-                            <div style="font-size: 10.5pt; font-weight: 900; color: #000; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px;">
-                                RESELLER:<br>
-                                <span>{{ strtoupper($order->brand->nama_brand) }}</span>
-                            </div>
-                            @endif
+                             @if($order->resellerDisplayBrand)
+                             <div style="font-size: 10.5pt; font-weight: 900; color: #000; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px;">
+                                 RESELLER:<br>
+                                 <span>{{ strtoupper($order->resellerDisplayBrand->nama_brand) }}</span>
+                             </div>
+                             @elseif($order->brand && $order->brand->isReseller())
+                             <div style="font-size: 10.5pt; font-weight: 900; color: #000; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px;">
+                                 RESELLER:<br>
+                                 <span>{{ strtoupper($order->brand->nama_brand) }}</span>
+                             </div>
+                             @else
+                             <div style="font-size: 13pt; font-weight: 900; color: #000; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px; line-height: 1.2;">
+                                 {{ strtoupper($order->brand->nama_brand ?? 'BRAND') }}
+                             </div>
+                             @endif
                             <div style="font-size: 10pt; font-weight: bold; line-height: 1.2;">
                                 JENIS PRINTING:<br>
                                 <span style="font-size: 12pt; font-weight: 900; color: #000;">{{ strtoupper($printingStr) }}</span>
                             </div>
+                            @if($order->paketOrder)
+                            <div style="font-size: 10pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
+                                PAKET ORDER:<br>
+                                <span style="font-size: 12pt; font-weight: 900; color: #000;">{{ strtoupper($order->paketOrder->nama) }}</span>
+                            </div>
+                            @endif
                         </div>
                     </td>
                 </tr>
@@ -537,10 +565,29 @@
             </div>
             @endif
 
-            {{-- ===== REFERENSI DESAIN & GAMBAR (PER ITEM) ===== --}}
+            @php
+            $standarSizes = ['XS ANAK','S ANAK','M ANAK','L ANAK','XL ANAK',
+            'XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL','7XL','8XL','9XL','10XL'];
+            @endphp
+
+            {{-- ===== DETAIL PER ITEM (DESAIN & NAMESET) ===== --}}
             @foreach ($nonAddonItems as $item)
-            @php /** @var \App\Models\Order\OrderItem $item */ @endphp
-            @if($item->gambar_desain || $item->ket_atasan || $item->ket_bawahan || $item->jenis_kerah || $item->gambar_kerah || $item->gambar_ket_tambahan)
+            @php
+            /** @var \App\Models\Order\OrderItem $item */
+            $hasDesain = $item->gambar_desain || $item->ket_atasan || $item->ket_bawahan || $item->jenis_kerah || $item->gambar_kerah || $item->gambar_ket_tambahan;
+
+            $filled = $item->namesets->filter(fn($ns) =>
+                !empty(trim($ns->nama_punggung ?? '')) || !empty(trim($ns->nomor_punggung ?? '')) ||
+                !empty(trim($ns->nama_dada ?? '')) || !empty(trim($ns->nomor_dada ?? '')) ||
+                !empty(trim($ns->nama_lengan ?? '')) || !empty(trim($ns->nomor_lengan ?? '')) ||
+                !empty(trim($ns->nama_punggung_2 ?? '')) || !empty(trim($ns->nomor_punggung_2 ?? '')) ||
+                !empty(trim($ns->size_id ?? '')) || !empty(trim($ns->size_label ?? '')) ||
+                !empty(trim($ns->size_celana_id ?? '')) || !empty(trim($ns->size_celana_label ?? '')) ||
+                !empty(trim($ns->keterangan ?? ''))
+            );
+            @endphp
+
+            @if($hasDesain)
             <div class="page-break"></div>
 
             <div class="img-wrapper" style="padding:6px; margin-bottom:10px;">
@@ -553,15 +600,15 @@
                 $dUrl = asset('storage/' . $item->gambar_desain);
                 $dPath = (isset($isWebPreview) && $isWebPreview) ? $dUrl : \App\Support\PdfHelper::resolveImageForPdf($item->gambar_desain);
                 @endphp
-                @if((isset($isWebPreview) && $isWebPreview) || (!empty($dPath) && file_exists($dPath)))
+                @if(!empty($dPath))
                 <div class="img-box" style="border-top:none; padding:2px; margin-bottom:6px;">
                     <img src="{{ $dPath }}" style="max-width: 100%; max-height: 520px; display: block; margin: 0 auto;">
                 </div>
                 @else
-                <div class="img-box" style="border-top:none; height:120px; line-height:120px; color:#999; font-weight:bold;">[ GAMBAR DESAIN TIDAK DITEMUKAN ]</div>
+                <div class="img-box" style="border-top:none; height:60px; line-height:60px; color:#64748b; font-style:italic; font-size:9.5pt;">Gambar desain tidak ditemukan</div>
                 @endif
                 @else
-                <div class="img-box" style="border-top:none; height:120px; line-height:120px; color:#999; font-weight:bold;">[ GAMBAR DESAIN BELUM DIUNGGAH ]</div>
+                <div class="img-box" style="border-top:none; height:60px; line-height:60px; color:#64748b; font-style:italic; font-size:9.5pt;">Gambar desain belum diunggah</div>
                 @endif
 
                 <table style="width:100%; border-collapse:collapse; border:1px solid #000; font-size:10pt; margin-bottom:0;">
@@ -589,9 +636,9 @@
                     @if($hasKerah)
                     @if($hasTambahan)
                     <td style="width: 50%; padding-right: 5px; border: none; vertical-align: top;">
-                        @else
+                    @else
                     <td style="width: 100%; padding-right: 0; border: none; vertical-align: top;">
-                        @endif
+                    @endif
                         <div class="img-wrapper" style="padding:6px; margin-bottom:0;">
                             <div class="title-box-center" style="margin-top:0; font-size: 9pt;">
                                 JENIS KERAH: {{ strtoupper($item->jenis_kerah ?? '') }}
@@ -602,15 +649,15 @@
                                 $kUrl = asset('storage/' . $item->gambar_kerah);
                                 $kPath = (isset($isWebPreview) && $isWebPreview) ? $kUrl : \App\Support\PdfHelper::resolveImageForPdf($item->gambar_kerah);
                                 @endphp
-                                @if((isset($isWebPreview) && $isWebPreview) || (!empty($kPath) && file_exists($kPath)))
+                                @if(!empty($kPath))
                                 <div style="text-align:center;">
                                     <img src="{{ $kPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
                                 </div>
                                 @else
-                                <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR KERAH TIDAK DITEMUKAN ]</div>
+                                <div style="color:#64748b; font-style:italic; font-size: 8.5pt; padding:15px 0;">Gambar kerah tidak ditemukan</div>
                                 @endif
                                 @else
-                                <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR KERAH BELUM DIUNGGAH ]</div>
+                                <div style="color:#64748b; font-style:italic; font-size: 8.5pt; padding:15px 0;">Gambar kerah belum diunggah</div>
                                 @endif
                             </div>
                         </div>
@@ -620,9 +667,9 @@
                     @if($hasTambahan)
                     @if($hasKerah)
                     <td style="width: 50%; padding-left: 5px; border: none; vertical-align: top;">
-                        @else
+                    @else
                     <td style="width: 100%; padding-left: 0; border: none; vertical-align: top;">
-                        @endif
+                    @endif
                         <div class="img-wrapper" style="padding:6px; margin-bottom:0;">
                             <div class="title-box-center" style="margin-top:0; font-size: 9pt;">
                                 KETERANGAN TAMBAHAN
@@ -632,12 +679,12 @@
                                 $ktUrl = asset('storage/' . $item->gambar_ket_tambahan);
                                 $ktPath = (isset($isWebPreview) && $isWebPreview) ? $ktUrl : \App\Support\PdfHelper::resolveImageForPdf($item->gambar_ket_tambahan);
                                 @endphp
-                                @if((isset($isWebPreview) && $isWebPreview) || (!empty($ktPath) && file_exists($ktPath)))
+                                @if(!empty($ktPath))
                                 <div style="text-align:center;">
                                     <img src="{{ $ktPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
                                 </div>
                                 @else
-                                <div style="color:#999; font-weight:bold; font-size: 8.5pt; padding:20px 0;">[ GAMBAR TIDAK DITEMUKAN ]</div>
+                                <div style="color:#64748b; font-style:italic; font-size: 8.5pt; padding:15px 0;">Gambar tambahan tidak ditemukan</div>
                                 @endif
                             </div>
                         </div>
@@ -647,27 +694,11 @@
             </table>
             @endif
             @endif
-            @endforeach
 
-            {{-- ===== NAMESETS DATA (PER ITEM) ===== --}}
+            @if($filled->isNotEmpty())
+            <div class="page-break"></div>
+
             @php
-            $standarSizes = ['XS ANAK','S ANAK','M ANAK','L ANAK','XL ANAK',
-            'XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL','7XL','8XL','9XL','10XL'];
-            @endphp
-
-            @foreach ($nonAddonItems as $item)
-            @php
-            /** @var \App\Models\Order\OrderItem $item */
-            $filled = $item->namesets->filter(fn($ns) =>
-                !empty(trim($ns->nama_punggung ?? '')) || !empty(trim($ns->nomor_punggung ?? '')) ||
-                !empty(trim($ns->nama_dada ?? '')) || !empty(trim($ns->nomor_dada ?? '')) ||
-                !empty(trim($ns->nama_lengan ?? '')) || !empty(trim($ns->nomor_lengan ?? '')) ||
-                !empty(trim($ns->nama_punggung_2 ?? '')) || !empty(trim($ns->nomor_punggung_2 ?? '')) ||
-                !empty(trim($ns->size_id ?? '')) || !empty(trim($ns->size_label ?? '')) ||
-                !empty(trim($ns->size_celana_id ?? '')) || !empty(trim($ns->size_celana_label ?? '')) ||
-                !empty(trim($ns->keterangan ?? ''))
-            );
-
             $hasCustomization = $filled->contains(fn($ns) =>
                 !empty(trim($ns->nama_punggung ?? '')) || !empty(trim($ns->nomor_punggung ?? '')) ||
                 !empty(trim($ns->nama_dada ?? '')) || !empty(trim($ns->nomor_dada ?? '')) ||
@@ -708,12 +739,7 @@
             $sizeBawahanRecap = [];
             foreach ($standarSizes as $s) { if (isset($sizeBawahanRaw[$s])) $sizeBawahanRecap[$s] = $sizeBawahanRaw[$s]; }
             foreach ($sizeBawahanRaw as $s => $c) { if (!in_array($s, $standarSizes)) $sizeBawahanRecap[$s] = $c; }
-            @endphp
 
-            @if($filled->isNotEmpty())
-            <div class="page-break"></div>
-
-            @php
             $cols = [];
             $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 6];
             if ($hasNamaPunggung) {
@@ -753,7 +779,7 @@
             $weightKey = 'weight';
             $totalWeight = collect($cols)->sum($weightKey);
             foreach ($cols as &$col) {
-            $col['pct'] = round(($col['weight'] / $totalWeight) * 100, 1);
+                $col['pct'] = round(($col['weight'] / $totalWeight) * 100, 1);
             }
             unset($col);
 
@@ -788,19 +814,19 @@
                         @if($col['type'] === 'no')
                         <td>{{ $i + 1 }}.</td>
                         @elseif($col['type'] === 'nama_punggung')
-                        <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns->nama_punggung) !!}</td>
+                        <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_punggung) !!}</td>
                         @elseif($col['type'] === 'no_punggung')
                         <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_punggung) !!}</td>
                         @elseif($col['type'] === 'nama_dada')
-                        <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns->nama_dada) !!}</td>
+                        <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_dada) !!}</td>
                         @elseif($col['type'] === 'no_dada')
                         <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_dada) !!}</td>
                         @elseif($col['type'] === 'nama_lengan')
-                        <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns->nama_lengan) !!}</td>
+                        <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_lengan) !!}</td>
                         @elseif($col['type'] === 'no_lengan')
                         <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_lengan) !!}</td>
                         @elseif($col['type'] === 'nama_punggung_2')
-                        <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns->nama_punggung_2) !!}</td>
+                        <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_punggung_2) !!}</td>
                         @elseif($col['type'] === 'no_punggung_2')
                         <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_punggung_2) !!}</td>
                         @elseif($col['type'] === 'size')
@@ -1023,19 +1049,19 @@
                         @if($col['type'] === 'no')
                         <td>{{ $i + 1 }}.</td>
                         @elseif($col['type'] === 'nama_punggung')
-                        <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns->nama_punggung) !!}</td>
+                        <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_punggung) !!}</td>
                         @elseif($col['type'] === 'no_punggung')
                         <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_punggung) !!}</td>
                         @elseif($col['type'] === 'nama_dada')
-                        <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns->nama_dada) !!}</td>
+                        <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_dada) !!}</td>
                         @elseif($col['type'] === 'no_dada')
                         <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_dada) !!}</td>
                         @elseif($col['type'] === 'nama_lengan')
-                        <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns->nama_lengan) !!}</td>
+                        <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_lengan) !!}</td>
                         @elseif($col['type'] === 'no_lengan')
                         <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_lengan) !!}</td>
                         @elseif($col['type'] === 'nama_punggung_2')
-                        <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns->nama_punggung_2) !!}</td>
+                        <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_punggung_2) !!}</td>
                         @elseif($col['type'] === 'no_punggung_2')
                         <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_punggung_2) !!}</td>
                         @elseif($col['type'] === 'size')

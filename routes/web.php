@@ -130,6 +130,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/pdf-draft', [OrderController::class, 'draftPdf'])->name('pdf-draft');
         Route::get('/{order}/fo.pdf', [OrderController::class, 'foPdf'])->name('fo.pdf');
         Route::get('/{order}/fo/preview', [OrderController::class, 'foPreview'])->name('fo.preview');
+        Route::get('/{order}/versions/compare', [OrderController::class, 'getVersionComparison'])->name('versions.compare');
     });
 
     // Calendar

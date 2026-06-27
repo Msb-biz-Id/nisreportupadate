@@ -37,7 +37,7 @@ class BrandTargetController extends Controller
         $actualRows = Order::query()
             ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
             ->whereIn('orders.brand_id', $brandIds)
-            ->whereYear('orders.tanggal_masuk', $year)
+            ->whereBetween('orders.tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])
             ->where('orders.status_po', '!=', 'draft')
             ->select(
                 'orders.brand_id',

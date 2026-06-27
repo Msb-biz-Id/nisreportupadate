@@ -1632,6 +1632,82 @@ class OrderLifecycleTest extends TestCase
         $response = $this->get(route('orders.public.fo.pdf', $order->no_po));
         $response->assertStatus(200);
     }
+
+    public function test_po_versioning_and_comparisons(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $user = $this->makeUser('admin_brand', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+        $bank = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->first();
+
+        // 1. Create a PO
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('orders.store'), [
+                'nama_po' => 'PO Versioning Test',
+                'tanggal_masuk' => now()->toDateString(),
+                'deadline_customer' => now()->addDays(14)->toDateString(),
+                'pelanggan_id' => $customer->id,
+                'bank_id' => $bank->id,
+                'items' => [[
+                    'nama_produk' => 'Jersey Test',
+                    'quantity' => 10,
+                    'harga_satuan' => 100000,
+                ]],
+            ])
+            ->assertRedirect();
+
+        $order = Order::where('nama_po', 'PO Versioning Test')->first();
+        $this->assertNotNull($order);
+
+        // 2. Perform an update — this should generate a baseline version (if none exists) and then version 2 with edits.
+        $this->actingAsWithBrand($user, $brand)
+            ->put(route('orders.update', $order->id), [
+                'nama_po' => 'PO Versioning Test Updated',
+                'tanggal_masuk' => now()->toDateString(),
+                'deadline_customer' => now()->addDays(14)->toDateString(),
+                'pelanggan_id' => $customer->id,
+                'bank_id' => $bank->id,
+                'change_reason' => 'Mengubah nama PO',
+                'items' => [[
+                    'nama_produk' => 'Jersey Test Premium',
+                    'quantity' => 12,
+                    'harga_satuan' => 120000,
+                ]],
+            ])
+            ->assertRedirect();
+
+        // Verify versions exist in database
+        $this->assertDatabaseHas('po_versions', [
+            'order_id' => $order->id,
+            'version' => 1,
+        ]);
+        $this->assertDatabaseHas('po_versions', [
+            'order_id' => $order->id,
+            'version' => 2,
+            'change_reason' => 'Mengubah nama PO',
+        ]);
+
+        // Verify audit logs exist
+        $this->assertDatabaseHas('po_change_logs', [
+            'order_id' => $order->id,
+            'field_changed' => 'Nama PO',
+            'old_value' => 'PO Versioning Test',
+            'new_value' => 'PO Versioning Test Updated',
+        ]);
+
+        // 3. Compare the versions via the comparison API endpoint
+        $this->actingAsWithBrand($user, $brand)
+            ->get(route('orders.versions.compare', [$order->id, 'v1' => 1, 'v2' => 2]))
+            ->assertStatus(200)
+            ->assertJsonStructure([
+                'v1' => ['version', 'creator', 'created_at', 'change_reason'],
+                'v2' => ['version', 'creator', 'created_at', 'change_reason'],
+                'diffs' => [
+                    '*' => ['field', 'label', 'old', 'new']
+                ]
+            ]);
+
+    }
 }
 
 

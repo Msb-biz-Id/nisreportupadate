@@ -107,6 +107,7 @@ class HandleInertiaRequests extends Middleware
                 'favicon_url' => SystemSetting::get('seo', 'favicon')
                     ? $publicDisk->url(SystemSetting::get('seo', 'favicon'))
                     : null,
+                'theme_color' => SystemSetting::get('system', 'theme_color', '#a8001c'),
             ],
         ];
     }

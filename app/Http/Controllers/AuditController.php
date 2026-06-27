@@ -35,10 +35,10 @@ class AuditController extends Controller
             $query->where('user_id', $userId);
         }
         if ($from = $request->string('from')->toString()) {
-            $query->whereDate('created_at', '>=', $from);
+            $query->where('created_at', '>=', \Illuminate\Support\Carbon::parse($from)->startOfDay());
         }
         if ($to = $request->string('to')->toString()) {
-            $query->whereDate('created_at', '<=', $to);
+            $query->where('created_at', '<=', \Illuminate\Support\Carbon::parse($to)->endOfDay());
         }
         if ($search = $request->string('q')->toString()) {
             $query->where('description', 'like', "%{$search}%");

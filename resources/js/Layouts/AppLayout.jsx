@@ -539,7 +539,7 @@ function SidebarContent({ user, brandContext, onNavigate, installPrompt, handleI
                                 variant="outline" 
                                 size="sm" 
                                 title="Instal Aplikasi PWA"
-                                className="h-9 w-9 p-0 flex items-center justify-center bg-blue-500/10 border-blue-500/20 text-blue-600 hover:bg-blue-600 hover:text-white"
+                                className="h-9 w-9 p-0 flex items-center justify-center bg-red-500/10 border-red-500/20 text-red-600 hover:bg-red-600 hover:text-white"
                             >
                                 <Download className="h-4 w-4" />
                             </Button>
@@ -579,7 +579,7 @@ function SidebarContent({ user, brandContext, onNavigate, installPrompt, handleI
                                 onClick={handleInstall}
                                 variant="outline" 
                                 size="sm" 
-                                className="w-full text-xs flex items-center justify-center gap-1.5 bg-blue-500/10 border-blue-500/20 text-blue-600 hover:bg-blue-600 hover:text-white"
+                                className="w-full text-xs flex items-center justify-center gap-1.5 bg-red-500/10 border-red-500/20 text-red-600 hover:bg-red-600 hover:text-white"
                             >
                                 <Download className="h-3.5 w-3.5" /> Instal Aplikasi PWA
                             </Button>
@@ -795,7 +795,7 @@ function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMark
                                     "flex gap-3 p-3 transition-colors cursor-pointer group relative border-b border-gray-100",
                                     notif.is_read 
                                         ? "bg-transparent hover:bg-gray-50 border-l-4 border-transparent" 
-                                        : "bg-blue-50/60 hover:bg-blue-50/80 border-l-4 border-blue-600"
+                                        : "bg-red-50/60 hover:bg-red-50/80 border-l-4 border-red-600"
                                 )}
                                 onClick={() => {
                                     onMarkAsRead(notif.id);
@@ -808,7 +808,7 @@ function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMark
                             >
                                 <div className={cn(
                                     "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border shadow-sm",
-                                    notif.is_read ? "bg-gray-50 text-gray-400" : "bg-white text-blue-600 border-blue-100"
+                                    notif.is_read ? "bg-gray-50 text-gray-400" : "bg-white text-red-600 border-red-100"
                                 )}>
                                     <span className="text-sm">
                                         {notif.type?.includes('refund') ? '🪙' : 
@@ -820,14 +820,14 @@ function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMark
                                     <div className="flex items-center justify-between gap-2">
                                         <p className={cn(
                                             "text-xs line-clamp-1 flex items-center gap-1.5", 
-                                            notif.is_read ? "font-medium text-gray-500" : "font-bold text-blue-900"
+                                            notif.is_read ? "font-medium text-gray-500" : "font-bold text-red-950"
                                         )}>
-                                            {!notif.is_read && <span className="h-1.5 w-1.5 rounded-full bg-blue-600 shrink-0" />}
+                                            {!notif.is_read && <span className="h-1.5 w-1.5 rounded-full bg-red-600 shrink-0" />}
                                             {notif.title}
                                         </p>
                                         <span className={cn(
                                             "text-[9px] shrink-0 font-medium font-mono",
-                                            notif.is_read ? "text-gray-400" : "text-blue-500 font-semibold"
+                                            notif.is_read ? "text-gray-400" : "text-red-500 font-semibold"
                                         )}>
                                             {formatTimeAgo(notif.created_at)}
                                         </span>
@@ -1058,7 +1058,7 @@ export default function AppLayout({ title, header, children }) {
                 });
         }
 
-        // 15 seconds polling fallback sync (skipped if Echo receives messages)
+        // 3 seconds polling fallback sync (skipped if Echo receives messages)
         const interval = setInterval(() => {
             if (isEchoConnected) return;
 
@@ -1087,7 +1087,7 @@ export default function AppLayout({ title, header, children }) {
                     }
                 })
                 .catch((err) => console.debug('Polling notifications skipped or offline:', err));
-        }, 15000);
+        }, 3000);
 
         return () => {
             if (channel && window.Echo) {

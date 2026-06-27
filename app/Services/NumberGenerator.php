@@ -10,7 +10,7 @@ use Carbon\Carbon;
 
 class NumberGenerator
 {
-    public function generateOrderNumber(Brand $brand, string $namaPo = ''): string
+    public function generateOrderNumber(Brand $brand, string $namaPo = '', ?Carbon $date = null): string
     {
         $cleanName = (string) str($namaPo)->slug('-')->upper();
         $cleanName = substr($cleanName, 0, 30);
@@ -21,17 +21,21 @@ class NumberGenerator
 
         $prefix = "PO-{$brand->kode}-{$cleanName}";
 
-        // Find the last sequence globally for this brand
-        $lastOrders = Order::where('brand_id', $brand->id)
+        $date = $date ?? Carbon::now();
+        $year = $date->year;
+
+        // Find the last sequence globally for this brand in the same year of tanggal_masuk
+        $lastOrderNumbers = Order::where('brand_id', $brand->id)
+            ->whereBetween('tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])
             ->withTrashed()
             ->whereNotNull('no_po')
             ->orderByDesc('id')
             ->limit(50)
-            ->get();
+            ->pluck('no_po');
 
         $seq = 1;
-        foreach ($lastOrders as $order) {
-            $parts = explode('-', $order->no_po);
+        foreach ($lastOrderNumbers as $noPo) {
+            $parts = explode('-', $noPo);
             $lastPart = end($parts);
             if (is_numeric($lastPart)) {
                 $seq = ((int) $lastPart) + 1;
@@ -42,7 +46,7 @@ class NumberGenerator
         return $prefix . '-' . str_pad((string) $seq, 3, '0', STR_PAD_LEFT);
     }
 
-    public function generateInvoiceNumber(Brand $brand, ?Order $order = null): string
+    public function generateInvoiceNumber(Brand $brand, ?Order $order = null, ?Carbon $date = null): string
     {
         if ($order && $order->no_po) {
             if (str_starts_with($order->no_po, 'PO-')) {
@@ -51,19 +55,25 @@ class NumberGenerator
             return 'INV-' . $order->no_po;
         }
 
+        $date = $date ?? Carbon::now();
+        $year = $date->year;
         $prefix = "INV-{$brand->kode}-ORDER";
 
-        // Find the last sequence globally for this brand's invoices
-        $lastInvoices = Invoice::where('brand_id', $brand->id)
+        // Find the last sequence globally for this brand's invoices in the same year
+        $lastInvoiceNumbers = Invoice::where('brand_id', $brand->id)
+            ->where(function ($q) use ($year) {
+                $q->whereBetween('tanggal_terbit', ["{$year}-01-01", "{$year}-12-31"])
+                  ->orWhereBetween('created_at', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"]);
+            })
             ->withTrashed()
             ->whereNotNull('invoice_number')
             ->orderByDesc('id')
             ->limit(50)
-            ->get();
+            ->pluck('invoice_number');
 
         $seq = 1;
-        foreach ($lastInvoices as $inv) {
-            $parts = explode('-', $inv->invoice_number);
+        foreach ($lastInvoiceNumbers as $invoiceNumber) {
+            $parts = explode('-', $invoiceNumber);
             $lastPart = end($parts);
             if (is_numeric($lastPart)) {
                 $seq = ((int) $lastPart) + 1;
@@ -74,40 +84,42 @@ class NumberGenerator
         return $prefix . '-' . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
     }
 
-    public function generateRefundNumber(Brand $brand): string
+    public function generateRefundNumber(Brand $brand, ?Carbon $date = null): string
     {
-        $date = Carbon::now()->format('Ymd');
-        $prefix = "REF-{$brand->kode}-{$date}";
+        $date = $date ?? Carbon::now();
+        $dateStr = $date->format('Ymd');
+        $prefix = "REF-{$brand->kode}-{$dateStr}";
 
-        $last = Refund::where('brand_id', $brand->id)
+        $lastRefundNumber = Refund::where('brand_id', $brand->id)
             ->where('refund_number', 'like', "{$prefix}-%")
             ->withTrashed()
             ->orderByDesc('refund_number')
-            ->first();
+            ->value('refund_number');
 
         $seq = 1;
-        if ($last) {
-            $parts = explode('-', $last->refund_number);
+        if ($lastRefundNumber) {
+            $parts = explode('-', $lastRefundNumber);
             $seq = ((int) end($parts)) + 1;
         }
 
         return $prefix . '-' . str_pad((string) $seq, 3, '0', STR_PAD_LEFT);
     }
 
-    public function generateDepositNumber(Brand $brand): string
+    public function generateDepositNumber(Brand $brand, ?Carbon $date = null): string
     {
-        $date = Carbon::now()->format('Ymd');
-        $prefix = "TJ-{$brand->kode}-{$date}";
+        $date = $date ?? Carbon::now();
+        $dateStr = $date->format('Ymd');
+        $prefix = "TJ-{$brand->kode}-{$dateStr}";
 
-        $last = \App\Models\Order\DesignDeposit::where('brand_id', $brand->id)
+        $lastDepositNumber = \App\Models\Order\DesignDeposit::where('brand_id', $brand->id)
             ->where('deposit_number', 'like', "{$prefix}-%")
             ->withTrashed()
             ->orderByDesc('deposit_number')
-            ->first();
+            ->value('deposit_number');
 
         $seq = 1;
-        if ($last) {
-            $parts = explode('-', $last->deposit_number);
+        if ($lastDepositNumber) {
+            $parts = explode('-', $lastDepositNumber);
             $seq = ((int) end($parts)) + 1;
         }
 

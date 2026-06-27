@@ -241,18 +241,65 @@ class MasterDataSeeder extends Seeder
 
     private function seedBank(): void
     {
+        \Illuminate\Support\Facades\DB::table('bank_accounts')->delete();
+
         $targetBrands = Brand::whereIn('kode', ['ALG', 'CRL', 'DRV', 'IDW'])->get();
         foreach ($targetBrands as $brand) {
-            $banks = [
-                ['bank' => 'CASH', 'atas_nama' => $brand->nama_brand, 'nomor_rekening' => 'CASH'],
-                ['bank' => 'BCA', 'atas_nama' => $brand->nama_brand, 'nomor_rekening' => '1234567890'],
-                ['bank' => 'Mandiri', 'atas_nama' => $brand->nama_brand, 'nomor_rekening' => '9876543210'],
-                ['bank' => 'BRI', 'atas_nama' => $brand->nama_brand, 'nomor_rekening' => '0987654321'],
-            ];
-            foreach ($banks as $b) BankAccount::firstOrCreate(
-                ['brand_id' => $brand->id, 'bank' => $b['bank'], 'nomor_rekening' => $b['nomor_rekening']],
-                $b + ['is_active' => true]
-            );
+            // CASH option
+            BankAccount::create([
+                'brand_id' => $brand->id,
+                'bank' => 'CASH',
+                'atas_nama' => 'Cash',
+                'nomor_rekening' => 'CASH',
+                'is_active' => true,
+            ]);
+
+            if ($brand->kode === 'ALG') {
+                BankAccount::create([
+                    'brand_id' => $brand->id,
+                    'bank' => 'BCA',
+                    'atas_nama' => 'APPAREL ALLEGIANT INDONESIA',
+                    'nomor_rekening' => '3303551111',
+                    'is_active' => true,
+                ]);
+                BankAccount::create([
+                    'brand_id' => $brand->id,
+                    'bank' => 'BCA',
+                    'atas_nama' => 'Alvi',
+                    'nomor_rekening' => '3301648209',
+                    'is_active' => true,
+                ]);
+            } elseif ($brand->kode === 'DRV' || $brand->kode === 'CRL') {
+                BankAccount::create([
+                    'brand_id' => $brand->id,
+                    'bank' => 'BCA',
+                    'atas_nama' => 'JERSEY EKONOMIS TERBAIK',
+                    'nomor_rekening' => '3302129212',
+                    'is_active' => true,
+                ]);
+                BankAccount::create([
+                    'brand_id' => $brand->id,
+                    'bank' => 'BCA',
+                    'atas_nama' => 'Aulia',
+                    'nomor_rekening' => '3301648195',
+                    'is_active' => true,
+                ]);
+            } elseif ($brand->kode === 'IDW') {
+                BankAccount::create([
+                    'brand_id' => $brand->id,
+                    'bank' => 'BCA',
+                    'atas_nama' => 'HARRY',
+                    'nomor_rekening' => '8620284786',
+                    'is_active' => true,
+                ]);
+                BankAccount::create([
+                    'brand_id' => $brand->id,
+                    'bank' => 'BCA',
+                    'atas_nama' => 'M. FAJAR',
+                    'nomor_rekening' => '8291190146',
+                    'is_active' => true,
+                ]);
+            }
         }
     }
 

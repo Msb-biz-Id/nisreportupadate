@@ -16,9 +16,19 @@
             font-weight: 400;
             src: url('{{ public_path("fonts/NotoSansArabic-Regular.ttf") }}') format('truetype');
         }
+        @font-face {
+            font-family: 'Noto Sans Javanese';
+            font-style: normal;
+            font-weight: 400;
+            src: url('{{ public_path("fonts/NotoSansJavanese-Regular.ttf") }}') format('truetype');
+        }
         
         .cjk-font {
             font-family: 'Noto Sans JP', sans-serif !important;
+            text-transform: none !important;
+        }
+        .javanese-font {
+            font-family: 'Noto Sans Javanese', sans-serif !important;
             text-transform: none !important;
         }
         .arabic-font {
@@ -36,7 +46,7 @@
         .header > div { display: table-cell; vertical-align: top; }
         .brand { color: #000000; font-weight: 900; font-size: 20pt; letter-spacing: -0.5px; }
         .brand-tagline { font-size: 9.5pt; color: #000000; font-weight: 700; }
-        .invoice-title { font-size: 28pt; font-weight: 900; color: #000000; text-align: right; letter-spacing: -1px; }
+        .invoice-title { font-size: 18pt; font-weight: 900; color: #000000; text-align: right; letter-spacing: -0.5px; }
         .invoice-no { font-family: monospace; text-align: right; font-size: 10pt; color: #111827; font-weight: 700; margin-top: -6px; }
 
         .info-grid { display: table; width: 100%; margin-bottom: 16px; }
@@ -148,6 +158,9 @@
                 @if($invoice->order?->iklan)
                     <br><span style="font-size: 8pt; color: #047857; font-weight: bold;">Promo: {{ $invoice->order?->iklan?->nama }}{{ $invoice->order?->iklan?->platform ? ' (' . $invoice->order?->iklan?->platform . ')' : '' }}</span>
                 @endif
+                @if($invoice->order?->is_free_ongkir)
+                    <br><span style="font-size: 8pt; color: #059669; font-weight: bold;">Status: Free Ongkir</span>
+                @endif
             </div>
         </div>
     </div>
@@ -175,12 +188,23 @@
             @endphp
 
             @if($mainItems->isNotEmpty())
+                @php
+                    $mainOrderItems = $invoice->order ? $invoice->order->items->where('is_addon', false)->values() : collect();
+                @endphp
                 <tr style="background-color: #f9fafb; font-weight: bold;"><td colspan="5" style="padding: 4px 8px; font-size: 9pt;">PRODUK INTI</td></tr>
-                @foreach ($mainItems as $item)
+                @foreach ($mainItems as $index => $item)
+                    @php
+                        $orderItem = $mainOrderItems->get($index);
+                    @endphp
                     <tr>
                         <td>{{ $rowNum++ }}</td>
                         <td>
                             <div>{!! \App\Support\PdfHelper::formatText($item->produk) !!}</div>
+                            @if($orderItem && $orderItem->bahan_formatted)
+                                <div style="font-size: 8pt; color: #4B5563; margin-top: 2px;">
+                                    Bahan: {{ $orderItem->bahan_formatted }}
+                                </div>
+                            @endif
                             @if (!empty($item->discount_amount) && $item->discount_amount > 0)
                                 <div style="font-size: 8pt; color: #DC2626; font-weight: bold; margin-top: 2px;">
                                     Diskon: {{ $item->discount_type === 'persen' ? (number_format($item->discount_value, 0) . '%') : ('Rp ' . number_format($item->discount_value, 0, ',', '.') . '/pcs') }} (-Rp {{ number_format($item->discount_amount, 0, ',', '.') }})
@@ -195,12 +219,23 @@
             @endif
 
             @if($addonItems->isNotEmpty())
+                @php
+                    $addonOrderItems = $invoice->order ? $invoice->order->items->where('is_addon', true)->values() : collect();
+                @endphp
                 <tr style="background-color: #f9fafb; font-weight: bold;"><td colspan="5" style="padding: 4px 8px; font-size: 9pt;">ADD-ON</td></tr>
-                @foreach ($addonItems as $item)
+                @foreach ($addonItems as $index => $item)
+                    @php
+                        $orderItem = $addonOrderItems->get($index);
+                    @endphp
                     <tr>
                         <td>{{ $rowNum++ }}</td>
                         <td>
                             <div>{!! \App\Support\PdfHelper::formatText($item->produk) !!}</div>
+                            @if($orderItem && $orderItem->bahan_formatted)
+                                <div style="font-size: 8pt; color: #4B5563; margin-top: 2px;">
+                                    Bahan: {{ $orderItem->bahan_formatted }}
+                                </div>
+                            @endif
                             @if (!empty($item->discount_amount) && $item->discount_amount > 0)
                                 <div style="font-size: 8pt; color: #DC2626; font-weight: bold; margin-top: 2px;">
                                     Diskon: {{ $item->discount_type === 'persen' ? (number_format($item->discount_value, 0) . '%') : ('Rp ' . number_format($item->discount_value, 0, ',', '.') . '/pcs') }} (-Rp {{ number_format($item->discount_amount, 0, ',', '.') }})
@@ -219,16 +254,24 @@
     <div style="display: table; width: 100%; margin-top: 15px;">
         <!-- Column 1: Bank Transfer Details (Left side) -->
         <div style="display: table-cell; width: 50%; vertical-align: top; padding-right: 20px;">
-            <div class="info-label" style="font-size: 7.5pt; color: #6B7280; text-transform: uppercase; margin-bottom: 5px;">Rekening Pembayaran Resmi</div>
-            <div style="border: 1px solid #E5E7EB; border-radius: 6px; padding: 12px; background: #F9FAFB;">
-                @if (!empty($invoice->bank))
-                    <strong style="font-size: 10pt; color: #111827;">{{ $invoice->bank->bank ?? '' }}</strong><br>
-                    <span style="font-size: 9pt; color: #374151;">Atas Nama: {{ $invoice->bank->atas_nama ?? '' }}</span><br>
-                    <span style="font-family: monospace; font-size: 11pt; font-weight: bold; color: #1E40AF; display: inline-block; margin-top: 4px;">{{ $invoice->bank->nomor_rekening ?? '' }}</span>
-                @else
-                    <strong style="color: #DC2626;">Hubungi Admin Resmi untuk Rekening Pembayaran</strong>
-                @endif
-            </div>
+            @if (!empty($invoice->bank) && $invoice->bank->bank === 'CASH')
+                <div class="info-label" style="font-size: 7.5pt; color: #6B7280; text-transform: uppercase; margin-bottom: 5px;">Metode Pembayaran Resmi</div>
+                <div style="border: 1px solid #E5E7EB; border-radius: 6px; padding: 12px; background: #F9FAFB;">
+                    <strong style="font-size: 10pt; color: #111827;">TUNAI / CASH</strong><br>
+                    <span style="font-size: 9pt; color: #374151;">Pembayaran secara tunai langsung ke kasir atau outlet resmi.</span>
+                </div>
+            @else
+                <div class="info-label" style="font-size: 7.5pt; color: #6B7280; text-transform: uppercase; margin-bottom: 5px;">Rekening Pembayaran Resmi</div>
+                <div style="border: 1px solid #E5E7EB; border-radius: 6px; padding: 12px; background: #F9FAFB;">
+                    @if (!empty($invoice->bank))
+                        <strong style="font-size: 10pt; color: #111827;">{{ $invoice->bank->bank ?? '' }}</strong><br>
+                        <span style="font-size: 9pt; color: #374151;">Atas Nama: {{ $invoice->bank->atas_nama ?? '' }}</span><br>
+                        <span style="font-family: monospace; font-size: 11pt; font-weight: bold; color: #1E40AF; display: inline-block; margin-top: 4px;">{{ $invoice->bank->nomor_rekening ?? '' }}</span>
+                    @else
+                        <strong style="color: #DC2626;">Hubungi Admin Resmi untuk Rekening Pembayaran</strong>
+                    @endif
+                </div>
+            @endif
         </div>
 
         <!-- Column 2: Financial Summary (Right side) -->
@@ -345,7 +388,11 @@
             @endif
 
             <div style="padding: 8px 10px; border: 1px dashed #D97706; background-color: #FEF3C7; border-radius: 6px; color: #92400E; font-size: 7.5pt; line-height: 1.3; margin-bottom: 8px;">
-                <strong>⚠️ Imbauan Keamanan Pembayaran:</strong> Demi keamanan transaksi, mohon <strong>TIDAK MELAKUKAN</strong> transfer ke rekening mana pun selain rekening resmi atas nama <strong>{{ $invoice->bank ? $invoice->bank->atas_nama : ($headerBrand ? $headerBrand->nama_brand : ($invoice->brand ? $invoice->brand->getHeaderBrand()->nama_brand : 'brand kami')) }}</strong>.
+                @if (!empty($invoice->bank) && $invoice->bank->bank === 'CASH')
+                    <strong>⚠️ Imbauan Keamanan Pembayaran:</strong> Demi keamanan transaksi, mohon lakukan pembayaran tunai secara langsung hanya melalui kasir atau sales resmi brand kami. Jangan melakukan transfer ke rekening perorangan/rekening lain yang tidak terdaftar secara resmi.
+                @else
+                    <strong>⚠️ Imbauan Keamanan Pembayaran:</strong> Demi keamanan transaksi, mohon <strong>TIDAK MELAKUKAN</strong> transfer ke rekening mana pun selain rekening resmi atas nama <strong>{{ $invoice->bank ? $invoice->bank->atas_nama : ($headerBrand ? $headerBrand->nama_brand : ($invoice->brand ? $invoice->brand->getHeaderBrand()->nama_brand : 'brand kami')) }}</strong>.
+                @endif
             </div>
 
             <div style="font-size: 7.5pt; color: #6B7280; line-height: 1.3;">

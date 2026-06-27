@@ -8,7 +8,7 @@ export default function Welcome({ auth, canLogin }) {
     return (
         <>
             <Head title="Selamat Datang" />
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-rose-50/30">
                 <header className="border-b bg-white/60 backdrop-blur">
                     <div className="container flex h-16 items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -47,7 +47,7 @@ export default function Welcome({ auth, canLogin }) {
                         </span>
                         <h1 className="mt-6 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
                             Sistem Manajemen Order Apparel <br className="hidden sm:block" />
-                            <span className="bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-transparent">
+                            <span className="bg-gradient-to-r from-primary to-rose-700 bg-clip-text text-transparent">
                                 multi-brand, terisolasi, modern.
                             </span>
                         </h1>

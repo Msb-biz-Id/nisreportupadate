@@ -33,7 +33,7 @@ class BankAccount extends Model
                 if ($currentBrandId) {
                     $currentBrand = Brand::find($currentBrandId);
                     if ($currentBrand && $currentBrand->isReseller()) {
-                        return $currentBrand->getHeaderBrand()->nama_brand;
+                        return $currentBrand->nama_brand;
                     }
                 }
             }

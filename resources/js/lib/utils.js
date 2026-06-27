@@ -77,8 +77,8 @@ export function renderFormattedText(text) {
     if (text === null || text === undefined || text === '') return '';
     const textStr = String(text);
 
-    // Regex matching CJK and Arabic unicode blocks
-    const regex = /([\u3000-\u303F\u3040-\u309F\u30A0-\u30FF\uFF00-\uFFEF\u4E00-\u9FAF\u3400-\u4DBF]+)|([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+)/g;
+    // Regex matching CJK, Arabic, and Javanese unicode blocks
+    const regex = /([\u3000-\u303F\u3040-\u309F\u30A0-\u30FF\uFF00-\uFFEF\u4E00-\u9FAF\u3400-\u4DBF]+)|([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+)|([\uA980-\uA9DF]+)/g;
 
     const parts = [];
     let lastIndex = 0;
@@ -111,6 +111,15 @@ export function renderFormattedText(text) {
                 React.createElement(
                     'span',
                     { key: index, className: 'arabic-font', dir: 'rtl' },
+                    matchedStr
+                )
+            );
+        } else if (match[3]) {
+            // Javanese characters
+            parts.push(
+                React.createElement(
+                    'span',
+                    { key: index, className: 'javanese-font' },
                     matchedStr
                 )
             );

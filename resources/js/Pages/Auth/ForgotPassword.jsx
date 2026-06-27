@@ -20,7 +20,7 @@ export default function ForgotPassword({ status }) {
             <div className="space-y-6">
                 {/* Intro Icon & Title */}
                 <div className="text-center space-y-2">
-                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm">
+                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20 shadow-sm">
                         <KeyRound className="h-6 w-6 stroke-[1.8]" />
                     </div>
                     <div className="space-y-1">
@@ -61,7 +61,7 @@ export default function ForgotPassword({ status }) {
                                 autoComplete="username"
                                 onChange={(e) => setData('email', e.target.value)}
                                 placeholder="nama@email.com"
-                                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white transition duration-200"
+                                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 bg-slate-50 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary focus:bg-white transition duration-200"
                                 required
                             />
                         </div>
@@ -72,8 +72,7 @@ export default function ForgotPassword({ status }) {
                     <button
                         type="submit"
                         disabled={processing}
-                        className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl text-white font-bold text-sm shadow-lg shadow-indigo-650/10 hover:shadow-indigo-650/20 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed transition duration-200"
-                        style={{ background: 'linear-gradient(135deg, #1a1a2e, #0f3460)' }}
+                        className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl text-white font-bold text-sm bg-black hover:bg-neutral-900 shadow-lg shadow-black/10 hover:shadow-black/20 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed transition duration-200"
                     >
                         {processing ? 'Mengirim...' : 'Kirim Link Reset Password'}
                     </button>
@@ -82,7 +81,7 @@ export default function ForgotPassword({ status }) {
                     <div className="pt-2 border-t border-slate-100 flex justify-center">
                         <Link
                             href={route('login')}
-                            className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800 transition duration-150"
+                            className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary hover:opacity-80 transition duration-150"
                         >
                             <ArrowLeft className="h-3.5 w-3.5" />
                             Kembali ke Halaman Masuk

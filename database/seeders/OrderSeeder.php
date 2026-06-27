@@ -35,6 +35,15 @@ class OrderSeeder extends Seeder
 {
     public function run(): void
     {
+        $backupPath = app()->environment('testing')
+            ? database_path('backup_orders_test.json')
+            : database_path('backup_orders.json');
+        if (file_exists($backupPath)) {
+            $this->command->info("Menemukan berkas backup orders. Melakukan pemulihan data...");
+            $this->restoreFromBackup($backupPath);
+            return;
+        }
+
         Schema::disableForeignKeyConstraints();
         InvoiceItem::truncate();
         Invoice::truncate();
@@ -47,6 +56,55 @@ class OrderSeeder extends Seeder
         Schema::enableForeignKeyConstraints();
 
         $this->seedOrders();
+    }
+
+    private function restoreFromBackup(string $path): void
+    {
+        $data = json_decode(file_get_contents($path), true);
+        if (!$data) {
+            $this->command->error("Format berkas backup tidak valid.");
+            return;
+        }
+
+        Schema::disableForeignKeyConstraints();
+
+        $tables = [
+            'kategori_pemasukan',
+            'kategori_pengeluaran',
+            'customers',
+            'orders',
+            'order_items',
+            'order_namesets',
+            'order_payments',
+            'order_progress_details',
+            'po_lock_statuses',
+            'po_versions',
+            'invoices',
+            'invoice_items',
+            'rijeks',
+            'refunds',
+            'pemasukan',
+            'pengeluaran',
+        ];
+
+        foreach ($tables as $table) {
+            if (Schema::hasTable($table)) {
+                \DB::table($table)->truncate();
+                if (isset($data[$table]) && is_array($data[$table])) {
+                    foreach ($data[$table] as $row) {
+                        foreach ($row as $key => $val) {
+                            if (is_array($val) || is_object($val)) {
+                                $row[$key] = json_encode($val);
+                            }
+                        }
+                        \DB::table($table)->insert($row);
+                    }
+                }
+            }
+        }
+
+        Schema::enableForeignKeyConstraints();
+        $this->command->info("Data berhasil dipulihkan dari backup!");
     }
 
     private function seedOrders(): void
@@ -74,7 +132,8 @@ class OrderSeeder extends Seeder
             $products = Product::where(function ($q) use ($brand) {
                 $q->where('brand_id', $brand->id)->orWhereNull('brand_id');
             })->get();
-            $banks = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->get();
+            $masterBrandId = \App\Support\BrandContext::masterDataId(request(), $brand->id);
+            $banks = \App\Models\Master\BankAccount::where('brand_id', $masterBrandId)->get();
             $bahanAtasan = BahanKain::active()->get();
             $logos = Logo::active()->get();
             $printings = Printing::active()->get();
@@ -107,7 +166,7 @@ class OrderSeeder extends Seeder
 
                 $order = Order::create([
                     'brand_id'          => $brand->id,
-                    'no_po'             => $numbers->generateOrderNumber($brand, $sc['nama_po']),
+                    'no_po'             => $numbers->generateOrderNumber($brand, $sc['nama_po'], $tanggalMasuk),
                     'nama_po'           => $sc['nama_po'],
                     'status_po'         => 'draft',
                     'is_special_order'  => $sc['special'],

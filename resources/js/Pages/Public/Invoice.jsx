@@ -149,7 +149,9 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                             )}
                                             {brand.tiktok && (
                                                 <a href={`https://tiktok.com/@${brand.tiktok.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 bg-slate-900 hover:bg-slate-800 text-white font-bold px-2 py-0.5 rounded text-[10px] transition-colors border border-slate-900">
-                                                    TikTok: @{brand.tiktok.replace('@', '')}
+                                                    <svg className="h-3 w-3 text-white fill-current" viewBox="0 0 24 24">
+                                                        <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.23.02.02.04.04.06.06.01.83.02 1.66.02 2.5-1.04-.37-1.99-1.01-2.73-1.84-.04-.04-.08-.09-.13-.13-.01 2.92-.01 5.84-.02 8.76-.08 1.63-.73 3.23-1.86 4.39-1.42 1.48-3.55 2.19-5.59 1.84-2.22-.35-4.14-1.99-4.73-4.18-.72-2.59.18-5.51 2.27-7.06.94-.71 2.09-1.09 3.28-1.12.01 1.48.01 2.97.02 4.45-.63.07-1.25.35-1.68.83-.56.61-.75 1.48-.5 2.27.27.86.99 1.51 1.87 1.69.96.22 2.04-.15 2.55-.99.27-.45.37-.99.35-1.52-.01-4.72-.01-9.44-.02-14.16z" />
+                                                    </svg> @{brand.tiktok.replace('@', '')}
                                                 </a>
                                             )}
                                         </div>
@@ -159,11 +161,16 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
 
                             <div className="sm:text-right space-y-1.5">
                                 <div className="text-[10px] font-extrabold tracking-widest text-muted-foreground uppercase">Master Invoice</div>
-                                <h3 className="text-3xl font-black tracking-tight text-slate-800">{invoice.invoice_number}</h3>
-                                <div className="flex sm:justify-end">
+                                <h3 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-800">{invoice.invoice_number}</h3>
+                                <div className="flex sm:justify-end gap-2">
                                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${status.class}`}>
                                         {status.label.toUpperCase()}
                                     </span>
+                                    {invoice.order?.is_free_ongkir && (
+                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border border-emerald-250 bg-emerald-150 text-emerald-750 shadow-sm">
+                                            FREE ONGKIR
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -189,6 +196,11 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                         Promo: <strong className="text-emerald-700">{invoice.order.iklan.nama}{invoice.order.iklan.platform ? ` (${invoice.order.iklan.platform})` : ''}</strong>
                                     </div>
                                 )}
+                                {invoice.order?.is_free_ongkir && (
+                                    <div className="text-xs text-slate-600 mt-1 font-medium">
+                                        Status: <strong className="text-emerald-700">Bebas Ongkir (Free Ongkir)</strong>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -210,6 +222,8 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                         {(() => {
                                             const mainItems = (invoice.items ?? []).filter(item => !item.is_addon);
                                             const addonItems = (invoice.items ?? []).filter(item => item.is_addon);
+                                            const mainOrderItems = (invoice.order?.items ?? []).filter(item => !item.is_addon);
+                                            const addonOrderItems = (invoice.order?.items ?? []).filter(item => item.is_addon);
                                             let rowNum = 1;
                                             return (
                                                 <>
@@ -220,22 +234,30 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                                                     Produk Inti
                                                                 </td>
                                                             </tr>
-                                                            {mainItems.map((item) => (
-                                                                <tr key={item.id} className="hover:bg-slate-50/20">
-                                                                    <td className="py-3 px-4 text-xs font-medium text-slate-400">{rowNum++}</td>
-                                                                    <td className="py-3 px-4">
-                                                                        <div className="font-semibold text-slate-800">{renderFormattedText(item.produk)}</div>
-                                                                        {Number(item.discount_amount) > 0 && (
-                                                                            <div className="text-[10px] text-rose-500 font-bold mt-0.5">
-                                                                                Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(item.discount_value)}/pcs`} (-{formatRupiah(item.discount_amount)})
-                                                                            </div>
-                                                                        )}
-                                                                    </td>
-                                                                    <td className="py-3 px-4 text-right font-mono font-medium">{item.jumlah} pcs</td>
-                                                                    <td className="py-3 px-4 text-right font-mono text-xs">{formatRupiah(item.harga_satuan)}</td>
-                                                                    <td className="py-3 px-4 text-right font-mono text-xs font-semibold text-slate-800">{formatRupiah(item.subtotal)}</td>
-                                                                </tr>
-                                                            ))}
+                                                            {mainItems.map((item, index) => {
+                                                                const orderItem = mainOrderItems[index];
+                                                                return (
+                                                                    <tr key={item.id} className="hover:bg-slate-50/20">
+                                                                        <td className="py-3 px-4 text-xs font-medium text-slate-400">{rowNum++}</td>
+                                                                        <td className="py-3 px-4">
+                                                                            <div className="font-semibold text-slate-800">{renderFormattedText(item.produk)}</div>
+                                                                            {orderItem?.bahan_formatted && (
+                                                                                <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                                                                                    Bahan: {orderItem.bahan_formatted}
+                                                                                </div>
+                                                                            )}
+                                                                            {Number(item.discount_amount) > 0 && (
+                                                                                <div className="text-[10px] text-rose-500 font-bold mt-0.5">
+                                                                                    Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(item.discount_value)}/pcs`} (-{formatRupiah(item.discount_amount)})
+                                                                                </div>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="py-3 px-4 text-right font-mono font-medium">{item.jumlah} pcs</td>
+                                                                        <td className="py-3 px-4 text-right font-mono text-xs">{formatRupiah(item.harga_satuan)}</td>
+                                                                        <td className="py-3 px-4 text-right font-mono text-xs font-semibold text-slate-800">{formatRupiah(item.subtotal)}</td>
+                                                                    </tr>
+                                                                );
+                                                            })}
                                                         </>
                                                     )}
                                                     {addonItems.length > 0 && (
@@ -245,22 +267,30 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                                                     Add-on
                                                                 </td>
                                                             </tr>
-                                                            {addonItems.map((item) => (
-                                                                <tr key={item.id} className="hover:bg-slate-50/20">
-                                                                    <td className="py-3 px-4 text-xs font-medium text-slate-400">{rowNum++}</td>
-                                                                    <td className="py-3 px-4">
-                                                                        <div className="font-semibold text-slate-800">{renderFormattedText(item.produk)}</div>
-                                                                        {Number(item.discount_amount) > 0 && (
-                                                                            <div className="text-[10px] text-rose-500 font-bold mt-0.5">
-                                                                                Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(item.discount_value)}/pcs`} (-{formatRupiah(item.discount_amount)})
-                                                                            </div>
-                                                                        )}
-                                                                    </td>
-                                                                    <td className="py-3 px-4 text-right font-mono font-medium">{item.jumlah} pcs</td>
-                                                                    <td className="py-3 px-4 text-right font-mono text-xs">{formatRupiah(item.harga_satuan)}</td>
-                                                                    <td className="py-3 px-4 text-right font-mono text-xs font-semibold text-slate-800">{formatRupiah(item.subtotal)}</td>
-                                                                </tr>
-                                                            ))}
+                                                            {addonItems.map((item, index) => {
+                                                                const orderItem = addonOrderItems[index];
+                                                                return (
+                                                                    <tr key={item.id} className="hover:bg-slate-50/20">
+                                                                        <td className="py-3 px-4 text-xs font-medium text-slate-400">{rowNum++}</td>
+                                                                        <td className="py-3 px-4">
+                                                                            <div className="font-semibold text-slate-800">{renderFormattedText(item.produk)}</div>
+                                                                            {orderItem?.bahan_formatted && (
+                                                                                <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+                                                                                    Bahan: {orderItem.bahan_formatted}
+                                                                                </div>
+                                                                            )}
+                                                                            {Number(item.discount_amount) > 0 && (
+                                                                                <div className="text-[10px] text-rose-500 font-bold mt-0.5">
+                                                                                    Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(item.discount_value)}/pcs`} (-{formatRupiah(item.discount_amount)})
+                                                                                </div>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="py-3 px-4 text-right font-mono font-medium">{item.jumlah} pcs</td>
+                                                                        <td className="py-3 px-4 text-right font-mono text-xs">{formatRupiah(item.harga_satuan)}</td>
+                                                                        <td className="py-3 px-4 text-right font-mono text-xs font-semibold text-slate-800">{formatRupiah(item.subtotal)}</td>
+                                                                    </tr>
+                                                                );
+                                                            })}
                                                         </>
                                                     )}
                                                 </>
@@ -341,23 +371,39 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                         <div className="border-t bg-slate-50/40 p-6 md:p-8 flex flex-col md:flex-row justify-between gap-6">
                             <div className="space-y-4 max-w-sm">
                                 {invoice.bank && (
-                                    <div className="space-y-1.5 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                                        <span className="text-[10px] font-bold tracking-wider text-slate-400 block uppercase">Rekening Pembayaran Resmi</span>
-                                        <div className="text-sm font-extrabold text-slate-800">{invoice.bank.bank}</div>
-                                        <div className="text-xs font-semibold text-slate-500">Atas Nama: {invoice.bank.atas_nama}</div>
-                                        <div className="font-mono font-black text-indigo-700 text-base select-all bg-indigo-50/50 py-1.5 px-3 rounded-lg border border-indigo-100/50 inline-block">
-                                            {invoice.bank.nomor_rekening}
+                                    invoice.bank.bank === 'CASH' ? (
+                                        <div className="space-y-1.5 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                                            <span className="text-[10px] font-bold tracking-wider text-slate-400 block uppercase">Metode Pembayaran Resmi</span>
+                                            <div className="text-sm font-extrabold text-slate-800">TUNAI / CASH</div>
+                                            <div className="text-xs font-semibold text-slate-500">
+                                                Pembayaran secara tunai langsung ke kasir atau outlet resmi.
+                                            </div>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div className="space-y-1.5 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                                            <span className="text-[10px] font-bold tracking-wider text-slate-400 block uppercase">Rekening Pembayaran Resmi</span>
+                                            <div className="text-sm font-extrabold text-slate-800">{invoice.bank.bank}</div>
+                                            <div className="text-xs font-semibold text-slate-500">Atas Nama: {invoice.bank.atas_nama}</div>
+                                            <div className="font-mono font-black text-indigo-700 text-base select-all bg-indigo-50/50 py-1.5 px-3 rounded-lg border border-indigo-100/50 inline-block">
+                                                {invoice.bank.nomor_rekening}
+                                            </div>
+                                        </div>
+                                    )
                                 )}
                                 <div className="space-y-2 p-4 bg-amber-50/75 rounded-2xl border border-amber-100 shadow-sm text-amber-800 text-[11px] leading-relaxed">
                                     <div className="flex items-center gap-1.5 font-bold text-amber-900">
                                         <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                                         ⚠️ Imbauan Keamanan Pembayaran
                                     </div>
-                                    <p>
-                                        Demi keamanan transaksi, mohon <strong>TIDAK MELAKUKAN</strong> transfer ke rekening mana pun selain rekening resmi atas nama {invoice.bank ? <strong>{invoice.bank.atas_nama}</strong> : <strong>{brand.nama_brand}</strong>}. Jangan pernah mengirimkan dana ke rekening perorangan/sales/rekening lain di luar informasi resmi yang tertera. Selalu konfirmasi transaksi melalui kontak resmi brand kami.
-                                    </p>
+                                    {invoice.bank && invoice.bank.bank === 'CASH' ? (
+                                        <p>
+                                            Demi keamanan transaksi, mohon lakukan pembayaran tunai secara langsung hanya melalui kasir atau sales resmi brand kami. Jangan melakukan transfer ke rekening perorangan/rekening lain yang tidak terdaftar secara resmi. Selalu konfirmasi transaksi melalui kontak resmi brand kami.
+                                        </p>
+                                    ) : (
+                                        <p>
+                                            Demi keamanan transaksi, mohon <strong>TIDAK MELAKUKAN</strong> transfer ke rekening mana pun selain rekening resmi atas nama {invoice.bank ? <strong>{invoice.bank.atas_nama}</strong> : <strong>{brand.nama_brand}</strong>}. Jangan pernah mengirimkan dana ke rekening perorangan/sales/rekening lain di luar informasi resmi yang tertera. Selalu konfirmasi transaksi melalui kontak resmi brand kami.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
 

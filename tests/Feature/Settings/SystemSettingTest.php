@@ -62,4 +62,21 @@ class SystemSettingTest extends TestCase
         $this->assertEquals('gemini-1.5-pro', SystemSetting::get('ai', 'model'));
         $this->assertEquals('AIzaTestKey,AIzaSecondKey', SystemSetting::get('ai', 'gemini_api_keys'));
     }
+
+    public function test_superadmin_can_save_system_settings_with_theme_color(): void
+    {
+        $sa = $this->makeUser('superadmin', [$this->makeBrand()]);
+
+        $this->actingAs($sa)
+            ->put(route('settings.integrasi.system'), [
+                'notification_channel' => 'whatsapp',
+                'whatsapp_enabled' => true,
+                'telegram_enabled' => false,
+                'customer_import_enabled' => true,
+                'theme_color' => '#ff0055',
+            ])
+            ->assertRedirect();
+
+        $this->assertEquals('#ff0055', SystemSetting::get('system', 'theme_color'));
+    }
 }

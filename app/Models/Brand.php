@@ -125,6 +125,13 @@ class Brand extends Model
 
     public function getHeaderBrand(): Brand
     {
+        if ($this->parent_brand_id) {
+            $parent = $this->parentBrand()->first() ?? $this->parentBrand;
+            if ($parent) {
+                return $parent->getHeaderBrand();
+            }
+        }
+
         if ($this->isResellerHub() || $this->isResellerBranch()) {
             $globalBrand = new self();
             $globalBrand->id = $this->id;

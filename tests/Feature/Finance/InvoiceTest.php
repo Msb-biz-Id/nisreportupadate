@@ -446,10 +446,10 @@ class InvoiceTest extends TestCase
             'subtotal' => 1000000,
         ]);
 
-        // Verify that in PHP model calculations, the financial totals are strictly 0.0
-        $this->assertEquals(0.0, $order->totalTagihan());
-        $this->assertEquals(0.0, $order->totalPaid());
-        $this->assertEquals(0.0, $order->sisaTagihan());
+        // Verify that special orders now compute real financial totals
+        $this->assertEquals(1000000.0, $order->totalTagihan());
+        $this->assertEquals(0.0, $order->totalPaid()); // No payments yet
+        $this->assertEquals(1000000.0, $order->sisaTagihan());
 
         // 2. Try to publish as brand admin - should fail since bypass_dp (finance admin approval) is not set yet.
         $this->actingAsWithBrand($brandAdmin, $brand)
@@ -474,8 +474,8 @@ class InvoiceTest extends TestCase
         $order = $order->fresh();
         $this->assertEquals('published', $order->status_po);
 
-        // 5. Verify the order's database total_tagihan field is updated to 0.0
-        $this->assertEquals(0.0, (float)$order->total_tagihan);
+        // 5. Verify the order's database total_tagihan field reflects actual product value
+        $this->assertEquals(1000000.0, (float)$order->total_tagihan);
 
         // 6. Create invoice from Special Order
         $this->actingAsWithBrand($financeAdmin, $brand)
@@ -484,8 +484,8 @@ class InvoiceTest extends TestCase
 
         $invoice = Invoice::where('order_id', $order->id)->first();
         $this->assertNotNull($invoice);
-        $this->assertEquals(0.0, (float)$invoice->total_tagihan);
-        $this->assertEquals(0.0, (float)$invoice->sisa_pembayaran);
+        $this->assertEquals(1000000.0, (float)$invoice->total_tagihan);
+        $this->assertEquals(1000000.0, (float)$invoice->sisa_pembayaran);
 
         // 7. Validate invoice
         $this->actingAsWithBrand($financeAdmin, $brand)
@@ -495,10 +495,11 @@ class InvoiceTest extends TestCase
             ->assertRedirect();
 
         $invoice = $invoice->fresh();
-        $this->assertEquals('paid', $invoice->status);
-        $this->assertEquals(0.0, (float)$invoice->sisa_pembayaran);
+        // No payments made, so sisa_pembayaran remains > 0 and status is 'validated'
+        $this->assertEquals('validated', $invoice->status);
+        $this->assertEquals(1000000.0, (float)$invoice->sisa_pembayaran);
 
-        // 8. Try to mark lunas - should fail since it's a Special Order
+        // 8. Try to mark lunas manually - should fail since it's a Special Order
         $this->actingAsWithBrand($financeAdmin, $brand)
             ->post(route('orders.mark-lunas', $order->id))
             ->assertStatus(422);

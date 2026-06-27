@@ -34,7 +34,7 @@ class InvoiceController extends Controller
             abort(403, 'Unauthorized brand context.');
         }
 
-        $invoice->load(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments', 'order.iklan', 'order.creator.brands']);
+        $invoice->load(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments', 'order.iklan', 'order.creator.brands', 'order.items']);
         if ($invoice->order) {
             $resellerBrand = $invoice->order->resolveResellerBrand();
             if ($resellerBrand) {
@@ -89,7 +89,7 @@ class InvoiceController extends Controller
             $query->whereIn('status', ['published', 'sent', 'paid']);
         }
 
-        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments.bank', 'order.progressDetails.progress', 'order.iklan', 'order.creator.brands'])
+        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments.bank', 'order.progressDetails.progress', 'order.iklan', 'order.creator.brands', 'order.items'])
             ->firstOrFail();
 
         if ($invoice->order) {
@@ -152,7 +152,7 @@ class InvoiceController extends Controller
             $query->whereIn('status', ['published', 'sent', 'paid']);
         }
 
-        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments', 'order.iklan', 'order.creator.brands'])
+        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments', 'order.iklan', 'order.creator.brands', 'order.items'])
             ->firstOrFail();
 
         if ($invoice->order) {
@@ -199,16 +199,49 @@ class InvoiceController extends Controller
 
     private function logoDataUri(?string $logoPath): string
     {
-        if (!$logoPath) return '';
+        if (empty($logoPath)) return '';
         try {
-            $fullPath = public_path('storage/' . $logoPath);
-            if (file_exists($fullPath)) {
+            // Clean/normalize path
+            $normalizedPath = $logoPath;
+            
+            // If it's a URL, parse and get the path component
+            if (str_starts_with($logoPath, 'http://') || str_starts_with($logoPath, 'https://')) {
+                $parsed = parse_url($logoPath);
+                $normalizedPath = ltrim($parsed['path'] ?? '', '/');
+            }
+            
+            // Strip leading slashes and storage prefix
+            $normalizedPath = ltrim($normalizedPath, '/');
+            if (str_starts_with($normalizedPath, 'storage/')) {
+                $normalizedPath = substr($normalizedPath, 8);
+            }
+
+            // Try candidate paths in order of preference
+            $candidates = [
+                storage_path('app/public/' . $normalizedPath),
+                public_path('storage/' . $normalizedPath),
+                public_path($normalizedPath),
+                $logoPath, // fallback
+            ];
+
+            $fullPath = null;
+            foreach ($candidates as $candidate) {
+                if (!empty($candidate) && file_exists($candidate) && !is_dir($candidate)) {
+                    $fullPath = $candidate;
+                    break;
+                }
+            }
+
+            if ($fullPath) {
                 $type = pathinfo($fullPath, PATHINFO_EXTENSION);
+                if (empty($type)) {
+                    $type = 'png';
+                }
                 $data = file_get_contents($fullPath);
                 return 'data:image/' . $type . ';base64,' . base64_encode($data);
             }
         } catch (\Throwable $e) {
-            // fallback
+            \Illuminate\Support\Facades\Log::error("logoDataUri failed in InvoiceController for {$logoPath}: " . $e->getMessage());
         }
         return '';
     }
@@ -380,10 +413,10 @@ class InvoiceController extends Controller
             });
         }
         if ($startDate = $request->string('start_date')->toString()) {
-            $query->whereDate('tanggal_terbit', '>=', $startDate);
+            $query->where('tanggal_terbit', '>=', $startDate);
         }
         if ($endDate = $request->string('end_date')->toString()) {
-            $query->whereDate('tanggal_terbit', '<=', $endDate);
+            $query->where('tanggal_terbit', '<=', $endDate);
         }
 
         $allFiltered = Invoice::query()
@@ -396,8 +429,8 @@ class InvoiceController extends Controller
                       ->orWhereHas('order', fn ($x) => $x->where('no_po', 'like', "%{$search}%"));
                 });
             })
-            ->when($startDate = $request->string('start_date')->toString(), fn($q) => $q->whereDate('tanggal_terbit', '>=', $startDate))
-            ->when($endDate = $request->string('end_date')->toString(), fn($q) => $q->whereDate('tanggal_terbit', '<=', $endDate))
+            ->when($startDate = $request->string('start_date')->toString(), fn($q) => $q->where('tanggal_terbit', '>=', $startDate))
+            ->when($endDate = $request->string('end_date')->toString(), fn($q) => $q->where('tanggal_terbit', '<=', $endDate))
             ->with(['order:id,no_po,pelanggan_id', 'order.pelanggan:id,nama'])
             ->orderByDesc('created_at')
             ->get(['id', 'invoice_number', 'order_id', 'tanggal_terbit', 'total_tagihan', 'sisa_pembayaran', 'status'])
@@ -727,7 +760,7 @@ class InvoiceController extends Controller
         // Final Nett Invoice Tagihan
         $invoiceTotalTagihan = max(0, $grossSubtotal - $diskonNominal + $biayaPengiriman + $penambahanExcludingOngkir - $pengurangan);
         $totalPaid = $order ? (float) $order->totalPaid() : 0.0;
-        $sisaPembayaran = ($order && $order->is_special_order) ? 0.0 : max(0, $invoiceTotalTagihan - $totalPaid);
+        $sisaPembayaran = max(0, $invoiceTotalTagihan - $totalPaid);
 
         DB::transaction(function () use ($invoice, $order, $data, $diskonType, $diskonValue, $biayaPengiriman, $jasaPengiriman, $invoiceTotalTagihan, $totalPaid, $sisaPembayaran) {
             $invoice->update([
@@ -745,7 +778,7 @@ class InvoiceController extends Controller
             ]);
 
             // Automatically update PO completion status to Lunas if fully paid
-            if ($order && ($sisaPembayaran <= 0 || $order->is_special_order)) {
+            if ($order && $sisaPembayaran <= 0) {
                 $order->update([
                     'is_lunas' => true,
                     'lunas_at' => now(),
@@ -928,7 +961,7 @@ class InvoiceController extends Controller
                         
                     $invoiceTotalTagihan = max(0, $grossSubtotal - $diskonNominal + $biayaPengiriman + $penambahanExcludingOngkir - $pengurangan);
                     $totalPaid = $order->totalPaid();
-                    $newSisa = ($order->is_special_order) ? 0.0 : max(0, $invoiceTotalTagihan - $totalPaid);
+                    $newSisa = max(0, $invoiceTotalTagihan - $totalPaid);
                     
                     $invoice->update([
                         'total_tagihan' => $invoiceTotalTagihan,

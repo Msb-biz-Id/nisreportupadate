@@ -78,9 +78,9 @@ class DashboardService
             function () use ($brandId) {
                 $base = Order::query()->when($brandId, $this->bf($brandId));
 
-                $today = (clone $base)->whereDate('tanggal_masuk', today())->count();
-                $week  = (clone $base)->whereBetween('tanggal_masuk', [now()->startOfWeek(), now()->endOfWeek()])->count();
-                $month = (clone $base)->whereMonth('tanggal_masuk', now()->month)->whereYear('tanggal_masuk', now()->year)->count();
+                $today = (clone $base)->where('tanggal_masuk', today()->toDateString())->count();
+                $week  = (clone $base)->whereBetween('tanggal_masuk', [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()])->count();
+                $month = (clone $base)->whereBetween('tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])->count();
 
                 $totalProdukDiOrder = OrderItem::query()
                     ->join('orders', 'orders.id', '=', 'order_items.order_id')
@@ -260,7 +260,7 @@ class DashboardService
 
                 $dalamProses  = (clone $base)->where('status_po', 'on_progress')->count();
                 $selesaiToday = (clone $base)->where('status_po', 'selesai_produksi')
-                    ->whereDate('updated_at', today())->count();
+                    ->whereBetween('updated_at', [today()->startOfDay(), today()->endOfDay()])->count();
                 $deadlineDekat = (clone $base)
                     ->whereIn('status_po', ['published', 'on_progress'])
                     ->whereBetween('deadline_customer', [now(), now()->addDays(7)])
@@ -369,7 +369,7 @@ class DashboardService
                 $totalPo      = (clone $base)->count();
                 $outstanding  = $totalRevenue - OrderPayment::whereHas(
                     'order', fn ($q) => $q->whereIn('brand_id', $opBrandIds)
-                )->sum('amount');
+                )->whereNotNull('verified_at')->sum('amount');
                 $rejectRate = $this->calculateRejectRate($opBrandIds);
 
                 return [
@@ -426,11 +426,11 @@ class DashboardService
                 $refunds  = Refund::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
 
                 $invoicePending      = (clone $invoices)->whereIn('status', ['draft', 'validated'])->count();
-                $invoiceToday        = (clone $invoices)->whereDate('tanggal_terbit', today())->count();
+                $invoiceToday        = (clone $invoices)->where('tanggal_terbit', today()->toDateString())->count();
                 $totalTagihanPending = (clone $invoices)->whereIn('status', ['draft', 'validated', 'published'])->sum('sisa_pembayaran');
 
                 $paidToday = OrderPayment::query()
-                    ->whereDate('payment_date', today())
+                    ->where('payment_date', today()->toDateString())
                     ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
                     ->sum('amount');
 
@@ -964,7 +964,7 @@ class DashboardService
 
         $orders = Order::query()
             ->when($brandId, $this->bf($brandId))
-            ->whereYear('tanggal_masuk', $year)
+            ->whereBetween('tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])
             ->where('status_po', '!=', 'draft')
             ->select(
                 DB::raw("$monthExpr as bulan"),
@@ -977,7 +977,7 @@ class DashboardService
         $items = OrderItem::query()
             ->whereHas('order', function ($q) use ($brandId, $year) {
                 $q->when($brandId, $this->bf($brandId))
-                  ->whereYear('tanggal_masuk', $year)
+                  ->whereBetween('tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])
                   ->where('status_po', '!=', 'draft');
             })
             ->select(
@@ -1053,19 +1053,20 @@ class DashboardService
             ->selectRaw('SUM(target_revenue) as revenue, SUM(target_pcs) as pcs')
             ->first();
 
+        $startOfMonth = now()->startOfMonth()->toDateTimeString();
+        $endOfMonth = now()->endOfMonth()->toDateTimeString();
+
         // Get actuals for the current month
         $monthActualRevenue = Order::query()
             ->whereIn('brand_id', $brandIds)
-            ->whereYear('tanggal_masuk', $currentYear)
-            ->whereMonth('tanggal_masuk', $currentMonth)
+            ->whereBetween('tanggal_masuk', [$startOfMonth, $endOfMonth])
             ->where('status_po', '!=', 'draft')
             ->sum('total_tagihan');
 
         $monthActualPcs = OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->whereIn('orders.brand_id', $brandIds)
-            ->whereYear('orders.tanggal_masuk', $currentYear)
-            ->whereMonth('orders.tanggal_masuk', $currentMonth)
+            ->whereBetween('orders.tanggal_masuk', [$startOfMonth, $endOfMonth])
             ->where('orders.status_po', '!=', 'draft')
             ->sum('order_items.quantity');
 

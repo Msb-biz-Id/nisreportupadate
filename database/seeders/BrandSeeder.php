@@ -15,6 +15,7 @@ class BrandSeeder extends Seeder
                 'kode' => 'ALG',
                 'tagline' => 'Pro jersey For Pro Team',
                 'deskripsi' => 'Custom jersey express specialist',
+                'logo' => 'brand_logos/alle.png',
                 'email' => 'allegiant.id@gmail.com',
                 'no_hp' => '08113027007',
                 'whatsapp' => '089696311671',
@@ -22,7 +23,7 @@ class BrandSeeder extends Seeder
                 'facebook' => 'Apparel Allegiant',
                 'instagram' => 'apparelallegiant',
                 'tiktok' => 'apparelallegiant',
-                'warna_primary' => '#000000ff',
+                'warna_primary' => '#000000',
                 'is_active' => true,
                 'brand_type' => Brand::TYPE_REGULAR,
             ],
@@ -31,6 +32,7 @@ class BrandSeeder extends Seeder
                 'kode' => 'CRL',
                 'tagline' => 'Jersey Elit Harga irit',
                 'deskripsi' => 'Jersey Elit Harga irit',
+                'logo' => 'brand_logos/Circle.png',
                 'email' => 'circlesportwear@gmail.com',
                 'no_hp' => '6285136562550',
                 'whatsapp' => '6285136562550',
@@ -38,7 +40,7 @@ class BrandSeeder extends Seeder
                 'facebook' => 'circle sportwear indonesia',
                 'instagram' => 'circlesportwear',
                 'tiktok' => 'circlesportwear_',
-                'warna_primary' => '#10b981ff',
+                'warna_primary' => '#10b981',
                 'is_active' => true,
                 'brand_type' => Brand::TYPE_REGULAR,
             ],
@@ -47,6 +49,7 @@ class BrandSeeder extends Seeder
                 'kode' => 'DRV',
                 'tagline' => 'Jersey ekonomis terbaik di kelasnya',
                 'deskripsi' => 'Jersey ekonomis terbaik di kelasnya',
+                'logo' => 'brand_logos/RJXS1uvCk33DrybK88h3bl7IJ4dNH5JJXUa0YoRn.png',
                 'email' => 'sportweardrive@gmail.com',
                 'no_hp' => '6285143849390',
                 'whatsapp' => '6285143849390',
@@ -54,7 +57,7 @@ class BrandSeeder extends Seeder
                 'facebook' => 'DRIVE. Sportwear',
                 'instagram' => 'drivesportwear',
                 'tiktok' => 'drivesportwear',
-                'warna_primary' => '#820000ff',
+                'warna_primary' => '#820000',
                 'is_active' => true,
                 'brand_type' => Brand::TYPE_REGULAR,
             ],
@@ -63,6 +66,7 @@ class BrandSeeder extends Seeder
                 'kode' => 'IDW',
                 'tagline' => 'PUSAT CUSTOM JERSEY TERBAIK',
                 'deskripsi' => 'Brand Utama Reseller — INDOWAREHOUSE',
+                'logo' => null,
                 'email' => 'indonesiasportwarehouse@gmail.com',
                 'no_hp' => '62 858-5027-3293',
                 'whatsapp' => '62 858-5027-3293',
@@ -102,11 +106,13 @@ class BrandSeeder extends Seeder
 
         // Seed global reseller branding in system settings
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'nama_brand', 'INDOWAREHOUSE');
+        \App\Models\Settings\SystemSetting::set('reseller_branding', 'logo', null);
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'tagline', 'PUSAT CUSTOM JERSEY TERBAIK');
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'no_hp', '62 858-5027-3293');
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'alamat', 'JL. LARAS – LIRIS NO.102 SIDOKUMPUL LAMONGAN');
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'email', 'indonesiasportwarehouse@gmail.com');
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'instagram', 'indowarehouse_');
+        \App\Models\Settings\SystemSetting::set('system', 'theme_color', '#a8001c');
 
         // Reseller nyata — masing-masing entitas reseller mandiri (tipe: reseller_hub)
         // Bisa punya branch sendiri nanti. Master data shared di level hub.

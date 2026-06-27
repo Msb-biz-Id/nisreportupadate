@@ -180,7 +180,7 @@ class ComparisonRunner
 
         $orders = Order::query()
             ->where('brand_id', $brandId)
-            ->whereYear('tanggal_masuk', $year)
+            ->whereBetween('tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])
             ->where('status_po', '!=', 'draft')
             ->select(
                 DB::raw("$monthExpr as bulan"),
@@ -194,7 +194,7 @@ class ComparisonRunner
         $items = OrderItem::query()
             ->whereHas('order', function ($q) use ($brandId, $year) {
                 $q->where('brand_id', $brandId)
-                  ->whereYear('tanggal_masuk', $year)
+                  ->whereBetween('tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])
                   ->where('status_po', '!=', 'draft');
             })
             ->select(

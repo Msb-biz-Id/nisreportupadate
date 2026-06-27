@@ -714,8 +714,15 @@ class ReportRunner
         $results = DB::table('customers')
             ->join('orders', 'orders.pelanggan_id', '=', 'customers.id')
             ->where('orders.status_po', '!=', 'draft')
-            ->whereMonth('orders.tanggal_masuk', $targetMonth)
-            ->whereYear('orders.tanggal_masuk', '<', Carbon::now()->year)
+            ->where(function ($q) use ($targetMonth) {
+                $currentYear = Carbon::now()->year;
+                // Generate sargable ranges for the past years (e.g. back to 2018)
+                for ($y = $currentYear - 1; $y >= 2018; $y--) {
+                    $start = Carbon::create($y, $targetMonth, 1)->startOfDay()->toDateTimeString();
+                    $end = Carbon::create($y, $targetMonth, 1)->endOfMonth()->toDateTimeString();
+                    $q->orWhereBetween('orders.tanggal_masuk', [$start, $end]);
+                }
+            })
             ->when($brandId && $brandId !== 'all', function ($q) use ($brandId) {
                 if (is_array($brandId)) {
                     $q->whereIn('orders.brand_id', $brandId);

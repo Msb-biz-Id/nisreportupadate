@@ -59,7 +59,16 @@ class UploadController extends Controller
             $filename = Str::ulid() . '.' . $extension;
             $path = "{$folderPath}/{$filename}";
             
-            $path = $file->storeAs($folderPath, $filename, 'public');
+            $storedPath = $file->storeAs($folderPath, $filename, 'public');
+            if (!$storedPath) {
+                throw new \RuntimeException("Failed to store uploaded file on storage disk.");
+            }
+            $path = $storedPath;
+        }
+
+        // Validate physical file persistence on the disk
+        if (!Storage::disk('public')->exists($path) || Storage::disk('public')->size($path) === 0) {
+            throw new \RuntimeException("Uploaded file was not successfully persisted on storage disk.");
         }
 
         return response()->json([

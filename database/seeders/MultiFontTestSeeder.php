@@ -50,7 +50,7 @@ class MultiFontTestSeeder extends Seeder
                 'brand_id'  => $brand->id,
                 'nama'      => 'Test Multi-Font Customer',
                 'kode'      => 'MFT-001',
-                'telepon'   => '081234567890',
+                'nomor_hp'  => '081234567890',
                 'is_active' => true,
             ]);
         }
@@ -61,7 +61,8 @@ class MultiFontTestSeeder extends Seeder
             $q->where('brand_id', $brand->id)->orWhereNull('brand_id');
         })->first();
 
-        $banks = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->get();
+        $masterBrandId = \App\Support\BrandContext::masterDataId(request(), $brand->id);
+        $banks = \App\Models\Master\BankAccount::where('brand_id', $masterBrandId)->get();
         $bank  = $banks->first();
 
         if (! $products) {
