@@ -106,7 +106,7 @@ class BrandSeeder extends Seeder
 
         // Seed global reseller branding in system settings
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'nama_brand', 'INDOWAREHOUSE');
-        \App\Models\Settings\SystemSetting::set('reseller_branding', 'logo', null);
+        \App\Models\Settings\SystemSetting::set('reseller_branding', 'logo', 'favicon.ico');
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'tagline', 'PUSAT CUSTOM JERSEY TERBAIK');
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'no_hp', '62 858-5027-3293');
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'alamat', 'JL. LARAS – LIRIS NO.102 SIDOKUMPUL LAMONGAN');
@@ -117,8 +117,8 @@ class BrandSeeder extends Seeder
         // Seed SEO branding settings
         \App\Models\Settings\SystemSetting::set('seo', 'site_name', 'ProTrack');
         \App\Models\Settings\SystemSetting::set('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.');
-        \App\Models\Settings\SystemSetting::set('seo', 'logo', 'system/favicon.svg');
-        \App\Models\Settings\SystemSetting::set('seo', 'favicon', 'system/favicon.svg');
+        \App\Models\Settings\SystemSetting::set('seo', 'logo', 'favicon.ico');
+        \App\Models\Settings\SystemSetting::set('seo', 'favicon', 'favicon.ico');
 
         // Reseller nyata — masing-masing entitas reseller mandiri (tipe: reseller_hub)
         // Bisa punya branch sendiri nanti. Master data shared di level hub.
