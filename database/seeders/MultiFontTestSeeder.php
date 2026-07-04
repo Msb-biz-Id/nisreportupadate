@@ -89,9 +89,9 @@ class MultiFontTestSeeder extends Seeder
             'pelanggan_id'      => $customer->id,
             'catatan'           => 'Test multi-font Jepang — nama punggung berisi karakter Hiragana/Katakana/Kanji.',
             'created_by'        => $creator->id,
-            'published_at'      => now()->subDays(4),
-            'published_by'      => $creator->id,
         ]);
+        $this->seedProgressDetails($order1, $creator);
+
 
         $item1 = OrderItem::create([
             'order_id'     => $order1->id,
@@ -101,8 +101,8 @@ class MultiFontTestSeeder extends Seeder
             'quantity'     => count($this->japaneseNamesets()),
             'harga_satuan' => $products->harga,
             'subtotal'     => count($this->japaneseNamesets()) * $products->harga,
-            'bahan_kain_id'=> $bahan?->id,
-            'jenis_setelan'=> 'atasan_saja',
+            'bahan_kain_id' => $bahan?->id,
+            'jenis_setelan' => 'atasan_saja',
             'pola'         => 'Reguler',
             'logo_id'      => $logo?->id,
             'printing_id'  => $print?->id,
@@ -167,9 +167,9 @@ class MultiFontTestSeeder extends Seeder
             'pelanggan_id'      => $customer->id,
             'catatan'           => 'Test multi-font Arab — nama punggung berisi karakter Arabic Unicode.',
             'created_by'        => $creator->id,
-            'published_at'      => now()->subDays(2),
-            'published_by'      => $creator->id,
         ]);
+        $this->seedProgressDetails($order2, $creator);
+
 
         $item2 = OrderItem::create([
             'order_id'     => $order2->id,
@@ -179,8 +179,8 @@ class MultiFontTestSeeder extends Seeder
             'quantity'     => count($this->arabicNamesets()),
             'harga_satuan' => $products->harga,
             'subtotal'     => count($this->arabicNamesets()) * $products->harga,
-            'bahan_kain_id'=> $bahan?->id,
-            'jenis_setelan'=> 'atasan_saja',
+            'bahan_kain_id' => $bahan?->id,
+            'jenis_setelan' => 'atasan_saja',
             'pola'         => 'Reguler',
             'logo_id'      => $logo?->id,
             'printing_id'  => $print?->id,
@@ -245,9 +245,9 @@ class MultiFontTestSeeder extends Seeder
             'pelanggan_id'      => $customer->id,
             'catatan'           => 'Order campur Latin + Jepang + Arab dalam satu PO. Test rendering multi-font sekaligus.',
             'created_by'        => $creator->id,
-            'published_at'      => now()->subDay(),
-            'published_by'      => $creator->id,
         ]);
+        $this->seedProgressDetails($order3, $creator);
+
 
         $item3 = OrderItem::create([
             'order_id'     => $order3->id,
@@ -257,8 +257,8 @@ class MultiFontTestSeeder extends Seeder
             'quantity'     => count($this->mixedNamesets()),
             'harga_satuan' => $products->harga,
             'subtotal'     => count($this->mixedNamesets()) * $products->harga,
-            'bahan_kain_id'=> $bahan?->id,
-            'jenis_setelan'=> 'stell',
+            'bahan_kain_id' => $bahan?->id,
+            'jenis_setelan' => 'stell',
             'pola'         => 'Slim Fit',
             'logo_id'      => $logo?->id,
             'printing_id'  => $print?->id,
@@ -341,7 +341,7 @@ class MultiFontTestSeeder extends Seeder
             ['nama_punggung' => 'けんじ',       'nomor_punggung' => '3',  'nama_dada' => null,       'nomor_dada' => null, 'nama_lengan' => null,     'keterangan' => 'Hiragana only'],
             ['nama_punggung' => 'サクラ',       'nomor_punggung' => '8',  'nama_dada' => 'サクラ',   'nomor_dada' => '8',  'nama_lengan' => null,     'keterangan' => 'Katakana only'],
             ['nama_punggung' => '龍 神風',      'nomor_punggung' => '1',  'nama_dada' => '龍',       'nomor_dada' => '1',  'nama_lengan' => '龍神',   'keterangan' => 'Kanji complex'],
-            ['nama_punggung' => 'アカギ リョウ','nomor_punggung' => '6',  'nama_dada' => 'アカギ',   'nomor_dada' => '6',  'nama_lengan' => null,     'keterangan' => null],
+            ['nama_punggung' => 'アカギ リョウ', 'nomor_punggung' => '6',  'nama_dada' => 'アカギ',   'nomor_dada' => '6',  'nama_lengan' => null,     'keterangan' => null],
             ['nama_punggung' => '光 速 丸',     'nomor_punggung' => '2',  'nama_dada' => '光速',     'nomor_dada' => '2',  'nama_lengan' => null,     'keterangan' => 'Mixed Kanji spacing'],
         ];
     }
@@ -354,7 +354,7 @@ class MultiFontTestSeeder extends Seeder
         return [
             ['nama_punggung' => 'محمد علي',      'nomor_punggung' => '10', 'nama_dada' => 'محمد',    'nomor_dada' => '10', 'nama_lengan' => 'علي',   'keterangan' => 'Kapten — Arab lengkap'],
             ['nama_punggung' => 'أحمد الكريم',   'nomor_punggung' => '7',  'nama_dada' => 'أحمد',    'nomor_dada' => '7',  'nama_lengan' => null,    'keterangan' => null],
-            ['nama_punggung' => 'عبد الرحمن',    'nomor_punggung' => '9',  'nama_dada' => 'عبدالرحمن','nomor_dada' => '9', 'nama_lengan' => null,    'keterangan' => null],
+            ['nama_punggung' => 'عبد الرحمن',    'nomor_punggung' => '9',  'nama_dada' => 'عبدالرحمن', 'nomor_dada' => '9', 'nama_lengan' => null,    'keterangan' => null],
             ['nama_punggung' => 'فيصل الأمين',   'nomor_punggung' => '5',  'nama_dada' => 'فيصل',    'nomor_dada' => '5',  'nama_lengan' => null,    'keterangan' => null],
             ['nama_punggung' => 'سعد المطيري',   'nomor_punggung' => '11', 'nama_dada' => 'سعد',     'nomor_dada' => '11', 'nama_lengan' => null,    'keterangan' => null],
             ['nama_punggung' => 'خالد بن عمر',   'nomor_punggung' => '4',  'nama_dada' => 'خالد',    'nomor_dada' => '4',  'nama_lengan' => 'عمر',   'keterangan' => 'Arab dengan bin'],
@@ -392,5 +392,18 @@ class MultiFontTestSeeder extends Seeder
             ['nama_punggung' => 'HIRO 浩',      'nomor_punggung' => '11', 'nama_dada' => 'HIRO',     'nomor_dada' => '11', 'nama_lengan' => '浩',     'nama_punggung_2' => null,  'nomor_punggung_2' => null, 'keterangan' => 'Latin + Kanji dalam satu field'],
             ['nama_punggung' => 'ALI عَلِي',    'nomor_punggung' => '12', 'nama_dada' => 'ALI',      'nomor_dada' => '12', 'nama_lengan' => 'عَلِي',  'nama_punggung_2' => null,  'nomor_punggung_2' => null, 'keterangan' => 'Latin + Arabic dalam satu field'],
         ];
+    }
+
+    private function seedProgressDetails(Order $order, User $creator): void
+    {
+        $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+        foreach ($progresses as $p) {
+            \App\Models\Order\OrderProgressDetail::create([
+                'order_id'    => $order->id,
+                'progress_id' => $p->id,
+                'status'      => 'pending',
+                'updated_by'  => $creator->id,
+            ]);
+        }
     }
 }

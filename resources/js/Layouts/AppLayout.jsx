@@ -1,4 +1,4 @@
-import { Link, router, usePage } from '@inertiajs/react';
+import { Link, router, usePage, Head } from '@inertiajs/react';
 import { useEffect, useState, useRef } from 'react';
 import { Toaster, toast } from 'sonner';
 import axios from 'axios';
@@ -492,12 +492,20 @@ function SidebarContent({ user, brandContext, onNavigate, installPrompt, handleI
     return (
         <div className="flex h-full flex-col">
             <div className={cn("flex h-16 shrink-0 items-center border-b border-sidebar-border transition-all duration-300", isCollapsed ? "justify-center px-0" : "gap-2 px-5")}>
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-accent text-sidebar-accent-foreground">
-                    <ShieldCheck className="h-5 w-5" />
-                </div>
+                {app?.logo_url ? (
+                    <img 
+                        src={app.logo_url} 
+                        alt={app?.name ?? 'ProTrack'} 
+                        className="h-9 w-9 rounded-lg object-contain bg-white p-1 border border-sidebar-border shadow-sm shrink-0" 
+                    />
+                ) : (
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-accent text-sidebar-accent-foreground shrink-0">
+                        <ShieldCheck className="h-5 w-5" />
+                    </div>
+                )}
                 {!isCollapsed && (
                     <div className="leading-tight">
-                        <div className="text-sm font-semibold text-sidebar-foreground">{app?.name ?? 'NISReport'}</div>
+                        <div className="text-sm font-semibold text-sidebar-foreground">{app?.name ?? 'ProTrack'}</div>
                         <div className="text-[11px] text-sidebar-foreground/60">{app?.description ?? 'Multi-Brand Order Mgmt'}</div>
                     </div>
                 )}
@@ -968,7 +976,7 @@ export default function AppLayout({ title, header, children }) {
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            syncChannel.current = new window.BroadcastChannel('nisreport_notifications');
+            syncChannel.current = new window.BroadcastChannel('protrack_notifications');
             
             const handleSyncMsg = (e) => {
                 if (e.data && e.data.type === 'NOTIF_HANDLED') {
@@ -1025,6 +1033,8 @@ export default function AppLayout({ title, header, children }) {
     // WebSocket broadcaster listener + Slow Polling Fallback Sync
     const notificationsRef = useRef(notifications);
     notificationsRef.current = notifications;
+    const unreadCountRef = useRef(unreadCount);
+    unreadCountRef.current = unreadCount;
     const mountTime = useRef(new Date(Date.now() - 30000)); // 30 seconds buffer for clock drift
 
     // Sync initial state if it changes in Inertia
@@ -1058,7 +1068,7 @@ export default function AppLayout({ title, header, children }) {
                 });
         }
 
-        // 3 seconds polling fallback sync (skipped if Echo receives messages)
+        // 15 seconds polling fallback sync (skipped if Echo receives messages)
         const interval = setInterval(() => {
             if (isEchoConnected) return;
 
@@ -1067,6 +1077,7 @@ export default function AppLayout({ title, header, children }) {
                     const latest = res.data.notifications?.data || [];
                     const serverUnread = res.data.unread_count ?? 0;
                     const currentNotifs = notificationsRef.current;
+                    const currentUnread = unreadCountRef.current;
                     
                     if (latest.length > 0 && latest[0].id !== currentNotifs[0]?.id) {
                         const newNotifs = latest.filter(n => {
@@ -1080,14 +1091,21 @@ export default function AppLayout({ title, header, children }) {
                             });
                         }
                     }
-                    // Always sync the unread count from server
-                    setUnreadCount(serverUnread);
-                    if (latest.length > 0) {
+                    
+                    // Only update state if the values have actually changed to prevent unnecessary re-renders
+                    if (serverUnread !== currentUnread) {
+                        setUnreadCount(serverUnread);
+                    }
+                    
+                    const isDifferent = latest.length !== currentNotifs.length || 
+                        latest.some((n, index) => n.id !== currentNotifs[index]?.id || n.is_read !== currentNotifs[index]?.is_read);
+                        
+                    if (isDifferent && latest.length > 0) {
                         setNotifications(latest.slice(0, 10));
                     }
                 })
                 .catch((err) => console.debug('Polling notifications skipped or offline:', err));
-        }, 3000);
+        }, 15000);
 
         return () => {
             if (channel && window.Echo) {
@@ -1329,6 +1347,11 @@ export default function AppLayout({ title, header, children }) {
 
     return (
         <div className="min-h-screen bg-background">
+            {app?.favicon_url && (
+                <Head>
+                    <link rel="icon" href={app.favicon_url} />
+                </Head>
+            )}
             <Toaster richColors position="top-right" />
 
             {/* Sidebar desktop */}

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nisreport-v1';
+const CACHE_NAME = 'protrack-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/favicon.ico',

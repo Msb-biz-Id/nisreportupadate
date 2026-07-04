@@ -130,6 +130,38 @@ class OrderPaymentObserver
                     ]);
                 }
             }
+
+            // Auto-publish invoice if the payment is a DP
+            if ($payment->payment_type === 'dp' && $order) {
+                \Illuminate\Support\Facades\DB::afterCommit(function () use ($payment, $order) {
+                    $invoice = $order->invoices()->first();
+                    if ($invoice && in_array($invoice->status, ['draft', 'validated'], true)) {
+                        try {
+                            $invoice->update(['status' => 'published']);
+                            \App\Services\ActivityLogger::log('publish', 'invoice', $invoice, "Auto publish invoice {$invoice->invoice_number} via DP payment verification observer");
+                            
+                            $sidobe = \App\Services\Notifications\SidobeClient::fromSettings();
+                            if ($sidobe->isConfigured()) {
+                                $waService = new \App\Services\Notifications\InvoiceWhatsappService($sidobe);
+                                $invoice->load(['order.pelanggan', 'brand']);
+                                $phone = $waService->phoneFromInvoice($invoice);
+                                if ($phone !== '') {
+                                    $result = $waService->send($invoice, 'new_invoice');
+                                    if ($result['success'] && ! ($result['mock'] ?? false)) {
+                                        $invoice->update([
+                                            'status' => 'sent',
+                                            'sent_via' => 'whatsapp',
+                                            'sent_at' => now(),
+                                        ]);
+                                    }
+                                }
+                            }
+                        } catch (\Throwable $e) {
+                            \Illuminate\Support\Facades\Log::error('Failed to auto publish/send invoice on DP verification observer: ' . $e->getMessage());
+                        }
+                    }
+                });
+            }
         }
     }
 

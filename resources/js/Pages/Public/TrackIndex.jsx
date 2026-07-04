@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { Search, ShieldCheck, MapPin, Truck, Calendar, Clock, ArrowRight } from 'lucide-react';
 import usePublicSecurity from '@/hooks/usePublicSecurity';
 
 export default function TrackIndex() {
     usePublicSecurity();
+    const { app } = usePage().props;
+    const appName = app?.name || 'ProTrack';
     const [noPo, setNoPo] = useState('');
     const [error, setError] = useState('');
 
@@ -21,7 +23,10 @@ export default function TrackIndex() {
 
     return (
         <>
-            <Head title="Lacak Progress Pesanan" />
+            <Head>
+                <title>Lacak Progress Pesanan</title>
+                {app?.favicon_url && <link rel="icon" href={app.favicon_url} />}
+            </Head>
             <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-red-50/20 px-4 py-12 sm:py-20 flex flex-col justify-center items-center relative overflow-hidden font-sans">
                 {/* Decorative background glows */}
                 <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-100/30 rounded-full blur-3xl pointer-events-none" />
@@ -30,9 +35,17 @@ export default function TrackIndex() {
                 <div className="w-full max-w-xl z-10 space-y-6">
                     {/* Header: Pure White-labeled, Elegant & Clean */}
                     <div className="flex flex-col items-center text-center space-y-2">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-600 text-white shadow-md shadow-red-600/10 border border-red-500/20">
-                            <ShieldCheck className="h-5.5 w-5.5 stroke-[2]" />
-                        </div>
+                        {app?.logo_url ? (
+                            <img
+                                src={app.logo_url}
+                                alt={appName}
+                                className="h-11 w-11 rounded-2xl object-contain bg-white p-1.5 border border-slate-100 shadow-md"
+                            />
+                        ) : (
+                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-600 text-white shadow-md shadow-red-600/10 border border-red-500/20">
+                                <ShieldCheck className="h-5.5 w-5.5 stroke-[2]" />
+                            </div>
+                        )}
                         <div className="space-y-0.5">
                             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-800">
                                 Lacak Progress Pesanan
@@ -53,20 +66,25 @@ export default function TrackIndex() {
                         </div>
 
                         <form onSubmit={handleSearch} className="space-y-3">
-                            {/* Unified Premium Search Bar */}
-                            <div className="relative flex items-center bg-slate-50/70 border border-slate-200 focus-within:border-red-500 focus-within:ring-4 focus-within:ring-red-500/10 rounded-2xl p-1.5 transition-all duration-200">
-                                <Search className="ml-3 h-4.5 w-4.5 text-slate-400 shrink-0" />
-                                <input
-                                    type="text"
-                                    placeholder="Contoh: PO-CRL-POPTMAJUBERS-001"
-                                    value={noPo}
-                                    onChange={(e) => setNoPo(e.target.value)}
-                                    style={{ border: 'none', outline: 'none', boxShadow: 'none' }}
-                                    className="flex-1 min-w-0 bg-transparent text-slate-800 placeholder-slate-400 text-sm font-mono tracking-wide focus:ring-0 focus:outline-none focus:border-none px-3 py-1"
-                                />
+                            {/* Premium Responsive Search & Button Layout */}
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                {/* Search Input Container */}
+                                <div className="h-12 relative flex items-center bg-slate-50/70 border border-slate-200 focus-within:border-red-500 focus-within:ring-4 focus-within:ring-red-500/10 rounded-2xl px-3 transition-all duration-200 flex-1">
+                                    <Search className="h-4.5 w-4.5 text-slate-400 shrink-0" />
+                                    <input
+                                        type="text"
+                                        placeholder="Contoh: PO-CRL-POPTMAJUBERS-001"
+                                        value={noPo}
+                                        onChange={(e) => setNoPo(e.target.value)}
+                                        style={{ border: 'none', outline: 'none', boxShadow: 'none' }}
+                                        className="flex-1 min-w-0 bg-transparent text-slate-800 placeholder-slate-400 text-sm font-mono tracking-wide focus:ring-0 focus:outline-none focus:border-none px-3 py-1"
+                                    />
+                                </div>
+                                
+                                {/* Track Button */}
                                 <button
                                     type="submit"
-                                    className="h-10 px-5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold rounded-xl shadow-md shadow-red-600/10 transition-all hover:shadow-red-600/20 hover:-translate-y-0.5 active:translate-y-0 duration-200 flex items-center justify-center gap-1.5 text-xs font-semibold whitespace-nowrap"
+                                    className="h-12 px-6 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold rounded-2xl shadow-md shadow-red-600/10 transition-all hover:shadow-red-600/20 hover:-translate-y-0.5 active:translate-y-0 duration-200 flex items-center justify-center gap-1.5 text-xs font-semibold whitespace-nowrap w-full sm:w-auto"
                                 >
                                     Lacak PO
                                     <ArrowRight className="h-3.5 w-3.5" />

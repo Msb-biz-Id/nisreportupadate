@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>{{ $config['label'] }} - NISReport</title>
+    <title>{{ $config['label'] }} - {{ \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack')) }}</title>
     <style>
         * { box-sizing: border-box; }
         body { font-family: 'DejaVu Sans', sans-serif; font-size: 9pt; color: #111; margin: 0; }
@@ -28,7 +28,7 @@
 <body>
     <div class="header">
         <div>
-            <div class="brand">NISReport</div>
+            <div class="brand">{{ \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack')) }}</div>
             <h1>{{ $config['label'] }}</h1>
             <div style="font-size: 8pt; color: #666;">{{ $config['description'] ?? '' }}</div>
         </div>
@@ -109,6 +109,6 @@
         </tbody>
     </table>
 
-    <div class="footer">NISReport · Multi-Brand Order Management · halaman <span class="pagenum"></span></div>
+    <div class="footer">{{ \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack')) }} · Multi-Brand Order Management · halaman <span class="pagenum"></span></div>
 </body>
 </html>

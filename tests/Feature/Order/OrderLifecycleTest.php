@@ -1491,7 +1491,7 @@ class OrderLifecycleTest extends TestCase
             ->assertStatus(302);
 
         $invoice->refresh();
-        $this->assertEquals('draft', $invoice->status);
+        $this->assertEquals('published', $invoice->status);
         
         $this->assertDatabaseHas('activity_logs', [
             'activity' => 'cancel-validation',

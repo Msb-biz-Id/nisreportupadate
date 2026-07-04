@@ -13,7 +13,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Laporan Perbandingan & Kinerja - NISReport</title>
+    <title>Laporan Perbandingan & Kinerja - {{ \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack')) }}</title>
     <style>
         * { box-sizing: border-box; }
         body { font-family: 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #111; margin: 0; }
@@ -38,7 +38,7 @@
 <body>
     <div class="header">
         <div class="title-area">
-            <div class="brand">NISReport</div>
+            <div class="brand">{{ \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack')) }}</div>
             <h1>Analisis Pertumbuhan & Kinerja Kuantitatif</h1>
             <div style="font-size: 8.5pt; color: #555;">
                 @if ($mode === 'brands')
@@ -156,6 +156,6 @@
         </tbody>
     </table>
 
-    <div class="footer">NISReport · Laporan Pertumbuhan & Perbandingan Kinerja Tahunan</div>
+    <div class="footer">{{ \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack')) }} · Laporan Pertumbuhan & Perbandingan Kinerja Tahunan</div>
 </body>
 </html>

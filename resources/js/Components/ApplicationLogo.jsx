@@ -1,4 +1,18 @@
+import { usePage } from '@inertiajs/react';
+
 export default function ApplicationLogo(props) {
+    const { app } = usePage().props;
+
+    if (app?.logo_url) {
+        return (
+            <img
+                src={app.logo_url}
+                alt={app.name || 'ProTrack'}
+                {...props}
+            />
+        );
+    }
+
     return (
         <svg
             {...props}

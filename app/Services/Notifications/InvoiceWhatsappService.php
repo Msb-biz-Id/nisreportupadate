@@ -61,11 +61,23 @@ class InvoiceWhatsappService
         $invoiceUrl = url(route('invoice.public', $invNumber, false));
         $trackUrl   = url('/track/' . ($invoice->order?->no_po ?? ''));
 
-        return match ($condition) {
+        $message = match ($condition) {
             'reminder'   => $this->templateReminder($pelanggan, $brand, $invNumber, $sisa, $jatuhTempo, $invoiceUrl, $trackUrl, $invoice),
             'overdue'    => $this->templateOverdue($pelanggan, $brand, $invNumber, $sisa, $jatuhTempo, $invoiceUrl, $trackUrl, $invoice),
             default      => $this->templateNewInvoice($pelanggan, $brand, $invNumber, $total, $sisa, $jatuhTempo, $invoiceUrl, $trackUrl),
         };
+
+        if ($invoice->order && $invoice->order->isMissedDeadline()) {
+            $apology = "\n\n*Permintaan Maaf Keterlambatan:*\nKami memohon maaf yang sebesar-besarnya atas keterlambatan pengerjaan/pengiriman pesanan Anda yang melewati batas waktu estimasi awal. Kami berupaya semaksimal mungkin agar pesanan Anda dapat segera diselesaikan dan dikirimkan.";
+            $brandSign = "_{$brand}_";
+            if ($brand !== '' && str_contains($message, $brandSign)) {
+                $message = str_replace($brandSign, $apology . "\n\n" . $brandSign, $message);
+            } else {
+                $message .= $apology;
+            }
+        }
+
+        return $message;
     }
 
     // ── Template A: Invoice baru dipublish ──────────────────────────────────

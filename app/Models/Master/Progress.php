@@ -20,7 +20,7 @@ class Progress extends Model
         'urutan' => 'integer',
     ];
 
-    public function scopeActive($q) { return $q->where('is_active', true); }
+    public function scopeActive(\Illuminate\Database\Eloquent\Builder $q) { return $q->where('is_active', true); }
 
-    public function scopeOrdered($q) { return $q->orderBy('urutan'); }
+    public function scopeOrdered(\Illuminate\Database\Eloquent\Builder $q) { return $q->orderBy('urutan'); }
 }

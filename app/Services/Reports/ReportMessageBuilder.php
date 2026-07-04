@@ -22,6 +22,11 @@ class ReportMessageBuilder
 {
     private ?GeminiClient $ai;
 
+    private function getAppName(): string
+    {
+        return \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack'));
+    }
+
     public function __construct(?GeminiClient $ai = null)
     {
         $this->ai = $ai ?? GeminiClient::fromSettings();
@@ -154,7 +159,7 @@ PROMPT;
         $this->appendAiInsight($lines, $aiCtx);
 
         $lines[] = "";
-        $lines[] = "_NISReport · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
+        $lines[] = "_" . $this->getAppName() . " · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
         return implode("\n", $lines);
     }
 
@@ -242,7 +247,7 @@ PROMPT;
         $this->appendAiInsight($lines, $aiCtx);
 
         $lines[] = "";
-        $lines[] = "_NISReport · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
+        $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
         return implode("\n", $lines);
     }
 
@@ -345,7 +350,7 @@ PROMPT;
         $this->appendAiInsight($lines, $aiCtx);
 
         $lines[] = "";
-        $lines[] = "_NISReport · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
+        $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
         return implode("\n", $lines);
     }
 
@@ -474,7 +479,7 @@ PROMPT;
         $this->appendAiInsight($lines, $aiCtx);
 
         $lines[] = "";
-        $lines[] = "_NISReport · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
+        $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
         return implode("\n", $lines);
     }
 
@@ -549,7 +554,7 @@ PROMPT;
         $this->appendAiInsight($lines, $aiCtx);
 
         $lines[] = "";
-        $lines[] = "_NISReport · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
+        $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
         return implode("\n", $lines);
     }
 }

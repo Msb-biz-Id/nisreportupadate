@@ -86,7 +86,7 @@ class InvoiceController extends Controller
         );
 
         if (!$isAuthorized) {
-            $query->whereIn('status', ['published', 'sent', 'paid']);
+            $query->whereIn('status', ['published', 'sent', 'overdue', 'paid', 'validated']);
         }
 
         $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments.bank', 'order.progressDetails.progress', 'order.iklan', 'order.creator.brands', 'order.items'])
@@ -126,7 +126,8 @@ class InvoiceController extends Controller
             'invoice' => $invoice,
             'qr_code' => $this->qrCodeDataUri($trackingUrl),
             'tracking_url' => $trackingUrl,
-        ])->toResponse($request);
+        ])->withViewData(['title' => "Invoice " . $invoice->invoice_number])
+          ->toResponse($request);
 
         $response->headers->set('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
         $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
@@ -149,7 +150,7 @@ class InvoiceController extends Controller
         );
 
         if (!$isAuthorized) {
-            $query->whereIn('status', ['published', 'sent', 'paid']);
+            $query->whereIn('status', ['published', 'sent', 'overdue', 'paid', 'validated']);
         }
 
         $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments', 'order.iklan', 'order.creator.brands', 'order.items'])
@@ -618,9 +619,31 @@ class InvoiceController extends Controller
 
         $order->load('items', 'payments', 'brand');
 
-        $invoice = DB::transaction(function () use ($order) {
+        $autoPublishAndSend = false;
+        $invoice = DB::transaction(function () use ($order, &$autoPublishAndSend) {
             $totalTagihan = (float) $order->totalTagihan();
             $totalPaid = (float) $order->totalPaid();
+            $sisa = $order->sisaTagihan();
+
+            $hasVerifiedDp = $order->payments()
+                ->whereNotNull('verified_at')
+                ->where(function ($q) {
+                    $q->whereHas('masterJenisPembayaran', function ($mj) {
+                        $mj->where('nama', 'DP');
+                    })->orWhere(function ($qp) {
+                        $qp->whereNull('master_jenis_pembayaran_id')
+                           ->where('payment_type', 'dp');
+                    });
+                })
+                ->exists();
+
+            $status = 'draft';
+            if ($sisa <= 0) {
+                $status = 'paid';
+            } elseif ($hasVerifiedDp) {
+                $status = 'published';
+                $autoPublishAndSend = true;
+            }
 
             $invoice = Invoice::create([
                 'brand_id' => $order->brand_id,
@@ -628,13 +651,13 @@ class InvoiceController extends Controller
                 'invoice_number' => $this->numbers->generateInvoiceNumber($order->brand, $order),
                 'tanggal_terbit' => $order->tanggal_masuk ?? now()->toDateString(),
                 'jatuh_tempo' => $order->deadline_customer ? $order->deadline_customer : now()->addDays(14)->toDateString(),
-                'status' => 'draft',
+                'status' => $status,
                 'total_tagihan' => $totalTagihan,
                 'total_bayar' => $totalPaid,
                 'bank_id' => \App\Models\Master\BankAccount::active()->where('brand_id', \App\Support\BrandContext::masterDataId(request(), $order->brand_id))->first()?->id,
                 // dp_amount = total verified payments at invoice creation (supports both old payment_type and new master_jenis_pembayaran)
                 'dp_amount' => $totalPaid,
-                'sisa_pembayaran' => $order->sisaTagihan(),
+                'sisa_pembayaran' => $sisa,
                 'created_by' => \Illuminate\Support\Facades\Auth::id(),
             ]);
 
@@ -654,6 +677,32 @@ class InvoiceController extends Controller
 
             return $invoice;
         });
+
+        if ($autoPublishAndSend && $invoice) {
+            try {
+                \App\Services\ActivityLogger::log('publish', 'invoice', $invoice, "Auto publish invoice {$invoice->invoice_number} via verified DP presence at creation");
+                
+                $sidobe = \App\Services\Notifications\SidobeClient::fromSettings();
+                $waService = new \App\Services\Notifications\InvoiceWhatsappService($sidobe);
+                $invoice->load(['order.pelanggan', 'brand']);
+                
+                if ($sidobe->isConfigured()) {
+                    $phone = $waService->phoneFromInvoice($invoice);
+                    if ($phone !== '') {
+                        $result = $waService->send($invoice, 'new_invoice');
+                        if ($result['success'] && ! ($result['mock'] ?? false)) {
+                            $invoice->update([
+                                'status' => 'sent',
+                                'sent_via' => 'whatsapp',
+                                'sent_at' => now(),
+                            ]);
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to auto-send invoice WA on creation: ' . $e->getMessage());
+            }
+        }
 
         return redirect()->route('invoices.list')
             ->with('success', "Invoice {$invoice->invoice_number} dibuat sebagai draft.");
@@ -770,7 +819,7 @@ class InvoiceController extends Controller
                 'diskon_value' => $diskonValue,
                 'biaya_pengiriman' => $biayaPengiriman,
                 'jasa_pengiriman' => $jasaPengiriman,
-                'status' => $sisaPembayaran <= 0 ? 'paid' : 'validated',
+                'status' => 'validated',
                 'dp_amount' => $totalPaid,
                 'total_bayar' => $totalPaid,
                 'total_tagihan' => $invoiceTotalTagihan,
@@ -799,8 +848,15 @@ class InvoiceController extends Controller
         abort_unless(in_array($invoice->status, ['validated', 'paid'], true), 422, 'Invoice harus berstatus validated atau paid.');
 
         DB::transaction(function () use ($invoice) {
+            $status = 'published';
+            if ($invoice->sisa_pembayaran <= 0) {
+                $status = 'paid';
+            } elseif ($invoice->sent_at !== null) {
+                $status = 'sent';
+            }
+
             $invoice->update([
-                'status' => 'draft',
+                'status' => $status,
             ]);
 
             $order = $invoice->order;
@@ -963,11 +1019,23 @@ class InvoiceController extends Controller
                     $totalPaid = $order->totalPaid();
                     $newSisa = max(0, $invoiceTotalTagihan - $totalPaid);
                     
+                    $targetStatus = $invoice->status;
+                    if ($newSisa <= 0) {
+                        $targetStatus = ($invoice->status === 'validated') ? 'validated' : 'paid';
+                    } else {
+                        $isDp = $payment->payment_type === 'dp';
+                        if ($isDp && in_array($invoice->status, ['draft', 'validated'], true)) {
+                            $targetStatus = 'published';
+                        } elseif (in_array($invoice->status, ['paid', 'validated'], true)) {
+                            $targetStatus = $invoice->sent_at !== null ? 'sent' : 'published';
+                        }
+                    }
+
                     $invoice->update([
                         'total_tagihan' => $invoiceTotalTagihan,
                         'total_bayar' => $totalPaid,
                         'sisa_pembayaran' => $newSisa,
-                        'status' => $newSisa <= 0 ? 'paid' : $invoice->status,
+                        'status' => $targetStatus,
                     ]);
                 }
             }
@@ -1129,11 +1197,20 @@ class InvoiceController extends Controller
                     : (float)$invoice->diskon_value;
                 $newSisa = max(0, $newTotal - $diskonNominal + (float)$invoice->biaya_pengiriman - $newPaid);
                 
+                $targetStatus = $invoice->status;
+                if ($newSisa <= 0) {
+                    $targetStatus = ($invoice->status === 'validated') ? 'validated' : 'paid';
+                } else {
+                    if (in_array($invoice->status, ['paid', 'validated'], true)) {
+                        $targetStatus = $invoice->sent_at !== null ? 'sent' : 'published';
+                    }
+                }
+
                 $invoice->update([
                     'total_tagihan'  => $newTotal,
                     'total_bayar'    => $newPaid,
                     'sisa_pembayaran' => $newSisa,
-                    'status' => $newSisa <= 0 ? 'paid' : ($invoice->status === 'paid' ? 'validated' : $invoice->status),
+                    'status' => $targetStatus,
                 ]);
             }
         });
@@ -1195,11 +1272,20 @@ class InvoiceController extends Controller
                         : (float)$invoice->diskon_value;
                     $newSisa = max(0, $newTotal - $diskonNominal + (float)$invoice->biaya_pengiriman - $newPaid);
                     
+                    $targetStatus = $invoice->status;
+                    if ($newSisa <= 0) {
+                        $targetStatus = ($invoice->status === 'validated') ? 'validated' : 'paid';
+                    } else {
+                        if (in_array($invoice->status, ['paid', 'validated'], true)) {
+                            $targetStatus = $invoice->sent_at !== null ? 'sent' : 'published';
+                        }
+                    }
+
                     $invoice->update([
                         'total_tagihan'  => $newTotal,
                         'total_bayar'    => $newPaid,
                         'sisa_pembayaran' => $newSisa,
-                        'status' => $newSisa <= 0 ? 'paid' : ($invoice->status === 'paid' ? 'validated' : $invoice->status),
+                        'status' => $targetStatus,
                     ]);
                 }
             }

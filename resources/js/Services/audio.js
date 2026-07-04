@@ -4,6 +4,13 @@
  * @param {string} soundName 'bell-chime' | 'success-tada' | 'warning-alert' | 'cash-register'
  */
 export function playNotificationSound(soundName) {
+    const SYNTHESIZED_SOUNDS = ['success-tada', 'cash-register', 'warning-alert', 'bell-chime'];
+    
+    if (SYNTHESIZED_SOUNDS.includes(soundName)) {
+        synthesizeSound(soundName);
+        return;
+    }
+
     try {
         const audio = new Audio(`/sounds/${soundName}.mp3`);
         audio.play().catch(() => {

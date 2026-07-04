@@ -33,6 +33,26 @@ class AuthenticatedSessionController extends Controller
 
         $user = $request->user();
 
+        // Check if OTP by email is enabled
+        if (config('auth.otp_email_enabled')) {
+            // Log out the user from the current session state
+            Auth::guard('web')->logout();
+
+            // Generate OTP
+            $otp = rand(100000, 999999);
+
+            // Store verification details in session
+            $request->session()->put('email_otp', $otp);
+            $request->session()->put('email_otp_expires_at', now()->addMinutes(5));
+            $request->session()->put('email_otp_user_id', $user->id);
+            $request->session()->put('email_otp_remember', $request->boolean('remember'));
+
+            // Send Email OTP
+            \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\EmailOtpMail($otp, $user));
+
+            return redirect()->route('otp.challenge');
+        }
+
         $request->session()->regenerate();
 
         $user->forceFill([

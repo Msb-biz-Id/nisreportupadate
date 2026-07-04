@@ -1,6 +1,6 @@
 # Business Requirements Document (BRD)
 
-## Sistem Manajemen Order Multi-Brand (NISReport)
+## Sistem Manajemen Order Multi-Brand (ProTrack)
 
 **Versi:** 2.1  
 **Tanggal:** 13 Mei 2026  
@@ -3572,7 +3572,7 @@ Log Activity
 
 | Field | Tipe | Default |
 |-------|------|--------|
-| nama_aplikasi | VARCHAR(100) | NISReport |
+| nama_aplikasi | VARCHAR(100) | ProTrack |
 | timezone | VARCHAR(50) | Asia/Jakarta |
 | currency | VARCHAR(10) | IDR |
 | bahasa | VARCHAR(10) | id_ID |

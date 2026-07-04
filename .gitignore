@@ -23,3 +23,5 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 /public/*.png
+/artifacts
+/database/backup_orders.json

@@ -91,6 +91,31 @@ function KanbanCard({ order }) {
                     </Badge>
                 )}
             </div>
+            
+            {/* Active Stages / Tahapan Aktif */}
+            {order.active_stages && order.active_stages.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-dashed border-slate-200">
+                    <div className="text-[10px] font-medium text-slate-500 mb-1 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        Tahap:
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                        {order.active_stages.map((stage, idx) => (
+                            <span
+                                key={idx}
+                                className="text-[9px] font-bold px-1.5 py-0.5 rounded border"
+                                style={{
+                                    backgroundColor: stage.warna ? `${stage.warna}15` : '#f1f5f9',
+                                    color: stage.warna || '#475569',
+                                    borderColor: stage.warna ? `${stage.warna}30` : '#cbd5e1'
+                                }}
+                            >
+                                {stage.nama}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Footer: deadline + qty + actions */}
             <div className="mt-2 flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
@@ -143,24 +168,31 @@ export default function Kanban({ columns: initialColumns }) {
                 <div className="flex min-w-max gap-4">
                     {Object.entries(columns).map(([key, col]) => {
                         const overdueCount = col.orders.filter(o => o.days_remaining !== null && o.days_remaining < 0).length;
+                        const totalPcs = col.orders.reduce((sum, o) => sum + (o.total_items || 0), 0);
 
                         return (
                             <div key={key} className="flex w-72 shrink-0 flex-col rounded-xl border bg-slate-50/50 p-2">
                                 {/* Column Header */}
                                 <div
-                                    className="mb-2 flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold text-white shadow-sm"
+                                    className="mb-2 flex flex-col gap-0.5 rounded-lg px-3 py-2 text-white shadow-sm"
                                     style={{ background: col.color }}
                                 >
-                                    <span>{col.label}</span>
-                                    <div className="flex items-center gap-1.5">
-                                        {overdueCount > 0 && (
-                                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/30 text-[9px] font-black">
-                                                {overdueCount}⚠
-                                            </span>
-                                        )}
-                                        <Badge variant="outline" className="border-white/40 bg-white/20 text-xs text-white">
-                                            {col.orders.length}
-                                        </Badge>
+                                    <div className="flex items-center justify-between text-sm font-semibold">
+                                        <span>{col.label}</span>
+                                        <div className="flex items-center gap-1.5">
+                                            {overdueCount > 0 && (
+                                                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/30 text-[9px] font-black" title="Overdue">
+                                                    {overdueCount}⚠
+                                                </span>
+                                            )}
+                                            <Badge variant="outline" className="border-white/40 bg-white/20 text-[10px] font-bold text-white px-1.5 py-0">
+                                                {col.orders.length} PO
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                    <div className="text-[10px] text-white/85 font-medium flex justify-between">
+                                        <span>Total Qty:</span>
+                                        <span className="font-bold">{totalPcs} pcs</span>
                                     </div>
                                 </div>
 

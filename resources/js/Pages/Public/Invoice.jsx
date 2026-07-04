@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { Download, ExternalLink, ShieldCheck, CheckCircle2, AlertCircle, ArrowDownLeft, ArrowUpRight, HelpCircle, Globe } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
@@ -50,9 +50,11 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
 
     return (
         <>
-            <Head title={`Invoice ${invoice.invoice_number} - ${brand.nama_brand}`}>
+            <Head>
+                <title>{`Invoice ${invoice.invoice_number} - ${brand.nama_brand}`}</title>
                 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
                 <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
+                {usePage().props.app?.favicon_url && <link rel="icon" href={usePage().props.app.favicon_url} />}
             </Head>
             <div className="min-h-screen bg-slate-50/50 px-4 py-8 md:py-12">
                 <div className="mx-auto max-w-4xl space-y-6">
@@ -60,9 +62,17 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                     {/* Public Header Bar */}
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border shadow-sm">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-md" style={{ background: brand.warna_primary || '#4F46E5' }}>
-                                <ShieldCheck className="h-5 w-5" />
-                            </div>
+                            {brand.logo ? (
+                                <img
+                                    src={`/storage/${brand.logo}`}
+                                    alt={brand.nama_brand}
+                                    className="h-10 w-10 rounded-xl object-contain bg-white p-1 border shadow-md"
+                                />
+                            ) : (
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-md" style={{ background: brand.warna_primary || '#4F46E5' }}>
+                                    <ShieldCheck className="h-5 w-5" />
+                                </div>
+                            )}
                             <div>
                                 <div className="font-extrabold text-slate-800 tracking-tight">{brand.nama_brand || 'Secure'} Invoice Portal</div>
                                 <div className="text-xs text-muted-foreground flex items-center gap-1">

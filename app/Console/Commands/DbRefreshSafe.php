@@ -81,6 +81,27 @@ class DbRefreshSafe extends Command
             '--seed' => true,
         ]);
 
+        if (file_exists($backupPath)) {
+            $this->info('Memulihkan data transaksi/order dari backup...');
+            $backupData = json_decode(file_get_contents($backupPath), true);
+            
+            Schema::disableForeignKeyConstraints();
+            foreach ($tables as $table) {
+                if (isset($backupData[$table]) && !empty($backupData[$table])) {
+                    DB::table($table)->truncate();
+                    
+                    $chunks = array_chunk($backupData[$table], 100);
+                    foreach ($chunks as $chunk) {
+                        DB::table($table)->insert($chunk);
+                    }
+                    $this->line("- Berhasil memulihkan " . count($backupData[$table]) . " baris ke tabel {$table}");
+                }
+            }
+            Schema::enableForeignKeyConstraints();
+
+            @unlink($backupPath);
+        }
+
         $this->info('=== PROSES SELESAI DENGAN SUKSES ===');
         return self::SUCCESS;
     }

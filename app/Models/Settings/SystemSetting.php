@@ -16,12 +16,16 @@ class SystemSetting extends Model
 
     public static function get(string $group, string $key, $default = null)
     {
-        $all = Cache::remember(self::CACHE_KEY, 300, fn () => self::all()->map(function ($s) {
-            return [
-                'group' => $s->group, 'key' => $s->key,
-                'value' => $s->is_encrypted && $s->value ? rescue(fn () => Crypt::decryptString($s->value), null, false) : $s->value,
-            ];
-        }));
+        try {
+            $all = Cache::remember(self::CACHE_KEY, 300, fn () => self::all()->map(function ($s) {
+                return [
+                    'group' => $s->group, 'key' => $s->key,
+                    'value' => $s->is_encrypted && $s->value ? rescue(fn () => Crypt::decryptString($s->value), null, false) : $s->value,
+                ];
+            }));
+        } catch (\Throwable $e) {
+            return $default;
+        }
 
         $row = collect($all)->firstWhere(fn ($r) => $r['group'] === $group && $r['key'] === $key);
         return $row['value'] ?? $default;
@@ -45,12 +49,16 @@ class SystemSetting extends Model
 
     public static function getGroup(string $group): array
     {
-        return self::where('group', $group)->get()->mapWithKeys(function ($s) {
-            $val = $s->is_encrypted && $s->value
-                ? rescue(fn () => Crypt::decryptString($s->value), null, false)
-                : $s->value;
-            return [$s->key => $val];
-        })->all();
+        try {
+            return self::where('group', $group)->get()->mapWithKeys(function ($s) {
+                $val = $s->is_encrypted && $s->value
+                    ? rescue(fn () => Crypt::decryptString($s->value), null, false)
+                    : $s->value;
+                return [$s->key => $val];
+            })->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     public static function maskedValue(?string $value): ?string

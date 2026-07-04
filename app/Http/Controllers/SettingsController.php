@@ -308,7 +308,8 @@ class SettingsController extends Controller
         Gate::authorize('settings.system');
         $client = SidobeClient::fromSettings();
         $to = $request->string('to')->toString() ?: SystemSetting::get('whatsapp', 'default_recipient', '6281234567890');
-        $result = $client->send($to, 'Test pesan dari NISReport. Jika kamu menerima ini, integrasi WhatsApp berhasil.');
+        $appName = SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack'));
+        $result = $client->send($to, "Test pesan dari {$appName}. Jika kamu menerima ini, integrasi WhatsApp berhasil.");
 
         return back()->with($result['success'] ? 'success' : 'error',
             $result['success']
@@ -323,7 +324,8 @@ class SettingsController extends Controller
         $client = TelegramClient::fromSettings();
         $chatId = $request->string('chat_id')->toString() ?: SystemSetting::get('telegram', 'default_chat_id', '');
         if (! $chatId) return back()->with('error', 'Default chat ID belum diatur.');
-        $result = $client->send($chatId, '*Test* dari NISReport.');
+        $appName = SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack'));
+        $result = $client->send($chatId, "*Test* dari {$appName}.");
 
         return back()->with($result['success'] ? 'success' : 'error',
             $result['success']

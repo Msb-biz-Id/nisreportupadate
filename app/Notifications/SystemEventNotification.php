@@ -91,7 +91,8 @@ class SystemEventNotification extends Notification implements ShouldQueue
         $body = $this->getBody();
         $actionUrl = $this->payload['action_url'] ?? null;
 
-        $msg = "*[NISReport]* {$emoji} *{$title}*\n\n{$body}";
+        $appName = \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack'));
+        $msg = "*[{$appName}]* {$emoji} *{$title}*\n\n{$body}";
         if ($actionUrl) {
             $msg .= "\n\nDetail PO: " . url($actionUrl);
         }
@@ -108,7 +109,8 @@ class SystemEventNotification extends Notification implements ShouldQueue
         $body = $this->getBody();
         $actionUrl = $this->payload['action_url'] ?? null;
 
-        $msg = "*[NISReport]* {$emoji} *{$title}*\n\n{$body}";
+        $appName = \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack'));
+        $msg = "*[{$appName}]* {$emoji} *{$title}*\n\n{$body}";
         if ($actionUrl) {
             // Escapes or formats URL for MarkdownV2 if required, but standard Markdown is fine
             $msg .= "\n\nDetail PO: [Buka Halaman](" . url($actionUrl) . ")";

@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { CheckCircle2, Circle, Clock, AlertTriangle, Package, ShieldCheck } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import usePublicSecurity from '@/hooks/usePublicSecurity';
@@ -77,7 +77,10 @@ export default function Track({ po_number, found, order, brand, invoice, invoice
 
     return (
         <>
-            <Head title={`Tracking ${po_number}`} />
+            <Head>
+                <title>{`Tracking ${po_number}`}</title>
+                {usePage().props.app?.favicon_url && <link rel="icon" href={usePage().props.app.favicon_url} />}
+            </Head>
             <div 
                 className="min-h-screen px-4 py-8 transition-all duration-300"
                 style={{
@@ -206,6 +209,19 @@ export default function Track({ po_number, found, order, brand, invoice, invoice
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Apology Alert Card */}
+                            {order.is_missed_deadline && (
+                                <div className="rounded-2xl border border-red-200 bg-red-50/50 p-5 shadow-sm space-y-2">
+                                    <div className="flex items-center gap-2 font-bold text-red-800 text-sm">
+                                        <AlertTriangle className="h-5 w-5 text-red-600" />
+                                        Permohonan Maaf Keterlambatan
+                                    </div>
+                                    <p className="text-xs text-red-700 leading-relaxed font-medium">
+                                        Kami memohon maaf yang sebesar-besarnya atas keterlambatan pengerjaan atau pengiriman pesanan Anda yang tidak sesuai dengan deadline awal. Tim kami sedang bekerja keras untuk menyelesaikan dan mengirimkan pesanan Anda secepat mungkin. Terima kasih atas pengertian dan kesabaran Anda.
+                                    </p>
+                                </div>
+                            )}
 
 
                             {/* Invoice Card */}

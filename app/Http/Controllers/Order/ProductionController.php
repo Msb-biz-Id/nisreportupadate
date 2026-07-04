@@ -107,7 +107,13 @@ class ProductionController extends Controller
             ->forBrand($brandId)
             ->published()
             ->whereNotIn($statusPoCol, ['sudah_dikirim', 'selesai'])
-            ->with(['pelanggan:id,nama', 'lockStatus', 'brand:id,kode,warna_primary', 'paketOrder:id,nama,warna,prioritas'])
+            ->with([
+                'pelanggan:id,nama',
+                'lockStatus',
+                'brand:id,kode,warna_primary',
+                'paketOrder:id,nama,warna,prioritas',
+                'progressDetails.progress'
+            ])
             ->withCount(['rijeks as has_rijek' => fn ($q) => $q->whereNull('resolved_at')])
             ->withSum('items', 'quantity')
             ->orderBy($deadlineCol)
@@ -131,6 +137,31 @@ class ProductionController extends Controller
                 ? (int) now()->startOfDay()->diffInDays($order->deadline_customer, false)
                 : null;
 
+            // Find active stages (status === 'on_progress')
+            $activeStages = $order->progressDetails
+                ->filter(fn ($d) => $d->status === 'on_progress')
+                ->map(fn ($d) => [
+                    'nama' => $d->progress?->nama_progress,
+                    'warna' => $d->progress?->warna,
+                ])
+                ->values()
+                ->toArray();
+
+            if (empty($activeStages)) {
+                if ($status === 'on_progress' || $status === 'delay') {
+                    $firstPending = $order->progressDetails
+                        ->filter(fn ($d) => $d->status === 'pending')
+                        ->sortBy(fn ($d) => $d->progress?->urutan ?? 0)
+                        ->first();
+                    if ($firstPending) {
+                        $activeStages[] = [
+                            'nama' => $firstPending->progress?->nama_progress,
+                            'warna' => $firstPending->progress?->warna,
+                        ];
+                    }
+                }
+            }
+
             $columns[$status]['orders'][] = [
                 'id'                => $order->id,
                 'no_po'             => $order->no_po,
@@ -149,6 +180,7 @@ class ProductionController extends Controller
                     'warna'     => $order->paketOrder->warna,
                     'prioritas' => $order->paketOrder->prioritas,
                 ] : null,
+                'active_stages'     => $activeStages,
             ];
         }
 

@@ -1,22 +1,35 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { ShieldCheck, ArrowRight, Layers, BarChart3, Users } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
 import usePublicSecurity from '@/hooks/usePublicSecurity';
 
 export default function Welcome({ auth, canLogin }) {
     usePublicSecurity();
+    const { app } = usePage().props;
+    const appName = app?.name || 'ProTrack';
     return (
         <>
-            <Head title="Selamat Datang" />
+            <Head>
+                <title>Selamat Datang</title>
+                {app?.favicon_url && <link rel="icon" href={app.favicon_url} />}
+            </Head>
             <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-rose-50/30">
                 <header className="border-b bg-white/60 backdrop-blur">
                     <div className="container flex h-16 items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                                <ShieldCheck className="h-5 w-5" />
-                            </div>
+                            {app?.logo_url ? (
+                                <img
+                                    src={app.logo_url}
+                                    alt={appName}
+                                    className="h-9 w-9 rounded-lg object-contain bg-white p-1 border shadow-sm"
+                                />
+                            ) : (
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                                    <ShieldCheck className="h-5 w-5" />
+                                </div>
+                            )}
                             <div className="leading-tight">
-                                <div className="text-sm font-semibold">NISReport</div>
+                                <div className="text-sm font-semibold">{appName}</div>
                                 <div className="text-[11px] text-muted-foreground">Multi-Brand Order Management</div>
                             </div>
                         </div>
@@ -52,7 +65,7 @@ export default function Welcome({ auth, canLogin }) {
                             </span>
                         </h1>
                         <p className="mx-auto mt-6 max-w-2xl text-base text-muted-foreground sm:text-lg">
-                            NISReport mengelola order, produksi, keuangan, dan laporan untuk multiple brand
+                            {appName} mengelola order, produksi, keuangan, dan laporan untuk multiple brand
                             apparel/jersey dengan isolasi data, RBAC, dan tracking publik per PO.
                         </p>
                         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -98,7 +111,7 @@ export default function Welcome({ auth, canLogin }) {
                 </main>
 
                 <footer className="border-t bg-white/60 py-6 text-center text-xs text-muted-foreground">
-                    NISReport — versi pengembangan Phase 1
+                    {appName} — versi pengembangan Phase 1
                 </footer>
             </div>
         </>

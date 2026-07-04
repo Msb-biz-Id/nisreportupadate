@@ -259,4 +259,29 @@ class Order extends Model
 
         return null;
     }
+
+    /**
+     * Check if the order has missed its deadline (admin brand or shipping).
+     */
+    public function isMissedDeadline(): bool
+    {
+        if ($this->status_po === 'delay') {
+            return true;
+        }
+
+        if ($this->deadline_customer && $this->deadline_customer->isPast()) {
+            if (!in_array($this->status_po, ['sudah_dikirim', 'selesai'], true)) {
+                return true;
+            }
+        }
+
+        if ($this->end_production_date && $this->end_production_date->isPast()) {
+            if (!in_array($this->status_po, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
+

@@ -54,7 +54,7 @@ class InvoiceTest extends TestCase
         $this->assertNotNull($inv);
         $this->assertEquals(300000, $inv->dp_amount);
         $this->assertEquals(700000, $inv->sisa_pembayaran);
-        $this->assertEquals('draft', $inv->status);
+        $this->assertEquals('published', $inv->status);
     }
 
     public function test_can_create_invoice_from_draft_po(): void

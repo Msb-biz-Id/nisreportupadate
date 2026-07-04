@@ -1,6 +1,6 @@
 {
-  "name": "NISReport ERP & CRM",
-  "short_name": "NISReport",
+  "name": "ProTrack ERP & CRM",
+  "short_name": "ProTrack",
   "description": "Sistem ERP dan CRM untuk tracking PO, Invoice, dan Analitik Pelanggan.",
   "start_url": "/",
   "display": "standalone",

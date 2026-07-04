@@ -114,6 +114,12 @@ class BrandSeeder extends Seeder
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'instagram', 'indowarehouse_');
         \App\Models\Settings\SystemSetting::set('system', 'theme_color', '#a8001c');
 
+        // Seed SEO branding settings
+        \App\Models\Settings\SystemSetting::set('seo', 'site_name', 'ProTrack');
+        \App\Models\Settings\SystemSetting::set('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.');
+        \App\Models\Settings\SystemSetting::set('seo', 'logo', 'system/favicon.svg');
+        \App\Models\Settings\SystemSetting::set('seo', 'favicon', 'system/favicon.svg');
+
         // Reseller nyata — masing-masing entitas reseller mandiri (tipe: reseller_hub)
         // Bisa punya branch sendiri nanti. Master data shared di level hub.
         $idwBrand = Brand::where(['kode' => 'IDW'])->first();

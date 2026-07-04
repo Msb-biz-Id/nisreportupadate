@@ -46,7 +46,7 @@ class BackupGoogleDrive extends Command
         $dbPath = database_path('database.sqlite');
         if (file_exists($dbPath)) {
             $this->info('Membackup database SQLite...');
-            $dbBackupFileName = "backup-db-nisreport-{$timestamp}.sqlite";
+            $dbBackupFileName = "backup-db-protrack-{$timestamp}.sqlite";
             $dbBackupFilePath = "{$tempDir}/{$dbBackupFileName}";
             
             // Lakukan salin file database (SQLite aman disalin langsung saat tidak ada penulisan berat)

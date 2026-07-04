@@ -98,16 +98,184 @@ class HandleInertiaRequests extends Middleware
                 'info' => fn () => $request->session()->get('info'),
             ],
             'app' => [
-                // Nama sistem dari Settings → Pengaturan → SEO (override APP_NAME di .env)
-                'name'        => SystemSetting::get('seo', 'site_name', config('app.name', 'Circle Sportwear - Tracking PO')),
-                'description' => SystemSetting::get('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.'),
-                'logo_url'    => SystemSetting::get('seo', 'logo')
-                    ? $publicDisk->url(SystemSetting::get('seo', 'logo'))
-                    : null,
-                'favicon_url' => SystemSetting::get('seo', 'favicon')
-                    ? $publicDisk->url(SystemSetting::get('seo', 'favicon'))
-                    : null,
-                'theme_color' => SystemSetting::get('system', 'theme_color', '#a8001c'),
+                // Nama sistem dari Settings -> Pengaturan -> SEO (override APP_NAME di .env)
+                'name'        => (function() use ($request, $publicDisk) {
+                    $appName = SystemSetting::get('seo', 'site_name', config('app.name', 'Circle Sportwear - Tracking PO'));
+                    $route = $request->route();
+                    if ($route) {
+                        $routeName = $route->getName();
+                        if ($routeName === 'track.show') {
+                            $noPo = $request->route('noPo');
+                            $order = \App\Models\Order\Order::where('no_po', $noPo)->first();
+                            $brand = $order ? $order->brand : null;
+                            if (!$brand && count(explode('-', $noPo)) >= 2) {
+                                $brandKode = explode('-', $noPo)[1];
+                                $brand = \App\Models\Brand::where('kode', $brandKode)->first();
+                            }
+                            if ($brand) {
+                                $appName = $brand->nama_brand;
+                            }
+                        } elseif ($routeName === 'invoice.public') {
+                            $invoiceNumber = $request->route('invoiceNumber');
+                            $invoice = \App\Models\Order\Invoice::where('invoice_number', $invoiceNumber)->first();
+                            if ($invoice) {
+                                $brand = null;
+                                if ($invoice->order) {
+                                    $resellerBrand = $invoice->order->resolveResellerBrand();
+                                    $brand = $resellerBrand ? $resellerBrand->getHeaderBrand() : $invoice->brand?->getHeaderBrand();
+                                } else {
+                                    $brand = $invoice->brand?->getHeaderBrand();
+                                }
+                                if ($brand) {
+                                    $appName = $brand->nama_brand;
+                                }
+                            }
+                        }
+                    }
+                    return $appName;
+                })(),
+                'description' => (function() use ($request) {
+                    $appDesc = SystemSetting::get('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.');
+                    $route = $request->route();
+                    if ($route) {
+                        $routeName = $route->getName();
+                        if ($routeName === 'track.show') {
+                            $noPo = $request->route('noPo');
+                            $order = \App\Models\Order\Order::where('no_po', $noPo)->first();
+                            $brand = $order ? $order->brand : null;
+                            if (!$brand && count(explode('-', $noPo)) >= 2) {
+                                $brandKode = explode('-', $noPo)[1];
+                                $brand = \App\Models\Brand::where('kode', $brandKode)->first();
+                            }
+                            if ($brand) {
+                                $appDesc = "Lacak status pengerjaan pesanan Anda dengan nomor PO $noPo secara real-time di {$brand->nama_brand}.";
+                            }
+                        } elseif ($routeName === 'invoice.public') {
+                            $invoiceNumber = $request->route('invoiceNumber');
+                            $invoice = \App\Models\Order\Invoice::where('invoice_number', $invoiceNumber)->first();
+                            if ($invoice) {
+                                $brand = null;
+                                if ($invoice->order) {
+                                    $resellerBrand = $invoice->order->resolveResellerBrand();
+                                    $brand = $resellerBrand ? $resellerBrand->getHeaderBrand() : $invoice->brand?->getHeaderBrand();
+                                } else {
+                                    $brand = $invoice->brand?->getHeaderBrand();
+                                }
+                                if ($brand) {
+                                    $appDesc = "Lihat detail tagihan dan bayar invoice Anda dengan nomor $invoiceNumber di {$brand->nama_brand}.";
+                                }
+                            }
+                        }
+                    }
+                    return $appDesc;
+                })(),
+                'logo_url'    => (function() use ($request, $publicDisk) {
+                    $logo = SystemSetting::get('seo', 'logo');
+                    $appLogo = $logo ? $publicDisk->url($logo) : null;
+                    $route = $request->route();
+                    if ($route) {
+                        $routeName = $route->getName();
+                        if ($routeName === 'track.show') {
+                            $noPo = $request->route('noPo');
+                            $order = \App\Models\Order\Order::where('no_po', $noPo)->first();
+                            $brand = $order ? $order->brand : null;
+                            if (!$brand && count(explode('-', $noPo)) >= 2) {
+                                $brandKode = explode('-', $noPo)[1];
+                                $brand = \App\Models\Brand::where('kode', $brandKode)->first();
+                            }
+                            if ($brand && $brand->logo) {
+                                $appLogo = \Illuminate\Support\Str::contains($brand->logo, 'http') ? $brand->logo : $publicDisk->url($brand->logo);
+                            }
+                        } elseif ($routeName === 'invoice.public') {
+                            $invoiceNumber = $request->route('invoiceNumber');
+                            $invoice = \App\Models\Order\Invoice::where('invoice_number', $invoiceNumber)->first();
+                            if ($invoice) {
+                                $brand = null;
+                                if ($invoice->order) {
+                                    $resellerBrand = $invoice->order->resolveResellerBrand();
+                                    $brand = $resellerBrand ? $resellerBrand->getHeaderBrand() : $invoice->brand?->getHeaderBrand();
+                                } else {
+                                    $brand = $invoice->brand?->getHeaderBrand();
+                                }
+                                if ($brand && $brand->logo) {
+                                    $appLogo = \Illuminate\Support\Str::contains($brand->logo, 'http') ? $brand->logo : $publicDisk->url($brand->logo);
+                                }
+                            }
+                        }
+                    }
+                    return $appLogo;
+                })(),
+                'favicon_url' => (function() use ($request, $publicDisk) {
+                    $favicon = SystemSetting::get('seo', 'favicon');
+                    $appFavicon = $favicon ? $publicDisk->url($favicon) : null;
+                    $route = $request->route();
+                    if ($route) {
+                        $routeName = $route->getName();
+                        if ($routeName === 'track.show') {
+                            $noPo = $request->route('noPo');
+                            $order = \App\Models\Order\Order::where('no_po', $noPo)->first();
+                            $brand = $order ? $order->brand : null;
+                            if (!$brand && count(explode('-', $noPo)) >= 2) {
+                                $brandKode = explode('-', $noPo)[1];
+                                $brand = \App\Models\Brand::where('kode', $brandKode)->first();
+                            }
+                            if ($brand && $brand->logo) {
+                                $appFavicon = \Illuminate\Support\Str::contains($brand->logo, 'http') ? $brand->logo : $publicDisk->url($brand->logo);
+                            }
+                        } elseif ($routeName === 'invoice.public') {
+                            $invoiceNumber = $request->route('invoiceNumber');
+                            $invoice = \App\Models\Order\Invoice::where('invoice_number', $invoiceNumber)->first();
+                            if ($invoice) {
+                                $brand = null;
+                                if ($invoice->order) {
+                                    $resellerBrand = $invoice->order->resolveResellerBrand();
+                                    $brand = $resellerBrand ? $resellerBrand->getHeaderBrand() : $invoice->brand?->getHeaderBrand();
+                                } else {
+                                    $brand = $invoice->brand?->getHeaderBrand();
+                                }
+                                if ($brand && $brand->logo) {
+                                    $appFavicon = \Illuminate\Support\Str::contains($brand->logo, 'http') ? $brand->logo : $publicDisk->url($brand->logo);
+                                }
+                            }
+                        }
+                    }
+                    return $appFavicon;
+                })(),
+                'theme_color' => (function() use ($request) {
+                    $appTheme = SystemSetting::get('system', 'theme_color', '#a8001c');
+                    $route = $request->route();
+                    if ($route) {
+                        $routeName = $route->getName();
+                        if ($routeName === 'track.show') {
+                            $noPo = $request->route('noPo');
+                            $order = \App\Models\Order\Order::where('no_po', $noPo)->first();
+                            $brand = $order ? $order->brand : null;
+                            if (!$brand && count(explode('-', $noPo)) >= 2) {
+                                $brandKode = explode('-', $noPo)[1];
+                                $brand = \App\Models\Brand::where('kode', $brandKode)->first();
+                            }
+                            if ($brand && $brand->warna_primary) {
+                                $appTheme = $brand->warna_primary;
+                            }
+                        } elseif ($routeName === 'invoice.public') {
+                            $invoiceNumber = $request->route('invoiceNumber');
+                            $invoice = \App\Models\Order\Invoice::where('invoice_number', $invoiceNumber)->first();
+                            if ($invoice) {
+                                $brand = null;
+                                if ($invoice->order) {
+                                    $resellerBrand = $invoice->order->resolveResellerBrand();
+                                    $brand = $resellerBrand ? $resellerBrand->getHeaderBrand() : $invoice->brand?->getHeaderBrand();
+                                } else {
+                                    $brand = $invoice->brand?->getHeaderBrand();
+                                }
+                                if ($brand && $brand->warna_primary) {
+                                    $appTheme = $brand->warna_primary;
+                                }
+                            }
+                        }
+                    }
+                    return $appTheme;
+                })(),
             ],
         ];
     }

@@ -37,7 +37,7 @@ class TrackingController extends Controller
             ->where(function ($q) {
                 $q->where('status_po', '!=', 'draft')
                   ->orWhereHas('invoices', function ($invQuery) {
-                      $invQuery->whereIn('status', ['published', 'sent', 'paid']);
+                      $invQuery->whereIn('status', ['published', 'sent', 'overdue', 'paid']);
                   });
             })
             ->first();
@@ -56,7 +56,7 @@ class TrackingController extends Controller
 
             $invoices = \App\Models\Order\Invoice::where('order_id', $order->id)
                 ->when(!$isAuthorized, function ($q) {
-                    $q->whereIn('status', ['published', 'sent', 'paid']);
+                    $q->whereIn('status', ['published', 'sent', 'overdue', 'paid']);
                 })
                 ->get(['invoice_number'])
                 ->map(fn ($inv) => ['invoice_number' => $inv->invoice_number])
@@ -107,6 +107,7 @@ class TrackingController extends Controller
             'tanggal_masuk' => $order->tanggal_masuk?->toDateString(),
             'deadline_customer' => $order->deadline_customer?->toDateString(),
             'end_production_date' => $order->end_production_date?->toDateString(),
+            'is_missed_deadline' => $order->isMissedDeadline(),
             'nama_ekspedisi' => $order->nama_ekspedisi,
             'no_resi'        => $order->no_resi,
             'brand' => [

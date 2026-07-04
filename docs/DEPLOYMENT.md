@@ -1,6 +1,6 @@
-# Deployment Guide — NISReport
+# Deployment Guide — ProTrack
 
-Panduan menjalankan NISReport di production server (Ubuntu 22.04+ / Debian 12).
+Panduan menjalankan ProTrack di production server (Ubuntu 22.04+ / Debian 12).
 
 ## 1. Prasyarat Server
 
@@ -17,8 +17,8 @@ Panduan menjalankan NISReport di production server (Ubuntu 22.04+ / Debian 12).
 
 ```bash
 # Clone & install
-git clone <repo-url> /var/www/nisreport
-cd /var/www/nisreport
+git clone <repo-url> /var/www/protrack
+cd /var/www/protrack
 composer install --no-dev --optimize-autoloader
 npm ci && npm run build
 rm -rf node_modules  # tidak diperlukan di runtime
@@ -29,9 +29,9 @@ php artisan key:generate
 nano .env  # isi DB, APP_URL, mail, API keys
 
 # Database
-mysql -u root -p -e "CREATE DATABASE nisreport CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-mysql -u root -p -e "CREATE USER 'nisreport'@'localhost' IDENTIFIED BY 'STRONG_PASSWORD'"
-mysql -u root -p -e "GRANT ALL ON nisreport.* TO 'nisreport'@'localhost'; FLUSH PRIVILEGES"
+mysql -u root -p -e "CREATE DATABASE protrack CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+mysql -u root -p -e "CREATE USER 'protrack'@'localhost' IDENTIFIED BY 'STRONG_PASSWORD'"
+mysql -u root -p -e "GRANT ALL ON protrack.* TO 'protrack'@'localhost'; FLUSH PRIVILEGES"
 
 php artisan migrate --force
 php artisan db:seed --class=Database\\Seeders\\RolePermissionSeeder --force
@@ -40,7 +40,7 @@ php artisan db:seed --class=Database\\Seeders\\FinanceSeeder --force
 php artisan laravolt:indonesia:seed   # ~80k rows; butuh ~30 detik
 
 # Permissions
-chown -R www-data:www-data /var/www/nisreport
+chown -R www-data:www-data /var/www/protrack
 chmod -R 775 storage bootstrap/cache
 
 # Storage symlink (untuk uploaded files)
@@ -74,24 +74,24 @@ Restart: `sudo systemctl restart php8.3-fpm`
 
 ## 4. Nginx Config
 
-File `/etc/nginx/sites-available/nisreport`:
+File `/etc/nginx/sites-available/protrack`:
 
 ```nginx
 server {
     listen 80;
     listen [::]:80;
-    server_name nisreport.example.com;
+    server_name protrack.example.com;
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name nisreport.example.com;
-    root /var/www/nisreport/public;
+    server_name protrack.example.com;
+    root /var/www/protrack/public;
 
-    ssl_certificate /etc/letsencrypt/live/nisreport.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/nisreport.example.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/protrack.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/protrack.example.com/privkey.pem;
 
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
@@ -128,39 +128,39 @@ server {
 }
 ```
 
-Aktifkan: `ln -s /etc/nginx/sites-available/nisreport /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx`
+Aktifkan: `ln -s /etc/nginx/sites-available/protrack /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx`
 
 Generate SSL:
 ```bash
-certbot --nginx -d nisreport.example.com
+certbot --nginx -d protrack.example.com
 ```
 
 ## 5. Supervisor — Queue + Schedule
 
 Laravel Schedule (cron) butuh runner setiap menit. Gunakan Supervisor untuk reliability:
 
-File `/etc/supervisor/conf.d/nisreport.conf`:
+File `/etc/supervisor/conf.d/protrack.conf`:
 
 ```ini
-[program:nisreport-schedule]
+[program:protrack-schedule]
 process_name=%(program_name)s
-command=php /var/www/nisreport/artisan schedule:work
+command=php /var/www/protrack/artisan schedule:work
 autostart=true
 autorestart=true
 user=www-data
 redirect_stderr=true
-stdout_logfile=/var/log/supervisor/nisreport-schedule.log
+stdout_logfile=/var/log/supervisor/protrack-schedule.log
 stopwaitsecs=3600
 
-[program:nisreport-queue]
+[program:protrack-queue]
 process_name=%(program_name)s_%(process_num)02d
-command=php /var/www/nisreport/artisan queue:work --queue=default --tries=3 --max-time=3600
+command=php /var/www/protrack/artisan queue:work --queue=default --tries=3 --max-time=3600
 autostart=true
 autorestart=true
 user=www-data
 numprocs=2
 redirect_stderr=true
-stdout_logfile=/var/log/supervisor/nisreport-queue.log
+stdout_logfile=/var/log/supervisor/protrack-queue.log
 stopwaitsecs=3600
 ```
 
@@ -173,36 +173,36 @@ supervisorctl status
 Alternatif (cron):
 ```bash
 # crontab -u www-data -e
-* * * * * cd /var/www/nisreport && php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /var/www/protrack && php artisan schedule:run >> /dev/null 2>&1
 ```
 
 ## 6. Backup Strategy
 
 ### Database backup harian (kompres + retain 14 hari)
 
-File `/usr/local/bin/nisreport-backup.sh`:
+File `/usr/local/bin/protrack-backup.sh`:
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
-BACKUP_DIR=/var/backups/nisreport
+BACKUP_DIR=/var/backups/protrack
 DATE=$(date +%Y%m%d-%H%M)
 mkdir -p "$BACKUP_DIR"
 
 # Backup DB
-mysqldump --single-transaction --quick --routines --triggers nisreport \
+mysqldump --single-transaction --quick --routines --triggers protrack \
   | gzip > "$BACKUP_DIR/db-$DATE.sql.gz"
 
 # Backup uploaded files (storage/app/public)
-tar -czf "$BACKUP_DIR/storage-$DATE.tar.gz" -C /var/www/nisreport/storage/app/public . 2>/dev/null || true
+tar -czf "$BACKUP_DIR/storage-$DATE.tar.gz" -C /var/www/protrack/storage/app/public . 2>/dev/null || true
 
 # Retain 14 hari
 find "$BACKUP_DIR" -mtime +14 -type f -delete
 ```
 
-Cron: `0 2 * * * /usr/local/bin/nisreport-backup.sh`
+Cron: `0 2 * * * /usr/local/bin/protrack-backup.sh`
 
-Untuk backup offsite, gunakan `rclone sync $BACKUP_DIR remote:nisreport-backup/`.
+Untuk backup offsite, gunakan `rclone sync $BACKUP_DIR remote:protrack-backup/`.
 
 ## 7. Security Hardening Checklist
 
@@ -224,7 +224,7 @@ Untuk backup offsite, gunakan `rclone sync $BACKUP_DIR remote:nisreport-backup/`
 ## 8. Update / Redeploy
 
 ```bash
-cd /var/www/nisreport
+cd /var/www/protrack
 php artisan down --refresh=15
 git pull origin main
 composer install --no-dev --optimize-autoloader
@@ -257,7 +257,7 @@ Tanpa konfigurasi ini, sistem akan jalan dalam **mock mode** — UI tetap berfun
 | Asset CSS/JS 404 | Build belum dijalankan | `npm run build` |
 | Login loop redirect | Session driver salah | Cek `SESSION_DRIVER=database` + table `sessions` ada |
 | PDF SPK kosong | DomPDF font issue | Pastikan `gd` extension aktif, `chmod 775 storage/framework/cache` |
-| Scheduled report tidak jalan | Supervisor mati | `supervisorctl status nisreport-schedule` |
+| Scheduled report tidak jalan | Supervisor mati | `supervisorctl status protrack-schedule` |
 | AI mock terus | API key tidak ke-save | Cek pengaturan, klik Test Koneksi, lihat log Laravel |
 | Permission denied di storage | Owner salah | `chown -R www-data:www-data storage bootstrap/cache` |
 

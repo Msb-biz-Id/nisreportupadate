@@ -1,10 +1,10 @@
-# CLAUDE.md — NISReport
+# CLAUDE.md — ProTrack
 
 Referensi cepat untuk Claude (atau dev manusia) yang melanjutkan project ini.
 
 ## Project Overview
 
-**NISReport** = Sistem Manajemen Order Multi-Brand untuk bisnis apparel/jersey custom di Indonesia. Spec lengkap di [docs/BRD.md](docs/BRD.md) (~4000 baris).
+**ProTrack** = Sistem Manajemen Order Multi-Brand untuk bisnis apparel/jersey custom di Indonesia. Spec lengkap di [docs/BRD.md](docs/BRD.md) (~4000 baris).
 
 **Tech stack:**
 - Backend: Laravel 12 + PHP 8.2/8.3 + MariaDB
@@ -139,7 +139,7 @@ php artisan migrate:fresh --seed  # reset + seed semua (jaga Indonesia regions h
 php artisan laravolt:indonesia:seed  # re-seed regions setelah migrate:fresh
 
 # Tests
-php artisan test               # full suite (butuh DB nisreport_test)
+php artisan test               # full suite (butuh DB protrack_test)
 php artisan test --filter=AuthFlowTest
 php artisan test --parallel    # paralel (lebih cepat)
 

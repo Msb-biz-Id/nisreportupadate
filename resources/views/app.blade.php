@@ -4,13 +4,20 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="robots" content="noindex, nofollow">
-        <meta name="description" content="{{ \App\Models\Settings\SystemSetting::get('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.') }}">
-
         @php
-            $faviconPath = \App\Models\Settings\SystemSetting::get('seo', 'favicon');
-            $faviconUrl = $faviconPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($faviconPath) : asset('favicon.ico');
+            $appData = $page['props']['app'] ?? [];
             
-            $themeColor = \App\Models\Settings\SystemSetting::get('system', 'theme_color', '#a8001c');
+            $themeColor = $appData['theme_color'] ?? \App\Models\Settings\SystemSetting::get('system', 'theme_color', '#a8001c');
+            $faviconUrl = $appData['favicon_url'] ?? null;
+            if (!$faviconUrl) {
+                $faviconPath = \App\Models\Settings\SystemSetting::get('seo', 'favicon');
+                $faviconUrl = $faviconPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($faviconPath) : asset('favicon.ico');
+            }
+            
+            $appName = $appData['name'] ?? \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'Circle Sportwear - Tracking PO'));
+            $metaDescription = $appData['description'] ?? \App\Models\Settings\SystemSetting::get('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.');
+
+            // Convert hex to HSL
             $hex = ltrim($themeColor, '#');
             if (strlen($hex) == 3) {
                 $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
@@ -40,7 +47,15 @@
             $hslColor = "$h $s% $l%";
             $accentColor = "$h $s% 96%";
         @endphp
-        <link rel="icon" type="image/x-icon" href="{{ $faviconUrl }}">
+        <meta name="description" content="{{ $metaDescription }}">
+
+        @if(\Illuminate\Support\Str::endsWith($faviconUrl, '.svg'))
+            <link rel="icon" type="image/svg+xml" href="{{ $faviconUrl }}">
+        @elseif(\Illuminate\Support\Str::endsWith($faviconUrl, '.png'))
+            <link rel="icon" type="image/png" href="{{ $faviconUrl }}">
+        @else
+            <link rel="icon" type="image/x-icon" href="{{ $faviconUrl }}">
+        @endif
 
         <!-- PWA Meta and Links -->
         <link rel="manifest" href="/manifest.json">
@@ -74,9 +89,8 @@
             }
         </script>
 
-        @php $appName = \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'Circle Sportwear - Tracking PO')); @endphp
         <meta name="app-name" content="{{ $appName }}">
-        <title inertia>{{ $appName }}</title>
+        <title inertia>{{ isset($title) ? "$title - $appName" : $appName }}</title>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
