@@ -802,19 +802,19 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
 
                                     const cols = [{ type: 'no', label: 'NO.', weight: 6 }];
                                     if (hasNamaPunggung) {
-                                        cols.push({ type: 'nama_punggung', label: 'NAMA PUNGGUNG', weight: 22, align: 'text-left pl-1.5' });
+                                        cols.push({ type: 'nama_punggung', label: 'NAMA PUNGGUNG', weight: 22, align: 'text-left pl-1.5 normal-case' });
                                     }
                                     if (hasNoPunggung) {
                                         cols.push({ type: 'no_punggung', label: 'NO. PUNGGUNG', weight: 12 });
                                     }
                                     if (hasNamaDada) {
-                                        cols.push({ type: 'nama_dada', label: 'NAMA DADA', weight: 18, align: 'text-left pl-1.5' });
+                                        cols.push({ type: 'nama_dada', label: 'NAMA DADA', weight: 18, align: 'text-left pl-1.5 normal-case' });
                                     }
                                     if (hasNoDada) {
                                         cols.push({ type: 'no_dada', label: 'NO. DADA', weight: 12 });
                                     }
                                     if (hasNamaLengan) {
-                                        cols.push({ type: 'nama_lengan', label: 'NAMA LENGAN', weight: 18, align: 'text-left pl-1.5' });
+                                        cols.push({ type: 'nama_lengan', label: 'NAMA LENGAN', weight: 18, align: 'text-left pl-1.5 normal-case' });
                                     }
                                     if (hasNoLengan) {
                                         cols.push({ type: 'no_lengan', label: 'NO. LENGAN', weight: 12 });
@@ -823,11 +823,11 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         cols.push({ type: 'no_punggung_2', label: 'NO. PUNGGUNG 2', weight: 12 });
                                     }
                                     if (hasNamaPunggung2) {
-                                        cols.push({ type: 'nama_punggung_2', label: 'NAMA PUNGGUNG 2', weight: 22, align: 'text-left pl-1.5' });
+                                        cols.push({ type: 'nama_punggung_2', label: 'NAMA PUNGGUNG 2', weight: 22, align: 'text-left pl-1.5 normal-case' });
                                     }
                                     if (hasSA) cols.push({ type: 'size', label: 'SIZE', weight: 10 });
                                     if (hasSB) cols.push({ type: 'size_celana', label: 'SIZE CELANA', weight: 12 });
-                                    if (hasKet) cols.push({ type: 'keterangan', label: 'KETERANGAN', weight: 18, align: 'text-left pl-1.5' });
+                                    if (hasKet) cols.push({ type: 'keterangan', label: 'KETERANGAN', weight: 18, align: 'text-left pl-1.5 normal-case' });
 
                                     const totalWeight = cols.reduce((sum, col) => sum + col.weight, 0);
                                     const finalCols = cols.map(col => ({

@@ -35,7 +35,6 @@ class ReportRunner
             'penjualan-produk' => $this->penjualanProduk($brandId, $filters),
             'pelanggan' => $this->pelanggan($brandId, $filters),
             'wilayah' => $this->wilayah($brandId, $filters),
-            'kategori' => $this->kategori($brandId, $filters),
             'status-po' => $this->statusPo($brandId, $filters),
             'monitoring-deadline' => $this->monitoringDeadline($brandId, $filters),
             'rijek' => $this->rijek($brandId, $filters),
@@ -210,37 +209,6 @@ class ReportRunner
         ]];
     }
 
-    private function kategori(string|array|null $brandId, array $filters): array
-    {
-        [$from, $to] = $this->dateRange($filters);
-
-        $rows = DB::table('orders')
-            ->leftJoin('kategori_orders', 'kategori_orders.id', '=', 'orders.kategori_order_id')
-            ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
-            ->when($brandId, $this->obf($brandId))
-            ->whereBetween('orders.tanggal_masuk', [$from, $to])
-            ->where('orders.status_po', '!=', 'draft')
-            ->select(
-                DB::raw("COALESCE(kategori_orders.nama, '— Tanpa Kategori —') as kategori"),
-                DB::raw('COUNT(DISTINCT orders.id) as total_order'),
-                DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_qty'),
-                DB::raw('SUM(orders.total_tagihan) as total_value'),
-            )
-            ->groupBy('kategori')
-            ->orderByDesc('total_order')
-            ->get()
-            ->map(fn ($r) => [
-                'kategori' => $r->kategori,
-                'total_order' => (int) $r->total_order,
-                'total_qty' => (int) $r->total_qty,
-                'total_value' => (float) $r->total_value,
-            ])->all();
-
-        return ['rows' => $rows, 'summary' => [
-            ['label' => 'Total Kategori Terpakai', 'value' => count($rows)],
-            ['label' => 'Total Order', 'value' => array_sum(array_column($rows, 'total_order'))],
-        ]];
-    }
 
     private function statusPo(string|array|null $brandId, array $filters): array
     {
@@ -249,7 +217,8 @@ class ReportRunner
         $q = Order::query()
             ->when($brandId, $this->bf($brandId))
             ->whereBetween('tanggal_masuk', [$from, $to])
-            ->with(['pelanggan:id,nama']);
+            ->with(['pelanggan:id,nama'])
+            ->withSum('items', 'quantity');
 
         if (! empty($filters['status'])) {
             $q->where('status_po', $filters['status']);
@@ -263,6 +232,7 @@ class ReportRunner
             'pelanggan' => $o->pelanggan?->nama,
             'tanggal_masuk' => $o->tanggal_masuk?->toDateString(),
             'deadline' => $o->deadline_customer?->toDateString(),
+            'pcs' => (int) ($o->items_sum_quantity ?? 0),
             'status' => $o->status_po,
             'total' => (float) $o->total_tagihan,
         ])->all();
@@ -280,26 +250,84 @@ class ReportRunner
             ->when($brandId, $this->bf($brandId))
             ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
             ->where('deadline_customer', '<=', Carbon::now()->addDays($threshold))
-            ->with(['pelanggan:id,nama'])
+            ->with(['pelanggan:id,nama', 'brand:id,nama_brand'])
+            ->withSum('items', 'quantity')
             ->orderBy('deadline_customer')
             ->get();
 
-        $rows = $orders->map(function ($o) {
+        $printingNames = \App\Models\Master\Printing::pluck('nama', 'id')->all();
+
+        $mappedOrders = $orders->map(function ($o) use ($printingNames) {
             $days = now()->startOfDay()->diffInDays($o->deadline_customer, false);
+            
+            $orderPrintings = [];
+            foreach ($o->printing_ids ?? [] as $pid) {
+                if (isset($printingNames[$pid])) {
+                    $orderPrintings[] = $printingNames[$pid];
+                }
+            }
+
             return [
-                'no_po' => $o->no_po,
-                'pelanggan' => $o->pelanggan?->nama,
                 'deadline' => $o->deadline_customer?->toDateString(),
+                'no_po' => $o->no_po,
+                'nama_po' => $o->nama_po,
+                'brand_nama' => $o->brand?->nama_brand ?? '-',
+                'pelanggan' => $o->pelanggan?->nama ?? '-',
+                'pcs' => (int) ($o->items_sum_quantity ?? 0),
+                'jenis_printing' => implode(', ', $orderPrintings) ?: '-',
                 'days' => (int) $days,
                 'status' => $o->status_po,
             ];
-        })->all();
+        });
 
-        $terlambat = collect($rows)->where('days', '<', 0)->count();
-        $mendekati = collect($rows)->whereBetween('days', [0, 2])->count();
+        $terlambat = $mappedOrders->where('days', '<', 0)->count();
+        $mendekati = $mappedOrders->whereBetween('days', [0, 2])->count();
+        $totalMonitoring = $mappedOrders->count();
+
+        $grouped = $mappedOrders->groupBy('deadline');
+
+        $rows = [];
+        foreach ($grouped as $date => $groupOrders) {
+            // Group Header Row
+            $rows[] = [
+                'deadline' => $date,
+                'is_group_header' => true,
+                'no_po' => null,
+                'nama_po' => null,
+                'brand_nama' => null,
+                'pelanggan' => null,
+                'pcs' => null,
+                'jenis_printing' => null,
+                'days' => null,
+                'status' => null,
+            ];
+
+            // Order Rows
+            foreach ($groupOrders as $o) {
+                $rows[] = array_merge($o, [
+                    'is_group_header' => false,
+                    'is_group_total' => false,
+                ]);
+            }
+
+            // Group Total Row
+            $rows[] = [
+                'deadline' => $date,
+                'is_group_total' => true,
+                'no_po' => null,
+                'nama_po' => null,
+                'brand_nama' => null,
+                'pelanggan' => 'TOTAL PCS',
+                'pcs' => $groupOrders->sum('pcs'),
+                'jenis_printing' => null,
+                'days' => null,
+                'status' => null,
+                'is_group_header' => false,
+            ];
+        }
 
         return ['rows' => $rows, 'summary' => [
-            ['label' => 'Total Monitoring', 'value' => count($rows)],
+            ['label' => 'Total Monitoring', 'value' => $totalMonitoring],
             ['label' => 'Terlambat', 'value' => $terlambat],
             ['label' => 'Mendekati Deadline (≤2 hari)', 'value' => $mendekati],
         ]];

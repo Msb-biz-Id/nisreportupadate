@@ -629,7 +629,7 @@ class OrderController extends Controller
                 'edit' => $request->user()->can('order.update') && ($order->isDraft() || ! $order->isLocked()),
                 'delete' => $request->user()->can('order.delete') && $order->isDraft(),
                 'publish' => $request->user()->can('order.publish') && $order->isDraft(),
-                'unlock' => $request->user()->can('order.unlock'),
+                'unlock' => $request->user()->can('order.lock-unlock'),
                 'bypass_dp' => $request->user()->hasRole('superadmin') || $request->user()->hasRole('owner') || $request->user()->hasRole('admin_keuangan'),
                 'repeat' => $request->user()->can('order.create') && ! $order->isDraft(),
                 'manage_invoice' => $request->user()->can('finance.manage-invoice'),
@@ -797,8 +797,8 @@ class OrderController extends Controller
 
         $user = $request->user();
 
-        // Jika user memiliki permission order.unlock (Superadmin/Owner/Supervisor), unlock langsung!
-        if ($user->can('order.unlock')) {
+        // Jika user memiliki permission order.lock-unlock (Superadmin/Owner/Supervisor), unlock langsung!
+        if ($user->can('order.lock-unlock')) {
             $this->statusManager->unlock($order, $user);
             
             // Clear any pending unlock requests
@@ -814,10 +814,17 @@ class OrderController extends Controller
             $this->statusManager->logChange($order, $user, $data['reason'], '_unlock', 'locked', 'unlocked');
             \App\Services\ActivityLogger::log('unlock', 'order', $order, "Unlock PO {$order->no_po} secara langsung dengan alasan: " . $data['reason']);
 
+            \App\Services\Notifications\IdealNotificationService::dispatch('order_unlocked', [
+                'no_po' => $order->no_po,
+                'brand_id' => $order->brand_id,
+                'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
+                'action_url' => "/orders/{$order->id}",
+            ]);
+
             return back()->with('info', 'PO di-unlock. Lakukan perubahan, kemudian re-lock untuk mengembalikan proteksi.');
         }
 
-        // Jika user TIDAK memiliki permission order.unlock (Admin Brand/Reseller/Produksi), ajukan permohonan!
+        // Jika user TIDAK memiliki permission order.lock-unlock (Admin Brand/Reseller/Produksi), ajukan permohonan!
         $lock = $order->lockStatus;
         if ($lock) {
             $lock->update([
@@ -838,12 +845,20 @@ class OrderController extends Controller
 
         \App\Services\ActivityLogger::log('unlock_request', 'order', $order, "Mengajukan permohonan unlock PO {$order->no_po} dengan alasan: " . $data['reason']);
 
+        \App\Services\Notifications\IdealNotificationService::dispatch('unlock_requested', [
+            'no_po' => $order->no_po,
+            'brand_id' => $order->brand_id,
+            'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
+            'action_url' => "/orders/{$order->id}",
+            'reason' => $data['reason'],
+        ]);
+
         return back()->with('success', 'Permohonan unlock PO telah diajukan ke Superadmin/Supervisor.');
     }
 
     public function approveUnlock(Request $request, Order $order)
     {
-        abort_unless($request->user()->can('order.unlock'), 403, 'Anda tidak memiliki hak untuk menyetujui unlock PO.');
+        abort_unless($request->user()->can('order.lock-unlock'), 403, 'Anda tidak memiliki hak untuk menyetujui unlock PO.');
         $this->guardBrandOwnership($request, $order);
 
         $lock = $order->lockStatus;
@@ -876,12 +891,19 @@ class OrderController extends Controller
 
         \App\Services\ActivityLogger::log('unlock_approve', 'order', $order, "Menyetujui permohonan unlock PO {$order->no_po} oleh {$requester->name}");
 
+        \App\Services\Notifications\IdealNotificationService::dispatch('order_unlocked', [
+            'no_po' => $order->no_po,
+            'brand_id' => $order->brand_id,
+            'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
+            'action_url' => "/orders/{$order->id}",
+        ]);
+
         return back()->with('info', 'Permohonan unlock disetujui. PO berhasil dibuka kuncinya.');
     }
 
     public function rejectUnlock(Request $request, Order $order)
     {
-        abort_unless($request->user()->can('order.unlock'), 403, 'Anda tidak memiliki hak untuk menolak permohonan unlock PO.');
+        abort_unless($request->user()->can('order.lock-unlock'), 403, 'Anda tidak memiliki hak untuk menolak permohonan unlock PO.');
         $this->guardBrandOwnership($request, $order);
 
         $lock = $order->lockStatus;
@@ -908,8 +930,8 @@ class OrderController extends Controller
         $this->guardBrandOwnership($request, $order);
         $user = $request->user();
 
-        // Jika user memiliki permission order.unlock (Superadmin/Owner/Supervisor), relock langsung!
-        if ($user->can('order.unlock')) {
+        // Jika user memiliki permission order.lock-unlock (Superadmin/Owner/Supervisor), relock langsung!
+        if ($user->can('order.lock-unlock')) {
             $this->statusManager->relock($order, $user);
 
             // Clear any pending relock requests
@@ -925,10 +947,17 @@ class OrderController extends Controller
             $this->statusManager->logChange($order, $user, 'Re-lock PO secara langsung', '_relock', 'unlocked', 'locked');
             \App\Services\ActivityLogger::log('relock', 'order', $order, "Re-lock PO {$order->no_po} secara langsung");
 
+            \App\Services\Notifications\IdealNotificationService::dispatch('order_locked', [
+                'no_po' => $order->no_po,
+                'brand_id' => $order->brand_id,
+                'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
+                'action_url' => "/orders/{$order->id}",
+            ]);
+
             return back()->with('success', 'PO kembali ter-lock.');
         }
 
-        // Jika user TIDAK memiliki permission order.unlock (Admin Brand/Reseller/Produksi), ajukan permohonan!
+        // Jika user TIDAK memiliki permission order.lock-unlock (Admin Brand/Reseller/Produksi), ajukan permohonan!
         $reason = $request->input('reason', 'Re-lock PO requested by Admin');
         $lock = $order->lockStatus;
         if ($lock) {
@@ -950,12 +979,20 @@ class OrderController extends Controller
 
         \App\Services\ActivityLogger::log('relock_request', 'order', $order, "Mengajukan permohonan re-lock PO {$order->no_po}");
 
+        \App\Services\Notifications\IdealNotificationService::dispatch('relock_requested', [
+            'no_po' => $order->no_po,
+            'brand_id' => $order->brand_id,
+            'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
+            'action_url' => "/orders/{$order->id}",
+            'reason' => $reason,
+        ]);
+
         return back()->with('success', 'Permohonan re-lock PO telah diajukan ke Superadmin/Supervisor.');
     }
 
     public function approveRelock(Request $request, Order $order)
     {
-        abort_unless($request->user()->can('order.unlock'), 403, 'Anda tidak memiliki hak untuk menyetujui re-lock PO.');
+        abort_unless($request->user()->can('order.lock-unlock'), 403, 'Anda tidak memiliki hak untuk menyetujui re-lock PO.');
         $this->guardBrandOwnership($request, $order);
 
         $lock = $order->lockStatus;
@@ -988,12 +1025,19 @@ class OrderController extends Controller
 
         \App\Services\ActivityLogger::log('relock_approve', 'order', $order, "Menyetujui permohonan re-lock PO {$order->no_po} oleh {$requester->name}");
 
+        \App\Services\Notifications\IdealNotificationService::dispatch('order_locked', [
+            'no_po' => $order->no_po,
+            'brand_id' => $order->brand_id,
+            'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
+            'action_url' => "/orders/{$order->id}",
+        ]);
+
         return back()->with('success', 'Permohonan re-lock disetujui. PO berhasil dikunci.');
     }
 
     public function rejectRelock(Request $request, Order $order)
     {
-        abort_unless($request->user()->can('order.unlock'), 403, 'Anda tidak memiliki hak untuk menolak permohonan re-lock PO.');
+        abort_unless($request->user()->can('order.lock-unlock'), 403, 'Anda tidak memiliki hak untuk menolak permohonan re-lock PO.');
         $this->guardBrandOwnership($request, $order);
 
         $lock = $order->lockStatus;

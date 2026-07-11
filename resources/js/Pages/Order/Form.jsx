@@ -1755,7 +1755,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                 </div>
                                 <div className="flex flex-col col-span-2">
                                     <FieldLabel>Nama Order (Tim / PO) <span className="text-red-500">*</span></FieldLabel>
-                                    <Input value={data.nama_po} onChange={(e) => setData('nama_po', e.target.value)} className="h-8 text-sm font-bold uppercase" placeholder="Contoh: PO Klub Garuda Mei" />
+                                    <Input value={data.nama_po} onChange={(e) => setData('nama_po', e.target.value)} className="h-8 text-sm font-bold" placeholder="Contoh: PO Klub Garuda Mei" />
                                     {errors.nama_po && <p className="mt-1 text-xs text-red-500">{errors.nama_po}</p>}
                                 </div>
 

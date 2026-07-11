@@ -74,6 +74,7 @@ class SystemSettingTest extends TestCase
                 'telegram_enabled' => false,
                 'customer_import_enabled' => true,
                 'theme_color' => '#ff0055',
+                'target_view' => 'both',
             ])
             ->assertRedirect();
 

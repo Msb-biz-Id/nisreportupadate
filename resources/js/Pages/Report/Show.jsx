@@ -24,6 +24,22 @@ const STATUS_BADGE = {
     verified: 'success', pending: 'warning',
 };
 
+const STATUS_LABELS = {
+    draft: 'Draft',
+    validated: 'Validasi',
+    published: 'Baru Masuk',
+    on_progress: 'Sedang Produksi',
+    selesai_produksi: 'Selesai Produksi',
+    siap_dikirim: 'Siap Dikirim',
+    sudah_dikirim: 'Sudah Dikirim',
+    delay: 'Tertunda (Delay)',
+    hold: 'Ditahan (Hold)',
+    cancel: 'Dibatalkan',
+    paid: 'Lunas',
+    overdue: 'Jatuh Tempo',
+    sent: 'Dikirim',
+};
+
 function FormatCell({ value, format }) {
     if (value === null || value === undefined || value === '') {
         return <span className="text-muted-foreground">-</span>;
@@ -32,7 +48,8 @@ function FormatCell({ value, format }) {
     if (format === 'number') return <span className="font-mono">{Number(value).toLocaleString('id-ID')}</span>;
     if (format === 'date') return formatDate(value);
     if (format === 'status_badge' || format === 'badge') {
-        return <Badge variant={STATUS_BADGE[value] ?? 'outline'}>{String(value).replace(/_/g, ' ')}</Badge>;
+        const displayValue = STATUS_LABELS[value] ?? String(value).replace(/_/g, ' ');
+        return <Badge variant={STATUS_BADGE[value] ?? 'outline'}>{displayValue}</Badge>;
     }
     if (format === 'days_indicator') {
         const days = Number(value);
@@ -148,8 +165,18 @@ function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders 
                 )}
                 {config.filters?.includes('threshold') && (
                     <div>
-                        <Label className="text-xs">Threshold (hari)</Label>
-                        <Input type="number" min={1} value={local.threshold || 7} onChange={(e) => patch('threshold', Number(e.target.value))} className="mt-1 h-9" />
+                        <Label className="text-xs">Batas Waktu (Deadline)</Label>
+                        <Select value={String(local.threshold || 7)} onValueChange={(v) => patch('threshold', Number(v))}>
+                            <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="Pilih Batas Waktu" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="3">3 Hari Ke Depan</SelectItem>
+                                <SelectItem value="7">7 Hari Ke Depan (1 Minggu)</SelectItem>
+                                <SelectItem value="14">14 Hari Ke Depan (2 Minggu)</SelectItem>
+                                <SelectItem value="30">30 Hari Ke Depan (1 Bulan)</SelectItem>
+                                <SelectItem value="60">60 Hari Ke Depan (2 Bulan)</SelectItem>
+                                <SelectItem value="90">90 Hari Ke Depan (3 Bulan)</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 )}
                 {config.filters?.includes('is_auto') && (
@@ -412,15 +439,49 @@ export default function ReportShow({ config, filters, rows, summary, heatmapSeri
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        rows.map((row, i) => (
-                                            <TableRow key={i}>
-                                                {config.columns.map((c) => (
-                                                    <TableCell key={c.key} className={['currency', 'number'].includes(c.format) ? 'text-right' : ''}>
-                                                        <FormatCell value={row[c.key]} format={c.format} />
-                                                    </TableCell>
-                                                ))}
-                                            </TableRow>
-                                        ))
+                                        rows.map((row, i) => {
+                                            if (row.is_group_header) {
+                                                return (
+                                                    <TableRow key={i} className="bg-blue-50/50 hover:bg-blue-50/50">
+                                                        <TableCell colSpan={config.columns.length} className="font-bold text-blue-700 py-3 pl-4">
+                                                            Deadline: {formatDate(row.deadline)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            }
+                                            if (row.is_group_total) {
+                                                return (
+                                                    <TableRow key={i} className="bg-slate-50 font-bold hover:bg-slate-50 border-b-2 border-slate-300">
+                                                        {config.columns.map((c) => {
+                                                            if (c.key === 'pelanggan') {
+                                                                return (
+                                                                    <TableCell key={c.key} className="py-3 font-extrabold text-slate-700">
+                                                                        TOTAL PCS
+                                                                    </TableCell>
+                                                                );
+                                                            }
+                                                            if (c.key === 'pcs') {
+                                                                return (
+                                                                    <TableCell key={c.key} className="py-3 font-extrabold text-slate-700 text-right">
+                                                                        <FormatCell value={row[c.key]} format={c.format} />
+                                                                    </TableCell>
+                                                                );
+                                                            }
+                                                            return <TableCell key={c.key} className="py-3" />;
+                                                        })}
+                                                    </TableRow>
+                                                );
+                                            }
+                                            return (
+                                                <TableRow key={i}>
+                                                    {config.columns.map((c) => (
+                                                        <TableCell key={c.key} className={['currency', 'number'].includes(c.format) ? 'text-right' : ''}>
+                                                            <FormatCell value={row[c.key]} format={c.format} />
+                                                        </TableCell>
+                                                    ))}
+                                                </TableRow>
+                                            );
+                                        })
                                     )}
                                 </TableBody>
                             </Table>

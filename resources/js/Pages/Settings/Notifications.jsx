@@ -12,10 +12,6 @@ import { playNotificationSound } from '@/Services/audio';
 import { cn } from '@/lib/utils';
 
 export default function Notifications({ notification_matrix, available_roles, available_sounds }) {
-    const { data, setData, put, processing } = useForm({
-        matrix: { ...notification_matrix }
-    });
-
     const eventLabels = {
         order_published: {
             title: 'PO Baru Diterbitkan 📦',
@@ -44,8 +40,77 @@ export default function Notifications({ notification_matrix, available_roles, av
         payment_verified: {
             title: 'Pembayaran PO Diverifikasi 💸',
             desc: 'Dipicu ketika pembayaran DP/pelunasan disetujui (diverifikasi) oleh Admin Keuangan.'
+        },
+        unlock_requested: {
+            title: 'Permohonan Unlock PO Diajukan 🔓',
+            desc: 'Dipicu ketika Admin Brand/Reseller mengajukan pembukaan kunci (unlock) PO.'
+        },
+        order_unlocked: {
+            title: 'PO Berhasil Di-unlock 🔓',
+            desc: 'Dipicu ketika PO berhasil dibuka kuncinya (secara langsung atau setelah disetujui).'
+        },
+        relock_requested: {
+            title: 'Permohonan Re-lock PO Diajukan 🔒',
+            desc: 'Dipicu ketika Admin Brand/Reseller mengajukan penguncian kembali (re-lock) PO.'
+        },
+        order_locked: {
+            title: 'PO Berhasil Di-lock 🔒',
+            desc: 'Dipicu ketika PO berhasil dikunci kembali (secara langsung atau setelah disetujui).'
         }
     };
+
+    const defaultConfigs = {
+        unlock_requested: {
+            in_app: true,
+            whatsapp: false,
+            telegram: false,
+            os_desktop: true,
+            roles: ['superadmin', 'owner', 'supervisor'],
+            sound: 'warning-alert'
+        },
+        order_unlocked: {
+            in_app: true,
+            whatsapp: false,
+            telegram: false,
+            os_desktop: true,
+            roles: ['admin_brand', 'admin_reseller', 'owner'],
+            sound: 'success-tada'
+        },
+        relock_requested: {
+            in_app: true,
+            whatsapp: false,
+            telegram: false,
+            os_desktop: true,
+            roles: ['superadmin', 'owner', 'supervisor'],
+            sound: 'warning-alert'
+        },
+        order_locked: {
+            in_app: true,
+            whatsapp: false,
+            telegram: false,
+            os_desktop: true,
+            roles: ['admin_brand', 'admin_reseller', 'owner'],
+            sound: 'success-tada'
+        }
+    };
+
+    const initialMatrix = { ...notification_matrix };
+    Object.keys(eventLabels).forEach((key) => {
+        if (!initialMatrix[key]) {
+            initialMatrix[key] = defaultConfigs[key] || {
+                in_app: true,
+                whatsapp: false,
+                telegram: false,
+                os_desktop: true,
+                roles: [],
+                sound: 'bell-chime'
+            };
+        }
+    });
+
+    const { data, setData, put, processing } = useForm({
+        matrix: initialMatrix
+    });
 
     const roleOptions = available_roles.map((r) => ({
         value: r,

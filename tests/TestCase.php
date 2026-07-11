@@ -12,6 +12,18 @@ abstract class TestCase extends BaseTestCase
 {
     protected function setUp(): void
     {
+        if (! $this->app) {
+            $this->refreshApplication();
+        }
+
+        // Safety shield: check if default DB connection sqlite is pointing to the development database path
+        if (config('database.default') === 'sqlite' && config('database.connections.sqlite.database') === database_path('database.sqlite')) {
+            if (file_exists(base_path('bootstrap/cache/config.php'))) {
+                @unlink(base_path('bootstrap/cache/config.php'));
+            }
+            throw new \RuntimeException('SAFETY BLOCK: PHPUnit was about to run on the active development database (database.sqlite) because the configuration cache was active. The cache has been cleared. Please run the tests again.');
+        }
+
         parent::setUp();
         $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
         \Illuminate\Support\Facades\Cache::flush();

@@ -31,7 +31,7 @@ class RolePermissionSeeder extends Seeder
             'dashboard.view-global',
             'dashboard.view-brand',
             'master.manage', 'master.brand', 'master.produk', 'master.production', 'master.view',
-            'order.view', 'order.create', 'order.update', 'order.delete', 'order.publish', 'order.refund', 'order.unlock',
+            'order.view', 'order.create', 'order.update', 'order.delete', 'order.publish', 'order.refund', 'order.lock-unlock',
             'production.update-progress', 'production.add-reject',
             'finance.view', 'finance.manage-invoice', 'finance.manage-refund',
             'finance.manage-pemasukan', 'finance.manage-pengeluaran',
@@ -45,6 +45,9 @@ class RolePermissionSeeder extends Seeder
             Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
         }
 
+        // Clean up old order.unlock permission if exists
+        Permission::where('name', 'order.unlock')->delete();
+
         $roleMap = [
             'superadmin' => $permissions,
             'owner' => [
@@ -52,7 +55,7 @@ class RolePermissionSeeder extends Seeder
                 'user.view',
                 'master.view',
                 'order.view',
-                'order.unlock',
+                'order.lock-unlock',
                 'finance.view',
                 'report.view', 'report.export',
                 'dashboard.view-brand',
@@ -95,7 +98,7 @@ class RolePermissionSeeder extends Seeder
             ],
             'supervisor' => [
                 'order.view',
-                'order.unlock',
+                'order.lock-unlock',
                 'audit.view',
                 'dashboard.view-brand',
                 'report.view',

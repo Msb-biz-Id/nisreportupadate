@@ -197,6 +197,10 @@ class NotificationSettingTest extends TestCase
             'refund_processed',
             'payment_submitted',
             'payment_verified',
+            'unlock_requested',
+            'order_unlocked',
+            'relock_requested',
+            'order_locked',
         ];
 
         $payload = [

@@ -50,14 +50,15 @@ class SettingsController extends Controller
                 'telegram_enabled' => (bool) SystemSetting::get('system', 'telegram_enabled', false),
                 'customer_import_enabled' => (bool) SystemSetting::get('system', 'customer_import_enabled', false),
                 'theme_color' => SystemSetting::get('system', 'theme_color', '#a8001c'),
+                'target_view' => SystemSetting::get('system', 'target_view', 'both'),
             ],
             'seo' => [
                 'site_name' => SystemSetting::get('seo', 'site_name', 'Circle Sportwear - Tracking PO'),
                 'site_description' => SystemSetting::get('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.'),
                 'logo' => SystemSetting::get('seo', 'logo'),
-                'logo_url' => SystemSetting::get('seo', 'logo') ? $publicDisk->url(SystemSetting::get('seo', 'logo')) : null,
+                'logo_url' => SystemSetting::get('seo', 'logo') ? \App\Support\UrlHelper::clean($publicDisk->url(SystemSetting::get('seo', 'logo')), $request) : null,
                 'favicon' => SystemSetting::get('seo', 'favicon'),
-                'favicon_url' => SystemSetting::get('seo', 'favicon') ? $publicDisk->url(SystemSetting::get('seo', 'favicon')) : null,
+                'favicon_url' => SystemSetting::get('seo', 'favicon') ? \App\Support\UrlHelper::clean($publicDisk->url(SystemSetting::get('seo', 'favicon')), $request) : null,
             ],
             'reseller_branding' => [
                 'nama_brand' => SystemSetting::get('reseller_branding', 'nama_brand', 'Circle Reseller'),
@@ -69,7 +70,7 @@ class SettingsController extends Controller
                 'tiktok' => SystemSetting::get('reseller_branding', 'tiktok', ''),
                 'facebook' => SystemSetting::get('reseller_branding', 'facebook', ''),
                 'logo' => SystemSetting::get('reseller_branding', 'logo'),
-                'logo_url' => SystemSetting::get('reseller_branding', 'logo') ? $publicDisk->url(SystemSetting::get('reseller_branding', 'logo')) : null,
+                'logo_url' => SystemSetting::get('reseller_branding', 'logo') ? \App\Support\UrlHelper::clean($publicDisk->url(SystemSetting::get('reseller_branding', 'logo')), $request) : null,
             ],
             'mail' => [
                 'mail_host' => SystemSetting::get('mail', 'mail_host', 'smtp.mailtrap.io'),
@@ -279,6 +280,7 @@ class SettingsController extends Controller
             'telegram_enabled' => ['boolean'],
             'customer_import_enabled' => ['boolean'],
             'theme_color' => ['required', 'string', 'regex:/^#[a-fA-F0-9]{6}$/'],
+            'target_view' => ['required', 'in:both,revenue,pcs'],
         ]);
 
         SystemSetting::set('system', 'notification_channel', $data['notification_channel']);
@@ -286,6 +288,7 @@ class SettingsController extends Controller
         SystemSetting::set('system', 'telegram_enabled', $data['telegram_enabled'] ? '1' : '0');
         SystemSetting::set('system', 'customer_import_enabled', $data['customer_import_enabled'] ? '1' : '0');
         SystemSetting::set('system', 'theme_color', $data['theme_color']);
+        SystemSetting::set('system', 'target_view', $data['target_view']);
 
         return back()->with('success', 'Pengaturan sistem tersimpan.');
     }
@@ -395,6 +398,38 @@ class SettingsController extends Controller
                     'telegram' => false,
                     'os_desktop' => true,
                     'roles' => ['admin_brand', 'owner'],
+                    'sound' => 'success-tada'
+                ],
+                'unlock_requested' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['superadmin', 'owner', 'supervisor'],
+                    'sound' => 'warning-alert'
+                ],
+                'order_unlocked' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'admin_reseller', 'owner'],
+                    'sound' => 'success-tada'
+                ],
+                'relock_requested' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['superadmin', 'owner', 'supervisor'],
+                    'sound' => 'warning-alert'
+                ],
+                'order_locked' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'admin_reseller', 'owner'],
                     'sound' => 'success-tada'
                 ],
             ];

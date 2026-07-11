@@ -12,10 +12,10 @@ const STATUS_ORDER = ['published', 'on_progress', 'delay', 'hold', 'selesai_prod
 
 function DaysRemaining({ days }) {
     if (days === null) return null;
-    if (days < 0) return <span className="text-xs font-semibold text-red-600">Overdue {Math.abs(days)}h</span>;
+    if (days < 0) return <span className="text-xs font-semibold text-red-600">Terlambat {Math.abs(days)} hari</span>;
     if (days === 0) return <span className="text-xs font-semibold text-orange-500">Hari ini</span>;
-    if (days <= 2) return <span className="text-xs font-semibold text-yellow-600">{days}h lagi</span>;
-    return <span className="text-xs text-muted-foreground">{days}h lagi</span>;
+    if (days <= 2) return <span className="text-xs font-semibold text-yellow-600">{days} hari lagi</span>;
+    return <span className="text-xs text-muted-foreground">{days} hari lagi</span>;
 }
 
 export default function Gantt({ items, statusColors, statusLabels }) {
@@ -86,7 +86,7 @@ export default function Gantt({ items, statusColors, statusLabels }) {
                     const start = new Date(d.y[0]).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
                     const end = new Date(d.y[1]).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
                     const days = item.days_remaining;
-                    const daysText = days === null ? '-' : days < 0 ? `<span style="color:#EF4444">Overdue ${Math.abs(days)} hari</span>` : `${days} hari lagi`;
+                    const daysText = days === null ? '-' : days < 0 ? `<span style="color:#EF4444">Terlambat ${Math.abs(days)} hari</span>` : `${days} hari lagi`;
                     return `<div style="padding:8px 12px;font-size:12px;line-height:1.8">
                         <strong>${item.no_po}</strong><br/>
                         ${item.nama_po ?? ''}<br/>

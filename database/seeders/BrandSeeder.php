@@ -31,7 +31,7 @@ class BrandSeeder extends Seeder
                 'nama_brand' => 'Circle Sportwear',
                 'kode' => 'CRL',
                 'tagline' => 'Jersey Elit Harga irit',
-                'deskripsi' => 'Jersey Elit Harga irit',
+                'deskripsi' => 'Circle Sportwear, spesialis jersey custom berkualitas tinggi di Lamongan Jawa Timur. Desain gratis, proses cepat 7-14 hari, dan terpercaya.',
                 'logo' => 'brand_logos/Circle.png',
                 'email' => 'circlesportwear@gmail.com',
                 'no_hp' => '6285136562550',
@@ -48,8 +48,8 @@ class BrandSeeder extends Seeder
                 'nama_brand' => 'Drive Sportwear',
                 'kode' => 'DRV',
                 'tagline' => 'Jersey ekonomis terbaik di kelasnya',
-                'deskripsi' => 'Jersey ekonomis terbaik di kelasnya',
-                'logo' => 'brand_logos/RJXS1uvCk33DrybK88h3bl7IJ4dNH5JJXUa0YoRn.png',
+                'deskripsi' => 'Drive Sportwear adalah vendor apparel dan print press di Lamongan. Tempat bikin jersey custom full print buat tim sekolah, komunitas, perusahaan, klub olahraga.',
+                'logo' => null,
                 'email' => 'sportweardrive@gmail.com',
                 'no_hp' => '6285143849390',
                 'whatsapp' => '6285143849390',
@@ -106,18 +106,19 @@ class BrandSeeder extends Seeder
 
         // Seed global reseller branding in system settings
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'nama_brand', 'INDOWAREHOUSE');
-        \App\Models\Settings\SystemSetting::set('reseller_branding', 'logo', 'favicon.ico');
+        \App\Models\Settings\SystemSetting::set('reseller_branding', 'logo', 'logo.svg');
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'tagline', 'PUSAT CUSTOM JERSEY TERBAIK');
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'no_hp', '62 858-5027-3293');
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'alamat', 'JL. LARAS – LIRIS NO.102 SIDOKUMPUL LAMONGAN');
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'email', 'indonesiasportwarehouse@gmail.com');
         \App\Models\Settings\SystemSetting::set('reseller_branding', 'instagram', 'indowarehouse_');
         \App\Models\Settings\SystemSetting::set('system', 'theme_color', '#a8001c');
+        \App\Models\Settings\SystemSetting::set('system', 'target_view', 'pcs');
 
         // Seed SEO branding settings
         \App\Models\Settings\SystemSetting::set('seo', 'site_name', 'ProTrack');
         \App\Models\Settings\SystemSetting::set('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.');
-        \App\Models\Settings\SystemSetting::set('seo', 'logo', 'favicon.ico');
+        \App\Models\Settings\SystemSetting::set('seo', 'logo', 'logo.svg');
         \App\Models\Settings\SystemSetting::set('seo', 'favicon', 'favicon.ico');
 
         // Reseller nyata — masing-masing entitas reseller mandiri (tipe: reseller_hub)

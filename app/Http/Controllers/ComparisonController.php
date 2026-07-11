@@ -20,6 +20,10 @@ class ComparisonController extends Controller
         Gate::authorize('report.view');
 
         $user = $request->user();
+        if ($user && !in_array('comparison', $user->getAllowedReports())) {
+            abort(403, 'Anda tidak memiliki akses ke laporan ini.');
+        }
+
         $isGlobal = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']));
         $availableBrands = $isGlobal
             ? Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary'])
@@ -90,6 +94,10 @@ class ComparisonController extends Controller
         Gate::authorize('report.export');
 
         $user = $request->user();
+        if ($user && !in_array('comparison', $user->getAllowedReports())) {
+            abort(403, 'Anda tidak memiliki akses ke laporan ini.');
+        }
+
         $isGlobal = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']));
         $availableBrands = $isGlobal
             ? Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary'])
@@ -182,6 +190,10 @@ class ComparisonController extends Controller
         Gate::authorize('report.export');
 
         $user = $request->user();
+        if ($user && !in_array('comparison', $user->getAllowedReports())) {
+            abort(403, 'Anda tidak memiliki akses ke laporan ini.');
+        }
+
         $isGlobal = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']));
         $availableBrands = $isGlobal
             ? Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary'])

@@ -29,6 +29,13 @@ const maskEmail = (email) => {
     return local.slice(0, 2) + '*'.repeat(local.length - 4) + local.slice(-2) + '@' + domain;
 };
 
+const maskDetailAlamat = (address) => {
+    if (!address) return '';
+    const clean = address.trim();
+    if (clean.length <= 8) return '*'.repeat(clean.length);
+    return clean.slice(0, 5) + '*'.repeat(clean.length - 8) + clean.slice(-3);
+};
+
 export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
     usePublicSecurity();
     const brand = invoice.brand ?? {};
@@ -187,14 +194,30 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
 
                         {/* Customer & PO Info */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-b p-6 md:p-8 bg-slate-50/50">
-                            <div className="space-y-1">
+                            <div className="space-y-1 min-w-0">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">DIBAYAR OLEH</span>
                                 <h4 className="font-bold text-slate-800 text-base">{renderFormattedText(invoice.order?.pelanggan?.nama || '—')}</h4>
                                 <div className="text-xs text-slate-600 font-medium">{maskPhone(invoice.order?.pelanggan?.nomor_hp)}</div>
-                                <div className="text-xs text-slate-500 font-medium">{maskEmail(invoice.order?.pelanggan?.email)}</div>
+                                {invoice.order?.pelanggan?.email && (
+                                    <div className="text-xs text-slate-500 font-medium">{maskEmail(invoice.order?.pelanggan?.email)}</div>
+                                )}
+                                {(() => {
+                                    const pelanggan = invoice.order?.pelanggan ?? {};
+                                    const formattedAddress = [
+                                        maskDetailAlamat(pelanggan.detail_alamat),
+                                        pelanggan.kabupaten_nama,
+                                        pelanggan.provinsi_nama,
+                                        pelanggan.kodepos
+                                    ].filter(Boolean).join(', ');
+                                    return formattedAddress ? (
+                                        <div className="text-[11px] text-slate-500 font-medium leading-relaxed max-w-sm mt-1 break-all">
+                                            {formattedAddress}
+                                        </div>
+                                    ) : null;
+                                })()}
                             </div>
 
-                            <div className="space-y-1 md:text-right">
+                            <div className="space-y-1 md:text-right min-w-0">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">REFERENSI ORDER</span>
                                 <div className="font-mono text-sm font-bold text-indigo-700">{invoice.order?.no_po || '—'}</div>
                                 <div className="text-xs text-slate-600 font-medium">Tanggal PO: <strong>{formatDate(invoice.tanggal_terbit)}</strong></div>
@@ -537,7 +560,27 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                 </div>
                             </div>
                         )}
+
+                        {/* Ketentuan Lainnya */}
+                        <div className="border-t border-slate-100 bg-slate-50/20 px-6 py-4 md:px-8 text-[11px] text-slate-600 leading-relaxed">
+                            <div className="font-extrabold text-slate-800 mb-2">Ketentuan Lainnya:</div>
+                            <ul className="space-y-1.5 font-bold text-slate-700">
+                                <li className="flex items-start gap-1.5">
+                                    <span className="shrink-0">1.</span>
+                                    <span>Bukti pembayaran wajib dikirimkan ke WhatsApp Admin untuk proses verifikasi.</span>
+                                </li>
+                                <li className="flex items-start gap-1.5">
+                                    <span className="shrink-0">2.</span>
+                                    <span>Mohon lakukan video unboxing saat paket diterima sebagai bukti apabila terjadi kendala pada produk.</span>
+                                </li>
+                                <li className="flex items-start gap-1.5">
+                                    <span className="shrink-0">3.</span>
+                                    <span>Pengajuan komplain maksimal 3 × 24 jam sejak barang diterima dan wajib disertai bukti berupa video unboxing serta foto produk.</span>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
+
 
                     {/* Disclaimer */}
                     <div className="rounded-2xl border border-slate-200/50 bg-slate-100/50 p-4 text-center text-[10px] text-slate-500 leading-normal">

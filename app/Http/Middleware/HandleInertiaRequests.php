@@ -75,6 +75,7 @@ class HandleInertiaRequests extends Middleware
                     'roles' => $userRoles,
                     'permissions' => $userPermissions,
                     'is_superadmin' => $user->isSuperadmin(),
+                    'allowed_reports' => $user->getAllowedReports(),
                     'unread_notifications_count' => $user->unreadNotifications()->count(),
                     'recent_notifications' => $user->notifications()->take(10)->get()->map(fn ($n) => [
                         'id' => $n->id,
@@ -92,6 +93,18 @@ class HandleInertiaRequests extends Middleware
                 'current' => $currentBrand,
                 'available' => $availableBrands,
             ],
+            'reports_list' => array_merge(
+                array_values(array_map(fn ($r) => [
+                    'slug' => $r['slug'],
+                    'name' => $r['label'],
+                    'group' => \App\Support\ReportRegistry::groups()[$r['group']] ?? ucfirst($r['group']),
+                ], \App\Support\ReportRegistry::all())),
+                [[
+                    'slug' => 'comparison',
+                    'name' => 'Comparison Multi-Brand',
+                    'group' => 'Keuangan',
+                ]]
+            ),
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
@@ -171,7 +184,14 @@ class HandleInertiaRequests extends Middleware
                 })(),
                 'logo_url'    => (function() use ($request, $publicDisk) {
                     $logo = SystemSetting::get('seo', 'logo');
-                    $appLogo = $logo ? $publicDisk->url($logo) : null;
+                    $appLogo = null;
+                    if ($logo) {
+                        if ($logo === 'favicon.ico' || file_exists(public_path($logo))) {
+                            $appLogo = asset($logo);
+                        } else {
+                            $appLogo = $publicDisk->url($logo);
+                        }
+                    }
                     $route = $request->route();
                     if ($route) {
                         $routeName = $route->getName();
@@ -185,6 +205,8 @@ class HandleInertiaRequests extends Middleware
                             }
                             if ($brand && $brand->logo) {
                                 $appLogo = \Illuminate\Support\Str::contains($brand->logo, 'http') ? $brand->logo : $publicDisk->url($brand->logo);
+                            } elseif ($brand && ($brand->isResellerHub() || $brand->isResellerBranch())) {
+                                $appLogo = null;
                             }
                         } elseif ($routeName === 'invoice.public') {
                             $invoiceNumber = $request->route('invoiceNumber');
@@ -199,15 +221,24 @@ class HandleInertiaRequests extends Middleware
                                 }
                                 if ($brand && $brand->logo) {
                                     $appLogo = \Illuminate\Support\Str::contains($brand->logo, 'http') ? $brand->logo : $publicDisk->url($brand->logo);
+                                } elseif ($brand && ($brand->isResellerHub() || $brand->isResellerBranch())) {
+                                    $appLogo = null;
                                 }
                             }
                         }
                     }
-                    return $appLogo;
+                    return \App\Support\UrlHelper::clean($appLogo, $request);
                 })(),
                 'favicon_url' => (function() use ($request, $publicDisk) {
                     $favicon = SystemSetting::get('seo', 'favicon');
-                    $appFavicon = $favicon ? $publicDisk->url($favicon) : null;
+                    $appFavicon = null;
+                    if ($favicon) {
+                        if ($favicon === 'favicon.ico' || file_exists(public_path($favicon))) {
+                            $appFavicon = asset($favicon);
+                        } else {
+                            $appFavicon = $publicDisk->url($favicon);
+                        }
+                    }
                     $route = $request->route();
                     if ($route) {
                         $routeName = $route->getName();
@@ -221,6 +252,8 @@ class HandleInertiaRequests extends Middleware
                             }
                             if ($brand && $brand->logo) {
                                 $appFavicon = \Illuminate\Support\Str::contains($brand->logo, 'http') ? $brand->logo : $publicDisk->url($brand->logo);
+                            } elseif ($brand && ($brand->isResellerHub() || $brand->isResellerBranch())) {
+                                $appFavicon = null;
                             }
                         } elseif ($routeName === 'invoice.public') {
                             $invoiceNumber = $request->route('invoiceNumber');
@@ -235,11 +268,13 @@ class HandleInertiaRequests extends Middleware
                                 }
                                 if ($brand && $brand->logo) {
                                     $appFavicon = \Illuminate\Support\Str::contains($brand->logo, 'http') ? $brand->logo : $publicDisk->url($brand->logo);
+                                } elseif ($brand && ($brand->isResellerHub() || $brand->isResellerBranch())) {
+                                    $appFavicon = null;
                                 }
                             }
                         }
                     }
-                    return $appFavicon;
+                    return \App\Support\UrlHelper::clean($appFavicon, $request);
                 })(),
                 'theme_color' => (function() use ($request) {
                     $appTheme = SystemSetting::get('system', 'theme_color', '#a8001c');
@@ -276,6 +311,7 @@ class HandleInertiaRequests extends Middleware
                     }
                     return $appTheme;
                 })(),
+                'target_view' => SystemSetting::get('system', 'target_view', 'both'),
             ],
         ];
     }

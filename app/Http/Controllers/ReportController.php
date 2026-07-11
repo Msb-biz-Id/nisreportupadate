@@ -18,7 +18,17 @@ class ReportController extends Controller
 
     public function show(Request $request, string $slug)
     {
+        if (! ReportRegistry::find($slug)) {
+            abort(404, "Laporan '{$slug}' tidak ditemukan.");
+        }
+
         Gate::authorize('report.view');
+        
+        $user = $request->user();
+        if ($user && !in_array($slug, $user->getAllowedReports())) {
+            abort(403, 'Anda tidak memiliki akses ke laporan ini.');
+        }
+
         $config = $this->resolveConfig($slug, $request);
         $brandId    = BrandContext::current($request);
         $effectiveId = $this->effectiveBrandId($request);
@@ -57,9 +67,11 @@ class ReportController extends Controller
             'summary' => $result['summary'],
             'heatmapSeries' => $result['heatmapSeries'] ?? null,
             'groups' => ReportRegistry::groups(),
-            'allReports' => collect(ReportRegistry::all())->values()->map(function($r) use ($request) {
+            'allReports' => collect(ReportRegistry::all())->values()->filter(function($r) use ($user) {
+                return $user && in_array($r['slug'], $user->getAllowedReports());
+            })->map(function($r) use ($request) {
                 return $r['slug'] === 'wilayah' ? $this->resolveConfig('wilayah', $request) : $r;
-            })->all(),
+            })->values()->all(),
             'customerTypes' => \App\Models\Master\CustomerType::query()
                 ->when($masterBrandId, fn($q) => $q->where('brand_id', $masterBrandId)->orWhereNull('brand_id'))
                 ->get(['id', 'nama'])
@@ -84,7 +96,17 @@ class ReportController extends Controller
 
     public function exportExcel(Request $request, string $slug)
     {
+        if (! ReportRegistry::find($slug)) {
+            abort(404, "Laporan '{$slug}' tidak ditemukan.");
+        }
+
         Gate::authorize('report.export');
+
+        $user = $request->user();
+        if ($user && !in_array($slug, $user->getAllowedReports())) {
+            abort(403, 'Anda tidak memiliki akses ke laporan ini.');
+        }
+
         $config = $this->resolveConfig($slug, $request);
         $filters = $this->extractFilters($request, $config);
         $queryBrandScope = $this->resolveQueryBrandScope($request, $filters);
@@ -100,7 +122,17 @@ class ReportController extends Controller
 
     public function exportPdf(Request $request, string $slug)
     {
+        if (! ReportRegistry::find($slug)) {
+            abort(404, "Laporan '{$slug}' tidak ditemukan.");
+        }
+
         Gate::authorize('report.export');
+
+        $user = $request->user();
+        if ($user && !in_array($slug, $user->getAllowedReports())) {
+            abort(403, 'Anda tidak memiliki akses ke laporan ini.');
+        }
+
         $config = $this->resolveConfig($slug, $request);
         $filters = $this->extractFilters($request, $config);
         $queryBrandScope = $this->resolveQueryBrandScope($request, $filters);

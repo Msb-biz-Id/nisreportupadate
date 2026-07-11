@@ -1,12 +1,81 @@
 import InputError from '@/Components/InputError';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { Eye, EyeOff, Lock, Mail, LogIn, AlertTriangle, HelpCircle, Info, ChevronDown, ChevronUp } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createTimeline, animate } from 'animejs';
 
 export default function Login({ status, canResetPassword }) {
     const { app } = usePage().props;
     const appName = app?.name || 'ProTrack';
     const logoLetter = appName.charAt(0).toUpperCase();
+
+    const [showSplash, setShowSplash] = useState(true);
+
+    useEffect(() => {
+        if (!showSplash) return;
+
+        const timeline = createTimeline({
+            onComplete: () => {
+                animate('#splash-container', {
+                    opacity: 0,
+                    scale: 1.15,
+                    duration: 600,
+                    ease: 'inOutQuad',
+                    onComplete: () => {
+                        setShowSplash(false);
+                    }
+                });
+            }
+        });
+
+        // 1. Decorative background entry
+        timeline.add('#splash-bg-decor', {
+            opacity: [0, 0.15],
+            duration: 800,
+            ease: 'outQuad'
+        });
+
+        // 2. Splash ring entry and rotate
+        timeline.add('#splash-ring', {
+            rotate: '1.25turn',
+            scale: [0.3, 1],
+            opacity: [0, 1],
+            duration: 1000,
+            ease: 'outBack'
+        }, '-=600');
+
+        // 3. Logo scaling, rotating and fade-in
+        timeline.add('#splash-logo', {
+            scale: [0, 1],
+            rotate: '360deg',
+            opacity: [0, 1],
+            duration: 800,
+            ease: 'outElastic(1, .6)'
+        }, '-=800');
+
+        // 4. App Name slide up and fade-in
+        timeline.add('#splash-title', {
+            translateY: [25, 0],
+            opacity: [0, 1],
+            duration: 600,
+            ease: 'outQuad'
+        }, '-=400');
+
+        // 5. Subtitle letters spacing & fade-in
+        timeline.add('#splash-subtitle', {
+            letterSpacing: ['0.4em', '0.15em'],
+            opacity: [0, 1],
+            duration: 800,
+            ease: 'outQuad'
+        }, '-=400');
+
+        // 6. Pause at full display
+        timeline.add('#splash-logo', {
+            scale: 1.05,
+            duration: 600,
+            ease: 'inOutQuad'
+        });
+    }, []);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         email: '',
@@ -32,6 +101,32 @@ export default function Login({ status, canResetPassword }) {
     return (
         <div className="flex min-h-screen">
             <Head title="Masuk Ke Sistem" />
+
+            {showSplash && (
+                <div id="splash-container" className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 text-white select-none overflow-hidden">
+                    <div className="relative flex flex-col items-center">
+                        <div id="splash-ring" className="absolute w-28 h-28 rounded-full border-2 border-primary/30 border-t-primary" />
+                        <div id="splash-logo" className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center font-black text-3xl shadow-2xl relative z-10 overflow-hidden">
+                            {app?.logo_url ? (
+                                <img src={app.logo_url} alt={appName} className="w-12 h-12 object-contain bg-white p-1" />
+                            ) : (
+                                <span className="text-black">{logoLetter}</span>
+                            )}
+                        </div>
+                        <div className="mt-6 text-center">
+                            <h1 id="splash-title" className="text-3xl font-black tracking-[0.2em] text-white opacity-0 uppercase">
+                                {appName}
+                            </h1>
+                            <p id="splash-subtitle" className="text-[10px] text-white/50 tracking-widest mt-2 uppercase opacity-0">
+                                Sistem Manajemen Order
+                            </p>
+                        </div>
+                    </div>
+                    <div id="splash-bg-decor" className="absolute inset-0 opacity-10 pointer-events-none">
+                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--tw-gradient-stops))] from-primary/40 via-transparent to-transparent" />
+                    </div>
+                </div>
+            )}
 
             <style>{`
                 @keyframes shake {
@@ -238,55 +333,37 @@ export default function Login({ status, canResetPassword }) {
                                     
                                     <div className="pt-2 border-t border-slate-200 space-y-2">
                                         <span className="font-bold text-slate-700 block">Kredensial Akun Default (Dev/Seeded):</span>
-                                        <div className="space-y-1.5">
-                                            <div className="bg-white p-2 rounded-xl border border-slate-100 flex justify-between items-center shadow-sm">
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-[10px] text-slate-800">Superadmin (Semua Brand)</span>
-                                                    <span className="font-mono text-slate-500 text-[10px]">superadmin@nisreport.local</span>
+                                        <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1">
+                                            {[
+                                                { role: 'Superadmin', email: 'itidwarehouse@gmail.com' },
+                                                { role: 'Owner', email: 'owner@nisreport.local' },
+                                                { role: 'Keuangan', email: 'keuangan.nisgroup@gmail.com' },
+                                                { role: 'Finance', email: 'finance.nisgroup@gmail.com' },
+                                                { role: 'PIC Produksi', email: 'produksi.nisgroup@gmail.com' },
+                                                { role: 'Admin Produksi', email: 'adminproduksi.nisgroup@gmail.com' },
+                                                { role: 'Supervisor', email: 'supervisor.nisgroup@gmail.com' },
+                                                { role: 'Admin Brand ALG', email: 'allegiant.id@gmail.com' },
+                                                { role: 'Admin Brand CRL', email: 'circlesportwear@gmail.com' },
+                                                { role: 'Admin Brand DRV', email: 'sportweardrive@gmail.com' },
+                                                { role: 'Admin Reseller IDW', email: 'indonesiasportwarehouse@gmail.com' }
+                                            ].map((account) => (
+                                                <div key={account.email} className="bg-white p-2 rounded-xl border border-slate-100 flex justify-between items-center shadow-sm">
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="font-bold text-[10px] text-slate-800">{account.role}</span>
+                                                        <span className="font-mono text-slate-500 text-[10px] truncate max-w-[200px]">{account.email}</span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setData(d => ({ ...d, email: account.email, password: 'password' }));
+                                                            setShowHelp(false);
+                                                        }}
+                                                        className="text-[10px] bg-slate-900 hover:bg-black text-white px-2 py-1 rounded-md font-bold transition shrink-0 ml-2"
+                                                    >
+                                                        Gunakan
+                                                    </button>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setData(d => ({ ...d, email: 'superadmin@nisreport.local', password: 'password' }));
-                                                        setShowHelp(false);
-                                                    }}
-                                                    className="text-[10px] bg-slate-900 hover:bg-black text-white px-2 py-1 rounded-md font-bold transition"
-                                                >
-                                                    Gunakan
-                                                </button>
-                                            </div>
-                                            <div className="bg-white p-2 rounded-xl border border-slate-100 flex justify-between items-center shadow-sm">
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-[10px] text-slate-800">Owner (Brand SHU + NIS)</span>
-                                                    <span className="font-mono text-slate-500 text-[10px]">owner@nisreport.local</span>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setData(d => ({ ...d, email: 'owner@nisreport.local', password: 'password' }));
-                                                        setShowHelp(false);
-                                                    }}
-                                                    className="text-[10px] bg-slate-900 hover:bg-black text-white px-2 py-1 rounded-md font-bold transition"
-                                                >
-                                                    Gunakan
-                                                </button>
-                                            </div>
-                                            <div className="bg-white p-2 rounded-xl border border-slate-100 flex justify-between items-center shadow-sm">
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-[10px] text-slate-800">Keuangan (Brand SHU + NIS)</span>
-                                                    <span className="font-mono text-slate-500 text-[10px]">keuangan@nisreport.local</span>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setData(d => ({ ...d, email: 'keuangan@nisreport.local', password: 'password' }));
-                                                        setShowHelp(false);
-                                                    }}
-                                                    className="text-[10px] bg-slate-900 hover:bg-black text-white px-2 py-1 rounded-md font-bold transition"
-                                                >
-                                                    Gunakan
-                                                </button>
-                                            </div>
+                                            ))}
                                         </div>
                                     </div>
                                 </div>

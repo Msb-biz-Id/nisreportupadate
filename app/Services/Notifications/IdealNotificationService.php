@@ -115,6 +115,38 @@ class IdealNotificationService
                     'roles' => ['admin_brand', 'owner'],
                     'sound' => 'success-tada'
                 ],
+                'unlock_requested' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['superadmin', 'owner', 'supervisor'],
+                    'sound' => 'warning-alert'
+                ],
+                'order_unlocked' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'admin_reseller', 'owner'],
+                    'sound' => 'success-tada'
+                ],
+                'relock_requested' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['superadmin', 'owner', 'supervisor'],
+                    'sound' => 'warning-alert'
+                ],
+                'order_locked' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_brand', 'admin_reseller', 'owner'],
+                    'sound' => 'success-tada'
+                ],
             ];
             $settings = $defaults[$eventKey] ?? [
                 'in_app' => true,

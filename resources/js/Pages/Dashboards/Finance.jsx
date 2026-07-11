@@ -14,6 +14,7 @@ export default function Finance({ stats }) {
     const brands = stats.brands ?? [];
     const currentBrandId = stats.current_brand_id ?? 'all';
     const [expandedBankId, setExpandedBankId] = useState(null);
+    const progressDist = stats.progress_distribution ?? [];
 
     function changeBrand(v) {
         const params = { brand_id: v };
@@ -78,6 +79,30 @@ export default function Finance({ stats }) {
 
             {/* Main Financial KPI Grid */}
             <StatGrid cards={stats.cards ?? []} />
+
+            {/* Tahapan Progress */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Tahapan Progress Produksi</CardTitle>
+                    <CardDescription>Jumlah PO yang sedang dikerjakan di setiap tahapan progress.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {progressDist.length === 0 ? (
+                        <p className="py-6 text-center text-sm text-muted-foreground">Tidak ada tahapan aktif saat ini.</p>
+                    ) : (
+                        <Chart
+                            type="bar"
+                            height={260}
+                            series={[{ name: 'PO on-progress', data: progressDist.map((r) => r.count) }]}
+                            options={{
+                                plotOptions: { bar: { borderRadius: 6, columnWidth: '55%' } },
+                                xaxis: { categories: progressDist.map((r) => r.label), labels: { rotate: -20, style: { fontSize: '10px' } } },
+                                colors: ['#F59E0B'],
+                            }}
+                        />
+                    )}
+                </CardContent>
+            </Card>
 
             {/* Charts and Invoices Grid */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

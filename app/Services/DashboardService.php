@@ -56,7 +56,7 @@ class DashboardService
                     // Include original brand IDs
                     $q->whereIn('id', $brandIds)
                       // OR include branches whose parent is a hub in brandIds
-                      ->orWhereHas('parent', function ($pq) use ($brandIds) {
+                      ->orWhereHas('parentBrand', function ($pq) use ($brandIds) {
                           $pq->whereIn('id', $brandIds)
                             ->where('brand_type', Brand::TYPE_RESELLER_HUB);
                       });
@@ -115,6 +115,7 @@ class DashboardService
                         ['label' => 'Refund Pending', 'value' => $refundPendingCount, 'icon' => 'RotateCcw', 'accent' => 'red'],
                     ],
                     'status_breakdown'              => $this->statusBreakdown($brandId),
+                    'progress_distribution'         => $this->progressDistribution($brandId),
                     'trend_harian'                  => $this->trendHarian($brandId, 14),
                     'produk_terpopuler'             => $this->produkTerpopuler($brandId, 10),
                     'kategori_distribusi'           => $this->kategoriDistribusi($brandId),
@@ -127,6 +128,7 @@ class DashboardService
                     'po_terlambat'                  => $this->poTerlambat($brandId, 5),
                     'trend_bulanan'                 => $this->trendBulanan($brandId),
                     'target_progress'               => $this->getTargetProgress($brandId),
+                    'po_siap_dikirim'               => $this->poSiapDikirim($brandId, 10),
                     'dp_pending_list' => \App\Models\Order\DesignDeposit::query()
                         ->when($brandId, $this->bf($brandId))
                         ->where('status', 'pending')
@@ -334,10 +336,12 @@ class DashboardService
                     ],
                     'brand_performance' => $perBrand,
                     'status_breakdown'  => $this->statusBreakdown($brandId),
+                    'progress_distribution' => $this->progressDistribution($brandId),
                     'trend_harian'      => $this->trendHarian($brandId, 14),
                     'po_terbaru'        => $this->poTerbaru($brandId, 10),
                     'trend_bulanan'     => $this->trendBulanan($brandId),
                     'target_progress'   => $this->getTargetProgress($brandId ?: Brand::active()->pluck('id')->toArray()),
+                    'po_siap_dikirim'   => $this->poSiapDikirim($brandId, 10),
                 ];
             },
             CacheService::TTL_SHORT
@@ -396,6 +400,7 @@ class DashboardService
                     'total_pcs' => (int) $r->total_pcs,
                 ]),
             'status_breakdown'              => $this->statusBreakdown($opBrandIds),
+            'progress_distribution'         => $this->progressDistribution($opBrandIds),
             'trend_harian'                  => $this->trendHarian($opBrandIds, 14),
             // Marketing analytics — sama seperti AdminBrand
             'produk_terpopuler'             => $this->produkTerpopuler($opBrandIds, 10),
@@ -409,6 +414,7 @@ class DashboardService
             'deadline_mendekat'             => $this->deadlineMendekat($opBrandIds, 5),
             'po_terlambat'                  => $this->poTerlambat($opBrandIds, 5),
             'target_progress'               => $this->getTargetProgress($opBrandIds),
+            'po_siap_dikirim'               => $this->poSiapDikirim($opBrandIds, 10),
             'current_brand_id'              => $filterBrand ?: 'all',
         ];
             },
@@ -648,6 +654,7 @@ class DashboardService
             'bank_accounts_summary' => $bankAccountsSummary,
             'brand_financial_reports' => $brandFinancialReports,
             'brands' => $allActiveBrands,
+            'progress_distribution' => $this->progressDistribution($brandId),
             'current_brand_id' => $brandId ?: 'all',
         ];
             },
@@ -1088,5 +1095,37 @@ class DashboardService
             'revenue_percentage' => $targetRevenue > 0 ? (int) round(($monthActualRevenue / $targetRevenue) * 100) : 0,
             'pcs_percentage'     => $targetPcs > 0 ? (int) round(($monthActualPcs / $targetPcs) * 100) : 0,
         ];
+    }
+
+    private function poSiapDikirim(string|array|null $brandId, int $limit): array
+    {
+        return Order::query()
+            ->when($brandId, $this->bf($brandId))
+            ->where('status_po', 'siap_dikirim')
+            ->with(['pelanggan:id,nama,nomor_hp', 'brand:id,nama_brand,kode'])
+            ->orderByDesc('updated_at')
+            ->limit($limit)
+            ->get()
+            ->map(function ($o) {
+                $totalTagihan = $o->totalTagihan();
+                $totalPaid = $o->totalPaid();
+                $sisa = max(0, $totalTagihan - $totalPaid);
+                $isLunas = $sisa <= 0 && $totalTagihan > 0;
+                
+                return [
+                    'id'            => $o->id,
+                    'no_po'         => $o->no_po,
+                    'nama_po'       => $o->nama_po,
+                    'pelanggan'     => $o->pelanggan?->nama,
+                    'pelanggan_hp'  => $o->pelanggan?->nomor_hp,
+                    'brand'         => $o->brand?->kode,
+                    'total_tagihan' => $totalTagihan,
+                    'total_paid'    => $totalPaid,
+                    'sisa_tagihan'  => $sisa,
+                    'is_lunas'      => $isLunas,
+                    'status'        => $o->status_po,
+                ];
+            })
+            ->all();
     }
 }

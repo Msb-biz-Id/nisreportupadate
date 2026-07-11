@@ -119,6 +119,9 @@
             text-transform: uppercase;
             font-family: 'DejaVu Sans', 'Helvetica', sans-serif;
         }
+        .ns-name {
+            text-transform: none !important;
+        }
     </style>
 </head>
 <body>
@@ -650,19 +653,19 @@
                             @if($col['type'] === 'no')
                                 <td>{{ $i + 1 }}.</td>
                             @elseif($col['type'] === 'nama_punggung')
-                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung'] ?? '') !!}</td>
+                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_punggung')
                                 <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_punggung'] ?? '') !!}</td>
                             @elseif($col['type'] === 'nama_dada')
-                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_dada'] ?? '') !!}</td>
+                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_dada'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_dada')
                                 <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_dada'] ?? '') !!}</td>
                             @elseif($col['type'] === 'nama_lengan')
-                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_lengan'] ?? '') !!}</td>
+                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_lengan'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_lengan')
                                 <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_lengan'] ?? '') !!}</td>
                             @elseif($col['type'] === 'nama_punggung_2')
-                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung_2'] ?? '') !!}</td>
+                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung_2'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_punggung_2')
                                 <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_punggung_2'] ?? '') !!}</td>
                             @elseif($col['type'] === 'size')
@@ -678,7 +681,7 @@
                                 @endphp
                                 <td>{!! \App\Support\PdfHelper::formatText($svc) !!}</td>
                             @elseif($col['type'] === 'keterangan')
-                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['keterangan'] ?? '') !!}</td>
+                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['keterangan'] ?? '') !!}</td>
                             @endif
                         @endforeach
                     </tr>
@@ -888,19 +891,19 @@
                             @if($col['type'] === 'no')
                                 <td>{{ $i + 1 }}.</td>
                             @elseif($col['type'] === 'nama_punggung')
-                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung'] ?? '') !!}</td>
+                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_punggung')
                                 <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_punggung'] ?? '') !!}</td>
                             @elseif($col['type'] === 'nama_dada')
-                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_dada'] ?? '') !!}</td>
+                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_dada'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_dada')
                                 <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_dada'] ?? '') !!}</td>
                             @elseif($col['type'] === 'nama_lengan')
-                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_lengan'] ?? '') !!}</td>
+                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_lengan'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_lengan')
                                 <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_lengan'] ?? '') !!}</td>
                             @elseif($col['type'] === 'nama_punggung_2')
-                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung_2'] ?? '') !!}</td>
+                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung_2'] ?? '') !!}</td>
                             @elseif($col['type'] === 'no_punggung_2')
                                 <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_punggung_2'] ?? '') !!}</td>
                             @elseif($col['type'] === 'size')
@@ -916,7 +919,7 @@
                                 @endphp
                                 <td>{!! \App\Support\PdfHelper::formatText($svc) !!}</td>
                             @elseif($col['type'] === 'keterangan')
-                                <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['keterangan'] ?? '') !!}</td>
+                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['keterangan'] ?? '') !!}</td>
                             @endif
                         @endforeach
                     </tr>

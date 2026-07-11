@@ -130,6 +130,10 @@ class SystemEventNotification extends Notification implements ShouldQueue
             'refund_processed' => 'Pengajuan Refund Diproses',
             'payment_submitted' => 'Pembayaran PO Diajukan',
             'payment_verified' => 'Pembayaran PO Diverifikasi',
+            'unlock_requested' => 'Permohonan Unlock PO Diajukan',
+            'order_unlocked' => 'PO Berhasil Di-unlock',
+            'relock_requested' => 'Permohonan Re-lock PO Diajukan',
+            'order_locked' => 'PO Berhasil Di-lock',
             default => 'Notifikasi Sistem',
         };
     }
@@ -151,6 +155,10 @@ class SystemEventNotification extends Notification implements ShouldQueue
             'refund_processed' => "Refund untuk PO {$noPo} ({$brandNama}) telah diperbarui dengan status: {$status}.",
             'payment_submitted' => "Pembayaran untuk PO {$noPo} ({$brandNama}) senilai {$nominal} telah diajukan.",
             'payment_verified' => "Pembayaran untuk PO {$noPo} ({$brandNama}) senilai {$nominal} telah diverifikasi.",
+            'unlock_requested' => "Admin mengajukan permohonan unlock untuk PO {$noPo} ({$brandNama}) dengan alasan: " . ($this->payload['reason'] ?? '-'),
+            'order_unlocked' => "Kunci PO {$noPo} ({$brandNama}) telah dibuka.",
+            'relock_requested' => "Admin mengajukan permohonan re-lock untuk PO {$noPo} ({$brandNama}) dengan alasan: " . ($this->payload['reason'] ?? '-'),
+            'order_locked' => "PO {$noPo} ({$brandNama}) telah dikunci kembali.",
             default => $this->payload['body'] ?? 'Aktivitas sistem baru.',
         };
     }
@@ -166,6 +174,10 @@ class SystemEventNotification extends Notification implements ShouldQueue
             'refund_processed' => '💳',
             'payment_submitted' => '📥',
             'payment_verified' => '💸',
+            'unlock_requested' => '🔓',
+            'order_unlocked' => '🔓',
+            'relock_requested' => '🔒',
+            'order_locked' => '🔒',
             default => '🔔',
         };
     }

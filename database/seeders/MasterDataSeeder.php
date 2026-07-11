@@ -142,7 +142,10 @@ class MasterDataSeeder extends Seeder
 
     private function seedSize(): void
     {
-        $ukurans = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL', '7XL', '8XL', '9XL', '10XL', 'CUSTOM'];
+        $ukurans = [
+            'XS Anak', 'S Anak', 'M Anak', 'L Anak', 'XL Anak',
+            'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL', '7XL', '8XL', '9XL', '10XL', 'CUSTOM'
+        ];
         foreach ($ukurans as $idx => $u) {
             $size = Size::withTrashed()->where(['ukuran' => $u])->first();
             if ($size) {

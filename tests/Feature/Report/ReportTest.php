@@ -288,5 +288,105 @@ class ReportTest extends TestCase
         $response->assertOk();
         $this->assertNull($response->original->getData()['page']['props']['filters']['brand_id'] ?? null);
     }
+
+    public function test_monitoring_deadline_report_data_and_grouping(): void
+    {
+        $brand = $this->makeBrand();
+        $sa = $this->makeUser('superadmin', [$brand]);
+
+        $c = Customer::create([
+            'brand_id' => $brand->id,
+            'kode' => 'C_MD_01',
+            'nama' => 'Pelanggan MD',
+            'nomor_hp' => '08123456789',
+            'is_active' => true
+        ]);
+
+        $printing = \App\Models\Master\Printing::create([
+            'nama' => 'Sublimation',
+            'deskripsi' => 'Full print sublim',
+            'is_active' => true
+        ]);
+
+        $deadlineDate = now()->addDays(3)->toDateString();
+
+        $o1 = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-MD1',
+            'nama_po' => 'Jersey MD 1',
+            'status_po' => 'on_progress',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => $deadlineDate,
+            'pelanggan_id' => $c->id,
+            'printing_ids' => [$printing->id],
+            'total_tagihan' => 1000000,
+            'created_by' => $sa->id,
+        ]);
+        $o1->items()->create([
+            'product_id' => null,
+            'nama_produk' => 'Jersey Custom',
+            'quantity' => 12,
+            'harga_satuan' => 80000,
+            'total_harga' => 960000,
+        ]);
+
+        $o2 = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-MD2',
+            'nama_po' => 'Jersey MD 2',
+            'status_po' => 'on_progress',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => $deadlineDate,
+            'pelanggan_id' => $c->id,
+            'printing_ids' => [$printing->id],
+            'total_tagihan' => 1000000,
+            'created_by' => $sa->id,
+        ]);
+        $o2->items()->create([
+            'product_id' => null,
+            'nama_produk' => 'Jersey Custom 2',
+            'quantity' => 8,
+            'harga_satuan' => 80000,
+            'total_harga' => 640000,
+        ]);
+
+        $response = $this->actingAs($sa)
+            ->get(route('reports.show', 'monitoring-deadline', ['threshold' => 7]));
+
+        $response->assertOk();
+
+        $page = $response->original->getData()['page'] ?? [];
+        $props = $page['props'] ?? [];
+
+        $this->assertNotEmpty($props['rows']);
+        
+        $rows = $props['rows'];
+        $this->assertCount(4, $rows);
+
+        // Header Row
+        $this->assertTrue($rows[0]['is_group_header']);
+        $this->assertEquals($deadlineDate, $rows[0]['deadline']);
+
+        // Order 1 Row
+        $this->assertFalse($rows[1]['is_group_header']);
+        $this->assertFalse($rows[1]['is_group_total']);
+        $this->assertEquals('PO-MD1', $rows[1]['no_po']);
+        $this->assertEquals('Jersey MD 1', $rows[1]['nama_po']);
+        $this->assertEquals($brand->nama_brand, $rows[1]['brand_nama']);
+        $this->assertEquals('Pelanggan MD', $rows[1]['pelanggan']);
+        $this->assertEquals(12, $rows[1]['pcs']);
+        $this->assertEquals('Sublimation', $rows[1]['jenis_printing']);
+
+        // Order 2 Row
+        $this->assertFalse($rows[2]['is_group_header']);
+        $this->assertFalse($rows[2]['is_group_total']);
+        $this->assertEquals('PO-MD2', $rows[2]['no_po']);
+        $this->assertEquals(8, $rows[2]['pcs']);
+
+        // Total Row
+        $this->assertTrue($rows[3]['is_group_total']);
+        $this->assertEquals('TOTAL PCS', $rows[3]['pelanggan']);
+        $this->assertEquals(20, $rows[3]['pcs']);
+    }
 }
 

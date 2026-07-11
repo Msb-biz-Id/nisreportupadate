@@ -18,8 +18,27 @@ class UploadController extends Controller
             'nama_po' => ['nullable', 'string', 'max:255'],
         ]);
 
-        // Authorization sederhana: butuh login. Validasi role detail di controller pemanggil.
-        abort_unless($request->user(), 401);
+        $user = $request->user();
+        abort_unless($user, 401);
+
+        $purpose = $data['purpose'];
+        if ($purpose === 'brands') {
+            if (!$user->isSuperadmin() && !$user->hasAnyPermission(['brand.create', 'brand.update', 'settings.brand'])) {
+                abort(403, 'Anda tidak memiliki wewenang untuk mengunggah gambar brand.');
+            }
+        } elseif ($purpose === 'products') {
+            if (!$user->isSuperadmin() && !$user->hasAnyPermission(['master.produk', 'master.manage'])) {
+                abort(403, 'Anda tidak memiliki wewenang untuk mengunggah gambar produk.');
+            }
+        } elseif ($purpose === 'orders') {
+            if (!$user->isSuperadmin() && !$user->hasAnyPermission(['order.create', 'order.update', 'production.update-progress', 'production.add-reject', 'finance.manage-invoice'])) {
+                abort(403, 'Anda tidak memiliki wewenang untuk mengunggah file order.');
+            }
+            $brand = BrandContext::currentBrand($request);
+            if ($brand && !$user->hasAccessToBrand($brand->id)) {
+                abort(403, 'Anda tidak memiliki akses ke brand aktif.');
+            }
+        }
 
         /** @var \Illuminate\Http\UploadedFile $file */
         $file = $data['file'];
@@ -71,10 +90,13 @@ class UploadController extends Controller
             throw new \RuntimeException("Uploaded file was not successfully persisted on storage disk.");
         }
 
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('public');
+
         return response()->json([
             'success' => true,
             'path' => $path,
-            'url' => Storage::disk('public')->url($path),
+            'url' => $disk->url($path),
         ]);
     }
 
@@ -145,7 +167,51 @@ class UploadController extends Controller
         $data = $request->validate([
             'path' => ['required', 'string', 'regex:#^(products|orders|brands)/[A-Za-z0-9_/.-]+$#'],
         ]);
-        abort_unless($request->user(), 401);
+
+        if (str_contains($data['path'], '..')) {
+            abort(400, 'Akses ditolak: nama path tidak valid.');
+        }
+
+        $user = $request->user();
+        abort_unless($user, 401);
+
+        $parts = explode('/', $data['path']);
+        $purpose = $parts[0];
+
+        if ($purpose === 'brands') {
+            if (!$user->isSuperadmin() && !$user->hasAnyPermission(['brand.create', 'brand.update', 'settings.brand'])) {
+                abort(403, 'Anda tidak memiliki wewenang untuk menghapus gambar brand.');
+            }
+        } elseif ($purpose === 'products') {
+            if (!$user->isSuperadmin() && !$user->hasAnyPermission(['master.produk', 'master.manage'])) {
+                abort(403, 'Anda tidak memiliki wewenang untuk menghapus gambar produk.');
+            }
+        } elseif ($purpose === 'orders') {
+            if (!$user->isSuperadmin() && !$user->hasAnyPermission(['order.create', 'order.update', 'production.update-progress', 'production.add-reject', 'finance.manage-invoice'])) {
+                abort(403, 'Anda tidak memiliki wewenang untuk menghapus file order.');
+            }
+
+            // Multi-tenant folder isolation check
+            if (!$user->isSuperadmin() && !$user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])) {
+                $allowedBrandIds = BrandContext::effectiveBrandIds($request, 'all');
+                $allowedBrandSlugs = \App\Models\Brand::whereIn('id', $allowedBrandIds)
+                    ->pluck('nama_brand')
+                    ->map(fn($name) => Str::slug($name))
+                    ->toArray();
+
+                $currentBrand = BrandContext::currentBrand($request);
+                if ($currentBrand) {
+                    $allowedBrandSlugs[] = Str::slug($currentBrand->nama_brand);
+                }
+                $allowedBrandSlugs = array_values(array_unique($allowedBrandSlugs));
+
+                if (isset($parts[1]) && !in_array($parts[1], $allowedBrandSlugs)) {
+                    abort(403, 'Anda tidak memiliki akses ke brand dari file ini.');
+                }
+            }
+        } else {
+            abort(403, 'Tindakan tidak diizinkan.');
+        }
 
         if (Storage::disk('public')->exists($data['path'])) {
             Storage::disk('public')->delete($data['path']);

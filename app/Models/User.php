@@ -109,4 +109,75 @@ class User extends Authenticatable
         return false;
     }
 
+    public function getAllowedReports(): array
+    {
+        // Superadmin always has access to all reports
+        if ($this->isSuperadmin()) {
+            return array_merge(array_keys(\App\Support\ReportRegistry::all()), ['comparison']);
+        }
+
+        // Get roles of this user
+        $roles = $this->getRoleNames()->all();
+        if (empty($roles)) {
+            return [];
+        }
+
+        $allowedSlugs = [];
+        $hasCustomMapping = false;
+
+        foreach ($roles as $role) {
+            $setting = \App\Models\Settings\SystemSetting::get('report_visibility', $role);
+            if (!is_null($setting)) {
+                $hasCustomMapping = true;
+                $decoded = json_decode($setting, true);
+                if (is_array($decoded)) {
+                    $allowedSlugs = array_merge($allowedSlugs, $decoded);
+                }
+            }
+        }
+
+        // If at least one of the user's roles has a custom setting configured, return the union
+        if ($hasCustomMapping) {
+            return array_values(array_unique($allowedSlugs));
+        }
+
+        // Otherwise, use sensible defaults based on the roles
+        $defaults = [
+            'owner' => array_merge(array_keys(\App\Support\ReportRegistry::all()), ['comparison']),
+            'admin_brand' => [
+                'analisis-marketing',
+                'penjualan-produk',
+                'pelanggan',
+                'wilayah',
+                'status-po',
+                'monitoring-deadline',
+                'rijek',
+                'comparison'
+            ],
+            'admin_reseller' => [
+                'status-po',
+                'monitoring-deadline'
+            ],
+            'admin_keuangan' => [
+                'refund',
+                'pemasukan',
+                'pengeluaran',
+                'arus-kas-bank',
+                'comparison'
+            ],
+            'admin_produksi' => [
+                'status-po',
+                'monitoring-deadline',
+                'rijek'
+            ],
+        ];
+
+        foreach ($roles as $role) {
+            if (isset($defaults[$role])) {
+                $allowedSlugs = array_merge($allowedSlugs, $defaults[$role]);
+            }
+        }
+
+        return array_values(array_unique($allowedSlugs));
+    }
 }

@@ -149,12 +149,12 @@ function DayPanel({ date, events, onClose }) {
                                                     {overdue && (
                                                         <span className="flex items-center gap-0.5 text-[10px] font-bold text-red-600">
                                                             <AlertTriangle className="h-3 w-3" />
-                                                            Overdue {Math.abs(e.daysRemaining)}h
+                                                            Terlambat {Math.abs(e.daysRemaining)} hari
                                                         </span>
                                                     )}
                                                     {!overdue && urgent && (
                                                         <span className="text-[10px] font-bold text-orange-500">
-                                                            {e.daysRemaining === 0 ? 'Deadline hari ini' : `${e.daysRemaining}h lagi`}
+                                                            {e.daysRemaining === 0 ? 'Deadline hari ini' : `${e.daysRemaining} hari lagi`}
                                                         </span>
                                                     )}
                                                 </div>

@@ -13,9 +13,9 @@ class DatabaseSeeder extends Seeder
             BrandSeeder::class,
             UserSeeder::class,
             MasterDataSeeder::class,
-            // FinanceSeeder::class,
+            FinanceSeeder::class,
             CustomerSeeder::class,
-            // OrderSeeder::class,
+            OrderSeeder::class,
             // MultiFontTestSeeder::class,
         ]);
     }

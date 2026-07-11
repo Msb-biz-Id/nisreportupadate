@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
-import { ShieldCheck, Plus, Pencil, Trash2, ShieldAlert, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ShieldCheck, Plus, Pencil, Trash2, ShieldAlert, Check, Save, BarChart3 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -10,6 +10,7 @@ import { Badge } from '@/Components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { roleLabel } from '@/lib/utils';
+import { toast } from 'sonner';
 
 function RoleFormModal({ open, onOpenChange, role, groupedPermissions, onSuccess }) {
     const isEdit = !!role;
@@ -148,7 +149,225 @@ function RoleFormModal({ open, onOpenChange, role, groupedPermissions, onSuccess
     );
 }
 
-export default function RolesIndex({ roles, grouped_permissions }) {
+function ReportVisibilitySettings({ roles, reports, initialVisibility }) {
+    const [selectedRole, setSelectedRole] = useState(roles[0]?.name || '');
+    const [visibility, setVisibility] = useState(initialVisibility || {});
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        if (initialVisibility) {
+            setVisibility(initialVisibility);
+        }
+    }, [initialVisibility]);
+
+    // Group reports by group
+    const groupedReports = reports.reduce((acc, r) => {
+        if (!acc[r.group]) acc[r.group] = [];
+        acc[r.group].push(r);
+        return acc;
+    }, {});
+
+    const allowedReports = visibility[selectedRole] || [];
+
+    function handleToggleReport(slug) {
+        const current = visibility[selectedRole] || [];
+        const updated = current.includes(slug)
+            ? current.filter((s) => s !== slug)
+            : [...current, slug];
+        
+        setVisibility({
+            ...visibility,
+            [selectedRole]: updated,
+        });
+    }
+
+    function handleToggleGroup(groupReports, checked) {
+        const current = visibility[selectedRole] || [];
+        const groupSlugs = groupReports.map((r) => r.slug);
+        const updated = checked
+            ? [...new Set([...current, ...groupSlugs])]
+            : current.filter((s) => !groupSlugs.includes(s));
+
+        setVisibility({
+            ...visibility,
+            [selectedRole]: updated,
+        });
+    }
+
+    function handleSave() {
+        setSaving(true);
+        router.put(route('roles.report-visibility.update'), {
+            role: selectedRole,
+            allowed_reports: visibility[selectedRole] || [],
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success(`Hak akses laporan untuk role ${roleLabel(selectedRole)} berhasil disimpan.`);
+            },
+            onError: () => {
+                toast.error('Gagal menyimpan hak akses laporan.');
+            },
+            onFinish: () => {
+                setSaving(false);
+            },
+        });
+    }
+
+    return (
+        <Card className="border border-muted/80 shadow-sm bg-card mt-6">
+            <CardHeader className="border-b bg-muted/20">
+                <div className="flex items-center gap-2 text-xl font-semibold">
+                    <BarChart3 className="h-5 w-5 text-primary" /> Pengaturan Hak Akses Laporan
+                </div>
+                <p className="text-sm text-muted-foreground">
+                    Tentukan menu laporan mana saja yang dapat dilihat dan diekspor oleh masing-masing role pengguna.
+                </p>
+            </CardHeader>
+            <CardContent className="p-0">
+                <div className="flex flex-col md:flex-row min-h-[450px]">
+                    {/* Left Pane - Roles List */}
+                    <div className="w-full md:w-72 border-r border-muted bg-muted/10 p-4 space-y-1">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
+                            Pilih Role Pengguna
+                        </div>
+                        {roles.map((role) => (
+                            <button
+                                key={role.name}
+                                type="button"
+                                onClick={() => setSelectedRole(role.name)}
+                                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                                    selectedRole === role.name
+                                        ? 'bg-primary text-primary-foreground shadow-sm'
+                                        : 'text-foreground hover:bg-muted/80'
+                                }`}
+                            >
+                                <span className="tracking-wide">{roleLabel(role.name)}</span>
+                                <Badge 
+                                    variant={selectedRole === role.name ? 'outline' : 'secondary'} 
+                                    className={`text-[10px] ${
+                                        selectedRole === role.name ? 'text-primary-foreground border-primary-foreground/30' : ''
+                                    }`}
+                                >
+                                    {role.users_count} User
+                                </Badge>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Right Pane - Reports Checkbox Grid */}
+                    <div className="flex-1 p-6 flex flex-col justify-between">
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between border-b pb-3">
+                                <div>
+                                    <h4 className="text-base font-semibold tracking-wide text-foreground">
+                                        Hak Akses Laporan - {roleLabel(selectedRole)}
+                                    </h4>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        Centang laporan yang boleh diakses oleh pengguna dengan role ini.
+                                    </p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 text-xs"
+                                        onClick={() => {
+                                            const allSlugs = reports.map(r => r.slug);
+                                            setVisibility({ ...visibility, [selectedRole]: allSlugs });
+                                        }}
+                                    >
+                                        Pilih Semua
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 text-xs"
+                                        onClick={() => {
+                                            setVisibility({ ...visibility, [selectedRole]: [] });
+                                        }}
+                                    >
+                                        Kosongkan
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {Object.entries(groupedReports).map(([group, groupReports]) => {
+                                    const groupSlugs = groupReports.map((r) => r.slug);
+                                    const allChecked = groupSlugs.every((slug) => allowedReports.includes(slug));
+                                    const someChecked = groupSlugs.some((slug) => allowedReports.includes(slug)) && !allChecked;
+
+                                    return (
+                                        <Card key={group} className="border border-muted/80 shadow-none bg-muted/5">
+                                            <CardHeader className="p-3 bg-muted/20 border-b flex flex-row items-center justify-between space-y-0">
+                                                <span className="font-semibold text-xs text-foreground/90 uppercase tracking-wider">{group}</span>
+                                                <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={allChecked}
+                                                        ref={(el) => {
+                                                            if (el) el.indeterminate = someChecked;
+                                                        }}
+                                                        onChange={(e) => handleToggleGroup(groupReports, e.target.checked)}
+                                                        className="h-3.5 w-3.5 rounded border-input text-primary focus:ring-ring"
+                                                    />
+                                                    Pilih Semua
+                                                </label>
+                                            </CardHeader>
+                                            <CardContent className="p-3 space-y-2">
+                                                {groupReports.map((report) => {
+                                                    const isChecked = allowedReports.includes(report.slug);
+                                                    return (
+                                                        <label
+                                                            key={report.slug}
+                                                            className={`flex items-start gap-2.5 p-2 rounded-lg border text-xs cursor-pointer transition ${
+                                                                isChecked
+                                                                    ? 'border-primary/50 bg-primary/5 font-medium'
+                                                                    : 'bg-background hover:bg-muted/30 border-muted'
+                                                            }`}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={() => handleToggleReport(report.slug)}
+                                                                className="h-3.5 w-3.5 mt-0.5 rounded border-input text-primary focus:ring-ring"
+                                                            />
+                                                            <div className="flex-1">
+                                                                <div className="font-medium text-foreground">{report.name}</div>
+                                                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                                                    slug: <code className="bg-muted px-1 py-0.5 rounded text-[9px]">{report.slug}</code>
+                                                                </div>
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="mt-8 pt-4 border-t flex justify-end">
+                            <Button 
+                                onClick={handleSave} 
+                                disabled={saving} 
+                                className="gap-1.5 shadow-sm px-5"
+                            >
+                                <Save className="h-4 w-4" /> 
+                                {saving ? 'Menyimpan...' : `Simpan Hak Akses Laporan - ${roleLabel(selectedRole)}`}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+export default function RolesIndex({ roles, grouped_permissions, reports = [], report_visibility = {} }) {
     const [openForm, setOpenForm] = useState(false);
     const [editingRole, setEditingRole] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
@@ -270,6 +489,12 @@ export default function RolesIndex({ roles, grouped_permissions }) {
                         </div>
                     </CardContent>
                 </Card>
+
+                <ReportVisibilitySettings 
+                    roles={roles}
+                    reports={reports}
+                    initialVisibility={report_visibility}
+                />
             </div>
 
             <RoleFormModal

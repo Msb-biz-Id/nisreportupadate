@@ -33,7 +33,7 @@
             <div style="font-size: 8pt; color: #666;">{{ $config['description'] ?? '' }}</div>
         </div>
         <div class="meta">
-            <div><strong>Generated:</strong> {{ $generated_at->translatedFormat('d M Y, H:i') }}</div>
+            <div><strong>Dibuat:</strong> {{ $generated_at->translatedFormat('d M Y, H:i') }}</div>
             <div><strong>Oleh:</strong> {{ $user->name ?? '-' }}</div>
         </div>
     </div>
@@ -76,33 +76,82 @@
         </thead>
         <tbody>
             @forelse ($rows as $row)
-                <tr>
-                    @foreach ($config['columns'] as $col)
-                        @php
-                            $val = $row[$col['key']] ?? null;
-                            $fmt = $col['format'] ?? null;
-                        @endphp
-                        <td class="{{ in_array($fmt, ['currency', 'number']) ? 'right' : '' }}">
-                            @if ($val === null || $val === '')
-                                -
-                            @elseif ($fmt === 'currency')
-                                Rp {{ number_format((float) $val, 0, ',', '.') }}
-                            @elseif ($fmt === 'number')
-                                {{ number_format((float) $val, 0, ',', '.') }}
-                            @elseif ($fmt === 'date')
-                                {{ \Carbon\Carbon::parse($val)->translatedFormat('d M Y') }}
-                            @elseif ($fmt === 'days_indicator')
-                                @if ((int) $val < 0)
-                                    <span style="color:#DC2626;font-weight:600">{{ abs((int) $val) }} hari telat</span>
-                                @else
-                                    H-{{ (int) $val }}
-                                @endif
-                            @else
-                                {{ $val }}
-                            @endif
+                @if (!empty($row['is_group_header']))
+                    <tr style="background-color: #EFF6FF;">
+                        <td colspan="{{ count($config['columns']) }}" style="font-weight: bold; border-bottom: 2px solid #3B82F6; color: #1D4ED8; font-size: 9.5pt; padding: 6px 8px;">
+                            Deadline: {{ \Carbon\Carbon::parse($row['deadline'])->translatedFormat('d M Y') }}
                         </td>
-                    @endforeach
-                </tr>
+                    </tr>
+                @elseif (!empty($row['is_group_total']))
+                    <tr style="background-color: #F8FAFC; font-weight: bold;">
+                        @foreach ($config['columns'] as $col)
+                            @php
+                                $val = $row[$col['key']] ?? null;
+                                $fmt = $col['format'] ?? null;
+                            @endphp
+                            <td class="{{ in_array($fmt, ['currency', 'number']) ? 'right' : '' }}" style="border-top: 1px solid #CBD5E1; border-bottom: 2px double #94A3B8; padding: 6px 8px; font-weight: bold;">
+                                @if ($col['key'] === 'pelanggan')
+                                    <strong>TOTAL PCS</strong>
+                                @elseif ($col['key'] === 'pcs')
+                                    <strong>{{ number_format((float) $val, 0, ',', '.') }}</strong>
+                                @elseif ($col['key'] === 'deadline')
+                                    &nbsp;
+                                @else
+                                    &nbsp;
+                                @endif
+                            </td>
+                        @endforeach
+                    </tr>
+                @else
+                    <tr>
+                        @foreach ($config['columns'] as $col)
+                            @php
+                                $val = $row[$col['key']] ?? null;
+                                $fmt = $col['format'] ?? null;
+                            @endphp
+                            <td class="{{ in_array($fmt, ['currency', 'number']) ? 'right' : '' }}">
+                                @if ($val === null || $val === '')
+                                    -
+                                @elseif ($fmt === 'currency')
+                                    Rp {{ number_format((float) $val, 0, ',', '.') }}
+                                @elseif ($fmt === 'number')
+                                    {{ number_format((float) $val, 0, ',', '.') }}
+                                @elseif ($fmt === 'date')
+                                    {{ \Carbon\Carbon::parse($val)->translatedFormat('d M Y') }}
+                                @elseif ($fmt === 'days_indicator')
+                                    @if ((int) $val < 0)
+                                        <span style="color:#DC2626;font-weight:600">{{ abs((int) $val) }} hari telat</span>
+                                    @else
+                                        H-{{ (int) $val }}
+                                    @endif
+                                @else
+                                    @if ($col['key'] === 'status')
+                                        @php
+                                            $statusLabels = [
+                                                'draft' => 'Draft',
+                                                'validated' => 'Validasi',
+                                                'published' => 'Baru Masuk',
+                                                'on_progress' => 'Sedang Produksi',
+                                                'selesai_produksi' => 'Selesai Produksi',
+                                                'siap_dikirim' => 'Siap Dikirim',
+                                                'sudah_dikirim' => 'Sudah Dikirim',
+                                                'delay' => 'Tertunda (Delay)',
+                                                'hold' => 'Ditahan (Hold)',
+                                                'cancel' => 'Dibatalkan',
+                                                'paid' => 'Lunas',
+                                                'overdue' => 'Jatuh Tempo',
+                                                'sent' => 'Dikirim',
+                                            ];
+                                            echo $statusLabels[$val] ?? str_replace('_', ' ', $val);
+                                        @endphp
+                                    @else
+                                        {{ $val }}
+                                    @endif
+                                @endif
+                            </td>
+                        @endforeach
+                    </tr>
+                @endif
             @empty
                 <tr><td colspan="{{ count($config['columns']) }}" style="text-align:center;color:#999;padding:20px">Tidak ada data</td></tr>
             @endforelse

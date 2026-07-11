@@ -836,7 +836,7 @@
                         @php $svc = $ns->sizeCelana ? $ns->sizeCelana->ukuran : trim(last(explode('-', $ns->size_celana_label ?? ''))); @endphp
                         <td>{!! \App\Support\PdfHelper::formatText($svc) !!}</td>
                         @elseif($col['type'] === 'keterangan')
-                        <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns->keterangan) !!}</td>
+                        <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->keterangan) !!}</td>
                         @endif
                         @endforeach
                     </tr>
@@ -1071,7 +1071,7 @@
                         @php $svc = $ns->sizeCelana ? $ns->sizeCelana->ukuran : trim(last(explode('-', $ns->size_celana_label ?? ''))); @endphp
                         <td>{!! \App\Support\PdfHelper::formatText($svc) !!}</td>
                         @elseif($col['type'] === 'keterangan')
-                        <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns->keterangan) !!}</td>
+                        <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->keterangan) !!}</td>
                         @endif
                         @endforeach
                     </tr>

@@ -14,13 +14,6 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\Auth\OtpChallengeController;
 use Illuminate\Support\Facades\Route;
 
-// 2FA Challenge (disabled)
-// Route::get('two-factor-challenge', [TwoFactorChallengeController::class, 'show'])
-//     ->name('two-factor.challenge');
-// Route::post('two-factor-challenge', [TwoFactorChallengeController::class, 'store'])
-//     ->name('two-factor.challenge.store')
-//     ->middleware('throttle:5,1');
-
 Route::middleware('guest')->group(function () {
     Route::get('otp-challenge', [OtpChallengeController::class, 'show'])
         ->name('otp.challenge');

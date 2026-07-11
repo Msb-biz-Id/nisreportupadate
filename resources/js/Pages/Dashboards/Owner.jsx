@@ -1,13 +1,16 @@
-import { router } from '@inertiajs/react';
+import { useState } from 'react';
+import { router, usePage } from '@inertiajs/react';
 import Chart from '@/Components/Chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Badge } from '@/Components/ui/badge';
-import { StatGrid, StatusBreakdown, TopList, POListWidget } from '@/Components/Widgets';
+import { StatGrid, StatusBreakdown, TopList, POListWidget, POSiapDikirimWidget } from '@/Components/Widgets';
 import { formatRupiah } from '@/lib/utils';
 import { Target } from 'lucide-react';
 
 export default function Owner({ stats }) {
+    const { app } = usePage().props;
+    const targetView = app?.target_view || 'pcs'; // 'both', 'revenue', 'pcs'
     const trend       = stats.trend_harian ?? [];
     const trendDates  = trend.map((t) => new Date(t.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }));
     const trendValues = trend.map((t) => t.count);
@@ -30,6 +33,7 @@ export default function Owner({ stats }) {
     const trendBulananPcs    = trendBulanan.map((tb) => tb.total_pcs);
 
     const currentBrandId = stats.current_brand_id ?? 'all';
+    const progressDist = stats.progress_distribution ?? [];
 
     function changeBrand(v) {
         const params = { brand_id: v };
@@ -60,78 +64,93 @@ export default function Owner({ stats }) {
             {/* KPI Cards */}
             <StatGrid cards={stats.cards ?? []} />
 
-            {/* Target Progress Cards */}
+            {/* Target Progress Section */}
             {stats.target_progress && (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <Card className="bg-gradient-to-br from-indigo-50/50 to-white border-l-4 border-indigo-600">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                                <Target className="h-4 w-4 text-indigo-600" /> Target Omset Bulan Ini ({stats.target_progress.month_name})
-                            </CardTitle>
-                            <CardDescription>Realisasi omset penjualan dibandingkan target.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div className="flex items-baseline justify-between">
-                                <span className="text-2xl font-black text-slate-800 font-mono">
-                                    {formatRupiah(stats.target_progress.actual_revenue)}
-                                </span>
-                                <span className="text-xs text-muted-foreground font-semibold">
-                                    dari target {formatRupiah(stats.target_progress.target_revenue)}
-                                </span>
-                            </div>
-                            <div className="space-y-1">
-                                <div className="flex justify-between text-xs font-bold text-indigo-700">
-                                    <span>Pencapaian</span>
-                                    <span>
-                                        {stats.target_progress.target_revenue > 0 
-                                            ? `${stats.target_progress.revenue_percentage}%` 
-                                            : 'Belum ada target'}
-                                    </span>
-                                </div>
-                                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
-                                    <div 
-                                        className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
-                                        style={{ width: `${stats.target_progress.target_revenue > 0 ? Math.min(100, stats.target_progress.revenue_percentage) : 0}%` }} 
-                                    />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                <div className="space-y-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                                <Target className="h-4 w-4 text-indigo-650" /> Target Bulanan ({stats.target_progress.month_name})
+                            </h3>
+                            <p className="text-xs text-muted-foreground">Monitor pencapaian target bulanan Anda.</p>
+                        </div>
+                    </div>
 
-                    <Card className="bg-gradient-to-br from-emerald-50/50 to-white border-l-4 border-emerald-500">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                                <Target className="h-4 w-4 text-emerald-500" /> Target Qty (Pcs) Bulan Ini ({stats.target_progress.month_name})
-                            </CardTitle>
-                            <CardDescription>Realisasi quantity produk terjual dibandingkan target.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div className="flex items-baseline justify-between">
-                                <span className="text-2xl font-black text-slate-800 font-mono">
-                                    {stats.target_progress.actual_pcs.toLocaleString('id-ID')} Pcs
-                                </span>
-                                <span className="text-xs text-muted-foreground font-semibold">
-                                    dari target {stats.target_progress.target_pcs.toLocaleString('id-ID')} Pcs
-                                </span>
-                            </div>
-                            <div className="space-y-1">
-                                <div className="flex justify-between text-xs font-bold text-emerald-700">
-                                    <span>Pencapaian</span>
-                                    <span>
-                                        {stats.target_progress.target_pcs > 0 
-                                            ? `${stats.target_progress.pcs_percentage}%` 
-                                            : 'Belum ada target'}
-                                    </span>
-                                </div>
-                                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
-                                    <div 
-                                        className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
-                                        style={{ width: `${stats.target_progress.target_pcs > 0 ? Math.min(100, stats.target_progress.pcs_percentage) : 0}%` }} 
-                                    />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <div className={`grid grid-cols-1 gap-4 ${targetView === 'both' ? 'md:grid-cols-2' : ''}`}>
+                        {(targetView === 'both' || targetView === 'revenue') && (
+                            <Card className="bg-gradient-to-br from-indigo-50/50 to-white border-l-4 border-indigo-600">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                                        <Target className="h-4 w-4 text-indigo-600" /> Target Omset Bulan Ini ({stats.target_progress.month_name})
+                                    </CardTitle>
+                                    <CardDescription>Realisasi omset penjualan dibandingkan target.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <div className="flex items-baseline justify-between">
+                                        <span className="text-2xl font-black text-slate-800 font-mono">
+                                            {formatRupiah(stats.target_progress.actual_revenue)}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground font-semibold">
+                                            dari target {formatRupiah(stats.target_progress.target_revenue)}
+                                        </span>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between text-xs font-bold text-indigo-700">
+                                            <span>Pencapaian</span>
+                                            <span>
+                                                {stats.target_progress.target_revenue > 0 
+                                                    ? `${stats.target_progress.revenue_percentage}%` 
+                                                    : 'Belum ada target'}
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
+                                            <div 
+                                                className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
+                                                style={{ width: `${stats.target_progress.target_revenue > 0 ? Math.min(100, stats.target_progress.revenue_percentage) : 0}%` }} 
+                                            />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {(targetView === 'both' || targetView === 'pcs') && (
+                            <Card className="bg-gradient-to-br from-emerald-50/50 to-white border-l-4 border-emerald-500">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                                        <Target className="h-4 w-4 text-emerald-500" /> Target Qty (Pcs) Bulan Ini ({stats.target_progress.month_name})
+                                    </CardTitle>
+                                    <CardDescription>Realisasi quantity produk terjual dibandingkan target.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <div className="flex items-baseline justify-between">
+                                        <span className="text-2xl font-black text-slate-800 font-mono">
+                                            {stats.target_progress.actual_pcs.toLocaleString('id-ID')} Pcs
+                                        </span>
+                                        <span className="text-xs text-muted-foreground font-semibold">
+                                            dari target {stats.target_progress.target_pcs.toLocaleString('id-ID')} Pcs
+                                        </span>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between text-xs font-bold text-emerald-700">
+                                            <span>Pencapaian</span>
+                                            <span>
+                                                {stats.target_progress.target_pcs > 0 
+                                                    ? `${stats.target_progress.pcs_percentage}%` 
+                                                    : 'Belum ada target'}
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
+                                            <div 
+                                                className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+                                                style={{ width: `${stats.target_progress.target_pcs > 0 ? Math.min(100, stats.target_progress.pcs_percentage) : 0}%` }} 
+                                            />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -155,6 +174,30 @@ export default function Owner({ stats }) {
                 </Card>
                 <StatusBreakdown items={stats.status_breakdown ?? []} />
             </div>
+
+            {/* Tahapan Progress */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Tahapan Progress Produksi</CardTitle>
+                    <CardDescription>Jumlah PO yang sedang dikerjakan di setiap tahapan progress.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {progressDist.length === 0 ? (
+                        <p className="py-6 text-center text-sm text-muted-foreground">Tidak ada tahapan aktif saat ini.</p>
+                    ) : (
+                        <Chart
+                            type="bar"
+                            height={260}
+                            series={[{ name: 'PO on-progress', data: progressDist.map((r) => r.count) }]}
+                            options={{
+                                plotOptions: { bar: { borderRadius: 6, columnWidth: '55%' } },
+                                xaxis: { categories: progressDist.map((r) => r.label), labels: { rotate: -20, style: { fontSize: '10px' } } },
+                                colors: ['#F59E0B'],
+                            }}
+                        />
+                    )}
+                </CardContent>
+            </Card>
 
             {/* Grafik Bulanan */}
             {trendBulanan.length > 0 && (
@@ -340,6 +383,11 @@ export default function Owner({ stats }) {
                         valueLabel="order"
                     />
                 </div>
+            </div>
+
+            {/* PO Siap Dikirim Section */}
+            <div className="mb-4">
+                <POSiapDikirimWidget items={stats.po_siap_dikirim ?? []} />
             </div>
 
             {/* PO Alerts */}

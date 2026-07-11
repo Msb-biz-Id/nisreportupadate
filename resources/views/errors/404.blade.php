@@ -1,11 +1,25 @@
+@php
+    $themeColor = \App\Models\Settings\SystemSetting::get('system', 'theme_color', '#a8001c');
+    $faviconPath = \App\Models\Settings\SystemSetting::get('seo', 'favicon');
+    $faviconUrl = $faviconPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($faviconPath) : asset('favicon.ico');
+    $appName = \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'Circle Sportwear - Tracking PO'));
+@endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <title>404 - Halaman Tidak Ditemukan</title>
+    <title>404 - Halaman Tidak Ditemukan | {{ $appName }}</title>
     
+    @if(\Illuminate\Support\Str::endsWith($faviconUrl, '.svg'))
+        <link rel="icon" type="image/svg+xml" href="{{ $faviconUrl }}">
+    @elseif(\Illuminate\Support\Str::endsWith($faviconUrl, '.png'))
+        <link rel="icon" type="image/png" href="{{ $faviconUrl }}">
+    @else
+        <link rel="icon" type="image/x-icon" href="{{ $faviconUrl }}">
+    @endif
+
     <!-- Google Fonts: Outfit & Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,6 +32,9 @@
         tailwind.config = {
             theme: {
                 extend: {
+                    colors: {
+                        primary: '{{ $themeColor }}',
+                    },
                     fontFamily: {
                         sans: ['"Plus Jakarta Sans"', 'sans-serif'],
                         outfit: ['"Outfit"', 'sans-serif'],
@@ -43,25 +60,25 @@
         }
     </style>
 </head>
-<body class="font-sans antialiased text-slate-800 min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-gradient-to-tr from-slate-50 via-white to-blue-50/50">
+<body class="font-sans antialiased text-slate-800 min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-gradient-to-tr from-slate-50 via-white to-primary/5">
     
     <!-- Decorative background elements -->
-    <div class="absolute -top-40 -left-40 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
 
     <div class="max-w-md w-full px-6 py-12 text-center relative z-10">
         <!-- Floating Illustration / Icon -->
         <div class="mb-8 relative flex justify-center animate-float">
-            <div class="absolute inset-0 bg-blue-500/5 blur-2xl rounded-full scale-75"></div>
+            <div class="absolute inset-0 bg-primary/5 blur-2xl rounded-full scale-75"></div>
             <div class="relative bg-white border border-slate-100/80 rounded-3xl p-6 shadow-xl shadow-slate-100 flex items-center justify-center">
-                <svg class="h-16 w-16 text-blue-600 animate-pulse-slow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <svg class="h-16 w-16 text-primary animate-pulse-slow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             </div>
         </div>
 
         <!-- Huge 404 Text -->
-        <h1 class="font-outfit text-8xl font-black tracking-tight bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-800 bg-clip-text text-transparent select-none drop-shadow-sm leading-none">
+        <h1 class="font-outfit text-8xl font-black tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent select-none drop-shadow-sm leading-none">
             404
         </h1>
         
@@ -75,7 +92,7 @@
 
         <!-- Actions -->
         <div class="mt-8 flex flex-col gap-3">
-            <a href="/" class="inline-flex items-center justify-center gap-2 rounded-2xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 py-3.5 px-6 shadow-md shadow-blue-500/10 transition-all duration-200 hover:-translate-y-0.5">
+            <a href="/" class="inline-flex items-center justify-center gap-2 rounded-2xl text-sm font-bold text-white bg-primary hover:opacity-90 active:opacity-80 py-3.5 px-6 shadow-md shadow-primary/15 transition-all duration-200 hover:-translate-y-0.5">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                 </svg>

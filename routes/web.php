@@ -25,14 +25,14 @@ use App\Http\Controllers\UploadController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\BrandTargetController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-    ]);
+    if (Auth::check()) {
+        return redirect()->route('dashboard');
+    }
+    return redirect()->route('login');
 });
 
 
@@ -77,6 +77,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('roles')->name('roles.')->group(function () {
         Route::get('/', [\App\Http\Controllers\RoleController::class, 'index'])->name('index');
         Route::post('/', [\App\Http\Controllers\RoleController::class, 'store'])->name('store');
+        Route::put('/report-visibility', [\App\Http\Controllers\RoleController::class, 'updateReportVisibility'])->name('report-visibility.update');
         Route::put('/{role}', [\App\Http\Controllers\RoleController::class, 'update'])->name('update');
         Route::delete('/{role}', [\App\Http\Controllers\RoleController::class, 'destroy'])->name('destroy');
     });
@@ -257,10 +258,6 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // 2FA Management (disabled)
-    // Route::get('/two-factor/setup', [TwoFactorController::class, 'setup'])->name('two-factor.setup');
-    // Route::post('/two-factor/enable', [TwoFactorController::class, 'enable'])->name('two-factor.enable');
-    // Route::post('/two-factor/disable', [TwoFactorController::class, 'disable'])->name('two-factor.disable');
 });
 
 require __DIR__ . '/auth.php';

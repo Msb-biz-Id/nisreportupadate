@@ -128,7 +128,11 @@ class Brand extends Model
         if ($this->parent_brand_id) {
             $parent = $this->parentBrand()->first() ?? $this->parentBrand;
             if ($parent) {
-                return $parent->getHeaderBrand();
+                $thisIsReseller = $this->isResellerHub() || $this->isResellerBranch();
+                $parentIsReseller = $parent->isResellerHub() || $parent->isResellerBranch();
+                if ($thisIsReseller === $parentIsReseller) {
+                    return $parent->getHeaderBrand();
+                }
             }
         }
 
@@ -136,52 +140,61 @@ class Brand extends Model
             $globalBrand = new self();
             $globalBrand->id = $this->id;
             
-            $parent = $this->parent_brand_id ? $this->parentBrand : null;
+            $parent = $this->parent_brand_id ? ($this->parentBrand()->first() ?? $this->parentBrand) : null;
+            $useParent = $parent && (($parent->isResellerHub() || $parent->isResellerBranch()) === ($this->isResellerHub() || $this->isResellerBranch()));
 
             $globalBrand->nama_brand = $this->nama_brand 
-                ?: ($parent?->nama_brand 
-                    ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'nama_brand') 
-                        ?: (\App\Models\Settings\SystemSetting::get('seo', 'site_name') ?: 'Circle Sportwear')));
+                ?: ($useParent ? $parent->nama_brand : null)
+                ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'nama_brand') 
+                    ?: (\App\Models\Settings\SystemSetting::get('seo', 'site_name') ?: 'Circle Sportwear'));
             
+            $resellerLogo = \App\Models\Settings\SystemSetting::get('reseller_branding', 'logo');
+            if ($resellerLogo === 'logo.svg') {
+                $resellerLogo = null;
+            }
+
             $globalBrand->logo = $this->logo 
-                ?: ($parent?->logo 
-                    ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'logo') 
-                        ?: \App\Models\Settings\SystemSetting::get('seo', 'logo')));
+                ?: ($useParent ? $parent->logo : null)
+                ?: $resellerLogo;
             
             $globalBrand->tagline = $this->tagline 
-                ?: ($parent?->tagline 
-                    ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'tagline') 
-                        ?: (\App\Models\Settings\SystemSetting::get('seo', 'site_description') ?: 'Premium Activewear & Apparel')));
+                ?: ($useParent ? $parent->tagline : null)
+                ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'tagline') 
+                    ?: (\App\Models\Settings\SystemSetting::get('seo', 'site_description') ?: 'Premium Activewear & Apparel'));
             
             $globalBrand->email = $this->email 
-                ?: ($parent?->email 
-                    ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'email') 
-                        ?: (\App\Models\Settings\SystemSetting::get('mail', 'mail_from_address') ?: 'cs@circlesportwear.id')));
+                ?: ($useParent ? $parent->email : null)
+                ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'email') 
+                    ?: (\App\Models\Settings\SystemSetting::get('mail', 'mail_from_address') ?: 'cs@circlesportwear.id'));
             
             $globalBrand->no_hp = $this->no_hp 
-                ?: ($parent?->no_hp 
-                    ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'no_hp') 
-                        ?: (\App\Models\Settings\SystemSetting::get('whatsapp', 'sender_phone') ?: '08123456789')));
+                ?: ($useParent ? $parent->no_hp : null)
+                ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'no_hp') 
+                    ?: (\App\Models\Settings\SystemSetting::get('whatsapp', 'sender_phone') ?: '08123456789'));
 
             $globalBrand->alamat = $this->alamat 
-                ?: ($parent?->alamat 
-                    ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'alamat'));
+                ?: ($useParent ? $parent->alamat : null)
+                ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'alamat');
 
             $globalBrand->instagram = $this->instagram 
-                ?: ($parent?->instagram 
-                    ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'instagram'));
+                ?: ($useParent ? $parent->instagram : null)
+                ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'instagram');
 
             $globalBrand->tiktok = $this->tiktok 
-                ?: ($parent?->tiktok 
-                    ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'tiktok'));
+                ?: ($useParent ? $parent->tiktok : null)
+                ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'tiktok');
 
             $globalBrand->facebook = $this->facebook 
-                ?: ($parent?->facebook 
-                    ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'facebook'));
+                ?: ($useParent ? $parent->facebook : null)
+                ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'facebook');
 
             $globalBrand->website = $this->website 
-                ?: ($parent?->website 
-                    ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'website'));
+                ?: ($useParent ? $parent->website : null)
+                ?: \App\Models\Settings\SystemSetting::get('reseller_branding', 'website');
+            
+            $globalBrand->warna_primary = $this->warna_primary 
+                ?: ($useParent ? $parent->warna_primary : null)
+                ?: '#1E40AF';
             
             $globalBrand->alamat = $globalBrand->alamat ?: 'Bandung, Indonesia';
             
