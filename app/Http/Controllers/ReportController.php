@@ -220,6 +220,16 @@ class ReportController extends Controller
             $config['chart']['title'] = 'Top Wilayah by Order (' . ucfirst($level) . ')';
         }
 
+        if ($slug === 'kinerja-produksi') {
+            $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+            $cols = $config['columns'];
+            foreach ($progresses as $p) {
+                $key = 'progress_' . strtolower(str_replace(' ', '_', $p->nama_progress));
+                $cols[] = ['key' => $key, 'label' => $p->nama_progress, 'format' => 'badge'];
+            }
+            $config['columns'] = $cols;
+        }
+
         return $config;
     }
 

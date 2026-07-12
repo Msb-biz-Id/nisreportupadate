@@ -646,6 +646,10 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
     }
 
     function publish() {
+        if (!order.is_free_ongkir && Number(order.ongkir) <= 0) {
+            alert('PO tidak bisa diterbitkan. Harap edit PO terlebih dahulu untuk mengisi Biaya Ongkir atau mengaktifkan Gratis Ongkir.');
+            return;
+        }
         if (!isDpSufficient) {
             alert(
                 `PO tidak bisa diterbitkan.\n\n` +
@@ -801,20 +805,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-52 bg-white border border-slate-200 p-1 shadow-md rounded-lg z-50">
-                                        {/* Toggle Free Ongkir */}
-                                        {can?.edit && order.status_po !== 'selesai' && (
-                                            <DropdownMenuItem
-                                                onClick={() => {
-                                                    if (confirm(order.is_free_ongkir ? 'Batalkan status Free Ongkir untuk PO ini?' : 'Set Free Ongkir untuk PO ini?')) {
-                                                        router.post(route('orders.toggle-free-ongkir', order.id), {}, { preserveScroll: true });
-                                                    }
-                                                }}
-                                                className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md"
-                                            >
-                                                <Truck className="h-4 w-4 text-slate-400" />
-                                                {order.is_free_ongkir ? 'Batal Free Ongkir' : 'Set Free Ongkir'}
-                                            </DropdownMenuItem>
-                                        )}
+
 
                                         {/* Bypass DP */}
                                         {can?.bypass_dp && order.status_po === 'draft' && (!isDpSufficient || order.is_dp_bypassed) && (
@@ -1342,8 +1333,19 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     {order.is_free_ongkir ? (
                                         <div className="flex justify-between text-emerald-600 font-medium"><span className="text-muted-foreground text-emerald-600">Ongkir</span><span className="font-mono">Gratis Ongkir</span></div>
                                     ) : (
-                                        (invoice?.biaya_pengiriman > 0 || (ongkirPayments && ongkirPayments.reduce((s, x) => s + Number(x.amount), 0) > 0)) && (
-                                            <div className="flex justify-between"><span className="text-muted-foreground">Ongkir</span><span className="font-mono">+ {formatRupiah(invoice?.biaya_pengiriman > 0 ? Number(invoice.biaya_pengiriman) : ongkirPayments.reduce((s, x) => s + Number(x.amount), 0))}</span></div>
+                                        (Number(order.ongkir) > 0 || invoice?.biaya_pengiriman > 0 || (ongkirPayments && ongkirPayments.reduce((s, x) => s + Number(x.amount), 0) > 0)) && (
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Ongkir</span>
+                                                <span className="font-mono">
+                                                    + {formatRupiah(
+                                                        Number(order.ongkir) > 0 
+                                                            ? Number(order.ongkir) 
+                                                            : (invoice?.biaya_pengiriman > 0 
+                                                                ? Number(invoice.biaya_pengiriman) 
+                                                                : ongkirPayments.reduce((s, x) => s + Number(x.amount), 0))
+                                                    )}
+                                                </span>
+                                            </div>
                                         )
                                     )}
                                     {totalAddition > 0 && (

@@ -143,6 +143,8 @@ class Brand extends Model
             $parent = $this->parent_brand_id ? ($this->parentBrand()->first() ?? $this->parentBrand) : null;
             $useParent = $parent && (($parent->isResellerHub() || $parent->isResellerBranch()) === ($this->isResellerHub() || $this->isResellerBranch()));
 
+            $globalBrand->kode = $this->kode ?: ($useParent ? $parent->kode : null);
+
             $globalBrand->nama_brand = $this->nama_brand 
                 ?: ($useParent ? $parent->nama_brand : null)
                 ?: (\App\Models\Settings\SystemSetting::get('reseller_branding', 'nama_brand') 

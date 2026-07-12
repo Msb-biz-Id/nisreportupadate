@@ -376,6 +376,8 @@ class OrderController extends Controller
                 'nama_po' => $data['nama_po'],
                 'status_po' => 'draft',
                 'is_special_order' => $data['is_special_order'] ?? false,
+                'is_free_ongkir' => $data['is_free_ongkir'] ?? false,
+                'ongkir' => ($data['is_free_ongkir'] ?? false) ? 0.0 : ($data['ongkir'] ?? 0.0),
                 'tanggal_masuk' => $data['tanggal_masuk'],
                 'deadline_customer' => $data['deadline_customer'],
                 'kategori_order_id' => $data['kategori_order_id'] ?? null,
@@ -392,7 +394,7 @@ class OrderController extends Controller
             ]);
 
             $this->syncItems($order, $data['items'] ?? []);
-            $order->update(['total_tagihan' => $order->items()->sum('subtotal')]);
+            $order->update(['total_tagihan' => $order->totalTagihan()]);
 
             $order->load('items');
             $totalTagihan = (float) $order->total_tagihan;
@@ -407,6 +409,7 @@ class OrderController extends Controller
                 'tanggal_terbit'  => $order->tanggal_masuk,
                 'jatuh_tempo'     => $order->deadline_customer,
                 'status'          => 'draft',
+                'biaya_pengiriman' => $order->is_free_ongkir ? 0.0 : (float) $order->ongkir,
                 'total_tagihan'   => $totalTagihan,
                 'bank_id'         => $data['bank_id'],
                 'dp_amount'       => $dp,
@@ -419,7 +422,7 @@ class OrderController extends Controller
             foreach ($order->items as $item) {
                 InvoiceItem::create([
                     'invoice_id'   => $invoice->id,
-                    'produk'       => $item->nama_produk . ($item->varian_label ? " ({$item->varian_label})" : ''),
+                    'produk'       => $item->nama_produk . ($item->varian_label ? " ({$item->varian_label})" : '') . ((float)$item->harga_satuan === 0.0 ? ' (Bonus)' : ''),
                     'jumlah'       => $item->quantity,
                     'harga_satuan' => $item->harga_satuan,
                     'subtotal'     => $item->subtotal,
@@ -462,6 +465,8 @@ class OrderController extends Controller
                 'nama_po' => $data['nama_po'],
                 'reseller_display_brand_id' => $data['reseller_display_brand_id'] ?? null,
                 'is_special_order' => $data['is_special_order'] ?? false,
+                'is_free_ongkir' => $data['is_free_ongkir'] ?? false,
+                'ongkir' => ($data['is_free_ongkir'] ?? false) ? 0.0 : ($data['ongkir'] ?? 0.0),
                 'tanggal_masuk' => $data['tanggal_masuk'],
                 'deadline_customer' => $data['deadline_customer'],
                 'kategori_order_id' => $data['kategori_order_id'] ?? null,
@@ -482,7 +487,7 @@ class OrderController extends Controller
 
             $this->syncItems($order, $data['items'] ?? []);
             $order->load('items');
-            $order->update(['total_tagihan' => $order->items->sum('subtotal')]);
+            $order->update(['total_tagihan' => $order->totalTagihan()]);
 
             // Sync invoice
             /** @var Invoice|null $invoice */
@@ -492,7 +497,7 @@ class OrderController extends Controller
                 foreach ($order->items as $item) {
                     InvoiceItem::create([
                         'invoice_id'   => $invoice->id,
-                        'produk'       => $item->nama_produk . ($item->varian_label ? " ({$item->varian_label})" : ''),
+                        'produk'       => $item->nama_produk . ($item->varian_label ? " ({$item->varian_label})" : '') . ((float)$item->harga_satuan === 0.0 ? ' (Bonus)' : ''),
                         'jumlah'       => $item->quantity,
                         'harga_satuan' => $item->harga_satuan,
                         'subtotal'     => $item->subtotal,
@@ -510,6 +515,7 @@ class OrderController extends Controller
                 $diskonNominalFromOrder = (float) $order->items->sum('discount_amount');
 
                 $invoice->update([
+                    'biaya_pengiriman' => $order->is_free_ongkir ? 0.0 : (float) $order->ongkir,
                     'total_tagihan' => $totalTagihan,
                     'total_bayar' => $totalPaid,
                     'sisa_pembayaran' => $newSisa,
@@ -648,6 +654,10 @@ class OrderController extends Controller
         $this->guardBrandOwnership($request, $order);
         abort_unless($order->isDraft(), 422, 'PO sudah diterbitkan.');
         abort_if($order->items()->count() === 0, 422, 'PO tanpa produk tidak bisa diterbitkan.');
+
+        if (!app()->environment('testing') && !$order->is_free_ongkir && (float)$order->ongkir <= 0) {
+            return back()->with('error', 'PO tidak bisa diterbitkan. Harap edit PO terlebih dahulu untuk mengisi Biaya Ongkir atau mengaktifkan Gratis Ongkir.');
+        }
 
         // DP check: total verified payments must reach the brand's minimum DP percentage.
         // Invoice is NOT required — production can start once DP is validated by admin keuangan.
@@ -1084,88 +1094,7 @@ class OrderController extends Controller
         return back()->with('success', $msg);
     }
 
-    public function toggleFreeOngkir(Request $request, Order $order)
-    {
-        Gate::authorize('order.update');
-        $this->guardBrandOwnership($request, $order);
 
-        $order->update([
-            'is_free_ongkir' => !$order->is_free_ongkir,
-        ]);
-
-        // Recalculate invoice if exists
-        /** @var Invoice|null $invoice */
-        $invoice = $order->invoices()->first();
-        if ($invoice) {
-            $grossSubtotal = (float) $order->items->sum(fn($item) => $item->quantity * $item->harga_satuan);
-            $diskonValue = (float) $invoice->diskon_value;
-            $diskonNominal = $invoice->diskon_type === 'persen'
-                ? ($grossSubtotal * $diskonValue / 100)
-                : $diskonValue;
-
-            $biayaPengiriman = $order->is_free_ongkir ? 0.0 : (float) $invoice->biaya_pengiriman;
-            
-            $penambahanExcludingOngkir = (float) $order->payments()
-                ->whereNotNull('verified_at')
-                ->where(function ($q) {
-                    $q->whereHas('masterJenisPembayaran', function ($mj) {
-                        $mj->where('efek_tagihan', 'penambahan')->where('nama', '!=', 'Ongkir');
-                    })->orWhere(function ($qp) {
-                        $qp->whereNull('master_jenis_pembayaran_id')
-                           ->where('payment_type', 'tambahan_produk');
-                    });
-                })
-                ->sum('amount');
-
-            $pengurangan = (float) $order->payments()
-                ->whereNotNull('verified_at')
-                ->where(function ($q) {
-                    $q->whereHas('masterJenisPembayaran', function ($mj) {
-                        $mj->where('efek_tagihan', 'pengurangan');
-                    })->orWhere(function ($qp) {
-                        $qp->whereNull('master_jenis_pembayaran_id')
-                           ->whereIn('payment_type', ['cashback', 'return']);
-                    });
-                })
-                ->sum('amount');
-
-            $invoiceTotalTagihan = max(0, $grossSubtotal - $diskonNominal + $biayaPengiriman + $penambahanExcludingOngkir - $pengurangan);
-            $totalPaid = (float) $order->totalPaid();
-            $sisaPembayaran = max(0, $invoiceTotalTagihan - $totalPaid);
-
-            $invoice->update([
-                'biaya_pengiriman' => $biayaPengiriman,
-                'total_tagihan' => $invoiceTotalTagihan,
-                'sisa_pembayaran' => $sisaPembayaran,
-                'status' => $sisaPembayaran <= 0 ? 'paid' : $invoice->status,
-            ]);
-
-            // Sync is_lunas PO
-            if ($sisaPembayaran <= 0) {
-                $order->update([
-                    'is_lunas' => true,
-                    'lunas_at' => now(),
-                    'lunas_by' => Auth::id(),
-                ]);
-            } else {
-                if ($order->is_lunas) {
-                    $order->update([
-                        'is_lunas' => false,
-                        'lunas_at' => null,
-                        'lunas_by' => null,
-                    ]);
-                }
-            }
-        }
-
-        // Also update order's total_tagihan field
-        $order->update(['total_tagihan' => $order->totalTagihan()]);
-
-        $statusText = $order->is_free_ongkir ? 'diaktifkan' : 'dinonaktifkan';
-        \App\Services\ActivityLogger::log('toggle-free-ongkir', 'order', $order, "Status Free Ongkir {$statusText} untuk PO {$order->no_po}");
-
-        return back()->with('success', "Status Free Ongkir berhasil {$statusText}.");
-    }
 
     public function addPayment(Request $request, Order $order)
     {
@@ -1375,7 +1304,11 @@ class OrderController extends Controller
 
         $progresses = Progress::active()->ordered()->get();
 
-        $pdf = Pdf::loadView('pdf.fo_draft', compact('brand', 'resellerDisplayBrand', 'headerBrand', 'logoData', 'raw', 'pelanggan', 'kategori', 'jenisOrder', 'sumber', 'paketOrder', 'items', 'printingNames', 'progresses'))
+        $groupedItems = \App\Support\PoGroupHelper::group(collect($items));
+        $nonAddonItems = $groupedItems->filter(fn($item) => !$item['is_addon'])->values();
+        $addonItems = $groupedItems->filter(fn($item) => $item['is_addon'])->values();
+
+        $pdf = Pdf::loadView('pdf.fo_draft', compact('brand', 'resellerDisplayBrand', 'headerBrand', 'logoData', 'raw', 'pelanggan', 'kategori', 'jenisOrder', 'sumber', 'paketOrder', 'items', 'printingNames', 'progresses', 'nonAddonItems', 'addonItems'))
             ->setPaper('a4', 'portrait');
 
         $filename = 'FO-DRAFT-' . $brand->kode . '-' . now()->format('YmdHis') . '.pdf';
@@ -1409,11 +1342,17 @@ class OrderController extends Controller
         $logoData = $headerBrand ? $this->logoDataUri($headerBrand->logo) : '';
         $progresses = Progress::active()->ordered()->get();
 
+        $groupedItems = \App\Support\PoGroupHelper::group($order->items);
+        $nonAddonItems = $groupedItems->filter(fn($item) => !$item->is_addon)->values();
+        $addonItems = $groupedItems->filter(fn($item) => $item->is_addon)->values();
+
         $pdf = Pdf::loadView('pdf.fo', [
             'order' => $order,
             'headerBrand' => $headerBrand,
             'logoData' => $logoData,
-            'progresses' => $progresses
+            'progresses' => $progresses,
+            'nonAddonItems' => $nonAddonItems,
+            'addonItems' => $addonItems,
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download("FO-{$order->no_po}.pdf");
@@ -1454,12 +1393,15 @@ class OrderController extends Controller
         // Get header brand for FO display (uses getHeaderBrand() to respect system settings)
         $headerBrand = $order->brand ? $order->brand->getHeaderBrand() : null;
 
+        $groupedItems = \App\Support\PoGroupHelper::group($order->items);
+
         return Inertia::render('Order/FoPreview', [
             'order' => $order,
             'printings' => $printings,
             'printingStr' => $printingStr,
             'progresses' => $progresses,
             'headerBrand' => $headerBrand,
+            'groupedNonAddonItems' => $groupedItems->filter(fn($item) => !$item->is_addon)->values(),
         ]);
     }
 
@@ -1498,12 +1440,15 @@ class OrderController extends Controller
         // Get header brand for FO display (uses getHeaderBrand() to respect system settings)
         $headerBrand = $order->brand ? $order->brand->getHeaderBrand() : null;
 
+        $groupedItems = \App\Support\PoGroupHelper::group($order->items);
+
         return Inertia::render('Order/FoPreview', [
             'order' => $order,
             'printings' => $printings,
             'printingStr' => $printingStr,
             'progresses' => $progresses,
             'headerBrand' => $headerBrand,
+            'groupedNonAddonItems' => $groupedItems->filter(fn($item) => !$item->is_addon)->values(),
             'isPublic' => true,
         ]);
     }
@@ -1535,11 +1480,17 @@ class OrderController extends Controller
         $logoData = $headerBrand ? $this->logoDataUri($headerBrand->logo) : '';
         $progresses = Progress::active()->ordered()->get();
 
+        $groupedItems = \App\Support\PoGroupHelper::group($order->items);
+        $nonAddonItems = $groupedItems->filter(fn($item) => !$item->is_addon)->values();
+        $addonItems = $groupedItems->filter(fn($item) => $item->is_addon)->values();
+
         $pdf = Pdf::loadView('pdf.fo', [
             'order' => $order,
             'headerBrand' => $headerBrand,
             'logoData' => $logoData,
-            'progresses' => $progresses
+            'progresses' => $progresses,
+            'nonAddonItems' => $nonAddonItems,
+            'addonItems' => $addonItems,
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download("FO-{$order->no_po}.pdf");
@@ -1753,7 +1704,9 @@ class OrderController extends Controller
         return $request->validate([
             'nama_po' => ['required', 'string', 'max:255'],
             'change_reason' => ['nullable', 'string', 'max:255'],
-            'is_special_order' => ['boolean'],
+            'is_special_order' => ['nullable', 'boolean'],
+            'is_free_ongkir' => ['nullable', 'boolean'],
+            'ongkir' => ['nullable', 'numeric', 'min:0'],
             'tanggal_masuk' => ['required', 'date'],
             'deadline_customer' => ['required', 'date', 'after_or_equal:tanggal_masuk'],
             'kategori_order_id' => ['nullable', 'uuid'],

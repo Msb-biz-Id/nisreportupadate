@@ -45,6 +45,7 @@ class ReportRunner
             'analisis-marketing' => $this->analisisMarketing($brandId, $filters),
             'crm-churn' => $this->crmChurn($brandId, $filters),
             'crm-seasonal' => $this->crmSeasonal($brandId, $filters),
+            'kinerja-produksi' => $this->kinerjaProduksi($brandId, $filters),
             default => ['rows' => [], 'summary' => []],
         };
     }
@@ -902,6 +903,186 @@ class ReportRunner
                 ['label' => 'Total Debit (Masuk)', 'value' => $totalDebit, 'format' => 'currency'],
                 ['label' => 'Total Kredit (Keluar)', 'value' => $totalKredit, 'format' => 'currency'],
                 ['label' => 'Saldo Bersih', 'value' => $saldoBersih, 'format' => 'currency'],
+            ],
+        ];
+    }
+
+    private function formatDuration(mixed $started, mixed $completed, bool $isActive = false): string
+    {
+        if (!$started) {
+            return '-';
+        }
+        $start = Carbon::parse($started);
+        $end = $completed ? Carbon::parse($completed) : Carbon::now();
+        
+        $diffInHours = $start->diffInHours($end);
+        
+        if ($diffInHours < 1) {
+            return '< 1 jam' . ($isActive ? ' (Aktif)' : '');
+        } elseif ($diffInHours < 24) {
+            return $diffInHours . ' jam' . ($isActive ? ' (Aktif)' : '');
+        } else {
+            $days = round($diffInHours / 24, 1);
+            return $days . ' hari' . ($isActive ? ' (Aktif)' : '');
+        }
+    }
+
+    private function kinerjaProduksi(string|array|null $brandId, array $filters): array
+    {
+        [$from, $to] = $this->dateRange($filters);
+
+        $orders = Order::query()
+            ->when($brandId, $this->bf($brandId))
+            ->whereBetween('tanggal_masuk', [$from, $to])
+            ->where('status_po', '!=', 'draft')
+            ->with(['brand:id,nama_brand', 'pelanggan:id,nama', 'progressDetails.progress'])
+            ->withSum('items', 'quantity')
+            ->orderByDesc('tanggal_masuk')
+            ->get();
+
+        $progresses = \App\Models\Master\Progress::active()->ordered()->get();
+
+        $rows = $orders->map(function ($o) use ($progresses) {
+            // 1. Calculate overall lateness
+            $lateness = '-';
+            $isCompleted = in_array($o->status_po, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim']);
+            
+            if ($o->deadline_customer) {
+                $deadline = Carbon::parse($o->deadline_customer)->startOfDay();
+                
+                $completionDate = null;
+                if ($isCompleted) {
+                    if ($o->end_production_date) {
+                        $completionDate = Carbon::parse($o->end_production_date)->startOfDay();
+                    } else {
+                        $lastCompleted = $o->progressDetails
+                            ->where('status', 'selesai')
+                            ->sortByDesc('completed_at')
+                            ->first();
+                        $completionDate = $lastCompleted && $lastCompleted->completed_at 
+                            ? Carbon::parse($lastCompleted->completed_at)->startOfDay()
+                            : Carbon::now()->startOfDay();
+                    }
+                } else {
+                    $completionDate = Carbon::now()->startOfDay();
+                }
+
+                $diffDays = $deadline->diffInDays($completionDate, false);
+                
+                if ($diffDays > 0) {
+                    $lateness = 'Telat ' . $diffDays . ' hari';
+                } else {
+                    if ($isCompleted) {
+                        $lateness = 'Tepat Waktu';
+                    } else {
+                        $lateness = 'Sisa ' . abs($diffDays) . ' hari';
+                    }
+                }
+            }
+
+            // 2. Calculate total production duration
+            $durasiTotal = '-';
+            $firstStage = $o->progressDetails->sortBy(fn($d) => $d->progress?->urutan ?? 0)->first();
+            $productionStart = $o->start_production_date 
+                ? Carbon::parse($o->start_production_date) 
+                : ($firstStage && $firstStage->started_at ? Carbon::parse($firstStage->started_at) : null);
+
+            if ($productionStart) {
+                $productionEnd = null;
+                if ($isCompleted) {
+                    $productionEnd = $o->end_production_date 
+                        ? Carbon::parse($o->end_production_date) 
+                        : ($o->progressDetails->where('status', 'selesai')->sortByDesc('completed_at')->first()?->completed_at 
+                            ? Carbon::parse($o->progressDetails->where('status', 'selesai')->sortByDesc('completed_at')->first()->completed_at)
+                            : Carbon::now());
+                } else {
+                    $productionEnd = Carbon::now();
+                }
+                
+                $diffInHours = $productionStart->diffInHours($productionEnd);
+                if ($diffInHours < 24) {
+                    $durasiTotal = $diffInHours . ' jam';
+                } else {
+                    $durasiTotal = round($diffInHours / 24, 1) . ' hari';
+                }
+            }
+
+            $row = [
+                'no_po' => $o->no_po,
+                'nama_po' => $o->nama_po,
+                'brand_nama' => $o->brand?->nama_brand ?? '-',
+                'pelanggan' => $o->pelanggan?->nama ?? '-',
+                'tanggal_masuk' => $o->tanggal_masuk?->toDateString(),
+                'deadline' => $o->deadline_customer?->toDateString(),
+                'pcs' => (int) ($o->items_sum_quantity ?? 0),
+                'status' => $o->status_po,
+                'keterlambatan' => $lateness,
+                'durasi_total' => $durasiTotal,
+            ];
+
+            foreach ($progresses as $p) {
+                $detail = $o->progressDetails->firstWhere('progress_id', $p->id);
+                $key = 'progress_' . strtolower(str_replace(' ', '_', $p->nama_progress));
+                
+                if ($detail) {
+                    if ($detail->status === 'selesai') {
+                        $row[$key] = $this->formatDuration($detail->started_at, $detail->completed_at);
+                    } elseif ($detail->status === 'skipped') {
+                        $row[$key] = 'Dilewati';
+                    } elseif ($detail->status === 'on_progress') {
+                        $row[$key] = $this->formatDuration($detail->started_at, null, true);
+                    } else {
+                        $row[$key] = '-';
+                    }
+                } else {
+                    $row[$key] = '-';
+                }
+            }
+
+            return $row;
+        })->all();
+
+        // Summary Statistics
+        $totalPo = count($rows);
+        $totalPcs = array_sum(array_column($rows, 'pcs'));
+        
+        $latePoCount = 0;
+        $totalLateDays = 0;
+        foreach ($rows as $r) {
+            if (str_starts_with($r['keterlambatan'], 'Telat')) {
+                $latePoCount++;
+                $parts = explode(' ', $r['keterlambatan']);
+                if (isset($parts[1])) {
+                    $totalLateDays += (int)$parts[1];
+                }
+            }
+        }
+        $avgLateness = $latePoCount > 0 ? round($totalLateDays / $latePoCount, 1) . ' hari' : '0 hari';
+
+        $completedWithDuration = collect($rows)->filter(function($r) {
+            $isCompleted = in_array($r['status'], ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim']);
+            return $isCompleted && str_contains($r['durasi_total'], 'hari');
+        });
+        
+        $totalCompletedDays = 0;
+        foreach ($completedWithDuration as $r) {
+            $parts = explode(' ', $r['durasi_total']);
+            if (isset($parts[0])) {
+                $totalCompletedDays += (float)$parts[0];
+            }
+        }
+        $avgDuration = $completedWithDuration->count() > 0 
+            ? round($totalCompletedDays / $completedWithDuration->count(), 1) . ' hari' 
+            : '0 hari';
+
+        return [
+            'rows' => $rows,
+            'summary' => [
+                ['label' => 'Total PO', 'value' => $totalPo],
+                ['label' => 'Total PCS', 'value' => $totalPcs, 'format' => 'number'],
+                ['label' => 'Total PO Telat', 'value' => $latePoCount],
+                ['label' => 'Rata-rata Keterlambatan', 'value' => $avgLateness],
+                ['label' => 'Rata-rata Waktu Produksi', 'value' => $avgDuration],
             ],
         ];
     }

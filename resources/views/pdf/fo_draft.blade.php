@@ -156,8 +156,8 @@
 
         {{-- ===== TOP DETAILS SECTION ===== --}}
         @php
-            $nonAddonItems = collect($items)->filter(fn($i) => empty($i['is_addon']))->values();
-            $addonItems = collect($items)->filter(fn($i) => !empty($i['is_addon']))->values();
+            $nonAddonItems = $nonAddonItems ?? collect($items)->filter(fn($i) => empty($i['is_addon']))->values();
+            $addonItems = $addonItems ?? collect($items)->filter(fn($i) => !empty($i['is_addon']))->values();
             $grandTotal = $nonAddonItems->sum(fn($i) => (int)($i['quantity'] ?? 0));
             $prodCol = 'nama_produk';
             $commaSep = ', ';
@@ -653,7 +653,10 @@
                             @if($col['type'] === 'no')
                                 <td>{{ $i + 1 }}.</td>
                             @elseif($col['type'] === 'nama_punggung')
-                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung'] ?? '') !!}</td>
+                                <td class="t-left ns-name">
+                                    {!! \App\Support\PdfHelper::formatText($ns['nama_punggung'] ?? '') !!}
+                                    @if(!empty($ns['is_free'])) <span style="color: #b91c1c; font-weight: bold; font-size: 7.5pt; margin-left: 4px;">[FREE]</span> @endif
+                                </td>
                             @elseif($col['type'] === 'no_punggung')
                                 <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_punggung'] ?? '') !!}</td>
                             @elseif($col['type'] === 'nama_dada')
@@ -891,7 +894,10 @@
                             @if($col['type'] === 'no')
                                 <td>{{ $i + 1 }}.</td>
                             @elseif($col['type'] === 'nama_punggung')
-                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung'] ?? '') !!}</td>
+                                <td class="t-left ns-name">
+                                    {!! \App\Support\PdfHelper::formatText($ns['nama_punggung'] ?? '') !!}
+                                    @if(!empty($ns['is_free'])) <span style="color: #b91c1c; font-weight: bold; font-size: 7.5pt; margin-left: 4px;">[FREE]</span> @endif
+                                </td>
                             @elseif($col['type'] === 'no_punggung')
                                 <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_punggung'] ?? '') !!}</td>
                             @elseif($col['type'] === 'nama_dada')

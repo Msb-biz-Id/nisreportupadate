@@ -23,6 +23,8 @@ class POVersionManager
             'nama_po' => $order->nama_po,
             'status_po' => $order->status_po,
             'is_special_order' => (bool) $order->is_special_order,
+            'is_free_ongkir' => (bool) $order->is_free_ongkir,
+            'ongkir' => (float) $order->ongkir,
             'tanggal_masuk' => $order->tanggal_masuk instanceof \Carbon\Carbon ? $order->tanggal_masuk->toDateString() : $order->tanggal_masuk,
             'deadline_customer' => $order->deadline_customer instanceof \Carbon\Carbon ? $order->deadline_customer->toDateString() : $order->deadline_customer,
             'kategori_order_id' => $order->kategori_order_id,
@@ -141,6 +143,8 @@ class POVersionManager
         $orderFields = [
             'nama_po' => 'Nama PO',
             'is_special_order' => 'Special Order',
+            'is_free_ongkir' => 'Free Ongkir',
+            'ongkir' => 'Biaya Ongkir',
             'tanggal_masuk' => 'Tanggal Masuk',
             'deadline_customer' => 'Deadline Customer',
             'catatan' => 'Catatan PO',

@@ -152,6 +152,7 @@ class User extends Authenticatable
                 'status-po',
                 'monitoring-deadline',
                 'rijek',
+                'kinerja-produksi',
                 'comparison'
             ],
             'admin_reseller' => [
@@ -168,7 +169,8 @@ class User extends Authenticatable
             'admin_produksi' => [
                 'status-po',
                 'monitoring-deadline',
-                'rijek'
+                'rijek',
+                'kinerja-produksi'
             ],
         ];
 

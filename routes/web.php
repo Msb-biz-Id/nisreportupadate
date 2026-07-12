@@ -127,7 +127,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{order}/bypass-dp', [OrderController::class, 'bypassDp'])->name('bypass-dp');
         Route::post('/{order}/mark-lunas', [OrderController::class, 'markLunas'])->name('mark-lunas');
         Route::post('/{order}/complete', [OrderController::class, 'complete'])->name('complete');
-        Route::post('/{order}/toggle-free-ongkir', [OrderController::class, 'toggleFreeOngkir'])->name('toggle-free-ongkir');
         Route::post('/pdf-draft', [OrderController::class, 'draftPdf'])->name('pdf-draft');
         Route::get('/{order}/fo.pdf', [OrderController::class, 'foPdf'])->name('fo.pdf');
         Route::get('/{order}/fo/preview', [OrderController::class, 'foPreview'])->name('fo.preview');

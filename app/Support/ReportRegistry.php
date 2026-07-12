@@ -236,6 +236,26 @@ class ReportRegistry
                     ['key' => 'whatsapp_action', 'label' => 'Aksi Follow Up', 'format' => 'whatsapp_action'],
                 ],
             ],
+            'kinerja-produksi' => [
+                'slug' => 'kinerja-produksi',
+                'label' => 'Kinerja Produksi',
+                'icon' => 'Gauge',
+                'group' => 'produksi',
+                'description' => 'Laporan kinerja produksi: mengukur durasi dan keterlambatan pengerjaan tahapan progress PO.',
+                'filters' => ['date_range', 'brand'],
+                'columns' => [
+                    ['key' => 'no_po', 'label' => 'No PO'],
+                    ['key' => 'nama_po', 'label' => 'Nama PO'],
+                    ['key' => 'brand_nama', 'label' => 'Brand'],
+                    ['key' => 'pelanggan', 'label' => 'Pelanggan'],
+                    ['key' => 'tanggal_masuk', 'label' => 'Tgl Masuk', 'format' => 'date'],
+                    ['key' => 'deadline', 'label' => 'Deadline', 'format' => 'date'],
+                    ['key' => 'pcs', 'label' => 'PCS', 'format' => 'number'],
+                    ['key' => 'status', 'label' => 'Status PO', 'format' => 'status_badge'],
+                    ['key' => 'keterlambatan', 'label' => 'Keterlambatan'],
+                    ['key' => 'durasi_total', 'label' => 'Durasi Total'],
+                ],
+            ],
         ];
     }
 

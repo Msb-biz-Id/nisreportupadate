@@ -13,9 +13,9 @@ const chunkArray = (arr, size) => {
     return chunks;
 };
 
-export default function FoPreview({ order, printings, printingStr: propPrintingStr, progresses, headerBrand, isPublic = false }) {
+export default function FoPreview({ order, printings, printingStr: propPrintingStr, progresses, headerBrand, groupedNonAddonItems, isPublic = false }) {
     const brand = order.brand || {};
-    const nonAddonItems = (order.items || []).filter(item => !item.is_addon);
+    const nonAddonItems = groupedNonAddonItems || (order.items || []).filter(item => !item.is_addon);
     const grandTotal = nonAddonItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
     const totalAtasan = nonAddonItems.reduce((sum, item) => sum + Number(item.jml_atasan || 0), 0) || grandTotal;
     const totalBawahan = nonAddonItems.reduce((sum, item) => sum + Number(item.jml_bawahan || 0), 0);
@@ -624,9 +624,20 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                                     {filledNamesets.map((ns, idx) => (
                                                         <tr key={ns.id} className="border-b border-black bg-white hover:bg-slate-50/50">
                                                             {finalCols.map((col, cidx) => {
-                                                                let val = '';
+                                                                let val = null;
                                                                 if (col.type === 'no') val = `${idx + 1}.`;
-                                                                else if (col.type === 'nama_punggung') val = renderFormattedText(ns.nama_punggung || '');
+                                                                else if (col.type === 'nama_punggung') {
+                                                                    val = (
+                                                                        <span>
+                                                                            {renderFormattedText(ns.nama_punggung || '')}
+                                                                            {ns.is_free && (
+                                                                                <span className="ml-1.5 px-1 py-0.5 rounded text-[8px] font-extrabold bg-red-100 text-red-600 border border-red-200 inline-block align-middle select-none">
+                                                                                    FREE
+                                                                                </span>
+                                                                            )}
+                                                                        </span>
+                                                                    );
+                                                                }
                                                                 else if (col.type === 'no_punggung') val = ns.nomor_punggung || '';
                                                                 else if (col.type === 'nama_dada') val = renderFormattedText(ns.nama_dada || '');
                                                                 else if (col.type === 'no_dada') val = ns.nomor_dada || '';

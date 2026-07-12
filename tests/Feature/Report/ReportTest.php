@@ -284,7 +284,7 @@ class ReportTest extends TestCase
 
         // Verify query brand scoping resolves correctly for owner (all when no brand_id filter)
         $response = $this->actingAsWithBrand($owner, $brand1)
-            ->get(route('reports.show', 'penjualan-produk', ['brand_id' => '__all__']));
+            ->get(route('reports.show', ['slug' => 'penjualan-produk', 'brand_id' => '__all__']));
         $response->assertOk();
         $this->assertNull($response->original->getData()['page']['props']['filters']['brand_id'] ?? null);
     }
@@ -351,7 +351,7 @@ class ReportTest extends TestCase
         ]);
 
         $response = $this->actingAs($sa)
-            ->get(route('reports.show', 'monitoring-deadline', ['threshold' => 7]));
+            ->get(route('reports.show', ['slug' => 'monitoring-deadline', 'threshold' => 7]));
 
         $response->assertOk();
 
@@ -387,6 +387,77 @@ class ReportTest extends TestCase
         $this->assertTrue($rows[3]['is_group_total']);
         $this->assertEquals('TOTAL PCS', $rows[3]['pelanggan']);
         $this->assertEquals(20, $rows[3]['pcs']);
+    }
+
+    public function test_kinerja_produksi_report_data(): void
+    {
+        $brand = $this->makeBrand();
+        $sa = $this->makeUser('superadmin', [$brand]);
+
+        $c = Customer::create([
+            'brand_id' => $brand->id,
+            'kode' => 'C_KP_01',
+            'nama' => 'Pelanggan KP',
+            'nomor_hp' => '08123456789',
+            'is_active' => true
+        ]);
+
+        $progress = \App\Models\Master\Progress::create([
+            'nama_progress' => 'SETTING',
+            'warna' => '#6B7280',
+            'urutan' => 1,
+            'is_skippable' => false,
+            'is_active' => true
+        ]);
+
+        $o1 = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-KP1',
+            'nama_po' => 'Jersey KP 1',
+            'status_po' => 'on_progress',
+            'tanggal_masuk' => now()->subDays(5)->toDateString(),
+            'deadline_customer' => now()->addDays(2)->toDateString(),
+            'pelanggan_id' => $c->id,
+            'created_by' => $sa->id,
+        ]);
+        $o1->items()->create([
+            'product_id' => null,
+            'nama_produk' => 'Jersey Custom',
+            'quantity' => 10,
+            'harga_satuan' => 80000,
+            'subtotal' => 800000, // order sum uses items.subtotal or similar, let's set it
+        ]);
+
+        $detail = \App\Models\Order\OrderProgressDetail::create([
+            'order_id' => $o1->id,
+            'progress_id' => $progress->id,
+            'status' => 'selesai',
+            'started_at' => now()->subDays(4),
+            'completed_at' => now()->subDays(2),
+        ]);
+
+        $response = $this->actingAs($sa)
+            ->get(route('reports.show', [
+                'slug' => 'kinerja-produksi',
+                'from' => now()->subDays(10)->toDateString(),
+                'to' => now()->toDateString()
+            ]));
+
+        $response->assertOk();
+
+        $page = $response->original->getData()['page'] ?? [];
+        $props = $page['props'] ?? [];
+
+        $this->assertNotEmpty($props['rows']);
+        $row = $props['rows'][0];
+
+        $this->assertEquals('PO-KP1', $row['no_po']);
+        $this->assertEquals('Jersey KP 1', $row['nama_po']);
+        $this->assertEquals('Sisa 2 days', str_replace('hari', 'days', $row['keterlambatan'])); // "Sisa 2 hari" -> "Sisa 2 days"
+        
+        $key = 'progress_setting';
+        $this->assertArrayHasKey($key, $row);
+        $this->assertEquals('2 days', str_replace('hari', 'days', $row[$key])); // "2 hari" -> "2 days"
     }
 }
 

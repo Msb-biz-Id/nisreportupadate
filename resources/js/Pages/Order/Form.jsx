@@ -1364,6 +1364,8 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
     const { data, setData, post, put, processing, errors } = useForm({
         nama_po: order?.nama_po ?? '',
         is_special_order: order?.is_special_order ?? false,
+        is_free_ongkir: order?.is_free_ongkir ?? false,
+        ongkir: order?.ongkir !== undefined ? Number(order.ongkir) : 0,
         tanggal_masuk: order?.tanggal_masuk?.slice?.(0, 10) ?? new Date().toISOString().slice(0, 10),
         deadline_customer: order?.deadline_customer?.slice?.(0, 10) ?? '',
         jenis_order_id: order?.jenis_order_id ?? '',
@@ -1596,17 +1598,50 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
 
             <form onSubmit={submit} className="space-y-0">
                 {/* ===== STICKY HEADER BAR ===== */}
-                <div className="sticky top-16 z-30 bg-slate-900/95 text-white px-6 py-4 flex flex-col lg:flex-row justify-between items-start lg:items-center border-b-4 border-red-600 rounded-b-xl mb-6 shadow-xl backdrop-blur-sm gap-4">
-                    <div className="flex items-center gap-3 w-full lg:w-auto">
-                        <Package2 className="h-6 w-6 text-red-500 shrink-0" />
-                        <div>
-                            <h1 className="text-base md:text-lg font-black tracking-wider uppercase flex items-center gap-2">
-                                {isEdit ? `Edit PO` : 'Buat PO Baru'}
-                                {isEdit && <span className="text-red-400 font-mono">{order.no_po}</span>}
-                            </h1>
-                            <p className="text-[10px] md:text-xs text-slate-400 font-medium">
-                                {isEdit ? 'Perubahan hanya bisa dilakukan selama status masih draft.' : 'Isi informasi PO, produk & nameset, lalu simpan sebagai draft.'}
-                            </p>
+                <div className="sticky top-16 z-30 bg-slate-900/95 text-white px-6 py-4 flex flex-col xl:flex-row justify-between items-start xl:items-center border-b-4 border-red-600 rounded-b-xl mb-6 shadow-xl backdrop-blur-sm gap-4">
+                    <div className="flex flex-col lg:flex-row lg:items-center gap-4 w-full xl:w-auto">
+                        {/* Interactive Switches directly in the header */}
+                        <div className="flex flex-wrap items-center gap-3 py-1 text-xs">
+                            {/* Special Order Switch */}
+                            <div className="flex items-center gap-2 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
+                                <span className="font-extrabold text-[10px] text-slate-300 uppercase tracking-wide">Pesanan Khusus</span>
+                                <Switch 
+                                    className="scale-90"
+                                    checked={data.is_special_order} 
+                                    onCheckedChange={(v) => setData('is_special_order', v)} 
+                                />
+                            </div>
+
+                            {/* Free Ongkir Switch */}
+                            <div className="flex items-center gap-2.5 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700 flex-wrap sm:flex-nowrap">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-extrabold text-[10px] text-slate-300 uppercase tracking-wide">Gratis Ongkir</span>
+                                    <Switch 
+                                        className="scale-90"
+                                        checked={data.is_free_ongkir} 
+                                        onCheckedChange={(v) => {
+                                            setData((prev) => ({
+                                                ...prev,
+                                                is_free_ongkir: v,
+                                                ongkir: v ? 0 : prev.ongkir
+                                            }));
+                                        }} 
+                                    />
+                                </div>
+                                {!data.is_free_ongkir && (
+                                    <div className="flex items-center gap-1.5 border-t sm:border-t-0 sm:border-l border-slate-700 pt-1.5 sm:pt-0 sm:pl-2">
+                                        <span className="text-[9px] text-slate-400 uppercase font-extrabold">Biaya:</span>
+                                        <input 
+                                            type="number"
+                                            min="0"
+                                            value={data.ongkir || ''} 
+                                            placeholder="Rp" 
+                                            onChange={(e) => setData('ongkir', Number(e.target.value) || 0)} 
+                                            className="w-20 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center text-xs font-mono text-emerald-400 focus:outline-none focus:border-red-500" 
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -1873,14 +1908,6 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                     <Textarea value={data.catatan} placeholder="Catatan Khusus Pelanggan.." onChange={(e) => setData('catatan', e.target.value)} rows={2} className="text-sm resize-none" />
                                 </div>
 
-                                <div className="col-span-4">
-                                    <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-blue-50 p-3">
-                                        <div>
-                                            <p className="text-xs font-black text-slate-700 uppercase tracking-wide">PO Pesanan Khusus (Special Order)</p>
-                                        </div>
-                                        <Switch checked={data.is_special_order} onCheckedChange={(v) => setData('is_special_order', v)} />
-                                    </div>
-                                </div>
                             </div>
 
                             {/* Checkbox Pilih Produk */}

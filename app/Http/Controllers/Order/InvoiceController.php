@@ -768,9 +768,11 @@ class InvoiceController extends Controller
 
         $biayaPengiriman = ($order && $order->is_free_ongkir)
             ? 0.0
-            : ($biayaPengirimanFromOrder > 0 
-                ? $biayaPengirimanFromOrder 
-                : (float) ($data['biaya_pengiriman'] ?? 0));
+            : (($order && (float) $order->ongkir > 0)
+                ? (float) $order->ongkir
+                : ($biayaPengirimanFromOrder > 0 
+                    ? $biayaPengirimanFromOrder 
+                    : (float) ($data['biaya_pengiriman'] ?? 0)));
 
         // 3. Fetch shipping service from production (stored in orders.nama_ekspedisi)
         $jasaPengiriman = ($order && $order->nama_ekspedisi) 
@@ -989,7 +991,7 @@ class InvoiceController extends Controller
                             : $diskonValue;
                     }
                     
-                    $biayaPengiriman = (float) ($invoice->biaya_pengiriman ?? 0);
+                    $biayaPengiriman = $order->is_free_ongkir ? 0.0 : (float) ($order->ongkir > 0 ? $order->ongkir : ($invoice->biaya_pengiriman ?? 0));
                     
                     $penambahanExcludingOngkir = (float) $order->payments()
                         ->whereNotNull('verified_at')
@@ -1068,8 +1070,8 @@ class InvoiceController extends Controller
         $oldMasterName = $oldMaster ? $oldMaster->nama : strtoupper($payment->payment_type ?? 'Pembayaran');
         $oldBank = $payment->bank;
         $oldBankName = $oldBank ? "{$oldBank->bank} ({$oldBank->nomor_rekening})" : '—';
-        $oldAmountFormatted = 'Rp ' . number_format($payment->amount, 0, ',', '.');
-        $oldDate = $payment->payment_date ? $payment->payment_date->toDateString() : '—';
+        $oldAmountFormatted = 'Rp ' . number_format((float) $payment->amount, 0, ',', '.');
+        $oldDate = $payment->payment_date ? ($payment->payment_date instanceof \Carbon\Carbon ? $payment->payment_date->toDateString() : $payment->payment_date) : '—';
         $oldNotes = $payment->notes ?? '—';
 
         $oldDetail = "Tipe: {$oldMasterName}, Nominal: {$oldAmountFormatted}, Tanggal: {$oldDate}, Bank: {$oldBankName}, Catatan: {$oldNotes}";
@@ -1195,7 +1197,8 @@ class InvoiceController extends Controller
                 $diskonNominal = $invoice->diskon_type === 'persen'
                     ? ($newTotal * (float)$invoice->diskon_value / 100)
                     : (float)$invoice->diskon_value;
-                $newSisa = max(0, $newTotal - $diskonNominal + (float)$invoice->biaya_pengiriman - $newPaid);
+                $invoiceTotalTagihan = max(0, $newTotal - $diskonNominal);
+                $newSisa = max(0, $invoiceTotalTagihan - $newPaid);
                 
                 $targetStatus = $invoice->status;
                 if ($newSisa <= 0) {
@@ -1207,7 +1210,7 @@ class InvoiceController extends Controller
                 }
 
                 $invoice->update([
-                    'total_tagihan'  => $newTotal,
+                    'total_tagihan'  => $invoiceTotalTagihan,
                     'total_bayar'    => $newPaid,
                     'sisa_pembayaran' => $newSisa,
                     'status' => $targetStatus,
@@ -1270,7 +1273,8 @@ class InvoiceController extends Controller
                     $diskonNominal = $invoice->diskon_type === 'persen'
                         ? ($newTotal * (float)$invoice->diskon_value / 100)
                         : (float)$invoice->diskon_value;
-                    $newSisa = max(0, $newTotal - $diskonNominal + (float)$invoice->biaya_pengiriman - $newPaid);
+                    $invoiceTotalTagihan = max(0, $newTotal - $diskonNominal);
+                    $newSisa = max(0, $invoiceTotalTagihan - $newPaid);
                     
                     $targetStatus = $invoice->status;
                     if ($newSisa <= 0) {
@@ -1282,7 +1286,7 @@ class InvoiceController extends Controller
                     }
 
                     $invoice->update([
-                        'total_tagihan'  => $newTotal,
+                        'total_tagihan'  => $invoiceTotalTagihan,
                         'total_bayar'    => $newPaid,
                         'sisa_pembayaran' => $newSisa,
                         'status' => $targetStatus,

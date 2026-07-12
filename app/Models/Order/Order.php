@@ -32,7 +32,7 @@ class Order extends Model
     ];
 
     protected $fillable = [
-        'brand_id', 'reseller_display_brand_id', 'no_po', 'nama_po', 'status_po', 'is_special_order', 'is_free_ongkir',
+        'brand_id', 'reseller_display_brand_id', 'no_po', 'nama_po', 'status_po', 'is_special_order', 'is_free_ongkir', 'ongkir',
         'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date',
         'kategori_order_id', 'jenis_order_id', 'sumber_order_id', 'paket_order_id',
         'jenis_setelan_id', 'pola_produksi_id',
@@ -54,6 +54,7 @@ class Order extends Model
         'published_at' => 'datetime',
         'is_special_order' => 'boolean',
         'is_free_ongkir' => 'boolean',
+        'ongkir' => 'decimal:2',
         'is_repeat_order' => 'boolean',
         'is_lunas' => 'boolean',
         'is_dp_bypassed' => 'boolean',
@@ -132,9 +133,9 @@ class Order extends Model
             ->sum('amount');
         
         // Fallback for old data without master_jenis_pembayaran_id
-        $ongkir = 0.0;
+        $ongkir_payment = 0.0;
         if (!$this->is_free_ongkir) {
-            $ongkir = (float) $this->payments
+            $ongkir_payment = (float) $this->payments
                 ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'ongkir')
                 ->sum('amount');
         }
@@ -151,7 +152,9 @@ class Order extends Model
             ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'return')
             ->sum('amount');
         
-        return max(0, $subtotal + $penambahan + $ongkir + $tambahan - $pengurangan - $cashback - $return);
+        $ongkirCharge = $this->is_free_ongkir ? 0.0 : (float) ($this->ongkir > 0 ? $this->ongkir : $ongkir_payment);
+        
+        return max(0, $subtotal + $penambahan + $ongkirCharge + $tambahan - $pengurangan - $cashback - $return);
     }
 
     public function totalPaid(): float
@@ -269,13 +272,13 @@ class Order extends Model
             return true;
         }
 
-        if ($this->deadline_customer && $this->deadline_customer->isPast()) {
+        if ($this->deadline_customer && $this->deadline_customer instanceof \Carbon\Carbon && $this->deadline_customer->isPast()) {
             if (!in_array($this->status_po, ['sudah_dikirim', 'selesai'], true)) {
                 return true;
             }
         }
 
-        if ($this->end_production_date && $this->end_production_date->isPast()) {
+        if ($this->end_production_date && $this->end_production_date instanceof \Carbon\Carbon && $this->end_production_date->isPast()) {
             if (!in_array($this->status_po, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'], true)) {
                 return true;
             }
