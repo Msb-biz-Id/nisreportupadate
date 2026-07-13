@@ -621,9 +621,35 @@ class InvoiceController extends Controller
 
         $autoPublishAndSend = false;
         $invoice = DB::transaction(function () use ($order, &$autoPublishAndSend) {
-            $totalTagihan = (float) $order->totalTagihan();
+            $isSpecial = (bool) $order->is_special_order;
             $totalPaid = (float) $order->totalPaid();
-            $sisa = $order->sisaTagihan();
+
+            if ($isSpecial) {
+                // Calculate dynamic shipping cost (can be free or paid)
+                $ongkir_payment = 0.0;
+                if (!$order->is_free_ongkir) {
+                    $ongkir_payment = (float) $order->payments
+                        ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'ongkir')
+                        ->sum('amount');
+                }
+                $biayaPengiriman = $order->is_free_ongkir ? 0.0 : (float) ($order->ongkir > 0 ? $order->ongkir : $ongkir_payment);
+                $totalTagihan = $biayaPengiriman;
+                $diskonType = 'persen';
+                $diskonValue = 100.0;
+            } else {
+                $totalTagihan = (float) $order->totalTagihan();
+                $biayaPengiriman = $order->is_free_ongkir ? 0.0 : (float) $order->ongkir;
+                $diskonType = null;
+                $diskonValue = 0.0;
+
+                $diskonNominalFromOrder = (float) $order->items->sum('discount_amount');
+                if ($diskonNominalFromOrder > 0) {
+                    $diskonType = 'nominal';
+                    $diskonValue = $diskonNominalFromOrder;
+                }
+            }
+
+            $sisa = max(0.0, $totalTagihan - $totalPaid);
 
             $hasVerifiedDp = $order->payments()
                 ->whereNotNull('verified_at')
@@ -655,23 +681,31 @@ class InvoiceController extends Controller
                 'total_tagihan' => $totalTagihan,
                 'total_bayar' => $totalPaid,
                 'bank_id' => \App\Models\Master\BankAccount::active()->where('brand_id', \App\Support\BrandContext::masterDataId(request(), $order->brand_id))->first()?->id,
-                // dp_amount = total verified payments at invoice creation (supports both old payment_type and new master_jenis_pembayaran)
                 'dp_amount' => $totalPaid,
                 'sisa_pembayaran' => $sisa,
+                'diskon_type' => $diskonType,
+                'diskon_value' => $diskonValue,
+                'biaya_pengiriman' => $biayaPengiriman,
+                'jasa_pengiriman' => $order->nama_ekspedisi,
                 'created_by' => \Illuminate\Support\Facades\Auth::id(),
             ]);
 
             foreach ($order->items as $item) {
+                $itemSubtotal = $isSpecial ? 0.0 : $item->subtotal;
+                $itemDiscountType = $isSpecial ? 'persen' : $item->discount_type;
+                $itemDiscountValue = $isSpecial ? 100.0 : $item->discount_value;
+                $itemDiscountAmount = $isSpecial ? $item->subtotal : $item->discount_amount;
+
                 InvoiceItem::create([
                     'invoice_id' => $invoice->id,
                     'produk' => $item->nama_produk . ($item->varian_label ? " ({$item->varian_label})" : ''),
                     'jumlah' => $item->quantity,
                     'harga_satuan' => $item->harga_satuan,
-                    'subtotal' => $item->subtotal,
+                    'subtotal' => $itemSubtotal,
                     'is_addon' => (bool) $item->is_addon,
-                    'discount_type' => $item->discount_type,
-                    'discount_value' => $item->discount_value,
-                    'discount_amount' => $item->discount_amount,
+                    'discount_type' => $itemDiscountType,
+                    'discount_value' => $itemDiscountValue,
+                    'discount_amount' => $itemDiscountAmount,
                 ]);
             }
 
@@ -734,20 +768,26 @@ class InvoiceController extends Controller
             ? (float) $order->items->sum(fn($item) => $item->quantity * $item->harga_satuan) 
             : (float) $invoice->items->sum(fn($item) => $item->jumlah * $item->harga_satuan);
 
-        // 1. Fetch discount from order items (discount_amount sum)
         $diskonNominalFromOrder = $order ? (float) $order->items->sum('discount_amount') : 0.0;
-        
         $diskonType = $data['diskon_type'] ?? 'nominal';
         $diskonValue = (float) ($data['diskon_value'] ?? 0);
 
-        if ($diskonNominalFromOrder > 0) {
-            $diskonType = 'nominal';
-            $diskonValue = $diskonNominalFromOrder;
-            $diskonNominal = $diskonNominalFromOrder;
+        $isSpecial = $order && (bool) $order->is_special_order;
+
+        if ($isSpecial) {
+            $diskonType = 'persen';
+            $diskonValue = 100.0;
+            $diskonNominal = $grossSubtotal;
         } else {
-            $diskonNominal = $diskonType === 'persen'
-                ? ($grossSubtotal * $diskonValue / 100)
-                : $diskonValue;
+            if ($diskonNominalFromOrder > 0) {
+                $diskonType = 'nominal';
+                $diskonValue = $diskonNominalFromOrder;
+                $diskonNominal = $diskonNominalFromOrder;
+            } else {
+                $diskonNominal = $diskonType === 'persen'
+                    ? ($grossSubtotal * $diskonValue / 100)
+                    : $diskonValue;
+            }
         }
 
         // 2. Fetch shipping cost from order payments (Ongkir)
@@ -809,11 +849,15 @@ class InvoiceController extends Controller
         }
 
         // Final Nett Invoice Tagihan
-        $invoiceTotalTagihan = max(0, $grossSubtotal - $diskonNominal + $biayaPengiriman + $penambahanExcludingOngkir - $pengurangan);
+        if ($isSpecial) {
+            $invoiceTotalTagihan = max(0, $biayaPengiriman);
+        } else {
+            $invoiceTotalTagihan = max(0, $grossSubtotal - $diskonNominal + $biayaPengiriman + $penambahanExcludingOngkir - $pengurangan);
+        }
         $totalPaid = $order ? (float) $order->totalPaid() : 0.0;
         $sisaPembayaran = max(0, $invoiceTotalTagihan - $totalPaid);
 
-        DB::transaction(function () use ($invoice, $order, $data, $diskonType, $diskonValue, $biayaPengiriman, $jasaPengiriman, $invoiceTotalTagihan, $totalPaid, $sisaPembayaran) {
+        DB::transaction(function () use ($invoice, $order, $data, $diskonType, $diskonValue, $biayaPengiriman, $jasaPengiriman, $invoiceTotalTagihan, $totalPaid, $sisaPembayaran, $isSpecial) {
             $invoice->update([
                 'bank_id' => $data['bank_id'] ?? $invoice->bank_id,
                 'catatan' => $data['catatan'] ?? $invoice->catatan,
@@ -821,12 +865,24 @@ class InvoiceController extends Controller
                 'diskon_value' => $diskonValue,
                 'biaya_pengiriman' => $biayaPengiriman,
                 'jasa_pengiriman' => $jasaPengiriman,
-                'status' => 'validated',
+                'status' => $sisaPembayaran <= 0 ? 'paid' : 'validated',
                 'dp_amount' => $totalPaid,
                 'total_bayar' => $totalPaid,
                 'total_tagihan' => $invoiceTotalTagihan,
                 'sisa_pembayaran' => $sisaPembayaran,
             ]);
+
+            if ($isSpecial) {
+                foreach ($invoice->items as $item) {
+                    $originalSubtotal = $item->subtotal > 0 ? (float) $item->subtotal : (float) ($item->jumlah * $item->harga_satuan);
+                    $item->update([
+                        'subtotal' => 0.0,
+                        'discount_type' => 'persen',
+                        'discount_value' => 100.0,
+                        'discount_amount' => $originalSubtotal,
+                    ]);
+                }
+            }
 
             // Automatically update PO completion status to Lunas if fully paid
             if ($order && $sisaPembayaran <= 0) {

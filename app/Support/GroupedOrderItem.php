@@ -8,10 +8,19 @@ use JsonSerializable;
 
 class GroupedOrderItem implements ArrayAccess, JsonSerializable
 {
+    /** @var mixed */
     public $representative;
+
+    /** @var Collection */
     public $items;
+
+    /** @var Collection */
     protected $combinedNamesets;
 
+    /**
+     * @param mixed $representative
+     * @param Collection $items
+     */
     public function __construct($representative, Collection $items)
     {
         $this->representative = $representative;
@@ -44,6 +53,10 @@ class GroupedOrderItem implements ArrayAccess, JsonSerializable
         }
     }
 
+    /**
+     * @param string $key
+     * @return mixed
+     */
     public function __get($key)
     {
         if ($key === 'quantity') {
@@ -73,6 +86,26 @@ class GroupedOrderItem implements ArrayAccess, JsonSerializable
         return $this->representative->$key;
     }
 
+    /**
+     * @param string $key
+     * @return bool
+     */
+    public function __isset($key): bool
+    {
+        if (in_array($key, ['quantity', 'jml_atasan', 'jml_bawahan', 'namesets'], true)) {
+            return true;
+        }
+        if (is_array($this->representative)) {
+            return isset($this->representative[$key]);
+        }
+        return isset($this->representative->$key);
+    }
+
+    /**
+     * @param string $key
+     * @param mixed $value
+     * @return void
+     */
     public function __set($key, $value)
     {
         if (is_array($this->representative)) {
@@ -82,6 +115,11 @@ class GroupedOrderItem implements ArrayAccess, JsonSerializable
         }
     }
 
+    /**
+     * @param string $name
+     * @param array $arguments
+     * @return mixed
+     */
     public function __call($name, $arguments)
     {
         if (is_array($this->representative)) {

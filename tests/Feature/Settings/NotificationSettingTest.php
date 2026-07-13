@@ -309,4 +309,48 @@ class NotificationSettingTest extends TestCase
         $this->assertNotContains($this->adminProduksi->id, $recipients);
         $this->assertNotContains($this->adminKeuangan->id, $recipients);
     }
+
+    public function test_notification_serialization_includes_type_and_event_key(): void
+    {
+        $notification = new \App\Notifications\SystemEventNotification('progress_updated', [
+            'no_po' => 'PO-011',
+            'stage' => 'produksi',
+            'status' => 'rejek',
+        ], [
+            'sound' => 'bell-chime'
+        ]);
+
+        $array = $notification->toArray($this->owner);
+        $this->assertEquals('progress_updated', $array['type']);
+        $this->assertEquals('progress_updated', $array['event_key']);
+
+        $broadcast = $notification->toBroadcast($this->owner)->data;
+        $this->assertEquals('progress_updated', $broadcast['type']);
+        $this->assertEquals('progress_updated', $broadcast['event_key']);
+    }
+
+    public function test_notification_controller_returns_mapped_type_field(): void
+    {
+        $this->owner->notifications()->create([
+            'id' => \Illuminate\Support\Str::uuid(),
+            'type' => \App\Notifications\SystemEventNotification::class,
+            'data' => [
+                'type' => 'rijek_reported',
+                'event_key' => 'rijek_reported',
+                'title' => 'Rijek Reported',
+                'body' => 'Rijek has been reported',
+                'no_po' => 'PO-012',
+                'action_url' => '/orders',
+                'sound' => 'bell-chime',
+            ],
+            'read_at' => null,
+        ]);
+
+        $response = $this->actingAs($this->owner)->getJson(route('notifications.index'));
+        $response->assertStatus(200);
+        
+        $notifications = $response->json('notifications.data');
+        $this->assertNotEmpty($notifications);
+        $this->assertEquals('rijek_reported', $notifications[0]['type']);
+    }
 }

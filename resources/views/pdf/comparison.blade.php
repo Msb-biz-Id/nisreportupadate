@@ -8,6 +8,9 @@
      * @var \Carbon\Carbon $generated_at
      * @var \App\Models\User $user
      */
+    $activeBrand = $brand ?? \App\Support\BrandContext::currentBrand(request());
+    $primaryColor = $activeBrand?->warna_primary
+        ?? \App\Models\Settings\SystemSetting::get('system', 'theme_color', '#a8001c');
 @endphp
 <!DOCTYPE html>
 <html>
@@ -34,6 +37,12 @@
         .total-row td { border-top: 2px solid #94A3B8; }
         .footer { position: fixed; bottom: 8px; left: 0; right: 0; text-align: center; font-size: 7pt; color: #999; }
     </style>
+    {!! '<' . 'style>' .
+        '.header { border-bottom-color: ' . $primaryColor . '; }' .
+        '.brand { color: ' . $primaryColor . '; }' .
+        '.badge { color: ' . $primaryColor . '; }' .
+        'th { background-color: ' . $primaryColor . '; }' .
+        '</' . 'style>' !!}
 </head>
 <body>
     <div class="header">
@@ -73,13 +82,13 @@
                 <th rowspan="2" style="width: 10%;">Bulan</th>
                 @if ($mode === 'brands')
                     @foreach ($result['data'] as $id => $b)
-                        <th colspan="3" style="border-top: 3px solid {{ $b['warna'] ?: '#4F46E5' }};">
+                        <th colspan="3" {!! 'style="border-top: 3px solid ' . ($b['warna'] ?: $primaryColor) . ';"' !!}>
                             {{ $b['brand_name'] }} ({{ $b['kode'] }})
                         </th>
                     @endforeach
                 @else
                     @foreach ($years as $y)
-                        <th colspan="3">Tahun {{ $y }}</th>
+                        <th colspan="3" {!! 'style="border-top: 3px solid ' . $primaryColor . ';"' !!}>Tahun {{ $y }}</th>
                     @endforeach
                 @endif
             </tr>

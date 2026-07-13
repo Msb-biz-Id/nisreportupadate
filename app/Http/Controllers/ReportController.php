@@ -111,11 +111,20 @@ class ReportController extends Controller
         $filters = $this->extractFilters($request, $config);
         $queryBrandScope = $this->resolveQueryBrandScope($request, $filters);
 
+        $brandId = is_string($queryBrandScope) ? $queryBrandScope : (is_array($queryBrandScope) && count($queryBrandScope) === 1 ? reset($queryBrandScope) : null);
+        $brand = $brandId ? \App\Models\Brand::find($brandId) : null;
+        $activeBrandId = \App\Support\BrandContext::current($request);
+        $activeBrand = ($activeBrandId && $activeBrandId !== 'all') ? \App\Models\Brand::find($activeBrandId) : null;
+        $primaryColor = ($brand?->warna_primary)
+            ?? ($activeBrand?->warna_primary)
+            ?? \App\Models\Settings\SystemSetting::get('system', 'theme_color', '#a8001c');
+        $hexColor = ltrim($primaryColor, '#');
+
         $result = $this->runner->run($slug, $queryBrandScope, $filters);
         $filename = "report-{$slug}-" . now()->format('Ymd-His') . '.xlsx';
 
         return Excel::download(
-            new GenericReportExport($config['label'], $config['columns'], $result['rows']),
+            new GenericReportExport($config['label'], $config['columns'], $result['rows'], $hexColor),
             $filename
         );
     }
@@ -137,6 +146,14 @@ class ReportController extends Controller
         $filters = $this->extractFilters($request, $config);
         $queryBrandScope = $this->resolveQueryBrandScope($request, $filters);
 
+        $brandId = is_string($queryBrandScope) ? $queryBrandScope : (is_array($queryBrandScope) && count($queryBrandScope) === 1 ? reset($queryBrandScope) : null);
+        $brand = $brandId ? \App\Models\Brand::find($brandId) : null;
+        $activeBrandId = \App\Support\BrandContext::current($request);
+        $activeBrand = ($activeBrandId && $activeBrandId !== 'all') ? \App\Models\Brand::find($activeBrandId) : null;
+        $primaryColor = ($brand?->warna_primary)
+            ?? ($activeBrand?->warna_primary)
+            ?? \App\Models\Settings\SystemSetting::get('system', 'theme_color', '#a8001c');
+
         $result = $this->runner->run($slug, $queryBrandScope, $filters);
 
         $pdf = Pdf::loadView('pdf.report', [
@@ -146,6 +163,7 @@ class ReportController extends Controller
             'filters' => $filters,
             'generated_at' => now(),
             'user' => $request->user(),
+            'primaryColor' => $primaryColor,
         ])->setPaper('a4', 'landscape');
 
         return $pdf->download("report-{$slug}-" . now()->format('Ymd-His') . '.pdf');

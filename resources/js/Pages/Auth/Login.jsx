@@ -1,13 +1,15 @@
 import InputError from '@/Components/InputError';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { Eye, EyeOff, Lock, Mail, LogIn, AlertTriangle, HelpCircle, Info, ChevronDown, ChevronUp } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { Eye, EyeOff, Lock, Mail, LogIn, AlertTriangle, HelpCircle, Info, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createTimeline, animate } from 'animejs';
 
-export default function Login({ status, canResetPassword }) {
+export default function Login({ status, canResetPassword, turnstile }) {
     const { app } = usePage().props;
     const appName = app?.name || 'ProTrack';
     const logoLetter = appName.charAt(0).toUpperCase();
+    const turnstileEnabled = turnstile?.enabled && turnstile?.site_key;
+    const turnstileRef = useRef(null);
 
     const [showSplash, setShowSplash] = useState(true);
 
@@ -81,7 +83,20 @@ export default function Login({ status, canResetPassword }) {
         email: '',
         password: '',
         remember: false,
+        cf_turnstile_response: '',
     });
+
+    // Load Turnstile script once when widget is enabled
+    useEffect(() => {
+        if (!turnstileEnabled) return;
+        if (document.getElementById('cf-turnstile-script')) return;
+        const script = document.createElement('script');
+        script.id = 'cf-turnstile-script';
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+    }, [turnstileEnabled]);
 
     const [showPassword, setShowPassword] = useState(false);
     const [isShaking, setIsShaking] = useState(false);
@@ -290,10 +305,32 @@ export default function Login({ status, canResetPassword }) {
                                 <InputError message={errors.password} className="mt-1.5 text-xs font-semibold" />
                             </div>
 
+                            {/* Cloudflare Turnstile Widget */}
+                            {turnstileEnabled && (
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                                        <ShieldCheck className="h-3.5 w-3.5 text-orange-500" />
+                                        Verifikasi Keamanan
+                                    </div>
+                                    <div
+                                        ref={turnstileRef}
+                                        className="cf-turnstile"
+                                        data-sitekey={turnstile.site_key}
+                                        data-callback={(token) => setData('cf_turnstile_response', token)}
+                                        data-error-callback={() => setData('cf_turnstile_response', '')}
+                                        data-theme="light"
+                                        data-size="normal"
+                                    />
+                                    {errors.cf_turnstile_response && (
+                                        <p className="text-xs text-red-600 font-semibold">{errors.cf_turnstile_response}</p>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Submit */}
                             <button
                                 type="submit"
-                                disabled={processing}
+                                disabled={processing || (turnstileEnabled && !data.cf_turnstile_response)}
                                 className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-white font-semibold text-sm transition disabled:opacity-60 disabled:cursor-not-allowed shadow-md hover:-translate-y-0.5 active:translate-y-0 duration-150 bg-black hover:bg-neutral-900"
                             >
                                 <LogIn className="h-4 w-4" />

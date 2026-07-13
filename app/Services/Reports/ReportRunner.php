@@ -64,6 +64,7 @@ class ReportRunner
         $rows = OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->when($brandId, $this->obf($brandId))
+            ->where('order_items.is_addon', false)
             ->whereBetween('orders.tanggal_masuk', [$from, $to])
             ->where('orders.status_po', '!=', 'draft')
             ->select(
@@ -105,7 +106,7 @@ class ReportRunner
                   ->whereBetween('orders.tanggal_masuk', [$from, $to])
                   ->where('orders.status_po', '!=', 'draft');
             })
-            ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
+            ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
             // Array = reseller hub context → filter via orders.brand_id (customers live at hub, orders at branch)
             ->when(is_array($brandId), fn ($q) => $q->whereIn('orders.brand_id', $brandId))
             ->when(! is_array($brandId) && $brandId, fn ($q) => $q->where('customers.brand_id', $brandId))
@@ -219,7 +220,7 @@ class ReportRunner
             ->when($brandId, $this->bf($brandId))
             ->whereBetween('tanggal_masuk', [$from, $to])
             ->with(['pelanggan:id,nama'])
-            ->withSum('items', 'quantity');
+            ->withSum(['items' => fn($query) => $query->where('is_addon', false)], 'quantity');
 
         if (! empty($filters['status'])) {
             $q->where('status_po', $filters['status']);
@@ -252,7 +253,7 @@ class ReportRunner
             ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
             ->where('deadline_customer', '<=', Carbon::now()->addDays($threshold))
             ->with(['pelanggan:id,nama', 'brand:id,nama_brand'])
-            ->withSum('items', 'quantity')
+            ->withSum(['items' => fn($query) => $query->where('is_addon', false)], 'quantity')
             ->orderBy('deadline_customer')
             ->get();
 
@@ -464,7 +465,7 @@ class ReportRunner
             };
 
             return [
-                'tanggal' => $p->tanggal?->toDateString(),
+                'tanggal' => $p->tanggal ? Carbon::parse($p->tanggal)->toDateString() : null,
                 'kategori' => 'Pembayaran PO',
                 'keterangan' => "{$label} PO {$p->no_po} — {$p->nama_po}",
                 'nominal' => (float) $p->nominal,
@@ -518,11 +519,15 @@ class ReportRunner
                 'sumber' => 'Otomatis',
             ]);
 
-        // 2. Fetch negative verified payments (cashback/return)
+        // 2. Fetch negative verified payments (cashback/return) excluding auto-refunds to avoid double-counting
         $negativePayments = OrderPayment::query()
             ->join('orders', 'orders.id', '=', 'order_payments.order_id')
             ->whereNotNull('order_payments.verified_at')
             ->where('order_payments.is_debit', false)
+            ->where(function ($q) {
+                $q->whereNull('order_payments.notes')
+                  ->orWhere('order_payments.notes', 'not like', '%Refund otomatis%');
+            })
             ->whereBetween('order_payments.payment_date', [$from, $to])
             ->when($brandId, function ($q) use ($brandId) {
                 return is_array($brandId)
@@ -544,7 +549,7 @@ class ReportRunner
                     default    => 'Pengeluaran Lainnya',
                 };
                 return [
-                    'tanggal' => $p->tanggal?->toDateString(),
+                    'tanggal' => $p->tanggal ? Carbon::parse($p->tanggal)->toDateString() : null,
                     'kategori' => $p->payment_type === 'cashback' ? 'Cashback PO' : 'Refund/Return PO',
                     'keterangan' => "{$label} PO {$p->no_po} — {$p->nama_po}",
                     'nominal' => (float) $p->nominal,
@@ -574,8 +579,8 @@ class ReportRunner
             ->join('customers', 'customers.id', '=', 'orders.pelanggan_id')
             ->leftJoin('customer_types', 'customer_types.id', '=', 'customers.type_pelanggan_id')
             ->leftJoin('sumber_orders', 'sumber_orders.id', '=', 'orders.sumber_order_id')
-            ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items ' .
-                (!empty($filters['product_id']) ? 'WHERE product_id = ' . DB::connection()->getPdo()->quote($filters['product_id']) : '') .
+            ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items WHERE is_addon = 0 ' .
+                (!empty($filters['product_id']) ? 'AND product_id = ' . DB::connection()->getPdo()->quote($filters['product_id']) : '') .
                 ' GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
             ->whereBetween('orders.tanggal_masuk', [$from, $to])
             ->where('orders.status_po', '!=', 'draft')
@@ -936,7 +941,7 @@ class ReportRunner
             ->whereBetween('tanggal_masuk', [$from, $to])
             ->where('status_po', '!=', 'draft')
             ->with(['brand:id,nama_brand', 'pelanggan:id,nama', 'progressDetails.progress'])
-            ->withSum('items', 'quantity')
+            ->withSum(['items' => fn($query) => $query->where('is_addon', false)], 'quantity')
             ->orderByDesc('tanggal_masuk')
             ->get();
 

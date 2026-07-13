@@ -125,11 +125,19 @@ class ComparisonController extends Controller
         ];
 
         if ($mode === 'brands') {
+            $row1 = ['Bulan'];
+            $row2 = [''];
             foreach ($result['data'] as $b) {
-                $headings[] = $b['brand_name'] . ' (PO)';
-                $headings[] = $b['brand_name'] . ' (Pcs)';
-                $headings[] = $b['brand_name'] . ' (Omset)';
+                $row1[] = $b['brand_name'] . ' (' . $b['kode'] . ')';
+                $row1[] = '';
+                $row1[] = '';
+                
+                $row2[] = 'PO';
+                $row2[] = 'Pcs';
+                $row2[] = 'Omset';
             }
+            $headings = [$row1, $row2];
+
             foreach ($monthsNames as $num => $name) {
                 $row = [$name];
                 foreach ($result['data'] as $b) {
@@ -140,7 +148,7 @@ class ComparisonController extends Controller
                 }
                 $rows[] = $row;
             }
-            $totalRow = ['TOTAL'];
+            $totalRow = ['TOTAL TAHUNAN'];
             foreach ($result['data'] as $b) {
                 $totalRow[] = $b['totals']['total_po'];
                 $totalRow[] = $b['totals']['total_pcs'];
@@ -151,11 +159,19 @@ class ComparisonController extends Controller
             $title = "Perbandingan Lintas Brand {$singleYear}";
         } else {
             $brandName = Brand::find($singleBrandId)?->nama_brand ?? 'Brand';
+            $row1 = ['Bulan'];
+            $row2 = [''];
             foreach ($selectedYears as $y) {
-                $headings[] = 'Tahun ' . $y . ' (PO)';
-                $headings[] = 'Tahun ' . $y . ' (Pcs)';
-                $headings[] = 'Tahun ' . $y . ' (Omset)';
+                $row1[] = 'Tahun ' . $y;
+                $row1[] = '';
+                $row1[] = '';
+                
+                $row2[] = 'PO';
+                $row2[] = 'Pcs';
+                $row2[] = 'Omset';
             }
+            $headings = [$row1, $row2];
+
             foreach ($monthsNames as $num => $name) {
                 $row = [$name];
                 foreach ($selectedYears as $y) {
@@ -166,7 +182,7 @@ class ComparisonController extends Controller
                 }
                 $rows[] = $row;
             }
-            $totalRow = ['TOTAL'];
+            $totalRow = ['TOTAL TAHUNAN'];
             foreach ($selectedYears as $y) {
                 $totals = $result['data'][$y]['totals'] ?? ['total_po' => 0, 'total_pcs' => 0, 'total_omset' => 0];
                 $totalRow[] = $totals['total_po'];
@@ -178,9 +194,14 @@ class ComparisonController extends Controller
             $title = "Perbandingan Multi Tahun - {$brandName}";
         }
 
+        $brand = $mode === 'years' ? Brand::find($singleBrandId) : null;
+        $primaryColor = ($brand?->warna_primary)
+            ?? \App\Models\Settings\SystemSetting::get('system', 'theme_color', '#a8001c');
+        $hexColor = ltrim($primaryColor, '#');
+
         $filename = 'laporan-perbandingan-' . now()->format('Ymd-His') . '.xlsx';
         return Excel::download(
-            new ComparisonReportExport($title, $mode, $headings, $rows),
+            new ComparisonReportExport($title, $mode, $headings, $rows, $hexColor),
             $filename
         );
     }

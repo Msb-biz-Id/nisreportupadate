@@ -17,6 +17,7 @@ class NotificationController extends Controller
         // Map standard database notification properties to structure expected by React frontend
         $mapped = $notifications->getCollection()->map(fn ($n) => [
             'id' => $n->id,
+            'type' => $n->data['type'] ?? $n->data['event_key'] ?? $n->type ?? '',
             'title' => $n->data['title'] ?? '',
             'body' => $n->data['body'] ?? '',
             'no_po' => $n->data['no_po'] ?? '',

@@ -79,6 +79,7 @@ class HandleInertiaRequests extends Middleware
                     'unread_notifications_count' => $user->unreadNotifications()->count(),
                     'recent_notifications' => $user->notifications()->take(10)->get()->map(fn ($n) => [
                         'id' => $n->id,
+                        'type' => $n->data['type'] ?? $n->data['event_key'] ?? $n->type ?? '',
                         'title' => $n->data['title'] ?? '',
                         'body' => $n->data['body'] ?? '',
                         'no_po' => $n->data['no_po'] ?? '',

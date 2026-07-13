@@ -8,7 +8,8 @@ class POComprehensiveExport implements WithMultipleSheets
 {
     public function __construct(
         private string $title,
-        private array $orders
+        private array $orders,
+        private string $primaryColor = '1E40AF'
     ) {}
 
     public function sheets(): array
@@ -24,7 +25,7 @@ class POComprehensiveExport implements WithMultipleSheets
                 ['key' => 'status', 'label' => 'Status'],
                 ['key' => 'total_tagihan', 'label' => 'Total Tagihan'],
                 ['key' => 'is_lunas', 'label' => 'Status Pelunasan'],
-            ], $this->getOrderSummaryRows()),
+            ], $this->getOrderSummaryRows(), $this->primaryColor),
 
             new GenericReportExport('Progress Details', [
                 ['key' => 'no_po', 'label' => 'No PO'],
@@ -35,7 +36,7 @@ class POComprehensiveExport implements WithMultipleSheets
                 ['key' => 'completed_at', 'label' => 'Selesai Pada'],
                 ['key' => 'catatan', 'label' => 'Catatan'],
                 ['key' => 'kendala', 'label' => 'Kendala'],
-            ], $this->getProgressRows()),
+            ], $this->getProgressRows(), $this->primaryColor),
 
             new GenericReportExport('Rijek Records', [
                 ['key' => 'no_po', 'label' => 'No PO'],
@@ -46,7 +47,7 @@ class POComprehensiveExport implements WithMultipleSheets
                 ['key' => 'jumlah', 'label' => 'Jumlah (pcs)'],
                 ['key' => 'kendala', 'label' => 'Kendala'],
                 ['key' => 'status', 'label' => 'Status Penanganan'],
-            ], $this->getRijekRows()),
+            ], $this->getRijekRows(), $this->primaryColor),
 
             new GenericReportExport('Payment Records', [
                 ['key' => 'no_po', 'label' => 'No PO'],
@@ -57,7 +58,7 @@ class POComprehensiveExport implements WithMultipleSheets
                 ['key' => 'bank', 'label' => 'Bank Penerima'],
                 ['key' => 'status', 'label' => 'Status Verifikasi'],
                 ['key' => 'catatan', 'label' => 'Catatan'],
-            ], $this->getPaymentRows()),
+            ], $this->getPaymentRows(), $this->primaryColor),
         ];
     }
 

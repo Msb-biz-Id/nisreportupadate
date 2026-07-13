@@ -9,6 +9,7 @@ use App\Services\NumberGenerator;
 use App\Support\BrandContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -79,7 +80,10 @@ class RefundController extends Controller
             'status' => $ref->status,
         ]);
 
-        $refunds = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
+        $perPage = in_array((int) $request->input('per_page', 15), [10, 15, 25, 50, 100])
+            ? (int) $request->input('per_page', 15)
+            : 15;
+        $refunds = $query->orderByDesc('created_at')->paginate($perPage)->withQueryString();
 
         $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan']);
         $brands = $isAllBrandsRole
@@ -96,6 +100,7 @@ class RefundController extends Controller
                 'brand_id' => $selectedBrandId,
                 'start_date' => $request->string('start_date')->toString(),
                 'end_date' => $request->string('end_date')->toString(),
+                'per_page' => $perPage,
             ],
             'statuses' => Refund::STATUSES,
             'jenis_options' => Refund::JENIS_MASALAH,
@@ -157,16 +162,19 @@ class RefundController extends Controller
         }
 
         $data = $request->validate([
-            'order_id' => ['required', 'uuid', 'exists:orders,id'],
-            'alasan' => ['required', 'string', 'min:5'],
+            'order_id'      => ['required', 'uuid', 'exists:orders,id'],
+            'alasan'        => ['required', 'string', 'min:5'],
             'jenis_masalah' => ['required', Rule::in(Refund::JENIS_MASALAH)],
-            'jumlah_item' => ['required', 'integer', 'min:1'],
-            'nominal_refund' => ['required', 'numeric', 'min:0'],
-            'catatan' => ['nullable', 'string'],
+            'jumlah_item'   => ['required', 'integer', 'min:1'],
+            'nominal_refund'=> ['required', 'numeric', 'min:0'],
+            'catatan'       => ['nullable', 'string'],
+            'bukti_files.*' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
         ], [
-            'order_id.exists' => 'Nomor PO, Link PO, atau UUID PO tidak ditemukan dalam sistem.',
+            'order_id.exists'   => 'Nomor PO, Link PO, atau UUID PO tidak ditemukan dalam sistem.',
             'order_id.required' => 'Nomor PO, Link PO, atau UUID PO wajib diisi.',
-            'order_id.uuid' => 'Format PO ID tidak valid.',
+            'order_id.uuid'     => 'Format PO ID tidak valid.',
+            'bukti_files.*.mimes' => 'File bukti harus berformat jpg, png, webp, atau pdf.',
+            'bukti_files.*.max'   => 'Ukuran file maksimal 10 MB.',
         ]);
 
         $order = Order::findOrFail($data['order_id']);
@@ -184,16 +192,57 @@ class RefundController extends Controller
             return back()->withErrors(['nominal_refund' => 'Nominal refund melebihi batas yang dapat direfund (Maksimal sisa: ' . number_format(max(0, $maxRefundable), 0, ',', '.') . ').']);
         }
 
+        // Process bukti (evidence): upload files to Cloudflare R2
+        $bukti = [];
+        // Determine storage disk: use R2 if configured, fallback to public
+        $usesR2 = ! empty(config('filesystems.disks.r2.key'));
+        $disk   = $usesR2 ? 'r2' : 'public';
+
+        if ($request->hasFile('bukti_files')) {
+            foreach ($request->file('bukti_files') as $file) {
+                $path = $file->store('refunds', $disk);
+
+                if ($usesR2 && env('R2_URL')) {
+                    $url = rtrim(env('R2_URL'), '/') . '/' . $path;
+                } elseif ($usesR2) {
+                    // Generate temporary URL (15 min) for private R2 bucket
+                    /** @var \Illuminate\Filesystem\FilesystemAdapter $r2Disk */
+                    $r2Disk = Storage::disk('r2');
+                    $url = $r2Disk->temporaryUrl($path, now()->addMinutes(15));
+                } else {
+                    /** @var \Illuminate\Filesystem\FilesystemAdapter $publicDisk */
+                    $publicDisk = Storage::disk('public');
+                    $url = $publicDisk->url($path);
+                }
+
+                $bukti[] = [
+                    'type'  => 'file',
+                    'url'   => $url,
+                    'path'  => $path,
+                    'disk'  => $disk,
+                    'name'  => $file->getClientOriginalName(),
+                    'mime'  => $file->getMimeType(),
+                ];
+            }
+        }
+
         $refund = Refund::create([
-            ...$data,
-            'brand_id' => $order->brand_id,
+            'order_id'      => $data['order_id'],
+            'alasan'        => $data['alasan'],
+            'jenis_masalah' => $data['jenis_masalah'],
+            'jumlah_item'   => $data['jumlah_item'],
+            'nominal_refund'=> $data['nominal_refund'],
+            'catatan'       => $data['catatan'] ?? null,
+            'bukti'         => !empty($bukti) ? $bukti : null,
+            'brand_id'      => $order->brand_id,
             'refund_number' => $this->numbers->generateRefundNumber($order->brand),
-            'status' => 'pending_review',
-            'created_by' => $request->user()->id,
+            'status'        => 'pending_review',
+            'created_by'    => $request->user()->id,
         ]);
 
         return back()->with('success', 'Refund berhasil diajukan dan menunggu review keuangan.');
     }
+
 
     public function publish(Request $request, Refund $refund)
     {

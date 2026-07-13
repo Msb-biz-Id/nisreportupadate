@@ -208,11 +208,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/backup', [\App\Http\Controllers\BackupController::class, 'index'])->name('backup');
         Route::get('/backup/download', [\App\Http\Controllers\BackupController::class, 'download'])->name('backup.download');
         Route::post('/backup/cleanup', [\App\Http\Controllers\BackupController::class, 'cleanUp'])->name('backup.cleanup');
-        Route::post('/backup/settings', [\App\Http\Controllers\BackupController::class, 'updateSettings'])->name('backup.settings');
         Route::post('/backup/run', [\App\Http\Controllers\BackupController::class, 'runBackup'])->name('backup.run');
-        Route::get('/backup/gdrive/redirect', [\App\Http\Controllers\BackupController::class, 'redirectToGoogle'])->name('backup.gdrive.redirect');
-        Route::get('/backup/gdrive/callback', [\App\Http\Controllers\BackupController::class, 'handleGoogleCallback'])->name('backup.gdrive.callback');
-        Route::post('/backup/gdrive/disconnect', [\App\Http\Controllers\BackupController::class, 'disconnectGoogle'])->name('backup.gdrive.disconnect');
         Route::get('/notifikasi', [SettingsController::class, 'notifications'])->name('notifikasi');
 
         Route::put('/integrasi/ai', [SettingsController::class, 'updateAi'])->name('integrasi.ai');

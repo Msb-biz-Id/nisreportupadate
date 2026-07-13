@@ -139,6 +139,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
             date_from: overrides.hasOwnProperty('date_from') ? overrides.date_from : dateFrom,
             date_to:   overrides.hasOwnProperty('date_to') ? overrides.date_to : dateTo,
             tab:       activeTab,
+            per_page:  overrides.hasOwnProperty('per_page') ? overrides.per_page : (filters?.per_page ?? 25),
         }, { preserveScroll: true, preserveState: true });
     }
 
@@ -225,7 +226,8 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
         setSearch(''); setStatus('all'); setBrandId('');
         setDateFrom(''); setDateTo(''); setShowDatePanel(false);
         router.get(route('orders.index'), {
-            tab: filters?.tab ?? 'active'
+            tab: filters?.tab ?? 'active',
+            per_page: filters?.per_page ?? 25
         }, { preserveScroll: true, preserveState: true });
     }
 
@@ -246,7 +248,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
         : (can?.filter_by_brand && brands?.length > 0 ? 5 : 4);
 
     function copyToClipboard() {
-        const headers = ['No. PO', 'Nama PO', 'Brand', 'Pelanggan', 'Tgl Masuk', 'Deadline', 'Status', 'Total', 'Items'];
+        const headers = ['No. PO', 'Nama PO', 'Brand', 'Pelanggan', 'Tgl Masuk', 'Deadline', 'Status', 'Total', 'Pcs'];
         const rows = orders.data.map((o) => [
             o.no_po,
             o.nama_po,
@@ -256,7 +258,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
             formatDate(o.deadline_customer),
             STATUS_LABEL[o.status_po]?.label ?? o.status_po,
             o.total_tagihan ?? 0,
-            o.items_count ?? 0,
+            o.core_items_sum_quantity ?? 0,
         ]);
 
         const tsv = [headers, ...rows].map((r) => r.join('\t')).join('\n');
@@ -530,7 +532,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                         <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[120px]">Total</TableHead>
                                         <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[100px]">Paket</TableHead>
                                         <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[100px]">Status</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-center min-w-[80px]">Items</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-center min-w-[80px]">Pcs</TableHead>
                                         <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[120px]">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -571,7 +573,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                                 </TableCell>
                                                 <TableCell className="min-w-[100px]"><Badge variant={st.variant}>{st.label}</Badge></TableCell>
                                                 <TableCell className="text-center min-w-[80px]">
-                                                    <Badge variant="outline">{o.items_count ?? 0}</Badge>
+                                                    <Badge variant="outline">{o.core_items_sum_quantity ?? 0}</Badge>
                                                 </TableCell>
                                                 <TableCell className="text-right min-w-[120px]">
                                                     <div className="flex justify-end gap-1">
@@ -602,15 +604,33 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                         </div>
                         <StickyScrollbar targetRef={tableContainerRef} minWidth="1300px" />
 
-                        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                            <span>
-                                {orders.total > 0
-                                    ? `Menampilkan ${orders.from ?? 0}–${orders.to ?? 0} dari ${orders.total} PO`
-                                    : '0 PO ditemukan'}
-                                {hasActiveFilter && <span className="ml-1 text-amber-600">(difilter)</span>}
-                            </span>
+                        <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-4">
+                                <span>
+                                    {orders.total > 0
+                                        ? `Menampilkan ${orders.from ?? 0}–${orders.to ?? 0} dari ${orders.total} PO`
+                                        : '0 PO ditemukan'}
+                                    {hasActiveFilter && <span className="ml-1 text-amber-600">(difilter)</span>}
+                                </span>
+                                <div className="flex items-center gap-1.5">
+                                    <span>Tampilkan:</span>
+                                    <select
+                                        value={orders.per_page}
+                                        onChange={(e) => {
+                                            applyFilters({ per_page: e.target.value });
+                                        }}
+                                        className="h-7 rounded border border-slate-200 bg-white px-2 py-0 text-xs font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                    >
+                                        <option value="10">10</option>
+                                        <option value="25">25</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                        <option value="250">250</option>
+                                    </select>
+                                </div>
+                            </div>
                             {orders.last_page > 1 && (
-                                <div className="flex gap-1">
+                                <div className="flex gap-1 flex-wrap">
                                     {orders.links.map((link, i) => (
                                         <Button key={i} variant={link.active ? 'default' : 'outline'} size="sm" disabled={!link.url}
                                             onClick={() => link.url && router.visit(link.url, { preserveScroll: true })}

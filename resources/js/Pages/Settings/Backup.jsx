@@ -1,32 +1,20 @@
 import { Head, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Download, Trash2, ShieldAlert, Archive, CheckCircle, Database, CloudLightning, Save, Check, Loader2, Key, Link as LinkIcon, RefreshCw, XCircle } from 'lucide-react';
+import { Download, Trash2, ShieldAlert, Archive, CheckCircle, Database, Cloud, Loader2, Server, HelpCircle, HardDrive, Check } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
-import { Switch } from '@/Components/ui/switch';
-import { Label } from '@/Components/ui/label';
-import { Input } from '@/Components/ui/input';
 import { toast } from 'sonner';
 
-export default function Backup({ stats, gdrive }) {
+export default function Backup({ stats, r2 }) {
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [runningBackup, setRunningBackup] = useState(false);
-    const [disconnecting, setDisconnecting] = useState(false);
 
     // Form untuk Clean Up lokal
     const cleanupForm = useForm({
         confirm: false,
-    });
-
-    // Form untuk kredensial aplikasi Google OAuth
-    const gdriveForm = useForm({
-        is_enabled: gdrive.is_enabled,
-        client_id: gdrive.client_id,
-        client_secret: gdrive.has_secret ? '************' : '', // Tampilkan placeholder jika sudah tersimpan
-        folder_id: gdrive.folder_id,
     });
 
     const handleLocalDownload = () => {
@@ -54,67 +42,21 @@ export default function Backup({ stats, gdrive }) {
         });
     };
 
-    const handleGDriveSave = (e) => {
-        e.preventDefault();
-        
-        // Bersihkan data secret agar tidak menimpa dengan placeholder bintang-bintang
-        const payload = { ...gdriveForm.data };
-        if (payload.client_secret === '************') {
-            delete payload.client_secret;
-        }
-
-        gdriveForm.transform(() => payload).post(route('settings.backup.settings'), {
-            preserveScroll: true,
-            onSuccess: () => {
-                toast.success('Pengaturan Google Drive berhasil disimpan.');
-            },
-            onError: () => {
-                toast.error('Gagal menyimpan pengaturan.');
-            }
-        });
-    };
-
-    const connectGoogle = () => {
-        if (!gdrive.client_id) {
-            toast.error('Masukkan Client ID Google OAuth terlebih dahulu dan klik Simpan.');
-            return;
-        }
-        toast.info('Mengarahkan ke Google untuk memilih akun...');
-        window.location.href = route('settings.backup.gdrive.redirect');
-    };
-
-    const disconnectGoogle = () => {
-        if (!confirm('Putuskan hubungan akun Google Drive saat ini?')) return;
-        setDisconnecting(true);
-
-        const form = useForm({});
-        form.post(route('settings.backup.gdrive.disconnect'), {
-            preserveScroll: true,
-            onSuccess: () => {
-                setDisconnecting(false);
-                toast.success('Akun Google Drive berhasil diputuskan.');
-            },
-            onError: () => {
-                setDisconnecting(false);
-                toast.error('Gagal memutuskan akun Google Drive.');
-            }
-        });
-    };
-
-    const triggerGDriveBackup = () => {
+    const triggerR2Backup = () => {
         setRunningBackup(true);
-        toast.info('Memulai backup database & aset ke Google Drive...');
+        toast.info('Memulai backup database & aset ke Cloudflare R2...');
 
         const form = useForm({});
         form.post(route('settings.backup.run'), {
             preserveScroll: true,
             onSuccess: () => {
                 setRunningBackup(false);
-                toast.success('Proses backup otomatis ke Google Drive selesai dengan sukses.');
+                toast.success('Proses backup ke Cloudflare R2 selesai dengan sukses.');
             },
-            onError: () => {
+            onError: (err) => {
                 setRunningBackup(false);
-                toast.error('Gagal melakukan backup ke Google Drive. Periksa log error.');
+                const errMsg = err?.message || 'Periksa log error server untuk detail.';
+                toast.error('Gagal melakukan backup ke Cloudflare R2. ' + errMsg);
             }
         });
     };
@@ -127,72 +69,58 @@ export default function Backup({ stats, gdrive }) {
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Backup & Pembersihan Aset</h1>
                     <p className="text-sm text-muted-foreground mt-1">
-                        Kelola kapasitas ruang server dengan mengarsipkan foto pesanan (orders) ke Google Drive atau ZIP lokal, serta membersihkan berkas lama yang sudah tidak aktif.
+                        Kelola kapasitas ruang server dengan mengarsipkan database dan foto pesanan (orders) ke Cloudflare R2 secara otomatis atau unduh ZIP lokal, serta bersihkan berkas lama yang sudah tidak aktif.
                     </p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Kolom 1 & 2: Local & GDrive Actions */}
+                    {/* Kolom 1 & 2: Cloudflare R2 & Actions */}
                     <div className="lg:col-span-2 space-y-6">
-                        {/* Section Google Drive Backup Action */}
-                        <Card className="shadow-md border-t-4 border-t-emerald-500 bg-white">
+                        {/* Section Cloudflare R2 Backup Action */}
+                        <Card className="shadow-md border-t-4 border-t-sky-500 bg-white">
                             <CardHeader className="pb-4">
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <CardTitle className="flex items-center gap-2 text-base">
-                                            <CloudLightning className="h-4.5 w-4.5 text-emerald-500" /> Backup Google Drive
+                                            <Cloud className="h-4.5 w-4.5 text-sky-500" /> Backup Cloudflare R2
                                         </CardTitle>
                                         <CardDescription className="mt-1">
-                                            Kirim salinan database SQLite beserta arsip ZIP foto pesanan langsung ke Google Drive Cloud Anda.
+                                            Kirim salinan database SQLite beserta arsip ZIP foto pesanan langsung ke Cloudflare R2 Object Storage Anda.
                                         </CardDescription>
                                     </div>
-                                    <Badge variant="outline" className={gdrive.is_enabled && gdrive.is_connected ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-50 text-slate-500 border-slate-200"}>
-                                        {gdrive.is_enabled && gdrive.is_connected ? "Siap Digunakan" : "Belum Siap"}
+                                    <Badge variant="outline" className={r2.is_configured ? "bg-sky-50 text-sky-700 border-sky-200" : "bg-slate-50 text-slate-500 border-slate-200"}>
+                                        {r2.is_configured ? "Terkonfigurasi" : "Belum Siap"}
                                     </Badge>
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                {/* GDrive Connection Status Bar */}
-                                {gdrive.is_connected ? (
-                                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
+                                {/* R2 Connection Status Bar */}
+                                {r2.is_configured ? (
+                                    <div className="bg-sky-50 border border-sky-100 rounded-xl p-4 space-y-3">
                                         <div className="flex items-center gap-3">
-                                            <div className="h-9 w-9 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-200">
-                                                <Check className="h-5 w-5 text-emerald-600" />
+                                            <div className="h-9 w-9 rounded-full bg-sky-500/10 flex items-center justify-center border border-sky-200">
+                                                <Check className="h-5 w-5 text-sky-600" />
                                             </div>
                                             <div>
-                                                <span className="text-[10px] text-emerald-600 font-black uppercase tracking-wider block">Akun Google Terhubung</span>
-                                                <span className="text-xs font-bold text-slate-700">{gdrive.connected_email}</span>
+                                                <span className="text-[10px] text-sky-600 font-black uppercase tracking-wider block">Integrasi R2 Aktif</span>
+                                                <span className="text-xs font-bold text-slate-700">Bucket: {r2.bucket}</span>
                                             </div>
                                         </div>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={disconnectGoogle}
-                                            disabled={disconnecting}
-                                            className="text-xs border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 bg-white shadow-sm font-semibold h-8"
-                                        >
-                                            {disconnecting ? 'Memutus...' : 'Putuskan Akun'}
-                                        </Button>
+                                        <div className="text-xs text-slate-500 font-mono break-all bg-white/60 p-2 rounded border border-sky-100/60">
+                                            Endpoint: {r2.endpoint}
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="bg-slate-50 border rounded-xl p-4 flex items-center justify-between">
                                         <div className="flex items-center gap-3">
                                             <div className="h-9 w-9 rounded-full bg-slate-500/10 flex items-center justify-center border border-slate-200">
-                                                <LinkIcon className="h-5 w-5 text-slate-500" />
+                                                <ShieldAlert className="h-5 w-5 text-slate-500" />
                                             </div>
                                             <div>
                                                 <span className="text-[10px] text-slate-500 font-black uppercase tracking-wider block">Status Koneksi</span>
-                                                <span className="text-xs font-medium text-slate-600">Google Drive belum terhubung</span>
+                                                <span className="text-xs font-medium text-slate-600">Cloudflare R2 belum dikonfigurasi di file .env</span>
                                             </div>
                                         </div>
-                                        <Button
-                                            type="button"
-                                            onClick={connectGoogle}
-                                            disabled={!gdrive.client_id}
-                                            className="text-xs bg-slate-800 hover:bg-slate-700 text-white font-bold h-8 flex items-center gap-1"
-                                        >
-                                            <LinkIcon className="h-3 w-3" /> Pilih Akun Google
-                                        </Button>
                                     </div>
                                 )}
 
@@ -206,22 +134,27 @@ export default function Backup({ stats, gdrive }) {
                                         <span><strong>Assets Backup</strong>: Mengompres folder <code className="bg-slate-200/60 px-1 py-0.2 rounded text-[11px] font-bold text-slate-700">public/orders/</code> ({stats.file_count} file) ke berkas ZIP</span>
                                     </div>
                                     <div className="h-px bg-slate-200 my-2" />
-                                    <div className="text-[11px] text-slate-500 leading-normal">
-                                        ⏱️ <strong>Jadwal Otomatis:</strong> Backup berjalan otomatis setiap hari pada pukul <strong>02:00 subuh</strong> melalui Laravel Scheduler.
+                                    <div className="text-[11px] text-slate-500 leading-normal space-y-1">
+                                        <div>⏱️ <strong>Jadwal Otomatis (Laravel Scheduler):</strong></div>
+                                        <ul className="list-disc list-inside pl-2 space-y-0.5 text-slate-600">
+                                            <li><strong>Harian:</strong> Setiap hari jam 02:00 subuh (Retensi 30 hari)</li>
+                                            <li><strong>Bulanan:</strong> Setiap tanggal 1 jam 03:00 (Retensi 12 bulan)</li>
+                                            <li><strong>Tahunan:</strong> Setiap tanggal 1 Januari jam 04:00 (Retensi 5 tahun)</li>
+                                        </ul>
                                     </div>
                                 </div>
 
                                 <div className="flex gap-3">
                                     <Button
                                         type="button"
-                                        onClick={triggerGDriveBackup}
-                                        disabled={!gdrive.is_enabled || !gdrive.is_connected || runningBackup}
-                                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 py-5"
+                                        onClick={r2.is_configured ? triggerR2Backup : undefined}
+                                        disabled={!r2.is_configured || runningBackup}
+                                        className="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center justify-center gap-2 py-5"
                                     >
                                         {runningBackup ? (
-                                            <><Loader2 className="h-4 w-4 animate-spin" /> Memproses Unggah GDrive...</>
+                                            <><Loader2 className="h-4 w-4 animate-spin" /> Memproses Unggah R2...</>
                                         ) : (
-                                            <><CloudLightning className="h-4 w-4" /> Jalankan Backup GDrive Sekarang</>
+                                            <><Cloud className="h-4 w-4" /> Jalankan Backup R2 Sekarang</>
                                         )}
                                     </Button>
                                 </div>
@@ -294,95 +227,38 @@ export default function Backup({ stats, gdrive }) {
                         </div>
                     </div>
 
-                    {/* Kolom 3: Google Drive Credentials Form */}
+                    {/* Kolom 3: Setup Instructions */}
                     <div className="lg:col-span-1">
                         <Card className="shadow-md border-t-4 border-t-slate-800 bg-white h-full flex flex-col justify-between">
                             <div>
                                 <CardHeader className="pb-4 border-b">
                                     <CardTitle className="flex items-center gap-2 text-base">
-                                        <Key className="h-4.5 w-4.5 text-slate-700" /> Kredensial App Google
+                                        <Server className="h-4.5 w-4.5 text-slate-700" /> Panduan Cloudflare R2
                                     </CardTitle>
                                     <CardDescription>
-                                        Konfigurasi Google OAuth Client ID & Secret untuk mengizinkan aplikasi melakukan otentikasi login akun Google secara langsung.
+                                        Integrasi Cloudflare R2 dikonfigurasi melalui file environment <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px] font-mono font-bold">.env</code> server untuk alasan keamanan.
                                     </CardDescription>
                                 </CardHeader>
 
-                                <CardContent className="pt-6">
-                                    <form onSubmit={handleGDriveSave} className="space-y-5">
-                                        {/* Switch Enable GDrive */}
-                                        <div className="flex items-center justify-between bg-slate-50 border rounded-lg p-3">
-                                            <div className="space-y-0.5">
-                                                <Label htmlFor="gdrive-status" className="text-xs font-black uppercase text-slate-700">Pencadangan Cloud</Label>
-                                                <span className="text-[10px] text-slate-400 block font-medium">Aktifkan backup harian</span>
+                                <CardContent className="pt-6 space-y-4">
+                                    <div className="text-xs text-slate-600 leading-relaxed space-y-3">
+                                        <p>
+                                            Tambahkan variabel berikut ke file <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px] font-mono font-bold">.env</code> Anda:
+                                        </p>
+                                        <div className="bg-slate-900 text-slate-100 p-3 rounded-lg font-mono text-[10px] space-y-1 select-all">
+                                            <div>R2_ACCESS_KEY_ID=xxx</div>
+                                            <div>R2_SECRET_ACCESS_KEY=xxx</div>
+                                            <div>R2_BUCKET=xxx</div>
+                                            <div>R2_ENDPOINT=https://xxx.r2.cloudflarestorage.com</div>
+                                            <div>R2_URL=https://xxx.pub.r2.dev</div>
+                                        </div>
+                                        <div className="flex gap-2 bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-[11px]">
+                                            <HelpCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                                            <div>
+                                                Pastikan Anda telah membuat API Token di Cloudflare dengan akses <strong>Object Read & Write</strong> untuk bucket R2 Anda.
                                             </div>
-                                            <Switch
-                                                id="gdrive-status"
-                                                checked={gdriveForm.data.is_enabled}
-                                                onCheckedChange={(checked) => gdriveForm.setData('is_enabled', checked)}
-                                            />
                                         </div>
-
-                                        {/* Client ID */}
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="client_id" className="text-[10px] font-black uppercase text-slate-500 tracking-wider">OAuth Client ID</Label>
-                                            <Input
-                                                id="client_id"
-                                                type="text"
-                                                placeholder="987654321-abcde.apps.googleusercontent.com"
-                                                value={gdriveForm.data.client_id}
-                                                onChange={(e) => gdriveForm.setData('client_id', e.target.value)}
-                                                className="text-xs focus:ring-1 focus:ring-slate-800"
-                                            />
-                                        </div>
-
-                                        {/* Client Secret */}
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="client_secret" className="text-[10px] font-black uppercase text-slate-500 tracking-wider">OAuth Client Secret</Label>
-                                            <Input
-                                                id="client_secret"
-                                                type="password"
-                                                placeholder="GOCSPX-abcde12345..."
-                                                value={gdriveForm.data.client_secret}
-                                                onChange={(e) => gdriveForm.setData('client_secret', e.target.value)}
-                                                className="text-xs focus:ring-1 focus:ring-slate-800"
-                                            />
-                                        </div>
-
-                                        {/* Redirect URI (Read-only Info) */}
-                                        <div className="space-y-1.5 bg-slate-50 p-2.5 border rounded-lg">
-                                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block">Authorized Redirect URI</span>
-                                            <span className="text-[10px] font-mono select-all text-slate-700 break-all block leading-tight">
-                                                {route('settings.backup.gdrive.callback')}
-                                            </span>
-                                            <span className="text-[8px] text-slate-400 block leading-tight mt-1">
-                                                *Salin alamat URI ini dan daftarkan ke Google Cloud Console pada OAuth 2.0 Client Credentials milik Anda.
-                                            </span>
-                                        </div>
-
-                                        {/* Folder ID */}
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="folder_id" className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Folder ID Google Drive</Label>
-                                            <Input
-                                                id="folder_id"
-                                                type="text"
-                                                placeholder="1AbcdEfGhIjKlMnOpQrStUvWxYz..."
-                                                value={gdriveForm.data.folder_id}
-                                                onChange={(e) => gdriveForm.setData('folder_id', e.target.value)}
-                                                className="text-xs focus:ring-1 focus:ring-slate-800"
-                                            />
-                                            <span className="text-[9px] text-slate-400 block leading-tight">
-                                                ID folder dari URL browser Google Drive tempat menyimpan berkas backup (misal: *drive.google.com/drive/folders/ID-FOLDER*).
-                                            </span>
-                                        </div>
-
-                                        <Button
-                                            type="submit"
-                                            disabled={gdriveForm.processing}
-                                            className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center gap-1.5 py-4 text-xs mt-2"
-                                        >
-                                            <Save className="h-3.5 w-3.5" /> Simpan Konfigurasi
-                                        </Button>
-                                    </form>
+                                    </div>
                                 </CardContent>
                             </div>
                         </Card>
@@ -395,7 +271,7 @@ export default function Backup({ stats, gdrive }) {
                 <DialogContent className="max-w-md p-6">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-red-600 font-black uppercase tracking-wide text-sm">
-                            <ShieldAlert className="h-5 w-5" /> Konfirmasi Tindakan Berisiko
+                            <ShieldAlert className="h-5 w-5" /> Konfirmasi Pembersihan
                         </DialogTitle>
                         <DialogDescription className="text-xs text-slate-500 leading-relaxed pt-2">
                             Anda akan menghapus secara permanen sebanyak <strong>{stats.cleanup_file_count} berkas foto</strong> dari server, membebaskan ruang sekitar <strong>{stats.cleanup_size_human}</strong>. Tindakan ini tidak dapat dibatalkan.
@@ -422,7 +298,7 @@ export default function Backup({ stats, gdrive }) {
                                 onChange={(e) => cleanupForm.setData('confirm', e.target.checked)}
                                 className="rounded border-slate-300 text-red-600 focus:ring-red-500 h-4 w-4 shrink-0 mt-0.5"
                             />
-                            <span>Saya mengonfirmasi telah mengunduh backup arsip ZIP/unggah ke Google Drive terlebih dahulu dan setuju menghapus file foto fisik ini secara permanen.</span>
+                            <span>Saya mengonfirmasi telah mengunduh backup arsip ZIP/unggah ke Cloudflare R2 terlebih dahulu dan setuju menghapus file foto fisik ini secara permanen.</span>
                         </label>
 
                         <DialogFooter className="pt-2">

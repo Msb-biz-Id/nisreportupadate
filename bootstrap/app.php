@@ -19,6 +19,11 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
         ]);
 
+        // Register named middleware aliases
+        $middleware->alias([
+            'turnstile' => \App\Http\Middleware\VerifyTurnstile::class,
+        ]);
+
         // Exclude Sidobe webhook dari CSRF — endpoint public yang diakses server Sidobe
         $middleware->validateCsrfTokens(except: [
             'webhooks/sidobe',

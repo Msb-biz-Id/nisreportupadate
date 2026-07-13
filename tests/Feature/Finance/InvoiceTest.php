@@ -477,15 +477,15 @@ class InvoiceTest extends TestCase
         // 5. Verify the order's database total_tagihan field reflects actual product value
         $this->assertEquals(1000000.0, (float)$order->total_tagihan);
 
-        // 6. Create invoice from Special Order
+        // 6. Create invoice from Special Order (automatically discounted to 100% on products, ongkir is free here)
         $this->actingAsWithBrand($financeAdmin, $brand)
             ->post(route('invoices.create-from-order', $order->id))
             ->assertRedirect();
 
         $invoice = Invoice::where('order_id', $order->id)->first();
         $this->assertNotNull($invoice);
-        $this->assertEquals(1000000.0, (float)$invoice->total_tagihan);
-        $this->assertEquals(1000000.0, (float)$invoice->sisa_pembayaran);
+        $this->assertEquals(0.0, (float)$invoice->total_tagihan);
+        $this->assertEquals(0.0, (float)$invoice->sisa_pembayaran);
 
         // 7. Validate invoice
         $this->actingAsWithBrand($financeAdmin, $brand)
@@ -495,9 +495,9 @@ class InvoiceTest extends TestCase
             ->assertRedirect();
 
         $invoice = $invoice->fresh();
-        // No payments made, so sisa_pembayaran remains > 0 and status is 'validated'
-        $this->assertEquals('validated', $invoice->status);
-        $this->assertEquals(1000000.0, (float)$invoice->sisa_pembayaran);
+        // Since sisa_pembayaran is 0, status transitions to paid/validated lunas
+        $this->assertEquals('paid', $invoice->status);
+        $this->assertEquals(0.0, (float)$invoice->sisa_pembayaran);
 
         // 8. Try to mark lunas manually - should fail since it's a Special Order
         $this->actingAsWithBrand($financeAdmin, $brand)
@@ -715,4 +715,101 @@ class InvoiceTest extends TestCase
         $this->assertEquals(1, \App\Models\Finance\Pemasukan::where('source_payment_id', $payment->id)->count());
     }
 
+    public function test_invoice_recalculates_properly_with_refunds_and_returns(): void
+    {
+        $brand = $this->makeBrand();
+        $admin = $this->makeUser('admin_brand', [$brand]);
+        $finance = $this->makeUser('admin_keuangan', [$brand]);
+
+        $customer = Customer::create([
+            'brand_id' => $brand->id,
+            'kode' => 'C_RET',
+            'nama' => 'Return Customer',
+            'nomor_hp' => '08123',
+            'is_active' => true,
+        ]);
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-RET-123',
+            'nama_po' => 'PO Return Test',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 1140000,
+            'ongkir' => 40000,
+            'published_at' => now(),
+            'created_by' => $admin->id,
+        ]);
+
+        OrderItem::create([
+            'order_id' => $order->id,
+            'nama_produk' => 'Baju Custom',
+            'quantity' => 11,
+            'harga_satuan' => 100000,
+            'subtotal' => 1100000,
+        ]);
+
+        $invoice = Invoice::create([
+            'brand_id' => $brand->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-RET-123',
+            'tanggal_terbit' => now()->toDateString(),
+            'status' => 'draft',
+            'total_tagihan' => 1140000,
+            'sisa_pembayaran' => 1140000,
+            'created_by' => $finance->id,
+        ]);
+
+        // 1. Pay DP (570,000)
+        $payment1 = OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'dp',
+            'amount' => 570000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $admin->id,
+            'verified_at' => now(),
+            'verified_by' => $finance->id,
+        ]);
+
+        $this->assertEquals(570000, $invoice->fresh()->sisa_pembayaran);
+
+        // 2. Pay Pelunasan (570,000)
+        $payment2 = OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'pelunasan',
+            'amount' => 570000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $admin->id,
+            'verified_at' => now(),
+            'verified_by' => $finance->id,
+        ]);
+
+        $this->assertEquals(0, $invoice->fresh()->sisa_pembayaran);
+        $this->assertEquals(1140000, $invoice->fresh()->total_bayar);
+
+        // 3. Issue return (780,000)
+        $payment3 = OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'return',
+            'amount' => 780000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $admin->id,
+            'verified_at' => now(),
+            'verified_by' => $finance->id,
+        ]);
+
+        $orderFresh = $order->fresh();
+        $invoiceFresh = $invoice->fresh();
+
+        // Let's verify the order calculations
+        $this->assertEquals(360000, $orderFresh->totalTagihan());
+        $this->assertEquals(360000, $orderFresh->totalPaid());
+
+        // Let's verify the invoice calculations
+        $this->assertEquals(360000, $invoiceFresh->total_tagihan);
+        $this->assertEquals(360000, $invoiceFresh->total_bayar);
+        $this->assertEquals(0, $invoiceFresh->sisa_pembayaran);
+    }
 }

@@ -44,4 +44,45 @@ class Invoice extends Model
     public function bank(): BelongsTo { return $this->belongsTo(BankAccount::class, 'bank_id'); }
     public function creator(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }
     public function items(): HasMany { return $this->hasMany(InvoiceItem::class); }
+
+    public function syncWithOrder(): void
+    {
+        $order = $this->order;
+        if (!$order) return;
+
+        // Force reload relations to get latest state
+        $order->load(['items', 'payments']);
+
+        $newTotal = (float) $order->totalTagihan();
+        $newPaid  = (float) $order->totalPaid();
+
+        $diskonNominalFromOrder = (float) $order->items->sum('discount_amount');
+        if ($diskonNominalFromOrder > 0) {
+            $diskonNominal = $diskonNominalFromOrder;
+        } else {
+            $diskonNominal = $this->diskon_type === 'persen'
+                ? ($newTotal * (float)$this->diskon_value / 100)
+                : (float)$this->diskon_value;
+        }
+
+        $invoiceTotalTagihan = max(0, $newTotal - $diskonNominal);
+        $newSisa = max(0, $invoiceTotalTagihan - $newPaid);
+
+        $targetStatus = $this->status;
+        if ($newSisa <= 0) {
+            $targetStatus = ($this->status === 'validated') ? 'validated' : 'paid';
+        } else {
+            if (in_array($this->status, ['paid', 'validated'], true)) {
+                $targetStatus = $this->sent_at !== null ? 'sent' : 'published';
+            }
+        }
+
+        $this->update([
+            'total_tagihan'   => $invoiceTotalTagihan,
+            'total_bayar'     => $newPaid,
+            'sisa_pembayaran' => $newSisa,
+            'status'          => $targetStatus,
+        ]);
+    }
 }
+

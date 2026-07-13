@@ -568,6 +568,7 @@
             @php
             $standarSizes = ['XS ANAK','S ANAK','M ANAK','L ANAK','XL ANAK',
             'XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL','7XL','8XL','9XL','10XL'];
+            $renderedDesigns = [];
             @endphp
 
             {{-- ===== DETAIL PER ITEM (DESAIN & NAMESET) ===== --}}
@@ -575,6 +576,25 @@
             @php
             /** @var \App\Models\Order\OrderItem $item */
             $hasDesain = $item->gambar_desain || $item->ket_atasan || $item->ket_bawahan || $item->jenis_kerah || $item->gambar_kerah || $item->gambar_ket_tambahan;
+
+            $designKey = implode('|', [
+                $item->gambar_desain ?? '',
+                $item->gambar_kerah ?? '',
+                $item->gambar_ket_tambahan ?? '',
+                $item->ket_atasan ?? '',
+                $item->ket_bawahan ?? '',
+            ]);
+
+            $skipDesain = false;
+            if (in_array($designKey, $renderedDesigns)) {
+                $skipDesain = true;
+            }
+
+            if ($hasDesain && !$skipDesain) {
+                if (!in_array($designKey, $renderedDesigns)) {
+                    $renderedDesigns[] = $designKey;
+                }
+            }
 
             $filled = $item->namesets->filter(fn($ns) =>
                 !empty(trim($ns->nama_punggung ?? '')) || !empty(trim($ns->nomor_punggung ?? '')) ||
@@ -587,7 +607,7 @@
             );
             @endphp
 
-            @if($hasDesain)
+            @if($hasDesain && !$skipDesain)
             <div class="page-break"></div>
 
             <div class="img-wrapper" style="padding:6px; margin-bottom:10px;">
@@ -816,7 +836,7 @@
                         @elseif($col['type'] === 'nama_punggung')
                         <td class="t-left ns-name">
                             {!! \App\Support\PdfHelper::formatText($ns->nama_punggung) !!}
-                            @if(!empty($ns->is_free)) <span style="color: #b91c1c; font-weight: bold; font-size: 7.5pt; margin-left: 4px;">[FREE]</span> @endif
+                            
                         </td>
                         @elseif($col['type'] === 'no_punggung')
                         <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_punggung) !!}</td>
@@ -1052,7 +1072,10 @@
                         @if($col['type'] === 'no')
                         <td>{{ $i + 1 }}.</td>
                         @elseif($col['type'] === 'nama_punggung')
-                        <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_punggung) !!}</td>
+                        <td class="t-left ns-name">
+                            {!! \App\Support\PdfHelper::formatText($ns->nama_punggung) !!}
+                            
+                        </td>
                         @elseif($col['type'] === 'no_punggung')
                         <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_punggung) !!}</td>
                         @elseif($col['type'] === 'nama_dada')

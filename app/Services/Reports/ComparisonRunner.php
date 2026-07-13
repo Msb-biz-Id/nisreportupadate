@@ -71,6 +71,7 @@ class ComparisonRunner
             ->distinct('pelanggan_id')->count('pelanggan_id');
 
         $totalQty = OrderItem::query()
+            ->where('is_addon', false)
             ->whereHas('order', fn ($q) => $q->where('brand_id', $brand->id)
                 ->whereBetween('tanggal_masuk', [$from, $to])
                 ->where('status_po', '!=', 'draft'))
@@ -90,6 +91,7 @@ class ComparisonRunner
             ->sum('nominal_refund');
 
         $topProduct = OrderItem::query()
+            ->where('is_addon', false)
             ->whereHas('order', fn ($q) => $q->where('brand_id', $brand->id)
                 ->whereBetween('tanggal_masuk', [$from, $to]))
             ->select('nama_produk', DB::raw('SUM(quantity) as qty'))
@@ -192,6 +194,7 @@ class ComparisonRunner
             ->keyBy('bulan');
 
         $items = OrderItem::query()
+            ->where('order_items.is_addon', false)
             ->whereHas('order', function ($q) use ($brandId, $year) {
                 $q->where('brand_id', $brandId)
                   ->whereBetween('tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])

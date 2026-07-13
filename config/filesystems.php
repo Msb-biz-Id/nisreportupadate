@@ -60,6 +60,31 @@ return [
             'report' => false,
         ],
 
+        /*
+        |----------------------------------------------------------------------
+        | Cloudflare R2 Disk
+        |----------------------------------------------------------------------
+        | S3-compatible object storage. Configure in .env:
+        |   R2_ACCESS_KEY_ID      = <your Access Key ID>
+        |   R2_SECRET_ACCESS_KEY  = <your Secret Access Key>
+        |   R2_BUCKET             = <bucket name>
+        |   R2_ENDPOINT           = https://<account-id>.r2.cloudflarestorage.com
+        |   R2_URL                = https://pub-<hash>.r2.dev  (public bucket URL, optional)
+        */
+        'r2' => [
+            'driver'                  => 's3',
+            'key'                     => env('R2_ACCESS_KEY_ID'),
+            'secret'                  => env('R2_SECRET_ACCESS_KEY'),
+            'region'                  => 'auto',
+            'bucket'                  => env('R2_BUCKET'),
+            'url'                     => env('R2_URL'),
+            'endpoint'                => env('R2_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'visibility'              => 'private',
+            'throw'                   => false,
+            'report'                  => false,
+        ],
+
     ],
 
     /*

@@ -35,6 +35,43 @@ class Refund extends Model
         'jumlah_item' => 'integer',
     ];
 
+    public function getBuktiAttribute(mixed $value)
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        $bukti = is_string($value) ? json_decode($value, true) : $value;
+        if (!is_array($bukti)) {
+            return $bukti;
+        }
+
+        $usesR2 = !empty(config('filesystems.disks.r2.key'));
+
+        foreach ($bukti as &$item) {
+            if (isset($item['type']) && $item['type'] === 'file' && isset($item['path'])) {
+                $diskName = $item['disk'] ?? ($usesR2 ? 'r2' : 'public');
+                try {
+                    /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+                    $disk = \Illuminate\Support\Facades\Storage::disk($diskName);
+                    if ($diskName === 'r2') {
+                        if (env('R2_URL')) {
+                            $item['url'] = rtrim(env('R2_URL'), '/') . '/' . $item['path'];
+                        } else {
+                            $item['url'] = $disk->temporaryUrl($item['path'], now()->addMinutes(15));
+                        }
+                    } else {
+                        $item['url'] = $disk->url($item['path']);
+                    }
+                } catch (\Throwable $e) {
+                    // Fallback to stored URL if disk operations fail
+                }
+            }
+        }
+
+        return $bukti;
+    }
+
     public function brand(): BelongsTo { return $this->belongsTo(Brand::class); }
     public function order(): BelongsTo { return $this->belongsTo(Order::class); }
     public function creator(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }

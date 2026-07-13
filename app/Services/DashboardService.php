@@ -275,6 +275,7 @@ class DashboardService
                 $totalProduksi = OrderItem::query()
                     ->join('orders', 'orders.id', '=', 'order_items.order_id')
                     ->when($brandId, $this->obf($brandId))
+                    ->where('order_items.is_addon', false)
                     ->where('orders.status_po', '!=', 'draft')
                     ->sum('order_items.quantity');
                 $rijekRate = $totalProduksi > 0 ? round(($totalRijek / $totalProduksi) * 100, 2) : 0;
@@ -313,7 +314,7 @@ class DashboardService
 
                 $perBrand = Order::query()
                     ->when($brandId && $brandId !== 'all', $this->bf($brandId))
-                    ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
+                    ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
                     ->select('orders.brand_id', DB::raw('COUNT(orders.id) as total'), DB::raw('SUM(orders.total_tagihan) as revenue'), DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_pcs'))
                     ->groupBy('orders.brand_id')
                     ->with('brand:id,nama_brand,kode,warna_primary')
@@ -386,7 +387,7 @@ class DashboardService
                     'owned_brands' => Brand::whereIn('id', $ownedBrandIds)->get(['id', 'nama_brand', 'kode', 'warna_primary']),
             'brand_performance' => Order::query()
                 ->whereIn('orders.brand_id', $opBrandIds)
-                ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
+                ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
                 ->select('orders.brand_id', DB::raw('COUNT(orders.id) as total'), DB::raw('SUM(orders.total_tagihan) as revenue'), DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_pcs'))
                 ->groupBy('orders.brand_id')
                 ->with('brand:id,nama_brand,kode,warna_primary')
@@ -445,17 +446,19 @@ class DashboardService
         $refundPublishedCount  = (clone $refundPublished)->count();
         $refundPublishedAmount = (clone $refundPublished)->sum('nominal_refund');
 
-        // Total payments verified
+        // Total payments verified (debit payments only)
         $totalPayments = OrderPayment::query()
             ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
             ->whereNotNull('verified_at')
+            ->where('is_debit', true)
             ->sum('amount');
 
-        // Total refunds published
-        $totalRefunds = Refund::query()
-            ->when($brandId && $brandId !== 'all', $this->bf($brandId))
-            ->where('status', 'published')
-            ->sum('nominal_refund');
+        // Total refunds/credits verified (credit payments only)
+        $totalRefunds = OrderPayment::query()
+            ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
+            ->whereNotNull('verified_at')
+            ->where('is_debit', false)
+            ->sum('amount');
 
         $outstandingTotal = Order::query()
             ->when($brandId && $brandId !== 'all', $this->bf($brandId))
@@ -559,7 +562,7 @@ class DashboardService
                 ->whereNotNull('order_payments.verified_at')
                 ->join('orders', 'orders.id', '=', 'order_payments.order_id')
                 ->whereIn('orders.brand_id', $brandIdsForReport)
-                ->select('orders.brand_id', DB::raw('SUM(order_payments.amount) as total'))
+                ->select('orders.brand_id', DB::raw('SUM(CASE WHEN order_payments.is_debit = 1 THEN order_payments.amount ELSE 0 END) as total'))
                 ->groupBy('orders.brand_id')
                 ->pluck('total', 'orders.brand_id')
                 ->toArray();
@@ -568,11 +571,13 @@ class DashboardService
         // 3. Total refunds per brand (published only)
         $brandRefunds = [];
         if (!empty($brandIdsForReport)) {
-            $brandRefunds = Refund::whereIn('brand_id', $brandIdsForReport)
-                ->where('status', 'published')
-                ->select('brand_id', DB::raw('SUM(nominal_refund) as total'))
-                ->groupBy('brand_id')
-                ->pluck('total', 'brand_id')
+            $brandRefunds = OrderPayment::query()
+                ->whereNotNull('order_payments.verified_at')
+                ->join('orders', 'orders.id', '=', 'order_payments.order_id')
+                ->whereIn('orders.brand_id', $brandIdsForReport)
+                ->select('orders.brand_id', DB::raw('SUM(CASE WHEN order_payments.is_debit = 0 THEN order_payments.amount ELSE 0 END) as total'))
+                ->groupBy('orders.brand_id')
+                ->pluck('total', 'orders.brand_id')
                 ->toArray();
         }
 
@@ -730,6 +735,7 @@ class DashboardService
             function () use ($brandId, $limit) {
                 return OrderItem::query()
                     ->when($brandId, fn ($q) => $q->whereHas('order', $this->bf($brandId)))
+                    ->where('order_items.is_addon', false)
                     ->select('nama_produk', DB::raw('SUM(quantity) as total_qty'), DB::raw('COUNT(DISTINCT order_id) as total_order'))
                     ->groupBy('nama_produk')
                     ->orderByDesc('total_qty')
@@ -982,6 +988,7 @@ class DashboardService
             ->get()->keyBy('bulan');
 
         $items = OrderItem::query()
+            ->where('order_items.is_addon', false)
             ->whereHas('order', function ($q) use ($brandId, $year) {
                 $q->when($brandId, $this->bf($brandId))
                   ->whereBetween('tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])
@@ -1038,6 +1045,7 @@ class DashboardService
             ->sum('rijeks.jumlah');
         $totalProduksi = OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->where('order_items.is_addon', false)
             ->whereIn('orders.brand_id', $brandIds)
             ->where('orders.status_po', '!=', 'draft')
             ->sum('order_items.quantity');
@@ -1072,6 +1080,7 @@ class DashboardService
 
         $monthActualPcs = OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->where('order_items.is_addon', false)
             ->whereIn('orders.brand_id', $brandIds)
             ->whereBetween('orders.tanggal_masuk', [$startOfMonth, $endOfMonth])
             ->where('orders.status_po', '!=', 'draft')

@@ -1,7 +1,7 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { Search, Plus, CheckCircle2, XCircle, Receipt, Copy, Calendar } from 'lucide-react';
+import { Search, Plus, CheckCircle2, XCircle, Receipt, Copy, Calendar, Paperclip, Link2, FileImage, X as XIcon, ExternalLink } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -22,36 +22,70 @@ const STATUS_VARIANT = {
 function CreateRefundDialog({ open, onOpenChange, jenisOptions }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         order_id: '', alasan: '', jenis_masalah: 'produk_cacat',
-        jumlah_item: 1, nominal_refund: 0, catatan: '',
-    });
+        jumlah_item: 1, nominal_refund: '', catatan: '',
+        bukti_files: [],
+    }, { forceFormData: true });
+
+    const fileInputRef = useRef(null);
+    const [filePreviews, setFilePreviews] = useState([]);
     const [orders, setOrders] = useState([]);
     const [searchPO, setSearchPO] = useState('');
 
+    const handleNumberChange = (field, val) => {
+        if (val === '') { setData(field, ''); return; }
+        const parsed = parseInt(val, 10);
+        setData(field, isNaN(parsed) ? '' : parsed);
+    };
+
+    const handleFileChange = (e) => {
+        const files = Array.from(e.target.files);
+        setData('bukti_files', files);
+        setFilePreviews(files.map(f => ({ name: f.name, size: f.size, isImg: f.type.startsWith('image/') })));
+    };
+
+    const removeFile = (idx) => {
+        const newFiles = [...data.bukti_files].filter((_, i) => i !== idx);
+        setData('bukti_files', newFiles);
+        setFilePreviews(prev => prev.filter((_, i) => i !== idx));
+    };
+
     useEffect(() => {
         if (!open) return;
-        axios.get(route('orders.index'), { params: { q: searchPO } })
-            .catch(() => {});
+        axios.get(route('orders.index'), { params: { q: searchPO } }).catch(() => {});
     }, [open, searchPO]);
+
+    // Reset on close
+    useEffect(() => {
+        if (!open) { reset(); setFilePreviews([]); }
+    }, [open]);
 
     function submit(e) {
         e.preventDefault();
         post(route('refunds.store'), {
+            forceFormData: true,
             preserveScroll: true,
-            onSuccess: () => { reset(); onOpenChange(false); },
+            onBefore: (visit) => {
+                // Normalize numeric fields
+                if (visit.data) {
+                    visit.data.nominal_refund = data.nominal_refund === '' ? 0 : Number(data.nominal_refund);
+                    visit.data.jumlah_item = data.jumlah_item === '' ? 1 : Number(data.jumlah_item);
+                }
+            },
+            onSuccess: () => { reset(); setFilePreviews([]); onOpenChange(false); },
         });
     }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <form onSubmit={submit}>
+            <DialogContent className="max-w-lg">
+                <form onSubmit={submit} encType="multipart/form-data">
                     <DialogHeader>
                         <DialogTitle>Ajukan Refund</DialogTitle>
                         <DialogDescription>
                             Refund untuk PO yang sudah diterbitkan. Akan masuk ke review Admin Keuangan.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-3 py-4">
+                    <div className="space-y-3 py-4 max-h-[65vh] overflow-y-auto pr-1">
                         <div>
                             <Label>Nomor PO / Link PO / UUID PO <span className="text-destructive">*</span></Label>
                             <Input value={data.order_id} onChange={(e) => setData('order_id', e.target.value)} className="mt-1.5" placeholder="Contoh: PO-2026-0001 atau link/UUID PO" />
@@ -70,12 +104,12 @@ function CreateRefundDialog({ open, onOpenChange, jenisOptions }) {
                             </div>
                             <div>
                                 <Label>Jumlah Item</Label>
-                                <Input type="number" min={1} value={data.jumlah_item} onChange={(e) => setData('jumlah_item', Number(e.target.value))} className="mt-1.5" />
+                                <Input type="number" min={1} value={data.jumlah_item} onChange={(e) => handleNumberChange('jumlah_item', e.target.value)} className="mt-1.5" />
                             </div>
                         </div>
                         <div>
                             <Label>Nominal Refund <span className="text-destructive">*</span></Label>
-                            <Input type="number" min={0} value={data.nominal_refund} onChange={(e) => setData('nominal_refund', Number(e.target.value))} className="mt-1.5" />
+                            <Input type="number" min={0} value={data.nominal_refund} onChange={(e) => handleNumberChange('nominal_refund', e.target.value)} className="mt-1.5" />
                             {data.nominal_refund > 0 && (
                                 <p className="mt-1 text-xs text-rose-600 font-semibold font-mono">
                                     Format: {formatRupiah(data.nominal_refund)}
@@ -91,6 +125,68 @@ function CreateRefundDialog({ open, onOpenChange, jenisOptions }) {
                         <div>
                             <Label>Catatan</Label>
                             <Textarea value={data.catatan} onChange={(e) => setData('catatan', e.target.value)} rows={2} className="mt-1.5" />
+                        </div>
+
+                        {/* Bukti Section */}
+                        <div className="border rounded-lg p-3 space-y-3 bg-slate-50/60">
+                            <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+                                <Paperclip className="h-4 w-4" /> Bukti Pendukung <span className="text-xs font-normal text-muted-foreground">(opsional)</span>
+                            </p>
+
+                            {/* Upload File */}
+                            <div>
+                                <Label className="text-xs text-slate-600 flex items-center gap-1">
+                                    <FileImage className="h-3.5 w-3.5" /> Upload Foto/Dokumen
+                                </Label>
+                                <div
+                                    className="mt-1.5 border-2 border-dashed border-slate-300 rounded-lg p-3 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-colors"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        multiple
+                                        accept="image/jpeg,image/png,image/webp,application/pdf"
+                                        className="hidden"
+                                        onChange={handleFileChange}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Klik untuk pilih file (JPG, PNG, WebP, PDF · maks 5MB/file)
+                                    </p>
+                                </div>
+                                {errors['bukti_files.*'] && <p className="text-xs text-destructive mt-1">{errors['bukti_files.*']}</p>}
+
+                                {filePreviews.length > 0 && (
+                                    <div className="mt-2 space-y-1.5">
+                                        {filePreviews.map((f, i) => (
+                                            <div key={i} className="flex items-center justify-between bg-white border rounded px-2.5 py-1.5 text-xs">
+                                                <span className="flex items-center gap-1.5 text-slate-700 truncate max-w-[220px]">
+                                                    <FileImage className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                                    {f.name}
+                                                    <span className="text-muted-foreground">({(f.size / 1024).toFixed(0)} KB)</span>
+                                                </span>
+                                                <button type="button" onClick={() => removeFile(i)} className="text-destructive hover:text-destructive/80 ml-2">
+                                                    <XIcon className="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Google Drive Link */}
+                            <div>
+                                <Label className="text-xs text-slate-600 flex items-center gap-1">
+                                    <Link2 className="h-3.5 w-3.5" /> Link Google Drive / URL Bukti
+                                </Label>
+                                <Input
+                                    value={data.bukti_link}
+                                    onChange={(e) => setData('bukti_link', e.target.value)}
+                                    className="mt-1.5 text-sm"
+                                    placeholder="https://drive.google.com/..."
+                                />
+                                {errors.bukti_link && <p className="text-xs text-destructive mt-1">{errors.bukti_link}</p>}
+                            </div>
                         </div>
                     </div>
                     <DialogFooter>
@@ -192,6 +288,33 @@ function DetailRefundDialog({ refund, open, onOpenChange, can, onPublish, onReje
                         </div>
                     )}
 
+                    {/* Bukti Pendukung */}
+                    {refund.bukti && refund.bukti.length > 0 && (
+                        <div className="border-t pt-3 space-y-2">
+                            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                                <Paperclip className="h-3.5 w-3.5" /> Bukti Pendukung
+                            </span>
+                            <div className="space-y-2">
+                                {refund.bukti.map((b, i) => (
+                                    <a
+                                        key={i}
+                                        href={b.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 hover:bg-primary/5 hover:border-primary/40 transition-colors group"
+                                    >
+                                        {b.type === 'file'
+                                            ? <FileImage className="h-4 w-4 text-primary shrink-0" />
+                                            : <Link2 className="h-4 w-4 text-blue-500 shrink-0" />
+                                        }
+                                        <span className="text-sm text-slate-700 truncate flex-1">{b.name}</span>
+                                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Order Information section */}
                     <div className="border-t pt-4">
                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Informasi PO / Pesanan</h4>
@@ -277,6 +400,7 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
     const [brandId, setBrandId] = useState(filters?.brand_id ?? 'all');
     const [startDate, setStartDate] = useState(filters?.start_date ?? '');
     const [endDate, setEndDate] = useState(filters?.end_date ?? '');
+    const [perPage, setPerPage] = useState(filters?.per_page ?? 15);
     const [copied, setCopied] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
     const [rejecting, setRejecting] = useState(null);
@@ -290,6 +414,7 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
             brand_id: overrides.hasOwnProperty('brand_id') ? overrides.brand_id : brandId,
             start_date: overrides.hasOwnProperty('start_date') ? overrides.start_date : startDate,
             end_date: overrides.hasOwnProperty('end_date') ? overrides.end_date : endDate,
+            per_page: overrides.hasOwnProperty('per_page') ? overrides.per_page : perPage,
         }, { preserveScroll: true, preserveState: true });
     }
 
@@ -629,6 +754,31 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
                             </Table>
                         </div>
                     </CardContent>
+
+                    {/* Pagination bar */}
+                    <div className="border-t px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-muted-foreground">
+                        <span>
+                            {refunds.total > 0
+                                ? `Menampilkan ${refunds.from ?? 0}–${refunds.to ?? 0} dari ${refunds.total} refund`
+                                : '0 refund ditemukan'}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                            <span>Tampilkan:</span>
+                            <select
+                                value={perPage}
+                                onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    setPerPage(val);
+                                    applyFilters({ per_page: val });
+                                }}
+                                className="h-7 rounded border border-slate-200 bg-white px-2 py-0 text-xs font-medium text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                            >
+                                {[10, 15, 25, 50, 100].map(n => (
+                                    <option key={n} value={n}>{n} data</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
                 </Card>
             </div>
 

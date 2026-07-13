@@ -22,8 +22,14 @@
         tr:nth-child(even) td { background: #F8FAFC; }
         .right { text-align: right; }
         .footer { position: fixed; bottom: 8px; left: 0; right: 0; text-align: center; font-size: 7pt; color: #999; }
-        .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; background: #E0E7FF; color: #3730A3; font-size: 7pt; font-weight: 600; }
+        .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; background: #F1F5F9; color: #1E40AF; font-size: 7pt; font-weight: 600; }
     </style>
+    {!! '<' . 'style>' .
+        '.header { border-bottom-color: ' . $primaryColor . '; }' .
+        '.brand { color: ' . $primaryColor . '; }' .
+        '.badge { color: ' . $primaryColor . '; }' .
+        'th { background-color: ' . $primaryColor . '; }' .
+        '</' . 'style>' !!}
 </head>
 <body>
     <div class="header">
@@ -77,8 +83,8 @@
         <tbody>
             @forelse ($rows as $row)
                 @if (!empty($row['is_group_header']))
-                    <tr style="background-color: #EFF6FF;">
-                        <td colspan="{{ count($config['columns']) }}" style="font-weight: bold; border-bottom: 2px solid #3B82F6; color: #1D4ED8; font-size: 9.5pt; padding: 6px 8px;">
+                    <tr style="background-color: #F1F5F9;">
+                        <td colspan="{{ count($config['columns']) }}" {!! 'style="font-weight: bold; border-bottom: 2px solid ' . $primaryColor . '; color: ' . $primaryColor . '; font-size: 9.5pt; padding: 6px 8px;"' !!}>
                             Deadline: {{ \Carbon\Carbon::parse($row['deadline'])->translatedFormat('d M Y') }}
                         </td>
                     </tr>

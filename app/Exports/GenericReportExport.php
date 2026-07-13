@@ -17,6 +17,7 @@ class GenericReportExport implements FromArray, WithHeadings, WithTitle, ShouldA
         private string $title,
         private array $columns,
         private array $rows,
+        private string $primaryColor = '1E40AF'
     ) {}
 
     public function array(): array
@@ -96,7 +97,7 @@ class GenericReportExport implements FromArray, WithHeadings, WithTitle, ShouldA
                 $headerRange = 'A1:' . $sheet->getHighestColumn() . '1';
                 $sheet->getStyle($headerRange)->applyFromArray([
                     'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E40AF']],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => $this->primaryColor]],
                     'alignment' => ['vertical' => 'center', 'horizontal' => 'left'],
                 ]);
                 $sheet->getRowDimension(1)->setRowHeight(28);
@@ -107,8 +108,8 @@ class GenericReportExport implements FromArray, WithHeadings, WithTitle, ShouldA
                         $endCol = $sheet->getHighestColumn();
                         $sheet->mergeCells("A{$rowIndex}:{$endCol}{$rowIndex}");
                         $sheet->getStyle("A{$rowIndex}:{$endCol}{$rowIndex}")->applyFromArray([
-                            'font' => ['bold' => true, 'color' => ['rgb' => '1E40AF']],
-                            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EFF6FF']],
+                            'font' => ['bold' => true, 'color' => ['rgb' => $this->primaryColor]],
+                            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F1F5F9']],
                         ]);
                     } elseif (!empty($row['is_group_total'])) {
                         $endCol = $sheet->getHighestColumn();

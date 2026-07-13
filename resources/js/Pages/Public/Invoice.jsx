@@ -55,6 +55,37 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
     const additionPayments = payments.filter(p => p.payment_type === 'tambahan_produk');
     const lainnyaPayments = payments.filter(p => p.payment_type === 'lainnya');
 
+    let dpSum = dpPayments.reduce((s, x) => s + Number(x.amount), 0);
+    let pelunasanSum = pelunasanPayments.reduce((s, x) => s + Number(x.amount), 0);
+    const returnSum = returnPayments.reduce((s, x) => s + Number(x.amount), 0);
+    const ongkirSum = ongkirPayments.reduce((s, x) => s + Number(x.amount), 0);
+    const cashbackSum = cashbackPayments.reduce((s, x) => s + Number(x.amount), 0);
+    const additionSum = additionPayments.reduce((s, x) => s + Number(x.amount), 0);
+    const lainnyaSum = lainnyaPayments.reduce((s, x) => s + Number(x.amount), 0);
+
+    // Fallback for legacy data
+    if (dpSum === 0 && pelunasanSum === 0 && Number(invoice.total_bayar) > 0) {
+        pelunasanSum = Number(invoice.total_bayar);
+    } else if (dpSum === 0 && pelunasanSum === 0 && Number(invoice.dp_amount) > 0) {
+        dpSum = Number(invoice.dp_amount);
+    }
+
+    const mainItems = (invoice.items ?? []).filter(item => !item.is_addon);
+    const addonItems = (invoice.items ?? []).filter(item => item.is_addon);
+    const mainSubtotalGross = mainItems.reduce((s, x) => s + (Number(x.jumlah) * Number(x.harga_satuan)), 0);
+    const addonSubtotalGross = addonItems.reduce((s, x) => s + (Number(x.jumlah) * Number(x.harga_satuan)), 0);
+    const grossSubtotal = mainSubtotalGross + addonSubtotalGross;
+
+    const itemDiskonSum = (invoice.items ?? []).reduce((s, x) => s + Number(x.discount_amount || 0), 0);
+    const diskonValue = Number(invoice.diskon_value || 0);
+    const diskonNominal = itemDiskonSum > 0
+        ? itemDiskonSum
+        : (invoice.diskon_type === 'persen'
+            ? (grossSubtotal * diskonValue / 100)
+            : diskonValue);
+
+    const grossInvoiceTotal = grossSubtotal - diskonNominal + (invoice.order?.is_free_ongkir ? 0 : Number(invoice.biaya_pengiriman || 0)) + additionSum;
+
     return (
         <>
             <Head>
@@ -500,38 +531,87 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                     </div>
                                 )}
 
-                                {cashbackPayments.length > 0 && (
-                                    <div className="flex justify-between items-center text-xs text-red-500 font-bold">
-                                        <span className="font-semibold text-slate-400 text-red-500">Cashback Diterima</span>
-                                        <span className="font-mono font-bold text-red-500">- {formatRupiah(cashbackPayments.reduce((s, x) => s + Number(x.amount), 0))}</span>
-                                    </div>
-                                )}
-
-                                {returnPayments.length > 0 && (
-                                    <div className="flex justify-between items-center text-xs text-red-500 font-bold">
-                                        <span className="font-semibold text-slate-400 text-red-500">Returns / Refunds</span>
-                                        <span className="font-mono font-bold text-red-500">- {formatRupiah(returnPayments.reduce((s, x) => s + Number(x.amount), 0))}</span>
-                                    </div>
-                                )}
-
                                 <div className="flex justify-between items-center text-xs font-bold border-t pt-2 border-slate-150">
                                     <span className="text-slate-800">Total yang Harus Dibayar</span>
-                                    <span className="font-mono text-slate-800">{formatRupiah(Number(invoice.total_tagihan))}</span>
+                                    <span className="font-mono text-slate-800">{formatRupiah(grossInvoiceTotal)}</span>
                                 </div>
 
-                                <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
-                                    <span>DP</span>
-                                    <span className="font-mono">- {formatRupiah(Number(invoice.total_bayar > 0 ? invoice.total_bayar : invoice.dp_amount))}</span>
-                                </div>
+                                {returnSum > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-rose-600 font-bold">
+                                        <span>Returns / Refunds (Pengurangan)</span>
+                                        <span className="font-mono">- {formatRupiah(returnSum)}</span>
+                                    </div>
+                                )}
 
-                                <div 
-                                    className={`flex justify-between items-center border-t border-slate-200 pt-3 text-lg font-black ${
-                                        invoice.sisa_pembayaran > 0 ? 'text-rose-600' : 'text-emerald-600'
-                                    }`}
-                                >
-                                    <span>Sisa</span>
-                                    <span className="font-mono">{formatRupiah(invoice.sisa_pembayaran)}</span>
-                                </div>
+                                {cashbackSum > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-rose-600 font-bold">
+                                        <span>Cashback (Pengurangan)</span>
+                                        <span className="font-mono">- {formatRupiah(cashbackSum)}</span>
+                                    </div>
+                                )}
+
+                                {dpSum > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
+                                        <span>DP / Uang Muka</span>
+                                        <span className="font-mono">- {formatRupiah(dpSum)}</span>
+                                    </div>
+                                )}
+
+                                {pelunasanSum > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
+                                        <span>Pelunasan</span>
+                                        <span className="font-mono">- {formatRupiah(pelunasanSum)}</span>
+                                    </div>
+                                )}
+
+                                {ongkirSum > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
+                                        <span>Pembayaran Ongkir</span>
+                                        <span className="font-mono">- {formatRupiah(ongkirSum)}</span>
+                                    </div>
+                                )}
+
+                                {additionSum > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
+                                        <span>Pembayaran Tambahan</span>
+                                        <span className="font-mono">- {formatRupiah(additionSum)}</span>
+                                    </div>
+                                )}
+
+                                {lainnyaSum > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
+                                        <span>Pembayaran Lainnya</span>
+                                        <span className="font-mono">- {formatRupiah(lainnyaSum)}</span>
+                                    </div>
+                                )}
+
+                                {returnSum > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-amber-600 font-bold">
+                                        <span>Refund/Return Pengembalian</span>
+                                        <span className="font-mono">+ {formatRupiah(returnSum)}</span>
+                                    </div>
+                                )}
+
+                                {cashbackSum > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-amber-600 font-bold">
+                                        <span>Cashback Pengembalian</span>
+                                        <span className="font-mono">+ {formatRupiah(cashbackSum)}</span>
+                                    </div>
+                                )}
+
+                                {(() => {
+                                    const calculatedSisa = Math.max(0, grossInvoiceTotal - returnSum - cashbackSum - dpSum - pelunasanSum - ongkirSum - additionSum - lainnyaSum + returnSum + cashbackSum);
+                                    return (
+                                        <div 
+                                            className={`flex justify-between items-center border-t border-slate-200 pt-3 text-lg font-black ${
+                                                calculatedSisa > 0 ? 'text-rose-600' : 'text-emerald-600'
+                                            }`}
+                                        >
+                                            <span>Sisa</span>
+                                            <span className="font-mono">{formatRupiah(calculatedSisa)}</span>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
 

@@ -122,14 +122,7 @@ export default function AppLayout({ title, header, children }) {
     }, []);
 
     // Core function to execute dynamic sound and OS Native alert
-    const handleNewNotification = (notif) => {
-        // Deduplicate locally in React state
-        setNotifications((prev) => {
-            if (prev.some(existing => existing.id === notif.id)) return prev;
-            return [notif, ...prev.slice(0, 9)];
-        });
-        setUnreadCount((prev) => prev + 1);
-
+    const triggerNotificationAlert = (notif) => {
         // Check if this notification has already been handled by another tab
         if (handledNotifs.current.has(notif.id)) {
             return;
@@ -159,6 +152,19 @@ export default function AppLayout({ title, header, children }) {
         });
     };
 
+    const handleNewNotification = (notif) => {
+        // Deduplicate locally in React state, maintaining all history (no slice)
+        setNotifications((prev) => {
+            if (prev.some(existing => existing.id === notif.id)) return prev;
+            const updated = [notif, ...prev];
+            updated.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            return updated;
+        });
+        setUnreadCount((prev) => prev + 1);
+
+        triggerNotificationAlert(notif);
+    };
+
     // WebSocket broadcaster listener + Slow Polling Fallback Sync
     const notificationsRef = useRef(notifications);
     notificationsRef.current = notifications;
@@ -186,6 +192,7 @@ export default function AppLayout({ title, header, children }) {
                     isEchoConnected = true;
                     handleNewNotification({
                         id: notification.id,
+                        type: notification.event_key || notification.type || '',
                         title: notification.title,
                         body: notification.body,
                         no_po: notification.no_po,
@@ -206,7 +213,6 @@ export default function AppLayout({ title, header, children }) {
                     const latest = res.data.notifications?.data || [];
                     const serverUnread = res.data.unread_count ?? 0;
                     const currentNotifs = notificationsRef.current;
-                    const currentUnread = unreadCountRef.current;
                     
                     if (latest.length > 0 && latest[0].id !== currentNotifs[0]?.id) {
                         const newNotifs = latest.filter(n => {
@@ -216,22 +222,33 @@ export default function AppLayout({ title, header, children }) {
                         });
                         if (newNotifs.length > 0) {
                             newNotifs.reverse().forEach((n) => {
-                                handleNewNotification(n);
+                                triggerNotificationAlert(n);
                             });
                         }
                     }
                     
                     // Only update state if the values have actually changed to prevent unnecessary re-renders
-                    if (serverUnread !== currentUnread) {
-                        setUnreadCount(serverUnread);
-                    }
+                    setUnreadCount((prev) => {
+                        return serverUnread !== prev ? serverUnread : prev;
+                    });
                     
-                    const isDifferent = latest.length !== currentNotifs.length || 
-                        latest.some((n, index) => n.id !== currentNotifs[index]?.id || n.is_read !== currentNotifs[index]?.is_read);
+                    // Smart merge to maintain all history (read/unread) and update properties (e.g. is_read)
+                    setNotifications((prev) => {
+                        const mergedMap = new Map();
+                        // 1. Load existing notifications in local state
+                        prev.forEach(n => mergedMap.set(n.id, n));
+                        // 2. Put/overwrite with latest from server
+                        latest.forEach(n => mergedMap.set(n.id, n));
                         
-                    if (isDifferent && latest.length > 0) {
-                        setNotifications(latest.slice(0, 10));
-                    }
+                        const mergedList = Array.from(mergedMap.values());
+                        mergedList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+                        // Compare mergedList with prev to see if we actually need to change state
+                        const isDifferent = mergedList.length !== prev.length ||
+                            mergedList.some((n, index) => n.id !== prev[index]?.id || n.is_read !== prev[index]?.is_read);
+
+                        return isDifferent ? mergedList : prev;
+                    });
                 })
                 .catch((err) => console.debug('Polling notifications skipped or offline:', err));
         }, 15000);
@@ -272,13 +289,15 @@ export default function AppLayout({ title, header, children }) {
     const deleteNotification = (id) => {
         axios.delete(route('notifications.destroy', id))
             .then((res) => {
-                const wasUnread = !notifications.find(n => n.id === id)?.is_read;
-                setNotifications((prev) => prev.filter((n) => n.id !== id));
-                if (res.data.unread_count !== undefined) {
-                    setUnreadCount(res.data.unread_count);
-                } else if (wasUnread) {
-                    setUnreadCount((prev) => Math.max(0, prev - 1));
-                }
+                setNotifications((prev) => {
+                    const wasUnread = !prev.find(n => n.id === id)?.is_read;
+                    if (res.data.unread_count !== undefined) {
+                        setUnreadCount(res.data.unread_count);
+                    } else if (wasUnread) {
+                        setUnreadCount((prevCount) => Math.max(0, prevCount - 1));
+                    }
+                    return prev.filter((n) => n.id !== id);
+                });
                 toast.success('Notifikasi berhasil dihapus.');
             })
             .catch((err) => console.error('Failed to delete notification:', err));

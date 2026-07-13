@@ -1632,12 +1632,15 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                     <div className="flex items-center gap-1.5 border-t sm:border-t-0 sm:border-l border-slate-700 pt-1.5 sm:pt-0 sm:pl-2">
                                         <span className="text-[9px] text-slate-400 uppercase font-extrabold">Biaya:</span>
                                         <input 
-                                            type="number"
-                                            min="0"
-                                            value={data.ongkir || ''} 
-                                            placeholder="Rp" 
-                                            onChange={(e) => setData('ongkir', Number(e.target.value) || 0)} 
-                                            className="w-20 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-center text-xs font-mono text-emerald-400 focus:outline-none focus:border-red-500" 
+                                            type="text"
+                                            value={data.ongkir ? `Rp ${new Intl.NumberFormat('id-ID').format(data.ongkir)}` : ''} 
+                                            placeholder="Rp 0" 
+                                            onChange={(e) => {
+                                                const rawValue = e.target.value.replace(/\D/g, '');
+                                                const numericValue = rawValue ? parseInt(rawValue, 10) : 0;
+                                                setData('ongkir', numericValue);
+                                            }} 
+                                            className="w-28 bg-white border border-slate-300 rounded px-2 py-0.5 text-center text-xs font-semibold text-slate-950 focus:outline-none focus:border-red-500 shadow-sm" 
                                         />
                                     </div>
                                 )}

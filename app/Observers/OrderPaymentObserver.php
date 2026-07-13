@@ -67,6 +67,9 @@ class OrderPaymentObserver
         $order = $payment->order;
         if ($order) {
             $order->update(['total_tagihan' => $order->totalTagihan()]);
+            foreach ($order->invoices as $invoice) {
+                $invoice->syncWithOrder();
+            }
         }
 
         // Record ledger immediately if verified upon creation (except conversions/refunds)
@@ -105,6 +108,9 @@ class OrderPaymentObserver
         $order = $payment->order;
         if ($order) {
             $order->update(['total_tagihan' => $order->totalTagihan()]);
+            foreach ($order->invoices as $invoice) {
+                $invoice->syncWithOrder();
+            }
         }
 
         // If the payment just got verified (verified_at transitioned from null to a timestamp)
@@ -170,6 +176,9 @@ class OrderPaymentObserver
         $order = $payment->order;
         if ($order) {
             $order->update(['total_tagihan' => $order->totalTagihan()]);
+            foreach ($order->invoices as $invoice) {
+                $invoice->syncWithOrder();
+            }
         }
     }
 

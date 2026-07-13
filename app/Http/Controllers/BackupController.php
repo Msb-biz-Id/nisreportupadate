@@ -3,8 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order\Order;
-use App\Models\Settings\SystemSetting;
-use App\Services\GoogleDriveService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Gate;
@@ -61,10 +59,9 @@ class BackupController extends Controller
             }
         }
 
-        $clientId = SystemSetting::get('gdrive', 'client_id', '');
-        $clientSecret = SystemSetting::get('gdrive', 'client_secret', '');
-        $refreshToken = SystemSetting::get('gdrive', 'refresh_token', '');
-        $connectedEmail = SystemSetting::get('gdrive', 'connected_email', '');
+        $r2Configured = !empty(config('filesystems.disks.r2.key')) && !empty(config('filesystems.disks.r2.secret'));
+        $r2Bucket = config('filesystems.disks.r2.bucket', '');
+        $r2Endpoint = config('filesystems.disks.r2.endpoint', '');
 
         return Inertia::render('Settings/Backup', [
             'stats' => [
@@ -76,119 +73,31 @@ class BackupController extends Controller
                 'cleanup_file_count' => $cleanupFileCount,
                 'threshold_days' => 30,
             ],
-            'gdrive' => [
-                'is_enabled' => SystemSetting::get('gdrive', 'is_enabled', '0') === '1',
-                'client_id' => $clientId,
-                // Mask secret di frontend demi keamanan
-                'client_secret_masked' => $clientSecret ? SystemSetting::maskedValue($clientSecret) : '',
-                'has_secret' => !empty($clientSecret),
-                'folder_id' => SystemSetting::get('gdrive', 'folder_id', ''),
-                'is_connected' => !empty($refreshToken),
-                'connected_email' => $connectedEmail,
+            'r2' => [
+                'is_configured' => $r2Configured,
+                'bucket' => $r2Bucket,
+                'endpoint' => $r2Endpoint,
             ]
         ]);
-    }
-
-    public function updateSettings(Request $request)
-    {
-        Gate::authorize('settings.system');
-
-        $data = $request->validate([
-            'is_enabled' => ['required', 'boolean'],
-            'client_id' => ['nullable', 'string', 'max:255'],
-            'client_secret' => ['nullable', 'string', 'max:255'],
-            'folder_id' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        SystemSetting::set('gdrive', 'is_enabled', $data['is_enabled'] ? '1' : '0');
-        SystemSetting::set('gdrive', 'client_id', $data['client_id'] ?? '');
-        
-        if ($request->filled('client_secret')) {
-            SystemSetting::set('gdrive', 'client_secret', $data['client_secret']);
-        }
-        
-        SystemSetting::set('gdrive', 'folder_id', $data['folder_id'] ?? '');
-
-        return back()->with('success', 'Pengaturan aplikasi Google Drive berhasil disimpan.');
-    }
-
-    public function redirectToGoogle(Request $request)
-    {
-        Gate::authorize('settings.system');
-
-        $clientId = SystemSetting::get('gdrive', 'client_id');
-        if (!$clientId) {
-            return back()->with('error', 'Google OAuth Client ID belum dikonfigurasi.');
-        }
-
-        $authUrl = GoogleDriveService::getAuthUrl($clientId);
-
-        return Inertia::location($authUrl);
-    }
-
-    public function handleGoogleCallback(Request $request)
-    {
-        Gate::authorize('settings.system');
-
-        if (!$request->has('code')) {
-            return redirect()->route('settings.backup')->with('error', 'Otentikasi dibatalkan atau kode otentikasi tidak ditemukan.');
-        }
-
-        $clientId = SystemSetting::get('gdrive', 'client_id');
-        $clientSecret = SystemSetting::get('gdrive', 'client_secret');
-
-        if (!$clientId || !$clientSecret) {
-            return redirect()->route('settings.backup')->with('error', 'Kredensial Google OAuth Client ID & Secret tidak lengkap.');
-        }
-
-        try {
-            $tokens = GoogleDriveService::handleCallback(
-                $request->string('code')->toString(),
-                $clientId,
-                $clientSecret
-            );
-
-            if (!empty($tokens['refresh_token'])) {
-                SystemSetting::set('gdrive', 'refresh_token', $tokens['refresh_token'], encrypted: true);
-            }
-            
-            if (!empty($tokens['email'])) {
-                SystemSetting::set('gdrive', 'connected_email', $tokens['email']);
-            }
-
-            return redirect()->route('settings.backup')->with('success', 'Akun Google Drive berhasil dihubungkan.');
-        } catch (\Throwable $e) {
-            return redirect()->route('settings.backup')->with('error', 'Gagal menghubungkan Google Drive: ' . $e->getMessage());
-        }
-    }
-
-    public function disconnectGoogle(Request $request)
-    {
-        Gate::authorize('settings.system');
-
-        SystemSetting::set('gdrive', 'refresh_token', '');
-        SystemSetting::set('gdrive', 'connected_email', '');
-
-        return back()->with('success', 'Koneksi akun Google Drive berhasil diputuskan.');
     }
 
     public function runBackup(Request $request)
     {
         Gate::authorize('settings.system');
 
-        $isEnabled = SystemSetting::get('gdrive', 'is_enabled', '0');
-        if ($isEnabled !== '1') {
-            return back()->with('error', 'Integrasi Google Drive dinonaktifkan. Silakan aktifkan terlebih dahulu.');
+        $r2Configured = !empty(config('filesystems.disks.r2.key')) && !empty(config('filesystems.disks.r2.secret'));
+        if (!$r2Configured) {
+            return back()->with('error', 'Integrasi Cloudflare R2 belum dikonfigurasi di file .env.');
         }
 
         try {
-            $exitCode = Artisan::call('backup:gdrive');
+            $exitCode = Artisan::call('backup:r2');
             $output = Artisan::output();
 
             if ($exitCode === 0) {
-                return back()->with('success', 'Proses backup ke Google Drive berhasil diselesaikan.');
+                return back()->with('success', 'Proses backup ke Cloudflare R2 berhasil diselesaikan.');
             } else {
-                return back()->with('error', 'Gagal melakukan backup ke GDrive. Info: ' . trim($output));
+                return back()->with('error', 'Gagal melakukan backup ke R2. Info: ' . trim($output));
             }
         } catch (\Throwable $e) {
             return back()->with('error', 'Error backup: ' . $e->getMessage());
@@ -289,7 +198,7 @@ class BackupController extends Controller
         return back()->with('success', "Pembersihan berhasil. Sebanyak {$deletedCount} berkas foto lama dihapus, membebaskan {$freedHuman} ruang penyimpanan.");
     }
 
-    private function formatBytes($bytes, $precision = 2)
+    private function formatBytes(int|float $bytes, int $precision = 2): string
     {
         $units = ['B', 'KB', 'MB', 'GB', 'TB'];
         $bytes = max($bytes, 0);

@@ -56,6 +56,8 @@ class SystemEventNotification extends Notification implements ShouldQueue
     public function toArray($notifiable): array
     {
         return [
+            'type' => $this->eventKey,
+            'event_key' => $this->eventKey,
             'title' => $this->getTitle(),
             'body' => $this->getBody(),
             'no_po' => $this->payload['no_po'] ?? null,
@@ -71,6 +73,8 @@ class SystemEventNotification extends Notification implements ShouldQueue
     {
         return new BroadcastMessage([
             'id' => $this->id,
+            'type' => $this->eventKey,
+            'event_key' => $this->eventKey,
             'title' => $this->getTitle(),
             'body' => $this->getBody(),
             'no_po' => $this->payload['no_po'] ?? null,

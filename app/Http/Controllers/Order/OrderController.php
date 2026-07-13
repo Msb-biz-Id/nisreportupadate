@@ -83,7 +83,8 @@ class OrderController extends Controller
         $query = Order::query()
             ->forBrand($effectiveId)
             ->with(['pelanggan:id,nama', 'brand:id,nama_brand,kode', 'paketOrder:id,nama,warna,prioritas'])
-            ->withCount(['items', 'progressDetails']);
+            ->withCount(['items', 'progressDetails'])
+            ->withSum(['items as core_items_sum_quantity' => fn($q) => $q->where('is_addon', false)], 'quantity');
 
         if ($search = $request->string('q')->toString()) {
             $query->where(function ($q) use ($search) {
@@ -145,7 +146,11 @@ class OrderController extends Controller
             ->pluck('total', 'status_po')
             ->toArray();
 
-        $orders = $query->orderByDesc($createdAtCol)->paginate(25)->withQueryString();
+        $perPage = $request->integer('per_page', 25);
+        if (!in_array($perPage, [10, 25, 50, 100, 250], true)) {
+            $perPage = 25;
+        }
+        $orders = $query->orderByDesc($createdAtCol)->paginate($perPage)->withQueryString();
         // Dapatkan daftar brand yang boleh difilter pada halaman ini
         $brands = [];
         if ($canSeeMultiBrand) {
@@ -269,10 +274,16 @@ class OrderController extends Controller
 
         $orders = $query->orderByDesc($createdAtCol)->get()->all();
 
+        $activeBrandId = BrandContext::current($request);
+        $activeBrand = ($activeBrandId && $activeBrandId !== 'all') ? \App\Models\Brand::find($activeBrandId) : null;
+        $primaryColor = ($activeBrand?->warna_primary)
+            ?? \App\Models\Settings\SystemSetting::get('system', 'theme_color', '#a8001c');
+        $hexColor = ltrim($primaryColor, '#');
+
         $filename = 'comprehensive-po-export-' . now()->format('Ymd-His') . '.xlsx';
 
         return Excel::download(
-            new POComprehensiveExport('Master PO Export', $orders),
+            new POComprehensiveExport('Master PO Export', $orders, $hexColor),
             $filename
         );
     }
@@ -399,8 +410,20 @@ class OrderController extends Controller
             $order->load('items');
             $totalTagihan = (float) $order->total_tagihan;
             $dp = 0;
-
             $diskonNominalFromOrder = (float) $order->items->sum('discount_amount');
+
+            $isSpecial = (bool) $order->is_special_order;
+            $biayaPengiriman = $order->is_free_ongkir ? 0.0 : (float) $order->ongkir;
+
+            if ($isSpecial) {
+                $invoiceTotalTagihan = $biayaPengiriman;
+                $diskonType = 'persen';
+                $diskonValue = 100.0;
+            } else {
+                $invoiceTotalTagihan = $totalTagihan;
+                $diskonType = $diskonNominalFromOrder > 0 ? 'nominal' : null;
+                $diskonValue = $diskonNominalFromOrder > 0 ? $diskonNominalFromOrder : 0.0;
+            }
 
             $invoice = Invoice::create([
                 'brand_id'        => $order->brand_id,
@@ -409,27 +432,32 @@ class OrderController extends Controller
                 'tanggal_terbit'  => $order->tanggal_masuk,
                 'jatuh_tempo'     => $order->deadline_customer,
                 'status'          => 'draft',
-                'biaya_pengiriman' => $order->is_free_ongkir ? 0.0 : (float) $order->ongkir,
-                'total_tagihan'   => $totalTagihan,
+                'biaya_pengiriman' => $biayaPengiriman,
+                'total_tagihan'   => $invoiceTotalTagihan,
                 'bank_id'         => $data['bank_id'],
                 'dp_amount'       => $dp,
-                'sisa_pembayaran' => max(0, $totalTagihan - $dp),
-                'diskon_type'     => $diskonNominalFromOrder > 0 ? 'nominal' : null,
-                'diskon_value'    => $diskonNominalFromOrder > 0 ? $diskonNominalFromOrder : 0.0,
+                'sisa_pembayaran' => max(0, $invoiceTotalTagihan - $dp),
+                'diskon_type'     => $diskonType,
+                'diskon_value'    => $diskonValue,
                 'created_by'      => $user->id,
             ]);
 
             foreach ($order->items as $item) {
+                $itemSubtotal = $isSpecial ? 0.0 : $item->subtotal;
+                $itemDiscountType = $isSpecial ? 'persen' : $item->discount_type;
+                $itemDiscountValue = $isSpecial ? 100.0 : $item->discount_value;
+                $itemDiscountAmount = $isSpecial ? $item->subtotal : $item->discount_amount;
+
                 InvoiceItem::create([
                     'invoice_id'   => $invoice->id,
                     'produk'       => $item->nama_produk . ($item->varian_label ? " ({$item->varian_label})" : '') . ((float)$item->harga_satuan === 0.0 ? ' (Bonus)' : ''),
                     'jumlah'       => $item->quantity,
                     'harga_satuan' => $item->harga_satuan,
-                    'subtotal'     => $item->subtotal,
+                    'subtotal'     => $itemSubtotal,
                     'is_addon'     => (bool) $item->is_addon,
-                    'discount_type' => $item->discount_type,
-                    'discount_value' => $item->discount_value,
-                    'discount_amount' => $item->discount_amount,
+                    'discount_type' => $itemDiscountType,
+                    'discount_value' => $itemDiscountValue,
+                    'discount_amount' => $itemDiscountAmount,
                 ]);
             }
 

@@ -419,25 +419,48 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
 
                     {/* Referensi Desain & Nameset List per item */}
                     {/* Referensi Desain (Semua Item) */}
-                    {nonAddonItems.map(item => {
-                        const hasImages = item.gambar_desain || item.ket_atasan || item.ket_bawahan || item.jenis_kerah || item.gambar_kerah || item.gambar_ket_tambahan;
-                        
-                        const filledNamesets = (item.namesets || []).filter(ns =>
-                            (ns.nama_punggung || '').toString().trim() || (ns.nomor_punggung || '').toString().trim() ||
-                            (ns.nama_dada || '').toString().trim() || (ns.nomor_dada || '').toString().trim() ||
-                            (ns.nama_lengan || '').toString().trim() || (ns.nomor_lengan || '').toString().trim() ||
-                            (ns.nama_punggung_2 || '').toString().trim() || (ns.nomor_punggung_2 || '').toString().trim() ||
-                            (ns.size_id) || (ns.size_label || '').toString().trim() ||
-                            (ns.size_celana_id) || (ns.size_celana_label || '').toString().trim() ||
-                            (ns.keterangan || '').toString().trim()
-                        );
-                        const hasNamesets = filledNamesets.length > 0;
+                    {(() => {
+                        const renderedDesigns = [];
+                        return nonAddonItems.map(item => {
+                            const hasImages = item.gambar_desain || item.ket_atasan || item.ket_bawahan || item.jenis_kerah || item.gambar_kerah || item.gambar_ket_tambahan;
+                            
+                            const designKey = [
+                                item.gambar_desain || '',
+                                item.gambar_kerah || '',
+                                item.gambar_ket_tambahan || '',
+                                item.ket_atasan || '',
+                                item.ket_bawahan || '',
+                            ].join('|');
 
-                        if (!hasImages && !hasNamesets) return null;
+                            let skipDesain = false;
+                            if (renderedDesigns.includes(designKey)) {
+                                skipDesain = true;
+                            }
 
-                        // Variables needed for Nameset List (if hasNamesets is true)
-                        let hasCustomization = false;
-                        let finalCols = [];
+                            if (hasImages && !skipDesain) {
+                                if (!renderedDesigns.includes(designKey)) {
+                                    renderedDesigns.push(designKey);
+                                }
+                            }
+
+                            const showDesain = hasImages && !skipDesain;
+
+                            const filledNamesets = (item.namesets || []).filter(ns =>
+                                (ns.nama_punggung || '').toString().trim() || (ns.nomor_punggung || '').toString().trim() ||
+                                (ns.nama_dada || '').toString().trim() || (ns.nomor_dada || '').toString().trim() ||
+                                (ns.nama_lengan || '').toString().trim() || (ns.nomor_lengan || '').toString().trim() ||
+                                (ns.nama_punggung_2 || '').toString().trim() || (ns.nomor_punggung_2 || '').toString().trim() ||
+                                (ns.size_id) || (ns.size_label || '').toString().trim() ||
+                                (ns.size_celana_id) || (ns.size_celana_label || '').toString().trim() ||
+                                (ns.keterangan || '').toString().trim()
+                            );
+                            const hasNamesets = filledNamesets.length > 0;
+
+                            if (!showDesain && !hasNamesets) return null;
+
+                            // Variables needed for Nameset List (if hasNamesets is true)
+                            let hasCustomization = false;
+                            let finalCols = [];
                         let useDense = false;
                         let sizeAtasanRecap = [];
                         let sizeBawahanRecap = [];
@@ -532,7 +555,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                         return (
                             <React.Fragment key={`item-block-${item.id}`}>
                                 {/* Referensi Desain */}
-                                {hasImages && (
+                                {showDesain && (
                                     <div key={`design-${item.id}`} className="mt-8 border-t-2 border-dashed border-slate-400 pt-8 print:break-before-page print:pt-4">
                                         <div className="border-2 border-black p-1.5 mb-3 bg-white">
                                             <div className="bg-slate-300 font-bold text-[13px] border border-black p-1.5 text-center">
@@ -630,11 +653,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                                                     val = (
                                                                         <span>
                                                                             {renderFormattedText(ns.nama_punggung || '')}
-                                                                            {ns.is_free && (
-                                                                                <span className="ml-1.5 px-1 py-0.5 rounded text-[8px] font-extrabold bg-red-100 text-red-600 border border-red-200 inline-block align-middle select-none">
-                                                                                    FREE
-                                                                                </span>
-                                                                            )}
+                                                                            
                                                                         </span>
                                                                     );
                                                                 }
@@ -717,7 +736,8 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                 )}
                             </React.Fragment>
                         );
-                    })}
+                    });
+                })()}
 
                     {/* Checklist Produksi */}
                     {progresses && progresses.length > 0 && nonAddonItems.length > 0 && (
@@ -874,7 +894,14 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                                             {finalCols.map((col, cidx) => {
                                                                 let val = '';
                                                                 if (col.type === 'no') val = `${idx + 1}.`;
-                                                                else if (col.type === 'nama_punggung') val = renderFormattedText(ns.nama_punggung || '');
+                                                                else if (col.type === 'nama_punggung') {
+                                                                    val = (
+                                                                        <span>
+                                                                            {renderFormattedText(ns.nama_punggung || '')}
+                                                                            
+                                                                        </span>
+                                                                    );
+                                                                }
                                                                 else if (col.type === 'no_punggung') val = ns.nomor_punggung || '';
                                                                 else if (col.type === 'nama_dada') val = renderFormattedText(ns.nama_dada || '');
                                                                 else if (col.type === 'no_dada') val = ns.nomor_dada || '';

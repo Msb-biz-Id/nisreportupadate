@@ -20,7 +20,11 @@ class AuthenticatedSessionController extends Controller
     {
         return Inertia::render('Auth/Login', [
             'canResetPassword' => Route::has('password.request'),
-            'status' => session('status'),
+            'status'           => session('status'),
+            'turnstile'        => [
+                'enabled'  => config('turnstile.enabled', false),
+                'site_key' => config('turnstile.site_key', ''),
+            ],
         ]);
     }
 

@@ -106,4 +106,21 @@ class ComparisonReportTest extends TestCase
         $this->assertEquals(1, $b2Result['po_count']);
         $this->assertEquals(800000, $b2Result['revenue']);
     }
+
+    public function test_superadmin_can_export_comparison_excel(): void
+    {
+        $sa = $this->makeUser('superadmin');
+        $b1 = $this->makeBrand(['nama_brand' => 'Brand 1', 'kode' => 'A1']);
+        $b2 = $this->makeBrand(['nama_brand' => 'Brand 2', 'kode' => 'B2']);
+
+        $response = $this->actingAs($sa)
+            ->get(route('comparison.export.excel', [
+                'mode' => 'brands',
+                'brand_ids' => [$b1->id, $b2->id],
+                'year' => (int) now()->year
+            ]));
+
+        $response->assertStatus(200);
+        $this->assertStringContainsString('spreadsheetml', $response->headers->get('content-type'));
+    }
 }
