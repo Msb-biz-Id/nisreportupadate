@@ -70,6 +70,10 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
         dpSum = Number(invoice.dp_amount);
     }
 
+    const totalReceived = dpSum + pelunasanSum + ongkirSum + additionSum + lainnyaSum;
+    const totalRefunded = returnSum + cashbackSum;
+    const totalPaidNet = Math.max(0, totalReceived - totalRefunded);
+
     const mainItems = (invoice.items ?? []).filter(item => !item.is_addon);
     const addonItems = (invoice.items ?? []).filter(item => item.is_addon);
     const mainSubtotalGross = mainItems.reduce((s, x) => s + (Number(x.jumlah) * Number(x.harga_satuan)), 0);
@@ -536,71 +540,15 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                     <span className="font-mono text-slate-800">{formatRupiah(grossInvoiceTotal)}</span>
                                 </div>
 
-                                {returnSum > 0 && (
-                                    <div className="flex justify-between items-center text-xs text-rose-600 font-bold">
-                                        <span>Returns / Refunds (Pengurangan)</span>
-                                        <span className="font-mono">- {formatRupiah(returnSum)}</span>
-                                    </div>
-                                )}
-
-                                {cashbackSum > 0 && (
-                                    <div className="flex justify-between items-center text-xs text-rose-600 font-bold">
-                                        <span>Cashback (Pengurangan)</span>
-                                        <span className="font-mono">- {formatRupiah(cashbackSum)}</span>
-                                    </div>
-                                )}
-
-                                {dpSum > 0 && (
+                                {totalReceived > 0 && (
                                     <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
-                                        <span>DP / Uang Muka</span>
-                                        <span className="font-mono">- {formatRupiah(dpSum)}</span>
-                                    </div>
-                                )}
-
-                                {pelunasanSum > 0 && (
-                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
-                                        <span>Pelunasan</span>
-                                        <span className="font-mono">- {formatRupiah(pelunasanSum)}</span>
-                                    </div>
-                                )}
-
-                                {ongkirSum > 0 && (
-                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
-                                        <span>Pembayaran Ongkir</span>
-                                        <span className="font-mono">- {formatRupiah(ongkirSum)}</span>
-                                    </div>
-                                )}
-
-                                {additionSum > 0 && (
-                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
-                                        <span>Pembayaran Tambahan</span>
-                                        <span className="font-mono">- {formatRupiah(additionSum)}</span>
-                                    </div>
-                                )}
-
-                                {lainnyaSum > 0 && (
-                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
-                                        <span>Pembayaran Lainnya</span>
-                                        <span className="font-mono">- {formatRupiah(lainnyaSum)}</span>
-                                    </div>
-                                )}
-
-                                {returnSum > 0 && (
-                                    <div className="flex justify-between items-center text-xs text-amber-600 font-bold">
-                                        <span>Refund/Return Pengembalian</span>
-                                        <span className="font-mono">+ {formatRupiah(returnSum)}</span>
-                                    </div>
-                                )}
-
-                                {cashbackSum > 0 && (
-                                    <div className="flex justify-between items-center text-xs text-amber-600 font-bold">
-                                        <span>Cashback Pengembalian</span>
-                                        <span className="font-mono">+ {formatRupiah(cashbackSum)}</span>
+                                        <span>Total Pembayaran</span>
+                                        <span className="font-mono">- {formatRupiah(totalReceived)}</span>
                                     </div>
                                 )}
 
                                 {(() => {
-                                    const calculatedSisa = Math.max(0, grossInvoiceTotal - returnSum - cashbackSum - dpSum - pelunasanSum - ongkirSum - additionSum - lainnyaSum + returnSum + cashbackSum);
+                                    const calculatedSisa = Math.max(0, grossInvoiceTotal - totalReceived);
                                     return (
                                         <div 
                                             className={`flex justify-between items-center border-t border-slate-200 pt-3 text-lg font-black ${
@@ -612,6 +560,13 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                         </div>
                                     );
                                 })()}
+
+                                {totalRefunded > 0 && (
+                                    <div className="mt-3 p-3 bg-rose-50 border border-rose-100 rounded-2xl flex justify-between items-center text-xs font-bold text-rose-700">
+                                        <span>Informasi Refund / Retur</span>
+                                        <span className="font-mono text-sm font-black text-rose-650">{formatRupiah(totalRefunded)}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

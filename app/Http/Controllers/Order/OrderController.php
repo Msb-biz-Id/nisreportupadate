@@ -52,136 +52,36 @@ class OrderController extends Controller
     {
         Gate::authorize('order.view');
 
-        $user      = $request->user();
-        $brandId   = BrandContext::current($request);
+        $user             = $request->user();
+        $brandId          = BrandContext::current($request);
         $canSeeMultiBrand = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi', 'admin_reseller', 'admin_brand']);
 
-        // Admin Brand dengan multiple brand: jika pilih brand_id=all → tampil semua brand mereka
-        $filterBrandId = $request->string('brand_id')->toString();
-        $userBrandIds  = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])
+        $filterBrandId    = $request->string('brand_id')->toString();
+        $userBrandIds     = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])
             ? null
             : $user->brands()->pluck('brands.id')->toArray();
 
-        // Resolusi brand untuk base query
-        $effectiveId = match(true) {
-            $user->hasRole(['admin_produksi', 'admin_keuangan']) => null,
-            $user->hasRole('admin_reseller')  => BrandContext::effectiveBrandIds($request),
-            // admin_brand "Semua Brand": tampilkan semua brand yang di-assign ke mereka
-            $user->hasRole('admin_brand') && ($filterBrandId === 'all' || empty($filterBrandId))
-                => $userBrandIds ?? $brandId,
-            default => $brandId,
-        };
+        $effectiveId      = $this->getEffectiveId($user, $filterBrandId, $userBrandIds, $brandId, $request);
+        $tab              = $request->string('tab', 'active')->toString();
 
-        $statusPoCol = 'status_po';
-        $ordersStatusPoCol = 'orders.status_po';
-        $ordersBrandIdCol = 'orders.brand_id';
-        $createdAtCol = 'created_at';
-        $namaBrandCol = 'nama_brand';
-
-        $tab = $request->string('tab', 'active')->toString();
-
-        $query = Order::query()
-            ->forBrand($effectiveId)
-            ->with(['pelanggan:id,nama', 'brand:id,nama_brand,kode', 'paketOrder:id,nama,warna,prioritas'])
-            ->withCount(['items', 'progressDetails'])
-            ->withSum(['items as core_items_sum_quantity' => fn($q) => $q->where('is_addon', false)], 'quantity');
-
-        if ($search = $request->string('q')->toString()) {
-            $query->where(function ($q) use ($search) {
-                $q->where('no_po', 'like', "%{$search}%")
-                  ->orWhere('nama_po', 'like', "%{$search}%")
-                  ->orWhereHas('pelanggan', fn ($x) => $x->where('nama', 'like', "%{$search}%"));
-            });
-        }
-
-        if ($user->hasRole('admin_produksi')) {
-            $query->where($statusPoCol, '!=', 'draft');
-        }
-
-        // Filter berdasarkan tab terlebih dahulu
-        if ($tab === 'archive') {
-            $query->whereIn($ordersStatusPoCol, ['sudah_dikirim', 'selesai']);
-        } else {
-            $query->whereNotIn($ordersStatusPoCol, ['sudah_dikirim', 'selesai']);
-        }
-
-        // Kemudian filter status jika dispesifikasikan (dan valid untuk tab tersebut)
-        $status = $request->string('status')->toString();
-        if ($status && $status !== 'all') {
-            if ($tab === 'active' && in_array($status, ['sudah_dikirim', 'selesai'], true)) {
-                $query->whereRaw('1 = 0');
-            } elseif ($tab === 'archive' && ! in_array($status, ['sudah_dikirim', 'selesai'], true)) {
-                $query->whereRaw('1 = 0');
-            } else {
-                $query->where($ordersStatusPoCol, $status);
-            }
-        }
-
-        // Jika ada filter brand spesifik (bukan 'all') → drill-down ke brand tertentu
-        if ($canSeeMultiBrand && $filterBrandId && $filterBrandId !== 'all') {
-            $query->where($ordersBrandIdCol, $filterBrandId);
-        }
-
-        if ($dateFrom = $request->string('date_from')->toString()) {
-            $query->where('tanggal_masuk', '>=', $dateFrom . ' 00:00:00');
-        }
-        if ($dateTo = $request->string('date_to')->toString()) {
-            $query->where('tanggal_masuk', '<=', $dateTo . ' 23:59:59');
-        }
-
-        // Summary per status — query terpisah tanpa with/withCount agar GROUP BY aman
-        $statusCounts = Order::query()
-            ->forBrand($effectiveId)
-            ->when($user->hasRole('admin_produksi'), fn ($q) => $q->where($statusPoCol, '!=', 'draft'))
-            ->when($canSeeMultiBrand && $filterBrandId && $filterBrandId !== 'all', fn ($q) => $q->where($ordersBrandIdCol, $filterBrandId))
-            ->when($request->string('q')->toString(), fn ($q, $v) => $q->where(function ($w) use ($v) {
-                $w->where('no_po', 'like', "%{$v}%")->orWhere('nama_po', 'like', "%{$v}%");
-            }))
-            ->when($request->string('date_from')->toString(), fn ($q, $v) => $q->where('tanggal_masuk', '>=', $v . ' 00:00:00'))
-            ->when($request->string('date_to')->toString(), fn ($q, $v) => $q->where('tanggal_masuk', '<=', $v . ' 23:59:59'))
-            ->when($tab === 'archive', fn ($q) => $q->whereIn($statusPoCol, ['sudah_dikirim', 'selesai']))
-            ->when($tab === 'active', fn ($q) => $q->whereNotIn($statusPoCol, ['sudah_dikirim', 'selesai']))
-            ->selectRaw('status_po, count(*) as total')
-            ->groupBy('status_po')
-            ->pluck('total', 'status_po')
-            ->toArray();
+        $query            = $this->getIndexQuery($request, $effectiveId, $tab, $user, $canSeeMultiBrand, $filterBrandId);
+        $statusCounts     = $this->getStatusCounts($request, $effectiveId, $tab, $user, $canSeeMultiBrand, $filterBrandId);
 
         $perPage = $request->integer('per_page', 25);
         if (!in_array($perPage, [10, 25, 50, 100, 250], true)) {
             $perPage = 25;
         }
-        $orders = $query->orderByDesc($createdAtCol)->paginate($perPage)->withQueryString();
-        // Dapatkan daftar brand yang boleh difilter pada halaman ini
-        $brands = [];
-        if ($canSeeMultiBrand) {
-            if ($user->hasRole(['admin_produksi', 'admin_keuangan'])) {
-                // Keuangan/produksi dapat melihat semua brand aktif
-                $brands = Brand::orderBy($namaBrandCol)->get(['id', 'nama_brand', 'kode']);
-            } else {
-                // Yang lain dibatasi hanya pada brand-brand efektif saat ini (brand aktif + cabangnya jika ada)
-                $effectiveBrandIds = BrandContext::effectiveBrandIds($request);
-                $brands = Brand::whereIn('id', $effectiveBrandIds)
-                    ->orderBy($namaBrandCol)
-                    ->get(['id', 'nama_brand', 'kode']);
-            }
-        }
+        $orders = $query->paginate($perPage)->withQueryString();
 
-        $visibleStatuses = $user->hasRole('admin_produksi')
-            ? array_values(array_filter(Order::STATUSES, fn ($s) => $s !== 'draft'))
-            : Order::STATUSES;
-
-        if ($tab === 'active') {
-            $visibleStatuses = array_values(array_filter($visibleStatuses, fn ($s) => ! in_array($s, ['sudah_dikirim', 'selesai'], true)));
-        } else {
-            $visibleStatuses = ['sudah_dikirim', 'selesai'];
-        }
+        $brands          = $this->getBrandsList($user, $canSeeMultiBrand, $request);
+        $visibleStatuses = $this->getVisibleStatuses($user, $tab);
 
         return Inertia::render('Order/Index', [
             'orders' => $orders,
             'filters' => [
-                'q'        => $request->string('q')->toString(),
-                'status'   => $request->string('status')->toString(),
-                'brand_id' => $request->string('brand_id')->toString(),
+                'q'         => $request->string('q')->toString(),
+                'status'    => $request->string('status')->toString(),
+                'brand_id'  => $request->string('brand_id')->toString(),
                 'date_from' => $request->string('date_from')->toString(),
                 'date_to'   => $request->string('date_to')->toString(),
                 'tab'       => $tab,
@@ -197,6 +97,116 @@ class OrderController extends Controller
                 'filter_by_brand' => $canSeeMultiBrand && count($brands) > 1,
             ],
         ]);
+    }
+
+    private function getEffectiveId(\App\Models\User $user, string $filterBrandId, ?array $userBrandIds, ?string $brandId, Request $request)
+    {
+        return match(true) {
+            $user->hasRole(['admin_produksi', 'admin_keuangan']) => null,
+            $user->hasRole('admin_reseller')  => BrandContext::effectiveBrandIds($request),
+            $user->hasRole('admin_brand') && ($filterBrandId === 'all' || empty($filterBrandId))
+                => $userBrandIds ?? $brandId,
+            default => $brandId,
+        };
+    }
+
+    private function getIndexQuery(Request $request, mixed $effectiveId, string $tab, \App\Models\User $user, bool $canSeeMultiBrand, string $filterBrandId): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = Order::query()
+            ->forBrand($effectiveId)
+            ->with(['pelanggan:id,nama', 'brand:id,nama_brand,kode', 'paketOrder:id,nama,warna,prioritas'])
+            ->withCount(['items', 'progressDetails'])
+            ->withSum(['items as core_items_sum_quantity' => fn($q) => $q->where('is_addon', false)], 'quantity');
+
+        if ($search = $request->string('q')->toString()) {
+            $query->where(function ($q) use ($search) {
+                $q->where('no_po', 'like', "%{$search}%")
+                  ->orWhere('nama_po', 'like', "%{$search}%")
+                  ->orWhereHas('pelanggan', fn ($x) => $x->where('nama', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($user->hasRole('admin_produksi')) {
+            $query->where('status_po', '!=', 'draft');
+        }
+
+        if ($tab === 'archive') {
+            $query->whereIn('orders.status_po', ['sudah_dikirim', 'selesai']);
+        } else {
+            $query->whereNotIn('orders.status_po', ['sudah_dikirim', 'selesai']);
+        }
+
+        $status = $request->string('status')->toString();
+        if ($status && $status !== 'all') {
+            if ($tab === 'active' && in_array($status, ['sudah_dikirim', 'selesai'], true)) {
+                $query->whereRaw('1 = 0');
+            } elseif ($tab === 'archive' && ! in_array($status, ['sudah_dikirim', 'selesai'], true)) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->where('orders.status_po', $status);
+            }
+        }
+
+        if ($canSeeMultiBrand && $filterBrandId && $filterBrandId !== 'all') {
+            $query->where('orders.brand_id', $filterBrandId);
+        }
+
+        if ($dateFrom = $request->string('date_from')->toString()) {
+            $query->where('tanggal_masuk', '>=', $dateFrom . ' 00:00:00');
+        }
+        if ($dateTo = $request->string('date_to')->toString()) {
+            $query->where('tanggal_masuk', '<=', $dateTo . ' 23:59:59');
+        }
+
+        return $query->orderByDesc('created_at');
+    }
+
+    private function getStatusCounts(Request $request, mixed $effectiveId, string $tab, \App\Models\User $user, bool $canSeeMultiBrand, string $filterBrandId): array
+    {
+        return Order::query()
+            ->forBrand($effectiveId)
+            ->when($user->hasRole('admin_produksi'), fn ($q) => $q->where('status_po', '!=', 'draft'))
+            ->when($canSeeMultiBrand && $filterBrandId && $filterBrandId !== 'all', fn ($q) => $q->where('orders.brand_id', $filterBrandId))
+            ->when($request->string('q')->toString(), fn ($q, $v) => $q->where(function ($w) use ($v) {
+                $w->where('no_po', 'like', "%{$v}%")->orWhere('nama_po', 'like', "%{$v}%");
+            }))
+            ->when($request->string('date_from')->toString(), fn ($q, $v) => $q->where('tanggal_masuk', '>=', $v . ' 00:00:00'))
+            ->when($request->string('date_to')->toString(), fn ($q, $v) => $q->where('tanggal_masuk', '<=', $v . ' 23:59:59'))
+            ->when($tab === 'archive', fn ($q) => $q->whereIn('status_po', ['sudah_dikirim', 'selesai']))
+            ->when($tab === 'active', fn ($q) => $q->whereNotIn('status_po', ['sudah_dikirim', 'selesai']))
+            ->selectRaw('status_po, count(*) as total')
+            ->groupBy('status_po')
+            ->pluck('total', 'status_po')
+            ->toArray();
+    }
+
+    private function getBrandsList(\App\Models\User $user, bool $canSeeMultiBrand, Request $request)
+    {
+        $brands = [];
+        if ($canSeeMultiBrand) {
+            if ($user->hasRole(['admin_produksi', 'admin_keuangan'])) {
+                $brands = Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode']);
+            } else {
+                $effectiveBrandIds = BrandContext::effectiveBrandIds($request);
+                $brands = Brand::whereIn('id', $effectiveBrandIds)
+                    ->orderBy('nama_brand')
+                    ->get(['id', 'nama_brand', 'kode']);
+            }
+        }
+        return $brands;
+    }
+
+    private function getVisibleStatuses(\App\Models\User $user, string $tab): array
+    {
+        $visibleStatuses = $user->hasRole('admin_produksi')
+            ? array_values(array_filter(Order::STATUSES, fn ($s) => $s !== 'draft'))
+            : Order::STATUSES;
+
+        if ($tab === 'active') {
+            return array_values(array_filter($visibleStatuses, fn ($s) => ! in_array($s, ['sudah_dikirim', 'selesai'], true)));
+        } else {
+            return ['sudah_dikirim', 'selesai'];
+        }
     }
 
     public function exportComprehensive(Request $request)
@@ -275,7 +285,7 @@ class OrderController extends Controller
         $orders = $query->orderByDesc($createdAtCol)->get()->all();
 
         $activeBrandId = BrandContext::current($request);
-        $activeBrand = ($activeBrandId && $activeBrandId !== 'all') ? \App\Models\Brand::find($activeBrandId) : null;
+        $activeBrand = ($activeBrandId && $activeBrandId !== 'all') ? Brand::find($activeBrandId) : null;
         $primaryColor = ($activeBrand?->warna_primary)
             ?? \App\Models\Settings\SystemSetting::get('system', 'theme_color', '#a8001c');
         $hexColor = ltrim($primaryColor, '#');

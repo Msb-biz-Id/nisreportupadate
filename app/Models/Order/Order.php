@@ -204,6 +204,60 @@ class Order extends Model
         return max(0, $pemasukan + $dp + $pelunasan + $ongkir + $tambahan + $lainnya - $pengeluaran - $return - $cashback);
     }
 
+    public function totalReceived(): float
+    {
+        if (!$this->relationLoaded('payments') || $this->payments->contains(fn($p) => !$p->relationLoaded('masterJenisPembayaran'))) {
+            $this->load('payments.masterJenisPembayaran');
+        }
+
+        $pemasukan = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->masterJenisPembayaran?->tipe_keuangan === 'pemasukan')
+            ->sum('amount');
+
+        $dp = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'dp')
+            ->sum('amount');
+            
+        $pelunasan = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'pelunasan')
+            ->sum('amount');
+            
+        $ongkir = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'ongkir')
+            ->sum('amount');
+            
+        $tambahan = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'tambahan_produk')
+            ->sum('amount');
+            
+        $lainnya = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'lainnya')
+            ->sum('amount');
+
+        return $pemasukan + $dp + $pelunasan + $ongkir + $tambahan + $lainnya;
+    }
+
+    public function totalRefunded(): float
+    {
+        if (!$this->relationLoaded('payments') || $this->payments->contains(fn($p) => !$p->relationLoaded('masterJenisPembayaran'))) {
+            $this->load('payments.masterJenisPembayaran');
+        }
+
+        $pengeluaran = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->masterJenisPembayaran?->tipe_keuangan === 'pengeluaran')
+            ->sum('amount');
+
+        $return = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'return')
+            ->sum('amount');
+            
+        $cashback = (float) $this->payments
+            ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'cashback')
+            ->sum('amount');
+
+        return $pengeluaran + $return + $cashback;
+    }
+
     public function sisaTagihan(): float
     {
         return max(0, $this->totalTagihan() - $this->totalPaid());

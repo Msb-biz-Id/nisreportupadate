@@ -157,6 +157,14 @@ $primaryColor = $invoice->brand?->warna_primary
             text-align: right;
         }
 
+        .text-green {
+            color: #059669;
+        }
+
+        .text-red {
+            color: #dc2626;
+        }
+
         .totals {
             width: 280px;
             margin-left: auto;
@@ -443,7 +451,7 @@ $primaryColor = $invoice->brand?->warna_primary
                             <td style="padding: 6px 8px; color: #4b5563;">
                                 {{ $p->bank ? $p->bank->bank . ' — ' . $p->bank->nomor_rekening : '—' }}
                             </td>
-                            <td style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: bold; color: {{ $isDebit ? '#059669' : '#dc2626' }}; white-space: nowrap;">
+                            <td class="{{ $isDebit ? 'text-green' : 'text-red' }}" style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: bold; white-space: nowrap;">
                                 {{ $isDebit ? '+' : '-' }} Rp {{ number_format($p->amount, 0, ',', '.') }}
                             </td>
                         </tr>
@@ -451,8 +459,34 @@ $primaryColor = $invoice->brand?->warna_primary
                 </tbody>
             </table>
         </div>
-        @endif
+        @endif        @php
+            $additionPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'tambahan_produk') : collect();
+            $cashbackPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'cashback') : collect();
+            $returnPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'return') : collect();
 
+            $dpPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'dp') : collect();
+            $pelunasanPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'pelunasan') : collect();
+            $ongkirPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'ongkir') : collect();
+            $lainnyaPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'lainnya') : collect();
+
+            $dpSum = $dpPayments->sum('amount');
+            $pelunasanSum = $pelunasanPayments->sum('amount');
+            $ongkirSum = $ongkirPayments->sum('amount');
+            $additionSum = $additionPayments->sum('amount');
+            $lainnyaSum = $lainnyaPayments->sum('amount');
+            $returnSum = $returnPayments->sum('amount');
+            $cashbackSum = $cashbackPayments->sum('amount');
+
+            // Fallback for legacy data
+            if ($dpSum == 0 && $pelunasanSum == 0 && $invoice->total_bayar > 0) {
+                $pelunasanSum = $invoice->total_bayar;
+            } elseif ($dpSum == 0 && $pelunasanSum == 0 && $invoice->dp_amount > 0) {
+                $dpSum = $invoice->dp_amount;
+            }
+
+            $totalReceived = $invoice->order ? $invoice->order->totalReceived() : ($dpSum + $pelunasanSum + $ongkirSum + $additionSum + $lainnyaSum);
+            $totalRefunded = $invoice->order ? $invoice->order->totalRefunded() : ($returnSum + $cashbackSum);
+        @endphp
 
         <div style="display: table; width: 100%; margin-top: 15px;">
             <!-- Column 1: Bank Transfer Details (Left side) -->
@@ -503,9 +537,9 @@ $primaryColor = $invoice->brand?->warna_primary
                                 ? ($grossSubtotal * $diskonValue / 100)
                                 : $diskonValue));
 
-                    $additionPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'tambahan_produk') : collect();
-                    $cashbackPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'cashback') : collect();
-                    $returnPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'return') : collect();
+                    $isFreeOngkir = $invoice->order?->is_free_ongkir;
+                    $biayaPengiriman = (float) $invoice->biaya_pengiriman;
+                    $grossInvoiceTotal = $grossSubtotal - $diskonNominal + ($isFreeOngkir ? 0 : $biayaPengiriman) + $additionSum;
                     @endphp
 
                     <!-- Total Harga -->
@@ -535,7 +569,7 @@ $primaryColor = $invoice->brand?->warna_primary
                     @elseif ($invoice->biaya_pengiriman > 0)
                     <tr>
                         <td style="padding: 4px 0; color: #6B7280;">Ongkir ({{ $invoice->jasa_pengiriman ?? '' }})</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace;">Rp {{ number_format($invoice->biaya_pengiriman, 0, ',', '.') }}</td>
+                        <td style="padding: 4px 0; text-align: right; font-family: monospace;">Rp {{ number_format((float) $invoice->biaya_pengiriman, 0, ',', '.') }}</td>
                     </tr>
                     @endif
 
@@ -547,109 +581,36 @@ $primaryColor = $invoice->brand?->warna_primary
                     </tr>
                     @endif
 
-                    @php
-                    $dpPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'dp') : collect();
-                    $pelunasanPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'pelunasan') : collect();
-                    $ongkirPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'ongkir') : collect();
-                    $lainnyaPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'lainnya') : collect();
-
-                    $dpSum = $dpPayments->sum('amount');
-                    $pelunasanSum = $pelunasanPayments->sum('amount');
-                    $ongkirSum = $ongkirPayments->sum('amount');
-                    $additionSum = $additionPayments->sum('amount');
-                    $lainnyaSum = $lainnyaPayments->sum('amount');
-                    $returnSum = $returnPayments->sum('amount');
-                    $cashbackSum = $cashbackPayments->sum('amount');
-
-                    // Fallback for legacy data
-                    if ($dpSum == 0 && $pelunasanSum == 0 && $invoice->total_bayar > 0) {
-                        $pelunasanSum = $invoice->total_bayar;
-                    } elseif ($dpSum == 0 && $pelunasanSum == 0 && $invoice->dp_amount > 0) {
-                        $dpSum = $invoice->dp_amount;
-                    }
-
-                    $isFreeOngkir = $invoice->order?->is_free_ongkir;
-                    $biayaPengiriman = (float) $invoice->biaya_pengiriman;
-                    $grossInvoiceTotal = $grossSubtotal - $diskonNominal + ($isFreeOngkir ? 0 : $biayaPengiriman) + $additionSum;
-
-                    $calculatedSisa = max(0, $grossInvoiceTotal - $returnSum - $cashbackSum - $dpSum - $pelunasanSum - $ongkirSum - $additionSum - $lainnyaSum + $returnSum + $cashbackSum);
-                    @endphp
-
                     <!-- Total yang Harus Dibayar -->
                     <tr style="border-top: 1px solid #E5E7EB; border-bottom: 2px solid #1F2937;">
                         <td style="padding: 6px 0; font-weight: bold; color: #1F2937;">Total yang Harus Dibayar</td>
                         <td style="padding: 6px 0; text-align: right; font-family: monospace; font-weight: bold; color: #1F2937; font-size: 10.5pt;">Rp {{ number_format($grossInvoiceTotal, 0, ',', '.') }}</td>
                     </tr>
 
-                    @if ($returnSum > 0)
+                    @if ($totalReceived > 0)
                     <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Returns / Refunds (Pengurangan)</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #DC2626;">- Rp {{ number_format($returnSum, 0, ',', '.') }}</td>
-                    </tr>
-                    @endif
-
-                    @if ($cashbackSum > 0)
-                    <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Cashback (Pengurangan)</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #DC2626;">- Rp {{ number_format($cashbackSum, 0, ',', '.') }}</td>
-                    </tr>
-                    @endif
-
-                    @if ($dpSum > 0)
-                    <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">DP / Uang Muka</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">- Rp {{ number_format($dpSum, 0, ',', '.') }}</td>
-                    </tr>
-                    @endif
-
-                    @if ($pelunasanSum > 0)
-                    <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Pelunasan</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">- Rp {{ number_format($pelunasanSum, 0, ',', '.') }}</td>
-                    </tr>
-                    @endif
-
-                    @if ($ongkirSum > 0)
-                    <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Pembayaran Ongkir</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">- Rp {{ number_format($ongkirSum, 0, ',', '.') }}</td>
-                    </tr>
-                    @endif
-
-                    @if ($additionSum > 0)
-                    <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Pembayaran Tambahan</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">- Rp {{ number_format($additionSum, 0, ',', '.') }}</td>
-                    </tr>
-                    @endif
-
-                    @if ($lainnyaSum > 0)
-                    <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Pembayaran Lainnya</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">- Rp {{ number_format($lainnyaSum, 0, ',', '.') }}</td>
-                    </tr>
-                    @endif
-
-                    @if ($returnSum > 0)
-                    <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Refund/Return Pengembalian</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #D97706; font-weight: bold;">+ Rp {{ number_format($returnSum, 0, ',', '.') }}</td>
-                    </tr>
-                    @endif
-
-                    @if ($cashbackSum > 0)
-                    <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Cashback Pengembalian</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #D97706; font-weight: bold;">+ Rp {{ number_format($cashbackSum, 0, ',', '.') }}</td>
+                        <td style="padding: 4px 0; color: #6B7280;">Total Pembayaran</td>
+                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">- Rp {{ number_format($totalReceived, 0, ',', '.') }}</td>
                     </tr>
                     @endif
 
                     <!-- Sisa -->
                     <tr style="border-top: 2px solid #1F2937;">
                         <td style="padding: 8px 0; font-weight: bold; font-size: 11pt; color: #111827;">SISA</td>
-                        <td style="padding: 8px 0; text-align: right; font-family: monospace; font-weight: bold; font-size: 11.5pt; color: #DC2626;">Rp {{ number_format($calculatedSisa, 0, ',', '.') }}</td>
+                        <td style="padding: 8px 0; text-align: right; font-family: monospace; font-weight: bold; font-size: 11.5pt; color: #DC2626;">Rp {{ number_format(max(0, $grossInvoiceTotal - $totalReceived), 0, ',', '.') }}</td>
                     </tr>
                 </table>
+
+                @if ($totalRefunded > 0)
+                <div style="margin-top: 10px; border: 1px solid #FECACA; border-radius: 6px; padding: 8px 10px; background: #FEF2F2; font-size: 8.5pt;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 8.5pt; margin: 0;">
+                        <tr>
+                            <td style="font-weight: bold; color: #991B1B; padding: 0;">Informasi Refund / Retur</td>
+                            <td style="text-align: right; font-family: monospace; font-weight: bold; color: #DC2626; font-size: 9.5pt; padding: 0;">Rp {{ number_format($totalRefunded, 0, ',', '.') }}</td>
+                        </tr>
+                    </table>
+                </div>
+                @endif
             </div>
         </div>
 

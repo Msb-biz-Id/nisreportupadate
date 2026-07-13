@@ -507,6 +507,7 @@ class InvoiceTest extends TestCase
         // 9. Update progress in production and ensure production/shipping can bypass is_lunas validation
         // First transition to on_progress
         $order->update(['status_po' => 'on_progress']);
+        /** @var \App\Models\Order\OrderProgressDetail $sendingDetail */
         $sendingDetail = $order->progressDetails()->whereHas('progress', function ($q) {
             $q->where('nama_progress', 'Sending');
         })->first();
@@ -811,5 +812,72 @@ class InvoiceTest extends TestCase
         $this->assertEquals(360000, $invoiceFresh->total_tagihan);
         $this->assertEquals(360000, $invoiceFresh->total_bayar);
         $this->assertEquals(0, $invoiceFresh->sisa_pembayaran);
+    }
+
+    public function test_invoice_total_received_and_refunded_calculations(): void
+    {
+        $brand = $this->makeBrand();
+        $admin = $this->makeUser('admin_brand', [$brand]);
+        $finance = $this->makeUser('admin_keuangan', [$brand]);
+
+        $customer = Customer::create([
+            'brand_id' => $brand->id,
+            'kode' => 'C_RET_TEST',
+            'nama' => 'Test Return Cust',
+            'nomor_hp' => '08123',
+            'is_active' => true,
+        ]);
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-RET-TST-1',
+            'nama_po' => 'PO Return Calc Test',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 1000000,
+            'published_at' => now(),
+            'created_by' => $admin->id,
+        ]);
+
+        // 1. Pay DP (500,000)
+        OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'dp',
+            'amount' => 500000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $admin->id,
+            'verified_at' => now(),
+            'verified_by' => $finance->id,
+        ]);
+
+        // 2. Pay Pelunasan (500,000)
+        OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'pelunasan',
+            'amount' => 500000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $admin->id,
+            'verified_at' => now(),
+            'verified_by' => $finance->id,
+        ]);
+
+        // 3. Refund / Return (200,000)
+        OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'return',
+            'amount' => 200000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $admin->id,
+            'verified_at' => now(),
+            'verified_by' => $finance->id,
+        ]);
+
+        $orderFresh = $order->fresh();
+
+        $this->assertEquals(1000000.0, $orderFresh->totalReceived());
+        $this->assertEquals(200000.0, $orderFresh->totalRefunded());
+        $this->assertEquals(800000.0, $orderFresh->totalPaid());
     }
 }

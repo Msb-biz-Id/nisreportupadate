@@ -413,7 +413,7 @@ function AddPaymentDialog({ order, open, onOpenChange, banks, jenis_pembayarans 
                             <Select value={data.bank_id} onValueChange={(v) => setData('bank_id', v)}>
                                 <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pilih Bank..." /></SelectTrigger>
                                 <SelectContent>
-                                    {banks.map((b) => (<SelectItem key={b.id} value={b.id}>{b.bank} {b.nomor_rekening}</SelectItem>))}
+                                    {banks.map((b) => (<SelectItem key={b.id} value={b.id}>{b.bank} {b.nomor_rekening} {b.atas_nama ? `— a.n. ${b.atas_nama}` : ''}</SelectItem>))}
                                 </SelectContent>
                             </Select>
                             {errors.bank_id && <p className="text-xs text-destructive">{errors.bank_id}</p>}
@@ -504,7 +504,7 @@ function EditPaymentDialog({ payment, open, onOpenChange, banks, jenis_pembayara
                             <Select value={data.bank_id} onValueChange={(v) => setData('bank_id', v)}>
                                 <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pilih Bank..." /></SelectTrigger>
                                 <SelectContent>
-                                    {banks.map((b) => (<SelectItem key={b.id} value={String(b.id)}>{b.bank} {b.nomor_rekening}</SelectItem>))}
+                                    {banks.map((b) => (<SelectItem key={b.id} value={String(b.id)}>{b.bank} {b.nomor_rekening} {b.atas_nama ? `— a.n. ${b.atas_nama}` : ''}</SelectItem>))}
                                 </SelectContent>
                             </Select>
                             {errors.bank_id && <p className="text-xs text-destructive">{errors.bank_id}</p>}

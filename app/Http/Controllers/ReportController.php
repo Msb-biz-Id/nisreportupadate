@@ -29,24 +29,37 @@ class ReportController extends Controller
             abort(403, 'Anda tidak memiliki akses ke laporan ini.');
         }
 
-        $config = $this->resolveConfig($slug, $request);
-        $brandId    = BrandContext::current($request);
-        $effectiveId = $this->effectiveBrandId($request);
+        $config        = $this->resolveConfig($slug, $request);
+        $effectiveId   = $this->effectiveBrandId($request);
         $masterBrandId = BrandContext::masterDataId($request);
 
-        $filters = $this->extractFilters($request, $config);
+        $filters         = $this->extractFilters($request, $config);
         $queryBrandScope = $this->resolveQueryBrandScope($request, $filters);
-        $result = $this->runner->run($slug, $queryBrandScope, $filters);
+        $result          = $this->runner->run($slug, $queryBrandScope, $filters);
 
-        $user = $request->user();
-        $role = $user?->getRoleNames()->first();
-        $isGlobal = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']));
+        $role            = $user?->getRoleNames()->first();
+        $isGlobal        = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']));
 
+        $bankAccounts    = $this->getBankAccounts($request, $isGlobal, $effectiveId);
+        $props           = $this->getShowProps($request, $user, $role, $isGlobal, $effectiveId, $masterBrandId, $bankAccounts);
+
+        return Inertia::render('Report/Show', array_merge([
+            'config'        => $config,
+            'filters'       => $filters,
+            'rows'          => $result['rows'],
+            'summary'       => $result['summary'],
+            'heatmapSeries' => $result['heatmapSeries'] ?? null,
+            'groups'        => ReportRegistry::groups(),
+        ], $props));
+    }
+
+    private function getBankAccounts(Request $request, bool $isGlobal, mixed $effectiveId): array
+    {
         $bankAccountsQuery = \App\Models\Master\BankAccount::query()->active();
         if (! $isGlobal) {
             $bankAccountsQuery->whereIn('brand_id', (array)$effectiveId);
         }
-        $bankAccounts = $bankAccountsQuery
+        return $bankAccountsQuery
             ->with('brand:id,nama_brand')
             ->orderBy('bank')
             ->get(['id', 'brand_id', 'bank', 'nomor_rekening', 'atas_nama'])
@@ -59,14 +72,11 @@ class ReportController extends Controller
                 'atas_nama' => $b->atas_nama,
             ])
             ->all();
+    }
 
-        return Inertia::render('Report/Show', [
-            'config' => $config,
-            'filters' => $filters,
-            'rows' => $result['rows'],
-            'summary' => $result['summary'],
-            'heatmapSeries' => $result['heatmapSeries'] ?? null,
-            'groups' => ReportRegistry::groups(),
+    private function getShowProps(Request $request, ?\App\Models\User $user, ?string $role, bool $isGlobal, mixed $effectiveId, mixed $masterBrandId, array $bankAccounts): array
+    {
+        return [
             'allReports' => collect(ReportRegistry::all())->values()->filter(function($r) use ($user) {
                 return $user && in_array($r['slug'], $user->getAllowedReports());
             })->map(function($r) use ($request) {
@@ -91,7 +101,7 @@ class ReportController extends Controller
                 ->get(['id', 'nama'])
                 ->all(),
             'bankAccounts' => $bankAccounts,
-        ]);
+        ];
     }
 
     public function exportExcel(Request $request, string $slug)
@@ -113,7 +123,7 @@ class ReportController extends Controller
 
         $brandId = is_string($queryBrandScope) ? $queryBrandScope : (is_array($queryBrandScope) && count($queryBrandScope) === 1 ? reset($queryBrandScope) : null);
         $brand = $brandId ? \App\Models\Brand::find($brandId) : null;
-        $activeBrandId = \App\Support\BrandContext::current($request);
+        $activeBrandId = BrandContext::current($request);
         $activeBrand = ($activeBrandId && $activeBrandId !== 'all') ? \App\Models\Brand::find($activeBrandId) : null;
         $primaryColor = ($brand?->warna_primary)
             ?? ($activeBrand?->warna_primary)
@@ -148,7 +158,7 @@ class ReportController extends Controller
 
         $brandId = is_string($queryBrandScope) ? $queryBrandScope : (is_array($queryBrandScope) && count($queryBrandScope) === 1 ? reset($queryBrandScope) : null);
         $brand = $brandId ? \App\Models\Brand::find($brandId) : null;
-        $activeBrandId = \App\Support\BrandContext::current($request);
+        $activeBrandId = BrandContext::current($request);
         $activeBrand = ($activeBrandId && $activeBrandId !== 'all') ? \App\Models\Brand::find($activeBrandId) : null;
         $primaryColor = ($brand?->warna_primary)
             ?? ($activeBrand?->warna_primary)
