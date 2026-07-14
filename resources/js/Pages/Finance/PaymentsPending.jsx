@@ -23,6 +23,7 @@ export default function PaymentsPending({
     const [brandId, setBrandId] = useState(filters?.brand_id ?? 'all');
     const [selectedPayment, setSelectedPayment] = useState(null);
     const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
     const [verificationNotes, setVerificationNotes] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -226,7 +227,9 @@ export default function PaymentsPending({
                                             </TableCell>
                                             <TableCell>
                                                 <Badge variant="outline" className="text-[10px] font-bold uppercase">
-                                                    {p.master_jenis_pembayaran?.nama ?? (p.payment_type ?? 'Lainnya')}
+                                                    {p.master_jenis_pembayaran?.nama === 'Return' || p.master_jenis_pembayaran?.nama === 'Refurn'
+                                                        ? 'Refund'
+                                                        : (p.master_jenis_pembayaran?.nama ?? (p.payment_type === 'return' ? 'Refund' : (p.payment_type ?? 'Lainnya')))}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="font-semibold text-slate-600">
@@ -256,31 +259,44 @@ export default function PaymentsPending({
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                {can.validate ? (
-                                                    <div className="flex justify-end gap-1.5">
-                                                        <Button 
-                                                            onClick={() => handleOpenVerify(p)} 
-                                                            size="sm" 
-                                                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm"
-                                                        >
-                                                            <ShieldCheck className="h-4 w-4 mr-1" /> Validasi
-                                                        </Button>
-                                                        <Button 
-                                                            onClick={() => {
-                                                                if (confirm('Yakin ingin menghapus record pembayaran ini?')) {
-                                                                    router.delete(route('invoices.payments.destroy', p.id));
-                                                                }
-                                                            }} 
-                                                            size="sm" 
-                                                            variant="destructive"
-                                                            className="font-bold rounded-lg shadow-sm"
-                                                        >
-                                                            <Trash2 className="h-4 w-4 mr-1" /> Hapus
-                                                        </Button>
-                                                    </div>
-                                                ) : (
-                                                    <Badge variant="secondary">No Permission</Badge>
-                                                )}
+                                                <div className="flex justify-end gap-1.5">
+                                                    <Button 
+                                                        onClick={() => {
+                                                            setSelectedPayment(p);
+                                                            setIsDetailModalOpen(true);
+                                                        }} 
+                                                        size="sm" 
+                                                        variant="outline"
+                                                        className="text-slate-700 font-bold rounded-lg shadow-sm border-slate-200 bg-white hover:bg-slate-50 h-8"
+                                                    >
+                                                        <Eye className="h-4 w-4 mr-1" /> Detail
+                                                    </Button>
+                                                    {can.validate ? (
+                                                        <>
+                                                            <Button 
+                                                                onClick={() => handleOpenVerify(p)} 
+                                                                size="sm" 
+                                                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm h-8"
+                                                            >
+                                                                <ShieldCheck className="h-4 w-4 mr-1" /> Validasi
+                                                            </Button>
+                                                            <Button 
+                                                                onClick={() => {
+                                                                    if (confirm('Yakin ingin menghapus record pembayaran ini?')) {
+                                                                        router.delete(route('invoices.payments.destroy', p.id));
+                                                                    }
+                                                                }} 
+                                                                size="sm" 
+                                                                variant="destructive"
+                                                                className="font-bold rounded-lg shadow-sm h-8"
+                                                            >
+                                                                <Trash2 className="h-4 w-4 mr-1" /> Hapus
+                                                            </Button>
+                                                        </>
+                                                    ) : (
+                                                        <Badge variant="secondary">No Permission</Badge>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -289,6 +305,138 @@ export default function PaymentsPending({
                         </Table>
                     </CardContent>
                 </Card>
+
+                {/* Detail Payment Dialog */}
+                <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
+                    <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                            <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-1.5">
+                                <Info className="h-5 w-5 text-indigo-600" />
+                                Detail Transaksi Pembayaran
+                            </DialogTitle>
+                            <DialogDescription className="text-xs">Rincian data transaksi pembayaran yang diajukan.</DialogDescription>
+                        </DialogHeader>
+
+                        {selectedPayment && (
+                            <div className="space-y-4 py-2 text-xs">
+                                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <div>
+                                        <span className="text-slate-400 font-bold block uppercase tracking-wider text-[9px]">Nomor PO</span>
+                                        <strong className="text-slate-800 text-xs font-mono">{selectedPayment.order?.no_po ?? '—'}</strong>
+                                    </div>
+                                    <div>
+                                        <span className="text-slate-400 font-bold block uppercase tracking-wider text-[9px]">Nama PO</span>
+                                        <span className="text-slate-700 font-medium block truncate">{selectedPayment.order?.nama_po ?? '—'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-slate-400 font-bold block uppercase tracking-wider text-[9px]">Brand / Divisi</span>
+                                        <span className="text-slate-700 font-bold block">{selectedPayment.order?.brand?.nama_brand ?? '—'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-slate-400 font-bold block uppercase tracking-wider text-[9px]">Petugas Input</span>
+                                        <span className="text-slate-700 font-medium block">{selectedPayment.recorder?.name ?? '—'}</span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2.5">
+                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                                        <span className="text-slate-500 font-semibold">Jenis Pembayaran:</span>
+                                        <Badge variant="outline" className="text-[10px] font-bold bg-slate-50">
+                                            {selectedPayment.master_jenis_pembayaran?.nama === 'Return' || selectedPayment.master_jenis_pembayaran?.nama === 'Refurn'
+                                                ? 'Refund'
+                                                : (selectedPayment.master_jenis_pembayaran?.nama ?? (selectedPayment.payment_type === 'return' ? 'Refund' : (selectedPayment.payment_type ?? 'Lainnya')))}
+                                        </Badge>
+                                    </div>
+
+                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                                        <span className="text-slate-500 font-semibold">Tanggal Bayar:</span>
+                                        <span className="font-bold text-slate-800">{formatDate(selectedPayment.payment_date)}</span>
+                                    </div>
+
+                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                                        <span className="text-slate-500 font-semibold">Nominal Transaksi:</span>
+                                        <span className="font-bold text-slate-900 font-mono text-sm">{formatRupiah(selectedPayment.amount)}</span>
+                                    </div>
+
+                                    <div className="flex justify-between items-start py-1.5 border-b border-slate-100">
+                                        <span className="text-slate-500 font-semibold">Bank Penerima (Rekening Kita):</span>
+                                        <div className="text-right">
+                                            {selectedPayment.bank ? (
+                                                <>
+                                                    <span className="font-bold text-slate-800 block">{selectedPayment.bank.bank}</span>
+                                                    <span className="text-[10px] text-slate-500 block">{selectedPayment.bank.nomor_rekening} a.n {selectedPayment.bank.atas_nama}</span>
+                                                </>
+                                            ) : (
+                                                <span className="font-mono text-slate-400 italic">CASH / MANUAL</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Customer Bank Info (Tujuan Transfer Cashback/Return) */}
+                                    {(selectedPayment.customer_bank_name || selectedPayment.customer_bank_account) && (
+                                        <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-3.5 space-y-1.5">
+                                            <span className="text-amber-800 font-bold block uppercase tracking-wider text-[9px]">Rekening Customer (Tujuan Transfer Cashback/Return):</span>
+                                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                                <div>
+                                                    <span className="text-slate-500">Bank Customer:</span>
+                                                    <span className="font-bold text-slate-800 block">{selectedPayment.customer_bank_name || '—'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-slate-500">Nomor Rekening:</span>
+                                                    <span className="font-bold text-slate-800 block font-mono">{selectedPayment.customer_bank_account || '—'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Notes / Memo */}
+                                    <div className="space-y-1 py-1">
+                                        <span className="text-slate-500 font-semibold block">Catatan / Memo:</span>
+                                        <div className="bg-slate-50 border p-2.5 rounded-lg text-slate-700 min-h-[50px] whitespace-pre-wrap italic">
+                                            {selectedPayment.notes || '—'}
+                                        </div>
+                                    </div>
+
+                                    {/* Proof of Payment Preview */}
+                                    {(selectedPayment.proof_file || selectedPayment.receipt_path) && (
+                                        <div className="space-y-1.5 pt-1">
+                                            <span className="text-slate-500 font-semibold block">Bukti Pembayaran:</span>
+                                            <div className="flex items-center justify-center p-2 bg-slate-900 rounded-lg overflow-hidden max-h-[180px] border border-slate-800 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setImagePreviewUrl(selectedPayment.proof_file || selectedPayment.receipt_path)}>
+                                                <img 
+                                                    src={`/storage/\${selectedPayment.proof_file || selectedPayment.receipt_path}`} 
+                                                    alt="Bukti Transfer" 
+                                                    className="max-h-[160px] object-contain rounded" 
+                                                />
+                                            </div>
+                                            <span className="text-[10px] text-slate-400 text-center block font-medium">Klik gambar untuk memperbesar</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        <DialogFooter className="pt-2 gap-2">
+                            <Button 
+                                variant="outline" 
+                                onClick={() => setIsDetailModalOpen(false)}
+                                className="rounded-lg text-xs"
+                            >
+                                Tutup
+                            </Button>
+                            {selectedPayment && can.validate && (
+                                <Button 
+                                    onClick={() => {
+                                        setIsDetailModalOpen(false);
+                                        handleOpenVerify(selectedPayment);
+                                    }}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs"
+                                >
+                                    <ShieldCheck className="h-4 w-4 mr-1" /> Validasi Pembayaran
+                                </Button>
+                            )}
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 {/* Validation Dialog */}
                 <Dialog open={isVerifyModalOpen} onOpenChange={setIsVerifyModalOpen}>

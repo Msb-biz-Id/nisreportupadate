@@ -22,6 +22,8 @@ class OrderPaymentObserver
                     'Tambahan Produk' => 'tambahan_produk',
                     'Cashback' => 'cashback',
                     'Return' => 'return',
+                    'Refurn' => 'return',
+                    'Refund' => 'return',
                     'Lainnya' => 'lainnya',
                 ];
                 $payment->payment_type = $map[$master->nama] ?? 'lainnya';
@@ -35,7 +37,7 @@ class OrderPaymentObserver
                 'ongkir' => 'Ongkir',
                 'tambahan_produk' => 'Tambahan Produk',
                 'cashback' => 'Cashback',
-                'return' => 'Return',
+                'return' => 'Refund',
                 'lainnya' => 'Lainnya',
             ];
             $nama = $map[$payment->payment_type] ?? 'Lainnya';
@@ -78,10 +80,29 @@ class OrderPaymentObserver
             if (!str_contains($notes, 'Konversi Tanda Jadi') && !str_contains($notes, 'Refund otomatis')) {
                 $this->recordLedger($payment);
             }
-        }
 
-        // Dispatch submitted notification untuk payment baru yang belum verified
-        if ($payment->verified_at === null) {
+            // Dispatch verified notification directly if created verified
+            if ($order) {
+                try {
+                    $formattedAmount = 'Rp ' . number_format((float) $payment->amount, 0, ',', '.');
+                    \App\Services\Notifications\IdealNotificationService::dispatch('payment_verified', [
+                        'no_po' => $order->no_po,
+                        'brand_id' => $order->brand_id,
+                        'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
+                        'nominal' => $formattedAmount,
+                        'action_url' => '/orders/' . $order->id,
+                        'payment_type' => $payment->payment_type,
+                    ]);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to dispatch payment_verified notification on creation', [
+                        'payment_id' => $payment->id,
+                        'order_id' => $order->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        } else {
+            // Dispatch submitted notification untuk payment baru yang belum verified
             if ($order) {
                 try {
                     $formattedAmount = 'Rp ' . number_format((float) $payment->amount, 0, ',', '.');
@@ -91,6 +112,7 @@ class OrderPaymentObserver
                         'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
                         'nominal' => $formattedAmount,
                         'action_url' => '/invoices/payments/pending',
+                        'payment_type' => $payment->payment_type,
                     ]);
                 } catch (\Throwable $e) {
                     \Illuminate\Support\Facades\Log::error('Failed to dispatch payment_submitted notification', [
@@ -127,6 +149,7 @@ class OrderPaymentObserver
                         'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
                         'nominal' => $formattedAmount,
                         'action_url' => '/orders/' . $order->id,
+                        'payment_type' => $payment->payment_type,
                     ]);
                 } catch (\Throwable $e) {
                     \Illuminate\Support\Facades\Log::error('Failed to dispatch payment_verified notification', [
@@ -193,8 +216,8 @@ class OrderPaymentObserver
                 return;
             }
 
-            $kategoriName = $payment->payment_type === 'cashback' ? 'Cashback PO' : 'Refund/Return PO';
-            $kategoriDesc = $payment->payment_type === 'cashback' ? 'Cashback dari PO' : 'Pengembalian uang / return dari PO';
+            $kategoriName = $payment->payment_type === 'cashback' ? 'Cashback PO' : 'Refund PO';
+            $kategoriDesc = $payment->payment_type === 'cashback' ? 'Cashback dari PO' : 'Pengembalian uang / refund dari PO';
 
             $kategori = KategoriPengeluaran::firstOrCreate(
                 ['brand_id' => $order->brand_id, 'nama_kategori' => $kategoriName],
@@ -207,7 +230,7 @@ class OrderPaymentObserver
 
             $label = match ($payment->payment_type) {
                 'cashback' => 'Cashback',
-                'return'   => 'Refund/Return',
+                'return'   => 'Refund',
                 default    => 'Pengeluaran Lainnya',
             };
 

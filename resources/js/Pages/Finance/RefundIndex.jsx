@@ -21,7 +21,7 @@ const STATUS_VARIANT = {
 
 function CreateRefundDialog({ open, onOpenChange, jenisOptions }) {
     const { data, setData, post, processing, errors, reset } = useForm({
-        order_id: '', alasan: '', jenis_masalah: 'produk_cacat',
+        order_id: '', alasan: '', jenis_masalah: jenisOptions?.[0] || 'produk_cacat',
         jumlah_item: 1, nominal_refund: '', catatan: '',
         bukti_files: [],
     }, { forceFormData: true });

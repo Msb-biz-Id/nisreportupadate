@@ -58,6 +58,7 @@ class NumberGeneratorTest extends TestCase
         // Seed roles required by the RefundObserver notification logic
         \Spatie\Permission\Models\Role::create(['name' => 'admin_keuangan', 'guard_name' => 'web']);
         \Spatie\Permission\Models\Role::create(['name' => 'owner', 'guard_name' => 'web']);
+        \Spatie\Permission\Models\Role::create(['name' => 'superadmin', 'guard_name' => 'web']);
     }
 
     public function test_order_number_sequence_resets_on_new_year(): void

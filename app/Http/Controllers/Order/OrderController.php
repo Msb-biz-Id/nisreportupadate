@@ -756,7 +756,7 @@ class OrderController extends Controller
 
         $hasActiveRefunds = $order->refunds()->whereIn('status', ['draft', 'pending_review', 'approved'])->exists();
         if ($hasActiveRefunds) {
-            return back()->with('error', 'Pesanan tidak dapat diselesaikan karena masih terdapat klaim refund/return aktif.');
+            return back()->with('error', 'Pesanan tidak dapat diselesaikan karena masih terdapat klaim refund aktif.');
         }
 
         DB::transaction(function () use ($order, $user) {
@@ -1145,6 +1145,8 @@ class OrderController extends Controller
             'payment_date' => ['required', 'date'],
             'bank_id' => ['required', 'uuid', 'exists:bank_accounts,id'],
             'notes' => ['nullable', 'string'],
+            'customer_bank_name' => ['nullable', 'string', 'max:255'],
+            'customer_bank_account' => ['nullable', 'string', 'max:255'],
         ]);
 
         $user = $request->user();

@@ -1165,7 +1165,9 @@ export default function InvoiceList({
                                                                 <tr key={payment.id} className="hover:bg-slate-50/50 transition-colors">
                                                                     <td className="p-2.5">
                                                                         <div className="font-bold text-slate-800">
-                                                                            {payment.master_jenis_pembayaran?.nama || payment.payment_type?.toUpperCase()}
+                                                                            {payment.master_jenis_pembayaran?.nama === 'Return' || payment.master_jenis_pembayaran?.nama === 'Refurn'
+                                                                                ? 'Refund'
+                                                                                : (payment.master_jenis_pembayaran?.nama || (payment.payment_type === 'return' ? 'Refund' : payment.payment_type?.toUpperCase()))}
                                                                         </div>
                                                                         {payment.master_jenis_pembayaran?.deskripsi && (
                                                                             <div className="text-[10px] text-slate-500 max-w-[180px] truncate" title={payment.master_jenis_pembayaran.deskripsi}>

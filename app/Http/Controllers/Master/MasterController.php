@@ -126,21 +126,23 @@ class MasterController extends Controller
         if ($user->can('master.manage') || $user->can('master.view')) return;
         if ($user->can('master.brand') && ($config['group'] === 'order' || $config['slug'] === 'bank')) return;
         if ($user->can('master.produk') && $config['slug'] === 'produk') return;
+        if ($config['slug'] === 'jenis-masalah' && ($user->can('finance.manage-refund') || $user->hasRole('admin_keuangan'))) return;
         // admin_produksi: akses semua master global (bahan, size, logo, pola, dll) + production (progress)
         if ($user->can('master.production') && in_array($config['group'], ['production', 'global'])) return;
         abort(403);
     }
 
-    private function canManageConfig($user, array $config): bool
+    private function canManageConfig(\App\Models\User $user, array $config): bool
     {
         if ($user->can('master.manage')) return true;
         if ($user->can('master.brand') && ($config['group'] === 'order' || $config['slug'] === 'bank')) return true;
         if ($user->can('master.produk') && $config['slug'] === 'produk') return true;
+        if ($config['slug'] === 'jenis-masalah' && ($user->can('finance.manage-refund') || $user->hasRole('admin_keuangan'))) return true;
         if ($user->can('master.production') && in_array($config['group'], ['production', 'global'])) return true;
         return false;
     }
 
-    private function guardBrandOwnership(Request $request, array $config, $record): void
+    private function guardBrandOwnership(Request $request, array $config, \Illuminate\Database\Eloquent\Model $record): void
     {
         if (! in_array($config['scope'], ['brand', 'brand_nullable'], true)) return;
         if (! isset($record->brand_id) || $record->brand_id === null) return;

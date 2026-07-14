@@ -393,11 +393,13 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                             payments.map((p) => {
                                                 const isDebit = [ 'dp', 'pelunasan', 'tambahan_produk', 'ongkir' ].includes(p.payment_type);
                                                 
-                                                let displayType = p.payment_type.toUpperCase();
+                                                let displayType = p.master_jenis_pembayaran?.nama?.toUpperCase() ?? p.payment_type.toUpperCase();
                                                 if (p.payment_type === 'dp') {
                                                     displayType = `DP SEQUENCE (DP #${p.dp_sequence || '1'})`;
                                                 } else if (p.payment_type === 'tambahan_produk') {
                                                     displayType = 'TAMBAHAN PRODUK';
+                                                } else if (displayType === 'RETURN' || displayType === 'REFURN') {
+                                                    displayType = 'REFUND';
                                                 }
 
                                                 return (
@@ -561,10 +563,17 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                     );
                                 })()}
 
-                                {totalRefunded > 0 && (
+                                {returnSum > 0 && (
                                     <div className="mt-3 p-3 bg-rose-50 border border-rose-100 rounded-2xl flex justify-between items-center text-xs font-bold text-rose-700">
-                                        <span>Informasi Refund / Retur</span>
-                                        <span className="font-mono text-sm font-black text-rose-650">{formatRupiah(totalRefunded)}</span>
+                                        <span>Informasi Refund</span>
+                                        <span className="font-mono text-sm font-black text-rose-650">{formatRupiah(returnSum)}</span>
+                                    </div>
+                                )}
+
+                                {cashbackSum > 0 && (
+                                    <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-2xl flex justify-between items-center text-xs font-bold text-amber-700">
+                                        <span>Informasi Cashback</span>
+                                        <span className="font-mono text-sm font-black text-amber-650">{formatRupiah(cashbackSum)}</span>
                                     </div>
                                 )}
                             </div>

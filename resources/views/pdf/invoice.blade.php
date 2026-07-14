@@ -601,12 +601,23 @@ $primaryColor = $invoice->brand?->warna_primary
                     </tr>
                 </table>
 
-                @if ($totalRefunded > 0)
+                @if ($returnSum > 0)
                 <div style="margin-top: 10px; border: 1px solid #FECACA; border-radius: 6px; padding: 8px 10px; background: #FEF2F2; font-size: 8.5pt;">
                     <table style="width: 100%; border-collapse: collapse; font-size: 8.5pt; margin: 0;">
                         <tr>
-                            <td style="font-weight: bold; color: #991B1B; padding: 0;">Informasi Refund / Retur</td>
-                            <td style="text-align: right; font-family: monospace; font-weight: bold; color: #DC2626; font-size: 9.5pt; padding: 0;">Rp {{ number_format($totalRefunded, 0, ',', '.') }}</td>
+                            <td style="font-weight: bold; color: #991B1B; padding: 0;">Informasi Refund</td>
+                            <td style="text-align: right; font-family: monospace; font-weight: bold; color: #DC2626; font-size: 9.5pt; padding: 0;">Rp {{ number_format($returnSum, 0, ',', '.') }}</td>
+                        </tr>
+                    </table>
+                </div>
+                @endif
+
+                @if ($cashbackSum > 0)
+                <div style="margin-top: 10px; border: 1px solid #FDE68A; border-radius: 6px; padding: 8px 10px; background: #FEF3C7; font-size: 8.5pt;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 8.5pt; margin: 0;">
+                        <tr>
+                            <td style="font-weight: bold; color: #92400E; padding: 0;">Informasi Cashback</td>
+                            <td style="text-align: right; font-family: monospace; font-weight: bold; color: #B45309; font-size: 9.5pt; padding: 0;">Rp {{ number_format($cashbackSum, 0, ',', '.') }}</td>
                         </tr>
                     </table>
                 </div>

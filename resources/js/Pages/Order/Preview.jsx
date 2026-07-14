@@ -368,6 +368,8 @@ function AddPaymentDialog({ order, open, onOpenChange, banks, jenis_pembayarans 
         payment_date: new Date().toISOString().split('T')[0],
         bank_id: '',
         notes: '',
+        customer_bank_name: '',
+        customer_bank_account: '',
     });
     function submit(e) {
         e.preventDefault();
@@ -421,6 +423,35 @@ function AddPaymentDialog({ order, open, onOpenChange, banks, jenis_pembayarans 
 
                         <PaymentTypeInfo selectedJp={selectedJp} amount={data.amount} />
 
+                        {selectedJp && ['cashback', 'return'].includes(selectedJp.nama.toLowerCase()) && (
+                            <>
+                                <div>
+                                    <Label>Bank Customer (Tujuan Transfer) <span className="text-destructive">*</span></Label>
+                                    <Input 
+                                        type="text" 
+                                        value={data.customer_bank_name} 
+                                        onChange={(e) => setData('customer_bank_name', e.target.value)} 
+                                        className="mt-1.5" 
+                                        placeholder="Contoh: BCA, MANDIRI"
+                                        required={['cashback', 'return'].includes(selectedJp.nama.toLowerCase())}
+                                    />
+                                    {errors.customer_bank_name && <p className="text-xs text-destructive">{errors.customer_bank_name}</p>}
+                                </div>
+                                <div>
+                                    <Label>Nomor Rekening Customer <span className="text-destructive">*</span></Label>
+                                    <Input 
+                                        type="text" 
+                                        value={data.customer_bank_account} 
+                                        onChange={(e) => setData('customer_bank_account', e.target.value)} 
+                                        className="mt-1.5" 
+                                        placeholder="Masukkan nomor rekening..."
+                                        required={['cashback', 'return'].includes(selectedJp.nama.toLowerCase())}
+                                    />
+                                    {errors.customer_bank_account && <p className="text-xs text-destructive">{errors.customer_bank_account}</p>}
+                                </div>
+                            </>
+                        )}
+
                         <div className="sm:col-span-2">
                             <Label>Catatan</Label>
                             <Textarea value={data.notes} onChange={(e) => setData('notes', e.target.value)} rows={2} className="mt-1.5" />
@@ -443,6 +474,8 @@ function EditPaymentDialog({ payment, open, onOpenChange, banks, jenis_pembayara
         payment_date: '',
         bank_id: '',
         notes: '',
+        customer_bank_name: '',
+        customer_bank_account: '',
         change_reason: '',
     });
 
@@ -454,6 +487,8 @@ function EditPaymentDialog({ payment, open, onOpenChange, banks, jenis_pembayara
                 payment_date: payment.payment_date ? payment.payment_date.split('T')[0] : '',
                 bank_id: payment.bank_id ? String(payment.bank_id) : '',
                 notes: payment.notes || '',
+                customer_bank_name: payment.customer_bank_name || '',
+                customer_bank_account: payment.customer_bank_account || '',
                 change_reason: '',
             });
         }
@@ -511,6 +546,35 @@ function EditPaymentDialog({ payment, open, onOpenChange, banks, jenis_pembayara
                         </div>
 
                         <PaymentTypeInfo selectedJp={selectedJp} amount={data.amount} />
+
+                        {selectedJp && ['cashback', 'return'].includes(selectedJp.nama.toLowerCase()) && (
+                            <>
+                                <div>
+                                    <Label>Bank Customer (Tujuan Transfer) <span className="text-destructive">*</span></Label>
+                                    <Input 
+                                        type="text" 
+                                        value={data.customer_bank_name} 
+                                        onChange={(e) => setData('customer_bank_name', e.target.value)} 
+                                        className="mt-1.5" 
+                                        placeholder="Contoh: BCA, MANDIRI"
+                                        required={['cashback', 'return'].includes(selectedJp.nama.toLowerCase())}
+                                    />
+                                    {errors.customer_bank_name && <p className="text-xs text-destructive">{errors.customer_bank_name}</p>}
+                                </div>
+                                <div>
+                                    <Label>Nomor Rekening Customer <span className="text-destructive">*</span></Label>
+                                    <Input 
+                                        type="text" 
+                                        value={data.customer_bank_account} 
+                                        onChange={(e) => setData('customer_bank_account', e.target.value)} 
+                                        className="mt-1.5" 
+                                        placeholder="Masukkan nomor rekening..."
+                                        required={['cashback', 'return'].includes(selectedJp.nama.toLowerCase())}
+                                    />
+                                    {errors.customer_bank_account && <p className="text-xs text-destructive">{errors.customer_bank_account}</p>}
+                                </div>
+                            </>
+                        )}
 
                         <div className="sm:col-span-2">
                             <Label>Catatan</Label>
@@ -1355,7 +1419,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         <div className="flex justify-between text-rose-600"><span className="text-muted-foreground text-rose-600">Cashback</span><span className="font-mono">- {formatRupiah(totalCashback)}</span></div>
                                     )}
                                     {totalReturn > 0 && (
-                                        <div className="flex justify-between text-rose-600"><span className="text-muted-foreground text-rose-600">Return / Refund</span><span className="font-mono">- {formatRupiah(totalReturn)}</span></div>
+                                        <div className="flex justify-between text-rose-600"><span className="text-muted-foreground text-rose-600">Refund</span><span className="font-mono">- {formatRupiah(totalReturn)}</span></div>
                                     )}
                                     <Separator className="my-1.5" />
                                     <div className="flex justify-between font-semibold"><span className="text-slate-800">Total Tagihan</span><span className="font-mono font-bold text-slate-800">{formatRupiah(totalTagihan)}</span></div>
@@ -1432,10 +1496,16 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                     <div className="flex items-center justify-between">
                                                         <div className="space-y-0.5">
                                                             <div className="font-bold text-slate-800 text-xs">
-                                                                {p.master_jenis_pembayaran?.nama ?? (p.payment_type ? p.payment_type.toUpperCase() : '-')} — {formatDate(p.payment_date)}
+                                                                {(p.master_jenis_pembayaran?.nama === 'Return' || p.master_jenis_pembayaran?.nama === 'Refurn' ? 'Refund' : p.master_jenis_pembayaran?.nama) ?? (p.payment_type === 'return' ? 'REFUND' : (p.payment_type ? p.payment_type.toUpperCase() : '-'))} — {formatDate(p.payment_date)}
                                                             </div>
                                                             {p.notes && <div className="text-slate-500 font-medium text-[11px]">Memo: "{p.notes}"</div>}
                                                             {p.bank && <div className="text-slate-400 text-[10px] font-mono">{p.bank.bank} · {p.bank.nomor_rekening}</div>}
+                                                            {(p.customer_bank_name || p.customer_bank_account) && (
+                                                                <div className="text-slate-600 font-semibold text-[10px] mt-1 bg-slate-100/50 p-1.5 rounded border border-slate-100/80 flex flex-col gap-0.5">
+                                                                    <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold">Rek. Customer (Tujuan Transfer):</span>
+                                                                    <span>{p.customer_bank_name || '—'} · {p.customer_bank_account || '—'}</span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <div className="text-right space-y-1">
                                                             <div className="font-mono font-bold text-slate-900">{formatRupiah(p.amount)}</div>
@@ -1458,9 +1528,12 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                                 {can?.delete_payment && order.status_po !== 'selesai' && (
                                                                     <button
                                                                         onClick={() => {
+                                                                            const paymentName = p.master_jenis_pembayaran?.nama === 'Return' || p.master_jenis_pembayaran?.nama === 'Refurn'
+                                                                                ? 'Refund'
+                                                                                : (p.master_jenis_pembayaran?.nama ?? (p.payment_type === 'return' ? 'Refund' : p.payment_type));
                                                                             const msg = p.verified_at
-                                                                                ? `Hapus pembayaran ${p.master_jenis_pembayaran?.nama ?? p.payment_type} Rp ${Number(p.amount).toLocaleString('id-ID')}?\n\nPembayaran ini sudah diverifikasi. Catatan keuangan (pemasukan/pengeluaran) terkait juga akan dihapus.`
-                                                                                : `Hapus pembayaran ${p.master_jenis_pembayaran?.nama ?? p.payment_type} Rp ${Number(p.amount).toLocaleString('id-ID')}?`;
+                                                                                ? `Hapus pembayaran ${paymentName} Rp ${Number(p.amount).toLocaleString('id-ID')}?\n\nPembayaran ini sudah diverifikasi. Catatan keuangan (pemasukan/pengeluaran) terkait juga akan dihapus.`
+                                                                                : `Hapus pembayaran ${paymentName} Rp ${Number(p.amount).toLocaleString('id-ID')}?`;
                                                                             if (confirm(msg)) {
                                                                                 router.delete(route('invoices.payments.destroy', p.id), { preserveScroll: true });
                                                                             }

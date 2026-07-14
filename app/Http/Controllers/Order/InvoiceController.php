@@ -1115,6 +1115,8 @@ class InvoiceController extends Controller
             'payment_date' => 'required|date',
             'bank_id' => 'required|exists:bank_accounts,id',
             'notes' => 'nullable|string',
+            'customer_bank_name' => 'nullable|string|max:255',
+            'customer_bank_account' => 'nullable|string|max:255',
             'change_reason' => 'required|string|min:5',
         ]);
 
@@ -1151,6 +1153,8 @@ class InvoiceController extends Controller
                 'Tambahan Produk' => 'tambahan_produk',
                 'Cashback' => 'cashback',
                 'Return' => 'return',
+                'Refurn' => 'return',
+                'Refund' => 'return',
                 'Lainnya' => 'lainnya',
             ];
             $paymentType = $map[$newMaster->nama] ?? 'lainnya';
@@ -1164,6 +1168,8 @@ class InvoiceController extends Controller
                 'payment_date' => $request->payment_date,
                 'bank_id' => $request->bank_id,
                 'notes' => $request->notes,
+                'customer_bank_name' => $request->customer_bank_name,
+                'customer_bank_account' => $request->customer_bank_account,
                 'is_debit' => $isDebit,
             ]);
 
@@ -1210,8 +1216,8 @@ class InvoiceController extends Controller
                 } else {
                     Pemasukan::where('source_payment_id', $payment->id)->delete();
 
-                    $kategoriName = $paymentType === 'cashback' ? 'Cashback PO' : 'Refund/Return PO';
-                    $kategoriDesc = $paymentType === 'cashback' ? 'Cashback dari PO' : 'Pengembalian uang / return dari PO';
+                    $kategoriName = $paymentType === 'cashback' ? 'Cashback PO' : 'Refund PO';
+                    $kategoriDesc = $paymentType === 'cashback' ? 'Cashback dari PO' : 'Pengembalian uang / refund dari PO';
 
                     $kategori = KategoriPengeluaran::firstOrCreate(
                         ['brand_id' => $order->brand_id, 'nama_kategori' => $kategoriName],
@@ -1224,7 +1230,7 @@ class InvoiceController extends Controller
 
                     $label = match ($paymentType) {
                         'cashback' => 'Cashback',
-                        'return'   => 'Refund/Return',
+                        'return'   => 'Refund',
                         default    => 'Pengeluaran Lainnya',
                     };
 

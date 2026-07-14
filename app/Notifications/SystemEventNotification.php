@@ -125,6 +125,32 @@ class SystemEventNotification extends Notification implements ShouldQueue
     // Helper functions
     public function getTitle(): string
     {
+        if ($this->eventKey === 'payment_submitted') {
+            $type = $this->payload['payment_type'] ?? 'pembayaran';
+            return match($type) {
+                'dp' => 'DP PO Diajukan',
+                'pelunasan' => 'Pelunasan PO Diajukan',
+                'ongkir' => 'Ongkir PO Diajukan',
+                'tambahan_produk' => 'Tambahan Produk PO Diajukan',
+                'cashback' => 'Cashback PO Diajukan',
+                'return' => 'Return PO Diajukan',
+                default => 'Pembayaran PO Diajukan',
+            };
+        }
+
+        if ($this->eventKey === 'payment_verified') {
+            $type = $this->payload['payment_type'] ?? 'pembayaran';
+            return match($type) {
+                'dp' => 'DP PO Diverifikasi',
+                'pelunasan' => 'Pelunasan PO Diverifikasi',
+                'ongkir' => 'Ongkir PO Diverifikasi',
+                'tambahan_produk' => 'Tambahan Produk PO Diverifikasi',
+                'cashback' => 'Cashback PO Diverifikasi',
+                'return' => 'Return PO Diverifikasi',
+                default => 'Pembayaran PO Diverifikasi',
+            };
+        }
+
         return match ($this->eventKey) {
             'order_published' => 'PO Baru Diterbitkan',
             'order_completed' => 'PO Selesai',
@@ -132,8 +158,6 @@ class SystemEventNotification extends Notification implements ShouldQueue
             'rijek_reported' => 'Laporan Rijek Baru',
             'refund_submitted' => 'Pengajuan Refund Dana',
             'refund_processed' => 'Pengajuan Refund Diproses',
-            'payment_submitted' => 'Pembayaran PO Diajukan',
-            'payment_verified' => 'Pembayaran PO Diverifikasi',
             'unlock_requested' => 'Permohonan Unlock PO Diajukan',
             'order_unlocked' => 'PO Berhasil Di-unlock',
             'relock_requested' => 'Permohonan Re-lock PO Diajukan',
@@ -150,6 +174,34 @@ class SystemEventNotification extends Notification implements ShouldQueue
         $stage = $this->payload['stage'] ?? '-';
         $status = $this->payload['status'] ?? '-';
 
+        if ($this->eventKey === 'payment_submitted') {
+            $type = $this->payload['payment_type'] ?? 'pembayaran';
+            $label = match($type) {
+                'dp' => 'DP',
+                'pelunasan' => 'Pelunasan',
+                'ongkir' => 'Biaya ongkir',
+                'tambahan_produk' => 'Tambahan produk',
+                'cashback' => 'Cashback',
+                'return' => 'Return/Refund',
+                default => 'Pembayaran',
+            };
+            return "{$label} untuk PO {$noPo} ({$brandNama}) senilai {$nominal} telah diajukan.";
+        }
+
+        if ($this->eventKey === 'payment_verified') {
+            $type = $this->payload['payment_type'] ?? 'pembayaran';
+            $label = match($type) {
+                'dp' => 'DP',
+                'pelunasan' => 'Pelunasan',
+                'ongkir' => 'Biaya ongkir',
+                'tambahan_produk' => 'Tambahan produk',
+                'cashback' => 'Cashback',
+                'return' => 'Return/Refund',
+                default => 'Pembayaran',
+            };
+            return "{$label} untuk PO {$noPo} ({$brandNama}) senilai {$nominal} telah diverifikasi.";
+        }
+
         return match ($this->eventKey) {
             'order_published' => "PO {$noPo} dari Brand {$brandNama} baru saja diterbitkan.",
             'order_completed' => "PO {$noPo} dari Brand {$brandNama} telah diselesaikan.",
@@ -157,8 +209,6 @@ class SystemEventNotification extends Notification implements ShouldQueue
             'rijek_reported' => "Terdapat laporan rijek baru pada tahapan {$stage} untuk PO {$noPo} ({$brandNama}).",
             'refund_submitted' => "Pengajuan refund untuk PO {$noPo} ({$brandNama}) senilai {$nominal} telah dibuat.",
             'refund_processed' => "Refund untuk PO {$noPo} ({$brandNama}) telah diperbarui dengan status: {$status}.",
-            'payment_submitted' => "Pembayaran untuk PO {$noPo} ({$brandNama}) senilai {$nominal} telah diajukan.",
-            'payment_verified' => "Pembayaran untuk PO {$noPo} ({$brandNama}) senilai {$nominal} telah diverifikasi.",
             'unlock_requested' => "Admin mengajukan permohonan unlock untuk PO {$noPo} ({$brandNama}) dengan alasan: " . ($this->payload['reason'] ?? '-'),
             'order_unlocked' => "Kunci PO {$noPo} ({$brandNama}) telah dibuka.",
             'relock_requested' => "Admin mengajukan permohonan re-lock untuk PO {$noPo} ({$brandNama}) dengan alasan: " . ($this->payload['reason'] ?? '-'),
@@ -169,6 +219,15 @@ class SystemEventNotification extends Notification implements ShouldQueue
 
     public function getEmoji(): string
     {
+        if ($this->eventKey === 'payment_submitted' || $this->eventKey === 'payment_verified') {
+            $type = $this->payload['payment_type'] ?? 'pembayaran';
+            return match($type) {
+                'cashback' => '🎁',
+                'return' => '🔄',
+                default => $this->eventKey === 'payment_submitted' ? '📥' : '💸',
+            };
+        }
+
         return match ($this->eventKey) {
             'order_published' => '📦',
             'order_completed' => '✅',
@@ -176,8 +235,6 @@ class SystemEventNotification extends Notification implements ShouldQueue
             'rijek_reported' => '⚠️',
             'refund_submitted' => '🪙',
             'refund_processed' => '💳',
-            'payment_submitted' => '📥',
-            'payment_verified' => '💸',
             'unlock_requested' => '🔓',
             'order_unlocked' => '🔓',
             'relock_requested' => '🔒',

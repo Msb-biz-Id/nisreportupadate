@@ -545,12 +545,12 @@ class ReportRunner
             ->map(function ($p) {
                 $label = match ($p->payment_type) {
                     'cashback' => 'Cashback',
-                    'return'   => 'Refund/Return',
+                    'return'   => 'Refund',
                     default    => 'Pengeluaran Lainnya',
                 };
                 return [
                     'tanggal' => $p->tanggal ? Carbon::parse($p->tanggal)->toDateString() : null,
-                    'kategori' => $p->payment_type === 'cashback' ? 'Cashback PO' : 'Refund/Return PO',
+                    'kategori' => $p->payment_type === 'cashback' ? 'Cashback PO' : 'Refund PO',
                     'keterangan' => "{$label} PO {$p->no_po} — {$p->nama_po}",
                     'nominal' => (float) $p->nominal,
                     'sumber' => 'Otomatis',
@@ -879,7 +879,9 @@ class ReportRunner
                 'ongkir' => 'Ongkir',
                 'tambahan_produk' => 'Tambahan Produk',
                 'cashback' => 'Cashback',
-                'return' => 'Return',
+                'return' => 'Refund',
+                'refurn' => 'Refund',
+                'refund' => 'Refund',
                 default => ucfirst($tipeLabel)
             };
 

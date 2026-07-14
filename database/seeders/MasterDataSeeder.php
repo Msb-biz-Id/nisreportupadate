@@ -21,6 +21,7 @@ use App\Models\Master\Progress;
 use App\Models\Master\Resleting;
 use App\Models\Master\Size;
 use App\Models\Master\SumberOrder;
+use App\Models\Master\JenisMasalah;
 use Illuminate\Database\Seeder;
 
 class MasterDataSeeder extends Seeder
@@ -46,6 +47,7 @@ class MasterDataSeeder extends Seeder
         $this->seedCustomerType();
         $this->seedBank();
         $this->seedProduct();
+        $this->seedJenisMasalah();
         if ($isMysql) \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=1');
     }
 
@@ -143,8 +145,26 @@ class MasterDataSeeder extends Seeder
     private function seedSize(): void
     {
         $ukurans = [
-            'XS Anak', 'S Anak', 'M Anak', 'L Anak', 'XL Anak',
-            'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL', '7XL', '8XL', '9XL', '10XL', 'CUSTOM'
+            'XS Anak',
+            'S Anak',
+            'M Anak',
+            'L Anak',
+            'XL Anak',
+            'XS',
+            'S',
+            'M',
+            'L',
+            'XL',
+            '2XL',
+            '3XL',
+            '4XL',
+            '5XL',
+            '6XL',
+            '7XL',
+            '8XL',
+            '9XL',
+            '10XL',
+            'CUSTOM'
         ];
         foreach ($ukurans as $idx => $u) {
             $size = Size::withTrashed()->where(['ukuran' => $u])->first();
@@ -198,9 +218,9 @@ class MasterDataSeeder extends Seeder
         $items = [
             ['nama_progress' => 'SETTING', 'urutan' => 1, 'warna' => '#6B7280', 'is_skippable' => false],
             ['nama_progress' => 'PRINTING', 'urutan' => 2, 'warna' => '#3B82F6', 'is_skippable' => true],
-            ['nama_progress' => 'POTONG SUBLIME', 'urutan' => 3, 'warna' => '#0EA5E9', 'is_skippable' => true],
+            ['nama_progress' => 'POTONG BAHAN', 'urutan' => 3, 'warna' => '#0EA5E9', 'is_skippable' => true],
             ['nama_progress' => 'PRESS SUBLIME', 'urutan' => 4, 'warna' => '#06B6D4', 'is_skippable' => true],
-            ['nama_progress' => 'POTONG BAHAN', 'urutan' => 5, 'warna' => '#F59E0B', 'is_skippable' => false],
+            ['nama_progress' => 'POTONG POLA', 'urutan' => 5, 'warna' => '#F59E0B', 'is_skippable' => false],
             ['nama_progress' => 'JAHIT', 'urutan' => 6, 'warna' => '#EAB308', 'is_skippable' => false],
             ['nama_progress' => 'QC JAHIT & BUANG BENANG', 'urutan' => 7, 'warna' => '#10B981', 'is_skippable' => false],
             ['nama_progress' => 'TALI CELANA', 'urutan' => 8, 'warna' => '#22C55E', 'is_skippable' => true],
@@ -209,8 +229,8 @@ class MasterDataSeeder extends Seeder
             ['nama_progress' => 'PACKING', 'urutan' => 11, 'warna' => '#06B6D4', 'is_skippable' => false],
             ['nama_progress' => 'SENDING', 'urutan' => 12, 'warna' => '#8B5CF6', 'is_skippable' => false],
         ];
-        foreach ($items as $i) Progress::firstOrCreate(
-            ['nama_progress' => $i['nama_progress']],
+        foreach ($items as $i) Progress::updateOrCreate(
+            ['urutan' => $i['urutan']],
             $i + ['is_active' => true]
         );
     }
@@ -381,5 +401,19 @@ class MasterDataSeeder extends Seeder
             ['brand_id' => null, 'nama' => $nama],
             ['is_active' => true]
         );
+    }
+
+    private function seedJenisMasalah(): void
+    {
+        $items = [
+            'produk_cacat', 'ukuran_salah', 'warna_tidak_sesuai',
+            'bahan_salah', 'printing_error', 'jahitan_rusak', 'lainnya'
+        ];
+        foreach ($items as $name) {
+            JenisMasalah::firstOrCreate(
+                ['nama' => $name],
+                ['is_active' => true, 'deskripsi' => ucfirst(str_replace('_', ' ', $name))]
+            );
+        }
     }
 }

@@ -16,6 +16,7 @@ class OrderPayment extends Model
     protected $fillable = [
         'order_id', 'payment_type', 'master_jenis_pembayaran_id', 'amount', 'payment_date',
         'bank_id', 'proof_file', 'notes',
+        'customer_bank_name', 'customer_bank_account',
         'recorded_by', 'verified_by', 'verified_at',
         'dp_sequence', 'is_debit',
         'verification_checks', 'verification_notes',

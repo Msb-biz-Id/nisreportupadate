@@ -10,6 +10,7 @@ use App\Support\BrandContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Master\JenisMasalah;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -103,7 +104,7 @@ class RefundController extends Controller
                 'per_page' => $perPage,
             ],
             'statuses' => Refund::STATUSES,
-            'jenis_options' => Refund::JENIS_MASALAH,
+            'jenis_options' => JenisMasalah::where('is_active', true)->orderBy('nama')->pluck('nama')->toArray(),
             'can' => [
                 'create' => $request->user()->can('order.refund'),
                 'review' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
@@ -164,7 +165,11 @@ class RefundController extends Controller
         $data = $request->validate([
             'order_id'      => ['required', 'uuid', 'exists:orders,id'],
             'alasan'        => ['required', 'string', 'min:5'],
-            'jenis_masalah' => ['required', Rule::in(Refund::JENIS_MASALAH)],
+            'jenis_masalah' => [
+                'required',
+                'string',
+                Rule::exists('jenis_masalahs', 'nama')->where(fn ($q) => $q->where('is_active', true))
+            ],
             'jumlah_item'   => ['required', 'integer', 'min:1'],
             'nominal_refund'=> ['required', 'numeric', 'min:0'],
             'catatan'       => ['nullable', 'string'],

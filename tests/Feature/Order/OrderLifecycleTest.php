@@ -43,6 +43,10 @@ class OrderLifecycleTest extends TestCase
             'nomor_rekening' => '12345',
             'is_active' => true,
         ]);
+        \App\Models\Master\JenisMasalah::create([
+            'nama' => 'produk_cacat',
+            'is_active' => true,
+        ]);
         return $brand;
     }
 
@@ -382,6 +386,10 @@ class OrderLifecycleTest extends TestCase
             'bank' => 'BCA',
             'atas_nama' => 'Test Acc Premium',
             'nomor_rekening' => '54321',
+            'is_active' => true,
+        ]);
+        \App\Models\Master\JenisMasalah::create([
+            'nama' => 'produk_cacat',
             'is_active' => true,
         ]);
 
@@ -1552,7 +1560,7 @@ class OrderLifecycleTest extends TestCase
 
         $this->actingAsWithBrand($adminBrand, $brand)
             ->post(route('orders.complete', $order->id))
-            ->assertSessionHas('error', 'Pesanan tidak dapat diselesaikan karena masih terdapat klaim refund/return aktif.');
+            ->assertSessionHas('error', 'Pesanan tidak dapat diselesaikan karena masih terdapat klaim refund aktif.');
 
         // Resolve refund claim (e.g. reject/archive)
         $refund->update(['status' => 'rejected']);

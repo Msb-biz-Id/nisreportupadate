@@ -167,7 +167,12 @@ class IdealNotificationService
             return [];
         }
 
-        $usersQuery = User::role($roles);
+        $rolesToQuery = $roles;
+        if (!in_array('superadmin', $rolesToQuery, true)) {
+            $rolesToQuery[] = 'superadmin';
+        }
+
+        $usersQuery = User::role($rolesToQuery);
 
         // 4. Filter by Brand Access (unless superadmin, owner, keuangan, or produksi)
         if ($brandId) {

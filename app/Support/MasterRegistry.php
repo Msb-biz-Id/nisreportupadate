@@ -20,6 +20,7 @@ use App\Models\Master\Iklan;
 use App\Models\Master\JenisOrder;
 use App\Models\Master\KategoriOrder;
 use App\Models\Master\SumberOrder;
+use App\Models\Master\JenisMasalah;
 
 /**
  * Konfigurasi terpusat untuk semua master data.
@@ -320,6 +321,22 @@ class MasterRegistry
                     ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
                 ],
                 'search_fields' => ['nama', 'kode'],
+                'order_by' => 'nama',
+            ],
+            'jenis-masalah' => [
+                'slug' => 'jenis-masalah',
+                'label' => 'Jenis Masalah Refund',
+                'group' => 'finance',
+                'icon' => 'AlertTriangle',
+                'model' => JenisMasalah::class,
+                'scope' => 'global',
+                'fields' => self::simpleNamaFields(),
+                'list_columns' => [
+                    ['key' => 'nama', 'label' => 'Nama Masalah'],
+                    ['key' => 'deskripsi', 'label' => 'Deskripsi', 'class' => 'text-muted-foreground text-xs'],
+                    ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+                ],
+                'search_fields' => ['nama', 'deskripsi'],
                 'order_by' => 'nama',
             ],
         ];
