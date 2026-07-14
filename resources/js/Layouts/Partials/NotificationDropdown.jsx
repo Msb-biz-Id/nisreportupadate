@@ -160,6 +160,20 @@ export default function NotificationDropdown({ notifications, unreadCount, onMar
                         ))
                     )}
                 </div>
+                <div className="border-t p-2 bg-muted/20 text-center">
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="w-full text-xs font-bold text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center justify-center gap-1 h-8"
+                        onClick={() => {
+                            setOpen(false);
+                            onNavigate?.();
+                            router.visit('/notifications');
+                        }}
+                    >
+                        Lihat Semua Riwayat Notifikasi
+                    </Button>
+                </div>
             </DropdownMenuContent>
         </DropdownMenu>
     );

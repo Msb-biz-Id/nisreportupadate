@@ -44,14 +44,17 @@ class IdealNotificationService
             }
         }
 
-        // 1. Deduplication Lock (Cache lock for 15 seconds)
-        $fingerprint = md5($eventKey . '_' . $noPo . '_' . $stage . '_' . $status . '_' . $brandId);
+        // 1. Deduplication Lock (Cache lock for 3 seconds to prevent double clicks but allow quick sequential actions)
+        $fingerprint = md5($eventKey . '_' . $noPo . '_' . $stage . '_' . $status . '_' . $brandId . '_' . serialize($payload));
         $lockKey = 'notif_lock_' . $fingerprint;
 
         if (Cache::has($lockKey)) {
+            \Illuminate\Support\Facades\Log::info("Notification deduplicated. Key: {$eventKey}, PO: {$noPo}");
             return []; // Ignore duplicate request
         }
-        Cache::put($lockKey, true, 15);
+        Cache::put($lockKey, true, 3);
+
+        \Illuminate\Support\Facades\Log::info("Dispatching Notification. Key: {$eventKey}, PO: {$noPo}, Fingerprint: {$fingerprint}");
 
         // 2. Fetch Notification Matrix Configuration
         $settingsJson = SystemSetting::get('notification_matrix', $eventKey);

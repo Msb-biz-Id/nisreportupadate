@@ -3,16 +3,25 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class NotificationController extends Controller
 {
     /**
      * Get paginated notifications for the authenticated user.
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request)
     {
-        $notifications = $request->user()->notifications()->paginate(15);
+        $filter = $request->query('filter', 'all');
+        $query = $request->user()->notifications();
+
+        if ($filter === 'unread') {
+            $query = $request->user()->unreadNotifications();
+        } elseif ($filter === 'read') {
+            $query = $request->user()->notifications()->whereNotNull('read_at');
+        }
+
+        $notifications = $query->paginate(15)->withQueryString();
 
         // Map standard database notification properties to structure expected by React frontend
         $mapped = $notifications->getCollection()->map(fn ($n) => [
@@ -29,49 +38,94 @@ class NotificationController extends Controller
 
         $notifications->setCollection($mapped);
 
-        return response()->json([
+        // If it's a JSON request from axios/polling (not Inertia), return JSON response
+        if ($request->wantsJson() && !$request->hasHeader('X-Inertia')) {
+            return response()->json([
+                'notifications' => $notifications,
+                'unread_count' => $request->user()->unreadNotifications()->count(),
+            ]);
+        }
+
+        // Otherwise, render Inertia Page for notification history
+        return \Inertia\Inertia::render('Notifications/Index', [
             'notifications' => $notifications,
+            'filters' => [
+                'filter' => $filter,
+            ],
             'unread_count' => $request->user()->unreadNotifications()->count(),
+            'total_count' => $request->user()->notifications()->count(),
+            'read_count' => $request->user()->notifications()->whereNotNull('read_at')->count(),
         ]);
     }
 
     /**
      * Mark a single notification as read.
      */
-    public function markAsRead(Request $request, string $id): JsonResponse
+    public function markAsRead(Request $request, string $id)
     {
         $notification = $request->user()->notifications()->findOrFail($id);
         $notification->markAsRead();
 
-        return response()->json([
-            'success' => true,
-            'unread_count' => $request->user()->unreadNotifications()->count(),
-        ]);
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'unread_count' => $request->user()->unreadNotifications()->count(),
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Notifikasi ditandai telah dibaca.');
     }
 
     /**
      * Mark all unread notifications as read.
      */
-    public function markAllAsRead(Request $request): JsonResponse
+    public function markAllAsRead(Request $request)
     {
         $request->user()->unreadNotifications->markAsRead();
 
-        return response()->json([
-            'success' => true,
-        ]);
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'unread_count' => 0,
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Semua notifikasi ditandai telah dibaca.');
     }
 
     /**
      * Delete a notification.
      */
-    public function destroy(Request $request, string $id): JsonResponse
+    public function destroy(Request $request, string $id)
     {
         $notification = $request->user()->notifications()->findOrFail($id);
         $notification->delete();
 
-        return response()->json([
-            'success' => true,
-            'unread_count' => $request->user()->unreadNotifications()->count(),
-        ]);
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'unread_count' => $request->user()->unreadNotifications()->count(),
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Notifikasi berhasil dihapus.');
+    }
+
+    /**
+     * Delete all notifications for the user.
+     */
+    public function clearAll(Request $request)
+    {
+        $request->user()->notifications()->delete();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'unread_count' => 0,
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Semua riwayat notifikasi telah dihapus.');
     }
 }
+

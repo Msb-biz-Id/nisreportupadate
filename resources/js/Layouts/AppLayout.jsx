@@ -1,6 +1,8 @@
 import { Link, router, usePage, Head } from '@inertiajs/react';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, createContext } from 'react';
 import { Toaster, toast } from 'sonner';
+
+export const NotificationContext = createContext(null);
 import axios from 'axios';
 import {
     Menu,
@@ -108,8 +110,28 @@ export default function AppLayout({ title, header, children }) {
             syncChannel.current = new window.BroadcastChannel('protrack_notifications');
             
             const handleSyncMsg = (e) => {
-                if (e.data && e.data.type === 'NOTIF_HANDLED') {
-                    handledNotifs.current.add(e.data.id);
+                if (e.data) {
+                    if (e.data.type === 'NOTIF_HANDLED') {
+                        handledNotifs.current.add(e.data.id);
+                    } else if (e.data.type === 'NOTIF_READ') {
+                        setNotifications((prev) => 
+                            prev.map((n) => n.id === e.data.id ? { ...n, is_read: true } : n)
+                        );
+                        if (e.data.unread_count !== undefined) {
+                            setUnreadCount(e.data.unread_count);
+                        }
+                    } else if (e.data.type === 'NOTIF_READ_ALL') {
+                        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+                        setUnreadCount(0);
+                    } else if (e.data.type === 'NOTIF_DELETE') {
+                        setNotifications((prev) => prev.filter((n) => n.id !== e.data.id));
+                        if (e.data.unread_count !== undefined) {
+                            setUnreadCount(e.data.unread_count);
+                        }
+                    } else if (e.data.type === 'NOTIF_CLEAR_ALL') {
+                        setNotifications([]);
+                        setUnreadCount(0);
+                    }
                 }
             };
             
@@ -165,7 +187,7 @@ export default function AppLayout({ title, header, children }) {
         triggerNotificationAlert(notif);
     };
 
-    // WebSocket broadcaster listener + Slow Polling Fallback Sync
+    // WebSocket broadcaster listener + Fast Polling Fallback Sync (5 seconds interval when tab is focused)
     const notificationsRef = useRef(notifications);
     notificationsRef.current = notifications;
     const unreadCountRef = useRef(unreadCount);
@@ -204,9 +226,10 @@ export default function AppLayout({ title, header, children }) {
                 });
         }
 
-        // 15 seconds polling fallback sync (skipped if Echo receives messages)
+        // Fast Polling Fallback Sync (every 5 seconds when active/focused; pauses when backgrounded to save resources)
         const interval = setInterval(() => {
             if (isEchoConnected) return;
+            if (typeof document !== 'undefined' && document.hidden) return; // Skip polling when tab is inactive
 
             axios.get(route('notifications.index'))
                 .then((res) => {
@@ -251,7 +274,7 @@ export default function AppLayout({ title, header, children }) {
                     });
                 })
                 .catch((err) => console.debug('Polling notifications skipped or offline:', err));
-        }, 15000);
+        }, 5000);
 
         return () => {
             if (channel && window.Echo) {
@@ -267,11 +290,9 @@ export default function AppLayout({ title, header, children }) {
                 setNotifications((prev) => 
                     prev.map((n) => n.id === id ? { ...n, is_read: true } : n)
                 );
-                if (res.data.unread_count !== undefined) {
-                    setUnreadCount(res.data.unread_count);
-                } else {
-                    setUnreadCount((prev) => Math.max(0, prev - 1));
-                }
+                const nextUnread = res.data.unread_count !== undefined ? res.data.unread_count : Math.max(0, unreadCount - 1);
+                setUnreadCount(nextUnread);
+                syncChannel.current?.postMessage({ type: 'NOTIF_READ', id, unread_count: nextUnread });
             })
             .catch((err) => console.error('Failed to mark notification as read:', err));
     };
@@ -281,6 +302,7 @@ export default function AppLayout({ title, header, children }) {
             .then(() => {
                 setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
                 setUnreadCount(0);
+                syncChannel.current?.postMessage({ type: 'NOTIF_READ_ALL' });
                 toast.success('Semua notifikasi ditandai telah dibaca.');
             })
             .catch((err) => console.error('Failed to mark all as read:', err));
@@ -291,16 +313,25 @@ export default function AppLayout({ title, header, children }) {
             .then((res) => {
                 setNotifications((prev) => {
                     const wasUnread = !prev.find(n => n.id === id)?.is_read;
-                    if (res.data.unread_count !== undefined) {
-                        setUnreadCount(res.data.unread_count);
-                    } else if (wasUnread) {
-                        setUnreadCount((prevCount) => Math.max(0, prevCount - 1));
-                    }
+                    const nextUnread = res.data.unread_count !== undefined ? res.data.unread_count : (wasUnread ? Math.max(0, unreadCount - 1) : unreadCount);
+                    setUnreadCount(nextUnread);
+                    syncChannel.current?.postMessage({ type: 'NOTIF_DELETE', id, unread_count: nextUnread });
                     return prev.filter((n) => n.id !== id);
                 });
                 toast.success('Notifikasi berhasil dihapus.');
             })
             .catch((err) => console.error('Failed to delete notification:', err));
+    };
+
+    const clearAllNotifications = () => {
+        axios.delete(route('notifications.clear-all'))
+            .then(() => {
+                setNotifications([]);
+                setUnreadCount(0);
+                syncChannel.current?.postMessage({ type: 'NOTIF_CLEAR_ALL' });
+                toast.success('Semua riwayat notifikasi telah dihapus.');
+            })
+            .catch((err) => console.error('Failed to clear all notifications:', err));
     };
 
     const [offlineDraftsCount, setOfflineDraftsCount] = useState(0);
@@ -611,7 +642,11 @@ export default function AppLayout({ title, header, children }) {
                     </div>
                 )}
 
-                <main className="px-4 py-6 md:px-6 lg:px-8">{children}</main>
+                <main className="px-4 py-6 md:px-6 lg:px-8">
+                    <NotificationContext.Provider value={{ notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, clearAllNotifications }}>
+                        {children}
+                    </NotificationContext.Provider>
+                </main>
             </div>
         </div>
     );
