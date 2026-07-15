@@ -170,7 +170,7 @@ export default function AdminBrand({ stats }) {
                         <Chart
                             type="bar"
                             height={260}
-                            series={[{ name: 'PO on-progress', data: progressDist.map((r) => r.count) }]}
+                            series={[{ name: 'PO dalam proses', data: progressDist.map((r) => r.count) }]}
                             options={{
                                 plotOptions: { bar: { borderRadius: 6, columnWidth: '55%' } },
                                 xaxis: { categories: progressDist.map((r) => r.label), labels: { rotate: -20, style: { fontSize: '10px' } } },
@@ -231,7 +231,7 @@ export default function AdminBrand({ stats }) {
                                     <div className="flex items-center justify-between text-xs">
                                         <span className="text-muted-foreground flex items-center gap-1">
                                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                                            Pending Validasi
+                                            Menunggu Validasi
                                         </span>
                                         <span className="font-mono font-bold text-amber-600">{formatRupiah(account.total_pending)}</span>
                                     </div>
@@ -268,12 +268,12 @@ export default function AdminBrand({ stats }) {
                                     )}
                                 </div>
                                 <div className="flex justify-between items-center mt-2 pt-2 border-t border-emerald-100 text-[10px] text-emerald-800 font-semibold">
-                                    <span>Verified: {formatRupiah(
+                                    <span>Terverifikasi: {formatRupiah(
                                         (stats.ringkasan_keuangan ?? [])
                                             .filter(a => a.bank.toUpperCase() === 'CASH')
                                             .reduce((sum, a) => sum + a.week_verified, 0)
                                     )}</span>
-                                    <span>Pending: {formatRupiah(
+                                    <span>Menunggu: {formatRupiah(
                                         (stats.ringkasan_keuangan ?? [])
                                             .filter(a => a.bank.toUpperCase() === 'CASH')
                                             .reduce((sum, a) => sum + a.week_pending, 0)
@@ -292,7 +292,7 @@ export default function AdminBrand({ stats }) {
                                 </div>
                                 <div className="flex gap-2">
                                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">3</span>
-                                    <span>Minta Admin Keuangan memverifikasi pembayaran CASH yang pending.</span>
+                                    <span>Minta Admin Keuangan memverifikasi pembayaran CASH yang belum diverifikasi.</span>
                                 </div>
                             </div>
                         </CardContent>
@@ -319,12 +319,12 @@ export default function AdminBrand({ stats }) {
                                     )}
                                 </div>
                                 <div className="flex justify-between items-center mt-2 pt-2 border-t border-indigo-100 text-[10px] text-indigo-800 font-semibold">
-                                    <span>Verified: {formatRupiah(
+                                    <span>Terverifikasi: {formatRupiah(
                                         (stats.ringkasan_keuangan ?? [])
                                             .filter(a => a.bank.toUpperCase() !== 'CASH')
                                             .reduce((sum, a) => sum + a.week_verified, 0)
                                     )}</span>
-                                    <span>Pending: {formatRupiah(
+                                    <span>Menunggu: {formatRupiah(
                                         (stats.ringkasan_keuangan ?? [])
                                             .filter(a => a.bank.toUpperCase() !== 'CASH')
                                             .reduce((sum, a) => sum + a.week_pending, 0)
@@ -339,7 +339,7 @@ export default function AdminBrand({ stats }) {
                                 </div>
                                 <div className="flex gap-2">
                                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold">2</span>
-                                    <span>Cocokkan data rekening koran dengan pembayaran pending di bawah.</span>
+                                    <span>Cocokkan data rekening koran dengan pembayaran yang belum divalidasi di bawah.</span>
                                 </div>
                                 <div className="flex gap-2">
                                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold">3</span>
@@ -446,7 +446,7 @@ export default function AdminBrand({ stats }) {
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="font-semibold text-slate-800">{p.pelanggan}</div>
-                                                    {p.notes && <div className="text-[10px] text-slate-400 italic max-w-[150px] truncate">Notes: "{p.notes}"</div>}
+                                                    {p.notes && <div className="text-[10px] text-slate-400 italic max-w-[150px] truncate">Catatan: "{p.notes}"</div>}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-1.5">
@@ -462,11 +462,11 @@ export default function AdminBrand({ stats }) {
                                                 <td className="px-4 py-3 text-center">
                                                     {p.verified ? (
                                                         <Badge className="bg-emerald-50 hover:bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[9px] inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full">
-                                                            <span className="w-1 h-1 rounded-full bg-emerald-500"></span> Verified
+                                                            <span className="w-1 h-1 rounded-full bg-emerald-500"></span> Terverifikasi
                                                         </Badge>
                                                     ) : (
                                                         <Badge className="bg-amber-50 hover:bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[9px] inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Pending
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Menunggu
                                                         </Badge>
                                                     )}
                                                 </td>
@@ -724,7 +724,7 @@ export default function AdminBrand({ stats }) {
                         <div>
                             <CardTitle className="text-base flex items-center gap-2 font-bold text-slate-900">
                                 <Sparkles className="h-4 w-4 text-amber-500" />
-                                Tanda Jadi Pending Validasi
+                                Tanda Jadi Menunggu Validasi
                             </CardTitle>
                             <CardDescription className="text-xs text-slate-500">Pembayaran DP desain menunggu verifikasi keuangan.</CardDescription>
                         </div>
@@ -738,7 +738,7 @@ export default function AdminBrand({ stats }) {
                         {(stats.dp_pending_list ?? []).length === 0 ? (
                             <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
                                 <CheckCircle2 className="h-8 w-8 text-slate-300 mb-2" />
-                                <p className="text-sm">Tidak ada tanda jadi pending.</p>
+                                <p className="text-sm">Tidak ada tanda jadi menunggu validasi.</p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
@@ -781,7 +781,7 @@ export default function AdminBrand({ stats }) {
                         <div>
                             <CardTitle className="text-base flex items-center gap-2 font-bold text-slate-900">
                                 <RotateCcw className="h-4 w-4 text-rose-500" />
-                                Refund Pending Review
+                                Refund Menunggu Review
                             </CardTitle>
                             <CardDescription className="text-xs text-slate-500">Pengajuan refund yang menunggu verifikasi.</CardDescription>
                         </div>

@@ -4,18 +4,27 @@ namespace App\Console\Commands;
 
 use App\Models\Brand;
 use App\Models\Master\BankAccount;
+use App\Models\Settings\SystemSetting;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class ImportBrandsCommand extends Command
 {
-    protected $signature = 'import:brands {file : Path ke file CSV}';
+    protected $signature = 'import:brands {file : Path ke file CSV} {--force : Mengabaikan pengaturan sistem yang menonaktifkan impor}';
 
     protected $description = 'Import master data brand/reseller dari file CSV format baku';
 
     public function handle(): int
     {
+        $force = $this->option('force');
+        $importEnabled = (bool) SystemSetting::get('system', 'customer_import_enabled', false);
+
+        if (!$importEnabled && !$force) {
+            $this->error("Impor brand dinonaktifkan di pengaturan sistem. Gunakan opsi --force untuk mengabaikan.");
+            return 1;
+        }
+
         $filePath = $this->argument('file');
 
         if (!file_exists($filePath)) {

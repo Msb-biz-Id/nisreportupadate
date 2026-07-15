@@ -1637,7 +1637,18 @@ class OrderController extends Controller
         return [
             'kategori_orders' => KategoriOrder::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama']),
             'jenis_orders' => JenisOrder::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama']),
-            'sumber_orders' => SumberOrder::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama']),
+            'sumber_orders' => SumberOrder::active()
+                ->where($masterQ)
+                ->whereDoesntHave('children')
+                ->with('parent:id,nama')
+                ->get(['id', 'nama', 'parent_id'])
+                ->map(fn($s) => [
+                    'id' => $s->id,
+                    'nama' => $s->parent_id && $s->parent ? "{$s->parent->nama} — {$s->nama}" : $s->nama,
+                ])
+                ->sortBy('nama')
+                ->values()
+                ->toArray(),
             'iklans' => Iklan::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama', 'platform']),
             'pelanggan' => Customer::active()->where($brandIdCol, $masterBrandId)->orderBy($namaCol)->limit(500)->get(['id', 'kode', 'nama', 'nomor_hp']),
         ];

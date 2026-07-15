@@ -51,6 +51,15 @@ function FormatCell({ value, format }) {
         const displayValue = STATUS_LABELS[value] ?? String(value).replace(/_/g, ' ');
         return <Badge variant={STATUS_BADGE[value] ?? 'outline'}>{displayValue}</Badge>;
     }
+    if (format === 'churn_status') {
+        const labels = {
+            'Safe': 'Aman',
+            'Warning': 'Waspada',
+            'High Risk': 'Risiko Tinggi'
+        };
+        const displayValue = labels[value] ?? value;
+        return <Badge variant={STATUS_BADGE[value] ?? 'outline'}>{displayValue}</Badge>;
+    }
     if (format === 'days_indicator') {
         const days = Number(value);
         if (days < 0) return <Badge variant="destructive">{Math.abs(days)} hari telat</Badge>;

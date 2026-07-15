@@ -124,12 +124,15 @@ function FieldRenderer({ field, value, onChange, error }) {
                 <Label htmlFor={field.name}>
                     {field.label} {field.required && <span className="text-destructive">*</span>}
                 </Label>
-                <Select value={String(value ?? '')} onValueChange={onChange}>
+                <Select value={value ? String(value) : 'none'} onValueChange={(val) => onChange(val === 'none' ? '' : val)}>
                     <SelectTrigger id={field.name} className="mt-1.5"><SelectValue placeholder="Pilih" /></SelectTrigger>
                     <SelectContent>
-                        {field.options?.map((opt) => (
-                            <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>
-                        ))}
+                        {field.options?.map((opt) => {
+                            const optVal = opt.value === '' || opt.value === null || opt.value === undefined ? 'none' : String(opt.value);
+                            return (
+                                <SelectItem key={optVal} value={optVal}>{opt.label}</SelectItem>
+                            );
+                        })}
                     </SelectContent>
                 </Select>
                 {error && <p className="mt-1 text-xs text-destructive">{error}</p>}

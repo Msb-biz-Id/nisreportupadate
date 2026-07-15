@@ -129,7 +129,7 @@ class RegionController extends Controller
      */
     private function cached(string $key, callable $fetch): array
     {
-        return Cache::remember("regions.{$key}", self::TTL, function () use ($fetch) {
+        return Cache::remember("regions.{$key}", self::TTL, function () use ($fetch, $key) {
             try {
                 $result = $fetch();
                 return is_array($result) ? $result : [];

@@ -185,7 +185,28 @@ class MasterRegistry
                 'order_by' => 'urutan',
             ],
 
-            'sumber-order' => self::brandScopedSimple('sumber-order', 'Sumber Order', 'Compass', SumberOrder::class),
+            'sumber-order' => [
+                'slug' => 'sumber-order',
+                'label' => 'Sumber Order',
+                'group' => 'order',
+                'icon' => 'Compass',
+                'model' => SumberOrder::class,
+                'scope' => 'brand_nullable',
+                'fields' => [
+                    ['name' => 'nama', 'label' => 'Nama', 'type' => 'text', 'required' => true, 'max' => 100],
+                    ['name' => 'parent_id', 'label' => 'Parent (Sumber Utama)', 'type' => 'select', 'options' => [], 'required' => false],
+                    ['name' => 'deskripsi', 'label' => 'Deskripsi', 'type' => 'textarea'],
+                    ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
+                ],
+                'list_columns' => [
+                    ['key' => 'nama', 'label' => 'Nama'],
+                    ['key' => 'parent_nama', 'label' => 'Parent / Utama'],
+                    ['key' => 'deskripsi', 'label' => 'Deskripsi', 'class' => 'text-muted-foreground text-xs'],
+                    ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+                ],
+                'search_fields' => ['nama', 'deskripsi'],
+                'order_by' => 'nama',
+            ],
             'jenis-order' => self::brandScopedSimple('jenis-order', 'Jenis Order', 'LayoutList', JenisOrder::class),
 
             'iklan' => [

@@ -243,11 +243,30 @@ class MasterDataSeeder extends Seeder
     private function seedSumberOrder(): void
     {
         // Global only
-        $sources = ['Instagram', 'WhatsApp', 'TikTok', 'Marketplace (Shopee/Tokopedia)', 'Website', 'Referral', 'Walk-in'];
-        foreach ($sources as $nama) SumberOrder::firstOrCreate(
-            ['brand_id' => null, 'nama' => $nama],
-            ['is_active' => true]
-        );
+        SumberOrder::whereNull('brand_id')->delete();
+
+        $mainSources = ['Met Ads', 'Shopee', 'Tiktok', 'Rekomendasi'];
+        $created = [];
+        foreach ($mainSources as $nama) {
+            $created[$nama] = SumberOrder::create([
+                'brand_id' => null,
+                'nama' => $nama,
+                'is_active' => true
+            ]);
+        }
+
+        $rekomendasi = $created['Rekomendasi'] ?? null;
+        if ($rekomendasi) {
+            $subs = ['Owner', 'Teman'];
+            foreach ($subs as $subNama) {
+                SumberOrder::create([
+                    'brand_id' => null,
+                    'parent_id' => $rekomendasi->id,
+                    'nama' => $subNama,
+                    'is_active' => true
+                ]);
+            }
+        }
     }
 
     private function seedCustomerType(): void

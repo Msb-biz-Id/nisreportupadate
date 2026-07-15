@@ -777,11 +777,18 @@ class DashboardService
                 return Order::query()
                     ->when($brandId, $this->bf($brandId))
                     ->whereNotNull('sumber_order_id')
-                    ->with('sumberOrder:id,nama')
+                    ->with('sumberOrder.parent')
                     ->select('sumber_order_id', DB::raw('COUNT(*) as cnt'))
                     ->groupBy('sumber_order_id')
                     ->get()
-                    ->map(fn ($r) => ['label' => $r->sumberOrder?->nama ?? '-', 'count' => (int) $r->cnt])
+                    ->map(function ($r) {
+                        $sumber = $r->sumberOrder;
+                        $label = '-';
+                        if ($sumber) {
+                            $label = $sumber->parent ? "{$sumber->parent->nama} — {$sumber->nama}" : $sumber->nama;
+                        }
+                        return ['label' => $label, 'count' => (int) $r->cnt];
+                    })
                     ->all();
             },
             CacheService::TTL_MEDIUM

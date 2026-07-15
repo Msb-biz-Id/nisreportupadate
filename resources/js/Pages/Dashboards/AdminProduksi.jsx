@@ -17,7 +17,7 @@ export default function AdminProduksi({ stats }) {
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle className="flex items-center gap-2 text-base"><Factory className="h-4 w-4 text-primary" /> Quick Access Produksi</CardTitle>
+                        <CardTitle className="flex items-center gap-2 text-base"><Factory className="h-4 w-4 text-primary" /> Akses Cepat Produksi</CardTitle>
                         <CardDescription>Akses cepat ke Kanban board untuk update progress.</CardDescription>
                     </div>
                     <Button asChild>
@@ -76,7 +76,7 @@ export default function AdminProduksi({ stats }) {
 
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base">Distribusi On-Progress per Tahapan</CardTitle>
+                    <CardTitle className="text-base">Distribusi Progress Aktif per Tahapan</CardTitle>
                     <CardDescription>Jumlah PO yang sedang dikerjakan di setiap tahapan progress.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -86,7 +86,7 @@ export default function AdminProduksi({ stats }) {
                         <Chart
                             type="bar"
                             height={300}
-                            series={[{ name: 'PO on-progress', data: progressDist.map((r) => r.count) }]}
+                            series={[{ name: 'PO dalam proses', data: progressDist.map((r) => r.count) }]}
                             options={{
                                 plotOptions: { bar: { borderRadius: 6, columnWidth: '55%' } },
                                 xaxis: { categories: progressDist.map((r) => r.label), labels: { rotate: -30, style: { fontSize: '10px' } } },

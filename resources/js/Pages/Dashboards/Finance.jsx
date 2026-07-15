@@ -93,7 +93,7 @@ export default function Finance({ stats }) {
                         <Chart
                             type="bar"
                             height={260}
-                            series={[{ name: 'PO on-progress', data: progressDist.map((r) => r.count) }]}
+                            series={[{ name: 'PO dalam proses', data: progressDist.map((r) => r.count) }]}
                             options={{
                                 plotOptions: { bar: { borderRadius: 6, columnWidth: '55%' } },
                                 xaxis: { categories: progressDist.map((r) => r.label), labels: { rotate: -20, style: { fontSize: '10px' } } },
@@ -137,7 +137,7 @@ export default function Finance({ stats }) {
                         <div>
                             <CardTitle className="text-base flex items-center gap-2">
                                 <FileText className="h-4 w-4 text-amber-500" />
-                                Invoice Pending Validasi
+                                Invoice Menunggu Validasi
                             </CardTitle>
                             <CardDescription>Invoice draft atau menunggu persetujuan.</CardDescription>
                         </div>
@@ -151,7 +151,7 @@ export default function Finance({ stats }) {
                         {(stats.invoice_pending_list ?? []).length === 0 ? (
                             <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
                                 <FileCheck className="h-8 w-8 text-slate-300 mb-2" />
-                                <p className="text-sm">Tidak ada invoice pending untuk brand ini.</p>
+                                <p className="text-sm">Tidak ada invoice menunggu validasi untuk brand ini.</p>
                             </div>
                         ) : (
                             <ul className="space-y-3">
@@ -335,16 +335,16 @@ export default function Finance({ stats }) {
                                                                         </span>
                                                                         {tx.verified ? (
                                                                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 flex items-center gap-0.5">
-                                                                                <span className="w-1 h-1 rounded-full bg-emerald-500"></span> Verified
+                                                                                <span className="w-1 h-1 rounded-full bg-emerald-500"></span> Terverifikasi
                                                                             </span>
                                                                         ) : (
                                                                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-bold border border-amber-100 flex items-center gap-0.5">
-                                                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Pending
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Menunggu
                                                                             </span>
                                                                         )}
                                                                     </div>
                                                                     <p className="truncate text-slate-600 font-semibold">{tx.pelanggan}</p>
-                                                                    {tx.notes && <p className="text-[10px] text-slate-400 italic bg-white border border-slate-100 rounded px-1.5 py-0.5 inline-block">Notes: "{tx.notes}"</p>}
+                                                                    {tx.notes && <p className="text-[10px] text-slate-400 italic bg-white border border-slate-100 rounded px-1.5 py-0.5 inline-block">Catatan: "{tx.notes}"</p>}
                                                                 </div>
                                                                 <div className="text-right flex-shrink-0 space-y-0.5">
                                                                     <div className="font-mono font-extrabold text-slate-900 text-sm">{formatRupiah(tx.amount)}</div>
@@ -372,7 +372,7 @@ export default function Finance({ stats }) {
                         <div>
                             <CardTitle className="text-base flex items-center gap-2 font-bold text-slate-900">
                                 <Sparkles className="h-4 w-4 text-amber-500" />
-                                Tanda Jadi Pending Validasi
+                                Tanda Jadi Menunggu Validasi
                             </CardTitle>
                             <CardDescription className="text-xs text-slate-500">Pembayaran DP desain menunggu verifikasi keuangan.</CardDescription>
                         </div>
@@ -386,7 +386,7 @@ export default function Finance({ stats }) {
                         {(stats.dp_pending_list ?? []).length === 0 ? (
                             <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
                                 <CheckCircle2 className="h-8 w-8 text-slate-300 mb-2" />
-                                <p className="text-sm">Tidak ada tanda jadi pending.</p>
+                                <p className="text-sm">Tidak ada tanda jadi menunggu validasi.</p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
@@ -429,7 +429,7 @@ export default function Finance({ stats }) {
                         <div>
                             <CardTitle className="text-base flex items-center gap-2 font-bold text-slate-900">
                                 <RotateCcw className="h-4 w-4 text-rose-500" />
-                                Refund Pending Review
+                                Refund Menunggu Review
                             </CardTitle>
                             <CardDescription className="text-xs text-slate-500">Pengajuan refund yang menunggu verifikasi.</CardDescription>
                         </div>

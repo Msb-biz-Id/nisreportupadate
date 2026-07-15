@@ -911,8 +911,8 @@ class OrderLifecycleTest extends TestCase
 
         $this->assertSoftDeleted('orders', ['id' => $order->id]);
 
-        \Illuminate\Support\Facades\Storage::disk('public')->assertMissing('orders/designs/desain.webp');
-        \Illuminate\Support\Facades\Storage::disk('public')->assertMissing('orders/designs/kerah.webp');
+        $this->assertFalse(\Illuminate\Support\Facades\Storage::disk('public')->exists('orders/designs/desain.webp'));
+        $this->assertFalse(\Illuminate\Support\Facades\Storage::disk('public')->exists('orders/designs/kerah.webp'));
     }
 
     public function test_draft_po_with_payments_cannot_be_deleted(): void
@@ -1715,6 +1715,145 @@ class OrderLifecycleTest extends TestCase
                 ]
             ]);
 
+    }
+
+    public function test_cashback_and_refund_calculation_integrity(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $admin = $this->makeUser('admin_brand', [$brand]);
+        $finance = $this->makeUser('admin_keuangan', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+        $bank = \App\Models\Master\BankAccount::create([
+            'brand_id' => $brand->id,
+            'bank' => 'BCA Test',
+            'nomor_rekening' => '123456789',
+            'atas_nama' => 'Tester',
+            'is_active' => true,
+        ]);
+
+        // 1. Create order of 1,000,000 (10 items * 100,000)
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-CASH-REF-01',
+            'nama_po' => 'PO Cashback and Refund Test',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(14)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 1000000,
+            'published_at' => now(),
+            'created_by' => $admin->id,
+        ]);
+
+        $order->items()->create([
+            'nama_produk' => 'Product Premium',
+            'quantity' => 10,
+            'harga_satuan' => 100000,
+            'subtotal' => 1000000,
+        ]);
+
+        $order->update(['total_tagihan' => $order->totalTagihan()]);
+
+        // 2. Create invoice
+        $invoice = \App\Models\Order\Invoice::create([
+            'brand_id' => $brand->id,
+            'order_id' => $order->id,
+            'invoice_number' => 'INV-CASH-REF-01',
+            'tanggal_terbit' => now()->toDateString(),
+            'status' => 'draft',
+            'total_tagihan' => 1000000,
+            'total_bayar' => 0,
+            'sisa_pembayaran' => 1000000,
+            'bank_id' => $bank->id,
+            'biaya_pengiriman' => 0,
+            'created_by' => $admin->id,
+        ]);
+
+        // 3. Add verified DP of 500,000
+        $dp = \App\Models\Order\OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'dp',
+            'amount' => 500000,
+            'payment_date' => now()->toDateString(),
+            'bank_id' => $bank->id,
+            'recorded_by' => $admin->id,
+            'verified_by' => $finance->id,
+            'verified_at' => now(),
+        ]);
+
+        // Trigger manual refresh & assertions
+        $order = $order->fresh();
+        $invoice = $invoice->fresh();
+
+        $this->assertEquals(1000000, $order->totalTagihan());
+        $this->assertEquals(500000, $order->totalPaid());
+        $this->assertEquals(500000, $invoice->sisa_pembayaran);
+
+        // 4. Create and publish a Refund of 150,000
+        $refund = Refund::create([
+            'brand_id' => $brand->id,
+            'order_id' => $order->id,
+            'refund_number' => 'REF-TEST-99',
+            'alasan' => 'Produk rusak',
+            'jenis_masalah' => 'produk_cacat',
+            'jumlah_item' => 1,
+            'nominal_refund' => 150000,
+            'status' => 'pending_review',
+            'created_by' => $admin->id,
+        ]);
+
+        $this->actingAsWithBrand($finance, $brand)
+            ->post(route('refunds.publish', $refund->id))
+            ->assertRedirect();
+
+        // Refresh models
+        $order = $order->fresh();
+        $invoice = $invoice->fresh();
+
+        $this->assertEquals(850000, $order->totalTagihan());
+        $this->assertEquals(350000, $order->totalPaid());
+        $this->assertEquals(500000, $invoice->sisa_pembayaran);
+
+        // 5. Add verified Cashback of 100,000
+        $cashback = \App\Models\Order\OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'cashback',
+            'amount' => 100000,
+            'payment_date' => now()->toDateString(),
+            'bank_id' => $bank->id,
+            'recorded_by' => $admin->id,
+            'verified_by' => $finance->id,
+            'verified_at' => now(),
+        ]);
+
+        // Refresh models
+        $order = $order->fresh();
+        $invoice = $invoice->fresh();
+
+        $this->assertEquals(750000, $order->totalTagihan());
+        $this->assertEquals(250000, $order->totalPaid());
+        $this->assertEquals(500000, $invoice->sisa_pembayaran);
+
+        // 6. Pay the remaining 500,000 balance
+        $pelunasan = \App\Models\Order\OrderPayment::create([
+            'order_id' => $order->id,
+            'payment_type' => 'pelunasan',
+            'amount' => 500000,
+            'payment_date' => now()->toDateString(),
+            'bank_id' => $bank->id,
+            'recorded_by' => $admin->id,
+            'verified_by' => $finance->id,
+            'verified_at' => now(),
+        ]);
+
+        // Refresh models
+        $order = $order->fresh();
+        $invoice = $invoice->fresh();
+
+        $this->assertEquals(750000, $order->totalTagihan());
+        $this->assertEquals(750000, $order->totalPaid());
+        $this->assertEquals(0, $invoice->sisa_pembayaran);
+        $this->assertEquals('paid', $invoice->status);
     }
 }
 

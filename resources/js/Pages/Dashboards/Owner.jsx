@@ -188,7 +188,7 @@ export default function Owner({ stats }) {
                         <Chart
                             type="bar"
                             height={260}
-                            series={[{ name: 'PO on-progress', data: progressDist.map((r) => r.count) }]}
+                            series={[{ name: 'PO dalam proses', data: progressDist.map((r) => r.count) }]}
                             options={{
                                 plotOptions: { bar: { borderRadius: 6, columnWidth: '55%' } },
                                 xaxis: { categories: progressDist.map((r) => r.label), labels: { rotate: -20, style: { fontSize: '10px' } } },
@@ -231,7 +231,7 @@ export default function Owner({ stats }) {
             {/* Brand Comparison */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base">Brand Comparison</CardTitle>
+                    <CardTitle className="text-base">Perbandingan Brand</CardTitle>
                     <CardDescription>Perbandingan performa antar brand.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -242,7 +242,7 @@ export default function Owner({ stats }) {
                                     <th className="px-4 py-2 text-left">Brand</th>
                                     <th className="px-4 py-2 text-right">Total PO</th>
                                     <th className="px-4 py-2 text-right">Total Pcs</th>
-                                    <th className="px-4 py-2 text-right">Total Revenue</th>
+                                    <th className="px-4 py-2 text-right">Total Omset</th>
                                 </tr>
                             </thead>
                             <tbody>

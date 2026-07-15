@@ -58,7 +58,7 @@ class Invoice extends Model
 
         $diskonNominalFromOrder = (float) $order->items->sum('discount_amount');
         if ($diskonNominalFromOrder > 0) {
-            $diskonNominal = $diskonNominalFromOrder;
+            $diskonNominal = 0.0;
         } else {
             $diskonNominal = $this->diskon_type === 'persen'
                 ? ($newTotal * (float)$this->diskon_value / 100)
@@ -72,7 +72,10 @@ class Invoice extends Model
         if ($newSisa <= 0) {
             $targetStatus = ($this->status === 'validated') ? 'validated' : 'paid';
         } else {
-            if (in_array($this->status, ['paid', 'validated'], true)) {
+            $hasVerifiedDp = $order->payments->contains(fn($p) => $p->payment_type === 'dp' && $p->verified_at !== null);
+            if ($hasVerifiedDp && in_array($this->status, ['draft', 'validated'], true)) {
+                $targetStatus = 'published';
+            } elseif (in_array($this->status, ['paid', 'validated'], true)) {
                 $targetStatus = $this->sent_at !== null ? 'sent' : 'published';
             }
         }

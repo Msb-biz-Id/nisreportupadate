@@ -209,4 +209,90 @@ class CustomerImportTest extends TestCase
 
         @unlink($tempFile);
     }
+
+    public function test_artisan_command_fails_if_import_disabled_without_force(): void
+    {
+        // Disable customer import in system setting
+        \App\Models\Settings\SystemSetting::set('system', 'customer_import_enabled', '0');
+
+        $brand = $this->makeBrand(['kode' => 'ALG']);
+        $csvContent = "customer_nama,customer_kode,customer_nomor_hp,customer_email,customer_type,customer_detail_alamat,customer_kodepos,customer_notes,provinsi_nama,kabupaten_nama,kecamatan_nama,desa_nama,brand_code\n";
+        $csvContent .= "Test Cmd Customer,CUST-CMD-01,081234567802,cmd@example.com,Reseller,Jl. Sudirman 2,54321,Notes,JAWA BARAT,KOTA BANDUNG,COBLONG,DAGO,ALG\n";
+
+        $tempFile = tempnam(sys_get_temp_dir(), 'csv');
+        file_put_contents($tempFile, $csvContent);
+
+        $exitCode = Artisan::call('import:customers', [
+            'file' => $tempFile,
+        ]);
+
+        $this->assertEquals(1, $exitCode);
+
+        // Check customer was NOT created
+        $customer = Customer::where('nomor_hp', '081234567802')->first();
+        $this->assertNull($customer);
+
+        // Try importing brands
+        $brandCsvContent = "kode,nama_brand,brand_type,tagline,deskripsi,email,no_hp,alamat,warna_primary\n";
+        $brandCsvContent .= "CMDBRD,Brand Cmd,reseller_hub,Tagline,Deskripsi,cmd@brand.local,08123456,Jakarta,#00ff00\n";
+
+        $tempBrandFile = tempnam(sys_get_temp_dir(), 'csv');
+        file_put_contents($tempBrandFile, $brandCsvContent);
+
+        $brandExitCode = Artisan::call('import:brands', [
+            'file' => $tempBrandFile,
+        ]);
+
+        $this->assertEquals(1, $brandExitCode);
+
+        $newBrand = Brand::where('kode', 'CMDBRD')->first();
+        $this->assertNull($newBrand);
+
+        @unlink($tempFile);
+        @unlink($tempBrandFile);
+    }
+
+    public function test_artisan_command_succeeds_if_import_disabled_with_force(): void
+    {
+        // Disable customer import in system setting
+        \App\Models\Settings\SystemSetting::set('system', 'customer_import_enabled', '0');
+
+        $brand = $this->makeBrand(['kode' => 'ALG']);
+        $csvContent = "customer_nama,customer_kode,customer_nomor_hp,customer_email,customer_type,customer_detail_alamat,customer_kodepos,customer_notes,provinsi_nama,kabupaten_nama,kecamatan_nama,desa_nama,brand_code\n";
+        $csvContent .= "Test Cmd Customer,CUST-CMD-01,081234567802,cmd@example.com,Reseller,Jl. Sudirman 2,54321,Notes,JAWA BARAT,KOTA BANDUNG,COBLONG,DAGO,ALG\n";
+
+        $tempFile = tempnam(sys_get_temp_dir(), 'csv');
+        file_put_contents($tempFile, $csvContent);
+
+        $exitCode = Artisan::call('import:customers', [
+            'file' => $tempFile,
+            '--force' => true,
+        ]);
+
+        $this->assertEquals(0, $exitCode);
+
+        // Check if customer was created
+        $customer = Customer::where('nomor_hp', '081234567802')->first();
+        $this->assertNotNull($customer);
+
+        // Try importing brands with --force
+        $brandCsvContent = "kode,nama_brand,brand_type,tagline,deskripsi,email,no_hp,alamat,warna_primary\n";
+        $brandCsvContent .= "CMDBRD,Brand Cmd,reseller_hub,Tagline,Deskripsi,cmd@brand.local,08123456,Jakarta,#00ff00\n";
+
+        $tempBrandFile = tempnam(sys_get_temp_dir(), 'csv');
+        file_put_contents($tempBrandFile, $brandCsvContent);
+
+        $brandExitCode = Artisan::call('import:brands', [
+            'file' => $tempBrandFile,
+            '--force' => true,
+        ]);
+
+        $this->assertEquals(0, $brandExitCode);
+
+        $newBrand = Brand::where('kode', 'CMDBRD')->first();
+        $this->assertNotNull($newBrand);
+
+        @unlink($tempFile);
+        @unlink($tempBrandFile);
+    }
 }

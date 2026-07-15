@@ -147,7 +147,7 @@ export default function Superadmin({ stats }) {
                         <Chart
                             type="bar"
                             height={260}
-                            series={[{ name: 'PO on-progress', data: progressDist.map((r) => r.count) }]}
+                            series={[{ name: 'PO dalam proses', data: progressDist.map((r) => r.count) }]}
                             options={{
                                 plotOptions: { bar: { borderRadius: 6, columnWidth: '55%' } },
                                 xaxis: { categories: progressDist.map((r) => r.label), labels: { rotate: -20, style: { fontSize: '10px' } } },
@@ -184,7 +184,7 @@ export default function Superadmin({ stats }) {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-base">Revenue per Brand</CardTitle>
+                        <CardTitle className="text-base">Omset per Brand</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {brands.length === 0 ? (
@@ -238,7 +238,7 @@ export default function Superadmin({ stats }) {
             <Card>
                 <CardHeader>
                     <CardTitle className="text-base">Ranking Brand</CardTitle>
-                    <CardDescription>Top brand berdasarkan revenue.</CardDescription>
+                    <CardDescription>Top brand berdasarkan omset.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="overflow-hidden rounded-lg border">
@@ -249,7 +249,7 @@ export default function Superadmin({ stats }) {
                                     <th className="px-4 py-2 text-left">Brand</th>
                                     <th className="px-4 py-2 text-right">Total PO</th>
                                     <th className="px-4 py-2 text-right">Total Pcs</th>
-                                    <th className="px-4 py-2 text-right">Revenue</th>
+                                    <th className="px-4 py-2 text-right">Omset</th>
                                 </tr>
                             </thead>
                             <tbody>

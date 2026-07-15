@@ -1033,68 +1033,7 @@ class InvoiceController extends Controller
                 
                 $invoice = $order->invoices()->first();
                 if ($invoice) {
-                    $diskonNominalFromOrder = (float) $order->items->sum('discount_amount');
-                    $diskonType = $invoice->diskon_type ?? 'nominal';
-                    $diskonValue = (float) ($invoice->diskon_value ?? 0);
-                    
-                    $grossSubtotal = (float) $order->items->sum(fn($item) => $item->quantity * $item->harga_satuan);
-                    
-                    if ($diskonNominalFromOrder > 0) {
-                        $diskonNominal = $diskonNominalFromOrder;
-                    } else {
-                        $diskonNominal = $diskonType === 'persen'
-                            ? ($grossSubtotal * $diskonValue / 100)
-                            : $diskonValue;
-                    }
-                    
-                    $biayaPengiriman = $order->is_free_ongkir ? 0.0 : (float) ($order->ongkir > 0 ? $order->ongkir : ($invoice->biaya_pengiriman ?? 0));
-                    
-                    $penambahanExcludingOngkir = (float) $order->payments()
-                        ->whereNotNull('verified_at')
-                        ->where(function ($q) {
-                            $q->whereHas('masterJenisPembayaran', function ($mj) {
-                                $mj->where('efek_tagihan', 'penambahan')->where('nama', '!=', 'Ongkir');
-                            })->orWhere(function ($qp) {
-                                $qp->whereNull('master_jenis_pembayaran_id')
-                                   ->where('payment_type', 'tambahan_produk');
-                            });
-                        })
-                        ->sum('amount');
-
-                    $pengurangan = (float) $order->payments()
-                        ->whereNotNull('verified_at')
-                        ->where(function ($q) {
-                            $q->whereHas('masterJenisPembayaran', function ($mj) {
-                                $mj->where('efek_tagihan', 'pengurangan');
-                            })->orWhere(function ($qp) {
-                                $qp->whereNull('master_jenis_pembayaran_id')
-                                   ->whereIn('payment_type', ['cashback', 'return']);
-                            });
-                        })
-                        ->sum('amount');
-                        
-                    $invoiceTotalTagihan = max(0, $grossSubtotal - $diskonNominal + $biayaPengiriman + $penambahanExcludingOngkir - $pengurangan);
-                    $totalPaid = $order->totalPaid();
-                    $newSisa = max(0, $invoiceTotalTagihan - $totalPaid);
-                    
-                    $targetStatus = $invoice->status;
-                    if ($newSisa <= 0) {
-                        $targetStatus = ($invoice->status === 'validated') ? 'validated' : 'paid';
-                    } else {
-                        $isDp = $payment->payment_type === 'dp';
-                        if ($isDp && in_array($invoice->status, ['draft', 'validated'], true)) {
-                            $targetStatus = 'published';
-                        } elseif (in_array($invoice->status, ['paid', 'validated'], true)) {
-                            $targetStatus = $invoice->sent_at !== null ? 'sent' : 'published';
-                        }
-                    }
-
-                    $invoice->update([
-                        'total_tagihan' => $invoiceTotalTagihan,
-                        'total_bayar' => $totalPaid,
-                        'sisa_pembayaran' => $newSisa,
-                        'status' => $targetStatus,
-                    ]);
+                    $invoice->syncWithOrder();
                 }
             }
         });
@@ -1253,30 +1192,7 @@ class InvoiceController extends Controller
             $order->update(['total_tagihan' => $order->totalTagihan()]);
             $invoice = $order->invoices()->first();
             if ($invoice) {
-                $newTotal = $order->totalTagihan();
-                $newPaid  = $order->totalPaid();
-                
-                $diskonNominal = $invoice->diskon_type === 'persen'
-                    ? ($newTotal * (float)$invoice->diskon_value / 100)
-                    : (float)$invoice->diskon_value;
-                $invoiceTotalTagihan = max(0, $newTotal - $diskonNominal);
-                $newSisa = max(0, $invoiceTotalTagihan - $newPaid);
-                
-                $targetStatus = $invoice->status;
-                if ($newSisa <= 0) {
-                    $targetStatus = ($invoice->status === 'validated') ? 'validated' : 'paid';
-                } else {
-                    if (in_array($invoice->status, ['paid', 'validated'], true)) {
-                        $targetStatus = $invoice->sent_at !== null ? 'sent' : 'published';
-                    }
-                }
-
-                $invoice->update([
-                    'total_tagihan'  => $invoiceTotalTagihan,
-                    'total_bayar'    => $newPaid,
-                    'sisa_pembayaran' => $newSisa,
-                    'status' => $targetStatus,
-                ]);
+                $invoice->syncWithOrder();
             }
         });
 
@@ -1329,30 +1245,7 @@ class InvoiceController extends Controller
 
                 $invoice = $order->invoices()->first();
                 if ($invoice) {
-                    $newTotal = $order->totalTagihan();
-                    $newPaid  = $order->totalPaid();
-                    
-                    $diskonNominal = $invoice->diskon_type === 'persen'
-                        ? ($newTotal * (float)$invoice->diskon_value / 100)
-                        : (float)$invoice->diskon_value;
-                    $invoiceTotalTagihan = max(0, $newTotal - $diskonNominal);
-                    $newSisa = max(0, $invoiceTotalTagihan - $newPaid);
-                    
-                    $targetStatus = $invoice->status;
-                    if ($newSisa <= 0) {
-                        $targetStatus = ($invoice->status === 'validated') ? 'validated' : 'paid';
-                    } else {
-                        if (in_array($invoice->status, ['paid', 'validated'], true)) {
-                            $targetStatus = $invoice->sent_at !== null ? 'sent' : 'published';
-                        }
-                    }
-
-                    $invoice->update([
-                        'total_tagihan'  => $invoiceTotalTagihan,
-                        'total_bayar'    => $newPaid,
-                        'sisa_pembayaran' => $newSisa,
-                        'status' => $targetStatus,
-                    ]);
+                    $invoice->syncWithOrder();
                 }
             }
         });

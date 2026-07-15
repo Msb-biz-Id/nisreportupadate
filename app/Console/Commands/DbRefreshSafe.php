@@ -38,14 +38,18 @@ class DbRefreshSafe extends Command
             'order_namesets',
             'order_payments',
             'order_progress_details',
-            'po_lock_statuses',
+            'po_lock_status',
             'po_versions',
+            'po_change_logs',
             'invoices',
             'invoice_items',
             'rijeks',
             'refunds',
             'pemasukan',
             'pengeluaran',
+            'notifications',
+            'design_deposits',
+            'activity_logs',
         ];
 
         $backupData = [];

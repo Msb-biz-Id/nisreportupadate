@@ -34,6 +34,7 @@ import {
     Megaphone,
     LayoutList,
     Download,
+    AlertTriangle,
 } from 'lucide-react';
 import { cn, initials, roleLabel } from '@/lib/utils';
 import { Button } from '@/Components/ui/button';
@@ -74,6 +75,7 @@ const MASTER_ITEMS = [
     { slug: 'customer-type', name: 'Tipe Pelanggan', icon: UserCheck, group: 'brand' },
     { slug: 'produk', name: 'Produk', icon: Package, group: 'brand' },
     { slug: 'bank', name: 'Bank', icon: Landmark, group: 'brand' },
+    { slug: 'jenis-masalah', name: 'Jenis Masalah', icon: AlertTriangle, group: 'finance' },
 ];
 
 function buildMenu(user, reportsList = []) {
@@ -110,8 +112,9 @@ function buildMenu(user, reportsList = []) {
     const canManageBrand      = canManageAll || hasPermission(user, 'master.brand');
     const canManageProduk     = hasPermission(user, 'master.produk');
     const canManageProduction = hasPermission(user, 'master.production');
+    const canManageFinance    = hasPermission(user, 'finance.manage-refund') || user?.roles?.includes('admin_keuangan');
 
-    if (canManageBrand || canManageProduk || canManageProduction) {
+    if (canManageBrand || canManageProduk || canManageProduction || canManageFinance) {
         const isMasterActive = route().current('master.*');
         const customerActive = route().current('master.pelanggan.*');
         const currentSlug = route().params?.slug;
@@ -124,6 +127,7 @@ function buildMenu(user, reportsList = []) {
                 m.group === 'production' || 
                 m.group === 'global'
             )) return true;
+            if (canManageFinance && m.group === 'finance') return true;
             return false;
         });
 

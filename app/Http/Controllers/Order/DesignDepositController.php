@@ -124,15 +124,7 @@ class DesignDepositController extends Controller
             /** @var \App\Models\Order\Invoice|null $invoice */
             $invoice = $order->invoices()->first();
             if ($invoice) {
-                $totalTagihan = $order->totalTagihan();
-                $totalPaid = $order->totalPaid();
-                $newSisa = max(0, $totalTagihan - $totalPaid);
-                $invoice->update([
-                    'total_tagihan' => $totalTagihan,
-                    'total_bayar' => $totalPaid,
-                    'sisa_pembayaran' => $newSisa,
-                    'status' => $newSisa <= 0 ? 'paid' : $invoice->status,
-                ]);
+                $invoice->syncWithOrder();
             }
         });
 

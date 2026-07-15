@@ -21,7 +21,7 @@ class ReportRegistry
                     ['key' => 'avg_qty', 'label' => 'Rata² per Order', 'format' => 'number'],
                     ['key' => 'total_value', 'label' => 'Total Nilai', 'format' => 'currency'],
                 ],
-                'chart' => ['type' => 'bar', 'x' => 'nama_produk', 'y' => 'total_qty', 'title' => 'Top Produk by Quantity'],
+                'chart' => ['type' => 'bar', 'x' => 'nama_produk', 'y' => 'total_qty', 'title' => 'Top Produk Berdasarkan Kuantitas'],
             ],
             'pelanggan' => [
                 'slug' => 'pelanggan',
@@ -39,7 +39,7 @@ class ReportRegistry
                     ['key' => 'total_value', 'label' => 'Total Transaksi', 'format' => 'currency'],
                     ['key' => 'last_order', 'label' => 'Order Terakhir', 'format' => 'date'],
                 ],
-                'chart' => ['type' => 'bar', 'x' => 'nama', 'y' => 'total_value', 'title' => 'Top 10 Pelanggan by Nilai'],
+                'chart' => ['type' => 'bar', 'x' => 'nama', 'y' => 'total_value', 'title' => 'Top 10 Pelanggan Berdasarkan Nilai'],
             ],
             'wilayah' => [
                 'slug' => 'wilayah',
@@ -57,7 +57,7 @@ class ReportRegistry
                     ['key' => 'total_order', 'label' => 'Total Order', 'format' => 'number'],
                     ['key' => 'total_value', 'label' => 'Total Nilai', 'format' => 'currency'],
                 ],
-                'chart' => ['type' => 'bar', 'x' => 'kabupaten', 'y' => 'total_order', 'title' => 'Top Wilayah by Order'],
+                'chart' => ['type' => 'bar', 'x' => 'kabupaten', 'y' => 'total_order', 'title' => 'Top Wilayah Berdasarkan Order'],
             ],
 
             'status-po' => [
@@ -199,7 +199,7 @@ class ReportRegistry
                     ['key' => 'total_value', 'label' => 'Total Omset', 'format' => 'currency'],
                     ['key' => 'percentage', 'label' => 'Kontribusi (%)', 'format' => 'number'],
                 ],
-                'chart' => ['type' => 'bar', 'x' => 'sumber_order', 'y' => 'total_value', 'title' => 'Analisis Saluran Marketing by Omset'],
+                'chart' => ['type' => 'bar', 'x' => 'sumber_order', 'y' => 'total_value', 'title' => 'Analisis Saluran Pemasaran Berdasarkan Omset'],
             ],
             'crm-churn' => [
                 'slug' => 'crm-churn',

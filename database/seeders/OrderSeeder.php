@@ -27,6 +27,8 @@ use Illuminate\Support\Facades\Schema;
 
 class OrderSeeder extends Seeder
 {
+    private \Illuminate\Support\Collection $sumberOrders;
+
     public function run(): void
     {
         Schema::disableForeignKeyConstraints();
@@ -36,6 +38,8 @@ class OrderSeeder extends Seeder
         OrderItem::truncate();
         Order::truncate();
         Schema::enableForeignKeyConstraints();
+
+        $this->sumberOrders = \App\Models\Master\SumberOrder::active()->whereDoesntHave('children')->get();
 
         $this->seedDemoScenarioOrders();
     }
@@ -234,6 +238,7 @@ class OrderSeeder extends Seeder
             'deadline_customer' => $deadline->toDateString(),
             'kategori_order_id' => $kategori?->id,
             'pelanggan_id' => $customer->id,
+            'sumber_order_id' => $this->sumberOrders->isNotEmpty() ? $this->sumberOrders->random()->id : null,
             'created_by' => $creator->id,
         ]);
 

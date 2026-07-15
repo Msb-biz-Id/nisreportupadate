@@ -88,7 +88,14 @@ class ReportController extends Controller
                 ->all(),
             'sumberOrders' => \App\Models\Master\SumberOrder::query()
                 ->when($masterBrandId, fn($q) => $q->where('brand_id', $masterBrandId)->orWhereNull('brand_id'))
-                ->get(['id', 'nama'])
+                ->with('parent:id,nama')
+                ->get(['id', 'nama', 'parent_id'])
+                ->map(fn($s) => [
+                    'id' => $s->id,
+                    'nama' => $s->parent_id && $s->parent ? "{$s->parent->nama} — {$s->nama}" : $s->nama,
+                ])
+                ->sortBy('nama')
+                ->values()
                 ->all(),
             'brands' => $isGlobal 
                 ? \App\Models\Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])->all()
@@ -245,7 +252,7 @@ class ReportController extends Controller
             $config['chart']['x'] = $level === 'provinsi' ? 'provinsi' : 
                                     ($level === 'kabupaten' ? 'kabupaten' : 
                                     ($level === 'kecamatan' ? 'kecamatan' : 'desa'));
-            $config['chart']['title'] = 'Top Wilayah by Order (' . ucfirst($level) . ')';
+            $config['chart']['title'] = 'Top Wilayah Berdasarkan Order (' . ucfirst($level) . ')';
         }
 
         if ($slug === 'kinerja-produksi') {

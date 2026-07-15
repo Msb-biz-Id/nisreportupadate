@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Trust semua proxy (termasuk nginx reverse proxy yang terminasi SSL)
         $middleware->trustProxies(at: '*');
 
+        $middleware->redirectGuestsTo('/login');
+        $middleware->redirectUsersTo('/dashboard');
+
         $middleware->web(append: [
             \App\Http\Middleware\SecurityHeaders::class,
             \App\Http\Middleware\HandleInertiaRequests::class,

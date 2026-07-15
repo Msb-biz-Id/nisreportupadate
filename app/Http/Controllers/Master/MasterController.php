@@ -19,6 +19,9 @@ class MasterController extends Controller
         $modelClass = $config['model'];
 
         $query = $modelClass::query();
+        if ($slug === 'sumber-order') {
+            $query->with('parent');
+        }
         $brandId = BrandContext::masterDataId($request);
 
         if ($config['scope'] === 'brand_nullable' && $brandId) {
@@ -85,7 +88,7 @@ class MasterController extends Controller
 
     public function update(Request $request, string $slug, string $id)
     {
-        $config = $this->resolveConfig($slug);
+        $config = $this->resolveConfig($slug, $id);
         abort_unless($this->canManageConfig($request->user(), $config), 403, 'Aksi ini tidak diizinkan untuk role Anda.');
 
         $modelClass = $config['model'];
@@ -113,10 +116,35 @@ class MasterController extends Controller
         return back()->with('success', $config['label'] . ' berhasil dihapus.');
     }
 
-    private function resolveConfig(string $slug): array
+    private function resolveConfig(string $slug, ?string $excludeId = null): array
     {
         $config = MasterRegistry::find($slug);
         abort_if(! $config, Response::HTTP_NOT_FOUND, "Master '{$slug}' tidak ditemukan.");
+
+        if ($slug === 'sumber-order') {
+            $parents = \App\Models\Master\SumberOrder::active()
+                ->whereNull('parent_id')
+                ->when($excludeId, function ($q) use ($excludeId) {
+                    $q->where('id', '!=', $excludeId);
+                })
+                ->orderBy('nama')
+                ->get(['id', 'nama']);
+
+            $options = [
+                ['value' => '', 'label' => '— Tanpa Parent (Utama) —']
+            ];
+            foreach ($parents as $p) {
+                $options[] = ['value' => $p->id, 'label' => $p->nama];
+            }
+
+            foreach ($config['fields'] as &$field) {
+                if ($field['name'] === 'parent_id') {
+                    $field['options'] = $options;
+                }
+            }
+            unset($field);
+        }
+
         return $config;
     }
 
@@ -205,6 +233,9 @@ class MasterController extends Controller
             $value = $validated[$name] ?? ($field['default'] ?? null);
             if ($field['type'] === 'switch') {
                 $value = (bool) ($validated[$name] ?? $field['default'] ?? false);
+            }
+            if ($value === '') {
+                $value = null;
             }
             $data[$name] = $value;
         }

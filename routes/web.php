@@ -35,6 +35,8 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+Route::redirect('/home', '/dashboard');
+
 
 // Public tracking PO + invoice (rate-limited)
 Route::middleware('throttle:60,1')->group(function () {
@@ -141,6 +143,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/kanban', [ProductionController::class, 'kanban'])->name('kanban');
         Route::get('/gantt', [ProductionController::class, 'gantt'])->name('gantt');
         Route::get('/{order}/progress', [ProductionController::class, 'progress'])->name('progress');
+        Route::get('/progress/{order}', [ProductionController::class, 'progress'])->name('progress.legacy-notification-redirect');
         Route::put('/{order}/progress/{detail}', [ProductionController::class, 'updateProgress'])->name('progress.update');
         Route::post('/{order}/progress/bulk', [ProductionController::class, 'bulkUpdateProgress'])->name('progress.bulk');
         Route::post('/{order}/rijek', [ProductionController::class, 'storeRijek'])->name('rijek.store');

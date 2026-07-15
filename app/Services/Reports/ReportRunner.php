@@ -579,6 +579,7 @@ class ReportRunner
             ->join('customers', 'customers.id', '=', 'orders.pelanggan_id')
             ->leftJoin('customer_types', 'customer_types.id', '=', 'customers.type_pelanggan_id')
             ->leftJoin('sumber_orders', 'sumber_orders.id', '=', 'orders.sumber_order_id')
+            ->leftJoin('sumber_orders as parent_sumber', 'parent_sumber.id', '=', 'sumber_orders.parent_id')
             ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items WHERE is_addon = 0 ' .
                 (!empty($filters['product_id']) ? 'AND product_id = ' . DB::connection()->getPdo()->quote($filters['product_id']) : '') .
                 ' GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
@@ -586,7 +587,15 @@ class ReportRunner
             ->where('orders.status_po', '!=', 'draft')
             ->when($targetBrandId && $targetBrandId !== 'all', $this->obf($targetBrandId))
             ->when(! empty($filters['customer_type_id']), fn ($x) => $x->where('customers.type_pelanggan_id', $filters['customer_type_id']))
-            ->when(! empty($filters['sumber_order_id']), fn ($x) => $x->where('orders.sumber_order_id', $filters['sumber_order_id']))
+            ->when(! empty($filters['sumber_order_id']), function ($x) use ($filters) {
+                $sumberId = $filters['sumber_order_id'];
+                $childIds = DB::table('sumber_orders')->where('parent_id', $sumberId)->pluck('id')->toArray();
+                if (!empty($childIds)) {
+                    $x->whereIn('orders.sumber_order_id', array_merge([$sumberId], $childIds));
+                } else {
+                    $x->where('orders.sumber_order_id', $sumberId);
+                }
+            })
             ->when(! empty($filters['region']), function ($q) use ($filters) {
                 $term = "%{$filters['region']}%";
                 $q->where(function ($w) use ($term) {
@@ -605,7 +614,7 @@ class ReportRunner
                 });
             })
             ->select(
-                DB::raw('COALESCE(sumber_orders.nama, "— Tanpa Sumber —") as sumber_order'),
+                DB::raw('COALESCE(CASE WHEN parent_sumber.nama IS NOT NULL THEN CONCAT(parent_sumber.nama, " — ", sumber_orders.nama) ELSE sumber_orders.nama END, "— Tanpa Sumber —") as sumber_order'),
                 DB::raw('COALESCE(customer_types.nama, "— Tanpa Kategori —") as kategori_pelanggan'),
                 DB::raw('COUNT(DISTINCT orders.id) as total_order'),
                 DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_qty'),
@@ -734,8 +743,8 @@ class ReportRunner
             'rows' => $rows,
             'summary' => [
                 ['label' => 'Total Pelanggan Teranalisa', 'value' => count($rows)],
-                ['label' => 'Pelanggan Warning (Mulai Berisiko)', 'value' => $warningCount],
-                ['label' => 'Pelanggan High Risk (Hampir Pasti Churn)', 'value' => $highRiskCount],
+                ['label' => 'Pelanggan Waspada (Mulai Berisiko)', 'value' => $warningCount],
+                ['label' => 'Pelanggan Risiko Tinggi (Hampir Pasti Churn)', 'value' => $highRiskCount],
                 ['label' => 'Total Potensi Omset Hilang', 'value' => $totalLoss, 'format' => 'currency'],
             ],
         ];

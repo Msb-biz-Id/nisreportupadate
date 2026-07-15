@@ -247,7 +247,7 @@ class ProductionController extends Controller
             'brand_id' => $order->brand_id,
             'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
             'stage' => $detail->progress->nama_progress ?? '-',
-            'action_url' => "/produksi/progress/{$order->id}"
+            'action_url' => "/produksi/{$order->id}/progress"
         ]);
 
         return back()->with('success', 'Progress berhasil diperbarui.');
@@ -304,7 +304,7 @@ class ProductionController extends Controller
                 'brand_id' => $order->brand_id,
                 'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
                 'stage' => $detail->progress->nama_progress ?? '-',
-                'action_url' => "/produksi/progress/{$order->id}"
+                'action_url' => "/produksi/{$order->id}/progress"
             ]);
         }
 
@@ -357,7 +357,7 @@ class ProductionController extends Controller
             'brand_id' => $order->brand_id,
             'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
             'stage' => $stageName,
-            'action_url' => "/produksi/progress/{$order->id}"
+            'action_url' => "/produksi/{$order->id}/progress"
         ]);
 
         return back()->with('success', 'Rijek berhasil dicatat.');
