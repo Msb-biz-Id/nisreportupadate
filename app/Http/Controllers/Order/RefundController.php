@@ -183,7 +183,9 @@ class RefundController extends Controller
         ]);
 
         $order = Order::findOrFail($data['order_id']);
-        abort_if($order->isDraft(), 422, 'PO draft tidak bisa di-refund.');
+        if ($order->isDraft()) {
+            return back()->withErrors(['order_id' => 'PO draft tidak bisa di-refund.']);
+        }
 
         if (! $request->user()->hasAccessToBrand($order->brand_id)) abort(403);
 

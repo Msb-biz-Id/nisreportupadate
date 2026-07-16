@@ -13,6 +13,50 @@ const chunkArray = (arr, size) => {
     return chunks;
 };
 
+const getSizeSortWeight = (sizeStr) => {
+    if (!sizeStr) return 999;
+    const s = sizeStr.toLowerCase().trim();
+    const weights = {
+        'kids': -100,
+        'xxs': -2,
+        'xs': -1,
+        's': 1,
+        'm': 2,
+        'l': 3,
+        'xl': 4,
+        '2xl': 5,
+        'xxl': 5,
+        '3xl': 6,
+        'xxxl': 6,
+        '4xl': 7,
+        '5xl': 8,
+        '6xl': 9,
+        '7xl': 10,
+    };
+    if (weights[s] !== undefined) {
+        return weights[s];
+    }
+    if (!isNaN(s)) {
+        return 100 + Number(s);
+    }
+    const match = s.match(/^(\d+)xl$/);
+    if (match) {
+        return 4 + Number(match[1]);
+    }
+    return 999;
+};
+
+const SafeImage = ({ src, alt, className, fallbackText }) => {
+    const [error, setError] = React.useState(false);
+    React.useEffect(() => {
+        setError(false);
+    }, [src]);
+    if (error) {
+        return <div className="text-slate-500 italic text-[12.5px] text-center py-4">{fallbackText}</div>;
+    }
+    return <img src={src} onError={() => setError(true)} className={className} alt={alt} />;
+};
+
 export default function FoPreview({ order, printings, printingStr: propPrintingStr, progresses, headerBrand, groupedNonAddonItems, isPublic = false }) {
     const brand = order.brand || {};
     const nonAddonItems = groupedNonAddonItems || (order.items || []).filter(item => !item.is_addon);
@@ -421,6 +465,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                     {/* Referensi Desain (Semua Item) */}
                     {(() => {
                         const renderedDesigns = [];
+                        let globalGroupIdx = 1;
                         return nonAddonItems.map(item => {
                             const hasImages = item.gambar_desain || item.ket_atasan || item.ket_bawahan || item.jenis_kerah || item.gambar_kerah || item.gambar_ket_tambahan;
                             
@@ -461,18 +506,14 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                             // Variables needed for Nameset List (if hasNamesets is true)
                             let hasCustomization = false;
                             let finalCols = [];
-                        let useDense = false;
-                        let sizeAtasanRecap = [];
-                        let sizeBawahanRecap = [];
+                            let useDense = false;
+                            let sizeAtasanRecap = [];
+                            let sizeBawahanRecap = [];
+                            let hasSA = false;
+                            let hasSB = false;
 
                         if (hasNamesets) {
-                            hasCustomization = filledNamesets.some(ns =>
-                                (ns.nama_punggung || '').toString().trim() || (ns.nomor_punggung || '').toString().trim() ||
-                                (ns.nama_dada || '').toString().trim() || (ns.nomor_dada || '').toString().trim() ||
-                                (ns.nama_lengan || '').toString().trim() || (ns.nomor_lengan || '').toString().trim() ||
-                                (ns.nama_punggung_2 || '').toString().trim() || (ns.nomor_punggung_2 || '').toString().trim() ||
-                                (ns.keterangan || '').toString().trim()
-                            );
+                            hasCustomization = filledNamesets.length > 0;
 
                             const hasNamaPunggung = filledNamesets.some(ns => (ns.nama_punggung || '').toString().trim());
                             const hasNoPunggung = filledNamesets.some(ns => (ns.nomor_punggung || '').toString().trim());
@@ -482,16 +523,16 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                             const hasNoLengan = filledNamesets.some(ns => (ns.nomor_lengan || '').toString().trim());
                             const hasNamaPunggung2 = filledNamesets.some(ns => (ns.nama_punggung_2 || '').toString().trim());
                             const hasNoPunggung2 = filledNamesets.some(ns => (ns.nomor_punggung_2 || '').toString().trim());
-                            const hasSA = filledNamesets.some(ns => ns.size_id || (ns.size_label || '').toString().trim());
-                            const hasSB = filledNamesets.some(ns => ns.size_celana_id || (ns.size_celana_label || '').toString().trim());
+                            hasSA = filledNamesets.some(ns => ns.size_id || (ns.size_label || '').toString().trim());
+                            hasSB = filledNamesets.some(ns => ns.size_celana_id || (ns.size_celana_label || '').toString().trim());
                             const hasKet = filledNamesets.some(ns => (ns.keterangan || '').toString().trim());
 
                             const cols = [{ type: 'no', label: 'NO.', weight: 6 }];
                             if (hasNamaPunggung) {
-                                cols.push({ type: 'nama_punggung', label: 'NAMA', weight: 22, align: 'text-left pl-1.5 normal-case' });
+                                cols.push({ type: 'nama_punggung', label: 'NAMA PUNGGUNG', weight: 22, align: 'text-left pl-1.5 normal-case' });
                             }
                             if (hasNoPunggung) {
-                                cols.push({ type: 'no_punggung', label: 'NO. PUNGGUNG', weight: 12 });
+                                cols.push({ type: 'no_punggung', label: 'NOPUNG', weight: 12 });
                             }
                             if (hasNamaDada) {
                                 cols.push({ type: 'nama_dada', label: 'NAMA DADA', weight: 18, align: 'text-left pl-1.5 normal-case' });
@@ -564,7 +605,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
 
                                             <div className="border border-black border-t-0 p-1 mb-2 bg-white flex justify-center items-center min-h-[200px]">
                                                 {item.gambar_desain ? (
-                                                    <img src={`/storage/${item.gambar_desain}`} className="max-w-full max-h-[500px] object-contain block mx-auto" alt="Desain" />
+                                                    <SafeImage src={`/storage/${item.gambar_desain}`} className="max-w-full max-h-[500px] object-contain block mx-auto" alt="Desain" fallbackText="Gambar desain tidak ditemukan" />
                                                 ) : (
                                                     <div className="text-slate-500 italic text-[13px] text-center py-4">Gambar desain belum diunggah</div>
                                                 )}
@@ -597,7 +638,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                                         </div>
                                                         <div className="border border-black border-t-0 p-1 flex justify-center items-center min-h-[140px] bg-white">
                                                             {item.gambar_kerah ? (
-                                                                <img src={`/storage/${item.gambar_kerah}`} className="max-w-full max-h-[130px] object-contain block mx-auto" alt="Kerah" />
+                                                                <SafeImage src={`/storage/${item.gambar_kerah}`} className="max-w-full max-h-[130px] object-contain block mx-auto" alt="Kerah" fallbackText="Gambar kerah tidak ditemukan" />
                                                             ) : (
                                                                 <div className="text-slate-500 italic text-[11.5px] text-center py-2">Gambar kerah belum diunggah</div>
                                                             )}
@@ -612,7 +653,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                                             KETERANGAN TAMBAHAN
                                                         </div>
                                                         <div className="border border-black border-t-0 p-1 flex justify-center items-center min-h-[140px] bg-white">
-                                                            <img src={`/storage/${item.gambar_ket_tambahan}`} className="max-w-full max-h-[130px] object-contain block mx-auto" alt="Tambahan" />
+                                                            <SafeImage src={`/storage/${item.gambar_ket_tambahan}`} className="max-w-full max-h-[130px] object-contain block mx-auto" alt="Tambahan" fallbackText="Gambar tambahan tidak ditemukan" />
                                                         </div>
                                                     </div>
                                                 )}
@@ -624,60 +665,55 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                 {/* Nameset List & Rekap Size */}
                                 {hasNamesets && (
                                     <div key={`nameset-block-${item.id}`} className="mt-8 border-t-2 border-dashed border-slate-400 pt-8 print:break-before-page print:pt-4">
-                                        <div className="bg-slate-300 font-bold text-[12.5px] border border-black p-1.5 text-center">
-                                            DATA PESANAN {item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}
-                                        </div>
                                         {hasCustomization && (
-                                            <table className="w-full table-fixed border-collapse border border-black border-t-0 text-center">
-                                                <colgroup>
-                                                    {finalCols.map((col, idx) => (
-                                                        <col key={idx} style={{ width: `${col.pct}%` }} />
-                                                    ))}
-                                                </colgroup>
-                                                <thead>
-                                                    <tr className="bg-slate-300 border-b border-black font-bold">
+                                            <div className="mb-6">
+                                                <div className="bg-slate-300 font-bold text-[12.5px] border border-black p-1.5 text-center mb-2 uppercase">
+                                                    DATA PESANAN: {item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}
+                                                </div>
+                                                <table className="w-full table-fixed border-collapse border border-black text-center mb-3">
+                                                    <colgroup>
                                                         {finalCols.map((col, idx) => (
-                                                            <th key={idx} style={{ width: `${col.pct}%` }} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
-                                                                {col.label}
-                                                            </th>
+                                                            <col key={idx} style={{ width: `${col.pct}%` }} />
                                                         ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {filledNamesets.map((ns, idx) => (
-                                                        <tr key={ns.id} className="border-b border-black bg-white hover:bg-slate-50/50">
-                                                            {finalCols.map((col, cidx) => {
-                                                                let val = null;
-                                                                if (col.type === 'no') val = `${idx + 1}.`;
-                                                                else if (col.type === 'nama_punggung') {
-                                                                    val = (
-                                                                        <span>
-                                                                            {renderFormattedText(ns.nama_punggung || '')}
-                                                                            
-                                                                        </span>
-                                                                    );
-                                                                }
-                                                                else if (col.type === 'no_punggung') val = ns.nomor_punggung || '';
-                                                                else if (col.type === 'nama_dada') val = renderFormattedText(ns.nama_dada || '');
-                                                                else if (col.type === 'no_dada') val = ns.nomor_dada || '';
-                                                                else if (col.type === 'nama_lengan') val = renderFormattedText(ns.nama_lengan || '');
-                                                                else if (col.type === 'no_lengan') val = ns.nomor_lengan || '';
-                                                                else if (col.type === 'nama_punggung_2') val = renderFormattedText(ns.nama_punggung_2 || '');
-                                                                else if (col.type === 'no_punggung_2') val = ns.nomor_punggung_2 || '';
-                                                                else if (col.type === 'size') val = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim() || '';
-                                                                else if (col.type === 'size_celana') val = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim() || '';
-                                                                else if (col.type === 'keterangan') val = renderFormattedText(ns.keterangan || '');
-
-                                                                return (
-                                                                    <td key={cidx} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
-                                                                        {val}
-                                                                    </td>
-                                                                );
-                                                            })}
+                                                    </colgroup>
+                                                    <thead>
+                                                        <tr className="bg-slate-300 border-b border-black font-bold">
+                                                            {finalCols.map((col, idx) => (
+                                                                <th key={idx} style={{ width: `${col.pct}%` }} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
+                                                                    {col.label}
+                                                                </th>
+                                                            ))}
                                                         </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
+                                                    </thead>
+                                                    <tbody>
+                                                        {filledNamesets.map((ns, idx) => (
+                                                            <tr key={ns.id} className="border-b border-black bg-white hover:bg-slate-50/50">
+                                                                {finalCols.map((col, cidx) => {
+                                                                    let val = '';
+                                                                    if (col.type === 'no') val = `${idx + 1}.`;
+                                                                    else if (col.type === 'nama_punggung') val = <span>{renderFormattedText(ns.nama_punggung || '')}</span>;
+                                                                    else if (col.type === 'no_punggung') val = ns.nomor_punggung || '';
+                                                                    else if (col.type === 'nama_dada') val = renderFormattedText(ns.nama_dada || '');
+                                                                    else if (col.type === 'no_dada') val = ns.nomor_dada || '';
+                                                                    else if (col.type === 'nama_lengan') val = renderFormattedText(ns.nama_lengan || '');
+                                                                    else if (col.type === 'no_lengan') val = ns.nomor_lengan || '';
+                                                                    else if (col.type === 'nama_punggung_2') val = renderFormattedText(ns.nama_punggung_2 || '');
+                                                                    else if (col.type === 'no_punggung_2') val = ns.nomor_punggung_2 || '';
+                                                                    else if (col.type === 'size') val = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim() || '';
+                                                                    else if (col.type === 'size_celana') val = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim() || '';
+                                                                    else if (col.type === 'keterangan') val = renderFormattedText(ns.keterangan || '');
+
+                                                                    return (
+                                                                        <td key={cidx} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
+                                                                            {val}
+                                                                        </td>
+                                                                    );
+                                                                })}
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         )}
 
                                         {/* Rekap Size */}
@@ -796,12 +832,16 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                 (ns.nama_dada || '').toString().trim() || (ns.nomor_dada || '').toString().trim() ||
                                 (ns.nama_lengan || '').toString().trim() || (ns.nomor_lengan || '').toString().trim() ||
                                 (ns.nama_punggung_2 || '').toString().trim() || (ns.nomor_punggung_2 || '').toString().trim() ||
+                                (ns.size_id) || (ns.size_label || '').toString().trim() ||
+                                (ns.size_celana_id) || (ns.size_celana_label || '').toString().trim() ||
                                 (ns.keterangan || '').toString().trim()
                             );
                             return lampFilled.length > 0;
                         });
 
                         if (!hasAnyLampFilled) return null;
+
+                        let globalGroupIdx = 1;
 
                         return (
                             <div className="mt-8 border-t-2 border-dashed border-slate-400 pt-8 print:break-before-page print:pt-4">
@@ -815,9 +855,13 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         (ns.nama_dada || '').toString().trim() || (ns.nomor_dada || '').toString().trim() ||
                                         (ns.nama_lengan || '').toString().trim() || (ns.nomor_lengan || '').toString().trim() ||
                                         (ns.nama_punggung_2 || '').toString().trim() || (ns.nomor_punggung_2 || '').toString().trim() ||
+                                        (ns.size_id) || (ns.size_label || '').toString().trim() ||
+                                        (ns.size_celana_id) || (ns.size_celana_label || '').toString().trim() ||
                                         (ns.keterangan || '').toString().trim()
                                     );
                                     if (lampFilled.length === 0) return null;
+
+                                    const currentGroupIndex = globalGroupIdx++;
 
                                     const hasNamaPunggung = lampFilled.some(ns => (ns.nama_punggung || '').toString().trim());
                                     const hasNoPunggung = lampFilled.some(ns => (ns.nomor_punggung || '').toString().trim());
@@ -832,30 +876,14 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                     const hasKet = lampFilled.some(ns => (ns.keterangan || '').toString().trim());
 
                                     const cols = [{ type: 'no', label: 'NO.', weight: 6 }];
-                                    if (hasNamaPunggung) {
-                                        cols.push({ type: 'nama_punggung', label: 'NAMA PUNGGUNG', weight: 22, align: 'text-left pl-1.5 normal-case' });
-                                    }
-                                    if (hasNoPunggung) {
-                                        cols.push({ type: 'no_punggung', label: 'NO. PUNGGUNG', weight: 12 });
-                                    }
-                                    if (hasNamaDada) {
-                                        cols.push({ type: 'nama_dada', label: 'NAMA DADA', weight: 18, align: 'text-left pl-1.5 normal-case' });
-                                    }
-                                    if (hasNoDada) {
-                                        cols.push({ type: 'no_dada', label: 'NO. DADA', weight: 12 });
-                                    }
-                                    if (hasNamaLengan) {
-                                        cols.push({ type: 'nama_lengan', label: 'NAMA LENGAN', weight: 18, align: 'text-left pl-1.5 normal-case' });
-                                    }
-                                    if (hasNoLengan) {
-                                        cols.push({ type: 'no_lengan', label: 'NO. LENGAN', weight: 12 });
-                                    }
-                                    if (hasNoPunggung2) {
-                                        cols.push({ type: 'no_punggung_2', label: 'NO. PUNGGUNG 2', weight: 12 });
-                                    }
-                                    if (hasNamaPunggung2) {
-                                        cols.push({ type: 'nama_punggung_2', label: 'NAMA PUNGGUNG 2', weight: 22, align: 'text-left pl-1.5 normal-case' });
-                                    }
+                                    if (hasNamaPunggung) cols.push({ type: 'nama_punggung', label: 'NAMA PUNGGUNG', weight: 22, align: 'text-left pl-1.5 normal-case' });
+                                    if (hasNoPunggung) cols.push({ type: 'no_punggung', label: 'NO. PUNGGUNG', weight: 12 });
+                                    if (hasNamaDada) cols.push({ type: 'nama_dada', label: 'NAMA DADA', weight: 18, align: 'text-left pl-1.5 normal-case' });
+                                    if (hasNoDada) cols.push({ type: 'no_dada', label: 'NO. DADA', weight: 12 });
+                                    if (hasNamaLengan) cols.push({ type: 'nama_lengan', label: 'NAMA LENGAN', weight: 18, align: 'text-left pl-1.5 normal-case' });
+                                    if (hasNoLengan) cols.push({ type: 'no_lengan', label: 'NO. LENGAN', weight: 12 });
+                                    if (hasNoPunggung2) cols.push({ type: 'no_punggung_2', label: 'NO. PUNGGUNG 2', weight: 12 });
+                                    if (hasNamaPunggung2) cols.push({ type: 'nama_punggung_2', label: 'NAMA PUNGGUNG 2', weight: 22, align: 'text-left pl-1.5 normal-case' });
                                     if (hasSA) cols.push({ type: 'size', label: 'SIZE', weight: 10 });
                                     if (hasSB) cols.push({ type: 'size_celana', label: 'SIZE CELANA', weight: 12 });
                                     if (hasKet) cols.push({ type: 'keterangan', label: 'KETERANGAN', weight: 18, align: 'text-left pl-1.5 normal-case' });
@@ -868,61 +896,86 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
 
                                     const useDense = finalCols.length > 7;
 
-                                    return (
-                                        <div key={item.id} className="mb-6">
-                                            <div className="font-bold text-[11px] mb-1">
-                                                DATA PESANAN: {item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}
-                                            </div>
-                                            <table className="w-full table-fixed border-collapse border border-black text-center mb-3">
-                                                <colgroup>
-                                                    {finalCols.map((col, idx) => (
-                                                        <col key={idx} style={{ width: `${col.pct}%` }} />
-                                                    ))}
-                                                </colgroup>
-                                                <thead>
-                                                    <tr className="bg-slate-300 border-b border-black font-bold">
-                                                        {finalCols.map((col, idx) => (
-                                                            <th key={idx} style={{ width: `${col.pct}%` }} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
-                                                                {col.label}
-                                                            </th>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {lampFilled.map((ns, idx) => (
-                                                        <tr key={ns.id} className="border-b border-black bg-white hover:bg-slate-50/50">
-                                                            {finalCols.map((col, cidx) => {
-                                                                let val = '';
-                                                                if (col.type === 'no') val = `${idx + 1}.`;
-                                                                else if (col.type === 'nama_punggung') {
-                                                                    val = (
-                                                                        <span>
-                                                                            {renderFormattedText(ns.nama_punggung || '')}
-                                                                            
-                                                                        </span>
-                                                                    );
-                                                                }
-                                                                else if (col.type === 'no_punggung') val = ns.nomor_punggung || '';
-                                                                else if (col.type === 'nama_dada') val = renderFormattedText(ns.nama_dada || '');
-                                                                else if (col.type === 'no_dada') val = ns.nomor_dada || '';
-                                                                else if (col.type === 'nama_lengan') val = renderFormattedText(ns.nama_lengan || '');
-                                                                else if (col.type === 'no_lengan') val = ns.nomor_lengan || '';
-                                                                else if (col.type === 'nama_punggung_2') val = renderFormattedText(ns.nama_punggung_2 || '');
-                                                                else if (col.type === 'no_punggung_2') val = ns.nomor_punggung_2 || '';
-                                                                else if (col.type === 'size') val = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim() || '';
-                                                                else if (col.type === 'size_celana') val = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim() || '';
-                                                                else if (col.type === 'keterangan') val = renderFormattedText(ns.keterangan || '');
+                                    // Group by size
+                                    const groupedBySize = {};
+                                    lampFilled.forEach(ns => {
+                                        let szKey = '-';
+                                        if (hasSA) {
+                                            szKey = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim();
+                                        } else if (hasSB) {
+                                            szKey = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim();
+                                        }
+                                        if (!szKey) szKey = '-';
+                                        if (!groupedBySize[szKey]) {
+                                            groupedBySize[szKey] = [];
+                                        }
+                                        groupedBySize[szKey].push(ns);
+                                    });
 
-                                                                return (
-                                                                    <td key={cidx} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
-                                                                        {val}
-                                                                    </td>
-                                                                );
-                                                            })}
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
+                                    const sortedSizeKeys = Object.keys(groupedBySize).sort((a, b) => {
+                                        return getSizeSortWeight(a) - getSizeSortWeight(b);
+                                    });
+
+                                    const varDetails = [];
+                                    if (item.nama_produk) varDetails.push(item.nama_produk);
+                                    if (item.varian_label) varDetails.push(item.varian_label);
+                                    const groupSubtitle = varDetails.join(' — ');
+
+                                    return (
+                                        <div key={item.id || item.nama_produk} className="mb-6">
+                                            <div className="bg-slate-300 font-bold text-[12px] border border-black p-1 text-center mb-2 uppercase">
+                                                DATA PESANAN: {groupSubtitle}
+                                            </div>
+                                            {sortedSizeKeys.map((sizeKey, sIdx) => {
+                                                const namesetsInSize = groupedBySize[sizeKey] || [];
+                                                return (
+                                                    <div key={sizeKey} className={sIdx > 0 ? "mt-4" : ""}>
+                                                        <table className="w-full table-fixed border-collapse border border-black text-center mb-3">
+                                                            <colgroup>
+                                                                {finalCols.map((col, idx) => (
+                                                                    <col key={idx} style={{ width: `${col.pct}%` }} />
+                                                                ))}
+                                                            </colgroup>
+                                                            <thead>
+                                                                <tr className="bg-slate-300 border-b border-black font-bold">
+                                                                    {finalCols.map((col, idx) => (
+                                                                        <th key={idx} style={{ width: `${col.pct}%` }} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
+                                                                            {col.label}
+                                                                        </th>
+                                                                    ))}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {namesetsInSize.map((ns, idx) => (
+                                                                    <tr key={ns.id} className="border-b border-black bg-white hover:bg-slate-50/50">
+                                                                        {finalCols.map((col, cidx) => {
+                                                                            let val = '';
+                                                                            if (col.type === 'no') val = `${idx + 1}.`;
+                                                                            else if (col.type === 'nama_punggung') val = <span>{renderFormattedText(ns.nama_punggung || '')}</span>;
+                                                                            else if (col.type === 'no_punggung') val = ns.nomor_punggung || '';
+                                                                            else if (col.type === 'nama_dada') val = renderFormattedText(ns.nama_dada || '');
+                                                                            else if (col.type === 'no_dada') val = ns.nomor_dada || '';
+                                                                            else if (col.type === 'nama_lengan') val = renderFormattedText(ns.nama_lengan || '');
+                                                                            else if (col.type === 'no_lengan') val = ns.nomor_lengan || '';
+                                                                            else if (col.type === 'nama_punggung_2') val = renderFormattedText(ns.nama_punggung_2 || '');
+                                                                            else if (col.type === 'no_punggung_2') val = ns.nomor_punggung_2 || '';
+                                                                            else if (col.type === 'size') val = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim() || '';
+                                                                            else if (col.type === 'size_celana') val = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim() || '';
+                                                                            else if (col.type === 'keterangan') val = renderFormattedText(ns.keterangan || '');
+
+                                                                            return (
+                                                                                <td key={cidx} className={`border-r border-black p-1 break-all whitespace-normal ${col.align || ''} ${useDense ? 'text-[10px] py-0.5' : 'text-[11.5px] py-1'}`}>
+                                                                                    {val}
+                                                                                </td>
+                                                                            );
+                                                                        })}
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     );
                                 })}

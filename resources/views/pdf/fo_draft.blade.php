@@ -806,6 +806,8 @@
                     !empty(trim($ns['nama_dada'] ?? ''))     || !empty(trim($ns['nomor_dada'] ?? ''))     ||
                     !empty(trim($ns['nama_lengan'] ?? ''))   || !empty(trim($ns['nomor_lengan'] ?? ''))   ||
                     !empty(trim($ns['nama_punggung_2'] ?? '')) || !empty(trim($ns['nomor_punggung_2'] ?? '')) ||
+                    !empty(trim($ns['size_id'] ?? ''))       || !empty(trim($ns['size_label'] ?? ''))     ||
+                    !empty(trim($ns['size_celana_id'] ?? ''))|| !empty(trim($ns['size_celana_label'] ?? ''))||
                     !empty(trim($ns['keterangan'] ?? ''))
                 );
                 if ($lampFilled->isNotEmpty()) {
@@ -820,6 +822,39 @@
         <div style="font-size:12pt; font-weight:900; text-decoration:underline; margin-bottom:10px; border-bottom:2px solid #000; padding-bottom:4px;">
             LAMPIRAN: DATA PESANAN
         </div>
+        @php
+        $getSizeSortWeight = function($sizeStr) {
+            $sizeStr = strtolower(trim($sizeStr));
+            $weights = [
+                'kids' => -100,
+                'xxs'  => -2,
+                'xs'   => -1,
+                's'    => 1,
+                'm'    => 2,
+                'l'    => 3,
+                'xl'   => 4,
+                '2xl'  => 5,
+                'xxl'  => 5,
+                '3xl'  => 6,
+                'xxxl' => 6,
+                '4xl'  => 7,
+                '5xl'  => 8,
+                '6xl'  => 9,
+                '7xl'  => 10,
+            ];
+            if (isset($weights[$sizeStr])) {
+                return $weights[$sizeStr];
+            }
+            if (is_numeric($sizeStr)) {
+                return 100 + (float)$sizeStr;
+            }
+            if (preg_match('/^(\d+)xl$/', $sizeStr, $matches)) {
+                return 4 + (int)$matches[1];
+            }
+            return 999;
+        };
+        $globalGroupIdx = 1;
+        @endphp
 
         @foreach ($nonAddonItems as $item)
             @php
@@ -829,6 +864,8 @@
                     !empty(trim($ns['nama_dada'] ?? ''))     || !empty(trim($ns['nomor_dada'] ?? ''))     ||
                     !empty(trim($ns['nama_lengan'] ?? ''))   || !empty(trim($ns['nomor_lengan'] ?? ''))   ||
                     !empty(trim($ns['nama_punggung_2'] ?? '')) || !empty(trim($ns['nomor_punggung_2'] ?? '')) ||
+                    !empty(trim($ns['size_id'] ?? ''))       || !empty(trim($ns['size_label'] ?? ''))     ||
+                    !empty(trim($ns['size_celana_id'] ?? ''))|| !empty(trim($ns['size_celana_label'] ?? ''))||
                     !empty(trim($ns['keterangan'] ?? ''))
                 );
 
@@ -852,7 +889,7 @@
                     $cols[] = ['type' => 'nama_punggung', 'label' => 'NAMA PUNGGUNG', 'weight' => 22, 'align' => 't-left'];
                 }
                 if ($hasLampNoPunggung) {
-                    $cols[] = ['type' => 'no_punggung', 'label' => 'NO. PUNGGUNG', 'weight' => 12];
+                    $cols[] = ['type' => 'no_punggung', 'label' => 'NOPUNG', 'weight' => 12];
                 }
                 if ($hasLampNamaDada) {
                     $cols[] = ['type' => 'nama_dada', 'label' => 'NAMA DADA', 'weight' => 18, 'align' => 't-left'];
@@ -890,68 +927,106 @@
                 unset($col);
                 
                 $tableClass = count($cols) > 7 ? 'ns-table ns-table-dense' : 'ns-table';
+
+                // Group by size key directly
+                $groupedBySize = $lampFilled->groupBy(function($ns) use ($hasLampSizeAtasan, $hasLampSizeBawahan) {
+                    if ($hasLampSizeAtasan) {
+                        $parts = explode('-', $ns['_size_label'] ?? $ns['size_label'] ?? '');
+                        $sv = trim(end($parts));
+                        if (!empty($sv)) return $sv;
+                    }
+                    if ($hasLampSizeBawahan) {
+                        $parts = explode('-', $ns['_size_celana_label'] ?? $ns['size_celana_label'] ?? '');
+                        $svc = trim(end($parts));
+                        if (!empty($svc)) return $svc;
+                    }
+                    return '-';
+                });
+
+                // Sort size keys
+                $sortedSizeKeys = $groupedBySize->keys()->sortBy(function($sizeName) use ($getSizeSortWeight) {
+                    return $getSizeSortWeight($sizeName);
+                });
+
+                $currentGroupIndex = $globalGroupIdx++;
+
+                // Construct descriptive title
+                $varDetails = [];
+                if (!empty($item['nama_produk'])) {
+                    $varDetails[] = strtoupper($item['nama_produk']);
+                }
+                if (!empty($item['varian_label'])) {
+                    $varDetails[] = strtoupper($item['varian_label']);
+                }
+                $groupSubtitle = implode(' — ', $varDetails);
             @endphp
-            <div class="lampiran-sub">
-                DATA PESANAN: {{ strtoupper($item['nama_produk'] ?? '') }}@if(!empty($item['varian_label'])) — {{ strtoupper($item['varian_label']) }}@endif
+
+            <div style="font-size: 11pt; font-weight: bold; text-align: center; margin-top: 15px; margin-bottom: 8px; text-transform: uppercase;">
+                DATA PESANAN: {{ $groupSubtitle }}
             </div>
-            <table class="{{ $tableClass }}" style="margin-bottom:12px; table-layout: fixed; width: 100%;">
-                <colgroup>
-                    @foreach($cols as $col)
-                        <col width="{{ $col['pct'] }}%">
-                    @endforeach
-                </colgroup>
-                <thead>
-                    <tr>
+
+            @foreach ($sortedSizeKeys as $sizeKey)
+                @php
+                $namesetsInSize = $groupedBySize->get($sizeKey);
+                @endphp
+                <table class="{{ $tableClass }}" style="margin-bottom:12px; table-layout: fixed; width: 100%;">
+                    <colgroup>
                         @foreach($cols as $col)
-                            <th class="{{ $col['align'] ?? '' }}" width="{{ $col['pct'] }}%">{{ $col['label'] }}</th>
+                            <col width="{{ $col['pct'] }}%">
                         @endforeach
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($lampFilled as $i => $ns)
-                    <tr>
-                        @foreach($cols as $col)
-                            @if($col['type'] === 'no')
-                                <td>{{ $i + 1 }}.</td>
-                            @elseif($col['type'] === 'nama_punggung')
-                                <td class="t-left ns-name">
-                                    {!! \App\Support\PdfHelper::formatText($ns['nama_punggung'] ?? '') !!}
-                                    
-                                </td>
-                            @elseif($col['type'] === 'no_punggung')
-                                <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_punggung'] ?? '') !!}</td>
-                            @elseif($col['type'] === 'nama_dada')
-                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_dada'] ?? '') !!}</td>
-                            @elseif($col['type'] === 'no_dada')
-                                <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_dada'] ?? '') !!}</td>
-                            @elseif($col['type'] === 'nama_lengan')
-                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_lengan'] ?? '') !!}</td>
-                            @elseif($col['type'] === 'no_lengan')
-                                <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_lengan'] ?? '') !!}</td>
-                            @elseif($col['type'] === 'nama_punggung_2')
-                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung_2'] ?? '') !!}</td>
-                            @elseif($col['type'] === 'no_punggung_2')
-                                <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_punggung_2'] ?? '') !!}</td>
-                            @elseif($col['type'] === 'size')
-                                @php
-                                    $parts = explode('-', $ns['_size_label'] ?? $ns['size_label'] ?? '');
-                                    $sv = trim(end($parts));
-                                @endphp
-                                <td>{!! \App\Support\PdfHelper::formatText($sv) !!}</td>
-                            @elseif($col['type'] === 'size_celana')
-                                @php
-                                    $parts = explode('-', $ns['_size_celana_label'] ?? $ns['size_celana_label'] ?? '');
-                                    $svc = trim(end($parts));
-                                @endphp
-                                <td>{!! \App\Support\PdfHelper::formatText($svc) !!}</td>
-                            @elseif($col['type'] === 'keterangan')
-                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['keterangan'] ?? '') !!}</td>
-                            @endif
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            @foreach($cols as $col)
+                                <th class="{{ $col['align'] ?? '' }}" width="{{ $col['pct'] }}%">{{ $col['label'] }}</th>
+                            @endforeach
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($namesetsInSize->values() as $i => $ns)
+                        <tr>
+                            @foreach($cols as $col)
+                                @if($col['type'] === 'no')
+                                    <td>{{ $i + 1 }}.</td>
+                                @elseif($col['type'] === 'nama_punggung')
+                                    <td class="t-left ns-name">
+                                        {!! \App\Support\PdfHelper::formatText($ns['nama_punggung'] ?? '') !!}
+                                    </td>
+                                @elseif($col['type'] === 'no_punggung')
+                                    <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_punggung'] ?? '') !!}</td>
+                                @elseif($col['type'] === 'nama_dada')
+                                    <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_dada'] ?? '') !!}</td>
+                                @elseif($col['type'] === 'no_dada')
+                                    <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_dada'] ?? '') !!}</td>
+                                @elseif($col['type'] === 'nama_lengan')
+                                    <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_lengan'] ?? '') !!}</td>
+                                @elseif($col['type'] === 'no_lengan')
+                                    <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_lengan'] ?? '') !!}</td>
+                                @elseif($col['type'] === 'nama_punggung_2')
+                                    <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['nama_punggung_2'] ?? '') !!}</td>
+                                @elseif($col['type'] === 'no_punggung_2')
+                                    <td>{!! \App\Support\PdfHelper::formatText($ns['nomor_punggung_2'] ?? '') !!}</td>
+                                @elseif($col['type'] === 'size')
+                                    @php
+                                        $parts = explode('-', $ns['_size_label'] ?? $ns['size_label'] ?? '');
+                                        $sv = trim(end($parts));
+                                    @endphp
+                                    <td>{!! \App\Support\PdfHelper::formatText($sv) !!}</td>
+                                @elseif($col['type'] === 'size_celana')
+                                    @php
+                                        $parts = explode('-', $ns['_size_celana_label'] ?? $ns['size_celana_label'] ?? '');
+                                        $svc = trim(end($parts));
+                                    @endphp
+                                    <td>{!! \App\Support\PdfHelper::formatText($svc) !!}</td>
+                                @elseif($col['type'] === 'keterangan')
+                                    <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['keterangan'] ?? '') !!}</td>
+                                @endif
+                            @endforeach
+                        </tr>
                         @endforeach
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            @endforeach
             @endif
         @endforeach
         @endif
