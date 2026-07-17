@@ -191,6 +191,7 @@ class NotificationSettingTest extends TestCase
     {
         $events = [
             'order_published',
+            'special_order_created',
             'progress_updated',
             'rijek_reported',
             'refund_submitted',
@@ -308,6 +309,23 @@ class NotificationSettingTest extends TestCase
         $this->assertContains($this->adminBrand->id, $recipients);
         $this->assertNotContains($this->adminProduksi->id, $recipients);
         $this->assertNotContains($this->adminKeuangan->id, $recipients);
+    }
+
+    public function test_special_order_notification_targets_correct_roles(): void
+    {
+        $payload = [
+            'no_po' => 'PO-013',
+            'brand_id' => $this->brand->id,
+            'brand_nama' => $this->brand->nama_brand,
+            'action_url' => '/orders/1',
+        ];
+
+        // special_order_created targets admin_keuangan, owner
+        $recipients = IdealNotificationService::dispatch('special_order_created', $payload);
+        $this->assertContains($this->owner->id, $recipients);
+        $this->assertContains($this->adminKeuangan->id, $recipients);
+        $this->assertNotContains($this->adminBrand->id, $recipients);
+        $this->assertNotContains($this->adminProduksi->id, $recipients);
     }
 
     public function test_notification_serialization_includes_type_and_event_key(): void

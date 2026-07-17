@@ -343,6 +343,14 @@ class OrderLifecycleTest extends TestCase
             'created_by' => $admin->id,
         ]);
 
+        $bank = \App\Models\Master\BankAccount::create([
+            'brand_id' => $brand->id,
+            'bank' => 'BCA Test',
+            'nomor_rekening' => '123456789',
+            'atas_nama' => 'Tester',
+            'is_active' => true,
+        ]);
+
         $refund = Refund::create([
             'brand_id' => $brand->id,
             'order_id' => $order->id,
@@ -356,7 +364,9 @@ class OrderLifecycleTest extends TestCase
         ]);
 
         $this->actingAsWithBrand($finance, $brand)
-            ->post(route('refunds.publish', $refund->id))
+            ->post(route('refunds.publish', $refund->id), [
+                'bank_id' => $bank->id,
+            ])
             ->assertRedirect();
 
         $this->assertEquals('published', $refund->fresh()->status);
@@ -582,6 +592,8 @@ class OrderLifecycleTest extends TestCase
                 'jenis_masalah' => 'produk_cacat',
                 'jumlah_item' => 1,
                 'nominal_refund' => 100000,
+                'customer_bank_name' => 'BCA',
+                'customer_bank_account' => '1234567890',
             ])
             ->assertRedirect();
 
@@ -591,7 +603,9 @@ class OrderLifecycleTest extends TestCase
 
         // Finance Admin approves the refund
         $this->actingAsWithBrand($adminFinance, $brand)
-            ->post(route('refunds.publish', $refund->id))
+            ->post(route('refunds.publish', $refund->id), [
+                'bank_id' => $bank->id,
+            ])
             ->assertRedirect();
 
         $this->assertEquals('published', $refund->fresh()->status);
@@ -629,6 +643,8 @@ class OrderLifecycleTest extends TestCase
                 'jenis_masalah' => 'produk_cacat',
                 'jumlah_item' => 1,
                 'nominal_refund' => 50000,
+                'customer_bank_name' => 'BCA',
+                'customer_bank_account' => '1234567890',
             ])
             ->assertRedirect();
 
@@ -645,12 +661,70 @@ class OrderLifecycleTest extends TestCase
                 'jenis_masalah' => 'produk_cacat',
                 'jumlah_item' => 1,
                 'nominal_refund' => 25000,
+                'customer_bank_name' => 'BCA',
+                'customer_bank_account' => '1234567890',
             ])
             ->assertRedirect();
 
         $refund2 = Refund::where('nominal_refund', 25000)->first();
         $this->assertNotNull($refund2);
         $this->assertEquals($order->id, $refund2->order_id);
+    }
+
+    public function test_refund_order_lookup_endpoint(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $user = $this->makeUser('admin_brand', [$brand]);
+        $customer = \App\Models\Master\Customer::where('brand_id', $brand->id)->first();
+
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => app(NumberGenerator::class)->generateOrderNumber($brand),
+            'nama_po' => 'Refund Lookup Test PO',
+            'status_po' => 'published',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(14)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 300000,
+            'created_by' => $user->id,
+        ]);
+
+        $order->items()->create([
+            'nama_produk' => 'Kaos Kaki',
+            'quantity' => 10,
+            'harga_satuan' => 30000,
+            'subtotal' => 300000,
+        ]);
+
+        $response = $this->actingAsWithBrand($user, $brand)
+            ->getJson(route('refunds.lookup-order', ['query' => $order->no_po]));
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'order' => [
+                    'no_po' => $order->no_po,
+                    'nama_po' => $order->nama_po,
+                    'total_tagihan' => 300000.0,
+                    'max_refundable' => 300000.0,
+                    'items' => [
+                        [
+                            'nama_produk' => 'Kaos Kaki',
+                            'quantity' => 10,
+                            'harga_satuan' => 30000.0,
+                        ]
+                    ]
+                ]
+            ]);
+
+        $responseErr = $this->actingAsWithBrand($user, $brand)
+            ->getJson(route('refunds.lookup-order', ['query' => 'PO-NON-EXISTENT']));
+
+        $responseErr->assertOk()
+            ->assertJson([
+                'success' => false,
+                'message' => 'PO tidak ditemukan dalam sistem.'
+            ]);
     }
 
     public function test_can_create_order_with_extended_nameset_fields(): void
@@ -1803,7 +1877,9 @@ class OrderLifecycleTest extends TestCase
         ]);
 
         $this->actingAsWithBrand($finance, $brand)
-            ->post(route('refunds.publish', $refund->id))
+            ->post(route('refunds.publish', $refund->id), [
+                'bank_id' => $bank->id,
+            ])
             ->assertRedirect();
 
         // Refresh models
@@ -1854,6 +1930,67 @@ class OrderLifecycleTest extends TestCase
         $this->assertEquals(750000, $order->totalPaid());
         $this->assertEquals(0, $invoice->sisa_pembayaran);
         $this->assertEquals('paid', $invoice->status);
+    }
+
+    public function test_bypass_dp_endpoint_enforcement_and_logging(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $adminBrand = $this->makeUser('admin_brand', [$brand]);
+        $adminKeuangan = $this->makeUser('admin_keuangan', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+
+        // Create a draft order
+        $order = Order::create([
+            'brand_id' => $brand->id,
+            'no_po' => 'PO-BYPASS-TEST',
+            'nama_po' => 'PO Bypass Test',
+            'status_po' => 'draft',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(14)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'total_tagihan' => 100000,
+            'created_by' => $adminBrand->id,
+        ]);
+
+        // 1. Admin Brand should be forbidden to bypass DP
+        $this->actingAsWithBrand($adminBrand, $brand)
+            ->post(route('orders.bypass-dp', $order->id))
+            ->assertStatus(403);
+
+        // 2. Admin Keuangan should be allowed to bypass DP
+        $this->actingAsWithBrand($adminKeuangan, $brand)
+            ->post(route('orders.bypass-dp', $order->id))
+            ->assertStatus(302);
+
+        $order->refresh();
+        $this->assertTrue((bool)$order->is_dp_bypassed);
+        $this->assertEquals($adminKeuangan->id, $order->dp_bypassed_by);
+
+        // 3. Verify activity logger recorded the bypass
+        $this->assertDatabaseHas('activity_logs', [
+            'user_id' => $adminKeuangan->id,
+            'activity' => 'bypass_dp',
+            'module' => 'order',
+            'subject_id' => (string)$order->id,
+            'description' => "Melakukan bypass minimal DP untuk PO PO-BYPASS-TEST",
+        ]);
+
+        // 4. Disable bypass DP
+        $this->actingAsWithBrand($adminKeuangan, $brand)
+            ->post(route('orders.bypass-dp', $order->id))
+            ->assertStatus(302);
+
+        $order->refresh();
+        $this->assertFalse((bool)$order->is_dp_bypassed);
+
+        // 5. Verify activity logger recorded the disable action
+        $this->assertDatabaseHas('activity_logs', [
+            'user_id' => $adminKeuangan->id,
+            'activity' => 'bypass_dp',
+            'module' => 'order',
+            'subject_id' => (string)$order->id,
+            'description' => "Membatalkan bypass minimal DP untuk PO PO-BYPASS-TEST",
+        ]);
     }
 }
 

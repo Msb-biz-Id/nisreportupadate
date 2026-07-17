@@ -24,12 +24,16 @@ function CreateRefundDialog({ open, onOpenChange, jenisOptions }) {
         order_id: '', alasan: '', jenis_masalah: jenisOptions?.[0] || 'produk_cacat',
         jumlah_item: 1, nominal_refund: '', catatan: '',
         bukti_files: [],
+        customer_bank_name: '',
+        customer_bank_account: '',
     }, { forceFormData: true });
 
     const fileInputRef = useRef(null);
     const [filePreviews, setFilePreviews] = useState([]);
-    const [orders, setOrders] = useState([]);
-    const [searchPO, setSearchPO] = useState('');
+    const [lookedUpOrder, setLookedUpOrder] = useState(null);
+    const [lookupLoading, setLookupLoading] = useState(false);
+    const [lookupError, setLookupError] = useState('');
+    const [nominalSatuan, setNominalSatuan] = useState('');
 
     const handleNumberChange = (field, val) => {
         if (val === '') { setData(field, ''); return; }
@@ -49,14 +53,55 @@ function CreateRefundDialog({ open, onOpenChange, jenisOptions }) {
         setFilePreviews(prev => prev.filter((_, i) => i !== idx));
     };
 
+    const fetchOrderDetails = async (query) => {
+        const trimmed = query.trim();
+        if (!trimmed) {
+            setLookedUpOrder(null);
+            setLookupError('');
+            return;
+        }
+        setLookupLoading(true);
+        setLookupError('');
+        try {
+            const response = await axios.get(route('refunds.lookup-order'), { params: { query: trimmed } });
+            if (response.data.success) {
+                setLookedUpOrder(response.data.order);
+            } else {
+                setLookedUpOrder(null);
+                setLookupError(response.data.message);
+            }
+        } catch (err) {
+            setLookedUpOrder(null);
+            setLookupError('Gagal memuat detail PO.');
+        } finally {
+            setLookupLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (!open) return;
-        axios.get(route('orders.index'), { params: { q: searchPO } }).catch(() => {});
-    }, [open, searchPO]);
+        const delayDebounce = setTimeout(() => {
+            fetchOrderDetails(data.order_id);
+        }, 800);
+        return () => clearTimeout(delayDebounce);
+    }, [data.order_id, open]);
+
+    // Auto-calculate total nominal_refund when jumlah_item or nominalSatuan changes
+    useEffect(() => {
+        const qty = parseInt(data.jumlah_item, 10) || 0;
+        const satuan = parseInt(nominalSatuan, 10) || 0;
+        setData('nominal_refund', qty * satuan);
+    }, [data.jumlah_item, nominalSatuan]);
 
     // Reset on close
     useEffect(() => {
-        if (!open) { reset(); setFilePreviews([]); }
+        if (!open) {
+            reset();
+            setFilePreviews([]);
+            setLookedUpOrder(null);
+            setLookupError('');
+            setNominalSatuan('');
+        }
     }, [open]);
 
     function submit(e) {
@@ -65,7 +110,6 @@ function CreateRefundDialog({ open, onOpenChange, jenisOptions }) {
             forceFormData: true,
             preserveScroll: true,
             onBefore: (visit) => {
-                // Normalize numeric fields
                 if (visit.data) {
                     visit.data.nominal_refund = data.nominal_refund === '' ? 0 : Number(data.nominal_refund);
                     visit.data.jumlah_item = data.jumlah_item === '' ? 1 : Number(data.jumlah_item);
@@ -92,6 +136,46 @@ function CreateRefundDialog({ open, onOpenChange, jenisOptions }) {
                             <p className="mt-1 text-xs text-muted-foreground">Sistem otomatis mensinkronkan data PO baik dari nomor PO, URL halaman PO, maupun UUID PO.</p>
                             {errors.order_id && <p className="text-xs text-destructive">{errors.order_id}</p>}
                         </div>
+
+                        {lookupLoading && (
+                            <div className="text-xs text-muted-foreground flex items-center gap-1.5 py-1 animate-pulse">
+                                <span className="h-2 w-2 rounded-full bg-primary animate-ping" />
+                                Mencari data PO...
+                            </div>
+                        )}
+
+                        {lookupError && (
+                            <div className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-md">
+                                {lookupError}
+                            </div>
+                        )}
+
+                        {lookedUpOrder && (
+                            <div className="border border-slate-200 rounded-lg p-3.5 space-y-3 bg-slate-50">
+                                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                    Detail PO Terkait
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <div className="text-xs text-muted-foreground">Nomor PO</div>
+                                        <div className="font-semibold text-slate-800">{lookedUpOrder.no_po}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-muted-foreground">Pelanggan</div>
+                                        <div className="font-semibold text-slate-800">{lookedUpOrder.pelanggan_nama}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-muted-foreground">Total Tagihan</div>
+                                        <div className="font-mono text-slate-700 font-medium">{formatRupiah(lookedUpOrder.total_tagihan)}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-rose-600 font-medium">Batas Maksimal Refund</div>
+                                        <div className="font-mono text-rose-600 font-semibold">{formatRupiah(lookedUpOrder.max_refundable)}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <Label>Jenis Masalah</Label>
@@ -103,20 +187,63 @@ function CreateRefundDialog({ open, onOpenChange, jenisOptions }) {
                                 </Select>
                             </div>
                             <div>
-                                <Label>Jumlah Item</Label>
+                                <Label>Jumlah Item <span className="text-destructive">*</span></Label>
                                 <Input type="number" min={1} value={data.jumlah_item} onChange={(e) => handleNumberChange('jumlah_item', e.target.value)} className="mt-1.5" />
                             </div>
                         </div>
-                        <div>
-                            <Label>Nominal Refund <span className="text-destructive">*</span></Label>
-                            <Input type="number" min={0} value={data.nominal_refund} onChange={(e) => handleNumberChange('nominal_refund', e.target.value)} className="mt-1.5" />
-                            {data.nominal_refund > 0 && (
-                                <p className="mt-1 text-xs text-rose-600 font-semibold font-mono">
-                                    Format: {formatRupiah(data.nominal_refund)}
-                                </p>
-                            )}
-                            {errors.nominal_refund && <p className="text-xs text-destructive mt-1">{errors.nominal_refund}</p>}
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <Label>Nominal per Item <span className="text-destructive">*</span></Label>
+                                <Input type="number" min={0} value={nominalSatuan} onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '') {
+                                        setNominalSatuan('');
+                                    } else {
+                                        const parsed = parseInt(val, 10);
+                                        setNominalSatuan(isNaN(parsed) ? '' : parsed);
+                                    }
+                                }} className="mt-1.5" placeholder="Contoh: 150000" />
+                                {nominalSatuan > 0 && (
+                                    <p className="mt-1 text-xs text-muted-foreground font-mono">
+                                        Format: {formatRupiah(nominalSatuan)}
+                                    </p>
+                                )}
+                            </div>
+                            <div>
+                                <Label>Total Nominal Refund</Label>
+                                <Input type="text" readOnly disabled value={formatRupiah(data.nominal_refund || 0)} className="mt-1.5 bg-slate-100 font-mono font-semibold text-rose-600 cursor-not-allowed" />
+                                {errors.nominal_refund && <p className="text-xs text-destructive mt-1">{errors.nominal_refund}</p>}
+                            </div>
                         </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <Label>Bank Customer (Tujuan Transfer) <span className="text-destructive">*</span></Label>
+                                <Input 
+                                    type="text" 
+                                    value={data.customer_bank_name} 
+                                    onChange={(e) => setData('customer_bank_name', e.target.value)} 
+                                    className="mt-1.5 text-xs rounded-xl" 
+                                    placeholder="Contoh: BCA, MANDIRI" 
+                                    required
+                                />
+                                {errors.customer_bank_name && <p className="text-xs text-destructive mt-1">{errors.customer_bank_name}</p>}
+                            </div>
+                            <div>
+                                <Label>Nomor Rekening Customer <span className="text-destructive">*</span></Label>
+                                <Input 
+                                    type="text" 
+                                    value={data.customer_bank_account} 
+                                    onChange={(e) => setData('customer_bank_account', e.target.value)} 
+                                    className="mt-1.5 text-xs rounded-xl" 
+                                    placeholder="Masukkan nomor rekening..." 
+                                    required
+                                />
+                                {errors.customer_bank_account && <p className="text-xs text-destructive mt-1">{errors.customer_bank_account}</p>}
+                            </div>
+                        </div>
+
                         <div>
                             <Label>Alasan <span className="text-destructive">*</span></Label>
                             <Textarea value={data.alasan} onChange={(e) => setData('alasan', e.target.value)} rows={2} className="mt-1.5" />
@@ -230,6 +357,85 @@ function RejectDialog({ refund, open, onOpenChange }) {
     );
 }
 
+function PublishRefundDialog({ refund, bankAccounts, open, onOpenChange }) {
+    const { data, setData, post, processing, errors, reset } = useForm({ bank_id: '' });
+
+    useEffect(() => {
+        if (open && bankAccounts && bankAccounts.length > 0) {
+            const brandBanks = bankAccounts.filter(b => b.brand_id === refund?.brand_id);
+            if (brandBanks.length === 1) {
+                setData('bank_id', brandBanks[0].id);
+            } else if (brandBanks.length > 1) {
+                setData('bank_id', brandBanks[0].id);
+            } else {
+                setData('bank_id', bankAccounts[0].id);
+            }
+        }
+    }, [open, refund, bankAccounts]);
+
+    function submit(e) {
+        e.preventDefault();
+        post(route('refunds.publish', refund.id), {
+            preserveScroll: true,
+            onSuccess: () => { reset(); onOpenChange(false); },
+        });
+    }
+
+    const brandBanks = bankAccounts?.filter(b => b.brand_id === refund?.brand_id) || [];
+    const displayBanks = brandBanks.length > 0 ? brandBanks : (bankAccounts || []);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <form onSubmit={submit}>
+                    <DialogHeader>
+                        <DialogTitle>Terbitkan Refund {refund?.refund_number}</DialogTitle>
+                        <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                            Nominal refund <strong>{formatRupiah(refund?.nominal_refund)}</strong> akan mengurangi saldo PO <strong>{refund?.order?.no_po}</strong>.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 space-y-4">
+                        {(refund?.customer_bank_name || refund?.customer_bank_account) && (
+                            <div className="bg-slate-50 border rounded-xl p-3 space-y-1">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 block">Tujuan Transfer Customer:</span>
+                                <div className="text-xs text-slate-700 font-medium">
+                                    {refund?.customer_bank_name} &mdash; <span className="font-mono">{refund?.customer_bank_account}</span>
+                                </div>
+                            </div>
+                        )}
+                        
+                        <div className="space-y-1.5">
+                            <Label>Pilih Rekening Bank Brand (Pengirim Transfer) <span className="text-destructive">*</span></Label>
+                            <Select value={data.bank_id} onValueChange={(v) => setData('bank_id', v)}>
+                                <SelectTrigger className="w-full text-xs">
+                                    <SelectValue placeholder="Pilih rekening bank..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {displayBanks.map((b) => (
+                                        <SelectItem key={b.id} value={b.id}>
+                                            {b.bank} &mdash; {b.nomor_rekening} ({b.atas_nama})
+                                        </SelectItem>
+                                    ))}
+                                    {displayBanks.length === 0 && (
+                                        <SelectItem value="none" disabled>Tidak ada rekening aktif</SelectItem>
+                                    )}
+                                </SelectContent>
+                            </Select>
+                            {errors.bank_id && <p className="text-xs text-destructive mt-1">{errors.bank_id}</p>}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
+                        <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold" disabled={processing || !data.bank_id}>
+                            Terbitkan Refund
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function DetailRefundDialog({ refund, open, onOpenChange, can, onPublish, onReject }) {
     if (!refund) return null;
 
@@ -275,6 +481,23 @@ function DetailRefundDialog({ refund, open, onOpenChange, can, onPublish, onReje
                             <span className="text-sm font-semibold text-slate-700">{refund.brand?.nama_brand || refund.order?.brand?.nama_brand || '—'}</span>
                         </div>
                     </div>
+
+                    {/* Customer Bank Info (Tujuan Transfer Refund) */}
+                    {(refund.customer_bank_name || refund.customer_bank_account) && (
+                        <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-3.5 space-y-1.5">
+                            <span className="text-amber-800 font-bold block uppercase tracking-wider text-[9px]">Rekening Customer (Tujuan Transfer Refund):</span>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                    <span className="text-slate-500">Bank Customer:</span>
+                                    <span className="font-bold text-slate-800 block">{refund.customer_bank_name || '—'}</span>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500">Nomor Rekening:</span>
+                                    <span className="font-bold text-slate-800 block font-mono">{refund.customer_bank_account || '—'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="border-t pt-3 space-y-1.5">
                         <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Alasan Refund</span>
@@ -394,7 +617,101 @@ function DetailRefundDialog({ refund, open, onOpenChange, can, onPublish, onReje
     );
 }
 
-export default function RefundIndex({ refunds, all_filtered_refunds, brands, filters, statuses, jenis_options: jenisOptions, can }) {
+const StickyScrollbar = ({ targetRef, minWidth = '1000px' }) => {
+    const scrollbarRef = useRef(null);
+    const [show, setShow] = useState(false);
+    const [width, setWidth] = useState(minWidth);
+
+    useEffect(() => {
+        const target = targetRef.current;
+        if (!target) return;
+
+        let frameId = null;
+        const updateSize = () => {
+            if (frameId) cancelAnimationFrame(frameId);
+            frameId = requestAnimationFrame(() => {
+                const scrollWidth = target.scrollWidth;
+                const clientWidth = target.clientWidth;
+                const hasOverflow = scrollWidth > clientWidth;
+                setShow((prev) => (prev !== hasOverflow ? hasOverflow : prev));
+                setWidth((prev) => {
+                    const nextWidth = `${scrollWidth}px`;
+                    return prev !== nextWidth ? nextWidth : prev;
+                });
+            });
+        };
+
+        updateSize();
+        const resizeObserver = new ResizeObserver(updateSize);
+        resizeObserver.observe(target);
+
+        let isSyncingTarget = false;
+        let isSyncingScrollbar = false;
+
+        const handleTargetScroll = () => {
+            if (isSyncingScrollbar) {
+                isSyncingScrollbar = false;
+                return;
+            }
+            if (scrollbarRef.current) {
+                isSyncingTarget = true;
+                scrollbarRef.current.scrollLeft = target.scrollLeft;
+            }
+        };
+
+        const handleScrollbarScroll = () => {
+            if (isSyncingTarget) {
+                isSyncingTarget = false;
+                return;
+            }
+            if (scrollbarRef.current) {
+                isSyncingScrollbar = true;
+                target.scrollLeft = scrollbarRef.current.scrollLeft;
+            }
+        };
+
+        target.addEventListener('scroll', handleTargetScroll);
+        const scrollbarEl = scrollbarRef.current;
+        if (scrollbarEl) {
+            scrollbarEl.addEventListener('scroll', handleScrollbarScroll);
+        }
+
+        return () => {
+            if (frameId) cancelAnimationFrame(frameId);
+            resizeObserver.disconnect();
+            target.removeEventListener('scroll', handleTargetScroll);
+            if (scrollbarEl) {
+                scrollbarEl.removeEventListener('scroll', handleScrollbarScroll);
+            }
+        };
+    }, [targetRef]);
+
+    if (!show) return null;
+
+    return (
+        <>
+            <style>{`
+                .hide-scrollbar-x::-webkit-scrollbar {
+                    height: 0px;
+                    background: transparent;
+                }
+                .hide-scrollbar-x {
+                    scrollbar-width: none;
+                    -ms-overflow-style: none;
+                }
+            `}</style>
+            <div
+                ref={scrollbarRef}
+                className="sticky bottom-0 left-0 right-0 z-40 w-full overflow-x-auto bg-slate-50 border-t border-slate-200"
+                style={{ height: '12px' }}
+            >
+                <div style={{ width, height: '1px' }} />
+            </div>
+        </>
+    );
+};
+
+export default function RefundIndex({ refunds, all_filtered_refunds, brands, bank_accounts: bankAccounts, filters, statuses, jenis_options: jenisOptions, can }) {
     const [search, setSearch] = useState(filters?.q ?? '');
     const [status, setStatus] = useState(filters?.status ?? 'all');
     const [brandId, setBrandId] = useState(filters?.brand_id ?? 'all');
@@ -404,8 +721,10 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
     const [copied, setCopied] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
     const [rejecting, setRejecting] = useState(null);
+    const [publishing, setPublishing] = useState(null);
     const [selectedRefund, setSelectedRefund] = useState(null);
     const [showDatePanel, setShowDatePanel] = useState(!!(filters?.start_date || filters?.end_date));
+    const tableContainerRef = useRef(null);
 
     function applyFilters(overrides = {}) {
         router.get(route('refunds.index'), {
@@ -498,7 +817,7 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
     };
 
     const copyToClipboard = () => {
-        const headers = ['No Refund', 'No PO', 'Jenis Masalah', 'Nominal Refund', 'Diajukan Pada', 'Status'];
+        const headers = ['No Refund', 'No PO', 'Jenis Masalah', 'Nominal Refund', 'Diajukan Pada', 'Status', 'Bank Customer', 'Rekening Customer'];
         const rows = (all_filtered_refunds || []).map(ref => {
             return [
                 ref.refund_number || '',
@@ -506,7 +825,9 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
                 ref.jenis_masalah || '',
                 ref.nominal_refund || '0',
                 ref.created_at || '',
-                ref.status || ''
+                ref.status || '',
+                ref.customer_bank_name || '',
+                ref.customer_bank_account || ''
             ].join('\t');
         });
 
@@ -519,8 +840,7 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
     };
 
     function publish(refund) {
-        if (!confirm(`Terbitkan refund ${refund.refund_number}? Nominal akan jadi pengurangan pemasukan.`)) return;
-        router.post(route('refunds.publish', refund.id), {}, { preserveScroll: true });
+        setPublishing(refund);
     }
 
     return (
@@ -528,7 +848,7 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
             <Head title="Refund" />
 
             <div className="space-y-5">
-                <Card>
+                <Card className="border border-slate-150 shadow-sm overflow-hidden rounded-2xl">
                     <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <div className="flex items-center gap-2 text-xl font-semibold">
@@ -537,27 +857,29 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
                             <p className="text-sm text-muted-foreground">Pengajuan refund untuk PO bermasalah. Diterbitkan oleh Admin Keuangan.</p>
                         </div>
                         {can?.create && (
-                            <Button onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" /> Ajukan Refund</Button>
+                            <Button onClick={() => setCreateOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-md gap-1.5 flex items-center">
+                                <Plus className="h-4 w-4" /> Ajukan Refund
+                            </Button>
                         )}
                     </CardHeader>
-                    <CardContent>
-                        <div className="mb-6 space-y-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                    <CardContent className="p-6 pt-0">
+                        <div className="mb-6 space-y-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-sm">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
                                 {/* Search */}
                                 <div className="relative">
-                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                     <Input 
                                         placeholder="Cari no refund..." 
                                         value={search} 
                                         onChange={(e) => setSearch(e.target.value)} 
                                         onKeyDown={(e) => e.key === 'Enter' && applyFilters()} 
-                                        className="pl-9 bg-white" 
+                                        className="pl-9 bg-slate-50 border-slate-200 focus:bg-white text-xs rounded-xl" 
                                     />
                                 </div>
 
                                 {/* Brand Filter */}
                                 <Select value={brandId} onValueChange={(v) => { setBrandId(v); applyFilters({ brand_id: v }); }}>
-                                    <SelectTrigger className="bg-white"><SelectValue placeholder="Pilih Brand" /></SelectTrigger>
+                                    <SelectTrigger className="bg-slate-50 border-slate-200 text-xs rounded-xl"><SelectValue placeholder="Pilih Brand" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Semua Brand</SelectItem>
                                         {(brands || []).map((b) => (
@@ -568,7 +890,7 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
 
                                 {/* Status Filter */}
                                 <Select value={status} onValueChange={(v) => { setStatus(v); applyFilters({ status: v }); }}>
-                                    <SelectTrigger className="bg-white"><SelectValue placeholder="Status" /></SelectTrigger>
+                                    <SelectTrigger className="bg-slate-50 border-slate-200 text-xs rounded-xl"><SelectValue placeholder="Status" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Semua Status</SelectItem>
                                         {statuses.map((s) => (<SelectItem key={s} value={s}>{s.toUpperCase()}</SelectItem>))}
@@ -580,7 +902,7 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
                                     type="button" 
                                     variant={showDatePanel || startDate || endDate ? "secondary" : "outline"} 
                                     onClick={() => setShowDatePanel(!showDatePanel)}
-                                    className="bg-white hover:bg-slate-50 border flex justify-between items-center text-slate-700 font-medium w-full"
+                                    className="bg-slate-50 hover:bg-slate-100 border border-slate-200 flex justify-between items-center text-slate-700 font-medium w-full text-xs rounded-xl"
                                 >
                                     <span className="flex items-center gap-2">
                                         <Calendar className="h-4 w-4 text-slate-500" />
@@ -590,8 +912,8 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
 
                                 {/* Action Buttons (Terapkan & Reset) */}
                                 <div className="flex gap-2">
-                                    <Button className="flex-1" onClick={() => applyFilters()}>Filter</Button>
-                                    <Button variant="outline" onClick={() => {
+                                    <Button className="flex-1 text-xs font-bold rounded-xl" onClick={() => applyFilters()}>Filter</Button>
+                                    <Button variant="outline" className="text-xs font-semibold rounded-xl border-slate-200" onClick={() => {
                                         setSearch('');
                                         setStatus('all');
                                         setBrandId('all');
@@ -682,12 +1004,12 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
                                     variant="outline"
                                     onClick={copyToClipboard}
                                     disabled={!all_filtered_refunds || all_filtered_refunds.length === 0}
-                                    className="w-full lg:w-auto flex items-center justify-center gap-1.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800"
+                                    className="w-full lg:w-auto flex items-center justify-center gap-1.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 rounded-xl"
                                 >
                                     {copied ? (
                                         <>
                                             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                                            Berhasil Disalin ke Excel
+                                            Berhasil Disalin to Excel
                                         </>
                                     ) : (
                                         <>
@@ -699,17 +1021,17 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
                             </div>
                         </div>
 
-                        <div className="overflow-hidden rounded-lg border">
-                            <Table>
-                                <TableHeader>
+                        <div ref={tableContainerRef} className="overflow-auto max-h-[calc(100vh-320px)] rounded-lg border hide-scrollbar-x">
+                            <Table className="min-w-[1000px] border-collapse">
+                                <TableHeader className="bg-slate-50">
                                     <TableRow>
-                                        <TableHead>No. Refund</TableHead>
-                                        <TableHead>No. PO</TableHead>
-                                        <TableHead>Jenis</TableHead>
-                                        <TableHead className="text-right">Nominal</TableHead>
-                                        <TableHead>Diajukan</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">Aksi</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">No. Refund</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">No. PO</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Jenis</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right">Nominal</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Diajukan</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Status</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -780,6 +1102,7 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
                         </div>
                     </div>
                 </Card>
+                <StickyScrollbar targetRef={tableContainerRef} minWidth="1000px" />
             </div>
 
             <CreateRefundDialog open={createOpen} onOpenChange={setCreateOpen} jenisOptions={jenisOptions} />
@@ -794,6 +1117,15 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, fil
                 onPublish={publish} 
                 onReject={setRejecting} 
             />
+            {publishing && (
+                <PublishRefundDialog 
+                    key={publishing.id} 
+                    refund={publishing} 
+                    bankAccounts={bankAccounts} 
+                    open={!!publishing} 
+                    onOpenChange={(v) => !v && setPublishing(null)} 
+                />
+            )}
         </AppLayout>
     );
 }

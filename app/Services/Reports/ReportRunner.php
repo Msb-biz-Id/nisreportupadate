@@ -548,10 +548,15 @@ class ReportRunner
                     'return'   => 'Refund',
                     default    => 'Pengeluaran Lainnya',
                 };
+                $noDoc = $p->no_po;
+                if ($p->payment_type === 'cashback') {
+                    $cbNumber = str_replace('PO-', 'CB-', $p->no_po);
+                    $noDoc = "{$p->no_po} / {$cbNumber}";
+                }
                 return [
                     'tanggal' => $p->tanggal ? Carbon::parse($p->tanggal)->toDateString() : null,
                     'kategori' => $p->payment_type === 'cashback' ? 'Cashback PO' : 'Refund PO',
-                    'keterangan' => "{$label} PO {$p->no_po} — {$p->nama_po}",
+                    'keterangan' => "{$label} PO {$noDoc} — {$p->nama_po}",
                     'nominal' => (float) $p->nominal,
                     'sumber' => 'Otomatis',
                 ];
@@ -867,13 +872,46 @@ class ReportRunner
             ];
         }
 
-        $payments = OrderPayment::query()
+        $rawPayments = OrderPayment::query()
             ->whereIn('bank_id', $bankIds)
             ->whereBetween('payment_date', [$from, $to])
-            ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'bank:id,bank,nomor_rekening', 'bank.brand:id,nama_brand', 'masterJenisPembayaran:id,nama'])
-            ->orderByDesc('payment_date')
-            ->orderByDesc('created_at')
+            ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'bank:id,brand_id,bank,nomor_rekening,atas_nama', 'bank.brand:id,nama_brand', 'masterJenisPembayaran:id,nama'])
             ->get();
+
+        $grouped = $rawPayments->groupBy(function ($p) {
+            return $p->order_id ?? ('no_order_' . $p->id);
+        });
+
+        $sortedGroups = $grouped->map(function ($group) {
+            $sortedPayments = $group->sortBy(function ($p) {
+                $datePart = $p->payment_date ? $p->payment_date->toDateString() : '0000-00-00';
+                $timePart = $p->created_at ? $p->created_at->toDateTimeString() : '00:00:00';
+                return $datePart . '_' . $timePart;
+            })->values();
+
+            $latestPayment = $group->sortByDesc(function ($p) {
+                $datePart = $p->payment_date ? $p->payment_date->toDateString() : '0000-00-00';
+                $timePart = $p->created_at ? $p->created_at->toDateTimeString() : '00:00:00';
+                return $datePart . '_' . $timePart;
+            })->first();
+
+            $sortKey = ($latestPayment->payment_date ? $latestPayment->payment_date->toDateString() : '0000-00-00') . '_' . 
+                       ($latestPayment->created_at ? $latestPayment->created_at->toDateTimeString() : '0000-00-00 00:00:00');
+
+            return [
+                'payments' => $sortedPayments,
+                'sort_key' => $sortKey,
+            ];
+        });
+
+        $sortedGroups = $sortedGroups->sortByDesc('sort_key')->values();
+
+        $payments = collect();
+        foreach ($sortedGroups as $groupData) {
+            foreach ($groupData['payments'] as $p) {
+                $payments->push($p);
+            }
+        }
 
         $rows = $payments->map(function ($p) {
             $debit = $p->is_debit ? (float) $p->amount : 0.0;
@@ -894,11 +932,28 @@ class ReportRunner
                 default => ucfirst($tipeLabel)
             };
 
+            $docNumber = $p->order?->no_po ?? '-';
+            if ($p->payment_type === 'return') {
+                $refund = \App\Models\Order\Refund::where('order_id', $p->order_id)
+                    ->where('nominal_refund', $p->amount)
+                    ->first();
+                if ($refund) {
+                    $docNumber = "{$p->order?->no_po} / {$refund->refund_number}";
+                } else if ($p->notes && preg_match('/(REF-[A-Z0-9-]+)/i', $p->notes, $matches)) {
+                    $docNumber = "{$p->order?->no_po} / {$matches[1]}";
+                }
+            } elseif ($p->payment_type === 'cashback') {
+                if ($p->order?->no_po) {
+                    $cbNumber = str_replace('PO-', 'CB-', $p->order->no_po);
+                    $docNumber = "{$p->order->no_po} / {$cbNumber}";
+                }
+            }
+
             return [
                 'tanggal' => $p->payment_date?->toDateString(),
-                'bank_info' => $p->bank ? "{$p->bank->bank} - {$p->bank->nomor_rekening}" : 'CASH',
+                'bank_info' => $p->bank ? "{$p->bank->bank} - {$p->bank->nomor_rekening} (A.N. {$p->bank->atas_nama})" : 'CASH',
                 'brand_name' => $p->bank?->brand?->nama_brand ?? 'General',
-                'no_po' => $p->order?->no_po ?? '-',
+                'no_po' => $docNumber,
                 'pelanggan' => $p->order?->pelanggan?->nama ?? '-',
                 'tipe' => $tipeLabelClean,
                 'debit' => $debit,
@@ -1036,17 +1091,40 @@ class ReportRunner
                 'durasi_total' => $durasiTotal,
             ];
 
-            foreach ($progresses as $p) {
+            foreach ($progresses as $index => $p) {
                 $detail = $o->progressDetails->firstWhere('progress_id', $p->id);
                 $key = 'progress_' . strtolower(str_replace(' ', '_', $p->nama_progress));
                 
                 if ($detail) {
+                    // Estimate started_at if null to prevent displaying '-' for completed/active stages
+                    $estimatedStart = $detail->started_at;
+                    if (!$estimatedStart && in_array($detail->status, ['selesai', 'on_progress'], true)) {
+                        // Search backward to find completion of previous stage
+                        for ($i = $index - 1; $i >= 0; $i--) {
+                            $prevProgress = $progresses[$i];
+                            $prevDetail = $o->progressDetails->firstWhere('progress_id', $prevProgress->id);
+                            if ($prevDetail) {
+                                if ($prevDetail->status === 'selesai' && $prevDetail->completed_at) {
+                                    $estimatedStart = $prevDetail->completed_at;
+                                    break;
+                                }
+                                if ($prevDetail->status === 'skipped' && $prevDetail->updated_at) {
+                                    $estimatedStart = $prevDetail->updated_at;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!$estimatedStart) {
+                            $estimatedStart = $o->published_at ?? $o->tanggal_masuk;
+                        }
+                    }
+
                     if ($detail->status === 'selesai') {
-                        $row[$key] = $this->formatDuration($detail->started_at, $detail->completed_at);
+                        $row[$key] = $this->formatDuration($estimatedStart, $detail->completed_at);
                     } elseif ($detail->status === 'skipped') {
                         $row[$key] = 'Dilewati';
                     } elseif ($detail->status === 'on_progress') {
-                        $row[$key] = $this->formatDuration($detail->started_at, null, true);
+                        $row[$key] = $this->formatDuration($estimatedStart, null, true);
                     } else {
                         $row[$key] = '-';
                     }

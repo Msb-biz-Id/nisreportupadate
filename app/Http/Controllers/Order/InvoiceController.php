@@ -420,7 +420,36 @@ class InvoiceController extends Controller
             $query->where('tanggal_terbit', '<=', $endDate);
         }
 
-        $allFiltered = Invoice::query()
+        $paymentTypeFilter = $request->string('payment_type_filter')->toString();
+        if ($paymentTypeFilter) {
+            if ($paymentTypeFilter === 'cashback') {
+                $query->whereHas('order.payments', function ($q) {
+                    $q->whereNotNull('verified_at')
+                      ->where(function ($qp) {
+                          $qp->where('payment_type', 'cashback')
+                             ->orWhereHas('masterJenisPembayaran', fn($mj) => $mj->where('nama', 'Cashback'));
+                      });
+                });
+            } elseif ($paymentTypeFilter === 'refund') {
+                $query->whereHas('order.payments', function ($q) {
+                    $q->whereNotNull('verified_at')
+                      ->where(function ($qp) {
+                          $qp->whereIn('payment_type', ['return', 'refund'])
+                             ->orWhereHas('masterJenisPembayaran', fn($mj) => $mj->whereIn('nama', ['Refund', 'Return', 'Refurn']));
+                      });
+                });
+            } elseif ($paymentTypeFilter === 'normal') {
+                $query->whereDoesntHave('order.payments', function ($q) {
+                    $q->whereNotNull('verified_at')
+                      ->where(function ($qp) {
+                          $qp->whereIn('payment_type', ['cashback', 'return', 'refund'])
+                             ->orWhereHas('masterJenisPembayaran', fn($mj) => $mj->whereIn('nama', ['Cashback', 'Refund', 'Return', 'Refurn']));
+                      });
+                });
+            }
+        }
+
+        $allFilteredQuery = Invoice::query()
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
             ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn ($q) => $q->whereIn('brand_id', $userBrandIds))
             ->when($status = $request->string('status')->toString(), fn($q) => $q->where('status', $status))
@@ -431,19 +460,86 @@ class InvoiceController extends Controller
                 });
             })
             ->when($startDate = $request->string('start_date')->toString(), fn($q) => $q->where('tanggal_terbit', '>=', $startDate))
-            ->when($endDate = $request->string('end_date')->toString(), fn($q) => $q->where('tanggal_terbit', '<=', $endDate))
-            ->with(['order:id,no_po,pelanggan_id', 'order.pelanggan:id,nama'])
+            ->when($endDate = $request->string('end_date')->toString(), fn($q) => $q->where('tanggal_terbit', '<=', $endDate));
+
+        if ($paymentTypeFilter) {
+            if ($paymentTypeFilter === 'cashback') {
+                $allFilteredQuery->whereHas('order.payments', function ($q) {
+                    $q->whereNotNull('verified_at')
+                      ->where(function ($qp) {
+                          $qp->where('payment_type', 'cashback')
+                             ->orWhereHas('masterJenisPembayaran', fn($mj) => $mj->where('nama', 'Cashback'));
+                      });
+                });
+            } elseif ($paymentTypeFilter === 'refund') {
+                $allFilteredQuery->whereHas('order.payments', function ($q) {
+                    $q->whereNotNull('verified_at')
+                      ->where(function ($qp) {
+                          $qp->whereIn('payment_type', ['return', 'refund'])
+                             ->orWhereHas('masterJenisPembayaran', fn($mj) => $mj->whereIn('nama', ['Refund', 'Return', 'Refurn']));
+                      });
+                });
+            } elseif ($paymentTypeFilter === 'normal') {
+                $allFilteredQuery->whereDoesntHave('order.payments', function ($q) {
+                    $q->whereNotNull('verified_at')
+                      ->where(function ($qp) {
+                          $qp->whereIn('payment_type', ['cashback', 'return', 'refund'])
+                             ->orWhereHas('masterJenisPembayaran', fn($mj) => $mj->whereIn('nama', ['Cashback', 'Refund', 'Return', 'Refurn']));
+                      });
+                });
+            }
+        }
+
+        $allFiltered = $allFilteredQuery->with([
+                'order:id,no_po,pelanggan_id,total_tagihan', 
+                'order.pelanggan:id,nama',
+                'order.payments.masterJenisPembayaran'
+            ])
             ->orderByDesc('created_at')
             ->get(['id', 'invoice_number', 'order_id', 'tanggal_terbit', 'total_tagihan', 'sisa_pembayaran', 'status'])
-            ->map(fn ($inv) => [
-                'invoice_number' => $inv->invoice_number,
-                'no_po' => $inv->order?->no_po ?? '—',
-                'pelanggan' => $inv->order?->pelanggan?->nama ?? '—',
-                'tanggal_terbit' => $inv->tanggal_terbit,
-                'total_tagihan' => $inv->total_tagihan,
-                'sisa_pembayaran' => $inv->sisa_pembayaran,
-                'status' => $inv->status,
-            ]);
+            ->map(function ($inv) {
+                $payments = $inv->order?->payments ?? collect();
+                
+                $cashback = $payments
+                    ->filter(fn($p) => $p->verified_at !== null && ($p->payment_type === 'cashback' || ($p->masterJenisPembayaran && $p->masterJenisPembayaran->nama === 'Cashback')))
+                    ->sum('amount');
+                    
+                $refund = $payments
+                    ->filter(fn($p) => $p->verified_at !== null && (
+                        $p->payment_type === 'return' || 
+                        $p->payment_type === 'refund' ||
+                        ($p->masterJenisPembayaran && in_array($p->masterJenisPembayaran->nama, ['Refund', 'Return', 'Refurn']))
+                    ))
+                    ->sum('amount');
+
+                $grossPaid = $payments
+                    ->filter(fn($p) => $p->verified_at !== null)
+                    ->reduce(function ($sum, $p) {
+                        $amt = (float)$p->amount;
+                        $isDeduction = in_array($p->payment_type, ['cashback', 'return', 'refund']) || 
+                            ($p->masterJenisPembayaran && in_array($p->masterJenisPembayaran->nama, ['Cashback', 'Refund', 'Return', 'Refurn'])) ||
+                            ($p->is_debit === false);
+                        return !$isDeduction ? $sum + $amt : $sum;
+                    }, 0.0);
+
+                $totalPaid = $grossPaid - $cashback - $refund;
+                $totalTagihan = (float)$inv->total_tagihan;
+                $sisa = $totalTagihan - $totalPaid;
+
+                return [
+                    'invoice_number' => $inv->invoice_number,
+                    'no_po' => $inv->order?->no_po ?? '—',
+                    'pelanggan' => $inv->order?->pelanggan?->nama ?? '—',
+                    'tanggal_terbit' => $inv->tanggal_terbit,
+                    'total_tagihan' => $totalTagihan,
+                    'cashback' => $cashback,
+                    'refund' => $refund,
+                    'gross_terbayar' => $grossPaid,
+                    'neto_terbayar' => $totalPaid,
+                    'sisa_selisih' => $sisa,
+                    'status' => $inv->status,
+                ];
+            });
 
         $invoices = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
 
@@ -512,6 +608,7 @@ class InvoiceController extends Controller
                 'brand_id' => $selectedBrandId,
                 'start_date' => $request->string('start_date')->toString(),
                 'end_date' => $request->string('end_date')->toString(),
+                'payment_type_filter' => $paymentTypeFilter,
             ],
             'statuses' => Invoice::STATUSES,
             'can' => [

@@ -79,6 +79,8 @@ class RefundController extends Controller
             'nominal_refund' => $ref->nominal_refund,
             'created_at' => $ref->created_at->toDateString(),
             'status' => $ref->status,
+            'customer_bank_name' => $ref->customer_bank_name,
+            'customer_bank_account' => $ref->customer_bank_account,
         ]);
 
         $perPage = in_array((int) $request->input('per_page', 15), [10, 15, 25, 50, 100])
@@ -91,10 +93,37 @@ class RefundController extends Controller
             ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
             : $user->brands()->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode']);
 
+        $rawBankAccounts = \App\Models\Master\BankAccount::where('is_active', true)
+            ->get(['id', 'bank', 'atas_nama', 'nomor_rekening', 'brand_id']);
+
+        $userBrandIds = $isAllBrandsRole
+            ? $brands->pluck('id')->toArray()
+            : $user->brands->pluck('id')->toArray();
+
+        $bankAccounts = collect();
+        foreach ($brands as $brand) {
+            $brandId = $brand->id;
+            $masterBrandId = \App\Support\BrandContext::masterDataId($request, $brandId);
+
+            foreach ($rawBankAccounts as $bank) {
+                if ($bank->brand_id === $brandId) {
+                    $bankAccounts->push($bank);
+                } elseif ($masterBrandId && $bank->brand_id === $masterBrandId) {
+                    $cloned = clone $bank;
+                    $cloned->brand_id = $brandId;
+                    $bankAccounts->push($cloned);
+                }
+            }
+        }
+        $bankAccounts = $bankAccounts->unique(function ($item) {
+            return $item->id . '-' . $item->brand_id;
+        })->values();
+
         return Inertia::render('Finance/RefundIndex', [
             'refunds' => $refunds,
             'all_filtered_refunds' => $allFiltered,
             'brands' => $brands,
+            'bank_accounts' => $bankAccounts,
             'filters' => [
                 'q' => $request->string('q')->toString(),
                 'status' => $request->string('status')->toString(),
@@ -174,12 +203,16 @@ class RefundController extends Controller
             'nominal_refund'=> ['required', 'numeric', 'min:0'],
             'catatan'       => ['nullable', 'string'],
             'bukti_files.*' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
+            'customer_bank_name'    => ['required', 'string', 'max:255'],
+            'customer_bank_account' => ['required', 'string', 'max:255'],
         ], [
             'order_id.exists'   => 'Nomor PO, Link PO, atau UUID PO tidak ditemukan dalam sistem.',
             'order_id.required' => 'Nomor PO, Link PO, atau UUID PO wajib diisi.',
             'order_id.uuid'     => 'Format PO ID tidak valid.',
             'bukti_files.*.mimes' => 'File bukti harus berformat jpg, png, webp, atau pdf.',
             'bukti_files.*.max'   => 'Ukuran file maksimal 10 MB.',
+            'customer_bank_name.required' => 'Bank Customer (Tujuan Transfer) wajib diisi.',
+            'customer_bank_account.required' => 'Nomor Rekening Customer wajib diisi.',
         ]);
 
         $order = Order::findOrFail($data['order_id']);
@@ -245,6 +278,8 @@ class RefundController extends Controller
             'refund_number' => $this->numbers->generateRefundNumber($order->brand),
             'status'        => 'pending_review',
             'created_by'    => $request->user()->id,
+            'customer_bank_name'    => $data['customer_bank_name'],
+            'customer_bank_account' => $data['customer_bank_account'],
         ]);
 
         return back()->with('success', 'Refund berhasil diajukan dan menunggu review keuangan.');
@@ -259,10 +294,17 @@ class RefundController extends Controller
         );
         abort_unless(in_array($refund->status, ['pending_review', 'approved'], true), 422);
 
+        $data = $request->validate([
+            'bank_id' => ['required', 'uuid', 'exists:bank_accounts,id'],
+        ], [
+            'bank_id.required' => 'Rekening Bank Pengirim (Brand) wajib dipilih.',
+        ]);
+
         $refund->update([
             'status' => 'published',
             'published_by' => $request->user()->id,
             'published_at' => now(),
+            'bank_id' => $data['bank_id'],
         ]);
 
         \App\Services\ActivityLogger::log('publish', 'refund', $refund, "Terbitkan refund {$refund->refund_number}");
@@ -290,5 +332,67 @@ class RefundController extends Controller
         ]);
 
         return back()->with('info', 'Refund ditolak. Pengaju dapat revisi dan ajukan ulang.');
+    }
+
+    public function lookupOrder(Request $request)
+    {
+        $user = $request->user();
+        $orderInput = trim($request->input('query'));
+        if (!$orderInput) {
+            return response()->json(['success' => false, 'message' => 'Query wajib diisi.']);
+        }
+
+        if (filter_var($orderInput, FILTER_VALIDATE_URL)) {
+            $path = parse_url($orderInput, PHP_URL_PATH);
+            $segments = explode('/', trim($path, '/'));
+            $orderInput = end($segments);
+        }
+
+        $order = null;
+        if (\Illuminate\Support\Str::isUuid($orderInput)) {
+            $order = Order::with(['items', 'pelanggan'])->find($orderInput);
+        } else {
+            $order = Order::with(['items', 'pelanggan'])->where('no_po', $orderInput)->first();
+            if (!$order) {
+                $order = Order::with(['items', 'pelanggan'])->where('no_po', 'like', "%{$orderInput}%")->first();
+            }
+        }
+
+        if (!$order) {
+            return response()->json(['success' => false, 'message' => 'PO tidak ditemukan dalam sistem.']);
+        }
+
+        if (!$user->hasAccessToBrand($order->brand_id)) {
+            return response()->json(['success' => false, 'message' => 'Anda tidak memiliki akses ke PO dari brand ini.']);
+        }
+
+        if ($order->isDraft()) {
+            return response()->json(['success' => false, 'message' => 'PO draft tidak bisa di-refund.']);
+        }
+
+        $existingRefundsSum = Refund::where('order_id', $order->id)
+            ->whereIn('status', ['pending_review', 'approved', 'published'])
+            ->sum('nominal_refund');
+
+        $maxRefundable = max(0, $order->total_tagihan - $existingRefundsSum);
+
+        return response()->json([
+            'success' => true,
+            'order' => [
+                'id' => $order->id,
+                'no_po' => $order->no_po,
+                'nama_po' => $order->nama_po,
+                'pelanggan_nama' => $order->pelanggan?->nama ?? '—',
+                'total_tagihan' => (float)$order->total_tagihan,
+                'max_refundable' => $maxRefundable,
+                'items' => $order->items->map(fn($item) => [
+                    'id' => $item->id,
+                    'nama_produk' => $item->nama_produk,
+                    'quantity' => (int)$item->quantity,
+                    'harga_satuan' => (float)$item->harga_satuan,
+                    'subtotal' => (float)$item->subtotal,
+                ])
+            ]
+        ]);
     }
 }

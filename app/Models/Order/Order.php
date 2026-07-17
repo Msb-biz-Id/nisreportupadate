@@ -204,6 +204,14 @@ class Order extends Model
         return max(0, $pemasukan + $dp + $pelunasan + $ongkir + $tambahan + $lainnya - $pengeluaran - $return - $cashback);
     }
 
+    public function totalRijek(): float
+    {
+        if (!$this->relationLoaded('rijeks')) {
+            $this->load('rijeks');
+        }
+        return (float) $this->rijeks->sum('biaya_ganti');
+    }
+
     public function totalReceived(): float
     {
         if (!$this->relationLoaded('payments') || $this->payments->contains(fn($p) => !$p->relationLoaded('masterJenisPembayaran'))) {

@@ -152,6 +152,7 @@ class SystemEventNotification extends Notification implements ShouldQueue
         }
 
         return match ($this->eventKey) {
+            'special_order_created' => 'Special Order Baru Dibuat',
             'order_published' => 'PO Baru Diterbitkan',
             'order_completed' => 'PO Selesai',
             'progress_updated' => 'Progress PO Diperbarui',
@@ -203,6 +204,7 @@ class SystemEventNotification extends Notification implements ShouldQueue
         }
 
         return match ($this->eventKey) {
+            'special_order_created' => "PO {$noPo} ({$brandNama}) ditandai sebagai Special Order dan membutuhkan bypass DP.",
             'order_published' => "PO {$noPo} dari Brand {$brandNama} baru saja diterbitkan.",
             'order_completed' => "PO {$noPo} dari Brand {$brandNama} telah diselesaikan.",
             'progress_updated' => "Progress PO {$noPo} ({$brandNama}) pada tahapan {$stage} telah diperbarui.",
@@ -229,6 +231,7 @@ class SystemEventNotification extends Notification implements ShouldQueue
         }
 
         return match ($this->eventKey) {
+            'special_order_created' => '⭐',
             'order_published' => '📦',
             'order_completed' => '✅',
             'progress_updated' => '⚙️',

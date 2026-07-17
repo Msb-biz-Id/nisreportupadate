@@ -22,7 +22,7 @@ class ProductionController extends Controller
     {
         Gate::authorize('order.view');
         $user    = $request->user();
-        $brandId = match(true) {
+        $brandId = match (true) {
             $user->hasRole('admin_reseller') => BrandContext::effectiveBrandIds($request),
             $user->hasRole('admin_produksi') => null, // lintas-brand: tampil semua
             default                          => BrandContext::current($request),
@@ -74,7 +74,7 @@ class ProductionController extends Controller
                 'status_label'     => $statusLabels[$order->status_po] ?? $order->status_po,
                 'color'            => $statusColors[$order->status_po] ?? '#94A3B8',
                 'tanggal_masuk'    => $order->tanggal_masuk ? \Carbon\Carbon::parse((string) $order->tanggal_masuk)->format('Y-m-d') : null,
-                'deadline_customer'=> $order->deadline_customer ? \Carbon\Carbon::parse((string) $order->deadline_customer)->format('Y-m-d') : null,
+                'deadline_customer' => $order->deadline_customer ? \Carbon\Carbon::parse((string) $order->deadline_customer)->format('Y-m-d') : null,
                 'start'            => $start ? \Carbon\Carbon::parse((string) $start)->format('Y-m-d') : null,
                 'end'              => $end ? \Carbon\Carbon::parse((string) $end)->format('Y-m-d') : null,
                 'days_remaining'   => $order->deadline_customer
@@ -95,7 +95,7 @@ class ProductionController extends Controller
     {
         Gate::authorize('order.view');
         $user    = $request->user();
-        $brandId = match(true) {
+        $brandId = match (true) {
             $user->hasRole('admin_reseller') => BrandContext::effectiveBrandIds($request),
             $user->hasRole('admin_produksi') => null, // lintas-brand: tampil semua
             default                          => BrandContext::current($request),
@@ -114,7 +114,7 @@ class ProductionController extends Controller
                 'paketOrder:id,nama,warna,prioritas',
                 'progressDetails.progress'
             ])
-            ->withCount(['rijeks as has_rijek' => fn ($q) => $q->whereNull('resolved_at')])
+            ->withCount(['rijeks as has_rijek' => fn($q) => $q->whereNull('resolved_at')])
             ->withSum('items', 'quantity')
             ->orderBy($deadlineCol)
             ->get();
@@ -139,8 +139,8 @@ class ProductionController extends Controller
 
             // Find active stages (status === 'on_progress')
             $activeStages = $order->progressDetails
-                ->filter(fn ($d) => $d->status === 'on_progress')
-                ->map(fn ($d) => [
+                ->filter(fn($d) => $d->status === 'on_progress')
+                ->map(fn($d) => [
                     'nama' => $d->progress?->nama_progress,
                     'warna' => $d->progress?->warna,
                 ])
@@ -150,8 +150,8 @@ class ProductionController extends Controller
             if (empty($activeStages)) {
                 if ($status === 'on_progress' || $status === 'delay') {
                     $firstPending = $order->progressDetails
-                        ->filter(fn ($d) => $d->status === 'pending')
-                        ->sortBy(fn ($d) => $d->progress?->urutan ?? 0)
+                        ->filter(fn($d) => $d->status === 'pending')
+                        ->sortBy(fn($d) => $d->progress?->urutan ?? 0)
                         ->first();
                     if ($firstPending) {
                         $activeStages[] = [
@@ -230,9 +230,13 @@ class ProductionController extends Controller
         ]);
 
         $this->statusManager->updateProgressDetail(
-            $order, $detail, $data['status'],
-            $data['catatan'] ?? null, $data['kendala'] ?? null,
-            $data['skipped_reason'] ?? null, $request->user()
+            $order,
+            $detail,
+            $data['status'],
+            $data['catatan'] ?? null,
+            $data['kendala'] ?? null,
+            $data['skipped_reason'] ?? null,
+            $request->user()
         );
 
         if ($isSending && $data['status'] === 'selesai') {
@@ -287,9 +291,13 @@ class ProductionController extends Controller
             }
 
             $this->statusManager->updateProgressDetail(
-                $order, $detail, $data['status'],
-                $data['catatan'] ?? null, $data['kendala'] ?? null,
-                $data['skipped_reason'] ?? null, $request->user()
+                $order,
+                $detail,
+                $data['status'],
+                $data['catatan'] ?? null,
+                $data['kendala'] ?? null,
+                $data['skipped_reason'] ?? null,
+                $request->user()
             );
 
             if ($isSending && $data['status'] === 'selesai') {

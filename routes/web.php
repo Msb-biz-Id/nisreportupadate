@@ -193,6 +193,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Phase 3: Finance — Refund
     Route::prefix('refunds')->name('refunds.')->group(function () {
+        Route::get('/lookup-order', [RefundController::class, 'lookupOrder'])->name('lookup-order');
         Route::get('/', [RefundController::class, 'index'])->name('index');
         Route::post('/', [RefundController::class, 'store'])->name('store');
         Route::post('/{refund}/publish', [RefundController::class, 'publish'])->name('publish');

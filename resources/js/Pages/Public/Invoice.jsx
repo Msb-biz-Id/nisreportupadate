@@ -100,7 +100,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
             </Head>
             <div className="min-h-screen bg-slate-50/50 px-4 py-8 md:py-12">
                 <div className="mx-auto max-w-4xl space-y-6">
-                    
+
                     {/* Public Header Bar */}
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border shadow-sm">
                         <div className="flex items-center gap-3">
@@ -140,7 +140,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                     {/* Master Invoice Card */}
                     <div className="overflow-hidden rounded-3xl border border-slate-150 bg-white shadow-lg">
                         {/* Brand Banner Accent */}
-                        <div 
+                        <div
                             className="h-3"
                             style={{ background: brand.warna_primary || '#4F46E5' }}
                         ></div>
@@ -150,14 +150,14 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                             <div className="flex items-start gap-4">
                                 {brand.logo ? (
                                     <div className="h-20 w-20 overflow-hidden rounded-2xl border bg-white flex items-center justify-center p-2 shadow-sm">
-                                        <img 
-                                            src={`/storage/${brand.logo}`} 
-                                            alt={brand.nama_brand} 
+                                        <img
+                                            src={`/storage/${brand.logo}`}
+                                            alt={brand.nama_brand}
                                             className="h-full w-full object-contain"
                                         />
                                     </div>
                                 ) : (
-                                    <div 
+                                    <div
                                         className="h-20 w-20 rounded-2xl flex items-center justify-center font-black text-white text-2xl shadow-md"
                                         style={{ background: brand.warna_primary || '#4F46E5' }}
                                     >
@@ -177,7 +177,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                             {brand.no_hp && <div><span className="font-bold text-slate-500">WA/Telp:</span> {brand.no_hp}</div>}
                                             {brand.email && <div><span className="font-bold text-slate-500">Email:</span> {brand.email}</div>}
                                         </div>
-                                        
+
                                         {/* Social Media & Website Info */}
                                         <div className="flex flex-wrap gap-2 pt-1">
                                             {brand.website && (
@@ -391,8 +391,8 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                             </tr>
                                         ) : (
                                             payments.map((p) => {
-                                                const isDebit = [ 'dp', 'pelunasan', 'tambahan_produk', 'ongkir' ].includes(p.payment_type);
-                                                
+                                                const isDebit = ['dp', 'pelunasan', 'tambahan_produk', 'ongkir'].includes(p.payment_type);
+
                                                 let displayType = p.master_jenis_pembayaran?.nama?.toUpperCase() ?? p.payment_type.toUpperCase();
                                                 if (p.payment_type === 'dp') {
                                                     displayType = `DP SEQUENCE (DP #${p.dp_sequence || '1'})`;
@@ -423,7 +423,16 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                                             </div>
                                                         </td>
                                                         <td className="py-3 px-4 font-medium text-slate-600">
-                                                            {p.bank ? `${p.bank.bank} — ${p.bank.nomor_rekening}` : '—'}
+                                                            {p.customer_bank_name || p.customer_bank_account ? (
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-semibold text-slate-800">{p.customer_bank_name || '—'}</span>
+                                                                    <span className="text-[10px] text-slate-500 font-mono">{p.customer_bank_account || '—'}</span>
+                                                                </div>
+                                                            ) : p.bank ? (
+                                                                `${p.bank.bank} — ${p.bank.nomor_rekening}`
+                                                            ) : (
+                                                                '—'
+                                                            )}
                                                         </td>
                                                         <td className={`py-3 px-4 text-right font-mono font-bold ${isDebit ? 'text-emerald-600' : 'text-red-600'}`}>
                                                             {isDebit ? '+' : '-'} {formatRupiah(p.amount)}
@@ -543,16 +552,38 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                 </div>
 
                                 {totalReceived > 0 && (
-                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
-                                        <span>Total Pembayaran</span>
-                                        <span className="font-mono">- {formatRupiah(totalReceived)}</span>
+                                    <div className="flex justify-between items-center text-xs text-slate-700 font-bold">
+                                        <span>Total Terbayar</span>
+                                        <span className="font-mono">{formatRupiah(totalReceived)}</span>
+                                    </div>
+                                )}
+
+                                {returnSum > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-rose-600 font-bold">
+                                        <span>Refund</span>
+                                        <span className="font-mono">- {formatRupiah(returnSum)}</span>
+                                    </div>
+                                )}
+
+                                {cashbackSum > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-rose-600 font-bold">
+                                        <span>Cashback</span>
+                                        <span className="font-mono">- {formatRupiah(cashbackSum)}</span>
+                                    </div>
+                                )}
+
+                                {(returnSum > 0 || cashbackSum > 0) && (
+                                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold border-t border-dashed pt-2 border-slate-150">
+                                        <span>Neto Pembayaran</span>
+                                        <span className="font-mono">{formatRupiah(totalReceived - returnSum - cashbackSum)}</span>
                                     </div>
                                 )}
 
                                 {(() => {
-                                    const calculatedSisa = Math.max(0, grossInvoiceTotal - totalReceived);
+                                    const netPayment = totalReceived - returnSum - cashbackSum;
+                                    const calculatedSisa = Math.max(0, grossInvoiceTotal - netPayment);
                                     return (
-                                        <div 
+                                        <div
                                             className={`flex justify-between items-center border-t border-slate-200 pt-3 text-lg font-black ${
                                                 calculatedSisa > 0 ? 'text-rose-600' : 'text-emerald-600'
                                             }`}

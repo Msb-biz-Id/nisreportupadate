@@ -97,7 +97,8 @@ export default function NotificationDropdown({ notifications, unreadCount, onMar
                                     notif.is_read ? "bg-gray-50 text-gray-400" : "bg-white text-red-600 border-red-100"
                                 )}>
                                     <span className="text-sm">
-                                        {notif.type?.includes('refund') ? '🪙' : 
+                                        {notif.type?.includes('special_order') ? '⭐' :
+                                         notif.type?.includes('refund') ? '🪙' : 
                                          notif.type?.includes('rijek') ? '⚠️' : 
                                          notif.type?.includes('progress') ? '⚙️' : '📦'}
                                     </span>

@@ -165,6 +165,14 @@ export default function NotificationsIndex({ notifications, filters, unread_coun
     // Resolve beautiful details based on notification type
     const getNotificationTypeDetails = (type) => {
         const t = type.toLowerCase();
+        if (t.includes('special_order') || t.includes('special')) {
+            return {
+                icon: <Sparkles className="h-4 w-4" />,
+                iconBg: 'bg-purple-50 border-purple-200 text-purple-600 dark:bg-purple-950/30 dark:border-purple-900/50 dark:text-purple-400',
+                badgeText: 'Special Order',
+                badgeVariant: 'secondary'
+            };
+        }
         if (t.includes('refund')) {
             return {
                 icon: <ArrowRightLeft className="h-4 w-4" />,

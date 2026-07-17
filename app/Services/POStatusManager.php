@@ -61,6 +61,9 @@ class POStatusManager
             }
             if ($newStatus === 'selesai') {
                 $detail->completed_at = now();
+                if (!$detail->started_at) {
+                    $detail->started_at = now();
+                }
             }
             $detail->save();
 
@@ -151,7 +154,7 @@ class POStatusManager
         }
     }
 
-    public function logChange(Order $order, User $user, string $reason, string $field, $oldValue, $newValue): void
+    public function logChange(Order $order, User $user, string $reason, string $field, mixed $oldValue, mixed $newValue): void
     {
         POChangeLog::create([
             'order_id' => $order->id,

@@ -474,6 +474,15 @@ class OrderController extends Controller
             return $order;
         });
 
+        if ($order->is_special_order) {
+            \App\Services\Notifications\IdealNotificationService::dispatch('special_order_created', [
+                'no_po' => $order->no_po,
+                'brand_id' => $order->brand_id,
+                'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
+                'action_url' => "/orders/{$order->id}"
+            ]);
+        }
+
         return redirect()->route('orders.show', $order->id)->with('success', 'PO draft berhasil dibuat.');
     }
 
@@ -486,6 +495,7 @@ class OrderController extends Controller
             abort(403, 'PO ter-lock');
         }
 
+        $wasSpecial = (bool) $order->is_special_order;
         $data = $this->validatePayload($request);
         $user = $request->user();
 
@@ -574,6 +584,15 @@ class OrderController extends Controller
             $newSnapshot = $versionManager->buildSnapshot($order);
             $versionManager->logChanges($order, $user, $oldSnapshot, $newSnapshot, $changeReason);
         });
+
+        if ($order->is_special_order && ! $wasSpecial) {
+            \App\Services\Notifications\IdealNotificationService::dispatch('special_order_created', [
+                'no_po' => $order->no_po,
+                'brand_id' => $order->brand_id,
+                'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
+                'action_url' => "/orders/{$order->id}"
+            ]);
+        }
 
         return redirect()->route('orders.show', $order->id)->with('success', 'PO berhasil diperbarui.');
     }
@@ -1124,6 +1143,11 @@ class OrderController extends Controller
             'dp_bypassed_by' => $enabling ? $user->id : null,
             'dp_bypassed_at' => $enabling ? now()      : null,
         ]);
+
+        $logMsg = $enabling
+            ? "Melakukan bypass minimal DP untuk PO {$order->no_po}"
+            : "Membatalkan bypass minimal DP untuk PO {$order->no_po}";
+        \App\Services\ActivityLogger::log('bypass_dp', 'order', $order, $logMsg);
 
         $msg = $enabling
             ? 'Bypass DP diaktifkan. Admin Brand sekarang dapat menerbitkan PO meskipun DP belum ' . number_format(($order->brand?->min_dp_percentage ?? 0.5) * 100, 0) . '%.'

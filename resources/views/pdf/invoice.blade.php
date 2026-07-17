@@ -438,6 +438,8 @@ $primaryColor = $invoice->brand?->warna_primary
                                 $displayType = 'DP SEQUENCE (DP #' . ($p->dp_sequence ?? '1') . ')';
                             } elseif ($p->payment_type === 'tambahan_produk') {
                                 $displayType = 'TAMBAHAN PRODUK';
+                            } elseif (in_array($p->payment_type, ['return', 'refurn', 'refund'])) {
+                                $displayType = 'REFUND';
                             }
                         @endphp
                         <tr style="border-bottom: 1px solid #e5e7eb;">
@@ -449,7 +451,14 @@ $primaryColor = $invoice->brand?->warna_primary
                                 @endif
                             </td>
                             <td style="padding: 6px 8px; color: #4b5563;">
-                                {{ $p->bank ? $p->bank->bank . ' — ' . $p->bank->nomor_rekening : '—' }}
+                                @if ($p->customer_bank_name || $p->customer_bank_account)
+                                    <div style="font-weight: bold; color: #1f2937;">{{ $p->customer_bank_name ?? '—' }}</div>
+                                    <div style="font-size: 7.5pt; color: #6b7280; font-family: monospace;">{{ $p->customer_bank_account ?? '—' }}</div>
+                                @elseif ($p->bank)
+                                    {{ $p->bank->bank }} — {{ $p->bank->nomor_rekening }}
+                                @else
+                                    —
+                                @endif
                             </td>
                             <td class="{{ $isDebit ? 'text-green' : 'text-red' }}" style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: bold; white-space: nowrap;">
                                 {{ $isDebit ? '+' : '-' }} Rp {{ number_format($p->amount, 0, ',', '.') }}
@@ -589,15 +598,36 @@ $primaryColor = $invoice->brand?->warna_primary
 
                     @if ($totalReceived > 0)
                     <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Total Pembayaran</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">- Rp {{ number_format($totalReceived, 0, ',', '.') }}</td>
+                        <td style="padding: 4px 0; color: #6B7280;">Total Terbayar</td>
+                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #1F2937; font-weight: bold;">Rp {{ number_format($totalReceived, 0, ',', '.') }}</td>
+                    </tr>
+                    @endif
+
+                    @if ($returnSum > 0)
+                    <tr>
+                        <td style="padding: 4px 0; color: #6B7280;">Refund</td>
+                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #DC2626;">- Rp {{ number_format($returnSum, 0, ',', '.') }}</td>
+                    </tr>
+                    @endif
+
+                    @if ($cashbackSum > 0)
+                    <tr>
+                        <td style="padding: 4px 0; color: #6B7280;">Cashback</td>
+                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #DC2626;">- Rp {{ number_format($cashbackSum, 0, ',', '.') }}</td>
+                    </tr>
+                    @endif
+
+                    @if ($returnSum > 0 || $cashbackSum > 0)
+                    <tr>
+                        <td style="padding: 4px 0; font-weight: bold; color: #059669;">Neto Pembayaran</td>
+                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">Rp {{ number_format($totalReceived - $returnSum - $cashbackSum, 0, ',', '.') }}</td>
                     </tr>
                     @endif
 
                     <!-- Sisa -->
                     <tr style="border-top: 2px solid #1F2937;">
                         <td style="padding: 8px 0; font-weight: bold; font-size: 11pt; color: #111827;">SISA</td>
-                        <td style="padding: 8px 0; text-align: right; font-family: monospace; font-weight: bold; font-size: 11.5pt; color: #DC2626;">Rp {{ number_format(max(0, $grossInvoiceTotal - $totalReceived), 0, ',', '.') }}</td>
+                        <td style="padding: 8px 0; text-align: right; font-family: monospace; font-weight: bold; font-size: 11.5pt; color: #DC2626;">Rp {{ number_format(max(0, $grossInvoiceTotal - ($totalReceived - $returnSum - $cashbackSum)), 0, ',', '.') }}</td>
                     </tr>
                 </table>
 

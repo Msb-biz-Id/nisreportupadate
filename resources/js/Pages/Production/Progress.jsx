@@ -499,7 +499,7 @@ export default function ProgressPage({ order, can }) {
                                                     <span className="capitalize">{r.jenis}</span>
                                                     <Badge variant={
                                                         r.tingkat === 'berat' ? 'destructive' :
-                                                        r.tingkat === 'sedang' ? 'warning' : 'outline'
+                                                            r.tingkat === 'sedang' ? 'warning' : 'outline'
                                                     } className="text-[10px] py-0 px-1.5 uppercase font-semibold">
                                                         {r.tingkat}
                                                     </Badge>
