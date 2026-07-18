@@ -108,6 +108,7 @@ $primaryColor = $invoice->brand?->warna_primary
             display: table;
             width: 100%;
             margin-bottom: 16px;
+            table-layout: fixed;
         }
 
         .info-grid>div {
@@ -115,6 +116,8 @@ $primaryColor = $invoice->brand?->warna_primary
             width: 50%;
             vertical-align: top;
             padding-right: 12px;
+            word-wrap: break-word;
+            word-break: break-all;
         }
 
         .info-label {
