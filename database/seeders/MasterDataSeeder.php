@@ -424,15 +424,34 @@ class MasterDataSeeder extends Seeder
 
     private function seedJenisMasalah(): void
     {
-        $items = [
-            'produk_cacat', 'ukuran_salah', 'warna_tidak_sesuai',
-            'bahan_salah', 'printing_error', 'jahitan_rusak', 'lainnya'
+        // Daftar jenis masalah baru (human-readable, tanpa deskripsi)
+        $newItems = [
+            'Kelebihan Tf Ongkir',
+            'Kelebihan Tf Pelunasan',
+            'Kompensasi Bahan Salah',
+            'Kompensasi Jahitan Rusak',
+            'Kompensasi Lewat Dateline',
+            'Kompensasi Printing Error',
+            'Kompensasi Produk Cacat',
+            'Kompensasi Salah Nama Atau Nomor',
+            'Kompensasi Salah Pola',
+            'Kompensasi Ukuran Salah',
+            'Kompensasi Warna Tidak Sesuai',
         ];
-        foreach ($items as $name) {
-            JenisMasalah::firstOrCreate(
-                ['nama' => $name],
-                ['is_active' => true, 'deskripsi' => ucfirst(str_replace('_', ' ', $name))]
+
+        // Upsert data baru (tanpa deskripsi)
+        foreach ($newItems as $nama) {
+            JenisMasalah::withTrashed()->updateOrCreate(
+                ['nama' => $nama],
+                ['is_active' => true, 'deskripsi' => null, 'deleted_at' => null]
             );
         }
+
+        // Nonaktifkan entri lama (snake_case) yang sudah tidak dipakai
+        $oldItems = [
+            'produk_cacat', 'ukuran_salah', 'warna_tidak_sesuai',
+            'bahan_salah', 'printing_error', 'jahitan_rusak', 'lainnya',
+        ];
+        JenisMasalah::whereIn('nama', $oldItems)->update(['is_active' => false]);
     }
 }
