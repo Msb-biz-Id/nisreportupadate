@@ -35,6 +35,7 @@ class ReportRunner
             'penjualan-produk' => $this->penjualanProduk($brandId, $filters),
             'pelanggan' => $this->pelanggan($brandId, $filters),
             'wilayah' => $this->wilayah($brandId, $filters),
+            'jenis-po' => $this->jenisPo($brandId, $filters),
             'status-po' => $this->statusPo($brandId, $filters),
             'monitoring-deadline' => $this->monitoringDeadline($brandId, $filters),
             'rijek' => $this->rijek($brandId, $filters),
@@ -1177,6 +1178,67 @@ class ReportRunner
                 ['label' => 'Total PO Telat', 'value' => $latePoCount],
                 ['label' => 'Rata-rata Keterlambatan', 'value' => $avgLateness],
                 ['label' => 'Rata-rata Waktu Produksi', 'value' => $avgDuration],
+            ],
+        ];
+    }
+
+    private function jenisPo(string|array|null $brandId, array $filters): array
+    {
+        [$from, $to] = $this->dateRange($filters);
+
+        $q = Order::query()
+            ->when($brandId, $this->bf($brandId))
+            ->whereBetween('tanggal_masuk', [$from, $to])
+            ->where('status_po', '!=', 'draft')
+            ->with(['brand:id,nama_brand', 'pelanggan:id,nama'])
+            ->withSum(['items' => fn($query) => $query->where('is_addon', false)], 'quantity');
+
+        $orders = $q->orderByDesc('tanggal_masuk')->get();
+
+        $rows = $orders->map(function ($o) {
+            $jenisPo = 'Normal';
+            if ($o->is_special_order) {
+                $jenisPo = 'Special Order';
+            } elseif ($o->is_reseller_price) {
+                $jenisPo = 'Reseller Price';
+            }
+
+            return [
+                'no_po' => $o->no_po,
+                'nama_po' => $o->nama_po,
+                'brand_nama' => $o->brand?->nama_brand ?? '-',
+                'pelanggan' => $o->pelanggan?->nama ?? '-',
+                'tanggal_masuk' => $o->tanggal_masuk?->toDateString(),
+                'jenis_po' => $jenisPo,
+                'pcs' => (int) ($o->items_sum_quantity ?? 0),
+                'total_tagihan' => (float) $o->total_tagihan,
+                'status' => $o->status_po,
+            ];
+        })->all();
+
+        $normalCount = 0;
+        $specialCount = 0;
+        $resellerCount = 0;
+        $totalVal = 0;
+
+        foreach ($rows as $r) {
+            if ($r['jenis_po'] === 'Special Order') {
+                $specialCount++;
+            } elseif ($r['jenis_po'] === 'Reseller Price') {
+                $resellerCount++;
+            } else {
+                $normalCount++;
+            }
+            $totalVal += $r['total_tagihan'];
+        }
+
+        return [
+            'rows' => $rows,
+            'summary' => [
+                ['label' => 'Total PO Normal', 'value' => $normalCount],
+                ['label' => 'Total PO Special Order', 'value' => $specialCount],
+                ['label' => 'Total PO Harga Reseller', 'value' => $resellerCount],
+                ['label' => 'Total Nilai PO', 'value' => $totalVal, 'format' => 'currency'],
             ],
         ];
     }

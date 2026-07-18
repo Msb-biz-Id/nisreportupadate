@@ -17,7 +17,7 @@ const VIEWS = {
     Finance,
 };
 
-export default function Dashboard({ role, view, stats }) {
+export default function Dashboard({ role, view, stats, filters }) {
     const ViewComponent = VIEWS[view] ?? AdminBrand;
 
     return (
@@ -35,7 +35,7 @@ export default function Dashboard({ role, view, stats }) {
                     </div>
                 </div>
 
-                <ViewComponent stats={stats} />
+                <ViewComponent stats={stats} filters={filters} />
             </div>
         </AppLayout>
     );

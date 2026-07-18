@@ -90,7 +90,7 @@ class OrderPaymentObserver
                         'brand_id' => $order->brand_id,
                         'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
                         'nominal' => $formattedAmount,
-                        'action_url' => '/orders/' . $order->id,
+                        'action_url' => route('orders.show', $order->id),
                         'payment_type' => $payment->payment_type,
                     ]);
                 } catch (\Throwable $e) {
@@ -111,7 +111,7 @@ class OrderPaymentObserver
                         'brand_id' => $order->brand_id,
                         'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
                         'nominal' => $formattedAmount,
-                        'action_url' => '/invoices/payments/pending',
+                        'action_url' => route('invoices.payments.pending'),
                         'payment_type' => $payment->payment_type,
                     ]);
                 } catch (\Throwable $e) {
@@ -139,6 +139,18 @@ class OrderPaymentObserver
         if ($payment->isDirty('verified_at') && $payment->verified_at !== null && $payment->getOriginal('verified_at') === null) {
             $this->recordLedger($payment);
 
+            // Invalidate pending payment submitted notifications
+            if ($order) {
+                try {
+                    \App\Services\Notifications\IdealNotificationService::markAsReadForResource('payment_submitted', $order->no_po);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to mark payment_submitted notifications as read', [
+                        'order' => $order->no_po,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
             // Dispatch verified notification
             if ($order) {
                 try {
@@ -148,7 +160,7 @@ class OrderPaymentObserver
                         'brand_id' => $order->brand_id,
                         'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
                         'nominal' => $formattedAmount,
-                        'action_url' => '/orders/' . $order->id,
+                        'action_url' => route('orders.show', $order->id),
                         'payment_type' => $payment->payment_type,
                     ]);
                 } catch (\Throwable $e) {
@@ -201,6 +213,11 @@ class OrderPaymentObserver
             $order->update(['total_tagihan' => $order->totalTagihan()]);
             foreach ($order->invoices as $invoice) {
                 $invoice->syncWithOrder();
+            }
+            try {
+                \App\Services\Notifications\IdealNotificationService::markAsReadForResource('payment_submitted', $order->no_po);
+            } catch (\Throwable $e) {
+                // Ignore
             }
         }
     }

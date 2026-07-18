@@ -70,12 +70,12 @@ class DashboardService
 
     // ----- public stats -----
 
-    public function adminBrandStats(string|array|null $brandId): array
+    public function adminBrandStats(string|array|null $brandId, array $filters = []): array
     {
         return CacheService::rememberDashboard(
             'adminBrandStats',
             $brandId,
-            function () use ($brandId) {
+            function () use ($brandId, $filters) {
                 $base = Order::query()->when($brandId, $this->bf($brandId));
 
                 $today = (clone $base)->where('tanggal_masuk', today()->toDateString())->count();
@@ -114,6 +114,7 @@ class DashboardService
                         ['label' => 'Tanda Jadi Pending', 'value' => $dpPendingCount, 'icon' => 'Sparkles', 'accent' => 'amber'],
                         ['label' => 'Refund Pending', 'value' => $refundPendingCount, 'icon' => 'RotateCcw', 'accent' => 'red'],
                     ],
+                    'po_type_distribution'          => $this->poTypeDistribution($brandId, $filters),
                     'status_breakdown'              => $this->statusBreakdown($brandId),
                     'progress_distribution'         => $this->progressDistribution($brandId),
                     'trend_harian'                  => $this->trendHarian($brandId, 14),
@@ -248,7 +249,8 @@ class DashboardService
                     })(),
                 ];
             },
-            CacheService::TTL_SHORT
+            CacheService::TTL_SHORT,
+            $filters
         );
     }
 
@@ -1143,5 +1145,72 @@ class DashboardService
                 ];
             })
             ->all();
+    }
+
+    public function poTypeDistribution(string|array|null $brandId, array $filters): array
+    {
+        $filterType = $filters['date_filter'] ?? 'bulanan';
+        $from = $filters['from'] ?? null;
+        $to = $filters['to'] ?? null;
+
+        [$startDate, $endDate] = $this->resolveDateRange($filterType, $from, $to);
+
+        $stats = Order::query()
+            ->when($brandId, $this->bf($brandId))
+            ->whereBetween('tanggal_masuk', [$startDate, $endDate])
+            ->where('status_po', '!=', 'draft')
+            ->select(
+                DB::raw('COUNT(CASE WHEN is_special_order = 0 AND is_reseller_price = 0 THEN 1 END) as normal_count'),
+                DB::raw('COUNT(CASE WHEN is_special_order = 1 THEN 1 END) as special_count'),
+                DB::raw('COUNT(CASE WHEN is_reseller_price = 1 THEN 1 END) as reseller_count'),
+                DB::raw('COALESCE(SUM(CASE WHEN is_special_order = 0 AND is_reseller_price = 0 THEN total_tagihan ELSE 0 END), 0) as normal_value'),
+                DB::raw('COALESCE(SUM(CASE WHEN is_special_order = 1 THEN total_tagihan ELSE 0 END), 0) as special_value'),
+                DB::raw('COALESCE(SUM(CASE WHEN is_reseller_price = 1 THEN total_tagihan ELSE 0 END), 0) as reseller_value')
+            )
+            ->first();
+
+        return [
+            'normal' => [
+                'count' => (int) ($stats->normal_count ?? 0),
+                'value' => (float) ($stats->normal_value ?? 0),
+            ],
+            'special' => [
+                'count' => (int) ($stats->special_count ?? 0),
+                'value' => (float) ($stats->special_value ?? 0),
+            ],
+            'reseller' => [
+                'count' => (int) ($stats->reseller_count ?? 0),
+                'value' => (float) ($stats->reseller_value ?? 0),
+            ],
+            'date_range' => [
+                'start' => $startDate->toDateString(),
+                'end' => $endDate->toDateString(),
+            ]
+        ];
+    }
+
+    private function resolveDateRange(string $filterType, ?string $from = null, ?string $to = null): array
+    {
+        $now = now();
+        switch ($filterType) {
+            case 'harian':
+                $startDate = $now->copy()->startOfDay();
+                $endDate = $now->copy()->endOfDay();
+                break;
+            case 'mingguan':
+                $startDate = $now->copy()->startOfWeek();
+                $endDate = $now->copy()->endOfWeek();
+                break;
+            case 'bulanan':
+            default:
+                $startDate = $now->copy()->startOfMonth();
+                $endDate = $now->copy()->endOfMonth();
+                break;
+            case 'custom':
+                $startDate = $from ? \Illuminate\Support\Carbon::parse($from)->startOfDay() : $now->copy()->startOfMonth();
+                $endDate = $to ? \Illuminate\Support\Carbon::parse($to)->endOfDay() : $now->copy()->endOfDay();
+                break;
+        }
+        return [$startDate, $endDate];
     }
 }

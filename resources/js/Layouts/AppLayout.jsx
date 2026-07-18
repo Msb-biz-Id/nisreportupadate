@@ -194,6 +194,53 @@ export default function AppLayout({ title, header, children }) {
     unreadCountRef.current = unreadCount;
     const mountTime = useRef(new Date(Date.now() - 30000)); // 30 seconds buffer for clock drift
 
+    const refreshNotifications = () => {
+        if (!user) return;
+        axios.get(route('notifications.index'))
+            .then((res) => {
+                const latest = res.data.notifications?.data || [];
+                const serverUnread = res.data.unread_count ?? 0;
+                const currentNotifs = notificationsRef.current;
+                
+                if (latest.length > 0 && latest[0].id !== currentNotifs[0]?.id) {
+                    const newNotifs = latest.filter(n => {
+                        const isNew = !currentNotifs.some(existing => existing.id === n.id);
+                        const createdTime = new Date(n.created_at);
+                        return isNew && createdTime >= mountTime.current;
+                    });
+                    if (newNotifs.length > 0) {
+                        newNotifs.reverse().forEach((n) => {
+                            triggerNotificationAlert(n);
+                        });
+                    }
+                }
+                
+                // Only update state if the values have actually changed to prevent unnecessary re-renders
+                setUnreadCount((prev) => {
+                    return serverUnread !== prev ? serverUnread : prev;
+                });
+                
+                // Smart merge to maintain all history (read/unread) and update properties (e.g. is_read)
+                setNotifications((prev) => {
+                    const mergedMap = new Map();
+                    // 1. Load existing notifications in local state
+                    prev.forEach(n => mergedMap.set(n.id, n));
+                    // 2. Put/overwrite with latest from server
+                    latest.forEach(n => mergedMap.set(n.id, n));
+                    
+                    const mergedList = Array.from(mergedMap.values());
+                    mergedList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+                    // Compare mergedList with prev to see if we actually need to change state
+                    const isDifferent = mergedList.length !== prev.length ||
+                        mergedList.some((n, index) => n.id !== prev[index]?.id || n.is_read !== prev[index]?.is_read);
+
+                    return isDifferent ? mergedList : prev;
+                });
+            })
+            .catch((err) => console.debug('Polling notifications skipped or offline:', err));
+    };
+
     // Sync initial state if it changes in Inertia
     useEffect(() => {
         if (user) {
@@ -231,49 +278,7 @@ export default function AppLayout({ title, header, children }) {
             if (isEchoConnected) return;
             if (typeof document !== 'undefined' && document.hidden) return; // Skip polling when tab is inactive
 
-            axios.get(route('notifications.index'))
-                .then((res) => {
-                    const latest = res.data.notifications?.data || [];
-                    const serverUnread = res.data.unread_count ?? 0;
-                    const currentNotifs = notificationsRef.current;
-                    
-                    if (latest.length > 0 && latest[0].id !== currentNotifs[0]?.id) {
-                        const newNotifs = latest.filter(n => {
-                            const isNew = !currentNotifs.some(existing => existing.id === n.id);
-                            const createdTime = new Date(n.created_at);
-                            return isNew && createdTime >= mountTime.current;
-                        });
-                        if (newNotifs.length > 0) {
-                            newNotifs.reverse().forEach((n) => {
-                                triggerNotificationAlert(n);
-                            });
-                        }
-                    }
-                    
-                    // Only update state if the values have actually changed to prevent unnecessary re-renders
-                    setUnreadCount((prev) => {
-                        return serverUnread !== prev ? serverUnread : prev;
-                    });
-                    
-                    // Smart merge to maintain all history (read/unread) and update properties (e.g. is_read)
-                    setNotifications((prev) => {
-                        const mergedMap = new Map();
-                        // 1. Load existing notifications in local state
-                        prev.forEach(n => mergedMap.set(n.id, n));
-                        // 2. Put/overwrite with latest from server
-                        latest.forEach(n => mergedMap.set(n.id, n));
-                        
-                        const mergedList = Array.from(mergedMap.values());
-                        mergedList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-                        // Compare mergedList with prev to see if we actually need to change state
-                        const isDifferent = mergedList.length !== prev.length ||
-                            mergedList.some((n, index) => n.id !== prev[index]?.id || n.is_read !== prev[index]?.is_read);
-
-                        return isDifferent ? mergedList : prev;
-                    });
-                })
-                .catch((err) => console.debug('Polling notifications skipped or offline:', err));
+            refreshNotifications();
         }, 5000);
 
         return () => {
@@ -619,6 +624,7 @@ export default function AppLayout({ title, header, children }) {
                                 onMarkAsRead={markAsRead}
                                 onMarkAllAsRead={markAllAsRead}
                                 onDelete={deleteNotification}
+                                onDropdownOpen={refreshNotifications}
                             />
                         )}
                         <UserMenu user={user} />

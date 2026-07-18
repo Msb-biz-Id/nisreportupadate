@@ -332,7 +332,7 @@ $primaryColor = $invoice->brand?->warna_primary
         <table class="items">
             <thead>
                 <tr>
-                    <th width="40">#</th>
+                    <th width="40">No</th>
                     <th>Produk</th>
                     <th class="right" width="80">Qty</th>
                     <th class="right" width="120">Harga Satuan</th>

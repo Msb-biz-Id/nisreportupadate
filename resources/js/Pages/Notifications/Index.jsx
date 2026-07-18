@@ -65,7 +65,7 @@ export default function NotificationsIndex({ notifications, filters, unread_coun
     }, [notifications.data, unread_count, total_count, read_count]);
 
     // Handle individual read action
-    const handleRead = (id) => {
+    const handleRead = (id, shouldReload = true) => {
         setLocalNotifications(prev => 
             prev.map(n => n.id === id ? { ...n, is_read: true } : n)
         );
@@ -80,7 +80,9 @@ export default function NotificationsIndex({ notifications, filters, unread_coun
                     id, 
                     unread_count: serverUnread 
                 });
-                router.reload({ preserveScroll: true });
+                if (shouldReload) {
+                    router.reload({ preserveScroll: true });
+                }
             })
             .catch((err) => {
                 console.error(err);
@@ -428,8 +430,33 @@ export default function NotificationsIndex({ notifications, filters, unread_coun
                                                     size="sm"
                                                     className="h-8 text-xs font-bold flex items-center gap-1 border-slate-200 hover:border-slate-300 bg-white"
                                                     onClick={() => {
-                                                        if (!notif.is_read) handleRead(notif.id);
-                                                        router.visit(notif.action_url);
+                                                        axios.get(route('notifications.verify', notif.id))
+                                                            .then((res) => {
+                                                                if (res.data.valid) {
+                                                                    if (!notif.is_read) {
+                                                                        handleRead(notif.id, false);
+                                                                    }
+                                                                    setTimeout(() => {
+                                                                        router.visit(notif.action_url);
+                                                                    }, 50);
+                                                                } else {
+                                                                    if (!notif.is_read) {
+                                                                        handleRead(notif.id, true);
+                                                                    } else {
+                                                                        router.reload({ preserveScroll: true });
+                                                                    }
+                                                                    toast.warning(res.data.message || 'Resource state invalid or already handled.');
+                                                                }
+                                                            })
+                                                            .catch((err) => {
+                                                                console.error('Failed to verify notification state:', err);
+                                                                if (!notif.is_read) {
+                                                                    handleRead(notif.id, false);
+                                                                }
+                                                                setTimeout(() => {
+                                                                    router.visit(notif.action_url);
+                                                                }, 50);
+                                                            });
                                                     }}
                                                     title="Lihat Detail Pesanan"
                                                 >

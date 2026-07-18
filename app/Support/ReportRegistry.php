@@ -59,6 +59,25 @@ class ReportRegistry
                 ],
                 'chart' => ['type' => 'bar', 'x' => 'kabupaten', 'y' => 'total_order', 'title' => 'Top Wilayah Berdasarkan Order'],
             ],
+            'jenis-po' => [
+                'slug' => 'jenis-po',
+                'label' => 'Jenis PO',
+                'icon' => 'PieChart',
+                'group' => 'penjualan',
+                'description' => 'Laporan perbandingan dan detail transaksi PO Normal, PO Spesial Order, dan PO Harga Reseller.',
+                'filters' => ['date_range', 'brand'],
+                'columns' => [
+                    ['key' => 'no_po', 'label' => 'No PO'],
+                    ['key' => 'nama_po', 'label' => 'Nama PO'],
+                    ['key' => 'brand_nama', 'label' => 'Brand'],
+                    ['key' => 'pelanggan', 'label' => 'Pelanggan'],
+                    ['key' => 'tanggal_masuk', 'label' => 'Tgl Masuk', 'format' => 'date'],
+                    ['key' => 'jenis_po', 'label' => 'Jenis PO', 'format' => 'badge'],
+                    ['key' => 'pcs', 'label' => 'PCS', 'format' => 'number'],
+                    ['key' => 'total_tagihan', 'label' => 'Total Tagihan', 'format' => 'currency'],
+                    ['key' => 'status', 'label' => 'Status PO', 'format' => 'status_badge'],
+                ],
+            ],
 
             'status-po' => [
                 'slug' => 'status-po',

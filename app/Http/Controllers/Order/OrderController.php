@@ -480,7 +480,7 @@ class OrderController extends Controller
                 'no_po' => $order->no_po,
                 'brand_id' => $order->brand_id,
                 'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
-                'action_url' => "/orders/{$order->id}"
+                'action_url' => route('orders.show', $order->id)
             ]);
         }
 
@@ -592,7 +592,7 @@ class OrderController extends Controller
                 'no_po' => $order->no_po,
                 'brand_id' => $order->brand_id,
                 'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
-                'action_url' => "/orders/{$order->id}"
+                'action_url' => route('orders.show', $order->id)
             ]);
         }
 
@@ -751,7 +751,7 @@ class OrderController extends Controller
             'no_po' => $order->no_po,
             'brand_id' => $order->brand_id,
             'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
-            'action_url' => "/orders/{$order->id}"
+            'action_url' => route('orders.show', $order->id)
         ]);
 
         return back()->with('success', 'PO berhasil diterbitkan dan masuk ke dashboard produksi.');
@@ -791,7 +791,7 @@ class OrderController extends Controller
             'no_po' => $order->no_po,
             'brand_id' => $order->brand_id,
             'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
-            'action_url' => "/orders/{$order->id}"
+            'action_url' => route('orders.show', $order->id)
         ]);
 
         return back()->with('success', 'PO berhasil diselesaikan.');
@@ -886,8 +886,8 @@ class OrderController extends Controller
             \App\Services\Notifications\IdealNotificationService::dispatch('order_unlocked', [
                 'no_po' => $order->no_po,
                 'brand_id' => $order->brand_id,
-                'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
-                'action_url' => "/orders/{$order->id}",
+                'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
+                'action_url' => route('orders.show', $order->id),
             ]);
 
             return back()->with('info', 'PO di-unlock. Lakukan perubahan, kemudian re-lock untuk mengembalikan proteksi.');
@@ -918,7 +918,7 @@ class OrderController extends Controller
             'no_po' => $order->no_po,
             'brand_id' => $order->brand_id,
             'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
-            'action_url' => "/orders/{$order->id}",
+            'action_url' => route('orders.show', $order->id),
             'reason' => $data['reason'],
         ]);
 
@@ -958,13 +958,19 @@ class OrderController extends Controller
             'unlock_requested_at' => null,
         ]);
 
+        try {
+            \App\Services\Notifications\IdealNotificationService::markAsReadForResource('unlock_requested', $order->no_po);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to mark unlock_requested notification as read', ['error' => $e->getMessage()]);
+        }
+
         \App\Services\ActivityLogger::log('unlock_approve', 'order', $order, "Menyetujui permohonan unlock PO {$order->no_po} oleh {$requester->name}");
 
         \App\Services\Notifications\IdealNotificationService::dispatch('order_unlocked', [
             'no_po' => $order->no_po,
             'brand_id' => $order->brand_id,
             'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
-            'action_url' => "/orders/{$order->id}",
+            'action_url' => route('orders.show', $order->id),
         ]);
 
         return back()->with('info', 'Permohonan unlock disetujui. PO berhasil dibuka kuncinya.');
@@ -988,6 +994,12 @@ class OrderController extends Controller
             'unlock_request_reason' => null,
             'unlock_requested_at' => null,
         ]);
+
+        try {
+            \App\Services\Notifications\IdealNotificationService::markAsReadForResource('unlock_requested', $order->no_po);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to mark unlock_requested notification as read', ['error' => $e->getMessage()]);
+        }
 
         \App\Services\ActivityLogger::log('unlock_reject', 'order', $order, "Menolak permohonan unlock PO {$order->no_po} oleh {$requester->name}");
 
@@ -1020,7 +1032,7 @@ class OrderController extends Controller
                 'no_po' => $order->no_po,
                 'brand_id' => $order->brand_id,
                 'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
-                'action_url' => "/orders/{$order->id}",
+                'action_url' => route('orders.show', $order->id),
             ]);
 
             return back()->with('success', 'PO kembali ter-lock.');
@@ -1052,7 +1064,7 @@ class OrderController extends Controller
             'no_po' => $order->no_po,
             'brand_id' => $order->brand_id,
             'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
-            'action_url' => "/orders/{$order->id}",
+            'action_url' => route('orders.show', $order->id),
             'reason' => $reason,
         ]);
 
@@ -1092,13 +1104,19 @@ class OrderController extends Controller
             'relock_requested_at' => null,
         ]);
 
+        try {
+            \App\Services\Notifications\IdealNotificationService::markAsReadForResource('relock_requested', $order->no_po);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to mark relock_requested notification as read', ['error' => $e->getMessage()]);
+        }
+
         \App\Services\ActivityLogger::log('relock_approve', 'order', $order, "Menyetujui permohonan re-lock PO {$order->no_po} oleh {$requester->name}");
 
         \App\Services\Notifications\IdealNotificationService::dispatch('order_locked', [
             'no_po' => $order->no_po,
             'brand_id' => $order->brand_id,
             'brand_nama' => $order->brand?->nama_brand ?? 'Circle Sportwear',
-            'action_url' => "/orders/{$order->id}",
+            'action_url' => route('orders.show', $order->id),
         ]);
 
         return back()->with('success', 'Permohonan re-lock disetujui. PO berhasil dikunci.');
@@ -1122,6 +1140,12 @@ class OrderController extends Controller
             'relock_request_reason' => null,
             'relock_requested_at' => null,
         ]);
+
+        try {
+            \App\Services\Notifications\IdealNotificationService::markAsReadForResource('relock_requested', $order->no_po);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to mark relock_requested notification as read', ['error' => $e->getMessage()]);
+        }
 
         \App\Services\ActivityLogger::log('relock_reject', 'order', $order, "Menolak permohonan re-lock PO {$order->no_po} oleh {$requester->name}");
 

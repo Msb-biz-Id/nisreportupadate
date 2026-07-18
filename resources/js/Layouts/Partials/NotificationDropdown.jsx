@@ -8,6 +8,8 @@ import {
     DropdownMenuTrigger,
 } from '@/Components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import axios from 'axios';
+import { toast } from 'sonner';
 
 function formatTimeAgo(dateString) {
     if (!dateString) return '';
@@ -27,11 +29,49 @@ function formatTimeAgo(dateString) {
     }
 }
 
-export default function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead, onDelete, onNavigate }) {
+export default function NotificationDropdown({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead, onDelete, onNavigate, onDropdownOpen }) {
     const [open, setOpen] = useState(false);
 
+    const handleOpenChange = (nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen && onDropdownOpen) {
+            onDropdownOpen();
+        }
+    };
+
+    const handleNotificationClick = (notif) => {
+        if (!notif.action_url) {
+            onMarkAsRead(notif.id);
+            return;
+        }
+
+        axios.get(route('notifications.verify', notif.id))
+            .then((res) => {
+                if (res.data.valid) {
+                    onMarkAsRead(notif.id);
+                    setOpen(false);
+                    onNavigate?.();
+                    setTimeout(() => {
+                        router.visit(notif.action_url);
+                    }, 50);
+                } else {
+                    onMarkAsRead(notif.id);
+                    toast.warning(res.data.message || 'Resource state invalid or already handled.');
+                }
+            })
+            .catch((err) => {
+                console.error('Failed to verify notification state:', err);
+                onMarkAsRead(notif.id);
+                setOpen(false);
+                onNavigate?.();
+                setTimeout(() => {
+                    router.visit(notif.action_url);
+                }, 50);
+            });
+    };
+
     return (
-        <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenu open={open} onOpenChange={handleOpenChange}>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-lg">
                     <Bell className="h-5 w-5 text-gray-600" />
@@ -83,14 +123,7 @@ export default function NotificationDropdown({ notifications, unreadCount, onMar
                                         ? "bg-transparent hover:bg-gray-50 border-l-4 border-transparent" 
                                         : "bg-red-50/60 hover:bg-red-50/80 border-l-4 border-red-600"
                                 )}
-                                onClick={() => {
-                                    onMarkAsRead(notif.id);
-                                    if (notif.action_url) {
-                                        setOpen(false);
-                                        onNavigate?.();
-                                        router.visit(notif.action_url);
-                                    }
-                                }}
+                                onClick={() => handleNotificationClick(notif)}
                             >
                                 <div className={cn(
                                     "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border shadow-sm",
@@ -134,10 +167,7 @@ export default function NotificationDropdown({ notifications, unreadCount, onMar
                                             className="h-6 w-6 text-gray-400 hover:text-gray-600"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                onMarkAsRead(notif.id);
-                                                onNavigate?.();
-                                                router.visit(notif.action_url);
-                                                setOpen(false);
+                                                handleNotificationClick(notif);
                                             }}
                                             title="Buka Halaman"
                                         >

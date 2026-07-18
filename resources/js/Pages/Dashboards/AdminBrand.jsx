@@ -1,17 +1,39 @@
 import { useState } from 'react';
-import { Link, usePage } from '@inertiajs/react';
+import { Link, usePage, router } from '@inertiajs/react';
 import Chart from '@/Components/Chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
-import { StatGrid, StatusBreakdown, POListWidget, TopList, POSiapDikirimWidget } from '@/Components/Widgets';
+import { StatGrid, StatusBreakdown, POListWidget, TopList, POSiapDikirimWidget, POTypeDistributionWidget } from '@/Components/Widgets';
 import { formatDate, formatRupiah } from '@/lib/utils';
-import { Target, Sparkles, RotateCcw, CheckCircle2, ArrowUpRight, Wallet, Landmark, RefreshCw, Clock, Coins, FileText } from 'lucide-react';
+import { Target, Sparkles, RotateCcw, CheckCircle2, ArrowUpRight, Wallet, Landmark, RefreshCw, Clock, Coins, FileText, Filter } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
+import { Label } from '@/Components/ui/label';
+import { Input } from '@/Components/ui/input';
 
-export default function AdminBrand({ stats }) {
+export default function AdminBrand({ stats, filters }) {
     const { app } = usePage().props;
     const [metric, setMetric] = useState('omset');
     const targetView = app?.target_view || 'pcs'; // 'both', 'revenue', 'pcs'
+
+    const [dateFilter, setDateFilter] = useState(filters?.date_filter || 'bulanan');
+    const [fromDate, setFromDate] = useState(filters?.from || '');
+    const [toDate, setToDate] = useState(filters?.to || '');
+
+    function applyFilters(newFilter = dateFilter, fromVal = fromDate, toVal = toDate) {
+        const params = {};
+        const urlParams = new URLSearchParams(window.location.search);
+        const brandId = urlParams.get('brand_id');
+        if (brandId) {
+            params.brand_id = brandId;
+        }
+        params.date_filter = newFilter;
+        if (newFilter === 'custom') {
+            params.from = fromVal;
+            params.to = toVal;
+        }
+        router.get(route('dashboard'), params, { preserveScroll: true, preserveState: true });
+    }
     
     const getBankColor = (bankName) => {
         const name = bankName ? bankName.toLowerCase() : '';
@@ -65,6 +87,67 @@ export default function AdminBrand({ stats }) {
 
     return (
         <div className="space-y-6">
+            {/* Filter Date Range Section */}
+            <Card className="shadow-sm border-l-4 border-l-indigo-500 bg-gradient-to-r from-slate-50 to-white">
+                <CardContent className="p-4">
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-1">
+                            <div className="space-y-1 min-w-[160px]">
+                                <Label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                    <Filter className="h-3.5 w-3.5 text-indigo-500" />
+                                    Filter Waktu
+                                </Label>
+                                <Select value={dateFilter} onValueChange={(val) => {
+                                    setDateFilter(val);
+                                    if (val !== 'custom') {
+                                        applyFilters(val);
+                                    }
+                                }}>
+                                    <SelectTrigger className="h-9 bg-white border-slate-200 focus:ring-indigo-500">
+                                        <SelectValue placeholder="Pilih filter" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="harian">Hari Ini</SelectItem>
+                                        <SelectItem value="mingguan">Minggu Ini</SelectItem>
+                                        <SelectItem value="bulanan">Bulan Ini</SelectItem>
+                                        <SelectItem value="custom">Range Tanggal</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {dateFilter === 'custom' && (
+                                <div className="flex flex-col sm:flex-row items-end gap-3 flex-1">
+                                    <div className="space-y-1 w-full sm:w-auto flex-1">
+                                        <Label className="text-xs font-bold text-slate-700">Dari Tanggal</Label>
+                                        <Input
+                                            type="date"
+                                            value={fromDate}
+                                            onChange={(e) => setFromDate(e.target.value)}
+                                            className="h-9 bg-white border-slate-200 focus:ring-indigo-500 w-full"
+                                        />
+                                    </div>
+                                    <div className="space-y-1 w-full sm:w-auto flex-1">
+                                        <Label className="text-xs font-bold text-slate-700">Sampai Tanggal</Label>
+                                        <Input
+                                            type="date"
+                                            value={toDate}
+                                            onChange={(e) => setToDate(e.target.value)}
+                                            className="h-9 bg-white border-slate-200 focus:ring-indigo-500 w-full"
+                                        />
+                                    </div>
+                                    <Button
+                                        onClick={() => applyFilters('custom', fromDate, toDate)}
+                                        className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 hover:shadow-md transition duration-200"
+                                    >
+                                        Terapkan
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
             <StatGrid cards={stats.cards ?? []} />
 
             {/* Target Progress Section */}
@@ -157,29 +240,34 @@ export default function AdminBrand({ stats }) {
                 </div>
             )}
 
-            {/* Tahapan Progress */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">Tahapan Progress Produksi</CardTitle>
-                    <CardDescription>Jumlah PO yang sedang dikerjakan di setiap tahapan progress.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {progressDist.length === 0 ? (
-                        <p className="py-6 text-center text-sm text-muted-foreground">Tidak ada tahapan aktif saat ini.</p>
-                    ) : (
-                        <Chart
-                            type="bar"
-                            height={260}
-                            series={[{ name: 'PO dalam proses', data: progressDist.map((r) => r.count) }]}
-                            options={{
-                                plotOptions: { bar: { borderRadius: 6, columnWidth: '55%' } },
-                                xaxis: { categories: progressDist.map((r) => r.label), labels: { rotate: -20, style: { fontSize: '10px' } } },
-                                colors: ['#F59E0B'],
-                            }}
-                        />
-                    )}
-                </CardContent>
-            </Card>
+            {/* PO Type Breakdown & Tahapan Progress Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <POTypeDistributionWidget data={stats.po_type_distribution} />
+
+                {/* Tahapan Progress */}
+                <Card className="transition hover:shadow-md">
+                    <CardHeader>
+                        <CardTitle className="text-base font-bold text-slate-800">Tahapan Progress Produksi</CardTitle>
+                        <CardDescription className="text-xs">Jumlah PO yang sedang dikerjakan di setiap tahapan progress.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {progressDist.length === 0 ? (
+                            <p className="py-6 text-center text-sm text-muted-foreground">Tidak ada tahapan aktif saat ini.</p>
+                        ) : (
+                            <Chart
+                                type="bar"
+                                height={260}
+                                series={[{ name: 'PO dalam proses', data: progressDist.map((r) => r.count) }]}
+                                options={{
+                                    plotOptions: { bar: { borderRadius: 6, columnWidth: '55%' } },
+                                    xaxis: { categories: progressDist.map((r) => r.label), labels: { rotate: -20, style: { fontSize: '10px' } } },
+                                    colors: ['#F59E0B'],
+                                }}
+                            />
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
 
             {/* Ringkasan Keuangan & Sinkronisasi Mingguan */}
             <div className="space-y-4">

@@ -27,18 +27,21 @@ class CacheService
     /**
      * Remember dashboard stats with automatic key generation
      */
-    public static function rememberDashboardStats(string $method, string|array|null $brandId, callable $callback, int $ttl = self::TTL_MEDIUM): mixed
+    public static function rememberDashboardStats(string $method, string|array|null $brandId, callable $callback, int $ttl = self::TTL_MEDIUM, array $filters = []): mixed
     {
         $key = self::PREFIX_DASHBOARD . $method . ':' . self::normalizeBrandId($brandId);
+        if (!empty($filters)) {
+            $key .= ':' . md5(json_encode($filters));
+        }
         return Cache::remember($key, $ttl, $callback);
     }
 
     /**
      * Alias for rememberDashboardStats
      */
-    public static function rememberDashboard(string $method, string|array|null $brandId, callable $callback, int $ttl = self::TTL_MEDIUM): mixed
+    public static function rememberDashboard(string $method, string|array|null $brandId, callable $callback, int $ttl = self::TTL_MEDIUM, array $filters = []): mixed
     {
-        return self::rememberDashboardStats($method, $brandId, $callback, $ttl);
+        return self::rememberDashboardStats($method, $brandId, $callback, $ttl, $filters);
     }
 
     /**

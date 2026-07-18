@@ -59,6 +59,140 @@ class NotificationController extends Controller
     }
 
     /**
+     * Verify the resource state of a notification before navigation.
+     */
+    public function verify(Request $request, string $id)
+    {
+        $notification = $request->user()->notifications()->find($id);
+        if (!$notification) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'Notifikasi tidak ditemukan atau sudah dihapus.'
+            ]);
+        }
+
+        $data = $notification->data;
+        $eventKey = $data['type'] ?? $data['event_key'] ?? $notification->type ?? '';
+        $noPo = $data['no_po'] ?? null;
+
+        // Perform event-specific checks
+        if ($noPo) {
+            if ($eventKey === 'unlock_requested') {
+                $order = \App\Models\Order\Order::where('no_po', $noPo)->first();
+                if (!$order) {
+                    $notification->markAsRead();
+                    return response()->json([
+                        'valid' => false,
+                        'message' => 'PO terkait tidak ditemukan atau telah dihapus.'
+                    ]);
+                }
+                $lock = $order->lockStatus;
+                if (!$lock || !$lock->unlock_requested_by) {
+                    $notification->markAsRead();
+                    return response()->json([
+                        'valid' => false,
+                        'message' => 'Permohonan unlock PO ini sudah diproses oleh user lain.'
+                    ]);
+                }
+            }
+
+            if ($eventKey === 'relock_requested') {
+                $order = \App\Models\Order\Order::where('no_po', $noPo)->first();
+                if (!$order) {
+                    $notification->markAsRead();
+                    return response()->json([
+                        'valid' => false,
+                        'message' => 'PO terkait tidak ditemukan atau telah dihapus.'
+                    ]);
+                }
+                $lock = $order->lockStatus;
+                if (!$lock || !$lock->relock_requested_by) {
+                    $notification->markAsRead();
+                    return response()->json([
+                        'valid' => false,
+                        'message' => 'Permohonan re-lock PO ini sudah diproses oleh user lain.'
+                    ]);
+                }
+            }
+
+            if ($eventKey === 'payment_submitted') {
+                $order = \App\Models\Order\Order::where('no_po', $noPo)->first();
+                if (!$order) {
+                    $notification->markAsRead();
+                    return response()->json([
+                        'valid' => false,
+                        'message' => 'PO terkait tidak ditemukan atau telah dihapus.'
+                    ]);
+                }
+                $hasPending = $order->payments()->whereNull('verified_at')->exists();
+                if (!$hasPending) {
+                    $notification->markAsRead();
+                    return response()->json([
+                        'valid' => false,
+                        'message' => 'Pembayaran PO ini sudah diproses atau tidak ditemukan.'
+                    ]);
+                }
+            }
+
+            if ($eventKey === 'refund_submitted') {
+                $order = \App\Models\Order\Order::where('no_po', $noPo)->first();
+                if (!$order) {
+                    $notification->markAsRead();
+                    return response()->json([
+                        'valid' => false,
+                        'message' => 'PO terkait tidak ditemukan atau telah dihapus.'
+                    ]);
+                }
+                $refund = \App\Models\Order\Refund::where('order_id', $order->id)->where('status', 'submitted')->first();
+                if (!$refund) {
+                    $notification->markAsRead();
+                    return response()->json([
+                        'valid' => false,
+                        'message' => 'Pengajuan refund PO ini sudah diproses oleh user lain.'
+                    ]);
+                }
+            }
+
+            if ($eventKey === 'special_order_created') {
+                $order = \App\Models\Order\Order::where('no_po', $noPo)->first();
+                if (!$order) {
+                    $notification->markAsRead();
+                    return response()->json([
+                        'valid' => false,
+                        'message' => 'PO terkait tidak ditemukan atau telah dihapus.'
+                    ]);
+                }
+                if (!$order->isDraft() || $order->is_dp_bypassed) {
+                    $notification->markAsRead();
+                    return response()->json([
+                        'valid' => false,
+                        'message' => 'PO ini sudah diterbitkan atau bypass DP sudah diaktifkan.'
+                    ]);
+                }
+            }
+        }
+
+        // General URL checking if target is order show page and the order was deleted
+        if (isset($data['action_url'])) {
+            $url = $data['action_url'];
+            if (preg_match('/\/orders\/([0-9a-fA-F\-]+)/', $url, $matches)) {
+                $orderId = $matches[1];
+                if (!\App\Models\Order\Order::where('id', $orderId)->exists()) {
+                    $notification->markAsRead();
+                    return response()->json([
+                        'valid' => false,
+                        'message' => 'Order/PO yang dituju tidak ditemukan atau telah dihapus.'
+                    ]);
+                }
+            }
+        }
+
+        return response()->json([
+            'valid' => true
+        ]);
+    }
+
+    /**
      * Mark a single notification as read.
      */
     public function markAsRead(Request $request, string $id)

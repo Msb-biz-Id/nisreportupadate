@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Com
 import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
 import { formatDate, formatRupiah } from '@/lib/utils';
+import Chart from '@/Components/Chart';
 
 const ACCENT_CLASS = {
     blue: 'bg-blue-50 text-blue-600',
@@ -280,6 +281,135 @@ export function POSiapDikirimWidget({ title = "📦 PO Siap Dikirim (Perlu Tinda
                         ))}
                     </ul>
                 )}
+            </CardContent>
+        </Card>
+    );
+}
+
+export function POTypeDistributionWidget({ data }) {
+    if (!data) return null;
+
+    const { normal, special, reseller, date_range } = data;
+    const totalCount = (normal?.count || 0) + (special?.count || 0) + (reseller?.count || 0);
+    const totalValue = (normal?.value || 0) + (special?.value || 0) + (reseller?.value || 0);
+
+    const normalPct = totalCount > 0 ? ((normal.count / totalCount) * 100).toFixed(0) : 0;
+    const specialPct = totalCount > 0 ? ((special.count / totalCount) * 100).toFixed(0) : 0;
+    const resellerPct = totalCount > 0 ? ((reseller.count / totalCount) * 100).toFixed(0) : 0;
+
+    const series = [normal?.count || 0, special?.count || 0, reseller?.count || 0];
+
+    const chartOptions = {
+        labels: ['Normal', 'Spesial Order', 'Harga Reseller'],
+        colors: ['#3B82F6', '#8B5CF6', '#F59E0B'],
+        stroke: { show: true, width: 2, colors: ['#ffffff'] },
+        plotOptions: {
+            pie: {
+                donut: {
+                    size: '70%',
+                    labels: {
+                        show: true,
+                        total: {
+                            show: true,
+                            label: 'Total PO',
+                            formatter: () => totalCount.toString(),
+                            fontSize: '14px',
+                            fontWeight: 650,
+                            color: '#475569'
+                        }
+                    }
+                }
+            }
+        },
+        dataLabels: { enabled: false },
+        legend: { show: false }
+    };
+
+    return (
+        <Card className="border-t-4 border-t-indigo-500 shadow-md transition duration-300 hover:shadow-lg">
+            <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle className="text-base font-bold text-slate-800">Statistik Jenis PO</CardTitle>
+                        <CardDescription className="text-xs">
+                            Distribusi PO berdasarkan Jenis PO
+                        </CardDescription>
+                    </div>
+                    {date_range && (
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground font-mono bg-slate-50">
+                            {formatDate(date_range.start)} - {formatDate(date_range.end)}
+                        </Badge>
+                    )}
+                </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                    {/* Chart Container */}
+                    <div className="md:col-span-5 flex justify-center relative">
+                        {totalCount > 0 ? (
+                            <div className="w-full max-w-[200px]">
+                                <Chart
+                                    type="donut"
+                                    height={200}
+                                    series={series}
+                                    options={chartOptions}
+                                />
+                            </div>
+                        ) : (
+                            <div className="h-[200px] flex items-center justify-center text-xs text-muted-foreground">
+                                Tidak ada data untuk periode ini
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Detailed List */}
+                    <div className="md:col-span-7 space-y-3.5">
+                        {/* Normal PO Item */}
+                        <div className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-gradient-to-r from-blue-50/20 to-white hover:from-blue-50/40 transition shadow-sm">
+                            <div className="flex items-center gap-3">
+                                <div className="h-3 w-3 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />
+                                <div>
+                                    <div className="text-xs font-bold text-slate-800">PO Normal</div>
+                                    <div className="text-[10px] text-muted-foreground font-medium">{normalPct}% dari total PO</div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-sm font-bold text-slate-900 font-mono">{normal?.count || 0} PO</div>
+                                <div className="text-xs text-blue-600 font-bold font-mono">{formatRupiah(normal?.value || 0)}</div>
+                            </div>
+                        </div>
+
+                        {/* Special Order PO Item */}
+                        <div className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-gradient-to-r from-violet-50/20 to-white hover:from-violet-50/40 transition shadow-sm">
+                            <div className="flex items-center gap-3">
+                                <div className="h-3 w-3 rounded-full bg-violet-500 shadow-sm shadow-violet-500/50" />
+                                <div>
+                                    <div className="text-xs font-bold text-slate-800">PO Spesial Order</div>
+                                    <div className="text-[10px] text-muted-foreground font-medium">{specialPct}% dari total PO</div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-sm font-bold text-slate-900 font-mono">{special?.count || 0} PO</div>
+                                <div className="text-xs text-violet-600 font-bold font-mono">{formatRupiah(special?.value || 0)}</div>
+                            </div>
+                        </div>
+
+                        {/* Reseller Price PO Item */}
+                        <div className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-gradient-to-r from-amber-50/20 to-white hover:from-amber-50/40 transition shadow-sm">
+                            <div className="flex items-center gap-3">
+                                <div className="h-3 w-3 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50" />
+                                <div>
+                                    <div className="text-xs font-bold text-slate-800">PO Harga Reseller</div>
+                                    <div className="text-[10px] text-muted-foreground font-medium">{resellerPct}% dari total PO</div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-sm font-bold text-slate-900 font-mono">{reseller?.count || 0} PO</div>
+                                <div className="text-xs text-amber-600 font-bold font-mono">{formatRupiah(reseller?.value || 0)}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </CardContent>
         </Card>
     );

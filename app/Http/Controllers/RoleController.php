@@ -64,10 +64,10 @@ class RoleController extends Controller
                     'owner' => array_column($reports, 'slug'),
                     'admin_brand' => [
                         'analisis-marketing', 'penjualan-produk', 'pelanggan', 'wilayah',
-                        'status-po', 'monitoring-deadline', 'rijek', 'comparison'
+                        'jenis-po', 'status-po', 'monitoring-deadline', 'rijek', 'comparison'
                     ],
                     'admin_reseller' => [
-                        'status-po', 'monitoring-deadline'
+                        'jenis-po', 'status-po', 'monitoring-deadline'
                     ],
                     'admin_keuangan' => [
                         'refund', 'pemasukan', 'pengeluaran', 'arus-kas-bank', 'comparison'

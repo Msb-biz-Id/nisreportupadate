@@ -20,12 +20,18 @@ class DashboardController extends Controller
 
         $filterBrand = $request->string('brand_id')->toString() ?: null;
 
+        $filters = [
+            'date_filter' => $request->string('date_filter', 'bulanan')->toString(),
+            'from' => $request->string('from')->toString() ?: null,
+            'to' => $request->string('to')->toString() ?: null,
+        ];
+
         // For admin_reseller: resolve to branch IDs (hub has no orders of its own)
         $effectiveIds = in_array($role, ['admin_reseller'])
             ? BrandContext::effectiveBrandIds($request)
             : null;
 
-        $cacheKey = "dashboard:{$role}:{$user->id}:{$brandId}:{$filterBrand}";
+        $cacheKey = "dashboard:{$role}:{$user->id}:{$brandId}:{$filterBrand}:" . md5(json_encode($filters));
 
         $data = Cache::remember($cacheKey, 60, fn () => match ($role) {
             'superadmin' => [
@@ -48,16 +54,16 @@ class DashboardController extends Controller
             ],
             'admin_brand' => [
                 'view' => 'AdminBrand',
-                'stats' => $this->service->adminBrandStats($brandId),
+                'stats' => $this->service->adminBrandStats($brandId, $filters),
             ],
             'admin_reseller' => [
                 'view' => 'AdminBrand',
                 // Pass array of branch IDs so hub context shows all branch data
-                'stats' => $this->service->adminBrandStats($effectiveIds ?: $brandId),
+                'stats' => $this->service->adminBrandStats($effectiveIds ?: $brandId, $filters),
             ],
             default => [
                 'view' => 'AdminBrand',
-                'stats' => $this->service->adminBrandStats($brandId),
+                'stats' => $this->service->adminBrandStats($brandId, $filters),
             ],
         });
 
@@ -65,6 +71,7 @@ class DashboardController extends Controller
             'role' => $role ?? 'guest',
             'view' => $data['view'],
             'stats' => $data['stats'],
+            'filters' => $filters,
         ]);
     }
 }

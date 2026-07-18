@@ -584,7 +584,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                 <table className="w-full text-sm">
                                     <thead className="bg-slate-50">
                                         <tr className="border-b text-left text-xs uppercase tracking-wide text-slate-500 font-semibold">
-                                            <th className="py-3 px-4">#</th>
+                                            <th className="py-3 px-4">No</th>
                                             <th className="py-3 px-4">Produk / Item</th>
                                             <th className="py-3 px-4 text-right">Quantity</th>
                                             <th className="py-3 px-4 text-right">Harga Satuan</th>

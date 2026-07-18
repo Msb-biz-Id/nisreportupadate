@@ -23,6 +23,12 @@ class RefundObserver
     {
         // Auto-record pengeluaran saat refund berstatus published
         if ($refund->isDirty('status')) {
+            try {
+                \App\Services\Notifications\IdealNotificationService::markAsReadForResource('refund_submitted', $refund->order?->no_po ?? '-');
+            } catch (\Throwable $e) {
+                // Ignore
+            }
+
             if ($refund->status === 'published') {
                 $kategori = $this->getOrCreateKategoriRefund($refund->brand_id);
 
@@ -89,6 +95,15 @@ class RefundObserver
                     'action_url' => route('refunds.index'),
                 ]);
             }
+        }
+    }
+
+    public function deleted(Refund $refund): void
+    {
+        try {
+            \App\Services\Notifications\IdealNotificationService::markAsReadForResource('refund_submitted', $refund->order?->no_po ?? '-');
+        } catch (\Throwable $e) {
+            // Ignore
         }
     }
 

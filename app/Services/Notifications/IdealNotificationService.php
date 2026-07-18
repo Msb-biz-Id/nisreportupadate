@@ -200,4 +200,32 @@ class IdealNotificationService
 
         return $users->pluck('id')->toArray();
     }
+
+    /**
+     * Mark all unread notifications of a certain type/event and PO number as read for all users.
+     */
+    public static function markAsReadForResource(string $eventKey, string $noPo): void
+    {
+        if (empty($noPo)) {
+            return;
+        }
+
+        \Illuminate\Support\Facades\DB::table('notifications')
+            ->whereNull('read_at')
+            ->where(function ($query) use ($eventKey) {
+                $query->where('type', \App\Notifications\SystemEventNotification::class)
+                      ->orWhere('type', 'like', '%' . $eventKey . '%');
+            })
+            ->where(function ($query) use ($eventKey) {
+                $query->where('data', 'like', '%"event_key":"' . $eventKey . '"%')
+                      ->orWhere('data', 'like', '%"event_key": "' . $eventKey . '"%')
+                      ->orWhere('data', 'like', '%"type":"' . $eventKey . '"%')
+                      ->orWhere('data', 'like', '%"type": "' . $eventKey . '"%');
+            })
+            ->where(function ($query) use ($noPo) {
+                $query->where('data', 'like', '%"no_po":"' . $noPo . '"%')
+                      ->orWhere('data', 'like', '%"no_po": "' . $noPo . '"%');
+            })
+            ->update(['read_at' => now()]);
+    }
 }

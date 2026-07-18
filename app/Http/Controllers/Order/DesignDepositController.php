@@ -58,7 +58,7 @@ class DesignDepositController extends Controller
             'brand_id' => $deposit->brand_id,
             'brand_nama' => $brand->nama_brand,
             'nominal' => 'Rp ' . number_format($deposit->amount, 0, ',', '.'),
-            'action_url' => "/invoices"
+            'action_url' => route('invoices.index'),
         ]);
 
         return back()->with('success', 'Tanda Jadi (Design Deposit) berhasil disimpan. Menunggu validasi Admin Keuangan.');
