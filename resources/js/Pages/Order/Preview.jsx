@@ -754,6 +754,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     <Badge variant={st.variant}>{st.label}</Badge>
                                     {order.is_free_ongkir && <Badge variant="success" className="bg-emerald-500 hover:bg-emerald-600">Free Ongkir</Badge>}
                                     {order.is_special_order && <Badge variant="warning">Special Order</Badge>}
+                                    {order.is_reseller_price && <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">Harga Reseller</Badge>}
                                     {order.is_repeat_order && <Badge variant="outline"><RotateCw className="mr-1 h-3 w-3" />Repeat</Badge>}
                                     {order.status_po !== 'draft' && (
                                         isLocked ? (
@@ -1329,6 +1330,10 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         label: 'Paket Order',
                                         value: order.paketOrder.nama,
                                         warna: order.paketOrder.warna,
+                                    },
+                                    order.is_reseller_price && {
+                                        label: 'Harga Reseller',
+                                        value: 'Ya (Aktif)',
                                     },
                                     printings.length > 0 && { label: 'Jenis Printing', value: printings.map(p => p.nama).join(', ') },
                                     order.iklan?.nama && { label: 'Promo', value: order.iklan.nama + (order.iklan.platform ? ` (${order.iklan.platform})` : '') },

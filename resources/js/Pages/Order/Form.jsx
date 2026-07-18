@@ -1365,6 +1365,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
         nama_po: order?.nama_po ?? '',
         is_special_order: order?.is_special_order ?? false,
         is_free_ongkir: order?.is_free_ongkir ?? false,
+        is_reseller_price: order?.is_reseller_price ?? false,
         ongkir: order?.ongkir !== undefined ? Number(order.ongkir) : 0,
         tanggal_masuk: order?.tanggal_masuk?.slice?.(0, 10) ?? new Date().toISOString().slice(0, 10),
         deadline_customer: order?.deadline_customer?.slice?.(0, 10) ?? '',
@@ -1609,6 +1610,16 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                     className="scale-90"
                                     checked={data.is_special_order} 
                                     onCheckedChange={(v) => setData('is_special_order', v)} 
+                                />
+                            </div>
+
+                            {/* Harga Reseller Switch */}
+                            <div className="flex items-center gap-2 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
+                                <span className="font-extrabold text-[10px] text-slate-300 uppercase tracking-wide">Harga Reseller</span>
+                                <Switch 
+                                    className="scale-90"
+                                    checked={data.is_reseller_price} 
+                                    onCheckedChange={(v) => setData('is_reseller_price', v)} 
                                 />
                             </div>
 

@@ -352,6 +352,14 @@ class SettingsController extends Controller
                     'roles' => ['admin_produksi', 'owner'],
                     'sound' => 'success-tada'
                 ],
+                'special_order_created' => [
+                    'in_app' => true,
+                    'whatsapp' => false,
+                    'telegram' => false,
+                    'os_desktop' => true,
+                    'roles' => ['admin_keuangan', 'owner'],
+                    'sound' => 'warning-alert'
+                ],
                 'progress_updated' => [
                     'in_app' => true,
                     'whatsapp' => false,

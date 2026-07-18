@@ -185,6 +185,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <td className="font-bold py-0.5">{(order.reseller_display_brand ? order.reseller_display_brand.nama_brand : brand.nama_brand)?.toUpperCase() || ''}</td>
                                         </tr>
                                     )}
+
                                     <tr>
                                         <td className="font-black py-0.5">TOTAL ATASAN</td>
                                         <td className="py-0.5">:</td>
@@ -239,6 +240,11 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                     <div className="text-[12px] font-bold mt-2 pt-2 border-t border-black">
                                         PAKET ORDER:<br />
                                         <span className="text-[14px] font-black">{order.paket_order.nama}</span>
+                                    </div>
+                                )}
+                                {order.is_reseller_price && (
+                                    <div className="text-[12px] font-bold mt-2 pt-2 border-t border-dashed border-black">
+                                        <span className="text-[13px] font-black text-red-600">HARGA RESELLER</span>
                                     </div>
                                 )}
                             </div>

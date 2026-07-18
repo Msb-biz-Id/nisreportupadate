@@ -359,6 +359,7 @@
                                 <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{{ strtoupper($order->resellerDisplayBrand ? $order->resellerDisplayBrand->nama_brand : $order->brand->nama_brand) }}</td>
                             </tr>
                             @endif
+
                             <tr>
                                 <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">TOTAL ATASAN</td>
                                 <td style="font-weight: bold; padding: 3px 0;">:</td>
@@ -397,6 +398,11 @@
                             <div style="font-size: 10pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
                                 PAKET ORDER:<br>
                                 <span style="font-size: 12pt; font-weight: 900; color: #000;">{{ strtoupper($order->paketOrder->nama) }}</span>
+                            </div>
+                            @endif
+                            @if($order->is_reseller_price)
+                            <div style="font-size: 10pt; font-weight: bold; margin-top: 10px; border-top: 1px dashed #000; padding-top: 5px; line-height: 1.2;">
+                                <span style="font-size: 11pt; font-weight: 900; color: #dc2626;">HARGA RESELLER</span>
                             </div>
                             @endif
                         </div>

@@ -17,6 +17,10 @@ export default function Notifications({ notification_matrix, available_roles, av
             title: 'PO Baru Diterbitkan 📦',
             desc: 'Dipicu ketika PO baru diterbitkan oleh Admin Brand.'
         },
+        special_order_created: {
+            title: 'Special Order Baru Dibuat 🎯',
+            desc: 'Dipicu ketika PO baru ditandai sebagai Special Order.'
+        },
         progress_updated: {
             title: 'Progress PO Diperbarui ⚙️',
             desc: 'Dipicu ketika tahapan produksi PO diperbarui oleh Admin Produksi.'
@@ -60,6 +64,14 @@ export default function Notifications({ notification_matrix, available_roles, av
     };
 
     const defaultConfigs = {
+        special_order_created: {
+            in_app: true,
+            whatsapp: false,
+            telegram: false,
+            os_desktop: true,
+            roles: ['admin_keuangan', 'owner'],
+            sound: 'warning-alert'
+        },
         unlock_requested: {
             in_app: true,
             whatsapp: false,
