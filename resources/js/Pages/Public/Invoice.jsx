@@ -704,8 +704,8 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                             {brand.kode || 'B'}
                         </div>
                     )}
-                    <h2 className="text-sm font-black uppercase tracking-tight">{brand.nama_brand}</h2>
-                    {brand.tagline && <div className="text-[10px] font-medium leading-none">{brand.tagline}</div>}
+                    <h2 className="text-sm font-black uppercase tracking-widest">{brand.nama_brand}</h2>
+                    {brand.tagline && <div className="text-[10px] font-medium leading-none tracking-wide">{brand.tagline}</div>}
                     <div className="text-[9px] leading-tight max-w-[280px] mx-auto text-black">
                         {brand.alamat && <div>{brand.alamat}</div>}
                         <div className="flex justify-center gap-2 flex-wrap mt-0.5">
@@ -715,32 +715,32 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                     </div>
                 </div>
 
-                {/* Dashed Line */}
-                <div className="border-t-2 border-dashed border-black my-3"></div>
+                {/* Double Border POS Divider */}
+                <div className="border-t-4 border-double border-black my-3"></div>
 
                 {/* Invoice Info */}
                 <div className="space-y-1 text-xs">
                     <div className="flex justify-between">
-                        <span>No. Invoice:</span>
+                        <span className="text-black/80 font-medium">No. Invoice :</span>
                         <span className="font-bold">{invoice.invoice_number}</span>
                     </div>
                     <div className="flex justify-between">
-                        <span>Tanggal:</span>
+                        <span className="text-black/80 font-medium">Tanggal     :</span>
                         <span>{formatDate(invoice.tanggal_terbit)}</span>
                     </div>
                     {invoice.order?.no_po && (
                         <div className="flex justify-between">
-                            <span>No. PO:</span>
+                            <span className="text-black/80 font-medium">No. PO      :</span>
                             <span className="font-bold">{invoice.order.no_po}</span>
                         </div>
                     )}
                     <div className="flex justify-between">
-                        <span>Pelanggan:</span>
+                        <span className="text-black/80 font-medium">Pelanggan   :</span>
                         <span className="font-bold max-w-[180px] text-right truncate">{invoice.order?.pelanggan?.nama || '—'}</span>
                     </div>
                     {invoice.order?.pelanggan?.nomor_hp && (
                         <div className="flex justify-between">
-                            <span>No. HP:</span>
+                            <span className="text-black/80 font-medium">No. HP      :</span>
                             <span>{maskPhone(invoice.order.pelanggan.nomor_hp)}</span>
                         </div>
                     )}
@@ -751,7 +751,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
 
                 {/* Items */}
                 <div className="space-y-3 text-xs">
-                    <div className="font-bold uppercase text-[10px] tracking-wide">Rincian Produk</div>
+                    <div className="font-bold text-center tracking-widest uppercase text-[10px]">[ RINCIAN PRODUK ]</div>
                     {(() => {
                         const mainItems = (invoice.items ?? []).filter(item => !item.is_addon);
                         const addonItems = (invoice.items ?? []).filter(item => item.is_addon);
@@ -760,13 +760,13 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                             <div className="space-y-3">
                                 {mainItems.length > 0 && (
                                     <div className="space-y-2">
-                                        <div className="font-bold text-[10px] underline text-black">PRODUK INTI</div>
-                                        {mainItems.map((item) => (
-                                            <div key={item.id} className="space-y-0.5">
-                                                <div className="font-semibold text-black">{item.produk}</div>
+                                        <div className="font-bold text-[9px] tracking-wider uppercase text-black/60 border-b border-black border-dotted pb-0.5">PRODUK INTI</div>
+                                        {mainItems.map((item, idx) => (
+                                            <div key={item.id} className={`space-y-0.5 ${idx > 0 ? 'pt-1.5 border-t border-dotted border-black/15' : ''}`}>
+                                                <div className="font-semibold text-black uppercase">{item.produk}</div>
                                                 <div className="flex justify-between pl-2 text-black">
                                                     <span>{item.jumlah} pcs x {formatRupiah(item.harga_satuan)}</span>
-                                                    <span>{formatRupiah(item.subtotal)}</span>
+                                                    <span className="font-semibold">{formatRupiah(item.subtotal)}</span>
                                                 </div>
                                             </div>
                                         ))}
@@ -774,13 +774,13 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                 )}
                                 {addonItems.length > 0 && (
                                     <div className="space-y-2 pt-1">
-                                        <div className="font-bold text-[10px] underline text-black">ADD-ON</div>
-                                        {addonItems.map((item) => (
-                                            <div key={item.id} className="space-y-0.5">
-                                                <div className="font-semibold text-black">{item.produk}</div>
+                                        <div className="font-bold text-[9px] tracking-wider uppercase text-black/60 border-b border-black border-dotted pb-0.5">ADD-ON</div>
+                                        {addonItems.map((item, idx) => (
+                                            <div key={item.id} className={`space-y-0.5 ${idx > 0 ? 'pt-1.5 border-t border-dotted border-black/15' : ''}`}>
+                                                <div className="font-semibold text-black uppercase">{item.produk}</div>
                                                 <div className="flex justify-between pl-2 text-black">
                                                     <span>{item.jumlah} pcs x {formatRupiah(item.harga_satuan)}</span>
-                                                    <span>{formatRupiah(item.subtotal)}</span>
+                                                    <span className="font-semibold">{formatRupiah(item.subtotal)}</span>
                                                 </div>
                                             </div>
                                         ))}
@@ -791,8 +791,8 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                     })()}
                 </div>
 
-                {/* Dashed Line */}
-                <div className="border-t-2 border-dashed border-black my-3"></div>
+                {/* Double Border POS Divider */}
+                <div className="border-t-4 border-double border-black my-3"></div>
 
                 {/* Calculations */}
                 <div className="space-y-1.5 text-xs text-black">
@@ -825,8 +825,8 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                             <span>+ {formatRupiah(additionSum)}</span>
                         </div>
                     )}
-                    <div className="flex justify-between font-bold border-t border-dotted border-black pt-1.5">
-                        <span>Total yang Harus Dibayar</span>
+                    <div className="flex justify-between font-bold border-y border-dashed border-black py-1.5 my-1">
+                        <span>TOTAL HARUS DIBAYAR</span>
                         <span>{formatRupiah(grossInvoiceTotal)}</span>
                     </div>
                     {totalReceived > 0 && (
@@ -857,8 +857,8 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                         const netPayment = totalReceived - returnSum - cashbackSum;
                         const calculatedSisa = Math.max(0, grossInvoiceTotal - netPayment);
                         return (
-                            <div className="flex justify-between font-black border-t border-black pt-1.5 text-sm">
-                                <span>Sisa</span>
+                            <div className="flex justify-between font-black border-y-2 border-black py-1.5 text-sm my-1">
+                                <span>SISA TAGIHAN</span>
                                 <span>{formatRupiah(calculatedSisa)}</span>
                             </div>
                         );
@@ -870,13 +870,13 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
 
                 {/* Bank / Payment Info if remaining balance */}
                 {invoice.bank && (
-                    <div className="text-[10px] text-center space-y-1 py-1">
+                    <div className="text-[10px] text-center space-y-1 py-1.5">
                         {invoice.bank.bank === 'CASH' ? (
-                            <div className="font-bold">METODE PEMBAYARAN: TUNAI / CASH</div>
+                            <div className="font-bold tracking-wider">[ METODE PEMBAYARAN: TUNAI / CASH ]</div>
                         ) : (
                             <div className="space-y-1">
-                                <div className="font-bold">REKENING PEMBAYARAN RESMI</div>
-                                <div>{invoice.bank.bank} - {invoice.bank.nomor_rekening}</div>
+                                <div className="font-bold tracking-wider">[ REKENING PEMBAYARAN RESMI ]</div>
+                                <div className="font-bold text-black">{invoice.bank.bank} - {invoice.bank.nomor_rekening}</div>
                                 <div>A.N: {invoice.bank.atas_nama}</div>
                             </div>
                         )}
@@ -884,14 +884,14 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                 )}
 
                 {/* Imbauan Keamanan Pembayaran */}
-                <div className="text-[8px] text-center leading-relaxed space-y-1 my-2 border border-dotted border-black p-1.5">
-                    <div className="font-bold text-[9px]">⚠️ IMBAUAN KEAMANAN PEMBAYARAN</div>
+                <div className="text-[8px] text-center leading-relaxed space-y-1 my-3 border-2 border-black p-2 bg-black/[0.01]">
+                    <div className="font-bold text-[9px] tracking-widest">!!! PERINGATAN KEAMANAN !!!</div>
                     {invoice.bank && invoice.bank.bank === 'CASH' ? (
-                        <p>
+                        <p className="text-justify px-1">
                             Demi keamanan transaksi, mohon lakukan pembayaran tunai secara langsung hanya melalui kasir atau sales resmi brand kami. Jangan melakukan transfer ke rekening perorangan/rekening lain yang tidak terdaftar secara resmi. Selalu konfirmasi transaksi melalui kontak resmi brand kami.
                         </p>
                     ) : (
-                        <p>
+                        <p className="text-justify px-1">
                             Demi keamanan transaksi, mohon TIDAK MELAKUKAN transfer ke rekening mana pun selain rekening resmi atas nama {invoice.bank ? invoice.bank.atas_nama : brand.nama_brand}. Jangan pernah mengirimkan dana ke rekening perorangan/sales/rekening lain di luar informasi resmi yang tertera. Selalu konfirmasi transaksi melalui kontak resmi brand kami.
                         </p>
                     )}
@@ -903,14 +903,14 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                 {/* Footer and QR Code */}
                 <div className="text-center space-y-3 mt-3">
                     {qr_code && (
-                        <div className="bg-white p-1.5 inline-block border mx-auto">
-                            <img src={qr_code} alt="QR Tracking" className="h-24 w-24 filter grayscale" />
+                        <div className="bg-white p-1 inline-block border-2 border-black mx-auto">
+                            <img src={qr_code} alt="QR Tracking" className="h-28 w-28 filter grayscale" />
                         </div>
                     )}
                     <div className="text-[9px] leading-tight space-y-1">
-                        <div className="font-bold text-[10px]">Terima kasih atas pembayaran Anda!</div>
+                        <div className="font-bold text-[10px] tracking-wide">* TERIMA KASIH ATAS PEMBAYARAN ANDA *</div>
                         <div>Scan QR untuk Lacak Status Pesanan</div>
-                        {invoice.peraturan && <div className="text-[8px] text-black mt-2 max-w-[280px] mx-auto">{invoice.peraturan}</div>}
+                        {invoice.peraturan && <div className="text-[8px] text-black mt-2 max-w-[280px] mx-auto text-justify border-t border-dotted border-black/25 pt-2">{invoice.peraturan}</div>}
                     </div>
                 </div>
             </div>
