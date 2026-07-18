@@ -107,11 +107,11 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                             {brand.kode || 'B'}
                         </div>
                     )}
-                    <h2 className="text-sm font-black uppercase tracking-widest">{brand.nama_brand}</h2>
-                    {brand.tagline && <div className="text-[9px] font-medium leading-none tracking-wide text-black/85">{brand.tagline}</div>}
-                    <div className="text-[9px] leading-tight max-w-[280px] mx-auto text-black/75 mt-1">
-                        {brand.alamat && <div>{brand.alamat}</div>}
-                        <div className="flex justify-center gap-2 flex-wrap mt-0.5 font-bold">
+                    <h2 className="text-sm font-black uppercase tracking-widest text-black">{brand.nama_brand}</h2>
+                    {brand.tagline && <div className="text-[9px] font-bold leading-none tracking-wide text-black">{brand.tagline}</div>}
+                    <div className="text-[9px] leading-tight max-w-[280px] mx-auto text-black mt-1">
+                        {brand.alamat && <div className="text-black">{brand.alamat}</div>}
+                        <div className="flex justify-center gap-2 flex-wrap mt-0.5 font-bold text-black">
                             {brand.no_hp && <div>WA: {brand.no_hp}</div>}
                             {brand.email && <div>Email: {brand.email}</div>}
                         </div>
@@ -121,45 +121,50 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                 {/* Status Stamp */}
                 {status.label && (
                     <div className="my-3 flex justify-center">
-                        <div className="border-2 border-black border-dashed px-3 py-1 inline-block text-[10px] font-black uppercase tracking-widest rotate-[-3deg] bg-black/[0.02]">
+                        <div className="border-2 border-black border-dashed px-3 py-1 inline-block text-[10px] font-black uppercase tracking-widest rotate-[-3deg] text-black">
                             * {status.label} *
                         </div>
                     </div>
                 )}
 
                 {/* Double Border POS Divider */}
-                <div className="border-t-4 border-double border-black my-3"></div>
+                <div className="flex flex-col gap-[2px] my-3">
+                    <div className="border-t border-black"></div>
+                    <div className="border-t border-black"></div>
+                </div>
 
                 {/* Invoice Info */}
-                <div className="space-y-1 text-xs">
-                    <div className="flex justify-between">
-                        <span className="text-black/70 font-medium">No. Invoice :</span>
-                        <span className="font-bold">{invoice.invoice_number}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-black/70 font-medium">Tanggal     :</span>
-                        <span>{formatDate(invoice.tanggal_terbit)}</span>
+                <div className="space-y-2 text-xs text-black">
+                    <div className="border-b border-dashed border-black pb-1.5">
+                        <div className="text-[9px] font-bold uppercase tracking-wider text-black">No. Invoice:</div>
+                        <div className="font-extrabold text-[11px] text-black break-all leading-tight">{invoice.invoice_number}</div>
                     </div>
                     {invoice.order?.no_po && (
-                        <div className="flex justify-between">
-                            <span className="text-black/70 font-medium">No. PO      :</span>
-                            <span className="font-bold">{invoice.order.no_po}</span>
+                        <div className="border-b border-dashed border-black pb-1.5">
+                            <div className="text-[9px] font-bold uppercase tracking-wider text-black">No. PO:</div>
+                            <div className="font-extrabold text-[11px] text-black break-all leading-tight">{invoice.order.no_po}</div>
                         </div>
                     )}
-                    <div className="flex justify-between">
-                        <span className="text-black/70 font-medium">Pelanggan   :</span>
-                        <span className="font-bold max-w-[180px] text-right truncate">{invoice.order?.pelanggan?.nama || '—'}</span>
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                        <div>
+                            <div className="font-bold uppercase tracking-wider text-black">Tanggal:</div>
+                            <div className="font-semibold text-black">{formatDate(invoice.tanggal_terbit)}</div>
+                        </div>
+                        <div>
+                            <div className="font-bold uppercase tracking-wider text-black">Pelanggan:</div>
+                            <div className="font-semibold text-black truncate">{invoice.order?.pelanggan?.nama || '—'}</div>
+                        </div>
                     </div>
                     {invoice.order?.pelanggan?.nomor_hp && (
-                        <div className="flex justify-between">
-                            <span className="text-black/70 font-medium">No. HP      :</span>
-                            <span>{maskPhone(invoice.order.pelanggan.nomor_hp)}</span>
+                        <div className="text-[10px] flex justify-between border-t border-dotted border-black pt-1">
+                            <span className="font-bold uppercase tracking-wider text-black">No. HP:</span>
+                            <span className="font-semibold text-black">{maskPhone(invoice.order.pelanggan.nomor_hp)}</span>
                         </div>
                     )}
                 </div>
 
                 {/* Dashed Line */}
-                <div className="border-t border-dashed border-black/40 my-3"></div>
+                <div className="border-t border-dashed border-black my-3"></div>
 
                 {/* Items */}
                 <div className="space-y-3 text-xs">
@@ -169,14 +174,14 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                         const addonItems = (invoice.items ?? []).filter(item => item.is_addon);
                         
                         return (
-                            <div className="space-y-3">
+                            <div className="space-y-3 text-black">
                                 {mainItems.length > 0 && (
                                     <div className="space-y-2">
-                                        <div className="font-bold text-[9px] tracking-wider uppercase text-black/60 border-b border-black/20 pb-0.5">PRODUK UTAMA</div>
+                                        <div className="font-bold text-[9px] tracking-wider uppercase text-black border-b border-black pb-0.5">PRODUK UTAMA</div>
                                         {mainItems.map((item, idx) => (
                                             <div key={item.id} className="space-y-0.5">
                                                 <div className="font-bold text-black uppercase">{item.produk}</div>
-                                                <div className="flex justify-between pl-2 text-black/80">
+                                                <div className="flex justify-between pl-1 text-black">
                                                     <span>{item.jumlah}x {formatRupiah(item.harga_satuan)}</span>
                                                     <span className="font-bold">{formatRupiah(item.subtotal)}</span>
                                                 </div>
@@ -186,11 +191,11 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                 )}
                                 {addonItems.length > 0 && (
                                     <div className="space-y-2 pt-1">
-                                        <div className="font-bold text-[9px] tracking-wider uppercase text-black/60 border-b border-black/20 pb-0.5">TAMBAHAN / ADD-ON</div>
+                                        <div className="font-bold text-[9px] tracking-wider uppercase text-black border-b border-black pb-0.5">TAMBAHAN / ADD-ON</div>
                                         {addonItems.map((item, idx) => (
                                             <div key={item.id} className="space-y-0.5">
                                                 <div className="font-bold text-black uppercase">{item.produk}</div>
-                                                <div className="flex justify-between pl-2 text-black/80">
+                                                <div className="flex justify-between pl-1 text-black">
                                                     <span>{item.jumlah}x {formatRupiah(item.harga_satuan)}</span>
                                                     <span className="font-bold">{formatRupiah(item.subtotal)}</span>
                                                 </div>
@@ -204,63 +209,66 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                 </div>
 
                 {/* Double Border POS Divider */}
-                <div className="border-t-4 border-double border-black my-3"></div>
+                <div className="flex flex-col gap-[2px] my-3">
+                    <div className="border-t border-black"></div>
+                    <div className="border-t border-black"></div>
+                </div>
 
                 {/* Calculations */}
                 <div className="space-y-1.5 text-xs text-black">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-black">
                         <span>Total Harga</span>
                         <span>{formatRupiah(grossSubtotal)}</span>
                     </div>
                     {diskonNominal > 0 && (
-                        <div className="flex justify-between">
+                        <div className="flex justify-between text-black">
                             <span>Diskon</span>
                             <span>- {formatRupiah(diskonNominal)}</span>
                         </div>
                     )}
                     {invoice.order?.is_free_ongkir ? (
-                        <div className="flex justify-between">
+                        <div className="flex justify-between text-black">
                             <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}</span>
                             <span className="font-bold">GRATIS</span>
                         </div>
                     ) : (
                         Number(invoice.biaya_pengiriman || 0) > 0 && (
-                            <div className="flex justify-between">
+                            <div className="flex justify-between text-black">
                                 <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}</span>
                                 <span>+ {formatRupiah(Number(invoice.biaya_pengiriman))}</span>
                             </div>
                         )
                     )}
                     {additionSum > 0 && (
-                        <div className="flex justify-between">
+                        <div className="flex justify-between text-black">
                             <span>Tambahan Produk</span>
                             <span>+ {formatRupiah(additionSum)}</span>
                         </div>
                     )}
-                    <div className="flex justify-between font-bold border-y border-dashed border-black py-1.5 my-2">
+                    <div className="flex justify-between font-bold border-y border-dashed border-black py-1.5 my-2 text-black">
                         <span>TOTAL AKHIR</span>
                         <span className="font-black text-sm">{formatRupiah(grossInvoiceTotal)}</span>
                     </div>
                     {totalReceived > 0 && (
-                        <div className="flex justify-between">
+                        <div className="flex justify-between text-black">
                             <span>Total Bayar</span>
                             <span>{formatRupiah(totalReceived)}</span>
                         </div>
                     )}
                     {returnSum > 0 && (
-                        <div className="flex justify-between">
+                        <div className="flex justify-between text-black">
                             <span>Refund</span>
                             <span>- {formatRupiah(returnSum)}</span>
                         </div>
                     )}
                     {cashbackSum > 0 && (
-                        <div className="flex justify-between">
+                        <div className="flex justify-between text-black">
                             <span>Cashback</span>
                             <span>- {formatRupiah(cashbackSum)}</span>
                         </div>
                     )}
                     {(returnSum > 0 || cashbackSum > 0) && (
-                        <div className="flex justify-between font-bold border-t border-dashed border-black pt-1">
+                        <div className="flex justify-between font-bold border-t border-dashed border-black pt-1 text-black">
                             <span>Neto Pembayaran</span>
                             <span>{formatRupiah(totalReceived - returnSum - cashbackSum)}</span>
                         </div>
@@ -269,7 +277,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                         const netPayment = totalReceived - returnSum - cashbackSum;
                         const calculatedSisa = Math.max(0, grossInvoiceTotal - netPayment);
                         return (
-                            <div className="flex justify-between font-black border-y-2 border-black py-1.5 text-sm my-2">
+                            <div className="flex justify-between font-black border-y-2 border-black py-1.5 text-sm my-2 text-black">
                                 <span>SISA TAGIHAN</span>
                                 <span>{formatRupiah(calculatedSisa)}</span>
                             </div>
@@ -278,39 +286,39 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                 </div>
 
                 {/* Dashed Line */}
-                <div className="border-t border-dashed border-black/40 my-3"></div>
+                <div className="border-t border-dashed border-black my-3"></div>
 
                 {/* Bank / Payment Info */}
                 {invoice.bank && (
-                    <div className="text-[10px] text-center space-y-1 py-2 border border-black border-dashed rounded bg-black/[0.01]">
+                    <div className="text-[10px] text-center space-y-1 py-2 border border-black border-dashed rounded">
                         {invoice.bank.bank === 'CASH' ? (
-                            <div className="font-bold tracking-wider">PEMBAYARAN: TUNAI (LUNAS)</div>
+                            <div className="font-bold tracking-wider text-black">PEMBAYARAN: TUNAI (LUNAS)</div>
                         ) : (
-                            <div className="space-y-0.5">
-                                <div className="font-bold tracking-wider text-[9px] text-black/60">REKENING TRANSFER RESMI</div>
+                            <div className="space-y-0.5 text-black">
+                                <div className="font-bold tracking-wider text-[9px] text-black">REKENING TRANSFER RESMI</div>
                                 <div className="font-black text-black text-[11px]">{invoice.bank.bank} - {invoice.bank.nomor_rekening}</div>
-                                <div className="font-medium">A.N: {invoice.bank.atas_nama}</div>
+                                <div className="font-medium text-black">A.N: {invoice.bank.atas_nama}</div>
                             </div>
                         )}
                     </div>
                 )}
 
                 {/* Imbauan Keamanan Pembayaran */}
-                <div className="text-[8px] text-center leading-relaxed space-y-1 my-3 border border-black p-2 bg-black/[0.02]">
+                <div className="text-[8px] text-center leading-relaxed space-y-1 my-3 border border-black p-2">
                     <div className="font-bold text-[9px] tracking-widest text-black">⚠️ PERINGATAN KEAMANAN ⚠️</div>
                     {invoice.bank && invoice.bank.bank === 'CASH' ? (
-                        <p className="text-justify leading-tight">
+                        <p className="text-justify leading-tight text-black">
                             Demi keamanan transaksi, lakukan pembayaran tunai secara langsung hanya melalui kasir/sales resmi brand kami. Jangan melakukan transfer ke rekening perorangan yang tidak terdaftar secara resmi.
                         </p>
                     ) : (
-                        <p className="text-justify leading-tight">
+                        <p className="text-justify leading-tight text-black">
                             Demi keamanan, mohon TIDAK MELAKUKAN transfer ke rekening mana pun selain rekening resmi atas nama {invoice.bank ? invoice.bank.atas_nama : brand.nama_brand}. Jangan pernah mengirimkan dana ke rekening perorangan/sales di luar informasi resmi tertera.
                         </p>
                     )}
                 </div>
 
                 {/* Barcode Accent */}
-                <div className="flex justify-center items-center gap-[1px] h-6 my-4 overflow-hidden opacity-90 select-none">
+                <div className="flex justify-center items-center gap-[1px] h-6 my-4 overflow-hidden select-none">
                     <div className="bg-black w-[2px] h-full"></div>
                     <div className="bg-black w-[1px] h-full"></div>
                     <div className="bg-black w-[3px] h-full"></div>
@@ -341,15 +349,15 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                             <img src={qr_code} alt="QR Tracking" className="h-24 w-24 filter grayscale" />
                         </div>
                     )}
-                    <div className="text-[9px] leading-tight space-y-1">
-                        <div className="font-bold text-[10px] tracking-wide">* TERIMA KASIH ATAS KERJASAMANYA *</div>
-                        <div>Scan QR untuk Lacak Status Produksi</div>
-                        {invoice.peraturan && <div className="text-[8px] text-black mt-2 max-w-[280px] mx-auto text-justify border-t border-dotted border-black/35 pt-1.5">{invoice.peraturan}</div>}
+                    <div className="text-[9px] leading-tight space-y-1 text-black">
+                        <div className="font-bold text-[10px] tracking-wide text-black">* TERIMA KASIH ATAS KERJASAMANYA *</div>
+                        <div className="text-black">Scan QR untuk Lacak Status Produksi</div>
+                        {invoice.peraturan && <div className="text-[8px] text-black mt-2 max-w-[280px] mx-auto text-justify border-t border-dashed border-black pt-1.5">{invoice.peraturan}</div>}
                     </div>
                 </div>
 
                 {/* Tear cut accent */}
-                <div className="text-center text-[8px] tracking-widest text-black/30 mt-4 border-t border-dashed border-black/20 pt-2 select-none">
+                <div className="text-center text-[8px] tracking-widest text-black mt-4 border-t border-dashed border-black pt-2 select-none">
                     - - - - - GUNTING DI SINI - - - - -
                 </div>
             </div>
