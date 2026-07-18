@@ -706,7 +706,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                     )}
                     <h2 className="text-sm font-black uppercase tracking-tight">{brand.nama_brand}</h2>
                     {brand.tagline && <div className="text-[10px] font-medium leading-none">{brand.tagline}</div>}
-                    <div className="text-[9px] leading-tight max-w-[280px] mx-auto text-slate-800">
+                    <div className="text-[9px] leading-tight max-w-[280px] mx-auto text-black">
                         {brand.alamat && <div>{brand.alamat}</div>}
                         <div className="flex justify-center gap-2 flex-wrap mt-0.5">
                             {brand.no_hp && <div>WA: {brand.no_hp}</div>}
@@ -760,11 +760,11 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                             <div className="space-y-3">
                                 {mainItems.length > 0 && (
                                     <div className="space-y-2">
-                                        <div className="font-bold text-[10px] underline text-slate-800">PRODUK INTI</div>
+                                        <div className="font-bold text-[10px] underline text-black">PRODUK INTI</div>
                                         {mainItems.map((item) => (
                                             <div key={item.id} className="space-y-0.5">
                                                 <div className="font-semibold text-black">{item.produk}</div>
-                                                <div className="flex justify-between pl-2 text-slate-800">
+                                                <div className="flex justify-between pl-2 text-black">
                                                     <span>{item.jumlah} pcs x {formatRupiah(item.harga_satuan)}</span>
                                                     <span>{formatRupiah(item.subtotal)}</span>
                                                 </div>
@@ -774,11 +774,11 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                 )}
                                 {addonItems.length > 0 && (
                                     <div className="space-y-2 pt-1">
-                                        <div className="font-bold text-[10px] underline text-slate-800">ADD-ON</div>
+                                        <div className="font-bold text-[10px] underline text-black">ADD-ON</div>
                                         {addonItems.map((item) => (
                                             <div key={item.id} className="space-y-0.5">
                                                 <div className="font-semibold text-black">{item.produk}</div>
-                                                <div className="flex justify-between pl-2 text-slate-800">
+                                                <div className="flex justify-between pl-2 text-black">
                                                     <span>{item.jumlah} pcs x {formatRupiah(item.harga_satuan)}</span>
                                                     <span>{formatRupiah(item.subtotal)}</span>
                                                 </div>
@@ -795,64 +795,70 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                 <div className="border-t-2 border-dashed border-black my-3"></div>
 
                 {/* Calculations */}
-                <div className="space-y-1.5 text-xs">
+                <div className="space-y-1.5 text-xs text-black">
                     <div className="flex justify-between">
-                        <span>Total Harga:</span>
+                        <span>Total Harga</span>
                         <span>{formatRupiah(grossSubtotal)}</span>
                     </div>
                     {diskonNominal > 0 && (
                         <div className="flex justify-between">
-                            <span>Total Diskon:</span>
-                            <span>-{formatRupiah(diskonNominal)}</span>
+                            <span>Total Diskon</span>
+                            <span>- {formatRupiah(diskonNominal)}</span>
                         </div>
                     )}
                     {invoice.order?.is_free_ongkir ? (
-                        <div className="flex justify-between">
-                            <span>Ongkir:</span>
+                        <div className="flex justify-between font-bold">
+                            <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}</span>
                             <span>Gratis Ongkir</span>
                         </div>
                     ) : (
                         Number(invoice.biaya_pengiriman || 0) > 0 && (
                             <div className="flex justify-between">
-                                <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}:</span>
-                                <span>+{formatRupiah(Number(invoice.biaya_pengiriman))}</span>
+                                <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}</span>
+                                <span>+ {formatRupiah(Number(invoice.biaya_pengiriman))}</span>
                             </div>
                         )
                     )}
                     {additionSum > 0 && (
                         <div className="flex justify-between">
-                            <span>Tambahan Produk:</span>
-                            <span>+{formatRupiah(additionSum)}</span>
+                            <span>Tambahan Produk</span>
+                            <span>+ {formatRupiah(additionSum)}</span>
                         </div>
                     )}
                     <div className="flex justify-between font-bold border-t border-dotted border-black pt-1.5">
-                        <span>Total Akhir:</span>
+                        <span>Total yang Harus Dibayar</span>
                         <span>{formatRupiah(grossInvoiceTotal)}</span>
                     </div>
                     {totalReceived > 0 && (
                         <div className="flex justify-between">
-                            <span>Total Terbayar:</span>
+                            <span>Total Terbayar</span>
                             <span>{formatRupiah(totalReceived)}</span>
                         </div>
                     )}
                     {returnSum > 0 && (
-                        <div className="flex justify-between text-slate-800">
-                            <span>Refund:</span>
-                            <span>-{formatRupiah(returnSum)}</span>
+                        <div className="flex justify-between font-bold">
+                            <span>Refund</span>
+                            <span>- {formatRupiah(returnSum)}</span>
                         </div>
                     )}
                     {cashbackSum > 0 && (
-                        <div className="flex justify-between text-slate-800">
-                            <span>Cashback:</span>
-                            <span>-{formatRupiah(cashbackSum)}</span>
+                        <div className="flex justify-between font-bold">
+                            <span>Cashback</span>
+                            <span>- {formatRupiah(cashbackSum)}</span>
+                        </div>
+                    )}
+                    {(returnSum > 0 || cashbackSum > 0) && (
+                        <div className="flex justify-between font-bold border-t border-dashed border-black pt-1">
+                            <span>Neto Pembayaran</span>
+                            <span>{formatRupiah(totalReceived - returnSum - cashbackSum)}</span>
                         </div>
                     )}
                     {(() => {
                         const netPayment = totalReceived - returnSum - cashbackSum;
                         const calculatedSisa = Math.max(0, grossInvoiceTotal - netPayment);
                         return (
-                            <div className="flex justify-between font-bold border-t border-dotted border-black pt-1.5 text-sm">
-                                <span>SISA:</span>
+                            <div className="flex justify-between font-black border-t border-black pt-1.5 text-sm">
+                                <span>Sisa</span>
                                 <span>{formatRupiah(calculatedSisa)}</span>
                             </div>
                         );
@@ -877,6 +883,20 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                     </div>
                 )}
 
+                {/* Imbauan Keamanan Pembayaran */}
+                <div className="text-[8px] text-center leading-relaxed space-y-1 my-2 border border-dotted border-black p-1.5">
+                    <div className="font-bold text-[9px]">⚠️ IMBAUAN KEAMANAN PEMBAYARAN</div>
+                    {invoice.bank && invoice.bank.bank === 'CASH' ? (
+                        <p>
+                            Demi keamanan transaksi, mohon lakukan pembayaran tunai secara langsung hanya melalui kasir atau sales resmi brand kami. Jangan melakukan transfer ke rekening perorangan/rekening lain yang tidak terdaftar secara resmi. Selalu konfirmasi transaksi melalui kontak resmi brand kami.
+                        </p>
+                    ) : (
+                        <p>
+                            Demi keamanan transaksi, mohon TIDAK MELAKUKAN transfer ke rekening mana pun selain rekening resmi atas nama {invoice.bank ? invoice.bank.atas_nama : brand.nama_brand}. Jangan pernah mengirimkan dana ke rekening perorangan/sales/rekening lain di luar informasi resmi yang tertera. Selalu konfirmasi transaksi melalui kontak resmi brand kami.
+                        </p>
+                    )}
+                </div>
+
                 {/* Dashed Line */}
                 <div className="border-t-2 border-dashed border-black my-3"></div>
 
@@ -890,7 +910,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                     <div className="text-[9px] leading-tight space-y-1">
                         <div className="font-bold text-[10px]">Terima kasih atas pembayaran Anda!</div>
                         <div>Scan QR untuk Lacak Status Pesanan</div>
-                        {invoice.peraturan && <div className="text-[8px] text-slate-800 mt-2 max-w-[280px] mx-auto">{invoice.peraturan}</div>}
+                        {invoice.peraturan && <div className="text-[8px] text-black mt-2 max-w-[280px] mx-auto">{invoice.peraturan}</div>}
                     </div>
                 </div>
             </div>
