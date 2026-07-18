@@ -39,7 +39,6 @@ const maskDetailAlamat = (address) => {
 
 export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
     usePublicSecurity();
-    const [viewMode, setViewMode] = useState('standard');
     const brand = invoice.brand ?? {};
     const status = STATUS_BADGE[invoice.status] ?? { label: invoice.status, class: 'bg-slate-100 text-slate-700' };
 
@@ -382,6 +381,12 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
+                    .print\\:hidden {
+                        display: none !important;
+                    }
+                    .print\\:block {
+                        display: block !important;
+                    }
                 }
             ` }} />
             <div className="min-h-screen bg-slate-50/50 px-4 py-8 md:py-12 print:hidden">
@@ -423,27 +428,6 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                         </div>
                     </div>
 
-                    {/* View Mode Switcher */}
-                    <div className="flex bg-slate-200/60 p-1 rounded-2xl max-w-sm mx-auto border border-slate-200/50 shadow-inner print:hidden mb-6">
-                        <button
-                            onClick={() => setViewMode('standard')}
-                            className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 ${viewMode === 'standard' ? 'bg-white text-slate-800 shadow-sm border border-slate-200/30' : 'text-slate-500 hover:text-slate-800'}`}
-                        >
-                            <FileText className="h-3.5 w-3.5" />
-                            Invoice Standard (A4)
-                        </button>
-                        <button
-                            onClick={() => setViewMode('thermal')}
-                            className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 ${viewMode === 'thermal' ? 'bg-white text-slate-800 shadow-sm border border-slate-200/30' : 'text-slate-500 hover:text-slate-800'}`}
-                        >
-                            <Printer className="h-3.5 w-3.5" />
-                            Struk Kasir (Thermal)
-                        </button>
-                    </div>
-
-                    {/* Standard View */}
-                    {viewMode === 'standard' && (
-                        <>
                             {/* Master Invoice Card */}
                             <div className="overflow-hidden rounded-3xl border border-slate-150 bg-white shadow-lg">
                                 {/* Brand Banner Accent */}
@@ -968,52 +952,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                     <div className="rounded-2xl border border-slate-200/50 bg-slate-100/50 p-4 text-center text-[10px] text-slate-500 leading-normal">
                         Seluruh transaksi dan data yang tercantum dalam dokumen ini diterbitkan secara resmi oleh sistem master ledger keuangan <strong>{brand.nama_brand || 'Konveksi'}</strong> dan dilindungi oleh syarat & ketentuan pengerjaan konveksi. Hubungi Admin Brand jika terdapat selisih.
                     </div>
-                        </>
-                    )}
 
-                    {/* Thermal Preview View */}
-                    {viewMode === 'thermal' && (
-                        <div className="mx-auto max-w-md space-y-6 animate-in fade-in zoom-in duration-200 print:hidden">
-                            {/* Realistic Receipt Canvas */}
-                            <div className="relative bg-slate-200/50 p-1.5 rounded-3xl overflow-hidden shadow-[0_15px_40px_rgba(0,0,0,0.15)] border border-slate-300">
-                                {/* Upper ticket cutout accent */}
-                                <div className="absolute top-0 left-0 right-0 h-4 bg-slate-100 flex justify-between px-6 z-10">
-                                    {Array.from({ length: 24 }).map((_, i) => (
-                                        <div key={i} className="w-2.5 h-2.5 bg-slate-200 rounded-full -translate-y-1.5 shadow-inner"></div>
-                                    ))}
-                                </div>
-
-                                {/* Struk Card */}
-                                <div className="bg-[#FAF9F6] text-black p-6 md:p-8 font-mono text-xs shadow-inner relative pt-10 pb-16">
-                                    {/* Paper shadow overlays */}
-                                    <div className="absolute inset-0 bg-gradient-to-r from-black/[0.03] via-transparent to-black/[0.03] pointer-events-none"></div>
-                                    
-                                    {/* Render the thermal receipt design */}
-                                    {renderThermalReceipt()}
-                                </div>
-
-                                {/* Lower ticket cutout accent (zig-zag tear) */}
-                                <div className="absolute bottom-0 left-0 right-0 h-4 bg-slate-100 flex justify-between px-6 z-10">
-                                    {Array.from({ length: 24 }).map((_, i) => (
-                                        <div key={i} className="w-2.5 h-2.5 bg-slate-200 rounded-full translate-y-1.5 shadow-inner"></div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="flex justify-center gap-3">
-                                <Button 
-                                    onClick={() => window.print()} 
-                                    className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold px-6 py-2 shadow-md flex items-center gap-1.5"
-                                >
-                                    <Printer className="h-4 w-4" /> Cetak Struk Kasir
-                                </Button>
-                            </div>
-                            
-                            <div className="text-center text-[10px] text-slate-400">
-                                * Gunakan tombol di atas atau pintasan browser <kbd className="bg-slate-200 px-1 py-0.5 rounded text-slate-600">Ctrl + P</kbd> untuk mencetak struk secara instan.
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
 
