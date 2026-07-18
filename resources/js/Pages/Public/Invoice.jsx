@@ -98,7 +98,32 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                 <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
                 {usePage().props.app?.favicon_url && <link rel="icon" href={usePage().props.app.favicon_url} />}
             </Head>
-            <div className="min-h-screen bg-slate-50/50 px-4 py-8 md:py-12">
+            <style dangerouslySetInnerHTML={{ __html: `
+                @media print {
+                    @page {
+                        size: 80mm auto;
+                        margin: 0;
+                    }
+                    body {
+                        background: #ffffff !important;
+                        color: #000000 !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        width: 80mm !important;
+                    }
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    .print\\:hidden {
+                        display: none !important;
+                    }
+                    .print\\:block {
+                        display: block !important;
+                    }
+                }
+            ` }} />
+            <div className="min-h-screen bg-slate-50/50 px-4 py-8 md:py-12 print:hidden">
                 <div className="mx-auto max-w-4xl space-y-6">
 
                     {/* Public Header Bar */}
@@ -660,6 +685,212 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                     {/* Disclaimer */}
                     <div className="rounded-2xl border border-slate-200/50 bg-slate-100/50 p-4 text-center text-[10px] text-slate-500 leading-normal">
                         Seluruh transaksi dan data yang tercantum dalam dokumen ini diterbitkan secara resmi oleh sistem master ledger keuangan <strong>{brand.nama_brand || 'Konveksi'}</strong> dan dilindungi oleh syarat & ketentuan pengerjaan konveksi. Hubungi Admin Brand jika terdapat selisih.
+                    </div>
+                </div>
+            </div>
+
+            {/* Thermal Receipt Print Only */}
+            <div className="hidden print:block w-[80mm] max-w-[80mm] mx-auto p-2 bg-white text-black font-mono text-[11px] leading-snug">
+                {/* Header */}
+                <div className="text-center space-y-1 mb-3">
+                    {brand.logo ? (
+                        <img
+                            src={`/storage/${brand.logo}`}
+                            alt={brand.nama_brand}
+                            className="h-12 w-12 mx-auto object-contain mb-1 filter grayscale"
+                        />
+                    ) : (
+                        <div className="h-10 w-10 mx-auto rounded-full bg-black text-white flex items-center justify-center font-bold text-lg mb-1">
+                            {brand.kode || 'B'}
+                        </div>
+                    )}
+                    <h2 className="text-xs font-black uppercase tracking-tight">{brand.nama_brand}</h2>
+                    {brand.tagline && <div className="text-[9px] font-medium leading-none">{brand.tagline}</div>}
+                    <div className="text-[8px] leading-tight max-w-[70mm] mx-auto text-slate-700">
+                        {brand.alamat && <div>{brand.alamat}</div>}
+                        <div className="flex justify-center gap-2 flex-wrap">
+                            {brand.no_hp && <div>WA: {brand.no_hp}</div>}
+                            {brand.email && <div>Email: {brand.email}</div>}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Dashed Line */}
+                <div className="border-t border-dashed border-black my-2"></div>
+
+                {/* Invoice Info */}
+                <div className="space-y-0.5 text-[10px]">
+                    <div className="flex justify-between">
+                        <span>No. Invoice:</span>
+                        <span className="font-bold">{invoice.invoice_number}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Tanggal:</span>
+                        <span>{formatDate(invoice.tanggal_terbit)}</span>
+                    </div>
+                    {invoice.order?.no_po && (
+                        <div className="flex justify-between">
+                            <span>No. PO:</span>
+                            <span className="font-bold">{invoice.order.no_po}</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between">
+                        <span>Pelanggan:</span>
+                        <span className="font-bold max-w-[50mm] text-right truncate">{invoice.order?.pelanggan?.nama || '—'}</span>
+                    </div>
+                    {invoice.order?.pelanggan?.nomor_hp && (
+                        <div className="flex justify-between">
+                            <span>No. HP:</span>
+                            <span>{maskPhone(invoice.order.pelanggan.nomor_hp)}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Dashed Line */}
+                <div className="border-t border-dashed border-black my-2"></div>
+
+                {/* Items */}
+                <div className="space-y-2 text-[10px]">
+                    <div className="font-bold uppercase text-[9px] tracking-wide">Rincian Produk</div>
+                    {(() => {
+                        const mainItems = (invoice.items ?? []).filter(item => !item.is_addon);
+                        const addonItems = (invoice.items ?? []).filter(item => item.is_addon);
+                        
+                        return (
+                            <div className="space-y-2">
+                                {mainItems.length > 0 && (
+                                    <div className="space-y-1.5">
+                                        <div className="font-bold text-[9px] underline">PRODUK INTI</div>
+                                        {mainItems.map((item) => (
+                                            <div key={item.id} className="space-y-0.5">
+                                                <div className="font-semibold">{item.produk}</div>
+                                                <div className="flex justify-between pl-2 text-slate-700">
+                                                    <span>{item.jumlah} pcs x {formatRupiah(item.harga_satuan)}</span>
+                                                    <span>{formatRupiah(item.subtotal)}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {addonItems.length > 0 && (
+                                    <div className="space-y-1.5 pt-1">
+                                        <div className="font-bold text-[9px] underline">ADD-ON</div>
+                                        {addonItems.map((item) => (
+                                            <div key={item.id} className="space-y-0.5">
+                                                <div className="font-semibold">{item.produk}</div>
+                                                <div className="flex justify-between pl-2 text-slate-700">
+                                                    <span>{item.jumlah} pcs x {formatRupiah(item.harga_satuan)}</span>
+                                                    <span>{formatRupiah(item.subtotal)}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
+                </div>
+
+                {/* Dashed Line */}
+                <div className="border-t border-dashed border-black my-2"></div>
+
+                {/* Calculations */}
+                <div className="space-y-1 text-[10px]">
+                    <div className="flex justify-between">
+                        <span>Total Harga:</span>
+                        <span>{formatRupiah(grossSubtotal)}</span>
+                    </div>
+                    {diskonNominal > 0 && (
+                        <div className="flex justify-between">
+                            <span>Total Diskon:</span>
+                            <span>-{formatRupiah(diskonNominal)}</span>
+                        </div>
+                    )}
+                    {invoice.order?.is_free_ongkir ? (
+                        <div className="flex justify-between">
+                            <span>Ongkir:</span>
+                            <span>Gratis Ongkir</span>
+                        </div>
+                    ) : (
+                        Number(invoice.biaya_pengiriman || 0) > 0 && (
+                            <div className="flex justify-between">
+                                <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}:</span>
+                                <span>+{formatRupiah(Number(invoice.biaya_pengiriman))}</span>
+                            </div>
+                        )
+                    )}
+                    {additionSum > 0 && (
+                        <div className="flex justify-between">
+                            <span>Tambahan Produk:</span>
+                            <span>+{formatRupiah(additionSum)}</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between font-bold border-t border-dotted border-black pt-1">
+                        <span>Total Akhir:</span>
+                        <span>{formatRupiah(grossInvoiceTotal)}</span>
+                    </div>
+                    {totalReceived > 0 && (
+                        <div className="flex justify-between">
+                            <span>Total Terbayar:</span>
+                            <span>{formatRupiah(totalReceived)}</span>
+                        </div>
+                    )}
+                    {returnSum > 0 && (
+                        <div className="flex justify-between text-slate-700">
+                            <span>Refund:</span>
+                            <span>-{formatRupiah(returnSum)}</span>
+                        </div>
+                    )}
+                    {cashbackSum > 0 && (
+                        <div className="flex justify-between text-slate-700">
+                            <span>Cashback:</span>
+                            <span>-{formatRupiah(cashbackSum)}</span>
+                        </div>
+                    )}
+                    {(() => {
+                        const netPayment = totalReceived - returnSum - cashbackSum;
+                        const calculatedSisa = Math.max(0, grossInvoiceTotal - netPayment);
+                        return (
+                            <div className="flex justify-between font-bold border-t border-dotted border-black pt-1 text-sm">
+                                <span>SISA:</span>
+                                <span>{formatRupiah(calculatedSisa)}</span>
+                            </div>
+                        );
+                    })()}
+                </div>
+
+                {/* Dashed Line */}
+                <div className="border-t border-dashed border-black my-2"></div>
+
+                {/* Bank / Payment Info if remaining balance */}
+                {invoice.bank && (
+                    <div className="text-[9px] text-center space-y-1 py-1">
+                        {invoice.bank.bank === 'CASH' ? (
+                            <div className="font-bold">METODE PEMBAYARAN: TUNAI / CASH</div>
+                        ) : (
+                            <div className="space-y-0.5">
+                                <div className="font-bold">REKENING PEMBAYARAN RESMI</div>
+                                <div>{invoice.bank.bank} - {invoice.bank.nomor_rekening}</div>
+                                <div>A.N: {invoice.bank.atas_nama}</div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Dashed Line */}
+                <div className="border-t border-dashed border-black my-2"></div>
+
+                {/* Footer and QR Code */}
+                <div className="text-center space-y-2 mt-2">
+                    {qr_code && (
+                        <div className="bg-white p-1 inline-block border mx-auto">
+                            <img src={qr_code} alt="QR Tracking" className="h-20 w-20 filter grayscale" />
+                        </div>
+                    )}
+                    <div className="text-[8px] leading-tight space-y-0.5">
+                        <div className="font-bold">Terima kasih atas pembayaran Anda!</div>
+                        <div>Scan QR untuk Lacak Status Pesanan</div>
+                        {invoice.peraturan && <div className="text-[7px] text-slate-700 mt-1 max-w-[76mm] mx-auto">{invoice.peraturan}</div>}
                     </div>
                 </div>
             </div>
