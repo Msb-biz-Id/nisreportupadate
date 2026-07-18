@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Head, usePage } from '@inertiajs/react';
-import { Download, ExternalLink, ShieldCheck, CheckCircle2, AlertCircle, ArrowDownLeft, ArrowUpRight, HelpCircle, Globe } from 'lucide-react';
+import { Download, ExternalLink, ShieldCheck, CheckCircle2, AlertCircle, ArrowDownLeft, ArrowUpRight, HelpCircle, Globe, Printer, FileText } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { formatDate, formatRupiah, renderFormattedText } from '@/lib/utils';
@@ -38,6 +39,7 @@ const maskDetailAlamat = (address) => {
 
 export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
     usePublicSecurity();
+    const [viewMode, setViewMode] = useState('standard');
     const brand = invoice.brand ?? {};
     const status = STATUS_BADGE[invoice.status] ?? { label: invoice.status, class: 'bg-slate-100 text-slate-700' };
 
@@ -90,6 +92,271 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
 
     const grossInvoiceTotal = grossSubtotal - diskonNominal + (invoice.order?.is_free_ongkir ? 0 : Number(invoice.biaya_pengiriman || 0)) + additionSum;
 
+    const renderThermalReceipt = () => {
+        return (
+            <div className="w-full max-w-full bg-white text-black font-mono text-xs leading-relaxed select-none">
+                {/* Header */}
+                <div className="text-center space-y-1 mb-4">
+                    {brand.logo ? (
+                        <img
+                            src={`/storage/${brand.logo}`}
+                            alt={brand.nama_brand}
+                            className="h-16 w-16 mx-auto object-contain mb-1 filter grayscale"
+                        />
+                    ) : (
+                        <div className="h-12 w-12 mx-auto rounded-full bg-black text-white flex items-center justify-center font-bold text-xl mb-1">
+                            {brand.kode || 'B'}
+                        </div>
+                    )}
+                    <h2 className="text-sm font-black uppercase tracking-widest">{brand.nama_brand}</h2>
+                    {brand.tagline && <div className="text-[9px] font-medium leading-none tracking-wide text-black/85">{brand.tagline}</div>}
+                    <div className="text-[9px] leading-tight max-w-[280px] mx-auto text-black/75 mt-1">
+                        {brand.alamat && <div>{brand.alamat}</div>}
+                        <div className="flex justify-center gap-2 flex-wrap mt-0.5 font-bold">
+                            {brand.no_hp && <div>WA: {brand.no_hp}</div>}
+                            {brand.email && <div>Email: {brand.email}</div>}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Status Stamp */}
+                {status.label && (
+                    <div className="my-3 flex justify-center">
+                        <div className="border-2 border-black border-dashed px-3 py-1 inline-block text-[10px] font-black uppercase tracking-widest rotate-[-3deg] bg-black/[0.02]">
+                            * {status.label} *
+                        </div>
+                    </div>
+                )}
+
+                {/* Double Border POS Divider */}
+                <div className="border-t-4 border-double border-black my-3"></div>
+
+                {/* Invoice Info */}
+                <div className="space-y-1 text-xs">
+                    <div className="flex justify-between">
+                        <span className="text-black/70 font-medium">No. Invoice :</span>
+                        <span className="font-bold">{invoice.invoice_number}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-black/70 font-medium">Tanggal     :</span>
+                        <span>{formatDate(invoice.tanggal_terbit)}</span>
+                    </div>
+                    {invoice.order?.no_po && (
+                        <div className="flex justify-between">
+                            <span className="text-black/70 font-medium">No. PO      :</span>
+                            <span className="font-bold">{invoice.order.no_po}</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between">
+                        <span className="text-black/70 font-medium">Pelanggan   :</span>
+                        <span className="font-bold max-w-[180px] text-right truncate">{invoice.order?.pelanggan?.nama || '—'}</span>
+                    </div>
+                    {invoice.order?.pelanggan?.nomor_hp && (
+                        <div className="flex justify-between">
+                            <span className="text-black/70 font-medium">No. HP      :</span>
+                            <span>{maskPhone(invoice.order.pelanggan.nomor_hp)}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Dashed Line */}
+                <div className="border-t border-dashed border-black/40 my-3"></div>
+
+                {/* Items */}
+                <div className="space-y-3 text-xs">
+                    <div className="font-bold text-center tracking-widest uppercase text-[10px] bg-black text-white py-0.5">[ RINCIAN BELANJA ]</div>
+                    {(() => {
+                        const mainItems = (invoice.items ?? []).filter(item => !item.is_addon);
+                        const addonItems = (invoice.items ?? []).filter(item => item.is_addon);
+                        
+                        return (
+                            <div className="space-y-3">
+                                {mainItems.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="font-bold text-[9px] tracking-wider uppercase text-black/60 border-b border-black/20 pb-0.5">PRODUK UTAMA</div>
+                                        {mainItems.map((item, idx) => (
+                                            <div key={item.id} className="space-y-0.5">
+                                                <div className="font-bold text-black uppercase">{item.produk}</div>
+                                                <div className="flex justify-between pl-2 text-black/80">
+                                                    <span>{item.jumlah}x {formatRupiah(item.harga_satuan)}</span>
+                                                    <span className="font-bold">{formatRupiah(item.subtotal)}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {addonItems.length > 0 && (
+                                    <div className="space-y-2 pt-1">
+                                        <div className="font-bold text-[9px] tracking-wider uppercase text-black/60 border-b border-black/20 pb-0.5">TAMBAHAN / ADD-ON</div>
+                                        {addonItems.map((item, idx) => (
+                                            <div key={item.id} className="space-y-0.5">
+                                                <div className="font-bold text-black uppercase">{item.produk}</div>
+                                                <div className="flex justify-between pl-2 text-black/80">
+                                                    <span>{item.jumlah}x {formatRupiah(item.harga_satuan)}</span>
+                                                    <span className="font-bold">{formatRupiah(item.subtotal)}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
+                </div>
+
+                {/* Double Border POS Divider */}
+                <div className="border-t-4 border-double border-black my-3"></div>
+
+                {/* Calculations */}
+                <div className="space-y-1.5 text-xs text-black">
+                    <div className="flex justify-between">
+                        <span>Total Harga</span>
+                        <span>{formatRupiah(grossSubtotal)}</span>
+                    </div>
+                    {diskonNominal > 0 && (
+                        <div className="flex justify-between">
+                            <span>Diskon</span>
+                            <span>- {formatRupiah(diskonNominal)}</span>
+                        </div>
+                    )}
+                    {invoice.order?.is_free_ongkir ? (
+                        <div className="flex justify-between">
+                            <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}</span>
+                            <span className="font-bold">GRATIS</span>
+                        </div>
+                    ) : (
+                        Number(invoice.biaya_pengiriman || 0) > 0 && (
+                            <div className="flex justify-between">
+                                <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}</span>
+                                <span>+ {formatRupiah(Number(invoice.biaya_pengiriman))}</span>
+                            </div>
+                        )
+                    )}
+                    {additionSum > 0 && (
+                        <div className="flex justify-between">
+                            <span>Tambahan Produk</span>
+                            <span>+ {formatRupiah(additionSum)}</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between font-bold border-y border-dashed border-black py-1.5 my-2">
+                        <span>TOTAL AKHIR</span>
+                        <span className="font-black text-sm">{formatRupiah(grossInvoiceTotal)}</span>
+                    </div>
+                    {totalReceived > 0 && (
+                        <div className="flex justify-between">
+                            <span>Total Bayar</span>
+                            <span>{formatRupiah(totalReceived)}</span>
+                        </div>
+                    )}
+                    {returnSum > 0 && (
+                        <div className="flex justify-between">
+                            <span>Refund</span>
+                            <span>- {formatRupiah(returnSum)}</span>
+                        </div>
+                    )}
+                    {cashbackSum > 0 && (
+                        <div className="flex justify-between">
+                            <span>Cashback</span>
+                            <span>- {formatRupiah(cashbackSum)}</span>
+                        </div>
+                    )}
+                    {(returnSum > 0 || cashbackSum > 0) && (
+                        <div className="flex justify-between font-bold border-t border-dashed border-black pt-1">
+                            <span>Neto Pembayaran</span>
+                            <span>{formatRupiah(totalReceived - returnSum - cashbackSum)}</span>
+                        </div>
+                    )}
+                    {(() => {
+                        const netPayment = totalReceived - returnSum - cashbackSum;
+                        const calculatedSisa = Math.max(0, grossInvoiceTotal - netPayment);
+                        return (
+                            <div className="flex justify-between font-black border-y-2 border-black py-1.5 text-sm my-2">
+                                <span>SISA TAGIHAN</span>
+                                <span>{formatRupiah(calculatedSisa)}</span>
+                            </div>
+                        );
+                    })()}
+                </div>
+
+                {/* Dashed Line */}
+                <div className="border-t border-dashed border-black/40 my-3"></div>
+
+                {/* Bank / Payment Info */}
+                {invoice.bank && (
+                    <div className="text-[10px] text-center space-y-1 py-2 border border-black border-dashed rounded bg-black/[0.01]">
+                        {invoice.bank.bank === 'CASH' ? (
+                            <div className="font-bold tracking-wider">PEMBAYARAN: TUNAI (LUNAS)</div>
+                        ) : (
+                            <div className="space-y-0.5">
+                                <div className="font-bold tracking-wider text-[9px] text-black/60">REKENING TRANSFER RESMI</div>
+                                <div className="font-black text-black text-[11px]">{invoice.bank.bank} - {invoice.bank.nomor_rekening}</div>
+                                <div className="font-medium">A.N: {invoice.bank.atas_nama}</div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Imbauan Keamanan Pembayaran */}
+                <div className="text-[8px] text-center leading-relaxed space-y-1 my-3 border border-black p-2 bg-black/[0.02]">
+                    <div className="font-bold text-[9px] tracking-widest text-black">⚠️ PERINGATAN KEAMANAN ⚠️</div>
+                    {invoice.bank && invoice.bank.bank === 'CASH' ? (
+                        <p className="text-justify leading-tight">
+                            Demi keamanan transaksi, lakukan pembayaran tunai secara langsung hanya melalui kasir/sales resmi brand kami. Jangan melakukan transfer ke rekening perorangan yang tidak terdaftar secara resmi.
+                        </p>
+                    ) : (
+                        <p className="text-justify leading-tight">
+                            Demi keamanan, mohon TIDAK MELAKUKAN transfer ke rekening mana pun selain rekening resmi atas nama {invoice.bank ? invoice.bank.atas_nama : brand.nama_brand}. Jangan pernah mengirimkan dana ke rekening perorangan/sales di luar informasi resmi tertera.
+                        </p>
+                    )}
+                </div>
+
+                {/* Barcode Accent */}
+                <div className="flex justify-center items-center gap-[1px] h-6 my-4 overflow-hidden opacity-90 select-none">
+                    <div className="bg-black w-[2px] h-full"></div>
+                    <div className="bg-black w-[1px] h-full"></div>
+                    <div className="bg-black w-[3px] h-full"></div>
+                    <div className="bg-black w-[1px] h-full"></div>
+                    <div className="bg-black w-[4px] h-full"></div>
+                    <div className="bg-black w-[2px] h-full"></div>
+                    <div className="bg-black w-[1px] h-full"></div>
+                    <div className="bg-black w-[3px] h-full"></div>
+                    <div className="bg-black w-[1px] h-full"></div>
+                    <div className="bg-black w-[2px] h-full"></div>
+                    <div className="bg-black w-[4px] h-full"></div>
+                    <div className="bg-black w-[1px] h-full"></div>
+                    <div className="bg-black w-[3px] h-full"></div>
+                    <div className="bg-black w-[2px] h-full"></div>
+                    <div className="bg-black w-[1px] h-full"></div>
+                    <div className="bg-black w-[3px] h-full"></div>
+                    <div className="bg-black w-[1px] h-full"></div>
+                    <div className="bg-black w-[4px] h-full"></div>
+                    <div className="bg-black w-[2px] h-full"></div>
+                    <div className="bg-black w-[1px] h-full"></div>
+                    <div className="bg-black w-[3px] h-full"></div>
+                </div>
+
+                {/* Footer and QR Code */}
+                <div className="text-center space-y-3">
+                    {qr_code && (
+                        <div className="bg-white p-1 inline-block border border-black mx-auto">
+                            <img src={qr_code} alt="QR Tracking" className="h-24 w-24 filter grayscale" />
+                        </div>
+                    )}
+                    <div className="text-[9px] leading-tight space-y-1">
+                        <div className="font-bold text-[10px] tracking-wide">* TERIMA KASIH ATAS KERJASAMANYA *</div>
+                        <div>Scan QR untuk Lacak Status Produksi</div>
+                        {invoice.peraturan && <div className="text-[8px] text-black mt-2 max-w-[280px] mx-auto text-justify border-t border-dotted border-black/35 pt-1.5">{invoice.peraturan}</div>}
+                    </div>
+                </div>
+
+                {/* Tear cut accent */}
+                <div className="text-center text-[8px] tracking-widest text-black/30 mt-4 border-t border-dashed border-black/20 pt-2 select-none">
+                    - - - - - GUNTING DI SINI - - - - -
+                </div>
+            </div>
+        );
+    };
+
     return (
         <>
             <Head>
@@ -115,19 +382,13 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
-                    .print\\:hidden {
-                        display: none !important;
-                    }
-                    .print\\:block {
-                        display: block !important;
-                    }
                 }
             ` }} />
             <div className="min-h-screen bg-slate-50/50 px-4 py-8 md:py-12 print:hidden">
                 <div className="mx-auto max-w-4xl space-y-6">
 
                     {/* Public Header Bar */}
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border shadow-sm">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border shadow-sm print:hidden">
                         <div className="flex items-center gap-3">
                             {brand.logo ? (
                                 <img
@@ -162,13 +423,34 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                         </div>
                     </div>
 
-                    {/* Master Invoice Card */}
-                    <div className="overflow-hidden rounded-3xl border border-slate-150 bg-white shadow-lg">
-                        {/* Brand Banner Accent */}
-                        <div
-                            className="h-3"
-                            style={{ background: brand.warna_primary || '#4F46E5' }}
-                        ></div>
+                    {/* View Mode Switcher */}
+                    <div className="flex bg-slate-200/60 p-1 rounded-2xl max-w-sm mx-auto border border-slate-200/50 shadow-inner print:hidden mb-6">
+                        <button
+                            onClick={() => setViewMode('standard')}
+                            className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 ${viewMode === 'standard' ? 'bg-white text-slate-800 shadow-sm border border-slate-200/30' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                            <FileText className="h-3.5 w-3.5" />
+                            Invoice Standard (A4)
+                        </button>
+                        <button
+                            onClick={() => setViewMode('thermal')}
+                            className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 ${viewMode === 'thermal' ? 'bg-white text-slate-800 shadow-sm border border-slate-200/30' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                            <Printer className="h-3.5 w-3.5" />
+                            Struk Kasir (Thermal)
+                        </button>
+                    </div>
+
+                    {/* Standard View */}
+                    {viewMode === 'standard' && (
+                        <>
+                            {/* Master Invoice Card */}
+                            <div className="overflow-hidden rounded-3xl border border-slate-150 bg-white shadow-lg">
+                                {/* Brand Banner Accent */}
+                                <div
+                                    className="h-3"
+                                    style={{ background: brand.warna_primary || '#4F46E5' }}
+                                ></div>
 
                         {/* Invoice Header */}
                         <div className="flex flex-col gap-6 border-b p-6 md:p-8 sm:flex-row sm:items-start sm:justify-between">
@@ -686,233 +968,58 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                     <div className="rounded-2xl border border-slate-200/50 bg-slate-100/50 p-4 text-center text-[10px] text-slate-500 leading-normal">
                         Seluruh transaksi dan data yang tercantum dalam dokumen ini diterbitkan secara resmi oleh sistem master ledger keuangan <strong>{brand.nama_brand || 'Konveksi'}</strong> dan dilindungi oleh syarat & ketentuan pengerjaan konveksi. Hubungi Admin Brand jika terdapat selisih.
                     </div>
+                        </>
+                    )}
+
+                    {/* Thermal Preview View */}
+                    {viewMode === 'thermal' && (
+                        <div className="mx-auto max-w-md space-y-6 animate-in fade-in zoom-in duration-200 print:hidden">
+                            {/* Realistic Receipt Canvas */}
+                            <div className="relative bg-slate-200/50 p-1.5 rounded-3xl overflow-hidden shadow-[0_15px_40px_rgba(0,0,0,0.15)] border border-slate-300">
+                                {/* Upper ticket cutout accent */}
+                                <div className="absolute top-0 left-0 right-0 h-4 bg-slate-100 flex justify-between px-6 z-10">
+                                    {Array.from({ length: 24 }).map((_, i) => (
+                                        <div key={i} className="w-2.5 h-2.5 bg-slate-200 rounded-full -translate-y-1.5 shadow-inner"></div>
+                                    ))}
+                                </div>
+
+                                {/* Struk Card */}
+                                <div className="bg-[#FAF9F6] text-black p-6 md:p-8 font-mono text-xs shadow-inner relative pt-10 pb-16">
+                                    {/* Paper shadow overlays */}
+                                    <div className="absolute inset-0 bg-gradient-to-r from-black/[0.03] via-transparent to-black/[0.03] pointer-events-none"></div>
+                                    
+                                    {/* Render the thermal receipt design */}
+                                    {renderThermalReceipt()}
+                                </div>
+
+                                {/* Lower ticket cutout accent (zig-zag tear) */}
+                                <div className="absolute bottom-0 left-0 right-0 h-4 bg-slate-100 flex justify-between px-6 z-10">
+                                    {Array.from({ length: 24 }).map((_, i) => (
+                                        <div key={i} className="w-2.5 h-2.5 bg-slate-200 rounded-full translate-y-1.5 shadow-inner"></div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex justify-center gap-3">
+                                <Button 
+                                    onClick={() => window.print()} 
+                                    className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold px-6 py-2 shadow-md flex items-center gap-1.5"
+                                >
+                                    <Printer className="h-4 w-4" /> Cetak Struk Kasir
+                                </Button>
+                            </div>
+                            
+                            <div className="text-center text-[10px] text-slate-400">
+                                * Gunakan tombol di atas atau pintasan browser <kbd className="bg-slate-200 px-1 py-0.5 rounded text-slate-600">Ctrl + P</kbd> untuk mencetak struk secara instan.
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* Thermal Receipt Print Only */}
             <div className="hidden print:block w-full max-w-full bg-white text-black font-mono text-xs leading-relaxed">
-                {/* Header */}
-                <div className="text-center space-y-1 mb-4">
-                    {brand.logo ? (
-                        <img
-                            src={`/storage/${brand.logo}`}
-                            alt={brand.nama_brand}
-                            className="h-16 w-16 mx-auto object-contain mb-1 filter grayscale"
-                        />
-                    ) : (
-                        <div className="h-12 w-12 mx-auto rounded-full bg-black text-white flex items-center justify-center font-bold text-xl mb-1">
-                            {brand.kode || 'B'}
-                        </div>
-                    )}
-                    <h2 className="text-sm font-black uppercase tracking-widest">{brand.nama_brand}</h2>
-                    {brand.tagline && <div className="text-[10px] font-medium leading-none tracking-wide">{brand.tagline}</div>}
-                    <div className="text-[9px] leading-tight max-w-[280px] mx-auto text-black">
-                        {brand.alamat && <div>{brand.alamat}</div>}
-                        <div className="flex justify-center gap-2 flex-wrap mt-0.5">
-                            {brand.no_hp && <div>WA: {brand.no_hp}</div>}
-                            {brand.email && <div>Email: {brand.email}</div>}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Double Border POS Divider */}
-                <div className="border-t-4 border-double border-black my-3"></div>
-
-                {/* Invoice Info */}
-                <div className="space-y-1 text-xs">
-                    <div className="flex justify-between">
-                        <span className="text-black/80 font-medium">No. Invoice :</span>
-                        <span className="font-bold">{invoice.invoice_number}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-black/80 font-medium">Tanggal     :</span>
-                        <span>{formatDate(invoice.tanggal_terbit)}</span>
-                    </div>
-                    {invoice.order?.no_po && (
-                        <div className="flex justify-between">
-                            <span className="text-black/80 font-medium">No. PO      :</span>
-                            <span className="font-bold">{invoice.order.no_po}</span>
-                        </div>
-                    )}
-                    <div className="flex justify-between">
-                        <span className="text-black/80 font-medium">Pelanggan   :</span>
-                        <span className="font-bold max-w-[180px] text-right truncate">{invoice.order?.pelanggan?.nama || '—'}</span>
-                    </div>
-                    {invoice.order?.pelanggan?.nomor_hp && (
-                        <div className="flex justify-between">
-                            <span className="text-black/80 font-medium">No. HP      :</span>
-                            <span>{maskPhone(invoice.order.pelanggan.nomor_hp)}</span>
-                        </div>
-                    )}
-                </div>
-
-                {/* Dashed Line */}
-                <div className="border-t-2 border-dashed border-black my-3"></div>
-
-                {/* Items */}
-                <div className="space-y-3 text-xs">
-                    <div className="font-bold text-center tracking-widest uppercase text-[10px]">[ RINCIAN PRODUK ]</div>
-                    {(() => {
-                        const mainItems = (invoice.items ?? []).filter(item => !item.is_addon);
-                        const addonItems = (invoice.items ?? []).filter(item => item.is_addon);
-                        
-                        return (
-                            <div className="space-y-3">
-                                {mainItems.length > 0 && (
-                                    <div className="space-y-2">
-                                        <div className="font-bold text-[9px] tracking-wider uppercase text-black/60 border-b border-black border-dotted pb-0.5">PRODUK INTI</div>
-                                        {mainItems.map((item, idx) => (
-                                            <div key={item.id} className={`space-y-0.5 ${idx > 0 ? 'pt-1.5 border-t border-dotted border-black/15' : ''}`}>
-                                                <div className="font-semibold text-black uppercase">{item.produk}</div>
-                                                <div className="flex justify-between pl-2 text-black">
-                                                    <span>{item.jumlah} pcs x {formatRupiah(item.harga_satuan)}</span>
-                                                    <span className="font-semibold">{formatRupiah(item.subtotal)}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                {addonItems.length > 0 && (
-                                    <div className="space-y-2 pt-1">
-                                        <div className="font-bold text-[9px] tracking-wider uppercase text-black/60 border-b border-black border-dotted pb-0.5">ADD-ON</div>
-                                        {addonItems.map((item, idx) => (
-                                            <div key={item.id} className={`space-y-0.5 ${idx > 0 ? 'pt-1.5 border-t border-dotted border-black/15' : ''}`}>
-                                                <div className="font-semibold text-black uppercase">{item.produk}</div>
-                                                <div className="flex justify-between pl-2 text-black">
-                                                    <span>{item.jumlah} pcs x {formatRupiah(item.harga_satuan)}</span>
-                                                    <span className="font-semibold">{formatRupiah(item.subtotal)}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })()}
-                </div>
-
-                {/* Double Border POS Divider */}
-                <div className="border-t-4 border-double border-black my-3"></div>
-
-                {/* Calculations */}
-                <div className="space-y-1.5 text-xs text-black">
-                    <div className="flex justify-between">
-                        <span>Total Harga</span>
-                        <span>{formatRupiah(grossSubtotal)}</span>
-                    </div>
-                    {diskonNominal > 0 && (
-                        <div className="flex justify-between">
-                            <span>Total Diskon</span>
-                            <span>- {formatRupiah(diskonNominal)}</span>
-                        </div>
-                    )}
-                    {invoice.order?.is_free_ongkir ? (
-                        <div className="flex justify-between font-bold">
-                            <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}</span>
-                            <span>Gratis Ongkir</span>
-                        </div>
-                    ) : (
-                        Number(invoice.biaya_pengiriman || 0) > 0 && (
-                            <div className="flex justify-between">
-                                <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}</span>
-                                <span>+ {formatRupiah(Number(invoice.biaya_pengiriman))}</span>
-                            </div>
-                        )
-                    )}
-                    {additionSum > 0 && (
-                        <div className="flex justify-between">
-                            <span>Tambahan Produk</span>
-                            <span>+ {formatRupiah(additionSum)}</span>
-                        </div>
-                    )}
-                    <div className="flex justify-between font-bold border-y border-dashed border-black py-1.5 my-1">
-                        <span>TOTAL HARUS DIBAYAR</span>
-                        <span>{formatRupiah(grossInvoiceTotal)}</span>
-                    </div>
-                    {totalReceived > 0 && (
-                        <div className="flex justify-between">
-                            <span>Total Terbayar</span>
-                            <span>{formatRupiah(totalReceived)}</span>
-                        </div>
-                    )}
-                    {returnSum > 0 && (
-                        <div className="flex justify-between font-bold">
-                            <span>Refund</span>
-                            <span>- {formatRupiah(returnSum)}</span>
-                        </div>
-                    )}
-                    {cashbackSum > 0 && (
-                        <div className="flex justify-between font-bold">
-                            <span>Cashback</span>
-                            <span>- {formatRupiah(cashbackSum)}</span>
-                        </div>
-                    )}
-                    {(returnSum > 0 || cashbackSum > 0) && (
-                        <div className="flex justify-between font-bold border-t border-dashed border-black pt-1">
-                            <span>Neto Pembayaran</span>
-                            <span>{formatRupiah(totalReceived - returnSum - cashbackSum)}</span>
-                        </div>
-                    )}
-                    {(() => {
-                        const netPayment = totalReceived - returnSum - cashbackSum;
-                        const calculatedSisa = Math.max(0, grossInvoiceTotal - netPayment);
-                        return (
-                            <div className="flex justify-between font-black border-y-2 border-black py-1.5 text-sm my-1">
-                                <span>SISA TAGIHAN</span>
-                                <span>{formatRupiah(calculatedSisa)}</span>
-                            </div>
-                        );
-                    })()}
-                </div>
-
-                {/* Dashed Line */}
-                <div className="border-t-2 border-dashed border-black my-3"></div>
-
-                {/* Bank / Payment Info if remaining balance */}
-                {invoice.bank && (
-                    <div className="text-[10px] text-center space-y-1 py-1.5">
-                        {invoice.bank.bank === 'CASH' ? (
-                            <div className="font-bold tracking-wider">[ METODE PEMBAYARAN: TUNAI / CASH ]</div>
-                        ) : (
-                            <div className="space-y-1">
-                                <div className="font-bold tracking-wider">[ REKENING PEMBAYARAN RESMI ]</div>
-                                <div className="font-bold text-black">{invoice.bank.bank} - {invoice.bank.nomor_rekening}</div>
-                                <div>A.N: {invoice.bank.atas_nama}</div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Imbauan Keamanan Pembayaran */}
-                <div className="text-[8px] text-center leading-relaxed space-y-1 my-3 border-2 border-black p-2 bg-black/[0.01]">
-                    <div className="font-bold text-[9px] tracking-widest">!!! PERINGATAN KEAMANAN !!!</div>
-                    {invoice.bank && invoice.bank.bank === 'CASH' ? (
-                        <p className="text-justify px-1">
-                            Demi keamanan transaksi, mohon lakukan pembayaran tunai secara langsung hanya melalui kasir atau sales resmi brand kami. Jangan melakukan transfer ke rekening perorangan/rekening lain yang tidak terdaftar secara resmi. Selalu konfirmasi transaksi melalui kontak resmi brand kami.
-                        </p>
-                    ) : (
-                        <p className="text-justify px-1">
-                            Demi keamanan transaksi, mohon TIDAK MELAKUKAN transfer ke rekening mana pun selain rekening resmi atas nama {invoice.bank ? invoice.bank.atas_nama : brand.nama_brand}. Jangan pernah mengirimkan dana ke rekening perorangan/sales/rekening lain di luar informasi resmi yang tertera. Selalu konfirmasi transaksi melalui kontak resmi brand kami.
-                        </p>
-                    )}
-                </div>
-
-                {/* Dashed Line */}
-                <div className="border-t-2 border-dashed border-black my-3"></div>
-
-                {/* Footer and QR Code */}
-                <div className="text-center space-y-3 mt-3">
-                    {qr_code && (
-                        <div className="bg-white p-1 inline-block border-2 border-black mx-auto">
-                            <img src={qr_code} alt="QR Tracking" className="h-28 w-28 filter grayscale" />
-                        </div>
-                    )}
-                    <div className="text-[9px] leading-tight space-y-1">
-                        <div className="font-bold text-[10px] tracking-wide">* TERIMA KASIH ATAS PEMBAYARAN ANDA *</div>
-                        <div>Scan QR untuk Lacak Status Pesanan</div>
-                        {invoice.peraturan && <div className="text-[8px] text-black mt-2 max-w-[280px] mx-auto text-justify border-t border-dotted border-black/25 pt-2">{invoice.peraturan}</div>}
-                    </div>
-                </div>
+                {renderThermalReceipt()}
             </div>
         </>
     );
