@@ -367,15 +367,16 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
             <style dangerouslySetInnerHTML={{ __html: `
                 @media print {
                     @page {
-                        size: auto;
-                        margin: 4mm;
+                        size: 80mm auto;
+                        margin: 0;
                     }
-                    body {
+                    html, body {
                         background: #ffffff !important;
                         color: #000000 !important;
                         margin: 0 !important;
                         padding: 0 !important;
-                        width: 100% !important;
+                        width: 80mm !important;
+                        max-width: 80mm !important;
                     }
                     * {
                         -webkit-print-color-adjust: exact !important;
@@ -386,6 +387,11 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                     }
                     .print\\:block {
                         display: block !important;
+                        width: 80mm !important;
+                        max-width: 80mm !important;
+                        margin: 0 auto !important;
+                        box-sizing: border-box !important;
+                        background: #ffffff !important;
                     }
                 }
             ` }} />
@@ -957,7 +963,10 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
             </div>
 
             {/* Thermal Receipt Print Only */}
-            <div className="hidden print:block w-full max-w-full bg-white text-black font-mono text-xs leading-relaxed">
+            <div 
+                className="hidden print:block bg-white text-black font-mono text-xs leading-relaxed mx-auto"
+                style={{ width: '80mm', maxWidth: '80mm', margin: '0 auto', padding: '4mm', boxSizing: 'border-box' }}
+            >
                 {renderThermalReceipt()}
             </div>
         </>
