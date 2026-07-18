@@ -129,6 +129,8 @@ $primaryColor = $invoice->brand?->warna_primary
             border: 1px solid #E5E7EB;
             border-radius: 6px;
             padding: 10px;
+            word-wrap: break-word;
+            word-break: break-all;
         }
 
         .info-card strong {
@@ -572,12 +574,12 @@ $primaryColor = $invoice->brand?->warna_primary
                     <!-- Ongkir -->
                     @if ($invoice->order?->is_free_ongkir)
                     <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Ongkir ({{ $invoice->jasa_pengiriman ?? 'Bebas Ongkir' }})</td>
+                        <td style="padding: 4px 0; color: #6B7280;">Ongkir{{ $invoice->jasa_pengiriman ? ' (' . $invoice->jasa_pengiriman . ')' : '' }}</td>
                         <td style="padding: 4px 0; text-align: right; color: #059669; font-weight: bold;">Gratis Ongkir</td>
                     </tr>
                     @elseif ($invoice->biaya_pengiriman > 0)
                     <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Ongkir ({{ $invoice->jasa_pengiriman ?? '' }})</td>
+                        <td style="padding: 4px 0; color: #6B7280;">Ongkir{{ $invoice->jasa_pengiriman ? ' (' . $invoice->jasa_pengiriman . ')' : '' }}</td>
                         <td style="padding: 4px 0; text-align: right; font-family: monospace;">Rp {{ number_format((float) $invoice->biaya_pengiriman, 0, ',', '.') }}</td>
                     </tr>
                     @endif

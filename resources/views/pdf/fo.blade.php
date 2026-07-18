@@ -375,36 +375,36 @@
                     <!-- Right Side: Printing Box -->
                     <td style="width: 40%; padding: 0 0 0 15px; vertical-align: top;">
                         <div style="border: 2px solid #000; padding: 12px 10px; background: #fff; text-align: center; min-height: 75px;">
-                             @if($order->resellerDisplayBrand)
-                             <div style="font-size: 10.5pt; font-weight: 900; color: #000; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px;">
-                                 RESELLER:<br>
-                                 <span>{{ strtoupper($order->resellerDisplayBrand->nama_brand) }}</span>
+                              @if($order->resellerDisplayBrand)
+                              <div style="font-size: 10.5pt; font-weight: 900; color: #000; margin-bottom: 6px; padding-bottom: 4px;">
+                                  RESELLER:<br>
+                                  <span>{{ strtoupper($order->resellerDisplayBrand->nama_brand) }}</span>
+                              </div>
+                              @elseif($order->brand && $order->brand->isReseller())
+                              <div style="font-size: 10.5pt; font-weight: 900; color: #000; margin-bottom: 6px; padding-bottom: 4px;">
+                                  RESELLER:<br>
+                                  <span>{{ strtoupper($order->brand->nama_brand) }}</span>
+                              </div>
+                              @else
+                              <div style="font-size: 13pt; font-weight: 900; color: #000; margin-bottom: 6px; padding-bottom: 4px; line-height: 1.2;">
+                                  {{ strtoupper($order->brand->nama_brand ?? 'BRAND') }}
+                              </div>
+                              @endif
+                             <div style="font-size: 10pt; font-weight: bold; line-height: 1.2;">
+                                 JENIS PRINTING:<br>
+                                 <span style="font-size: 12pt; font-weight: 900; color: #000;">{{ strtoupper($printingStr) }}</span>
                              </div>
-                             @elseif($order->brand && $order->brand->isReseller())
-                             <div style="font-size: 10.5pt; font-weight: 900; color: #000; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px;">
-                                 RESELLER:<br>
-                                 <span>{{ strtoupper($order->brand->nama_brand) }}</span>
-                             </div>
-                             @else
-                             <div style="font-size: 13pt; font-weight: 900; color: #000; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 4px; line-height: 1.2;">
-                                 {{ strtoupper($order->brand->nama_brand ?? 'BRAND') }}
+                             @if($order->paketOrder)
+                             <div style="font-size: 10pt; font-weight: bold; margin-top: 10px; padding-top: 5px; line-height: 1.2;">
+                                 PAKET ORDER:<br>
+                                 <span style="font-size: 12pt; font-weight: 900; color: #000;">{{ strtoupper($order->paketOrder->nama) }}</span>
                              </div>
                              @endif
-                            <div style="font-size: 10pt; font-weight: bold; line-height: 1.2;">
-                                JENIS PRINTING:<br>
-                                <span style="font-size: 12pt; font-weight: 900; color: #000;">{{ strtoupper($printingStr) }}</span>
-                            </div>
-                            @if($order->paketOrder)
-                            <div style="font-size: 10pt; font-weight: bold; margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; line-height: 1.2;">
-                                PAKET ORDER:<br>
-                                <span style="font-size: 12pt; font-weight: 900; color: #000;">{{ strtoupper($order->paketOrder->nama) }}</span>
-                            </div>
-                            @endif
-                            @if($order->is_reseller_price)
-                            <div style="font-size: 10pt; font-weight: bold; margin-top: 10px; border-top: 1px dashed #000; padding-top: 5px; line-height: 1.2;">
-                                <span style="font-size: 11pt; font-weight: 900; color: #dc2626;">HARGA RESELLER</span>
-                            </div>
-                            @endif
+                             @if($order->is_reseller_price)
+                             <div style="font-size: 10pt; font-weight: bold; margin-top: 10px; padding-top: 5px; line-height: 1.2;">
+                                 <span style="font-size: 11pt; font-weight: 900; color: #dc2626;">HARGA RESELLER</span>
+                             </div>
+                             @endif
                         </div>
                     </td>
                 </tr>

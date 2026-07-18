@@ -205,7 +205,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                             <div className="border-[2px] border-black p-3 text-center bg-white min-h-[110px] flex flex-col justify-center">
                                 {order.reseller_display_brand ? (
                                     <>
-                                        <div className="text-[12px] font-bold mb-2 pb-2 border-b border-dashed border-black">
+                                        <div className="text-[12px] font-bold mb-2 pb-2">
                                             RESELLER:<br />
                                             <span className="text-[14px] font-black text-black">{order.reseller_display_brand.nama_brand?.toUpperCase()}</span>
                                         </div>
@@ -216,7 +216,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                     </>
                                 ) : (brand && (brand.brand_type === 'reseller_hub' || brand.brand_type === 'reseller_branch') && brand.parent_brand_id) ? (
                                     <>
-                                        <div className="text-[12px] font-bold mb-2 pb-2 border-b border-dashed border-black">
+                                        <div className="text-[12px] font-bold mb-2 pb-2">
                                             RESELLER:<br />
                                             <span className="text-[14px] font-black text-black">{brand.nama_brand?.toUpperCase()}</span>
                                         </div>
@@ -230,20 +230,20 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         <div className="text-xl font-black leading-tight">
                                             {displayBrand.nama_brand || 'BRAND'}
                                         </div>
-                                        <div className="text-[12px] font-bold mt-2 pt-2 border-t border-black">
+                                        <div className="text-[12px] font-bold mt-2 pt-2">
                                             JENIS PRINTING:<br />
                                             <span className="text-[13px] font-black text-black">{printingStr}</span>
                                         </div>
                                     </>
                                 )}
                                 {order.paket_order && (
-                                    <div className="text-[12px] font-bold mt-2 pt-2 border-t border-black">
+                                    <div className="text-[12px] font-bold mt-2 pt-2">
                                         PAKET ORDER:<br />
                                         <span className="text-[14px] font-black">{order.paket_order.nama}</span>
                                     </div>
                                 )}
                                 {order.is_reseller_price && (
-                                    <div className="text-[12px] font-bold mt-2 pt-2 border-t border-dashed border-black">
+                                    <div className="text-[12px] font-bold mt-2 pt-2">
                                         <span className="text-[13px] font-black text-red-600">HARGA RESELLER</span>
                                     </div>
                                 )}
