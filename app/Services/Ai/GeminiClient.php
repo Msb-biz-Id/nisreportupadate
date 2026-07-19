@@ -21,7 +21,7 @@ class GeminiClient
     public static function fromSettings(): self
     {
         $rawKeys = SystemSetting::get('ai', 'gemini_api_keys') ?: env('GEMINI_API_KEYS', '');
-        $keys = array_filter(array_map('trim', explode(',', $rawKeys)));
+        $keys = array_filter(array_map('trim', preg_split('/[\r\n,]+/', $rawKeys)));
         $model = SystemSetting::get('ai', 'model', 'gemini-2.5-flash');
         $temp = (float) SystemSetting::get('ai', 'temperature', 0.7);
         $maxTokens = (int) SystemSetting::get('ai', 'max_tokens', 2048);
