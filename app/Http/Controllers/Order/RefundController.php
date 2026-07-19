@@ -42,46 +42,8 @@ class RefundController extends Controller
             $effectiveIds = BrandContext::effectiveBrandIds($request);
         }
 
-        $query = Refund::query()
-            ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
-            ->when($effectiveIds, fn ($q) => $q->whereIn('brand_id', $effectiveIds))
-            ->when(! $effectiveIds && (! $selectedBrandId || $selectedBrandId === 'all') && $accessibleBrandIds !== null,
-                fn ($q) => $q->whereIn('brand_id', $accessibleBrandIds))
-            ->with([
-                'order:id,no_po,nama_po,pelanggan_id,brand_id,total_tagihan,is_special_order',
-                'order.pelanggan:id,nama',
-                'brand:id,nama_brand,kode',
-                'creator:id,name',
-                'reviewer:id,name',
-                'publisher:id,name'
-            ]);
-
-        if ($status = $request->string('status')->toString()) {
-            $query->where('status', $status);
-        }
-        if ($search = $request->string('q')->toString()) {
-            $query->where(function ($q) use ($search) {
-                $q->where('refund_number', 'like', "%{$search}%")
-                  ->orWhereHas('order', fn ($x) => $x->where('no_po', 'like', "%{$search}%"));
-            });
-        }
-        if ($startDate = $request->string('start_date')->toString()) {
-            $query->where('created_at', '>=', \Illuminate\Support\Carbon::parse($startDate)->startOfDay());
-        }
-        if ($endDate = $request->string('end_date')->toString()) {
-            $query->where('created_at', '<=', \Illuminate\Support\Carbon::parse($endDate)->endOfDay());
-        }
-
-        $allFiltered = (clone $query)->without(['order.pelanggan', 'brand', 'creator', 'reviewer', 'publisher'])->orderByDesc('created_at')->get()->map(fn ($ref) => [
-            'refund_number' => $ref->refund_number,
-            'no_po' => $ref->order?->no_po ?? '—',
-            'jenis_masalah' => $ref->jenis_masalah,
-            'nominal_refund' => $ref->nominal_refund,
-            'created_at' => $ref->created_at->toDateString(),
-            'status' => $ref->status,
-            'customer_bank_name' => $ref->customer_bank_name,
-            'customer_bank_account' => $ref->customer_bank_account,
-        ]);
+        $query = $this->buildRefundQuery($request, $selectedBrandId, $accessibleBrandIds, $effectiveIds);
+        $allFiltered = $this->getExportableRefunds($query);
 
         $perPage = in_array((int) $request->input('per_page', 15), [10, 15, 25, 50, 100])
             ? (int) $request->input('per_page', 15)
@@ -96,28 +58,7 @@ class RefundController extends Controller
         $rawBankAccounts = \App\Models\Master\BankAccount::where('is_active', true)
             ->get(['id', 'bank', 'atas_nama', 'nomor_rekening', 'brand_id']);
 
-        $userBrandIds = $isAllBrandsRole
-            ? $brands->pluck('id')->toArray()
-            : $user->brands->pluck('id')->toArray();
-
-        $bankAccounts = collect();
-        foreach ($brands as $brand) {
-            $brandId = $brand->id;
-            $masterBrandId = \App\Support\BrandContext::masterDataId($request, $brandId);
-
-            foreach ($rawBankAccounts as $bank) {
-                if ($bank->brand_id === $brandId) {
-                    $bankAccounts->push($bank);
-                } elseif ($masterBrandId && $bank->brand_id === $masterBrandId) {
-                    $cloned = clone $bank;
-                    $cloned->brand_id = $brandId;
-                    $bankAccounts->push($cloned);
-                }
-            }
-        }
-        $bankAccounts = $bankAccounts->unique(function ($item) {
-            return $item->id . '-' . $item->brand_id;
-        })->values();
+        $bankAccounts = $this->resolveBankAccounts($request, $brands, $rawBankAccounts);
 
         return Inertia::render('Finance/RefundIndex', [
             'refunds' => $refunds,
@@ -250,9 +191,7 @@ class RefundController extends Controller
                     $r2Disk = Storage::disk('r2');
                     $url = $r2Disk->temporaryUrl($path, now()->addMinutes(15));
                 } else {
-                    /** @var \Illuminate\Filesystem\FilesystemAdapter $publicDisk */
-                    $publicDisk = Storage::disk('public');
-                    $url = $publicDisk->url($path);
+                    $url = '/storage/' . ltrim($path, '/');
                 }
 
                 $bukti[] = [
@@ -394,5 +333,80 @@ class RefundController extends Controller
                 ])
             ]
         ]);
+    }
+
+    private function buildRefundQuery(Request $request, ?string $selectedBrandId, ?array $accessibleBrandIds, ?array $effectiveIds): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = Refund::query()
+            ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
+            ->when($effectiveIds, fn ($q) => $q->whereIn('brand_id', $effectiveIds))
+            ->when(! $effectiveIds && (! $selectedBrandId || $selectedBrandId === 'all') && $accessibleBrandIds !== null,
+                fn ($q) => $q->whereIn('brand_id', $accessibleBrandIds))
+            ->with([
+                'order:id,no_po,nama_po,pelanggan_id,brand_id,total_tagihan,is_special_order',
+                'order.pelanggan:id,nama',
+                'brand:id,nama_brand,kode',
+                'creator:id,name',
+                'reviewer:id,name',
+                'publisher:id,name'
+            ]);
+
+        if ($status = $request->string('status')->toString()) {
+            $query->where('status', $status);
+        }
+        if ($search = $request->string('q')->toString()) {
+            $query->where(function ($q) use ($search) {
+                $q->where('refund_number', 'like', "%{$search}%")
+                  ->orWhereHas('order', fn ($x) => $x->where('no_po', 'like', "%{$search}%"));
+            });
+        }
+        if ($startDate = $request->string('start_date')->toString()) {
+            $query->where('created_at', '>=', \Illuminate\Support\Carbon::parse($startDate)->startOfDay());
+        }
+        if ($endDate = $request->string('end_date')->toString()) {
+            $query->where('created_at', '<=', \Illuminate\Support\Carbon::parse($endDate)->endOfDay());
+        }
+
+        return $query;
+    }
+
+    private function getExportableRefunds(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Support\Collection
+    {
+        return (clone $query)->without(['order.pelanggan', 'brand', 'creator', 'reviewer', 'publisher'])
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn ($ref) => [
+                'refund_number' => $ref->refund_number,
+                'no_po' => $ref->order?->no_po ?? '—',
+                'jenis_masalah' => $ref->jenis_masalah,
+                'nominal_refund' => $ref->nominal_refund,
+                'created_at' => $ref->created_at->toDateString(),
+                'status' => $ref->status,
+                'customer_bank_name' => $ref->customer_bank_name,
+                'customer_bank_account' => $ref->customer_bank_account,
+            ]);
+    }
+
+    private function resolveBankAccounts(Request $request, \Illuminate\Support\Collection $brands, \Illuminate\Support\Collection $rawBankAccounts): \Illuminate\Support\Collection
+    {
+        $bankAccounts = collect();
+        foreach ($brands as $brand) {
+            $brandId = $brand->id;
+            $masterBrandId = BrandContext::masterDataId($request, $brandId);
+
+            foreach ($rawBankAccounts as $bank) {
+                if ($bank->brand_id === $brandId) {
+                    $bankAccounts->push($bank);
+                } elseif ($masterBrandId && $bank->brand_id === $masterBrandId) {
+                    $cloned = clone $bank;
+                    $cloned->brand_id = $brandId;
+                    $bankAccounts->push($cloned);
+                }
+            }
+        }
+
+        return $bankAccounts->unique(function ($item) {
+            return $item->id . '-' . $item->brand_id;
+        })->values();
     }
 }

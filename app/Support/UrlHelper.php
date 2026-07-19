@@ -26,6 +26,14 @@ class UrlHelper
 
         if (Str::startsWith($url, 'http://') || Str::startsWith($url, 'https://')) {
             $parsed = parse_url($url);
+            $path = $parsed['path'] ?? '';
+
+            // If the path points to internal storage/ folder, convert to relative root path directly
+            if (Str::startsWith(ltrim($path, '/'), 'storage/')) {
+                $query = isset($parsed['query']) ? '?' . $parsed['query'] : '';
+                return '/' . ltrim($path, '/') . $query;
+            }
+
             $appUrlHost = parse_url(config('app.url'), PHP_URL_HOST);
             $urlHost = $parsed['host'] ?? '';
             $requestHost = $request ? $request->getHost() : null;
@@ -37,7 +45,6 @@ class UrlHelper
                 ($appUrlHost && $urlHost === $appUrlHost) ||
                 ($requestHost && $urlHost === $requestHost)
             ) {
-                $path = $parsed['path'] ?? '';
                 $query = isset($parsed['query']) ? '?' . $parsed['query'] : '';
                 return '/' . ltrim($path, '/') . $query;
             }

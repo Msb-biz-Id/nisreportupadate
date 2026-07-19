@@ -50,22 +50,27 @@ class Refund extends Model
         $usesR2 = !empty(config('filesystems.disks.r2.key'));
 
         foreach ($bukti as &$item) {
-            if (isset($item['type']) && $item['type'] === 'file' && isset($item['path'])) {
-                $diskName = $item['disk'] ?? ($usesR2 ? 'r2' : 'public');
-                try {
-                    /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-                    $disk = \Illuminate\Support\Facades\Storage::disk($diskName);
-                    if ($diskName === 'r2') {
-                        if (env('R2_URL')) {
-                            $item['url'] = rtrim(env('R2_URL'), '/') . '/' . $item['path'];
+            if (isset($item['type']) && $item['type'] === 'file') {
+                if (isset($item['path'])) {
+                    $diskName = $item['disk'] ?? ($usesR2 ? 'r2' : 'public');
+                    try {
+                        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+                        $disk = \Illuminate\Support\Facades\Storage::disk($diskName);
+                        if ($diskName === 'r2') {
+                            if (env('R2_URL')) {
+                                $item['url'] = rtrim(env('R2_URL'), '/') . '/' . $item['path'];
+                            } else {
+                                $item['url'] = $disk->temporaryUrl($item['path'], now()->addMinutes(15));
+                            }
                         } else {
-                            $item['url'] = $disk->temporaryUrl($item['path'], now()->addMinutes(15));
+                            $item['url'] = '/storage/' . ltrim($item['path'], '/');
                         }
-                    } else {
-                        $item['url'] = $disk->url($item['path']);
+                    } catch (\Throwable $e) {
+                        // Fallback to stored URL
                     }
-                } catch (\Throwable $e) {
-                    // Fallback to stored URL if disk operations fail
+                }
+                if (isset($item['url'])) {
+                    $item['url'] = \App\Support\UrlHelper::clean($item['url']);
                 }
             }
         }
