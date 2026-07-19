@@ -25,3 +25,4 @@ Thumbs.db
 /public/*.png
 /artifacts
 /database/backup_orders.json
+/credentials_recap.md

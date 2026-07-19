@@ -44,7 +44,7 @@ class InvoiceController extends Controller
         }
 
         if (!$invoice->bank_id) {
-            $bankBrandId = \App\Support\BrandContext::masterDataId($request, $invoice->brand_id);
+            $bankBrandId = BrandContext::masterDataId($request, $invoice->brand_id);
             $defaultBank = \App\Models\Master\BankAccount::active()->where('brand_id', $bankBrandId)->first();
             if ($defaultBank) {
                 $invoice->setRelation('bank', $defaultBank);
@@ -101,7 +101,7 @@ class InvoiceController extends Controller
         }
 
         if (!$invoice->bank_id) {
-            $bankBrandId = \App\Support\BrandContext::masterDataId($request, $invoice->brand_id);
+            $bankBrandId = BrandContext::masterDataId($request, $invoice->brand_id);
             $defaultBank = \App\Models\Master\BankAccount::active()->where('brand_id', $bankBrandId)->first();
             if ($defaultBank) {
                 $invoice->setRelation('bank', $defaultBank);
@@ -165,7 +165,7 @@ class InvoiceController extends Controller
         }
 
         if (!$invoice->bank_id) {
-            $bankBrandId = \App\Support\BrandContext::masterDataId($request, $invoice->brand_id);
+            $bankBrandId = BrandContext::masterDataId($request, $invoice->brand_id);
             $defaultBank = \App\Models\Master\BankAccount::active()->where('brand_id', $bankBrandId)->first();
             if ($defaultBank) {
                 $invoice->setRelation('bank', $defaultBank);
@@ -393,16 +393,110 @@ class InvoiceController extends Controller
             abort_unless(in_array($selectedBrandId, $userBrandIds), 403, 'Unauthorized brand context.');
         }
 
+        $paymentTypeFilter = $request->string('payment_type_filter')->toString();
+        $baseQuery = $this->buildBaseInvoiceQuery($request, $selectedBrandId, $userBrandIds, $isAllBrandsRole, $paymentTypeFilter);
+
+        $query = (clone $baseQuery)->with([
+            'order:id,no_po,nama_po,pelanggan_id,total_tagihan,brand_id,nama_ekspedisi,is_special_order', 
+            'order.pelanggan:id,nama',
+            'order.payments.masterJenisPembayaran',
+            'order.payments.bank',
+            'order.items:id,order_id,quantity,harga_satuan,discount_amount'
+        ]);
+
+        $allFiltered = (clone $baseQuery)->with([
+                'order:id,no_po,pelanggan_id,total_tagihan', 
+                'order.pelanggan:id,nama',
+                'order.payments.masterJenisPembayaran'
+            ])
+            ->orderByDesc('created_at')
+            ->get(['id', 'invoice_number', 'order_id', 'tanggal_terbit', 'total_tagihan', 'sisa_pembayaran', 'status'])
+            ->map(fn ($inv) => $this->formatInvoiceForList($inv));
+
+        $invoices = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
+
+        $search = $request->string('q')->toString();
+        $designDeposits = $this->getDesignDeposits($selectedBrandId, $userBrandIds, $isAllBrandsRole, $search);
+        $availableOrders = $this->getAvailableOrders($selectedBrandId, $userBrandIds, $isAllBrandsRole);
+        $bankAccounts = $this->getBankAccounts($request, $brands);
+        $customers = $this->getCustomers($userBrandIds);
+
+        return Inertia::render('Finance/InvoiceList', [
+            'invoices' => $invoices,
+            'all_filtered_invoices' => $allFiltered,
+            'brands' => $brands,
+            'design_deposits' => $designDeposits,
+            'available_orders' => $availableOrders,
+            'bank_accounts' => $bankAccounts,
+            'customers' => $customers,
+            'master_jenis_pembayarans' => \App\Models\Finance\MasterJenisPembayaran::where('is_active', true)->orderBy('nama')->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan', 'deskripsi']),
+            'filters' => [
+                'q' => $search,
+                'status' => $request->string('status')->toString(),
+                'brand_id' => $selectedBrandId,
+                'start_date' => $request->string('start_date')->toString(),
+                'end_date' => $request->string('end_date')->toString(),
+                'payment_type_filter' => $paymentTypeFilter,
+            ],
+            'statuses' => Invoice::STATUSES,
+            'can' => [
+                'create' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+                'validate' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+                'publish' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
+            ],
+        ]);
+    }
+
+    private function formatInvoiceForList(Invoice $inv): array
+    {
+        $payments = $inv->order?->payments ?? collect();
+        
+        $cashback = $payments
+            ->filter(fn($p) => $p->verified_at !== null && ($p->payment_type === 'cashback' || ($p->masterJenisPembayaran && $p->masterJenisPembayaran->nama === 'Cashback')))
+            ->sum('amount');
+            
+        $refund = $payments
+            ->filter(fn($p) => $p->verified_at !== null && (
+                $p->payment_type === 'return' || 
+                $p->payment_type === 'refund' ||
+                ($p->masterJenisPembayaran && in_array($p->masterJenisPembayaran->nama, ['Refund', 'Return', 'Refurn']))
+            ))
+            ->sum('amount');
+
+        $grossPaid = $payments
+            ->filter(fn($p) => $p->verified_at !== null)
+            ->reduce(function ($sum, $p) {
+                $amt = (float)$p->amount;
+                $isDeduction = in_array($p->payment_type, ['cashback', 'return', 'refund']) || 
+                    ($p->masterJenisPembayaran && in_array($p->masterJenisPembayaran->nama, ['Cashback', 'Refund', 'Return', 'Refurn'])) ||
+                    ($p->is_debit === false);
+                return !$isDeduction ? $sum + $amt : $sum;
+            }, 0.0);
+
+        $totalPaid = $grossPaid - $cashback - $refund;
+        $totalTagihan = (float)$inv->total_tagihan;
+        $sisa = $totalTagihan - $totalPaid;
+
+        return [
+            'invoice_number' => $inv->invoice_number,
+            'no_po' => $inv->order?->no_po ?? '—',
+            'pelanggan' => $inv->order?->pelanggan?->nama ?? '—',
+            'tanggal_terbit' => $inv->tanggal_terbit,
+            'total_tagihan' => $totalTagihan,
+            'cashback' => $cashback,
+            'refund' => $refund,
+            'gross_terbayar' => $grossPaid,
+            'neto_terbayar' => $totalPaid,
+            'sisa_selisih' => $sisa,
+            'status' => $inv->status,
+        ];
+    }
+
+    private function buildBaseInvoiceQuery(Request $request, mixed $selectedBrandId, array $userBrandIds, bool $isAllBrandsRole, ?string $paymentTypeFilter)
+    {
         $query = Invoice::query()
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
-            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn ($q) => $q->whereIn('brand_id', $userBrandIds))
-            ->with([
-                'order:id,no_po,nama_po,pelanggan_id,total_tagihan,brand_id,nama_ekspedisi,is_special_order', 
-                'order.pelanggan:id,nama',
-                'order.payments.masterJenisPembayaran',
-                'order.payments.bank',
-                'order.items:id,order_id,quantity,harga_satuan,discount_amount'
-            ]);
+            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn ($q) => $q->whereIn('brand_id', $userBrandIds));
 
         if ($status = $request->string('status')->toString()) {
             $query->where('status', $status);
@@ -420,7 +514,6 @@ class InvoiceController extends Controller
             $query->where('tanggal_terbit', '<=', $endDate);
         }
 
-        $paymentTypeFilter = $request->string('payment_type_filter')->toString();
         if ($paymentTypeFilter) {
             if ($paymentTypeFilter === 'cashback') {
                 $query->whereHas('order.payments', function ($q) {
@@ -449,130 +542,46 @@ class InvoiceController extends Controller
             }
         }
 
-        $allFilteredQuery = Invoice::query()
-            ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
-            ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn ($q) => $q->whereIn('brand_id', $userBrandIds))
-            ->when($status = $request->string('status')->toString(), fn($q) => $q->where('status', $status))
-            ->when($search = $request->string('q')->toString(), function ($q) use ($search) {
-                $q->where(function ($qp) use ($search) {
-                    $qp->where('invoice_number', 'like', "%{$search}%")
-                      ->orWhereHas('order', fn ($x) => $x->where('no_po', 'like', "%{$search}%"));
-                });
-            })
-            ->when($startDate = $request->string('start_date')->toString(), fn($q) => $q->where('tanggal_terbit', '>=', $startDate))
-            ->when($endDate = $request->string('end_date')->toString(), fn($q) => $q->where('tanggal_terbit', '<=', $endDate));
+        return $query;
+    }
 
-        if ($paymentTypeFilter) {
-            if ($paymentTypeFilter === 'cashback') {
-                $allFilteredQuery->whereHas('order.payments', function ($q) {
-                    $q->whereNotNull('verified_at')
-                      ->where(function ($qp) {
-                          $qp->where('payment_type', 'cashback')
-                             ->orWhereHas('masterJenisPembayaran', fn($mj) => $mj->where('nama', 'Cashback'));
-                      });
-                });
-            } elseif ($paymentTypeFilter === 'refund') {
-                $allFilteredQuery->whereHas('order.payments', function ($q) {
-                    $q->whereNotNull('verified_at')
-                      ->where(function ($qp) {
-                          $qp->whereIn('payment_type', ['return', 'refund'])
-                             ->orWhereHas('masterJenisPembayaran', fn($mj) => $mj->whereIn('nama', ['Refund', 'Return', 'Refurn']));
-                      });
-                });
-            } elseif ($paymentTypeFilter === 'normal') {
-                $allFilteredQuery->whereDoesntHave('order.payments', function ($q) {
-                    $q->whereNotNull('verified_at')
-                      ->where(function ($qp) {
-                          $qp->whereIn('payment_type', ['cashback', 'return', 'refund'])
-                             ->orWhereHas('masterJenisPembayaran', fn($mj) => $mj->whereIn('nama', ['Cashback', 'Refund', 'Return', 'Refurn']));
-                      });
-                });
-            }
-        }
-
-        $allFiltered = $allFilteredQuery->with([
-                'order:id,no_po,pelanggan_id,total_tagihan', 
-                'order.pelanggan:id,nama',
-                'order.payments.masterJenisPembayaran'
-            ])
-            ->orderByDesc('created_at')
-            ->get(['id', 'invoice_number', 'order_id', 'tanggal_terbit', 'total_tagihan', 'sisa_pembayaran', 'status'])
-            ->map(function ($inv) {
-                $payments = $inv->order?->payments ?? collect();
-                
-                $cashback = $payments
-                    ->filter(fn($p) => $p->verified_at !== null && ($p->payment_type === 'cashback' || ($p->masterJenisPembayaran && $p->masterJenisPembayaran->nama === 'Cashback')))
-                    ->sum('amount');
-                    
-                $refund = $payments
-                    ->filter(fn($p) => $p->verified_at !== null && (
-                        $p->payment_type === 'return' || 
-                        $p->payment_type === 'refund' ||
-                        ($p->masterJenisPembayaran && in_array($p->masterJenisPembayaran->nama, ['Refund', 'Return', 'Refurn']))
-                    ))
-                    ->sum('amount');
-
-                $grossPaid = $payments
-                    ->filter(fn($p) => $p->verified_at !== null)
-                    ->reduce(function ($sum, $p) {
-                        $amt = (float)$p->amount;
-                        $isDeduction = in_array($p->payment_type, ['cashback', 'return', 'refund']) || 
-                            ($p->masterJenisPembayaran && in_array($p->masterJenisPembayaran->nama, ['Cashback', 'Refund', 'Return', 'Refurn'])) ||
-                            ($p->is_debit === false);
-                        return !$isDeduction ? $sum + $amt : $sum;
-                    }, 0.0);
-
-                $totalPaid = $grossPaid - $cashback - $refund;
-                $totalTagihan = (float)$inv->total_tagihan;
-                $sisa = $totalTagihan - $totalPaid;
-
-                return [
-                    'invoice_number' => $inv->invoice_number,
-                    'no_po' => $inv->order?->no_po ?? '—',
-                    'pelanggan' => $inv->order?->pelanggan?->nama ?? '—',
-                    'tanggal_terbit' => $inv->tanggal_terbit,
-                    'total_tagihan' => $totalTagihan,
-                    'cashback' => $cashback,
-                    'refund' => $refund,
-                    'gross_terbayar' => $grossPaid,
-                    'neto_terbayar' => $totalPaid,
-                    'sisa_selisih' => $sisa,
-                    'status' => $inv->status,
-                ];
-            });
-
-        $invoices = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
-
-        // Fetch Design Deposits (Tanda Jadi)
+    private function getDesignDeposits(mixed $selectedBrandId, array $userBrandIds, bool $isAllBrandsRole, ?string $search)
+    {
         $depositsQuery = \App\Models\Order\DesignDeposit::query()
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
             ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn ($q) => $q->whereIn('brand_id', $userBrandIds))
             ->with(['brand:id,nama_brand,kode', 'recorder:id,name', 'verifier:id,name', 'bank:id,atas_nama,nomor_rekening,bank', 'order:id,no_po'])
             ->orderByDesc('created_at');
 
-        if ($search = $request->string('q')->toString()) {
+        if ($search) {
             $depositsQuery->where(function ($q) use ($search) {
                 $q->where('deposit_number', 'like', "%{$search}%")
                   ->orWhere('customer_name', 'like', "%{$search}%");
             });
         }
 
-        $designDeposits = $depositsQuery->get();
+        return $depositsQuery->get();
+    }
 
-        $availableOrders = Order::query()
+    private function getAvailableOrders(mixed $selectedBrandId, array $userBrandIds, bool $isAllBrandsRole)
+    {
+        return Order::query()
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
             ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn ($q) => $q->whereIn('brand_id', $userBrandIds))
             ->whereDoesntHave('invoices')
             ->orderByDesc('created_at')
             ->get(['id', 'no_po', 'nama_po', 'total_tagihan']);
+    }
 
+    private function getBankAccounts(Request $request, mixed $brands)
+    {
         $rawBankAccounts = \App\Models\Master\BankAccount::where('is_active', true)
             ->get(['id', 'bank', 'atas_nama', 'nomor_rekening', 'brand_id']);
 
         $bankAccounts = collect();
         foreach ($brands as $brand) {
             $brandId = $brand->id;
-            $masterBrandId = \App\Support\BrandContext::masterDataId($request, $brandId);
+            $masterBrandId = BrandContext::masterDataId($request, $brandId);
 
             foreach ($rawBankAccounts as $bank) {
                 if ($bank->brand_id === $brandId) {
@@ -584,39 +593,17 @@ class InvoiceController extends Controller
                 }
             }
         }
-        $bankAccounts = $bankAccounts->unique(function ($item) {
+        return $bankAccounts->unique(function ($item) {
             return $item->id . '-' . $item->brand_id;
         })->values();
+    }
 
-        $customers = \App\Models\Master\Customer::where('is_active', true)
+    private function getCustomers(array $userBrandIds)
+    {
+        return \App\Models\Master\Customer::where('is_active', true)
             ->whereIn('brand_id', $userBrandIds)
             ->orderBy('nama')
             ->get(['id', 'nama', 'brand_id']);
-
-        return Inertia::render('Finance/InvoiceList', [
-            'invoices' => $invoices,
-            'all_filtered_invoices' => $allFiltered,
-            'brands' => $brands,
-            'design_deposits' => $designDeposits,
-            'available_orders' => $availableOrders,
-            'bank_accounts' => $bankAccounts,
-            'customers' => $customers,
-            'master_jenis_pembayarans' => \App\Models\Finance\MasterJenisPembayaran::where('is_active', true)->orderBy('nama')->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan', 'deskripsi']),
-            'filters' => [
-                'q' => $request->string('q')->toString(),
-                'status' => $request->string('status')->toString(),
-                'brand_id' => $selectedBrandId,
-                'start_date' => $request->string('start_date')->toString(),
-                'end_date' => $request->string('end_date')->toString(),
-                'payment_type_filter' => $paymentTypeFilter,
-            ],
-            'statuses' => Invoice::STATUSES,
-            'can' => [
-                'create' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
-                'validate' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
-                'publish' => $request->user() && ($request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan')),
-            ],
-        ]);
     }
 
     public function paymentsPending(Request $request)
@@ -661,7 +648,7 @@ class InvoiceController extends Controller
         $orderIds = $pendingPayments->pluck('order_id')->filter()->unique()->values();
         $dpPaidPerOrder = [];
         if ($orderIds->isNotEmpty()) {
-            foreach (\App\Models\Order\Order::whereIn('id', $orderIds)->with(['items', 'payments.masterJenisPembayaran', 'brand'])->get() as $ord) {
+            foreach (Order::whereIn('id', $orderIds)->with(['items', 'payments.masterJenisPembayaran', 'brand'])->get() as $ord) {
                 $dpPaidPerOrder[$ord->id] = [
                     'total_tagihan' => (float) $ord->totalTagihan(),
                     'total_paid'    => (float) $ord->totalPaid(),
@@ -777,7 +764,7 @@ class InvoiceController extends Controller
                 'status' => $status,
                 'total_tagihan' => $totalTagihan,
                 'total_bayar' => $totalPaid,
-                'bank_id' => \App\Models\Master\BankAccount::active()->where('brand_id', \App\Support\BrandContext::masterDataId(request(), $order->brand_id))->first()?->id,
+                'bank_id' => \App\Models\Master\BankAccount::active()->where('brand_id', BrandContext::masterDataId(request(), $order->brand_id))->first()?->id,
                 'dp_amount' => $totalPaid,
                 'sisa_pembayaran' => $sisa,
                 'diskon_type' => $diskonType,
@@ -813,8 +800,8 @@ class InvoiceController extends Controller
             try {
                 \App\Services\ActivityLogger::log('publish', 'invoice', $invoice, "Auto publish invoice {$invoice->invoice_number} via verified DP presence at creation");
                 
-                $sidobe = \App\Services\Notifications\SidobeClient::fromSettings();
-                $waService = new \App\Services\Notifications\InvoiceWhatsappService($sidobe);
+                $sidobe = SidobeClient::fromSettings();
+                $waService = new InvoiceWhatsappService($sidobe);
                 $invoice->load(['order.pelanggan', 'brand']);
                 
                 if ($sidobe->isConfigured()) {

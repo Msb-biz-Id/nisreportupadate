@@ -213,7 +213,7 @@ class IdealNotificationService
         \Illuminate\Support\Facades\DB::table('notifications')
             ->whereNull('read_at')
             ->where(function ($query) use ($eventKey) {
-                $query->where('type', \App\Notifications\SystemEventNotification::class)
+                $query->where('type', SystemEventNotification::class)
                       ->orWhere('type', 'like', '%' . $eventKey . '%');
             })
             ->where(function ($query) use ($eventKey) {

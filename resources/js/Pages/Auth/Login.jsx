@@ -1,7 +1,7 @@
 import InputError from '@/Components/InputError';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { Eye, EyeOff, Lock, Mail, LogIn, AlertTriangle, HelpCircle, Info, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { Eye, EyeOff, Lock, Mail, LogIn, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { createTimeline, animate } from 'animejs';
 
 export default function Login({ status, canResetPassword, turnstile }) {
@@ -336,73 +336,16 @@ export default function Login({ status, canResetPassword, turnstile }) {
                                 <LogIn className="h-4 w-4" />
                                 {processing ? 'Memproses...' : 'Masuk'}
                             </button>
-
+                            
                             {/* Bottom Help & Forgot Password Actions */}
-                            <div className="pt-2 flex flex-col items-center gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowHelp(!showHelp)}
-                                    className="text-xs font-bold tracking-wide text-slate-500 hover:text-slate-800 transition flex items-center gap-1"
-                                >
-                                    Bantuan Masuk & Demo Akun {showHelp ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                                </button>
-                                
-                                {canResetPassword && (
+                            {canResetPassword && (
+                                <div className="pt-2 flex flex-col items-center gap-3">
                                     <Link
                                         href={route('password.request')}
                                         className="text-xs font-semibold tracking-widest uppercase text-primary hover:opacity-85 transition"
                                     >
                                         Kesulitan masuk? Lupa kata sandi
                                     </Link>
-                                )}
-                            </div>
-
-                            {/* Demo Credentials Drawer Panel */}
-                            {showHelp && (
-                                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] text-slate-600 space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <div className="font-bold text-slate-850 flex items-center gap-1.5">
-                                        <Info className="h-4 w-4 text-primary" />
-                                        Panduan Masuk & Reset Password
-                                    </div>
-                                    <p className="leading-relaxed">
-                                        Jika Anda lupa kata sandi Anda, silakan hubungi <strong>Administrator IT / Owner</strong> untuk mengatur ulang kata sandi Anda melalui Menu Pengaturan User.
-                                    </p>
-                                    
-                                    <div className="pt-2 border-t border-slate-200 space-y-2">
-                                        <span className="font-bold text-slate-700 block">Kredensial Akun Default (Dev/Seeded):</span>
-                                        <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1">
-                                            {[
-                                                { role: 'Superadmin', email: 'itidwarehouse@gmail.com' },
-                                                { role: 'Owner', email: 'owner@nisreport.local' },
-                                                { role: 'Keuangan', email: 'keuangan.nisgroup@gmail.com' },
-                                                { role: 'Finance', email: 'finance.nisgroup@gmail.com' },
-                                                { role: 'PIC Produksi', email: 'produksi.nisgroup@gmail.com' },
-                                                { role: 'Admin Produksi', email: 'adminproduksi.nisgroup@gmail.com' },
-                                                { role: 'Supervisor', email: 'supervisor.nisgroup@gmail.com' },
-                                                { role: 'Admin Brand ALG', email: 'allegiant.id@gmail.com' },
-                                                { role: 'Admin Brand CRL', email: 'circlesportwear@gmail.com' },
-                                                { role: 'Admin Brand DRV', email: 'sportweardrive@gmail.com' },
-                                                { role: 'Admin Reseller IDW', email: 'indonesiasportwarehouse@gmail.com' }
-                                            ].map((account) => (
-                                                <div key={account.email} className="bg-white p-2 rounded-xl border border-slate-100 flex justify-between items-center shadow-sm">
-                                                    <div className="flex flex-col min-w-0">
-                                                        <span className="font-bold text-[10px] text-slate-800">{account.role}</span>
-                                                        <span className="font-mono text-slate-500 text-[10px] truncate max-w-[200px]">{account.email}</span>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setData(d => ({ ...d, email: account.email, password: 'password' }));
-                                                            setShowHelp(false);
-                                                        }}
-                                                        className="text-[10px] bg-slate-900 hover:bg-black text-white px-2 py-1 rounded-md font-bold transition shrink-0 ml-2"
-                                                    >
-                                                        Gunakan
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
                                 </div>
                             )}
                         </form>

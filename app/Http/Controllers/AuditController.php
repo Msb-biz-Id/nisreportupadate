@@ -20,8 +20,14 @@ class AuditController extends Controller
         $query = ActivityLog::with(['user:id,name,email', 'brand:id,nama_brand,kode']);
 
         if (! $isSuperadmin && $brandId) {
-            $query->where(function ($q) use ($brandId) {
-                $q->where('brand_id', $brandId)->orWhereNull('brand_id');
+            $query->where(function ($q) use ($request, $brandId) {
+                if ($brandId === 'all') {
+                    $q->whereIn('brand_id', BrandContext::effectiveBrandIds($request))
+                      ->orWhereNull('brand_id');
+                } else {
+                    $q->where('brand_id', $brandId)
+                      ->orWhereNull('brand_id');
+                }
             });
         }
 

@@ -124,7 +124,7 @@ class HandleInertiaRequests extends Middleware
                             $brand = $order ? $order->brand : null;
                             if (!$brand && count(explode('-', $noPo)) >= 2) {
                                 $brandKode = explode('-', $noPo)[1];
-                                $brand = \App\Models\Brand::where('kode', $brandKode)->first();
+                                $brand = Brand::where('kode', $brandKode)->first();
                             }
                             if ($brand) {
                                 $appName = $brand->nama_brand;
@@ -159,7 +159,7 @@ class HandleInertiaRequests extends Middleware
                             $brand = $order ? $order->brand : null;
                             if (!$brand && count(explode('-', $noPo)) >= 2) {
                                 $brandKode = explode('-', $noPo)[1];
-                                $brand = \App\Models\Brand::where('kode', $brandKode)->first();
+                                $brand = Brand::where('kode', $brandKode)->first();
                             }
                             if ($brand) {
                                 $appDesc = "Lacak status pengerjaan pesanan Anda dengan nomor PO $noPo secara real-time di {$brand->nama_brand}.";
@@ -202,7 +202,7 @@ class HandleInertiaRequests extends Middleware
                             $brand = $order ? $order->brand : null;
                             if (!$brand && count(explode('-', $noPo)) >= 2) {
                                 $brandKode = explode('-', $noPo)[1];
-                                $brand = \App\Models\Brand::where('kode', $brandKode)->first();
+                                $brand = Brand::where('kode', $brandKode)->first();
                             }
                             if ($brand && $brand->logo) {
                                 $appLogo = \Illuminate\Support\Str::contains($brand->logo, 'http') ? $brand->logo : $publicDisk->url($brand->logo);
@@ -249,7 +249,7 @@ class HandleInertiaRequests extends Middleware
                             $brand = $order ? $order->brand : null;
                             if (!$brand && count(explode('-', $noPo)) >= 2) {
                                 $brandKode = explode('-', $noPo)[1];
-                                $brand = \App\Models\Brand::where('kode', $brandKode)->first();
+                                $brand = Brand::where('kode', $brandKode)->first();
                             }
                             if ($brand && $brand->logo) {
                                 $appFavicon = \Illuminate\Support\Str::contains($brand->logo, 'http') ? $brand->logo : $publicDisk->url($brand->logo);
@@ -288,7 +288,7 @@ class HandleInertiaRequests extends Middleware
                             $brand = $order ? $order->brand : null;
                             if (!$brand && count(explode('-', $noPo)) >= 2) {
                                 $brandKode = explode('-', $noPo)[1];
-                                $brand = \App\Models\Brand::where('kode', $brandKode)->first();
+                                $brand = Brand::where('kode', $brandKode)->first();
                             }
                             if ($brand && $brand->warna_primary) {
                                 $appTheme = $brand->warna_primary;

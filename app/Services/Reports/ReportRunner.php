@@ -879,33 +879,7 @@ class ReportRunner
             ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'bank:id,brand_id,bank,nomor_rekening,atas_nama', 'bank.brand:id,nama_brand', 'masterJenisPembayaran:id,nama'])
             ->get();
 
-        $grouped = $rawPayments->groupBy(function ($p) {
-            return $p->order_id ?? ('no_order_' . $p->id);
-        });
-
-        $sortedGroups = $grouped->map(function ($group) {
-            $sortedPayments = $group->sortBy(function ($p) {
-                $datePart = $p->payment_date ? $p->payment_date->toDateString() : '0000-00-00';
-                $timePart = $p->created_at ? $p->created_at->toDateTimeString() : '00:00:00';
-                return $datePart . '_' . $timePart;
-            })->values();
-
-            $latestPayment = $group->sortByDesc(function ($p) {
-                $datePart = $p->payment_date ? $p->payment_date->toDateString() : '0000-00-00';
-                $timePart = $p->created_at ? $p->created_at->toDateTimeString() : '00:00:00';
-                return $datePart . '_' . $timePart;
-            })->first();
-
-            $sortKey = ($latestPayment->payment_date ? $latestPayment->payment_date->toDateString() : '0000-00-00') . '_' . 
-                       ($latestPayment->created_at ? $latestPayment->created_at->toDateTimeString() : '0000-00-00 00:00:00');
-
-            return [
-                'payments' => $sortedPayments,
-                'sort_key' => $sortKey,
-            ];
-        });
-
-        $sortedGroups = $sortedGroups->sortByDesc('sort_key')->values();
+        $sortedGroups = $this->sortAndGroupPayments($rawPayments);
 
         $payments = collect();
         foreach ($sortedGroups as $groupData) {
@@ -914,55 +888,7 @@ class ReportRunner
             }
         }
 
-        $rows = $payments->map(function ($p) {
-            $debit = $p->is_debit ? (float) $p->amount : 0.0;
-            $kredit = !$p->is_debit ? (float) $p->amount : 0.0;
-
-            $statusText = $p->verified_at ? 'verified' : 'pending';
-
-            $tipeLabel = $p->masterJenisPembayaran?->nama ?? $p->payment_type;
-            $tipeLabelClean = match(strtolower($tipeLabel)) {
-                'dp' => 'DP ' . ($p->dp_sequence ?? 1),
-                'pelunasan' => 'Pelunasan',
-                'ongkir' => 'Ongkir',
-                'tambahan_produk' => 'Tambahan Produk',
-                'cashback' => 'Cashback',
-                'return' => 'Refund',
-                'refurn' => 'Refund',
-                'refund' => 'Refund',
-                default => ucfirst($tipeLabel)
-            };
-
-            $docNumber = $p->order?->no_po ?? '-';
-            if ($p->payment_type === 'return') {
-                $refund = \App\Models\Order\Refund::where('order_id', $p->order_id)
-                    ->where('nominal_refund', $p->amount)
-                    ->first();
-                if ($refund) {
-                    $docNumber = "{$p->order?->no_po} / {$refund->refund_number}";
-                } else if ($p->notes && preg_match('/(REF-[A-Z0-9-]+)/i', $p->notes, $matches)) {
-                    $docNumber = "{$p->order?->no_po} / {$matches[1]}";
-                }
-            } elseif ($p->payment_type === 'cashback') {
-                if ($p->order?->no_po) {
-                    $cbNumber = str_replace('PO-', 'CB-', $p->order->no_po);
-                    $docNumber = "{$p->order->no_po} / {$cbNumber}";
-                }
-            }
-
-            return [
-                'tanggal' => $p->payment_date?->toDateString(),
-                'bank_info' => $p->bank ? "{$p->bank->bank} - {$p->bank->nomor_rekening} (A.N. {$p->bank->atas_nama})" : 'CASH',
-                'brand_name' => $p->bank?->brand?->nama_brand ?? 'General',
-                'no_po' => $docNumber,
-                'pelanggan' => $p->order?->pelanggan?->nama ?? '-',
-                'tipe' => $tipeLabelClean,
-                'debit' => $debit,
-                'kredit' => $kredit,
-                'status' => $statusText,
-                'notes' => $p->notes ?? '-',
-            ];
-        })->all();
+        $rows = $payments->map(fn ($p) => $this->formatArusKasPayment($p))->all();
 
         $totalDebit = array_sum(array_column($rows, 'debit'));
         $totalKredit = array_sum(array_column($rows, 'kredit'));
@@ -977,6 +903,88 @@ class ReportRunner
                 ['label' => 'Saldo Bersih', 'value' => $saldoBersih, 'format' => 'currency'],
             ],
         ];
+    }
+
+    private function formatArusKasPayment(OrderPayment $p): array
+    {
+        $debit = $p->is_debit ? (float) $p->amount : 0.0;
+        $kredit = !$p->is_debit ? (float) $p->amount : 0.0;
+
+        $statusText = $p->verified_at ? 'verified' : 'pending';
+
+        $tipeLabel = $p->masterJenisPembayaran?->nama ?? $p->payment_type;
+        $tipeLabelClean = match(strtolower($tipeLabel)) {
+            'dp' => 'DP ' . ($p->dp_sequence ?? 1),
+            'pelunasan' => 'Pelunasan',
+            'ongkir' => 'Ongkir',
+            'tambahan_produk' => 'Tambahan Produk',
+            'cashback' => 'Cashback',
+            'return' => 'Refund',
+            'refurn' => 'Refund',
+            'refund' => 'Refund',
+            default => ucfirst($tipeLabel)
+        };
+
+        $docNumber = $p->order?->no_po ?? '-';
+        if ($p->payment_type === 'return') {
+            $refund = Refund::where('order_id', $p->order_id)
+                ->where('nominal_refund', $p->amount)
+                ->first();
+            if ($refund) {
+                $docNumber = "{$p->order?->no_po} / {$refund->refund_number}";
+            } else if ($p->notes && preg_match('/(REF-[A-Z0-9-]+)/i', $p->notes, $matches)) {
+                $docNumber = "{$p->order?->no_po} / {$matches[1]}";
+            }
+        } elseif ($p->payment_type === 'cashback') {
+            if ($p->order?->no_po) {
+                $cbNumber = str_replace('PO-', 'CB-', $p->order->no_po);
+                $docNumber = "{$p->order->no_po} / {$cbNumber}";
+            }
+        }
+
+        return [
+            'tanggal' => $p->payment_date ? Carbon::parse($p->payment_date)->toDateString() : null,
+            'bank_info' => $p->bank ? "{$p->bank->bank} - {$p->bank->nomor_rekening} (A.N. {$p->bank->atas_nama})" : 'CASH',
+            'brand_name' => $p->bank?->brand?->nama_brand ?? 'General',
+            'no_po' => $docNumber,
+            'pelanggan' => $p->order?->pelanggan?->nama ?? '-',
+            'tipe' => $tipeLabelClean,
+            'debit' => $debit,
+            'kredit' => $kredit,
+            'status' => $statusText,
+            'notes' => $p->notes ?? '-',
+        ];
+    }
+
+    private function sortAndGroupPayments(\Illuminate\Support\Collection $rawPayments): \Illuminate\Support\Collection
+    {
+        $grouped = $rawPayments->groupBy(function ($p) {
+            return $p->order_id ?? ('no_order_' . $p->id);
+        });
+
+        $sortedGroups = $grouped->map(function ($group) {
+            $sortedPayments = $group->sortBy(function ($p) {
+                $datePart = $p->payment_date ? Carbon::parse($p->payment_date)->toDateString() : '0000-00-00';
+                $timePart = $p->created_at ? $p->created_at->toDateTimeString() : '00:00:00';
+                return $datePart . '_' . $timePart;
+            })->values();
+
+            $latestPayment = $group->sortByDesc(function ($p) {
+                $datePart = $p->payment_date ? Carbon::parse($p->payment_date)->toDateString() : '0000-00-00';
+                $timePart = $p->created_at ? $p->created_at->toDateTimeString() : '00:00:00';
+                return $datePart . '_' . $timePart;
+            })->first();
+
+            $sortKey = ($latestPayment->payment_date ? Carbon::parse($latestPayment->payment_date)->toDateString() : '0000-00-00') . '_' . 
+                       ($latestPayment->created_at ? $latestPayment->created_at->toDateTimeString() : '0000-00-00 00:00:00');
+
+            return [
+                'payments' => $sortedPayments,
+                'sort_key' => $sortKey,
+            ];
+        });
+
+        return $sortedGroups->sortByDesc('sort_key')->values();
     }
 
     private function formatDuration(mixed $started, mixed $completed, bool $isActive = false): string
