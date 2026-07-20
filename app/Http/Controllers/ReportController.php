@@ -76,12 +76,13 @@ class ReportController extends Controller
 
     private function getShowProps(Request $request, ?\App\Models\User $user, ?string $role, bool $isGlobal, mixed $effectiveId, mixed $masterBrandId, array $bankAccounts): array
     {
+        $allowedReports = $user ? $user->getAllowedReports() : [];
+        $allReports = array_map(function ($r) use ($request) {
+            return $r['slug'] === 'wilayah' ? $this->resolveConfig('wilayah', $request) : $r;
+        }, array_values(array_filter(ReportRegistry::all(), fn ($r) => in_array($r['slug'], $allowedReports, true))));
+
         return [
-            'allReports' => collect(ReportRegistry::all())->values()->filter(function($r) use ($user) {
-                return $user && in_array($r['slug'], $user->getAllowedReports());
-            })->map(function($r) use ($request) {
-                return $r['slug'] === 'wilayah' ? $this->resolveConfig('wilayah', $request) : $r;
-            })->values()->all(),
+            'allReports' => $allReports,
             'customerTypes' => \App\Models\Master\CustomerType::query()
                 ->when($masterBrandId, fn($q) => $q->where('brand_id', $masterBrandId)->orWhereNull('brand_id'))
                 ->get(['id', 'nama'])

@@ -48,8 +48,13 @@ class CalendarController extends Controller
             ->get();
 
         $events = $orders->map(function (Order $o) {
-            $start = ($o->start_production_date ?? $o->tanggal_masuk)?->toDateString();
-            $end = ($o->end_production_date ?? $o->deadline_customer)?->toDateString();
+            $startDate = $o->start_production_date ?? $o->tanggal_masuk;
+            $endDate = $o->end_production_date ?? $o->deadline_customer;
+
+            $start = $startDate ? \Illuminate\Support\Carbon::parse((string) $startDate)->toDateString() : null;
+            $end = $endDate ? \Illuminate\Support\Carbon::parse((string) $endDate)->toDateString() : null;
+            $deadlineCustomer = $o->deadline_customer ? \Illuminate\Support\Carbon::parse((string) $o->deadline_customer)->toDateString() : null;
+            $deadlineProduksi = $o->end_production_date ? \Illuminate\Support\Carbon::parse((string) $o->end_production_date)->toDateString() : null;
 
             $brandPrefix = $o->brand?->nama_brand ? "({$o->brand->nama_brand}) " : "";
 
@@ -58,8 +63,8 @@ class CalendarController extends Controller
                 'title'            => "[{$o->no_po}] " . $brandPrefix . ($o->nama_po ?? ''),
                 'start'            => $start,
                 'end'              => $end,
-                'deadlineCustomer' => $o->deadline_customer?->toDateString(),
-                'deadlineProduksi' => $o->end_production_date?->toDateString(),
+                'deadlineCustomer' => $deadlineCustomer,
+                'deadlineProduksi' => $deadlineProduksi,
                 'status'           => $o->status_po,
                 'statusLabel'      => self::STATUS_LABELS[$o->status_po] ?? $o->status_po,
                 'color'            => self::STATUS_COLORS[$o->status_po] ?? '#94A3B8',
@@ -69,7 +74,7 @@ class CalendarController extends Controller
                 'brandName'        => $o->brand?->nama_brand,
                 'brandKode'        => $o->brand?->kode,
                 'daysRemaining'    => $o->deadline_customer
-                    ? now()->startOfDay()->diffInDays($o->deadline_customer, false)
+                    ? now()->startOfDay()->diffInDays(\Illuminate\Support\Carbon::parse((string) $o->deadline_customer), false)
                     : null,
                 'totalPcs'         => (int) ($o->total_pcs ?? 0),
                 'detailUrl'        => route('orders.show', $o->id),
