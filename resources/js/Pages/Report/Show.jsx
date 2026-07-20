@@ -453,7 +453,7 @@ export default function ReportShow({ config, filters, rows, summary, heatmapSeri
                                                 return (
                                                     <TableRow key={i} className="bg-blue-50/50 hover:bg-blue-50/50">
                                                         <TableCell colSpan={config.columns.length} className="font-bold text-blue-700 py-3 pl-4">
-                                                            Deadline: {formatDate(row.deadline)}
+                                                            {config.slug === 'monitoring-deadline' ? 'Deadline Produksi' : 'Deadline'}: {formatDate(row.deadline_produksi || row.deadline)}
                                                         </TableCell>
                                                     </TableRow>
                                                 );

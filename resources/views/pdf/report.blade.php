@@ -85,7 +85,7 @@
                 @if (!empty($row['is_group_header']))
                     <tr style="background-color: #F1F5F9;">
                         <td colspan="{{ count($config['columns']) }}" {!! 'style="font-weight: bold; border-bottom: 2px solid ' . $primaryColor . '; color: ' . $primaryColor . '; font-size: 9.5pt; padding: 6px 8px;"' !!}>
-                            Deadline: {{ \Carbon\Carbon::parse($row['deadline'])->translatedFormat('d M Y') }}
+                            {{ ($config['slug'] ?? '') === 'monitoring-deadline' ? 'Deadline Produksi' : 'Deadline' }}: {{ \Carbon\Carbon::parse($row['deadline_produksi'] ?? $row['deadline'])->translatedFormat('d M Y') }}
                         </td>
                     </tr>
                 @elseif (!empty($row['is_group_total']))

@@ -178,6 +178,13 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         <td className="py-0.5">:</td>
                                         <td className="font-bold py-0.5">{renderFormattedText(order.nama_po)}</td>
                                     </tr>
+                                    {order.is_repeat_order && (
+                                        <tr className="text-amber-700 font-bold">
+                                            <td className="font-black py-0.5">REPEAT ORDER</td>
+                                            <td className="py-0.5">:</td>
+                                            <td className="font-bold py-0.5">YA {order.repeat_from?.no_po ? `(PO ASAL: ${order.repeat_from.no_po})` : ''}</td>
+                                        </tr>
+                                    )}
                                     {(order.reseller_display_brand || (brand && (brand.brand_type === 'reseller_hub' || brand.brand_type === 'reseller_branch') && brand.parent_brand_id)) && (
                                         <tr>
                                             <td className="font-black py-0.5">RESELLER</td>
@@ -245,6 +252,13 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                 {order.is_reseller_price && (
                                     <div className="text-[12px] font-bold mt-2 pt-2">
                                         <span className="text-[13px] font-black text-red-600">HARGA RESELLER</span>
+                                    </div>
+                                )}
+                                {order.is_repeat_order && (
+                                    <div className="text-[12px] font-bold mt-2 pt-2 border-t border-slate-300">
+                                        <span className="text-[13px] font-black text-amber-700">
+                                            🔄 REPEAT ORDER {order.repeat_from?.no_po ? `(${order.repeat_from.no_po})` : ''}
+                                        </span>
                                     </div>
                                 )}
                             </div>

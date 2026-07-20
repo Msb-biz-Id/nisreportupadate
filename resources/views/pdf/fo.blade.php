@@ -352,6 +352,13 @@
                                 <td style="font-weight: bold; padding: 3px 0;">:</td>
                                 <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{!! !empty($order->nama_po) ? \App\Support\PdfHelper::formatText($order->nama_po) : '' !!}</td>
                             </tr>
+                            @if($order->is_repeat_order)
+                            <tr style="color: #b45309;">
+                                <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0; color: #b45309;">REPEAT ORDER</td>
+                                <td style="font-weight: bold; padding: 3px 0; color: #b45309;">:</td>
+                                <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold; color: #b45309;">YA {{ $order->repeatFrom ? '(PO ASAL: ' . $order->repeatFrom->no_po . ')' : '' }}</td>
+                            </tr>
+                            @endif
                             @if($order->resellerDisplayBrand || ($order->brand && $order->brand->isReseller()))
                             <tr>
                                 <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">RESELLER</td>
@@ -403,6 +410,11 @@
                              @if($order->is_reseller_price)
                              <div style="font-size: 10pt; font-weight: bold; margin-top: 10px; padding-top: 5px; line-height: 1.2;">
                                  <span style="font-size: 11pt; font-weight: 900; color: #dc2626;">HARGA RESELLER</span>
+                             </div>
+                             @endif
+                             @if($order->is_repeat_order)
+                             <div style="font-size: 10pt; font-weight: bold; margin-top: 10px; padding-top: 5px; border-top: 1px dashed #000; line-height: 1.2;">
+                                 <span style="font-size: 11pt; font-weight: 900; color: #b45309;">REPEAT ORDER {{ $order->repeatFrom ? '(' . $order->repeatFrom->no_po . ')' : '' }}</span>
                              </div>
                              @endif
                         </div>

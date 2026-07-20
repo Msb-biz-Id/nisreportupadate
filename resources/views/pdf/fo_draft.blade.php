@@ -370,6 +370,13 @@
                             <td style="font-weight: bold; padding: 3px 0;">:</td>
                             <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold;">{!! !empty($raw['nama_po']) ? \App\Support\PdfHelper::formatText($raw['nama_po']) : '' !!}</td>
                         </tr>
+                        @if(!empty($raw['is_repeat_order']) || !empty($raw['repeat_from_po_id']))
+                        <tr style="color: #b45309;">
+                            <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0; color: #b45309;">REPEAT ORDER</td>
+                            <td style="font-weight: bold; padding: 3px 0; color: #b45309;">:</td>
+                            <td style="font-size: 10.5pt; padding: 3px 0; font-weight: bold; color: #b45309;">YA {{ isset($repeatFromPo) && $repeatFromPo ? '(PO ASAL: ' . $repeatFromPo->no_po . ')' : '' }}</td>
+                        </tr>
+                        @endif
                         @if((isset($resellerDisplayBrand) && $resellerDisplayBrand) || ($brand && $brand->isReseller()))
                         <tr>
                             <td style="font-weight: bold; font-size: 10.5pt; padding: 3px 0;">RESELLER</td>
@@ -421,6 +428,11 @@
                         @if(!empty($raw['is_reseller_price']))
                         <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; padding-top: 5px; line-height: 1.2;">
                             <span style="font-size: 12.5pt; font-weight: 900; color: #dc2626;">HARGA RESELLER</span>
+                        </div>
+                        @endif
+                        @if(!empty($raw['is_repeat_order']) || !empty($raw['repeat_from_po_id']))
+                        <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; padding-top: 5px; border-top: 1px dashed #000; line-height: 1.2;">
+                            <span style="font-size: 12.5pt; font-weight: 900; color: #b45309;">REPEAT ORDER {{ isset($repeatFromPo) && $repeatFromPo ? '(' . $repeatFromPo->no_po . ')' : '' }}</span>
                         </div>
                         @endif
                     </div>

@@ -1373,6 +1373,7 @@ class OrderController extends Controller
         $jenisOrder = !empty($raw['jenis_order_id'])    ? JenisOrder::find($raw['jenis_order_id'])       : null;
         $sumber     = !empty($raw['sumber_order_id'])   ? SumberOrder::find($raw['sumber_order_id'])     : null;
         $paketOrder = !empty($raw['paket_order_id'])    ? PaketOrder::find($raw['paket_order_id'])       : null;
+        $repeatFromPo = !empty($raw['repeat_from_po_id']) ? Order::find($raw['repeat_from_po_id']) : null;
 
         $rawItems = $raw['items'] ?? [];
         $printingIds = $raw['printing_ids'] ?? [];
@@ -1398,7 +1399,7 @@ class OrderController extends Controller
         $nonAddonItems = $groupedItems->filter(fn($item) => !$item['is_addon'])->values();
         $addonItems = $groupedItems->filter(fn($item) => $item['is_addon'])->values();
 
-        $pdf = Pdf::loadView('pdf.fo_draft', compact('brand', 'resellerDisplayBrand', 'headerBrand', 'logoData', 'raw', 'pelanggan', 'kategori', 'jenisOrder', 'sumber', 'paketOrder', 'items', 'printingNames', 'progresses', 'nonAddonItems', 'addonItems'))
+        $pdf = Pdf::loadView('pdf.fo_draft', compact('brand', 'resellerDisplayBrand', 'headerBrand', 'logoData', 'raw', 'pelanggan', 'kategori', 'jenisOrder', 'sumber', 'paketOrder', 'repeatFromPo', 'items', 'printingNames', 'progresses', 'nonAddonItems', 'addonItems'))
             ->setPaper('a4', 'portrait');
 
         $filename = 'FO-DRAFT-' . $brand->kode . '-' . now()->format('YmdHis') . '.pdf';
@@ -1418,7 +1419,7 @@ class OrderController extends Controller
             'items.polaJahitan', 'items.polaJahitanLengan',
             'items.jenisSetelan', 'items.polaProduksi',
             'items.namesets.size', 'items.namesets.sizeCelana',
-            'creator.brands',
+            'creator.brands', 'repeatFrom:id,no_po,nama_po',
         ]);
 
         $resellerBrand = $order->resolveResellerBrand();
@@ -1459,7 +1460,7 @@ class OrderController extends Controller
             'items.polaJahitan', 'items.polaJahitanLengan',
             'items.jenisSetelan', 'items.polaProduksi',
             'items.namesets.size', 'items.namesets.sizeCelana',
-            'creator.brands',
+            'creator.brands', 'repeatFrom:id,no_po,nama_po',
         ]);
 
         $resellerBrand = $order->resolveResellerBrand();
@@ -1506,7 +1507,7 @@ class OrderController extends Controller
             'items.polaJahitan', 'items.polaJahitanLengan',
             'items.jenisSetelan', 'items.polaProduksi',
             'items.namesets.size', 'items.namesets.sizeCelana',
-            'creator.brands',
+            'creator.brands', 'repeatFrom:id,no_po,nama_po',
         ]);
 
         $resellerBrand = $order->resolveResellerBrand();

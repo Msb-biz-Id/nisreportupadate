@@ -317,11 +317,20 @@ class OrderLifecycleTest extends TestCase
             ->post(route('orders.repeat', $order->id))
             ->assertRedirect();
 
-        $this->assertDatabaseHas('orders', [
-            'is_repeat_order' => true,
-            'repeat_from_po_id' => $order->id,
-            'status_po' => 'draft',
-        ]);
+        $repeatOrder = Order::where('repeat_from_po_id', $order->id)->first();
+        $this->assertNotNull($repeatOrder);
+        $this->assertTrue($repeatOrder->is_repeat_order);
+
+        $previewResponse = $this->actingAsWithBrand($user, $brand)
+            ->get(route('orders.fo.preview', $repeatOrder->id));
+        $previewResponse->assertOk();
+        $page = $previewResponse->original->getData()['page'] ?? [];
+        $props = $page['props'] ?? [];
+        $this->assertEquals($order->no_po, $props['order']['repeat_from']['no_po'] ?? null);
+
+        $pdfResponse = $this->actingAsWithBrand($user, $brand)
+            ->get(route('orders.fo.pdf', $repeatOrder->id));
+        $pdfResponse->assertOk();
     }
 
     public function test_refund_published_auto_creates_pengeluaran(): void

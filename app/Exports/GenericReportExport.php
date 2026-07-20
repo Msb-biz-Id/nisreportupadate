@@ -24,10 +24,12 @@ class GenericReportExport implements FromArray, WithHeadings, WithTitle, ShouldA
     {
         return collect($this->rows)->map(function ($r) {
             if (!empty($r['is_group_header'])) {
-                $deadlineVal = !empty($r['deadline']) 
-                    ? \Carbon\Carbon::parse($r['deadline'])->translatedFormat('d M Y') 
+                $rawDate = $r['deadline_produksi'] ?? $r['deadline'] ?? null;
+                $deadlineVal = !empty($rawDate) 
+                    ? \Carbon\Carbon::parse($rawDate)->translatedFormat('d M Y') 
                     : '-';
-                $out = ['Deadline: ' . $deadlineVal];
+                $prefix = !empty($r['deadline_produksi']) ? 'Deadline Produksi: ' : 'Deadline: ';
+                $out = [$prefix . $deadlineVal];
                 for ($i = 1; $i < count($this->columns); $i++) {
                     $out[] = '';
                 }

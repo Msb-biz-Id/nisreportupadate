@@ -308,7 +308,8 @@ class ReportTest extends TestCase
             'is_active' => true
         ]);
 
-        $deadlineDate = now()->addDays(3)->toDateString();
+        $prodDate = now()->addDays(2)->toDateString();
+        $customerDate = now()->addDays(5)->toDateString();
 
         $o1 = Order::create([
             'brand_id' => $brand->id,
@@ -316,7 +317,8 @@ class ReportTest extends TestCase
             'nama_po' => 'Jersey MD 1',
             'status_po' => 'on_progress',
             'tanggal_masuk' => now()->toDateString(),
-            'deadline_customer' => $deadlineDate,
+            'end_production_date' => $prodDate,
+            'deadline_customer' => $customerDate,
             'pelanggan_id' => $c->id,
             'printing_ids' => [$printing->id],
             'total_tagihan' => 1000000,
@@ -336,7 +338,8 @@ class ReportTest extends TestCase
             'nama_po' => 'Jersey MD 2',
             'status_po' => 'on_progress',
             'tanggal_masuk' => now()->toDateString(),
-            'deadline_customer' => $deadlineDate,
+            'end_production_date' => $prodDate,
+            'deadline_customer' => $customerDate,
             'pelanggan_id' => $c->id,
             'printing_ids' => [$printing->id],
             'total_tagihan' => 1000000,
@@ -365,7 +368,7 @@ class ReportTest extends TestCase
 
         // Header Row
         $this->assertTrue($rows[0]['is_group_header']);
-        $this->assertEquals($deadlineDate, $rows[0]['deadline']);
+        $this->assertEquals($prodDate, $rows[0]['deadline_produksi']);
 
         // Order 1 Row
         $this->assertFalse($rows[1]['is_group_header']);
@@ -376,12 +379,20 @@ class ReportTest extends TestCase
         $this->assertEquals('Pelanggan MD', $rows[1]['pelanggan']);
         $this->assertEquals(12, $rows[1]['pcs']);
         $this->assertEquals('Sublimation', $rows[1]['jenis_printing']);
+        $this->assertEquals($prodDate, $rows[1]['deadline_produksi']);
+        $this->assertEquals(2, $rows[1]['days']);
+        $this->assertEquals($customerDate, $rows[1]['deadline_customer']);
+        $this->assertEquals(5, $rows[1]['days_customer']);
 
         // Order 2 Row
         $this->assertFalse($rows[2]['is_group_header']);
         $this->assertFalse($rows[2]['is_group_total']);
         $this->assertEquals('PO-MD2', $rows[2]['no_po']);
         $this->assertEquals(8, $rows[2]['pcs']);
+        $this->assertEquals($prodDate, $rows[2]['deadline_produksi']);
+        $this->assertEquals(2, $rows[2]['days']);
+        $this->assertEquals($customerDate, $rows[2]['deadline_customer']);
+        $this->assertEquals(5, $rows[2]['days_customer']);
 
         // Total Row
         $this->assertTrue($rows[3]['is_group_total']);

@@ -252,16 +252,18 @@ class ReportRunner
         $orders = Order::query()
             ->when($brandId, $this->bf($brandId))
             ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
-            ->where('deadline_customer', '<=', Carbon::now()->addDays($threshold))
+            ->whereRaw('COALESCE(end_production_date, deadline_customer) <= ?', [Carbon::now()->addDays($threshold)->toDateString()])
             ->with(['pelanggan:id,nama', 'brand:id,nama_brand'])
             ->withSum(['items' => fn($query) => $query->where('is_addon', false)], 'quantity')
-            ->orderBy('deadline_customer')
+            ->orderByRaw('COALESCE(end_production_date, deadline_customer) ASC')
             ->get();
 
         $printingNames = \App\Models\Master\Printing::pluck('nama', 'id')->all();
 
         $mappedOrders = $orders->map(function ($o) use ($printingNames) {
-            $days = now()->startOfDay()->diffInDays($o->deadline_customer, false);
+            $prodDeadline = $o->end_production_date ?? $o->deadline_customer;
+            $days = $prodDeadline ? (int) now()->startOfDay()->diffInDays($prodDeadline, false) : 0;
+            $daysCustomer = $o->deadline_customer ? (int) now()->startOfDay()->diffInDays($o->deadline_customer, false) : null;
             
             $orderPrintings = [];
             foreach ($o->printing_ids ?? [] as $pid) {
@@ -271,14 +273,16 @@ class ReportRunner
             }
 
             return [
-                'deadline' => $o->deadline_customer?->toDateString(),
+                'deadline_produksi' => $prodDeadline?->toDateString(),
+                'days' => $days,
+                'deadline_customer' => $o->deadline_customer?->toDateString(),
+                'days_customer' => $daysCustomer,
                 'no_po' => $o->no_po,
                 'nama_po' => $o->nama_po,
                 'brand_nama' => $o->brand?->nama_brand ?? '-',
                 'pelanggan' => $o->pelanggan?->nama ?? '-',
                 'pcs' => (int) ($o->items_sum_quantity ?? 0),
                 'jenis_printing' => implode(', ', $orderPrintings) ?: '-',
-                'days' => (int) $days,
                 'status' => $o->status_po,
             ];
         });
@@ -287,27 +291,31 @@ class ReportRunner
         $mendekati = $mappedOrders->whereBetween('days', [0, 2])->count();
         $totalMonitoring = $mappedOrders->count();
 
-        $grouped = $mappedOrders->groupBy('deadline');
+        $grouped = $mappedOrders->groupBy('deadline_produksi');
 
         $rows = [];
         foreach ($grouped as $date => $groupOrders) {
             // Group Header Row
             $rows[] = [
+                'deadline_produksi' => $date,
                 'deadline' => $date,
                 'is_group_header' => true,
+                'days' => null,
+                'deadline_customer' => null,
+                'days_customer' => null,
                 'no_po' => null,
                 'nama_po' => null,
                 'brand_nama' => null,
                 'pelanggan' => null,
                 'pcs' => null,
                 'jenis_printing' => null,
-                'days' => null,
                 'status' => null,
             ];
 
             // Order Rows
             foreach ($groupOrders as $o) {
                 $rows[] = array_merge($o, [
+                    'deadline' => $o['deadline_produksi'],
                     'is_group_header' => false,
                     'is_group_total' => false,
                 ]);
@@ -315,15 +323,18 @@ class ReportRunner
 
             // Group Total Row
             $rows[] = [
+                'deadline_produksi' => $date,
                 'deadline' => $date,
                 'is_group_total' => true,
+                'days' => null,
+                'deadline_customer' => null,
+                'days_customer' => null,
                 'no_po' => null,
                 'nama_po' => null,
                 'brand_nama' => null,
                 'pelanggan' => 'TOTAL PCS',
                 'pcs' => $groupOrders->sum('pcs'),
                 'jenis_printing' => null,
-                'days' => null,
                 'status' => null,
                 'is_group_header' => false,
             ];
@@ -331,8 +342,8 @@ class ReportRunner
 
         return ['rows' => $rows, 'summary' => [
             ['label' => 'Total Monitoring', 'value' => $totalMonitoring],
-            ['label' => 'Terlambat', 'value' => $terlambat],
-            ['label' => 'Mendekati Deadline (≤2 hari)', 'value' => $mendekati],
+            ['label' => 'Terlambat (Produksi)', 'value' => $terlambat],
+            ['label' => 'Mendekati Deadline Produksi (≤2 hari)', 'value' => $mendekati],
         ]];
     }
 
