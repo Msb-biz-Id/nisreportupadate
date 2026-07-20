@@ -179,11 +179,6 @@ export default function ImageUploader({
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
 
-            // hapus file lama jika ada
-            if (value) {
-                axios.delete(route('uploads.image.destroy'), { data: { path: value } }).catch(() => {});
-            }
-
             onChange(data.path);
             toast.success('Gambar berhasil diunggah');
             closeCrop();
@@ -197,9 +192,8 @@ export default function ImageUploader({
     function removeImage() {
         if (!value) return;
         if (!confirm('Hapus gambar ini?')) return;
-        axios.delete(route('uploads.image.destroy'), { data: { path: value } })
-            .then(() => { onChange(null); toast.success('Gambar dihapus'); })
-            .catch(() => toast.error('Gagal menghapus'));
+        onChange(null);
+        toast.success('Gambar dihapus');
     }
 
     function onImageLoad(e) {

@@ -23,3 +23,7 @@ Schedule::command('backup:r2 --type=daily')->dailyAt('02:00');
 Schedule::command('backup:r2 --type=monthly')->monthlyOn(1, '03:00');
 // Yearly backup — retained 5 tahun (1 Jan tiap tahun)
 Schedule::command('backup:r2 --type=yearly')->yearlyOn(1, 1, '04:00');
+
+// Safe media pruning (run weekly to clean unused image uploads)
+Schedule::command('uploads:prune')->weeklyOn(0, '01:00');
+
