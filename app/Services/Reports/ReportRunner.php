@@ -1235,6 +1235,8 @@ class ReportRunner
                 $jenisPo = 'Special Order';
             } elseif ($o->is_reseller_price) {
                 $jenisPo = 'Reseller Price';
+            } elseif ($o->is_repeat_order) {
+                $jenisPo = 'Repeat Order';
             }
 
             return [
@@ -1253,6 +1255,7 @@ class ReportRunner
         $normalCount = 0;
         $specialCount = 0;
         $resellerCount = 0;
+        $repeatCount = 0;
         $totalVal = 0;
 
         foreach ($rows as $r) {
@@ -1260,6 +1263,8 @@ class ReportRunner
                 $specialCount++;
             } elseif ($r['jenis_po'] === 'Reseller Price') {
                 $resellerCount++;
+            } elseif ($r['jenis_po'] === 'Repeat Order') {
+                $repeatCount++;
             } else {
                 $normalCount++;
             }
@@ -1272,6 +1277,7 @@ class ReportRunner
                 ['label' => 'Total PO Normal', 'value' => $normalCount],
                 ['label' => 'Total PO Special Order', 'value' => $specialCount],
                 ['label' => 'Total PO Harga Reseller', 'value' => $resellerCount],
+                ['label' => 'Total PO Repeat Order', 'value' => $repeatCount],
                 ['label' => 'Total Nilai PO', 'value' => $totalVal, 'format' => 'currency'],
             ],
         ];
