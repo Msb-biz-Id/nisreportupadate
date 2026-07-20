@@ -474,32 +474,36 @@ $primaryColor = $invoice->brand?->warna_primary
             </table>
         </div>
         @endif        @php
-            $additionPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'tambahan_produk') : collect();
-            $cashbackPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'cashback') : collect();
-            $returnPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'return') : collect();
+            $payments = $invoice->order && $invoice->order->payments ? $invoice->order->payments->whereNotNull('verified_at') : collect();
 
-            $dpPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'dp') : collect();
-            $pelunasanPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'pelunasan') : collect();
-            $ongkirPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'ongkir') : collect();
-            $lainnyaPayments = $invoice->order?->payments ? $invoice->order->payments->whereNotNull('verified_at')->where('payment_type', 'lainnya') : collect();
+            $isDeductionPayment = function ($p) {
+                if ($p->is_debit !== null) {
+                    return !((bool) $p->is_debit);
+                }
+                return in_array($p->payment_type, ['cashback', 'return', 'refund']) ||
+                    in_array($p->masterJenisPembayaran?->nama, ['Cashback', 'Refund', 'Return', 'Refurn']);
+            };
 
-            $dpSum = $dpPayments->sum('amount');
-            $pelunasanSum = $pelunasanPayments->sum('amount');
-            $ongkirSum = $ongkirPayments->sum('amount');
+            $isPenambahanPayment = function ($p) {
+                if ($p->payment_type === 'ongkir') return false;
+                if ($p->masterJenisPembayaran?->efek_tagihan === 'penambahan') return true;
+                if ($p->master_jenis_pembayaran_id === null && $p->payment_type === 'tambahan_produk') return true;
+                return false;
+            };
+
+            $cashbackSum = $payments
+                ->filter(fn($p) => $p->payment_type === 'cashback' || $p->masterJenisPembayaran?->nama === 'Cashback')
+                ->sum('amount');
+
+            $returnSum = $payments
+                ->filter(fn($p) => in_array($p->payment_type, ['return', 'refund']) || in_array($p->masterJenisPembayaran?->nama, ['Refund', 'Return', 'Refurn']))
+                ->sum('amount');
+
+            $additionPayments = $payments->filter(fn($p) => $isPenambahanPayment($p));
             $additionSum = $additionPayments->sum('amount');
-            $lainnyaSum = $lainnyaPayments->sum('amount');
-            $returnSum = $returnPayments->sum('amount');
-            $cashbackSum = $cashbackPayments->sum('amount');
 
-            // Fallback for legacy data
-            if ($dpSum == 0 && $pelunasanSum == 0 && $invoice->total_bayar > 0) {
-                $pelunasanSum = $invoice->total_bayar;
-            } elseif ($dpSum == 0 && $pelunasanSum == 0 && $invoice->dp_amount > 0) {
-                $dpSum = $invoice->dp_amount;
-            }
-
-            $totalReceived = $invoice->order ? $invoice->order->totalReceived() : ($dpSum + $pelunasanSum + $ongkirSum + $additionSum + $lainnyaSum);
-            $totalRefunded = $invoice->order ? $invoice->order->totalRefunded() : ($returnSum + $cashbackSum);
+            $totalReceived = $payments->filter(fn($p) => !$isDeductionPayment($p))->sum('amount');
+            $totalRefunded = $returnSum + $cashbackSum;
         @endphp
 
         <div style="display: table; width: 100%; margin-top: 15px;">
@@ -551,9 +555,7 @@ $primaryColor = $invoice->brand?->warna_primary
                                 ? ($grossSubtotal * $diskonValue / 100)
                                 : $diskonValue));
 
-                    $isFreeOngkir = $invoice->order?->is_free_ongkir;
-                    $biayaPengiriman = (float) $invoice->biaya_pengiriman;
-                    $grossInvoiceTotal = $grossSubtotal - $diskonNominal + ($isFreeOngkir ? 0 : $biayaPengiriman) + $additionSum;
+                    $grossInvoiceTotal = (float) $invoice->total_tagihan;
                     @endphp
 
                     <!-- Total Harga -->

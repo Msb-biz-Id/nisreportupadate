@@ -34,7 +34,7 @@ class InvoiceController extends Controller
             abort(403, 'Unauthorized brand context.');
         }
 
-        $invoice->load(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments', 'order.iklan', 'order.creator.brands', 'order.items']);
+        $invoice->load(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments.masterJenisPembayaran', 'order.iklan', 'order.creator.brands', 'order.items']);
         if ($invoice->order) {
             $resellerBrand = $invoice->order->resolveResellerBrand();
             if ($resellerBrand) {
@@ -89,7 +89,7 @@ class InvoiceController extends Controller
             $query->whereIn('status', ['published', 'sent', 'overdue', 'paid', 'validated']);
         }
 
-        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments.bank', 'order.progressDetails.progress', 'order.iklan', 'order.creator.brands', 'order.items'])
+        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments.bank', 'order.payments.masterJenisPembayaran', 'order.progressDetails.progress', 'order.iklan', 'order.creator.brands', 'order.items'])
             ->firstOrFail();
 
         if ($invoice->order) {
@@ -153,7 +153,7 @@ class InvoiceController extends Controller
             $query->whereIn('status', ['published', 'sent', 'overdue', 'paid', 'validated']);
         }
 
-        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments', 'order.iklan', 'order.creator.brands', 'order.items'])
+        $invoice = $query->with(['brand.parentBrand', 'bank', 'items', 'order.pelanggan', 'order.payments.masterJenisPembayaran', 'order.iklan', 'order.creator.brands', 'order.items'])
             ->firstOrFail();
 
         if ($invoice->order) {

@@ -47,31 +47,43 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
         .filter(p => p.verified_at !== null)
         .sort((a, b) => new Date(a.payment_date) - new Date(b.payment_date));
 
+    // Helper definitions for deduction and penambahan payments
+    const DEDUCTION_TYPES = ['cashback', 'return', 'refund'];
+    const DEDUCTION_NAMES = ['Cashback', 'Refund', 'Return', 'Refurn'];
+
+    const isDeductionPayment = (p) => {
+        if (p.is_debit !== null && p.is_debit !== undefined) return !Boolean(p.is_debit);
+        return DEDUCTION_TYPES.includes(p.payment_type) ||
+            DEDUCTION_NAMES.includes(p.master_jenis_pembayaran?.nama);
+    };
+
+    const isPenambahanPayment = (p) => {
+        if (p.payment_type === 'ongkir') return false;
+        if (p.master_jenis_pembayaran?.efek_tagihan === 'penambahan') return true;
+        if (p.master_jenis_pembayaran_id === null && p.payment_type === 'tambahan_produk') return true;
+        return false;
+    };
+
     // Dynamic totals calculation matches the Order model
-    const dpPayments = payments.filter(p => p.payment_type === 'dp');
-    const pelunasanPayments = payments.filter(p => p.payment_type === 'pelunasan');
-    const returnPayments = payments.filter(p => p.payment_type === 'return');
-    const ongkirPayments = payments.filter(p => p.payment_type === 'ongkir');
-    const cashbackPayments = payments.filter(p => p.payment_type === 'cashback');
-    const additionPayments = payments.filter(p => p.payment_type === 'tambahan_produk');
-    const lainnyaPayments = payments.filter(p => p.payment_type === 'lainnya');
+    const returnSum = payments
+        .filter(p =>
+            p.payment_type === 'return' ||
+            p.payment_type === 'refund' ||
+            ['Refund', 'Return', 'Refurn'].includes(p.master_jenis_pembayaran?.nama)
+        )
+        .reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
-    let dpSum = dpPayments.reduce((s, x) => s + Number(x.amount), 0);
-    let pelunasanSum = pelunasanPayments.reduce((s, x) => s + Number(x.amount), 0);
-    const returnSum = returnPayments.reduce((s, x) => s + Number(x.amount), 0);
-    const ongkirSum = ongkirPayments.reduce((s, x) => s + Number(x.amount), 0);
-    const cashbackSum = cashbackPayments.reduce((s, x) => s + Number(x.amount), 0);
-    const additionSum = additionPayments.reduce((s, x) => s + Number(x.amount), 0);
-    const lainnyaSum = lainnyaPayments.reduce((s, x) => s + Number(x.amount), 0);
+    const cashbackSum = payments
+        .filter(p => p.payment_type === 'cashback' || p.master_jenis_pembayaran?.nama === 'Cashback')
+        .reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
-    // Fallback for legacy data
-    if (dpSum === 0 && pelunasanSum === 0 && Number(invoice.total_bayar) > 0) {
-        pelunasanSum = Number(invoice.total_bayar);
-    } else if (dpSum === 0 && pelunasanSum === 0 && Number(invoice.dp_amount) > 0) {
-        dpSum = Number(invoice.dp_amount);
-    }
+    const additionPayments = payments.filter(p => isPenambahanPayment(p));
+    const additionSum = additionPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
-    const totalReceived = dpSum + pelunasanSum + ongkirSum + additionSum + lainnyaSum;
+    const totalReceived = payments
+        .filter(p => !isDeductionPayment(p))
+        .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
     const totalRefunded = returnSum + cashbackSum;
     const totalPaidNet = Math.max(0, totalReceived - totalRefunded);
 
@@ -89,7 +101,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
             ? (grossSubtotal * diskonValue / 100)
             : diskonValue);
 
-    const grossInvoiceTotal = grossSubtotal - diskonNominal + (invoice.order?.is_free_ongkir ? 0 : Number(invoice.biaya_pengiriman || 0)) + additionSum;
+    const grossInvoiceTotal = Number(invoice.total_tagihan) || 0;
 
     const renderThermalReceipt = () => {
         return (
