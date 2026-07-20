@@ -130,6 +130,21 @@ function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders 
                         </div>
                     </>
                 )}
+                {config.filters?.includes('jenis_po') && (
+                    <div>
+                        <Label className="text-xs">Jenis PO</Label>
+                        <Select value={local.jenis_po || '__all__'} onValueChange={(v) => patch('jenis_po', v === '__all__' ? '' : v)}>
+                            <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="Semua Jenis PO" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__all__">Semua Jenis PO</SelectItem>
+                                <SelectItem value="normal">PO Normal</SelectItem>
+                                <SelectItem value="special_order">PO Special Order</SelectItem>
+                                <SelectItem value="reseller_price">PO Harga Reseller</SelectItem>
+                                <SelectItem value="repeat_order">PO Repeat Order</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
                 {config.filters?.includes('status_po') && (
                     <div>
                         <Label className="text-xs">Status PO</Label>

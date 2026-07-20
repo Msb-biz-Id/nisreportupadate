@@ -1205,10 +1205,25 @@ class ReportRunner
     {
         [$from, $to] = $this->dateRange($filters);
 
+        $statusFilter = $filters['status'] ?? null;
+        $jenisPoFilter = $filters['jenis_po'] ?? null;
+
         $q = Order::query()
             ->when($brandId, $this->bf($brandId))
             ->whereBetween('tanggal_masuk', [$from, $to])
             ->where('status_po', '!=', 'draft')
+            ->when($statusFilter, fn($query) => $query->where('status_po', $statusFilter))
+            ->when($jenisPoFilter, function($query) use ($jenisPoFilter) {
+                if ($jenisPoFilter === 'normal') {
+                    $query->where('is_special_order', false)->where('is_reseller_price', false);
+                } elseif ($jenisPoFilter === 'special_order') {
+                    $query->where('is_special_order', true);
+                } elseif ($jenisPoFilter === 'reseller_price') {
+                    $query->where('is_reseller_price', true);
+                } elseif ($jenisPoFilter === 'repeat_order') {
+                    $query->where('is_repeat_order', true);
+                }
+            })
             ->with(['brand:id,nama_brand', 'pelanggan:id,nama'])
             ->withSum(['items' => fn($query) => $query->where('is_addon', false)], 'quantity');
 

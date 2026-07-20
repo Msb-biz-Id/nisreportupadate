@@ -65,7 +65,7 @@ class ReportRegistry
                 'icon' => 'PieChart',
                 'group' => 'penjualan',
                 'description' => 'Laporan perbandingan dan detail transaksi PO Normal, PO Spesial Order, dan PO Harga Reseller.',
-                'filters' => ['date_range', 'brand'],
+                'filters' => ['date_range', 'jenis_po', 'status_po', 'brand'],
                 'columns' => [
                     ['key' => 'no_po', 'label' => 'No PO'],
                     ['key' => 'nama_po', 'label' => 'Nama PO'],
