@@ -37,6 +37,7 @@ Route::get('/', function () {
 
 Route::redirect('/home', '/dashboard');
 
+Route::get('/manifest.json', [\App\Http\Controllers\ManifestController::class, 'index'])->name('pwa.manifest');
 
 // Public tracking PO + invoice (rate-limited)
 Route::middleware('throttle:60,1')->group(function () {

@@ -7,11 +7,17 @@ const ASSETS_TO_CACHE = [
   '/pwa-icon-512.png'
 ];
 
-// Install Event: pre-cache critical assets
+// Install Event: pre-cache critical assets (soft caching to prevent aborting on redirects/errors)
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      return Promise.all(
+        ASSETS_TO_CACHE.map((url) => {
+          return cache.add(url).catch((err) => {
+            console.warn('Failed to cache asset during install:', url, err);
+          });
+        })
+      );
     }).then(() => self.skipWaiting())
   );
 });
