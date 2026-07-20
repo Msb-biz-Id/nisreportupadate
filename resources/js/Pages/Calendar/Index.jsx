@@ -158,6 +158,10 @@ function DayPanel({ date, events, onClose }) {
                                                         </span>
                                                     )}
                                                 </div>
+                                                <div className="mt-2 text-[11px] space-y-0.5 bg-slate-50 p-2 rounded border border-slate-100">
+                                                    <p className="text-slate-600"><span className="font-semibold text-slate-400">Deadline Customer:</span> {e.deadlineCustomer ? format(new Date(e.deadlineCustomer), 'dd MMM yyyy', { locale: idLocale }) : '—'}</p>
+                                                    <p className="text-indigo-600"><span className="font-semibold text-indigo-400">Deadline Produksi:</span> {e.deadlineProduksi ? format(new Date(e.deadlineProduksi), 'dd MMM yyyy', { locale: idLocale }) : 'Belum Set'}</p>
+                                                </div>
                                             </div>
                                             <div className="flex flex-col gap-1 flex-shrink-0">
                                                 <a
@@ -258,14 +262,16 @@ function CustomAgenda({ events, statusColors, statusLabels, filterStatus, curren
     };
 
     const copyToClipboard = () => {
-        const headers = ['Tanggal', 'No PO', 'Nama PO', 'Pelanggan', 'Status', 'Jumlah Pcs'];
+        const headers = ['No PO', 'Nama PO', 'Pelanggan', 'Deadline Customer', 'Deadline Produksi', 'Status', 'Jumlah Pcs'];
         const rows = filteredEvents.map(e => {
-            const dateStr = `${format(new Date(e.start), 'dd MMM yyyy')} s.d. ${format(new Date(e.end), 'dd MMM yyyy')}`;
+            const customerDate = e.deadlineCustomer ? format(new Date(e.deadlineCustomer), 'dd MMM yyyy') : '-';
+            const prodDate = e.deadlineProduksi ? format(new Date(e.deadlineProduksi), 'dd MMM yyyy') : 'Belum Set';
             return [
-                dateStr,
                 e.noPo || '',
                 e.namaPo || '',
                 e.pelanggan || '',
+                customerDate,
+                prodDate,
                 e.statusLabel || '',
                 e.totalPcs || '0'
             ].join('\t');
@@ -441,13 +447,23 @@ function CustomAgenda({ events, statusColors, statusLabels, filterStatus, curren
                                 {/* Left Side: Details */}
                                 <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center gap-4">
                                     {/* Date Column */}
-                                    <div className="flex-shrink-0 flex flex-col min-w-[140px]">
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                            Deadline PO
-                                        </span>
-                                        <span className="text-sm font-bold text-slate-700 mt-0.5">
-                                            {format(new Date(e.end), 'dd MMMM yyyy', { locale: idLocale })}
-                                        </span>
+                                    <div className="flex-shrink-0 flex flex-col gap-1.5 min-w-[165px] border-r pr-3 border-slate-100">
+                                        <div>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
+                                                Deadline Customer
+                                            </span>
+                                            <span className="text-xs font-bold text-slate-800">
+                                                {e.deadlineCustomer ? format(new Date(e.deadlineCustomer), 'dd MMMM yyyy', { locale: idLocale }) : (e.end ? format(new Date(e.end), 'dd MMMM yyyy', { locale: idLocale }) : '—')}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block">
+                                                Deadline Produksi
+                                            </span>
+                                            <span className="text-xs font-bold text-indigo-700">
+                                                {e.deadlineProduksi ? format(new Date(e.deadlineProduksi), 'dd MMMM yyyy', { locale: idLocale }) : <span className="text-slate-400 font-normal italic">Belum Set</span>}
+                                            </span>
+                                        </div>
                                     </div>
 
                                     {/* Info Column */}

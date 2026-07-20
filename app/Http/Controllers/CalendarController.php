@@ -54,24 +54,26 @@ class CalendarController extends Controller
             $brandPrefix = $o->brand?->nama_brand ? "({$o->brand->nama_brand}) " : "";
 
             return [
-                'id'            => $o->id,
-                'title'         => "[{$o->no_po}] " . $brandPrefix . ($o->nama_po ?? ''),
-                'start'         => $start,
-                'end'           => $end,
-                'status'        => $o->status_po,
-                'statusLabel'   => self::STATUS_LABELS[$o->status_po] ?? $o->status_po,
-                'color'         => self::STATUS_COLORS[$o->status_po] ?? '#94A3B8',
-                'pelanggan'     => $o->pelanggan?->nama,
-                'noPo'          => $o->no_po,
-                'namaPo'        => $o->nama_po,
-                'brandName'     => $o->brand?->nama_brand,
-                'brandKode'     => $o->brand?->kode,
-                'daysRemaining' => $o->deadline_customer
+                'id'               => $o->id,
+                'title'            => "[{$o->no_po}] " . $brandPrefix . ($o->nama_po ?? ''),
+                'start'            => $start,
+                'end'              => $end,
+                'deadlineCustomer' => $o->deadline_customer?->toDateString(),
+                'deadlineProduksi' => $o->end_production_date?->toDateString(),
+                'status'           => $o->status_po,
+                'statusLabel'      => self::STATUS_LABELS[$o->status_po] ?? $o->status_po,
+                'color'            => self::STATUS_COLORS[$o->status_po] ?? '#94A3B8',
+                'pelanggan'        => $o->pelanggan?->nama,
+                'noPo'             => $o->no_po,
+                'namaPo'           => $o->nama_po,
+                'brandName'        => $o->brand?->nama_brand,
+                'brandKode'        => $o->brand?->kode,
+                'daysRemaining'    => $o->deadline_customer
                     ? now()->startOfDay()->diffInDays($o->deadline_customer, false)
                     : null,
-                'totalPcs'      => (int) ($o->total_pcs ?? 0),
-                'detailUrl'     => route('orders.show', $o->id),
-                'progressUrl'   => route('produksi.progress', $o->id),
+                'totalPcs'         => (int) ($o->total_pcs ?? 0),
+                'detailUrl'        => route('orders.show', $o->id),
+                'progressUrl'      => route('produksi.progress', $o->id),
             ];
         });
 
