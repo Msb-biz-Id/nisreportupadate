@@ -114,7 +114,7 @@ class ProductionController extends Controller
                 'paketOrder:id,nama,warna,prioritas',
                 'progressDetails.progress'
             ])
-            ->withCount(['rijeks as has_rijek' => fn($q) => $q->whereNull('resolved_at')])
+            ->withCount(['rijeks as has_rijek' => fn($q) => $q->where('status', '!=', 'selesai')])
             ->withSum('items', 'quantity')
             ->orderBy($deadlineCol)
             ->get();
