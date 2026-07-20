@@ -154,7 +154,13 @@ class CacheService
         }
 
         if (is_array($brandId)) {
-            return implode(',', array_unique($brandId));
+            $sorted = array_unique($brandId);
+            sort($sorted);
+            $brandId = implode(',', $sorted);
+        }
+
+        if (strlen($brandId) > 36) {
+            return md5($brandId);
         }
 
         return $brandId;
