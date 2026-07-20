@@ -283,6 +283,9 @@ class ReportController extends Controller
                 case 'status_po':
                     $filters['status'] = $request->string('status')->toString();
                     break;
+                case 'jenis_po':
+                    $filters['jenis_po'] = $request->string('jenis_po')->toString();
+                    break;
                 case 'threshold':
                     $filters['threshold'] = (int) ($request->string('threshold')->toString() ?: 7);
                     break;
