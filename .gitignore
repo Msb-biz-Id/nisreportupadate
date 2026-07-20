@@ -23,6 +23,7 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 /public/*.png
+!/public/pwa-icon-*.png
 /artifacts
 /database/backup_orders.json
 /credentials_recap.md
