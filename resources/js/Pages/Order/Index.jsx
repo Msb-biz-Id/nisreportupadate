@@ -240,8 +240,8 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
     }
 
     const hasActiveFilter = search || (status && status !== 'all') || brandId || dateFrom || dateTo;
-    const totalPo = Object.values(statusCounts ?? {}).reduce((s, v) => s + v, 0);
-    const summaryItems = statuses.filter((s) => (statusCounts?.[s] ?? 0) > 0).map((s) => ({ key: s, ...STATUS_LABEL[s], count: statusCounts[s] }));
+    const totalPo = Object.values(statusCounts ?? {}).reduce((s, v) => Number(s) + Number(v), 0);
+    const summaryItems = statuses.filter((s) => Number(statusCounts?.[s] ?? 0) > 0).map((s) => ({ key: s, ...STATUS_LABEL[s], count: Number(statusCounts[s]) }));
     const isArchiveTab = (filters?.tab ?? 'active') === 'archive';
     const colsCount = isArchiveTab
         ? (can?.filter_by_brand && brands?.length > 0 ? 4 : 3)

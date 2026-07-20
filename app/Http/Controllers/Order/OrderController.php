@@ -177,6 +177,7 @@ class OrderController extends Controller
             ->selectRaw('status_po, count(*) as total')
             ->groupBy('status_po')
             ->pluck('total', 'status_po')
+            ->map(fn ($total) => (int) $total)
             ->toArray();
     }
 
