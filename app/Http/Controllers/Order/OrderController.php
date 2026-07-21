@@ -72,6 +72,13 @@ class OrderController extends Controller
             $perPage = 25;
         }
         $orders = $query->paginate($perPage)->withQueryString();
+        $orders->through(function (Order $order) {
+            $totalAtasan = $order->items->filter(fn($i) => empty($i->is_addon))->sum(function ($i) {
+                return ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity;
+            });
+            $order->core_items_sum_quantity = (int) $totalAtasan;
+            return $order;
+        });
 
         $brands          = $this->getBrandsList($user, $canSeeMultiBrand, $request);
         $visibleStatuses = $this->getVisibleStatuses($user, $tab);
@@ -114,7 +121,12 @@ class OrderController extends Controller
     {
         $query = Order::query()
             ->forBrand($effectiveId)
-            ->with(['pelanggan:id,nama', 'brand:id,nama_brand,kode', 'paketOrder:id,nama,warna,prioritas'])
+            ->with([
+                'pelanggan:id,nama',
+                'brand:id,nama_brand,kode',
+                'paketOrder:id,nama,warna,prioritas',
+                'items:id,order_id,is_addon,quantity,jml_atasan'
+            ])
             ->withCount(['items', 'progressDetails'])
             ->withSum(['items as core_items_sum_quantity' => fn($q) => $q->where('is_addon', false)], 'quantity');
 
