@@ -285,9 +285,10 @@
             text-align: center;
             font-size: 85pt;
             font-weight: 900;
-            color: #e5e5e5;
+            color: #f2f2f2;
+            opacity: 0.15;
             transform: rotate(-30deg);
-            z-index: 99999;
+            z-index: -1;
             pointer-events: none;
             letter-spacing: 12px;
             text-transform: uppercase;
@@ -758,17 +759,19 @@
         !empty(trim($ns['keterangan'] ?? ''))
         );
 
-        $hasNamaPunggung = $filled->contains(fn($ns) => !empty(trim($ns['nama_punggung'] ?? '')));
-        $hasNoPunggung = $filled->contains(fn($ns) => !empty(trim($ns['nomor_punggung'] ?? '')));
-        $hasNamaDada = $filled->contains(fn($ns) => !empty(trim($ns['nama_dada'] ?? '')));
-        $hasNoDada = $filled->contains(fn($ns) => !empty(trim($ns['nomor_dada'] ?? '')));
-        $hasNamaLengan = $filled->contains(fn($ns) => !empty(trim($ns['nama_lengan'] ?? '')));
-        $hasNoLengan = $filled->contains(fn($ns) => !empty(trim($ns['nomor_lengan'] ?? '')));
-        $hasNamaPunggung2 = $filled->contains(fn($ns) => !empty(trim($ns['nama_punggung_2'] ?? '')));
-        $hasNoPunggung2 = $filled->contains(fn($ns) => !empty(trim($ns['nomor_punggung_2'] ?? '')));
-        $hasSizeAtasan = $filled->contains(fn($ns) => !empty(trim($ns['size_id'] ?? '')) || !empty(trim($ns['size_label'] ?? '')));
-        $hasSizeBawahan = $filled->contains(fn($ns) => !empty(trim($ns['size_celana_id'] ?? ''))|| !empty(trim($ns['size_celana_label'] ?? '')));
-        $hasKeterangan = $filled->contains(fn($ns) => !empty(trim($ns['keterangan'] ?? '')));
+        $hasVal = fn($val) => strlen(trim((string)($val ?? ''))) > 0;
+
+        $hasNamaPunggung = $filled->contains(fn($ns) => $hasVal($ns['nama_punggung'] ?? ''));
+        $hasNoPunggung = $filled->contains(fn($ns) => $hasVal($ns['nomor_punggung'] ?? ''));
+        $hasNamaDada = $filled->contains(fn($ns) => $hasVal($ns['nama_dada'] ?? ''));
+        $hasNoDada = $filled->contains(fn($ns) => $hasVal($ns['nomor_dada'] ?? ''));
+        $hasNamaLengan = $filled->contains(fn($ns) => $hasVal($ns['nama_lengan'] ?? ''));
+        $hasNoLengan = $filled->contains(fn($ns) => $hasVal($ns['nomor_lengan'] ?? ''));
+        $hasNamaPunggung2 = $filled->contains(fn($ns) => $hasVal($ns['nama_punggung_2'] ?? ''));
+        $hasNoPunggung2 = $filled->contains(fn($ns) => $hasVal($ns['nomor_punggung_2'] ?? ''));
+        $hasSizeAtasan = $filled->contains(fn($ns) => $hasVal($ns['size_id'] ?? '') || $hasVal($ns['size_label'] ?? ''));
+        $hasSizeBawahan = $filled->contains(fn($ns) => $hasVal($ns['size_celana_id'] ?? '') || $hasVal($ns['size_celana_label'] ?? ''));
+        $hasKeterangan = $filled->contains(fn($ns) => $hasVal($ns['keterangan'] ?? ''));
 
         $sizeAtasanRaw = [];
         $sizeBawahanRaw = [];
