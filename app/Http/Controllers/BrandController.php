@@ -151,6 +151,8 @@ class BrandController extends Controller
             ]);
         }
 
+        \App\Services\ActivityLogger::log('create', 'brand', $brand, "Tambah brand / reseller: {$brand->nama_brand} ({$brand->kode})");
+
         return redirect()->route('brands.index')->with('success', "Reseller {$brand->nama_brand} berhasil ditambahkan.");
     }
 
@@ -223,6 +225,8 @@ class BrandController extends Controller
 
         $brand->update($data);
 
+        \App\Services\ActivityLogger::log('update', 'brand', $brand, "Perbarui brand: {$brand->nama_brand} ({$brand->kode})");
+
         return redirect()->route('brands.index')->with('success', 'Brand berhasil diperbarui.');
     }
 
@@ -244,7 +248,11 @@ class BrandController extends Controller
                 ->with('error', 'Brand tidak bisa dihapus karena masih memiliki user yang terhubung.');
         }
 
+        $brandName = $brand->nama_brand;
+        $brandCode = $brand->kode;
         $brand->delete();
+
+        \App\Services\ActivityLogger::log('delete', 'brand', null, "Hapus brand: {$brandName} ({$brandCode})");
 
         return redirect()->route('brands.index')->with('success', 'Brand Reseller berhasil dihapus.');
     }
@@ -254,6 +262,9 @@ class BrandController extends Controller
         Gate::authorize('brand.update');
 
         $brand->update(['is_active' => ! $brand->is_active]);
+
+        $statusStr = $brand->is_active ? 'aktifkan' : 'nonaktifkan';
+        \App\Services\ActivityLogger::log('toggle', 'brand', $brand, "Ubah status brand {$brand->nama_brand}: {$statusStr}");
 
         return back()->with('success', 'Status brand diperbarui.');
     }

@@ -12,15 +12,15 @@ import { formatDateTime } from '@/lib/utils';
 
 const ACTIVITY_VARIANT = {
     create: 'success', update: 'info', delete: 'destructive',
-    publish: 'success', login: 'outline', logout: 'secondary',
-    export: 'info', test_connection: 'outline',
-    unlock: 'warning', relock: 'secondary',
+    publish: 'success', complete: 'success', login: 'outline', logout: 'secondary',
+    export: 'info', toggle: 'warning', bypass_dp: 'warning',
+    unlock: 'warning', relock: 'secondary', 'cancel-validation': 'destructive',
 };
 
 const MODULE_LABEL = {
-    auth: 'Auth', brand: 'Brand', user: 'User', master: 'Master',
-    order: 'Order', production: 'Produksi', refund: 'Refund',
-    invoice: 'Invoice', finance: 'Keuangan', ai: 'AI', settings: 'Pengaturan',
+    auth: 'Auth / Login', brand: 'Brand', user: 'User', master_data: 'Master Data',
+    order: 'Order / PO', production: 'Produksi', refund: 'Refund',
+    invoice: 'Invoice', target: 'Target Penjualan', report: 'Laporan', settings: 'Pengaturan',
 };
 
 export default function AuditIndex({ logs, filters, modules, activities }) {
@@ -82,8 +82,7 @@ export default function AuditIndex({ logs, filters, modules, activities }) {
                             <Shield className="h-4 w-4 text-primary" /> Audit Log
                         </CardTitle>
                         <p className="text-sm text-muted-foreground">
-                            Riwayat aktivitas user di sistem (login, perubahan data, ekspor, dll).
-                            Total <strong>{logs.total}</strong> entri.
+                            Riwayat aktivitas user di sistem. Data disimpan selama <strong>30 hari</strong> & dibersihkan otomatis. Total <strong>{logs.total}</strong> entri.
                         </p>
                     </CardHeader>
                     <CardContent>

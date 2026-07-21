@@ -72,7 +72,9 @@ class CustomerController extends Controller
         $brandId = BrandContext::masterDataId($request);
         $data['brand_id'] = $brandId;
 
-        Customer::create($data);
+        $customer = Customer::create($data);
+
+        \App\Services\ActivityLogger::log('create', 'master_data', $customer, "Tambah pelanggan baru: {$customer->nama} ({$customer->kode})");
 
         return back()->with('success', 'Pelanggan berhasil dibuat.');
     }
@@ -85,6 +87,8 @@ class CustomerController extends Controller
         $data = $this->validatePayload($request, $customer->id);
         $customer->update($data);
 
+        \App\Services\ActivityLogger::log('update', 'master_data', $customer, "Perbarui pelanggan: {$customer->nama} ({$customer->kode})");
+
         return back()->with('success', 'Pelanggan berhasil diperbarui.');
     }
 
@@ -93,17 +97,22 @@ class CustomerController extends Controller
         $this->authorizeBrandMasterWrite($request->user());
         $this->guardOwnership($request, $customer);
 
+        $custName = $customer->nama;
+        $custKode = $customer->kode;
         $customer->delete();
+
+        \App\Services\ActivityLogger::log('delete', 'master_data', null, "Hapus pelanggan: {$custName} ({$custKode})");
+
         return back()->with('success', 'Pelanggan berhasil dihapus.');
     }
 
-    private function authorizeBrandMaster($user): void
+    private function authorizeBrandMaster(\App\Models\User $user): void
     {
         if ($user->can('master.manage') || $user->can('master.brand') || $user->can('master.view')) return;
         abort(403);
     }
 
-    private function authorizeBrandMasterWrite($user): void
+    private function authorizeBrandMasterWrite(\App\Models\User $user): void
     {
         if ($user->can('master.manage') || $user->can('master.brand')) return;
         abort(403, 'Aksi ini tidak diizinkan untuk role Anda.');
@@ -259,11 +268,11 @@ class CustomerController extends Controller
                 $typeId = null;
                 $custTypeName = $data['customer_type'] ?? 'Reguler';
                 if ($custTypeName) {
-                    $cType = \App\Models\Master\CustomerType::where('brand_id', $brand->id)
+                    $cType = CustomerType::where('brand_id', $brand->id)
                         ->where('nama', $custTypeName)
                         ->first();
                     if (!$cType) {
-                        $cType = \App\Models\Master\CustomerType::create([
+                        $cType = CustomerType::create([
                             'brand_id' => $brand->id,
                             'nama' => $custTypeName,
                             'diskon_default' => 0,

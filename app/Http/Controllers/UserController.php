@@ -116,6 +116,8 @@ class UserController extends Controller
         }
         $user->brands()->sync($sync);
 
+        \App\Services\ActivityLogger::log('create', 'user', $user, "Tambah user baru: {$user->name} ({$user->email}) dengan role {$data['role']}");
+
         return redirect()->route('users.index')->with('success', 'User berhasil dibuat.');
     }
 
@@ -184,6 +186,8 @@ class UserController extends Controller
         }
         $user->brands()->sync($sync);
 
+        \App\Services\ActivityLogger::log('update', 'user', $user, "Perbarui user: {$user->name} ({$user->email}) role {$data['role']}");
+
         return redirect()->route('users.index')->with('success', 'User berhasil diperbarui.');
     }
 
@@ -203,7 +207,11 @@ class UserController extends Controller
             abort(403, 'Hanya superadmin atau owner yang dapat menghapus data owner.');
         }
 
+        $userName = $user->name;
+        $userEmail = $user->email;
         $user->delete();
+
+        \App\Services\ActivityLogger::log('delete', 'user', null, "Hapus user: {$userName} ({$userEmail})");
 
         return redirect()->route('users.index')->with('success', 'User berhasil dihapus.');
     }

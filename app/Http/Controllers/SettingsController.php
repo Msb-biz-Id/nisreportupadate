@@ -290,6 +290,8 @@ class SettingsController extends Controller
         SystemSetting::set('system', 'theme_color', $data['theme_color']);
         SystemSetting::set('system', 'target_view', $data['target_view']);
 
+        \App\Services\ActivityLogger::log('update', 'settings', null, 'Perbarui pengaturan sistem & notifikasi');
+
         return back()->with('success', 'Pengaturan sistem tersimpan.');
     }
 

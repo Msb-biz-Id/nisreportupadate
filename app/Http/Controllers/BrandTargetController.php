@@ -95,6 +95,8 @@ class BrandTargetController extends Controller
 
         Cache::flush();
 
+        \App\Services\ActivityLogger::log('update', 'target', null, "Simpan target penjualan tahun {$year}");
+
         return redirect()->back()->with('success', 'Target penjualan berhasil disimpan.');
     }
 }

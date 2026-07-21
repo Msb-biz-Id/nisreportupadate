@@ -62,8 +62,8 @@ class AuditController extends Controller
                 'to' => $request->string('to')->toString(),
                 'q' => $request->string('q')->toString(),
             ],
-            'modules' => ['brand', 'user', 'master', 'order', 'production', 'refund', 'invoice', 'finance', 'ai', 'settings', 'auth'],
-            'activities' => ['create', 'update', 'delete', 'publish', 'login', 'logout', 'export', 'test_connection', 'unlock', 'relock'],
+            'modules' => ['auth', 'user', 'brand', 'order', 'production', 'invoice', 'refund', 'master_data', 'target', 'report', 'settings'],
+            'activities' => ['create', 'update', 'delete', 'publish', 'complete', 'login', 'logout', 'export', 'toggle', 'unlock', 'relock', 'bypass_dp', 'cancel-validation'],
         ]);
     }
 }

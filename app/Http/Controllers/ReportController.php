@@ -141,6 +141,8 @@ class ReportController extends Controller
         $result = $this->runner->run($slug, $queryBrandScope, $filters);
         $filename = "report-{$slug}-" . now()->format('Ymd-His') . '.xlsx';
 
+        \App\Services\ActivityLogger::log('export', 'report', null, "Ekspor Excel laporan {$config['label']}");
+
         return Excel::download(
             new GenericReportExport($config['label'], $config['columns'], $result['rows'], $hexColor),
             $filename
@@ -173,6 +175,8 @@ class ReportController extends Controller
             ?? \App\Models\Settings\SystemSetting::get('system', 'theme_color', '#a8001c');
 
         $result = $this->runner->run($slug, $queryBrandScope, $filters);
+
+        \App\Services\ActivityLogger::log('export', 'report', null, "Ekspor PDF laporan {$config['label']}");
 
         $pdf = Pdf::loadView('pdf.report', [
             'config' => $config,

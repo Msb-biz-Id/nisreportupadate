@@ -81,7 +81,10 @@ class MasterController extends Controller
         }
 
         $modelClass = $config['model'];
-        $modelClass::create($data);
+        $record = $modelClass::create($data);
+
+        $displayName = $record->nama ?? $record->bank ?? $record->nama_progress ?? $record->nama_tahapan ?? $record->name ?? $record->id;
+        \App\Services\ActivityLogger::log('create', 'master_data', $record, "Tambah {$config['label']}: {$displayName}");
 
         return back()->with('success', $config['label'] . ' berhasil dibuat.');
     }
@@ -99,6 +102,9 @@ class MasterController extends Controller
         $data = $this->validatePayload($request, $config, $id);
         $record->update($data);
 
+        $displayName = $record->nama ?? $record->bank ?? $record->nama_progress ?? $record->nama_tahapan ?? $record->name ?? $record->id;
+        \App\Services\ActivityLogger::log('update', 'master_data', $record, "Perbarui {$config['label']}: {$displayName}");
+
         return back()->with('success', $config['label'] . ' berhasil diperbarui.');
     }
 
@@ -111,7 +117,10 @@ class MasterController extends Controller
         $record = $modelClass::findOrFail($id);
         $this->guardBrandOwnership($request, $config, $record);
 
+        $displayName = $record->nama ?? $record->bank ?? $record->nama_progress ?? $record->nama_tahapan ?? $record->name ?? $record->id;
         $record->delete();
+
+        \App\Services\ActivityLogger::log('delete', 'master_data', null, "Hapus {$config['label']}: {$displayName}");
 
         return back()->with('success', $config['label'] . ' berhasil dihapus.');
     }

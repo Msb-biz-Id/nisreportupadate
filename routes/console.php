@@ -27,3 +27,7 @@ Schedule::command('backup:r2 --type=yearly')->yearlyOn(1, 1, '04:00');
 // Safe media pruning (run weekly to clean unused image uploads)
 Schedule::command('uploads:prune')->weeklyOn(0, '01:00');
 
+// Prune old activity logs older than 30 days daily
+Schedule::command('model:prune', ['--model' => [\App\Models\ActivityLog::class]])->daily();
+
+
