@@ -263,7 +263,7 @@ class ReportRegistry
                 'icon' => 'Gauge',
                 'group' => 'produksi',
                 'description' => 'Laporan kinerja produksi: mengukur durasi dan keterlambatan pengerjaan tahapan progress PO.',
-                'filters' => ['date_range', 'brand'],
+                'filters' => ['date_range', 'lateness_status', 'brand'],
                 'columns' => [
                     ['key' => 'no_po', 'label' => 'No PO'],
                     ['key' => 'nama_po', 'label' => 'Nama PO'],

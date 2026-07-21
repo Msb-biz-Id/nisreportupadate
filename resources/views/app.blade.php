@@ -11,7 +11,7 @@
             $faviconUrl = $appData['favicon_url'] ?? null;
             if (!$faviconUrl) {
                 $faviconPath = \App\Models\Settings\SystemSetting::get('seo', 'favicon');
-                $faviconUrl = $faviconPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($faviconPath) : asset('favicon.ico');
+                $faviconUrl = $faviconPath ? \Illuminate\Support\Facades\Storage::url($faviconPath) : asset('favicon.ico');
             }
             
             $appName = $appData['name'] ?? \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'Circle Sportwear - Tracking PO'));
@@ -74,8 +74,14 @@
             }
         </style>
 
-        <!-- Service Worker Registration -->
+        <!-- Service Worker Registration & PWA Handler -->
         <script>
+            window.deferredPwaPrompt = null;
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                window.deferredPwaPrompt = e;
+            });
+
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
                     navigator.serviceWorker.register('/sw.js')

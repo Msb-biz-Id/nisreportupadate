@@ -145,6 +145,19 @@ function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders 
                         </Select>
                     </div>
                 )}
+                {config.filters?.includes('lateness_status') && (
+                    <div>
+                        <Label className="text-xs">Status Keterlambatan</Label>
+                        <Select value={local.lateness_status || '__all__'} onValueChange={(v) => patch('lateness_status', v === '__all__' ? '' : v)}>
+                            <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="Semua Status" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__all__">Semua Status</SelectItem>
+                                <SelectItem value="terlambat">⚠️ Terlambat Saja</SelectItem>
+                                <SelectItem value="tepat_waktu">✅ Tepat Waktu / Dalam Deadline</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
                 {config.filters?.includes('status_po') && (
                     <div>
                         <Label className="text-xs">Status PO</Label>
@@ -307,20 +320,43 @@ function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders 
     );
 }
 
-function SummaryCards({ items }) {
+function SummaryCards({ items, onCardClick, currentLateness }) {
     if (!items?.length) return null;
     return (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {items.map((s, i) => (
-                <Card key={i}>
-                    <CardContent className="p-3">
-                        <div className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</div>
-                        <div className="mt-1 text-xl font-bold font-mono">
-                            {s.format === 'currency' ? formatRupiah(s.value) : (typeof s.value === 'number' ? s.value.toLocaleString('id-ID') : s.value)}
-                        </div>
-                    </CardContent>
-                </Card>
-            ))}
+            {items.map((s, i) => {
+                const isLateCard = s.label?.toLowerCase().includes('telat');
+                const isTotalCard = s.label === 'Total PO';
+                const isClickable = isLateCard || isTotalCard;
+
+                const isSelected = (isLateCard && currentLateness === 'terlambat') || (isTotalCard && (!currentLateness || currentLateness === 'all'));
+
+                return (
+                    <Card 
+                        key={i}
+                        onClick={() => {
+                            if (isLateCard) onCardClick?.('terlambat');
+                            else if (isTotalCard) onCardClick?.('all');
+                        }}
+                        className={`transition-all ${isClickable ? 'cursor-pointer hover:border-primary hover:shadow-md' : ''} ${isSelected ? 'ring-2 ring-primary border-primary bg-primary/5' : ''}`}
+                    >
+                        <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                                <div className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</div>
+                                {isLateCard && <span className="text-[10px] bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 font-semibold px-1.5 py-0.5 rounded">Filter</span>}
+                            </div>
+                            <div className="mt-1 text-xl font-bold font-mono">
+                                {s.format === 'currency' ? formatRupiah(s.value) : (typeof s.value === 'number' ? s.value.toLocaleString('id-ID') : s.value)}
+                            </div>
+                            {isClickable && (
+                                <p className="text-[10px] text-muted-foreground mt-1 font-medium">
+                                    👉 Klik untuk filter
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
+                );
+            })}
         </div>
     );
 }
@@ -435,7 +471,11 @@ export default function ReportShow({ config, filters, rows, summary, heatmapSeri
 
                 <FilterBar config={config} filters={filters} onApply={applyFilters} customerTypes={customerTypes} sumberOrders={sumberOrders} brands={brands} products={products} bankAccounts={bankAccounts} />
 
-                <SummaryCards items={summary} />
+                <SummaryCards 
+                    items={summary} 
+                    currentLateness={filters?.lateness_status}
+                    onCardClick={(status) => applyFilters({ ...filters, lateness_status: status === 'all' ? '' : status })} 
+                />
 
                 <ReportChart config={config} rows={rows} heatmapSeries={heatmapSeries} />
 

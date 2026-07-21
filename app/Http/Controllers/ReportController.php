@@ -293,6 +293,9 @@ class ReportController extends Controller
                 case 'refund_status':
                     $filters['refund_status'] = $request->string('refund_status')->toString();
                     break;
+                case 'lateness_status':
+                    $filters['lateness_status'] = $request->string('lateness_status')->toString();
+                    break;
                 case 'is_auto':
                     $filters['is_auto'] = $request->string('is_auto')->toString();
                     break;

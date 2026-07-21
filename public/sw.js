@@ -113,6 +113,25 @@ self.addEventListener('fetch', (event) => {
             return caches.match('/');
           });
         })
+        .catch(() => {
+          return caches.match(request).then((cachedResponse) => {
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+            // If completely offline and not in cache, fallback to '/'
+            return caches.match('/');
+          });
+        })
     );
+  }
+});
+
+// Safe Message Listener to prevent message channel closed errors
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+  if (event.ports && event.ports[0]) {
+    event.ports[0].postMessage({ status: 'ok' });
   }
 });

@@ -1169,7 +1169,7 @@ class ReportRunner
             return $row;
         })->all();
 
-        // Summary Statistics
+        // Summary Statistics (Computed across full dataset for consistent KPI Cards)
         $totalPo = count($rows);
         $totalPcs = array_sum(array_column($rows, 'pcs'));
         
@@ -1188,7 +1188,7 @@ class ReportRunner
 
         $completedWithDuration = collect($rows)->filter(function($r) {
             $isCompleted = in_array($r['status'], ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim']);
-            return $isCompleted && str_contains($r['durasi_total'], 'hari');
+            return $isCompleted && (str_contains($r['durasi_total'], 'hari') || str_contains($r['durasi_total'], 'hr'));
         });
         
         $totalCompletedDays = 0;
@@ -1201,6 +1201,14 @@ class ReportRunner
         $avgDuration = $completedWithDuration->count() > 0 
             ? round($totalCompletedDays / $completedWithDuration->count(), 1) . ' hari' 
             : '0 hari';
+
+        // Apply Lateness Status Filter on Rows for Table, Excel, and PDF Export
+        $latenessStatus = $filters['lateness_status'] ?? null;
+        if ($latenessStatus === 'terlambat') {
+            $rows = array_values(array_filter($rows, fn($r) => str_starts_with($r['keterlambatan'], 'Telat')));
+        } elseif ($latenessStatus === 'tepat_waktu') {
+            $rows = array_values(array_filter($rows, fn($r) => !str_starts_with($r['keterlambatan'], 'Telat')));
+        }
 
         return [
             'rows' => $rows,
