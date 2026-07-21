@@ -279,7 +279,7 @@ class DashboardService
                     ->when($brandId, $this->obf($brandId))
                     ->where('order_items.is_addon', false)
                     ->where('orders.status_po', '!=', 'draft')
-                    ->sum('order_items.quantity');
+                    ->sum(DB::raw("CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END"));
                 $rijekRate = $totalProduksi > 0 ? round(($totalRijek / $totalProduksi) * 100, 2) : 0;
 
                 return [
@@ -316,7 +316,7 @@ class DashboardService
 
                 $perBrand = Order::query()
                     ->when($brandId && $brandId !== 'all', $this->bf($brandId))
-                    ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
+                    ->leftJoin(DB::raw('(SELECT order_id, SUM(CASE WHEN jml_atasan IS NOT NULL AND jml_atasan != \'\' THEN CAST(jml_atasan AS UNSIGNED) ELSE quantity END) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
                     ->select('orders.brand_id', DB::raw('COUNT(orders.id) as total'), DB::raw('SUM(orders.total_tagihan) as revenue'), DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_pcs'))
                     ->groupBy('orders.brand_id')
                     ->with('brand:id,nama_brand,kode,warna_primary')
@@ -389,7 +389,7 @@ class DashboardService
                     'owned_brands' => Brand::whereIn('id', $ownedBrandIds)->get(['id', 'nama_brand', 'kode', 'warna_primary']),
             'brand_performance' => Order::query()
                 ->whereIn('orders.brand_id', $opBrandIds)
-                ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
+                ->leftJoin(DB::raw('(SELECT order_id, SUM(CASE WHEN jml_atasan IS NOT NULL AND jml_atasan != \'\' THEN CAST(jml_atasan AS UNSIGNED) ELSE quantity END) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
                 ->select('orders.brand_id', DB::raw('COUNT(orders.id) as total'), DB::raw('SUM(orders.total_tagihan) as revenue'), DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_pcs'))
                 ->groupBy('orders.brand_id')
                 ->with('brand:id,nama_brand,kode,warna_primary')
@@ -738,7 +738,7 @@ class DashboardService
                 return OrderItem::query()
                     ->when($brandId, fn ($q) => $q->whereHas('order', $this->bf($brandId)))
                     ->where('order_items.is_addon', false)
-                    ->select('nama_produk', DB::raw('SUM(quantity) as total_qty'), DB::raw('COUNT(DISTINCT order_id) as total_order'))
+                    ->select('nama_produk', DB::raw("SUM(CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END) as total_qty"), DB::raw('COUNT(DISTINCT order_id) as total_order'))
                     ->groupBy('nama_produk')
                     ->orderByDesc('total_qty')
                     ->limit($limit)
@@ -1005,7 +1005,7 @@ class DashboardService
             })
             ->select(
                 DB::raw("$orderMonthExpr as bulan"),
-                DB::raw('SUM(order_items.quantity) as total_pcs')
+                DB::raw("SUM(CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END) as total_pcs")
             )
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->groupBy('bulan')
@@ -1057,7 +1057,7 @@ class DashboardService
             ->where('order_items.is_addon', false)
             ->whereIn('orders.brand_id', $brandIds)
             ->where('orders.status_po', '!=', 'draft')
-            ->sum('order_items.quantity');
+            ->sum(DB::raw("CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END"));
         return $totalProduksi > 0 ? round(($totalRijek / $totalProduksi) * 100, 2) : 0;
     }
 
@@ -1093,7 +1093,7 @@ class DashboardService
             ->whereIn('orders.brand_id', $brandIds)
             ->whereBetween('orders.tanggal_masuk', [$startOfMonth, $endOfMonth])
             ->where('orders.status_po', '!=', 'draft')
-            ->sum('order_items.quantity');
+            ->sum(DB::raw("CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END"));
 
         $targetRevenue = (float) ($monthTarget?->revenue ?? 0);
         $targetPcs = (int) ($monthTarget?->pcs ?? 0);

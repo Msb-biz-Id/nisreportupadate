@@ -202,7 +202,7 @@ class ComparisonRunner
             })
             ->select(
                 DB::raw("$orderMonthExpr as idx"),
-                DB::raw('SUM(order_items.quantity) as total_pcs')
+                DB::raw("SUM(CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END) as total_pcs")
             )
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->groupBy('idx')

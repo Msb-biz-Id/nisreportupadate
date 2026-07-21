@@ -113,10 +113,10 @@ class ProductionController extends Controller
                 'lockStatus',
                 'brand:id,kode,warna_primary',
                 'paketOrder:id,nama,warna,prioritas',
-                'progressDetails.progress'
+                'progressDetails.progress',
+                'items:id,order_id,is_addon,quantity,jml_atasan'
             ])
             ->withCount(['rijeks as has_rijek' => fn($q) => $q->where('status', '!=', 'selesai')])
-            ->withSum('items', 'quantity')
             ->orderByRaw('COALESCE(end_production_date, deadline_customer) ASC')
             ->get();
 
@@ -177,7 +177,7 @@ class ProductionController extends Controller
                 'is_locked'           => $order->isLocked(),
                 'is_special_order'    => (bool) $order->is_special_order,
                 'has_rijek'           => $order->has_rijek > 0,
-                'total_items'         => (int) ($order->items_sum_quantity ?? 0),
+                'total_items'         => (int) $order->items->filter(fn($i) => empty($i->is_addon))->sum(fn($i) => ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity),
                 'days_remaining'      => $daysRemaining,
                 'paket_order'       => $order->paketOrder ? [
                     'nama'      => $order->paketOrder->nama,

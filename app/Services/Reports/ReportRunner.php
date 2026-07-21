@@ -107,7 +107,7 @@ class ReportRunner
                   ->whereBetween('orders.tanggal_masuk', [$from, $to])
                   ->where('orders.status_po', '!=', 'draft');
             })
-            ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
+            ->leftJoin(DB::raw('(SELECT order_id, SUM(CASE WHEN jml_atasan IS NOT NULL AND jml_atasan != \'\' THEN CAST(jml_atasan AS UNSIGNED) ELSE quantity END) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
             // Array = reseller hub context → filter via orders.brand_id (customers live at hub, orders at branch)
             ->when(is_array($brandId), fn ($q) => $q->whereIn('orders.brand_id', $brandId))
             ->when(! is_array($brandId) && $brandId, fn ($q) => $q->where('customers.brand_id', $brandId))
@@ -220,8 +220,7 @@ class ReportRunner
         $q = Order::query()
             ->when($brandId, $this->bf($brandId))
             ->whereBetween('tanggal_masuk', [$from, $to])
-            ->with(['pelanggan:id,nama'])
-            ->withSum(['items' => fn($query) => $query->where('is_addon', false)], 'quantity');
+            ->with(['pelanggan:id,nama', 'items:id,order_id,is_addon,quantity,jml_atasan']);
 
         if (! empty($filters['status'])) {
             $q->where('status_po', $filters['status']);
@@ -235,7 +234,7 @@ class ReportRunner
             'pelanggan' => $o->pelanggan?->nama,
             'tanggal_masuk' => $o->tanggal_masuk?->toDateString(),
             'deadline' => $o->deadline_customer?->toDateString(),
-            'pcs' => (int) ($o->items_sum_quantity ?? 0),
+            'pcs' => (int) $o->items->filter(fn($i) => empty($i->is_addon))->sum(fn($i) => ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity),
             'status' => $o->status_po,
             'total' => (float) $o->total_tagihan,
         ])->all();
@@ -253,8 +252,7 @@ class ReportRunner
             ->when($brandId, $this->bf($brandId))
             ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
             ->whereRaw('COALESCE(end_production_date, deadline_customer) <= ?', [Carbon::now()->addDays($threshold)->toDateString()])
-            ->with(['pelanggan:id,nama', 'brand:id,nama_brand'])
-            ->withSum(['items' => fn($query) => $query->where('is_addon', false)], 'quantity')
+            ->with(['pelanggan:id,nama', 'brand:id,nama_brand', 'items:id,order_id,is_addon,quantity,jml_atasan'])
             ->orderByRaw('COALESCE(end_production_date, deadline_customer) ASC')
             ->get();
 
@@ -281,7 +279,7 @@ class ReportRunner
                 'nama_po' => $o->nama_po,
                 'brand_nama' => $o->brand?->nama_brand ?? '-',
                 'pelanggan' => $o->pelanggan?->nama ?? '-',
-                'pcs' => (int) ($o->items_sum_quantity ?? 0),
+                'pcs' => (int) $o->items->filter(fn($i) => empty($i->is_addon))->sum(fn($i) => ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity),
                 'jenis_printing' => implode(', ', $orderPrintings) ?: '-',
                 'status' => $o->status_po,
             ];
@@ -597,7 +595,7 @@ class ReportRunner
             ->leftJoin('customer_types', 'customer_types.id', '=', 'customers.type_pelanggan_id')
             ->leftJoin('sumber_orders', 'sumber_orders.id', '=', 'orders.sumber_order_id')
             ->leftJoin('sumber_orders as parent_sumber', 'parent_sumber.id', '=', 'sumber_orders.parent_id')
-            ->leftJoin(DB::raw('(SELECT order_id, SUM(quantity) as qty FROM order_items WHERE is_addon = 0 ' .
+            ->leftJoin(DB::raw('(SELECT order_id, SUM(CASE WHEN jml_atasan IS NOT NULL AND jml_atasan != \'\' THEN CAST(jml_atasan AS UNSIGNED) ELSE quantity END) as qty FROM order_items WHERE is_addon = 0 ' .
                 (!empty($filters['product_id']) ? 'AND product_id = ' . DB::connection()->getPdo()->quote($filters['product_id']) : '') .
                 ' GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
             ->whereBetween('orders.tanggal_masuk', [$from, $to])
@@ -1026,8 +1024,7 @@ class ReportRunner
             ->when($brandId, $this->bf($brandId))
             ->whereBetween('tanggal_masuk', [$from, $to])
             ->where('status_po', '!=', 'draft')
-            ->with(['brand:id,nama_brand', 'pelanggan:id,nama', 'progressDetails.progress'])
-            ->withSum(['items' => fn($query) => $query->where('is_addon', false)], 'quantity')
+            ->with(['brand:id,nama_brand', 'pelanggan:id,nama', 'progressDetails.progress', 'items:id,order_id,is_addon,quantity,jml_atasan'])
             ->orderByDesc('tanggal_masuk')
             ->get();
 
@@ -1043,42 +1040,24 @@ class ReportRunner
                 
                 $completionDate = null;
                 if ($isCompleted) {
-                    if ($o->end_production_date) {
-                        $completionDate = Carbon::parse($o->end_production_date)->startOfDay();
-                    } else {
-                        $lastCompleted = $o->progressDetails
-                            ->where('status', 'selesai')
-                            ->sortByDesc('completed_at')
-                            ->first();
-                        $completionDate = $lastCompleted && $lastCompleted->completed_at 
-                            ? Carbon::parse($lastCompleted->completed_at)->startOfDay()
-                            : Carbon::now()->startOfDay();
-                    }
-                } else {
+                    $completedStage = $o->progressDetails->firstWhere('status', 'completed');
+                    $completionDate = $completedStage?->completed_at ? Carbon::parse($completedStage->completed_at)->startOfDay() : null;
+                }
+                
+                if (!$completionDate) {
                     $completionDate = Carbon::now()->startOfDay();
                 }
-
-                $diffDays = $deadline->diffInDays($completionDate, false);
                 
+                $diffDays = $deadline->diffInDays($completionDate, false);
                 if ($diffDays > 0) {
-                    $lateness = 'Telat ' . $diffDays . ' hari';
+                    $lateness = $diffDays . ' hari (Terlambat)';
                 } else {
-                    if ($isCompleted) {
-                        $lateness = 'Tepat Waktu';
-                    } else {
-                        $lateness = 'Sisa ' . abs($diffDays) . ' hari';
-                    }
+                    $lateness = abs($diffDays) . ' hari (Tepat Waktu)';
                 }
             }
 
-            // 2. Calculate total production duration
+            // 2. Calculate total duration from start to finish
             $durasiTotal = '-';
-            $firstStage = $o->progressDetails->sortBy(fn($d) => $d->progress?->urutan ?? 0)->first();
-            $productionStart = $o->start_production_date 
-                ? Carbon::parse($o->start_production_date) 
-                : ($firstStage && $firstStage->started_at ? Carbon::parse($firstStage->started_at) : null);
-
-            if ($productionStart) {
                 $productionEnd = null;
                 if ($isCompleted) {
                     $productionEnd = $o->end_production_date 
@@ -1224,8 +1203,7 @@ class ReportRunner
                     $query->where('is_repeat_order', true);
                 }
             })
-            ->with(['brand:id,nama_brand', 'pelanggan:id,nama'])
-            ->withSum(['items' => fn($query) => $query->where('is_addon', false)], 'quantity');
+            ->with(['brand:id,nama_brand', 'pelanggan:id,nama', 'items:id,order_id,is_addon,quantity,jml_atasan']);
 
         $orders = $q->orderByDesc('tanggal_masuk')->get();
 
@@ -1246,7 +1224,7 @@ class ReportRunner
                 'pelanggan' => $o->pelanggan?->nama ?? '-',
                 'tanggal_masuk' => $o->tanggal_masuk?->toDateString(),
                 'jenis_po' => $jenisPo,
-                'pcs' => (int) ($o->items_sum_quantity ?? 0),
+                'pcs' => (int) $o->items->filter(fn($i) => empty($i->is_addon))->sum(fn($i) => ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity),
                 'total_tagihan' => (float) $o->total_tagihan,
                 'status' => $o->status_po,
             ];

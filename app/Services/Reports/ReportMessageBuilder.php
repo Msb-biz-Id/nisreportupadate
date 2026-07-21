@@ -174,7 +174,7 @@ PROMPT;
 
         $poMasuk = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
             ->where('tanggal_masuk', today()->toDateString())
-            ->with(['pelanggan:id,nama', 'items:order_id,nama_produk,quantity'])
+            ->with(['pelanggan:id,nama', 'items:id,order_id,is_addon,nama_produk,quantity,jml_atasan'])
             ->orderByDesc('tanggal_masuk')->limit(5)->get();
 
         $deadlines = Order::where('brand_id', $bid)
@@ -196,7 +196,7 @@ PROMPT;
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->where('orders.brand_id', $bid)->where('orders.status_po', '!=', 'draft')
             ->where('orders.tanggal_masuk', '>=', now()->subDays(30))
-            ->sum('order_items.quantity');
+            ->sum(DB::raw("CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END"));
         $rijekRate = $totalPcs > 0 ? round(($totalRijek / $totalPcs) * 100, 1) : 0;
 
         $lines = [
@@ -214,7 +214,7 @@ PROMPT;
             $lines[] = "📋 *DETAIL PO MASUK HARI INI:*";
             foreach ($poMasuk as $i => $po) {
                 $produk = $po->items->first()?->nama_produk ?? '-';
-                $qty    = $po->items->sum('quantity');
+                $qty    = (int) $po->items->filter(fn($i) => empty($i->is_addon))->sum(fn($i) => ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity);
                 $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} - {$produk} x{$qty}";
             }
         }
@@ -266,7 +266,7 @@ PROMPT;
         $delay   = (int)($statusRows['delay'] ?? 0);
 
         $poTerbaru = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
-            ->with(['pelanggan:id,nama', 'items:order_id,nama_produk,quantity'])
+            ->with(['pelanggan:id,nama', 'items:id,order_id,is_addon,nama_produk,quantity,jml_atasan'])
             ->orderByDesc('tanggal_masuk')->limit(3)->get();
 
         $deadlines = Order::where('brand_id', $bid)->whereIn('status_po', ['published', 'on_progress'])
@@ -289,7 +289,7 @@ PROMPT;
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->where('orders.brand_id', $bid)->where('orders.status_po', '!=', 'draft')
             ->whereBetween('orders.tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
-            ->select('order_items.nama_produk', DB::raw('SUM(order_items.quantity) as total_qty'))
+            ->select('order_items.nama_produk', DB::raw("SUM(CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END) as total_qty"))
             ->groupBy('order_items.nama_produk')->orderByDesc('total_qty')->first();
 
         $lines = [
@@ -308,7 +308,7 @@ PROMPT;
             $lines[] = "📋 *DETAIL PO TERBARU:*";
             foreach ($poTerbaru as $i => $po) {
                 $produk = $po->items->first()?->nama_produk ?? '-';
-                $qty    = $po->items->sum('quantity');
+                $qty    = (int) $po->items->filter(fn($i) => empty($i->is_addon))->sum(fn($i) => ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity);
                 $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} - {$produk} x{$qty}";
             }
         }
@@ -421,7 +421,7 @@ PROMPT;
             $lines[] = "";
             $lines[] = "📋 *PO BARU HARI INI:*";
             foreach ($poHariIni as $i => $po) {
-                $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} - " . $po->items->sum('quantity') . " pcs";
+                $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} - " . $po->items->filter(fn($i) => empty($i->is_addon))->sum(fn($i) => ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity) . " pcs";
             }
         }
 
@@ -437,7 +437,7 @@ PROMPT;
             $lines[] = "";
             $lines[] = "✅ *SELESAI HARI INI:*";
             foreach ($poSelesai as $i => $po) {
-                $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} - " . $po->items->sum('quantity') . " pcs";
+                $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} - " . $po->items->filter(fn($i) => empty($i->is_addon))->sum(fn($i) => ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity) . " pcs";
             }
         }
 
