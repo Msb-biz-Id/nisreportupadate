@@ -637,14 +637,16 @@
         }
 
         $namesets = collect($item['namesets'] ?? []);
+        $hasVal = fn($val) => strlen(trim((string)($val ?? ''))) > 0;
+
         $filled = $namesets->filter(fn($ns) =>
-        !empty(trim($ns['nama_punggung'] ?? '')) || !empty(trim($ns['nomor_punggung'] ?? '')) ||
-        !empty(trim($ns['nama_dada'] ?? '')) || !empty(trim($ns['nomor_dada'] ?? '')) ||
-        !empty(trim($ns['nama_lengan'] ?? '')) || !empty(trim($ns['nomor_lengan'] ?? '')) ||
-        !empty(trim($ns['nama_punggung_2'] ?? '')) || !empty(trim($ns['nomor_punggung_2'] ?? '')) ||
-        !empty(trim($ns['size_id'] ?? '')) || !empty(trim($ns['size_label'] ?? '')) ||
-        !empty(trim($ns['size_celana_id'] ?? ''))|| !empty(trim($ns['size_celana_label'] ?? '')) ||
-        !empty(trim($ns['keterangan'] ?? ''))
+        $hasVal($ns['nama_punggung'] ?? '') || $hasVal($ns['nomor_punggung'] ?? '') ||
+        $hasVal($ns['nama_dada'] ?? '') || $hasVal($ns['nomor_dada'] ?? '') ||
+        $hasVal($ns['nama_lengan'] ?? '') || $hasVal($ns['nomor_lengan'] ?? '') ||
+        $hasVal($ns['nama_punggung_2'] ?? '') || $hasVal($ns['nomor_punggung_2'] ?? '') ||
+        $hasVal($ns['size_id'] ?? '') || $hasVal($ns['size_label'] ?? '') ||
+        $hasVal($ns['size_celana_id'] ?? '')|| $hasVal($ns['size_celana_label'] ?? '') ||
+        $hasVal($ns['keterangan'] ?? '')
         );
         @endphp
 
@@ -1007,13 +1009,13 @@
             foreach ($nonAddonItems as $item) {
             $namesets = collect($item['namesets'] ?? []);
             $lampFilled = $namesets->filter(fn($ns) =>
-            !empty(trim($ns['nama_punggung'] ?? '')) || !empty(trim($ns['nomor_punggung'] ?? '')) ||
-            !empty(trim($ns['nama_dada'] ?? '')) || !empty(trim($ns['nomor_dada'] ?? '')) ||
-            !empty(trim($ns['nama_lengan'] ?? '')) || !empty(trim($ns['nomor_lengan'] ?? '')) ||
-            !empty(trim($ns['nama_punggung_2'] ?? '')) || !empty(trim($ns['nomor_punggung_2'] ?? '')) ||
-            !empty(trim($ns['size_id'] ?? '')) || !empty(trim($ns['size_label'] ?? '')) ||
-            !empty(trim($ns['size_celana_id'] ?? ''))|| !empty(trim($ns['size_celana_label'] ?? ''))||
-            !empty(trim($ns['keterangan'] ?? ''))
+            $hasVal($ns['nama_punggung'] ?? '') || $hasVal($ns['nomor_punggung'] ?? '') ||
+            $hasVal($ns['nama_dada'] ?? '') || $hasVal($ns['nomor_dada'] ?? '') ||
+            $hasVal($ns['nama_lengan'] ?? '') || $hasVal($ns['nomor_lengan'] ?? '') ||
+            $hasVal($ns['nama_punggung_2'] ?? '') || $hasVal($ns['nomor_punggung_2'] ?? '') ||
+            $hasVal($ns['size_id'] ?? '') || $hasVal($ns['size_label'] ?? '') ||
+            $hasVal($ns['size_celana_id'] ?? '')|| $hasVal($ns['size_celana_label'] ?? '')||
+            $hasVal($ns['keterangan'] ?? '')
             );
             if ($lampFilled->isNotEmpty()) {
             $hasAnyLampFilled = true;
@@ -1065,26 +1067,26 @@
             @php
             $namesets = collect($item['namesets'] ?? []);
             $lampFilled = $namesets->filter(fn($ns) =>
-            !empty(trim($ns['nama_punggung'] ?? '')) || !empty(trim($ns['nomor_punggung'] ?? '')) ||
-            !empty(trim($ns['nama_dada'] ?? '')) || !empty(trim($ns['nomor_dada'] ?? '')) ||
-            !empty(trim($ns['nama_lengan'] ?? '')) || !empty(trim($ns['nomor_lengan'] ?? '')) ||
-            !empty(trim($ns['nama_punggung_2'] ?? '')) || !empty(trim($ns['nomor_punggung_2'] ?? '')) ||
-            !empty(trim($ns['size_id'] ?? '')) || !empty(trim($ns['size_label'] ?? '')) ||
-            !empty(trim($ns['size_celana_id'] ?? ''))|| !empty(trim($ns['size_celana_label'] ?? ''))||
-            !empty(trim($ns['keterangan'] ?? ''))
+            $hasVal($ns['nama_punggung'] ?? '') || $hasVal($ns['nomor_punggung'] ?? '') ||
+            $hasVal($ns['nama_dada'] ?? '') || $hasVal($ns['nomor_dada'] ?? '') ||
+            $hasVal($ns['nama_lengan'] ?? '') || $hasVal($ns['nomor_lengan'] ?? '') ||
+            $hasVal($ns['nama_punggung_2'] ?? '') || $hasVal($ns['nomor_punggung_2'] ?? '') ||
+            $hasVal($ns['size_id'] ?? '') || $hasVal($ns['size_label'] ?? '') ||
+            $hasVal($ns['size_celana_id'] ?? '')|| $hasVal($ns['size_celana_label'] ?? '')||
+            $hasVal($ns['keterangan'] ?? '')
             );
 
-            $hasLampNamaPunggung = $lampFilled->contains(fn($ns) => !empty(trim($ns['nama_punggung'] ?? '')));
-            $hasLampNoPunggung = $lampFilled->contains(fn($ns) => !empty(trim($ns['nomor_punggung'] ?? '')));
-            $hasLampNamaDada = $lampFilled->contains(fn($ns) => !empty(trim($ns['nama_dada'] ?? '')));
-            $hasLampNoDada = $lampFilled->contains(fn($ns) => !empty(trim($ns['nomor_dada'] ?? '')));
-            $hasLampNamaLengan = $lampFilled->contains(fn($ns) => !empty(trim($ns['nama_lengan'] ?? '')));
-            $hasLampNoLengan = $lampFilled->contains(fn($ns) => !empty(trim($ns['nomor_lengan'] ?? '')));
-            $hasLampNamaPunggung2 = $lampFilled->contains(fn($ns) => !empty(trim($ns['nama_punggung_2'] ?? '')));
-            $hasLampNoPunggung2 = $lampFilled->contains(fn($ns) => !empty(trim($ns['nomor_punggung_2'] ?? '')));
-            $hasLampSizeAtasan = $lampFilled->contains(fn($ns) => !empty(trim($ns['size_id'] ?? '')) || !empty(trim($ns['size_label'] ?? '')));
-            $hasLampSizeBawahan = $lampFilled->contains(fn($ns) => !empty(trim($ns['size_celana_id'] ?? ''))|| !empty(trim($ns['size_celana_label'] ?? '')));
-            $hasLampKeterangan = $lampFilled->contains(fn($ns) => !empty(trim($ns['keterangan'] ?? '')));
+            $hasLampNamaPunggung = $lampFilled->contains(fn($ns) => $hasVal($ns['nama_punggung'] ?? ''));
+            $hasLampNoPunggung = $lampFilled->contains(fn($ns) => $hasVal($ns['nomor_punggung'] ?? ''));
+            $hasLampNamaDada = $lampFilled->contains(fn($ns) => $hasVal($ns['nama_dada'] ?? ''));
+            $hasLampNoDada = $lampFilled->contains(fn($ns) => $hasVal($ns['nomor_dada'] ?? ''));
+            $hasLampNamaLengan = $lampFilled->contains(fn($ns) => $hasVal($ns['nama_lengan'] ?? ''));
+            $hasLampNoLengan = $lampFilled->contains(fn($ns) => $hasVal($ns['nomor_lengan'] ?? ''));
+            $hasLampNamaPunggung2 = $lampFilled->contains(fn($ns) => $hasVal($ns['nama_punggung_2'] ?? ''));
+            $hasLampNoPunggung2 = $lampFilled->contains(fn($ns) => $hasVal($ns['nomor_punggung_2'] ?? ''));
+            $hasLampSizeAtasan = $lampFilled->contains(fn($ns) => $hasVal($ns['size_id'] ?? '') || $hasVal($ns['size_label'] ?? ''));
+            $hasLampSizeBawahan = $lampFilled->contains(fn($ns) => $hasVal($ns['size_celana_id'] ?? '')|| $hasVal($ns['size_celana_label'] ?? ''));
+            $hasLampKeterangan = $lampFilled->contains(fn($ns) => $hasVal($ns['keterangan'] ?? ''));
             @endphp
             @if($lampFilled->isNotEmpty())
             @php
