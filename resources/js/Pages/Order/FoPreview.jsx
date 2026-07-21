@@ -61,7 +61,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
     const brand = order.brand || {};
     const nonAddonItems = groupedNonAddonItems || (order.items || []).filter(item => !item.is_addon);
     const grandTotal = nonAddonItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-    const totalAtasan = nonAddonItems.reduce((sum, item) => sum + Number(item.jml_atasan || 0), 0) || grandTotal;
+    const totalAtasan = nonAddonItems.reduce((sum, item) => sum + Number(item.jml_atasan || 0), 0);
     const totalBawahan = nonAddonItems.reduce((sum, item) => sum + Number(item.jml_bawahan || 0), 0);
 
     // Use headerBrand from props (respects system settings), fallback to brand
@@ -335,7 +335,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                             <td className="border border-black p-1.5 font-bold bg-slate-100">JUMLAH ATASAN</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.jml_atasan || item.quantity}
+                                                    {item.jml_atasan !== null && item.jml_atasan !== undefined && item.jml_atasan !== '' ? item.jml_atasan : ''}
                                                 </td>
                                             ))}
                                         </tr>

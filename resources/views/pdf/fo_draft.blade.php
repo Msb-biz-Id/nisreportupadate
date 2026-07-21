@@ -338,7 +338,7 @@
         $prodCol = 'nama_produk';
         $commaSep = ', ';
         $kategoriStr = $nonAddonItems->pluck($prodCol)->filter()->map('strtoupper')->implode($commaSep);
-        $totalAtasan = $nonAddonItems->sum(fn($i) => (int)($i['jml_atasan'] ?: ($i['quantity'] ?? 0)));
+        $totalAtasan = $nonAddonItems->sum(fn($i) => (int)($i['jml_atasan'] ?? 0));
         $totalBawahan = $nonAddonItems->sum(fn($i) => (int)($i['jml_bawahan'] ?? 0)) ?: '0';
         if (!isset($printingNames)) {
         $printingNames = collect();
@@ -505,7 +505,7 @@
                     <tr>
                         <td class="spec-row-head">JUMLAH ATASAN</td>
                         @foreach($nonAddonItems as $item)
-                        <td>{{ $item['jml_atasan'] ?: ($item['quantity'] ?? '') }}</td>
+                        <td>{{ (!empty($item['jml_atasan']) || (isset($item['jml_atasan']) && $item['jml_atasan'] === '0')) ? $item['jml_atasan'] : '' }}</td>
                         @endforeach
                     </tr>
                     <tr>

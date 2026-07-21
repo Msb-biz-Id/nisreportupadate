@@ -63,15 +63,7 @@ class GroupedOrderItem implements ArrayAccess, JsonSerializable
             return $this->items->sum(fn($i) => is_array($i) ? ($i['quantity'] ?? 0) : ($i->quantity ?? 0));
         }
         if ($key === 'jml_atasan') {
-            $sum = 0;
-            foreach ($this->items as $i) {
-                if (is_array($i)) {
-                    $sum += ($i['jml_atasan'] ?: ($i['quantity'] ?? 0));
-                } else {
-                    $sum += ($i->jml_atasan ?: ($i->quantity ?? 0));
-                }
-            }
-            return $sum;
+            return $this->items->sum(fn($i) => is_array($i) ? (int)($i['jml_atasan'] ?? 0) : (int)($i->jml_atasan ?? 0));
         }
         if ($key === 'jml_bawahan') {
             return $this->items->sum(fn($i) => is_array($i) ? ($i['jml_bawahan'] ?? 0) : ($i->jml_bawahan ?? 0));

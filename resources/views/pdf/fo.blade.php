@@ -321,7 +321,7 @@
             $nonAddonItems = $nonAddonItems ?? $order->items->filter(fn($i) => empty($i->is_addon))->values();
             $addonItems = $addonItems ?? $order->items->filter(fn($i) => !empty($i->is_addon))->values();
             $grandTotal = $nonAddonItems->sum('quantity');
-            $totalAtasan = $nonAddonItems->sum(fn($i) => (int)($i->jml_atasan ?: $i->quantity));
+            $totalAtasan = $nonAddonItems->sum(fn($i) => (int)($i->jml_atasan ?? 0));
             $totalBawahan = $nonAddonItems->sum(fn($i) => (int)($i->jml_bawahan ?? 0));
             $printingNames = collect();
             if (!empty($order->printing_ids)) {
@@ -477,7 +477,7 @@
                         <tr>
                             <td class="spec-row-head">JUMLAH ATASAN</td>
                             @foreach($nonAddonItems as $item)
-                            <td>{{ $item->jml_atasan ?: $item->quantity }}</td>
+                            <td>{{ ($item->jml_atasan !== null && $item->jml_atasan !== '') ? $item->jml_atasan : '' }}</td>
                             @endforeach
                         </tr>
                         <tr>
