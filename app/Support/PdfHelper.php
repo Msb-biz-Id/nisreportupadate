@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use ArPHP\I18N\Arabic;
+use Illuminate\Support\Facades\Log;
 
 class PdfHelper
 {
@@ -34,7 +35,7 @@ class PdfHelper
      */
     public static function formatText(?string $text): string
     {
-        if (empty($text)) {
+        if ($text === null || $text === '') {
             return '';
         }
 
@@ -87,7 +88,7 @@ class PdfHelper
      */
     public static function formatTextWeb(?string $text): string
     {
-        if (empty($text)) {
+        if ($text === null || $text === '') {
             return '';
         }
 
