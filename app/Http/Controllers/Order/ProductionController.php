@@ -33,7 +33,7 @@ class ProductionController extends Controller
             ->forBrand($brandId)
             ->published()
             ->where($statusPoCol, '!=', 'sudah_dikirim')
-            ->with('pelanggan:id,nama')
+            ->with(['pelanggan:id,nama', 'brand:id,kode,nama_brand', 'items:id,order_id,is_addon,quantity,jml_atasan'])
             ->orderByRaw('COALESCE(end_production_date, deadline_customer) ASC')
             ->get();
 
@@ -71,6 +71,8 @@ class ProductionController extends Controller
                 'no_po'               => $order->no_po,
                 'nama_po'             => $order->nama_po,
                 'pelanggan'           => $order->pelanggan?->nama,
+                'brand_kode'          => $order->brand?->kode,
+                'total_pcs'           => (int) $order->items->sum('jml_atasan'),
                 'status_po'           => $order->status_po,
                 'status_label'        => $statusLabels[$order->status_po] ?? $order->status_po,
                 'color'               => $statusColors[$order->status_po] ?? '#94A3B8',
