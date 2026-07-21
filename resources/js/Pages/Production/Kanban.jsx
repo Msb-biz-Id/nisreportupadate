@@ -119,9 +119,15 @@ function KanbanCard({ order }) {
 
             {/* Footer: deadline + qty + actions */}
             <div className="mt-2 flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {formatDate(order.deadline_customer)}
+                <span className="flex items-center gap-1" title={order.end_production_date ? `Deadline Produksi: ${formatDate(order.end_production_date)} (Deadline Cust: ${formatDate(order.deadline_customer)})` : `Deadline Customer: ${formatDate(order.deadline_customer)}`}>
+                    <Calendar className={`h-3 w-3 ${order.end_production_date ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    {order.end_production_date ? (
+                        <span className="font-bold text-indigo-700">
+                            {formatDate(order.end_production_date)}
+                        </span>
+                    ) : (
+                        <span>{formatDate(order.deadline_customer)}</span>
+                    )}
                 </span>
                 {order.total_items > 0 && (
                     <span className="flex items-center gap-1">

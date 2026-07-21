@@ -92,7 +92,7 @@ export default function Gantt({ items, statusColors, statusLabels }) {
                         ${item.nama_po ?? ''}<br/>
                         Pelanggan: ${item.pelanggan ?? '-'}<br/>
                         Mulai: ${start}<br/>
-                        Deadline: ${item.deadline_customer ? new Date(item.deadline_customer).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}<br/>
+                        Deadline: ${(item.end_production_date || item.deadline_customer) ? new Date(item.end_production_date || item.deadline_customer).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}<br/>
                         Sisa: ${daysText}
                     </div>`;
                 },
@@ -230,8 +230,8 @@ export default function Gantt({ items, statusColors, statusLabels }) {
                                                     {item.start ? new Date(item.start).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}
                                                 </td>
                                                 <td className="px-4 py-2 text-xs">
-                                                    {item.deadline_customer
-                                                        ? new Date(item.deadline_customer).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+                                                    {(item.end_production_date || item.deadline_customer)
+                                                        ? new Date(item.end_production_date || item.deadline_customer).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
                                                         : '-'}
                                                 </td>
                                                 <td className="px-4 py-2">

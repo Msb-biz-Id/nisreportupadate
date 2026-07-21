@@ -29,13 +29,12 @@ class ProductionController extends Controller
         };
 
         $statusPoCol = 'status_po';
-        $deadlineCol = 'deadline_customer';
         $orders = Order::query()
             ->forBrand($brandId)
             ->published()
             ->where($statusPoCol, '!=', 'sudah_dikirim')
             ->with('pelanggan:id,nama')
-            ->orderBy($deadlineCol)
+            ->orderByRaw('COALESCE(end_production_date, deadline_customer) ASC')
             ->get();
 
         $statusColors = [
@@ -65,22 +64,25 @@ class ProductionController extends Controller
             // Pastikan end >= start supaya bar minimal 1 hari
             if ($end < $start) $end = $start;
 
+            $effectiveDeadline = $order->end_production_date ?? $order->deadline_customer;
+
             return [
-                'id'               => $order->id,
-                'no_po'            => $order->no_po,
-                'nama_po'          => $order->nama_po,
-                'pelanggan'        => $order->pelanggan?->nama,
-                'status_po'        => $order->status_po,
-                'status_label'     => $statusLabels[$order->status_po] ?? $order->status_po,
-                'color'            => $statusColors[$order->status_po] ?? '#94A3B8',
-                'tanggal_masuk'    => $order->tanggal_masuk ? \Carbon\Carbon::parse((string) $order->tanggal_masuk)->format('Y-m-d') : null,
-                'deadline_customer' => $order->deadline_customer ? \Carbon\Carbon::parse((string) $order->deadline_customer)->format('Y-m-d') : null,
-                'start'            => $start ? \Carbon\Carbon::parse((string) $start)->format('Y-m-d') : null,
-                'end'              => $end ? \Carbon\Carbon::parse((string) $end)->format('Y-m-d') : null,
-                'days_remaining'   => $order->deadline_customer
-                    ? now()->startOfDay()->diffInDays($order->deadline_customer, false)
+                'id'                  => $order->id,
+                'no_po'               => $order->no_po,
+                'nama_po'             => $order->nama_po,
+                'pelanggan'           => $order->pelanggan?->nama,
+                'status_po'           => $order->status_po,
+                'status_label'        => $statusLabels[$order->status_po] ?? $order->status_po,
+                'color'               => $statusColors[$order->status_po] ?? '#94A3B8',
+                'tanggal_masuk'       => $order->tanggal_masuk ? \Carbon\Carbon::parse((string) $order->tanggal_masuk)->format('Y-m-d') : null,
+                'deadline_customer'   => $order->deadline_customer ? \Carbon\Carbon::parse((string) $order->deadline_customer)->format('Y-m-d') : null,
+                'end_production_date' => $order->end_production_date ? \Carbon\Carbon::parse((string) $order->end_production_date)->format('Y-m-d') : null,
+                'start'               => $start ? \Carbon\Carbon::parse((string) $start)->format('Y-m-d') : null,
+                'end'                 => $end ? \Carbon\Carbon::parse((string) $end)->format('Y-m-d') : null,
+                'days_remaining'      => $effectiveDeadline
+                    ? now()->startOfDay()->diffInDays(\Carbon\Carbon::parse((string) $effectiveDeadline), false)
                     : null,
-                'detail_url'       => route('produksi.progress', $order->id),
+                'detail_url'          => route('produksi.progress', $order->id),
             ];
         });
 
@@ -102,7 +104,6 @@ class ProductionController extends Controller
         };
 
         $statusPoCol = 'status_po';
-        $deadlineCol = 'deadline_customer';
         $orders = Order::query()
             ->forBrand($brandId)
             ->published()
@@ -116,7 +117,7 @@ class ProductionController extends Controller
             ])
             ->withCount(['rijeks as has_rijek' => fn($q) => $q->where('status', '!=', 'selesai')])
             ->withSum('items', 'quantity')
-            ->orderBy($deadlineCol)
+            ->orderByRaw('COALESCE(end_production_date, deadline_customer) ASC')
             ->get();
 
         $columns = [
@@ -133,8 +134,9 @@ class ProductionController extends Controller
             $status = $order->status_po;
             if (! isset($columns[$status])) continue;
 
-            $daysRemaining = $order->deadline_customer
-                ? (int) now()->startOfDay()->diffInDays($order->deadline_customer, false)
+            $effectiveDeadline = $order->end_production_date ?? $order->deadline_customer;
+            $daysRemaining = $effectiveDeadline
+                ? (int) now()->startOfDay()->diffInDays(\Carbon\Carbon::parse((string)$effectiveDeadline), false)
                 : null;
 
             // Find active stages (status === 'on_progress')
@@ -163,18 +165,20 @@ class ProductionController extends Controller
             }
 
             $columns[$status]['orders'][] = [
-                'id'                => $order->id,
-                'no_po'             => $order->no_po,
-                'nama_po'           => $order->nama_po,
-                'pelanggan'         => $order->pelanggan?->nama,
-                'brand_kode'        => $order->brand?->kode,
-                'brand_warna'       => $order->brand?->warna_primary,
-                'deadline_customer' => $order->deadline_customer ? \Carbon\Carbon::parse((string) $order->deadline_customer)->format('Y-m-d') : null,
-                'is_locked'         => $order->isLocked(),
-                'is_special_order'  => (bool) $order->is_special_order,
-                'has_rijek'         => $order->has_rijek > 0,
-                'total_items'       => (int) ($order->items_sum_quantity ?? 0),
-                'days_remaining'    => $daysRemaining,
+                'id'                  => $order->id,
+                'no_po'               => $order->no_po,
+                'nama_po'             => $order->nama_po,
+                'pelanggan'           => $order->pelanggan?->nama,
+                'brand_kode'          => $order->brand?->kode,
+                'brand_warna'         => $order->brand?->warna_primary,
+                'deadline_customer'   => $order->deadline_customer ? \Carbon\Carbon::parse((string) $order->deadline_customer)->format('Y-m-d') : null,
+                'end_production_date' => $order->end_production_date ? \Carbon\Carbon::parse((string) $order->end_production_date)->format('Y-m-d') : null,
+                'effective_deadline'  => $effectiveDeadline ? \Carbon\Carbon::parse((string) $effectiveDeadline)->format('Y-m-d') : null,
+                'is_locked'           => $order->isLocked(),
+                'is_special_order'    => (bool) $order->is_special_order,
+                'has_rijek'           => $order->has_rijek > 0,
+                'total_items'         => (int) ($order->items_sum_quantity ?? 0),
+                'days_remaining'      => $daysRemaining,
                 'paket_order'       => $order->paketOrder ? [
                     'nama'      => $order->paketOrder->nama,
                     'warna'     => $order->paketOrder->warna,
