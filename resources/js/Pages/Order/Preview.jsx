@@ -873,7 +873,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
 
 
                                         {/* Bypass DP */}
-                                        {can?.bypass_dp && order.status_po === 'draft' && (!isDpSufficient || order.is_dp_bypassed) && (
+                                        {can?.bypass_dp && order.status_po === 'draft' && (!isDpSufficient || order.is_dp_bypassed || order.is_special_order) && (
                                             <DropdownMenuItem
                                                 onClick={bypassDp}
                                                 className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md"
