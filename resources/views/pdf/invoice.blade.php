@@ -573,8 +573,13 @@ $primaryColor = $invoice->brand?->warna_primary
                         </td>
                     </tr>
 
-                    <!-- Ongkir -->
-                    @if ($invoice->order?->is_free_ongkir)
+                    <!-- Ongkir / Pengiriman -->
+                    @if ($invoice->order?->isPickupCod())
+                    <tr>
+                        <td style="padding: 4px 0; color: #6B7280;">Pengiriman</td>
+                        <td style="padding: 4px 0; text-align: right; color: #0891b2; font-weight: bold;">Ambil di Tempat / COD</td>
+                    </tr>
+                    @elseif ($invoice->order?->isFreeOngkir())
                     <tr>
                         <td style="padding: 4px 0; color: #6B7280;">Ongkir{{ $invoice->jasa_pengiriman ? ' (' . $invoice->jasa_pengiriman . ')' : '' }}</td>
                         <td style="padding: 4px 0; text-align: right; color: #059669; font-weight: bold;">Gratis Ongkir</td>

@@ -363,22 +363,29 @@ export default function Track({ po_number, found, order, brand, invoice, invoice
                             ) : null}
 
                             {/* Ekspedisi & Resi */}
-                            {(order.nama_ekspedisi || order.no_resi) && (
+                            {(order.nama_ekspedisi || order.no_resi || order.tipe_pengiriman === 'pickup_cod' || order.is_free_ongkir) && (
                                 <div className="rounded-2xl border bg-violet-50 border-violet-200 p-5 shadow-sm">
-                                    <div className="mb-3 flex items-center gap-2 font-semibold text-violet-800">
-                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" /></svg>
-                                        Info Pengiriman
+                                    <div className="mb-3 flex items-center justify-between font-semibold text-violet-800">
+                                        <div className="flex items-center gap-2">
+                                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" /></svg>
+                                            Info Pengiriman
+                                        </div>
+                                        {order.tipe_pengiriman === 'pickup_cod' ? (
+                                            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-cyan-100 text-cyan-800 border border-cyan-200">AMBIL DI TEMPAT / COD</span>
+                                        ) : (order.is_free_ongkir || order.tipe_pengiriman === 'free_ongkir') ? (
+                                            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-200">GRATIS ONGKIR</span>
+                                        ) : null}
                                     </div>
                                     <div className="grid grid-cols-2 gap-3 text-sm">
                                         {order.nama_ekspedisi && (
                                             <div className="rounded-lg bg-white border border-violet-100 p-3">
-                                                <div className="text-xs text-violet-500 font-medium">Ekspedisi</div>
+                                                <div className="text-xs text-violet-500 font-medium">Ekspedisi / Kurir</div>
                                                 <div className="font-bold text-violet-900 mt-0.5">{order.nama_ekspedisi}</div>
                                             </div>
                                         )}
                                         {order.no_resi && (
                                             <div className="rounded-lg bg-white border border-violet-100 p-3">
-                                                <div className="text-xs text-violet-500 font-medium">No. Resi</div>
+                                                <div className="text-xs text-violet-500 font-medium">No. Resi / Catatan</div>
                                                 <div className="font-mono font-bold text-violet-900 mt-0.5 break-all">{order.no_resi}</div>
                                             </div>
                                         )}

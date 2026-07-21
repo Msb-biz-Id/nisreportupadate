@@ -81,14 +81,20 @@ function UpdateModal({ order, detail, open, onOpenChange }) {
                         {isSending && data.status === 'selesai' && (
                             <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 space-y-3">
                                 <p className="text-xs font-black text-violet-700 uppercase tracking-wide">Data Pengiriman</p>
+                                {order?.tipe_pengiriman === 'pickup_cod' ? (
+                                    <div className="col-span-2 rounded-lg border border-cyan-200 bg-cyan-50 p-3 text-xs text-cyan-800 font-medium">
+                                        ℹ️ Order ini menggunakan metode <strong>Ambil di Tempat / COD</strong>. Pengisian nama ekspedisi & resi bersifat opsional.
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <Label>Nama Ekspedisi <span className="text-destructive">*</span></Label>
+                                        <Input value={data.nama_ekspedisi} onChange={(e) => setData('nama_ekspedisi', e.target.value)} placeholder="JNE / J&T / SiCepat / dll" className="mt-1.5" required={order?.tipe_pengiriman !== 'pickup_cod'} />
+                                        {errors.nama_ekspedisi && <p className="mt-1 text-xs text-destructive">{errors.nama_ekspedisi}</p>}
+                                    </div>
+                                )}
                                 <div>
-                                    <Label>Nama Ekspedisi <span className="text-destructive">*</span></Label>
-                                    <Input value={data.nama_ekspedisi} onChange={(e) => setData('nama_ekspedisi', e.target.value)} placeholder="JNE / J&T / SiCepat / dll" className="mt-1.5" required />
-                                    {errors.nama_ekspedisi && <p className="mt-1 text-xs text-destructive">{errors.nama_ekspedisi}</p>}
-                                </div>
-                                <div>
-                                    <Label>Nomor Resi</Label>
-                                    <Input value={data.no_resi} onChange={(e) => setData('no_resi', e.target.value)} placeholder="Nomor resi pengiriman" className="mt-1.5 font-mono" />
+                                    <Label>Nomor Resi / Keterangan</Label>
+                                    <Input value={data.no_resi} onChange={(e) => setData('no_resi', e.target.value)} placeholder={order?.tipe_pengiriman === 'pickup_cod' ? "Misal: Diambil oleh Pak Budi" : "Nomor resi pengiriman"} className="mt-1.5 font-mono text-xs" />
                                 </div>
                             </div>
                         )}

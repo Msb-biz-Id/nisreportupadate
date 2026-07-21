@@ -2001,6 +2001,95 @@ class OrderLifecycleTest extends TestCase
             'description' => "Membatalkan bypass minimal DP untuk PO PO-BYPASS-TEST",
         ]);
     }
+
+    public function test_order_creation_and_fulfillment_for_all_three_shipping_modes(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $adminBrand = $this->makeUser('admin_brand', [$brand]);
+        $customer = \App\Models\Master\Customer::where('brand_id', $brand->id)->first();
+        $bank = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->first();
+        $product = \App\Models\Master\Product::where('brand_id', $brand->id)->first();
+
+        // Mode 1: Ongkir Berbayar
+        $res1 = $this->actingAsWithBrand($adminBrand, $brand)->post(route('orders.store'), [
+            'nama_po' => 'PO Ongkir Berbayar',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'bank_id' => $bank->id,
+            'tipe_pengiriman' => 'ongkir',
+            'ongkir' => 50000,
+            'items' => [
+                [
+                    'product_id' => $product->id,
+                    'nama_produk' => 'Jersey Mode 1',
+                    'quantity' => 2,
+                    'harga_satuan' => 100000,
+                    'jml_atasan' => '2',
+                ]
+            ]
+        ]);
+        $res1->assertSessionHasNoErrors();
+        $res1->assertStatus(302);
+        $o1 = Order::where('nama_po', 'PO Ongkir Berbayar')->first();
+        $this->assertEquals('ongkir', $o1->tipe_pengiriman);
+        $this->assertEquals(50000, $o1->ongkir);
+        $this->assertEquals(250000, $o1->total_tagihan);
+
+        // Mode 2: Free Ongkir
+        $res2 = $this->actingAsWithBrand($adminBrand, $brand)->post(route('orders.store'), [
+            'nama_po' => 'PO Free Ongkir',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'bank_id' => $bank->id,
+            'tipe_pengiriman' => 'free_ongkir',
+            'ongkir' => 0,
+            'items' => [
+                [
+                    'product_id' => $product->id,
+                    'nama_produk' => 'Jersey Mode 2',
+                    'quantity' => 2,
+                    'harga_satuan' => 100000,
+                    'jml_atasan' => '2',
+                ]
+            ]
+        ]);
+        $res2->assertSessionHasNoErrors();
+        $res2->assertStatus(302);
+        $o2 = Order::where('nama_po', 'PO Free Ongkir')->first();
+        $this->assertEquals('free_ongkir', $o2->tipe_pengiriman);
+        $this->assertTrue($o2->isFreeOngkir());
+        $this->assertEquals(0, $o2->ongkir);
+        $this->assertEquals(200000, $o2->total_tagihan);
+
+        // Mode 3: Ambil di Tempat / COD
+        $res3 = $this->actingAsWithBrand($adminBrand, $brand)->post(route('orders.store'), [
+            'nama_po' => 'PO Pickup COD',
+            'tanggal_masuk' => now()->toDateString(),
+            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'pelanggan_id' => $customer->id,
+            'bank_id' => $bank->id,
+            'tipe_pengiriman' => 'pickup_cod',
+            'ongkir' => 0,
+            'items' => [
+                [
+                    'product_id' => $product->id,
+                    'nama_produk' => 'Jersey Mode 3',
+                    'quantity' => 2,
+                    'harga_satuan' => 100000,
+                    'jml_atasan' => '2',
+                ]
+            ]
+        ]);
+        $res3->assertSessionHasNoErrors();
+        $res3->assertStatus(302);
+        $o3 = Order::where('nama_po', 'PO Pickup COD')->first();
+        $this->assertEquals('pickup_cod', $o3->tipe_pengiriman);
+        $this->assertTrue($o3->isPickupCod());
+        $this->assertEquals(0, $o3->ongkir);
+        $this->assertEquals(200000, $o3->total_tagihan);
+    }
 }
 
 

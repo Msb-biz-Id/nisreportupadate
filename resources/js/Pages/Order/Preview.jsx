@@ -752,7 +752,11 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                 <div className="flex flex-wrap items-center gap-2">
                                     <h2 className="text-2xl font-bold font-mono">{order.no_po}</h2>
                                     <Badge variant={st.variant}>{st.label}</Badge>
-                                    {order.is_free_ongkir && <Badge variant="success" className="bg-emerald-500 hover:bg-emerald-600">Free Ongkir</Badge>}
+                                    {order.tipe_pengiriman === 'pickup_cod' ? (
+                                        <Badge variant="outline" className="border-cyan-300 bg-cyan-50 text-cyan-800 font-extrabold">Ambil di Tempat / COD</Badge>
+                                    ) : (order.is_free_ongkir || order.tipe_pengiriman === 'free_ongkir') ? (
+                                        <Badge variant="success" className="bg-emerald-500 hover:bg-emerald-600">Free Ongkir</Badge>
+                                    ) : null}
                                     {order.is_special_order && <Badge variant="warning">Special Order</Badge>}
                                     {order.is_reseller_price && <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">Harga Reseller</Badge>}
                                     {order.is_repeat_order && <Badge variant="outline"><RotateCw className="mr-1 h-3 w-3" />Repeat</Badge>}
@@ -1399,7 +1403,9 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     {totalDiskon > 0 && (
                                         <div className="flex justify-between text-rose-600"><span className="text-muted-foreground text-rose-600">Total Diskon</span><span className="font-mono">- {formatRupiah(totalDiskon)}</span></div>
                                     )}
-                                    {order.is_free_ongkir ? (
+                                    {order.tipe_pengiriman === 'pickup_cod' ? (
+                                        <div className="flex justify-between text-cyan-600 font-medium"><span className="text-muted-foreground text-cyan-600 font-medium">Pengiriman</span><span className="font-mono">Ambil di Tempat / COD</span></div>
+                                    ) : (order.is_free_ongkir || order.tipe_pengiriman === 'free_ongkir') ? (
                                         <div className="flex justify-between text-emerald-600 font-medium"><span className="text-muted-foreground text-emerald-600">Ongkir</span><span className="font-mono">Gratis Ongkir</span></div>
                                     ) : (
                                         (Number(order.ongkir) > 0 || invoice?.biaya_pengiriman > 0 || (ongkirPayments && ongkirPayments.reduce((s, x) => s + Number(x.amount), 0) > 0)) && (

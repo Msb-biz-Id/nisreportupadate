@@ -229,7 +229,7 @@ class ProductionController extends Controller
             'catatan'        => ['nullable', 'string'],
             'kendala'        => ['nullable', 'string'],
             'skipped_reason' => ['required_if:status,skipped', 'nullable', 'string'],
-            'nama_ekspedisi' => [$isSending && $request->input('status') === 'selesai' ? 'required' : 'nullable', 'string', 'max:100'],
+            'nama_ekspedisi' => [$isSending && $request->input('status') === 'selesai' && ! $order->isPickupCod() ? 'required' : 'nullable', 'string', 'max:100'],
             'no_resi'        => ['nullable', 'string', 'max:100'],
         ]);
 
@@ -245,7 +245,7 @@ class ProductionController extends Controller
 
         if ($isSending && $data['status'] === 'selesai') {
             $order->update([
-                'nama_ekspedisi' => $data['nama_ekspedisi'] ?? null,
+                'nama_ekspedisi' => $order->isPickupCod() ? ($data['nama_ekspedisi'] ?: 'Ambil di Tempat / COD') : ($data['nama_ekspedisi'] ?? null),
                 'no_resi'        => $data['no_resi'] ?? null,
             ]);
         }

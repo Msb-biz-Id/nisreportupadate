@@ -410,9 +410,10 @@ class OrderController extends Controller
                 'nama_po' => $data['nama_po'],
                 'status_po' => 'draft',
                 'is_special_order' => $data['is_special_order'] ?? false,
-                'is_free_ongkir' => $data['is_free_ongkir'] ?? false,
+                'is_free_ongkir' => ($data['tipe_pengiriman'] ?? '') === 'free_ongkir' || ($data['is_free_ongkir'] ?? false),
+                'tipe_pengiriman' => $data['tipe_pengiriman'] ?? (($data['is_free_ongkir'] ?? false) ? 'free_ongkir' : 'ongkir'),
                 'is_reseller_price' => $data['is_reseller_price'] ?? false,
-                'ongkir' => ($data['is_free_ongkir'] ?? false) ? 0.0 : ($data['ongkir'] ?? 0.0),
+                'ongkir' => (in_array(($data['tipe_pengiriman'] ?? ''), ['free_ongkir', 'pickup_cod'], true) || ($data['is_free_ongkir'] ?? false)) ? 0.0 : ($data['ongkir'] ?? 0.0),
                 'tanggal_masuk' => $data['tanggal_masuk'],
                 'deadline_customer' => $data['deadline_customer'],
                 'kategori_order_id' => $data['kategori_order_id'] ?? null,
@@ -527,9 +528,10 @@ class OrderController extends Controller
                 'nama_po' => $data['nama_po'],
                 'reseller_display_brand_id' => $data['reseller_display_brand_id'] ?? null,
                 'is_special_order' => $data['is_special_order'] ?? false,
-                'is_free_ongkir' => $data['is_free_ongkir'] ?? false,
+                'is_free_ongkir' => ($data['tipe_pengiriman'] ?? '') === 'free_ongkir' || ($data['is_free_ongkir'] ?? false),
+                'tipe_pengiriman' => $data['tipe_pengiriman'] ?? (($data['is_free_ongkir'] ?? false) ? 'free_ongkir' : 'ongkir'),
                 'is_reseller_price' => $data['is_reseller_price'] ?? false,
-                'ongkir' => ($data['is_free_ongkir'] ?? false) ? 0.0 : ($data['ongkir'] ?? 0.0),
+                'ongkir' => (in_array(($data['tipe_pengiriman'] ?? ''), ['free_ongkir', 'pickup_cod'], true) || ($data['is_free_ongkir'] ?? false)) ? 0.0 : ($data['ongkir'] ?? 0.0),
                 'tanggal_masuk' => $data['tanggal_masuk'],
                 'deadline_customer' => $data['deadline_customer'],
                 'kategori_order_id' => $data['kategori_order_id'] ?? null,
@@ -727,8 +729,8 @@ class OrderController extends Controller
         abort_unless($order->isDraft(), 422, 'PO sudah diterbitkan.');
         abort_if($order->items()->count() === 0, 422, 'PO tanpa produk tidak bisa diterbitkan.');
 
-        if (!app()->environment('testing') && !$order->is_free_ongkir && (float)$order->ongkir <= 0) {
-            return back()->with('error', 'PO tidak bisa diterbitkan. Harap edit PO terlebih dahulu untuk mengisi Biaya Ongkir atau mengaktifkan Gratis Ongkir.');
+        if (!app()->environment('testing') && !$order->isFreeOngkir() && !$order->isPickupCod() && (float)$order->ongkir <= 0) {
+            return back()->with('error', 'PO tidak bisa diterbitkan. Harap edit PO terlebih dahulu untuk mengisi Biaya Ongkir atau memilih Gratis Ongkir / Ambil di Tempat.');
         }
 
         // DP check: total verified payments must reach the brand's minimum DP percentage.
@@ -1821,6 +1823,7 @@ class OrderController extends Controller
             'change_reason' => ['nullable', 'string', 'max:255'],
             'is_special_order' => ['nullable', 'boolean'],
             'is_free_ongkir' => ['nullable', 'boolean'],
+            'tipe_pengiriman' => ['nullable', 'string', 'in:ongkir,free_ongkir,pickup_cod'],
             'is_reseller_price' => ['nullable', 'boolean'],
             'ongkir' => ['nullable', 'numeric', 'min:0'],
             'tanggal_masuk' => ['required', 'date'],

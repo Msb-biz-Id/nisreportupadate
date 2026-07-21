@@ -32,7 +32,7 @@ class Order extends Model
     ];
 
     protected $fillable = [
-        'brand_id', 'reseller_display_brand_id', 'no_po', 'nama_po', 'status_po', 'is_special_order', 'is_free_ongkir', 'is_reseller_price', 'ongkir',
+        'brand_id', 'reseller_display_brand_id', 'no_po', 'nama_po', 'status_po', 'is_special_order', 'is_free_ongkir', 'tipe_pengiriman', 'is_reseller_price', 'ongkir',
         'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date',
         'kategori_order_id', 'jenis_order_id', 'sumber_order_id', 'paket_order_id',
         'jenis_setelan_id', 'pola_produksi_id',
@@ -45,6 +45,27 @@ class Order extends Model
         'is_dp_bypassed', 'dp_bypassed_by', 'dp_bypassed_at',
         'created_by', 'updated_by',
     ];
+
+    public function getTipePengirimanAttribute(?string $value): string
+    {
+        if (!empty($value)) {
+            return $value;
+        }
+        if ($this->is_free_ongkir) {
+            return 'free_ongkir';
+        }
+        return 'ongkir';
+    }
+
+    public function isPickupCod(): bool
+    {
+        return $this->tipe_pengiriman === 'pickup_cod';
+    }
+
+    public function isFreeOngkir(): bool
+    {
+        return (bool) $this->is_free_ongkir || $this->tipe_pengiriman === 'free_ongkir';
+    }
 
     protected $casts = [
         'tanggal_masuk' => 'date',
@@ -153,7 +174,7 @@ class Order extends Model
             ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'return')
             ->sum('amount');
         
-        $ongkirCharge = $this->is_free_ongkir ? 0.0 : (float) ($this->ongkir > 0 ? $this->ongkir : $ongkir_payment);
+        $ongkirCharge = ($this->isFreeOngkir() || $this->isPickupCod()) ? 0.0 : (float) ($this->ongkir > 0 ? $this->ongkir : $ongkir_payment);
         
         return max(0, $subtotal + $penambahan + $ongkirCharge + $tambahan - $pengurangan - $cashback - $return);
     }

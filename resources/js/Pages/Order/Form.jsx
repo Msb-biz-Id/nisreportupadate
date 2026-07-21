@@ -1365,6 +1365,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
         nama_po: order?.nama_po ?? '',
         is_special_order: order?.is_special_order ?? false,
         is_free_ongkir: order?.is_free_ongkir ?? false,
+        tipe_pengiriman: order?.tipe_pengiriman ?? (order?.is_free_ongkir ? 'free_ongkir' : (Number(order?.ongkir) > 0 ? 'ongkir' : 'ongkir')),
         is_reseller_price: order?.is_reseller_price ?? false,
         ongkir: order?.ongkir !== undefined ? Number(order.ongkir) : 0,
         tanggal_masuk: order?.tanggal_masuk?.slice?.(0, 10) ?? new Date().toISOString().slice(0, 10),
@@ -1623,23 +1624,48 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                 />
                             </div>
 
-                            {/* Free Ongkir Switch */}
-                            <div className="flex items-center gap-2.5 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700 flex-wrap sm:flex-nowrap">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-extrabold text-[10px] text-slate-300 uppercase tracking-wide">Gratis Ongkir</span>
-                                    <Switch 
-                                        className="scale-90"
-                                        checked={data.is_free_ongkir} 
-                                        onCheckedChange={(v) => {
-                                            setData((prev) => ({
-                                                ...prev,
-                                                is_free_ongkir: v,
-                                                ongkir: v ? 0 : prev.ongkir
-                                            }));
-                                        }} 
-                                    />
+                            {/* 3-Way Mode Pengiriman Selector */}
+                            <div className="flex items-center gap-1.5 bg-slate-800/90 p-1 rounded-lg border border-slate-700 flex-wrap sm:flex-nowrap">
+                                <div className="flex items-center gap-1 bg-slate-900/60 p-0.5 rounded-md">
+                                    <button
+                                        type="button"
+                                        onClick={() => setData((prev) => ({ ...prev, tipe_pengiriman: 'ongkir', is_free_ongkir: false }))}
+                                        className={`px-2.5 py-1 text-[10px] font-black rounded uppercase tracking-wider transition-all flex items-center gap-1 ${
+                                            (data.tipe_pengiriman === 'ongkir' || (!data.tipe_pengiriman && !data.is_free_ongkir))
+                                                ? 'bg-red-600 text-white shadow-sm'
+                                                : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                                        }`}
+                                        title="Ekspedisi / Ongkir Berbayar"
+                                    >
+                                        🚚 Ongkir
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setData((prev) => ({ ...prev, tipe_pengiriman: 'free_ongkir', is_free_ongkir: true, ongkir: 0 }))}
+                                        className={`px-2.5 py-1 text-[10px] font-black rounded uppercase tracking-wider transition-all flex items-center gap-1 ${
+                                            (data.tipe_pengiriman === 'free_ongkir' || data.is_free_ongkir)
+                                                ? 'bg-emerald-600 text-white shadow-sm'
+                                                : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                                        }`}
+                                        title="Gratis Ongkir (Ditanggung Penjual)"
+                                    >
+                                        🎁 Free Ongkir
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setData((prev) => ({ ...prev, tipe_pengiriman: 'pickup_cod', is_free_ongkir: false, ongkir: 0 }))}
+                                        className={`px-2.5 py-1 text-[10px] font-black rounded uppercase tracking-wider transition-all flex items-center gap-1 ${
+                                            data.tipe_pengiriman === 'pickup_cod'
+                                                ? 'bg-cyan-600 text-white shadow-sm'
+                                                : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                                        }`}
+                                        title="Pelanggan Ambil Sendiri di Tempat / COD"
+                                    >
+                                        🏠 Ambil di Tempat / COD
+                                    </button>
                                 </div>
-                                {!data.is_free_ongkir && (
+
+                                {(data.tipe_pengiriman === 'ongkir' || (!data.tipe_pengiriman && !data.is_free_ongkir)) && (
                                     <div className="flex items-center gap-1.5 border-t sm:border-t-0 sm:border-l border-slate-700 pt-1.5 sm:pt-0 sm:pl-2">
                                         <span className="text-[9px] text-slate-400 uppercase font-extrabold">Biaya:</span>
                                         <input 

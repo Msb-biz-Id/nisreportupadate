@@ -238,7 +238,12 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                             <span>- {formatRupiah(diskonNominal)}</span>
                         </div>
                     )}
-                    {invoice.order?.is_free_ongkir ? (
+                    {invoice.order?.tipe_pengiriman === 'pickup_cod' ? (
+                        <div className="flex justify-between text-black">
+                            <span>Pengiriman</span>
+                            <span className="font-bold">Ambil di Tempat / COD</span>
+                        </div>
+                    ) : (invoice.order?.is_free_ongkir || invoice.order?.tipe_pengiriman === 'free_ongkir') ? (
                         <div className="flex justify-between text-black">
                             <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}</span>
                             <span className="font-bold">GRATIS</span>
@@ -535,11 +540,15 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${status.class}`}>
                                         {status.label.toUpperCase()}
                                     </span>
-                                    {invoice.order?.is_free_ongkir && (
+                                    {invoice.order?.tipe_pengiriman === 'pickup_cod' ? (
+                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border border-cyan-200 bg-cyan-50 text-cyan-800 shadow-sm">
+                                            AMBIL DI TEMPAT / COD
+                                        </span>
+                                    ) : (invoice.order?.is_free_ongkir || invoice.order?.tipe_pengiriman === 'free_ongkir') ? (
                                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border border-emerald-250 bg-emerald-150 text-emerald-750 shadow-sm">
                                             FREE ONGKIR
                                         </span>
-                                    )}
+                                    ) : null}
                                 </div>
                             </div>
                         </div>
@@ -581,11 +590,15 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                         Promo: <strong className="text-emerald-700">{invoice.order.iklan.nama}{invoice.order.iklan.platform ? ` (${invoice.order.iklan.platform})` : ''}</strong>
                                     </div>
                                 )}
-                                {invoice.order?.is_free_ongkir && (
+                                {invoice.order?.tipe_pengiriman === 'pickup_cod' ? (
+                                    <div className="text-xs text-slate-600 mt-1 font-medium">
+                                        Status: <strong className="text-cyan-700">Ambil di Tempat / COD</strong>
+                                    </div>
+                                ) : (invoice.order?.is_free_ongkir || invoice.order?.tipe_pengiriman === 'free_ongkir') ? (
                                     <div className="text-xs text-slate-600 mt-1 font-medium">
                                         Status: <strong className="text-emerald-700">Bebas Ongkir (Free Ongkir)</strong>
                                     </div>
-                                )}
+                                ) : null}
                             </div>
                         </div>
 
@@ -842,7 +855,12 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                     );
                                 })()}
 
-                                {invoice.order?.is_free_ongkir ? (
+                                {invoice.order?.tipe_pengiriman === 'pickup_cod' ? (
+                                    <div className="flex justify-between items-center text-xs font-bold text-cyan-700">
+                                        <span>Metode Pengiriman</span>
+                                        <span className="font-mono">Ambil di Tempat / COD</span>
+                                    </div>
+                                ) : (invoice.order?.is_free_ongkir || invoice.order?.tipe_pengiriman === 'free_ongkir') ? (
                                     <div className="flex justify-between items-center text-xs font-bold text-emerald-600">
                                         <span>Ongkir {invoice.jasa_pengiriman ? `(${invoice.jasa_pengiriman})` : ''}</span>
                                         <span className="font-mono">Gratis Ongkir</span>
