@@ -246,12 +246,20 @@ class ReportRunner
 
     private function monitoringDeadline(string|array|null $brandId, array $filters): array
     {
-        $threshold = (int) ($filters['threshold'] ?? 7);
+        $threshold = isset($filters['threshold']) ? (int) $filters['threshold'] : 7;
+        $from = $filters['from'] ?? null;
+        $to = $filters['to'] ?? null;
 
         $orders = Order::query()
             ->when($brandId, $this->bf($brandId))
             ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
-            ->whereRaw('COALESCE(end_production_date, deadline_customer) <= ?', [Carbon::now()->addDays($threshold)->toDateString()])
+            ->when($from && $to, function ($q) use ($from, $to) {
+                $q->whereBetween(DB::raw('COALESCE(end_production_date, deadline_customer)'), [$from, $to]);
+            }, function ($q) use ($threshold) {
+                if ($threshold > 0) {
+                    $q->whereRaw('COALESCE(end_production_date, deadline_customer) <= ?', [Carbon::now()->addDays($threshold)->toDateString()]);
+                }
+            })
             ->with(['pelanggan:id,nama', 'brand:id,nama_brand', 'items:id,order_id,is_addon,quantity,jml_atasan'])
             ->orderByRaw('COALESCE(end_production_date, deadline_customer) ASC')
             ->get();
@@ -1004,16 +1012,29 @@ class ReportRunner
         $start = Carbon::parse($started);
         $end = $completed ? Carbon::parse($completed) : Carbon::now();
         
-        $diffInHours = $start->diffInHours($end);
+        $totalMinutes = (int) round(abs($start->diffInMinutes($end)));
         
-        if ($diffInHours < 1) {
-            return '< 1 jam' . ($isActive ? ' (Aktif)' : '');
-        } elseif ($diffInHours < 24) {
-            return $diffInHours . ' jam' . ($isActive ? ' (Aktif)' : '');
-        } else {
-            $days = round($diffInHours / 24, 1);
-            return $days . ' hari' . ($isActive ? ' (Aktif)' : '');
+        if ($totalMinutes < 5) {
+            return '< 5 mnt' . ($isActive ? ' (Aktif)' : '');
         }
+        
+        if ($totalMinutes < 60) {
+            return $totalMinutes . ' mnt' . ($isActive ? ' (Aktif)' : '');
+        }
+        
+        $hours = (int) floor($totalMinutes / 60);
+        $minutes = $totalMinutes % 60;
+        
+        if ($hours < 24) {
+            $formatted = $minutes > 0 ? "{$hours} jam {$minutes} mnt" : "{$hours} jam";
+            return $formatted . ($isActive ? ' (Aktif)' : '');
+        }
+        
+        $days = (int) floor($hours / 24);
+        $remainingHours = $hours % 24;
+        
+        $formatted = $remainingHours > 0 ? "{$days} hr {$remainingHours} jam" : "{$days} hari";
+        return $formatted . ($isActive ? ' (Aktif)' : '');
     }
 
     private function kinerjaProduksi(string|array|null $brandId, array $filters): array
@@ -1087,12 +1108,7 @@ class ReportRunner
                     $productionEnd = Carbon::now();
                 }
                 
-                $diffInHours = $productionStart->diffInHours($productionEnd);
-                if ($diffInHours < 24) {
-                    $durasiTotal = $diffInHours . ' jam';
-                } else {
-                    $durasiTotal = round($diffInHours / 24, 1) . ' hari';
-                }
+                $durasiTotal = $this->formatDuration($productionStart, $productionEnd, false);
             }
 
             $row = [

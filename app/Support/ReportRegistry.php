@@ -103,7 +103,7 @@ class ReportRegistry
                 'icon' => 'AlarmClock',
                 'group' => 'operasional',
                 'description' => 'PO mendekati deadline produksi atau sudah terlambat.',
-                'filters' => ['threshold', 'brand'],
+                'filters' => ['date_range', 'threshold', 'brand'],
                 'columns' => [
                     ['key' => 'deadline_produksi', 'label' => 'Deadline Produksi', 'format' => 'date'],
                     ['key' => 'days', 'label' => 'Hari Produksi', 'format' => 'days_indicator'],
