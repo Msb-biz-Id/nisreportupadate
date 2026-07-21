@@ -315,21 +315,30 @@ class DashboardService
                 $totalOrder      = (clone $baseOrder)->count();
                 $totalRevenue    = (clone $baseOrder)->sum('total_tagihan');
 
-                $perBrand = Order::query()
+                $ordersSummary = Order::query()
                     ->when($brandId && $brandId !== 'all', $this->bf($brandId))
-                    ->leftJoin(DB::raw('(SELECT order_id, SUM(CASE WHEN jml_atasan IS NOT NULL AND jml_atasan != \'\' THEN CAST(jml_atasan AS UNSIGNED) ELSE quantity END) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
-                    ->select('orders.brand_id', DB::raw('COUNT(orders.id) as total'), DB::raw('SUM(orders.total_tagihan) as revenue'), DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_pcs'))
-                    ->groupBy('orders.brand_id')
+                    ->select('brand_id', DB::raw('COUNT(id) as total'), DB::raw('SUM(total_tagihan) as revenue'))
+                    ->groupBy('brand_id')
                     ->with('brand:id,nama_brand,kode,warna_primary')
-                    ->get()
-                    ->map(fn ($r) => [
-                        'brand'     => $r->brand?->nama_brand ?? '-',
-                        'kode'      => $r->brand?->kode,
-                        'warna'     => $r->brand?->warna_primary,
-                        'total'     => (int) $r->total,
-                        'revenue'   => (float) $r->revenue,
-                        'total_pcs' => (int) $r->total_pcs,
-                    ]);
+                    ->get();
+
+                $pcsByBrand = OrderItem::query()
+                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                    ->where('order_items.is_addon', false)
+                    ->when($brandId && $brandId !== 'all', $this->obf($brandId))
+                    ->select('orders.brand_id', DB::raw('SUM(COALESCE(NULLIF(order_items.jml_atasan, ""), order_items.quantity)) as total_pcs'))
+                    ->groupBy('orders.brand_id')
+                    ->pluck('total_pcs', 'orders.brand_id')
+                    ->toArray();
+
+                $perBrand = $ordersSummary->map(fn ($r) => [
+                    'brand'     => $r->brand?->nama_brand ?? '-',
+                    'kode'      => $r->brand?->kode,
+                    'warna'     => $r->brand?->warna_primary,
+                    'total'     => (int) $r->total,
+                    'revenue'   => (float) $r->revenue,
+                    'total_pcs' => (int) ($pcsByBrand[$r->brand_id] ?? 0),
+                ]);
 
                 return [
                     'cards' => [
@@ -388,21 +397,32 @@ class DashboardService
                         ['label' => 'Rijek Rate',            'value' => $rejectRate.'%',           'icon' => 'AlertTriangle', 'accent' => 'red'],
                     ],
                     'owned_brands' => Brand::whereIn('id', $ownedBrandIds)->get(['id', 'nama_brand', 'kode', 'warna_primary']),
-            'brand_performance' => Order::query()
-                ->whereIn('orders.brand_id', $opBrandIds)
-                ->leftJoin(DB::raw('(SELECT order_id, SUM(CASE WHEN jml_atasan IS NOT NULL AND jml_atasan != \'\' THEN CAST(jml_atasan AS UNSIGNED) ELSE quantity END) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
-                ->select('orders.brand_id', DB::raw('COUNT(orders.id) as total'), DB::raw('SUM(orders.total_tagihan) as revenue'), DB::raw('COALESCE(SUM(items_sum.qty), 0) as total_pcs'))
-                ->groupBy('orders.brand_id')
-                ->with('brand:id,nama_brand,kode,warna_primary')
-                ->get()
-                ->map(fn ($r) => [
+            'brand_performance' => (function() use ($opBrandIds) {
+                $ordersSummary = Order::query()
+                    ->whereIn('orders.brand_id', $opBrandIds)
+                    ->select('orders.brand_id', DB::raw('COUNT(orders.id) as total'), DB::raw('SUM(orders.total_tagihan) as revenue'))
+                    ->groupBy('orders.brand_id')
+                    ->with('brand:id,nama_brand,kode,warna_primary')
+                    ->get();
+
+                $pcsByBrand = OrderItem::query()
+                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                    ->where('order_items.is_addon', false)
+                    ->whereIn('orders.brand_id', $opBrandIds)
+                    ->select('orders.brand_id', DB::raw('SUM(COALESCE(NULLIF(order_items.jml_atasan, ""), order_items.quantity)) as total_pcs'))
+                    ->groupBy('orders.brand_id')
+                    ->pluck('total_pcs', 'orders.brand_id')
+                    ->toArray();
+
+                return $ordersSummary->map(fn ($r) => [
                     'brand'     => $r->brand?->nama_brand,
                     'kode'      => $r->brand?->kode,
                     'warna'     => $r->brand?->warna_primary,
                     'total'     => (int) $r->total,
                     'revenue'   => (float) $r->revenue,
-                    'total_pcs' => (int) $r->total_pcs,
-                ]),
+                    'total_pcs' => (int) ($pcsByBrand[$r->brand_id] ?? 0),
+                ]);
+            })(),
             'status_breakdown'              => $this->statusBreakdown($opBrandIds),
             'progress_distribution'         => $this->progressDistribution($opBrandIds),
             'trend_harian'                  => $this->trendHarian($opBrandIds, 14),
