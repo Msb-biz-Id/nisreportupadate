@@ -77,27 +77,27 @@ export function renderFormattedText(text) {
     if (text === null || text === undefined || text === '') return '';
     const textStr = String(text);
 
-    // Regex matching CJK, Arabic, and Javanese unicode blocks
-    const regex = /([\u3000-\u303F\u3040-\u309F\u30A0-\u30FF\uFF00-\uFFEF\u4E00-\u9FAF\u3400-\u4DBF]+)|([\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+)|([\uA980-\uA9DF]+)/g;
+    const cjkPattern = /[\u3000-\u303F\u3040-\u309F\u30A0-\u30FF\uFF00-\uFFEF\u4E00-\u9FAF\u3400-\u4DBF]+/;
+    const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+(?:\s+[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9]+)*/;
+    const javanesePattern = /[\uA980-\uA9DF]+/;
+
+    const regex = new RegExp(`(${cjkPattern.source})|(${arabicPattern.source})|(${javanesePattern.source})`, 'g');
 
     const parts = [];
     let lastIndex = 0;
     let match;
 
-    // Reset regex state
     regex.lastIndex = 0;
 
     while ((match = regex.exec(textStr)) !== null) {
         const index = match.index;
         const matchedStr = match[0];
 
-        // Add preceding normal text
         if (index > lastIndex) {
             parts.push(textStr.substring(lastIndex, index));
         }
 
         if (match[1]) {
-            // CJK characters
             parts.push(
                 React.createElement(
                     'span',
@@ -106,7 +106,6 @@ export function renderFormattedText(text) {
                 )
             );
         } else if (match[2]) {
-            // Arabic characters (native browser layout handles bidirectional and shaping, but needs the font)
             parts.push(
                 React.createElement(
                     'span',
@@ -115,7 +114,6 @@ export function renderFormattedText(text) {
                 )
             );
         } else if (match[3]) {
-            // Javanese characters
             parts.push(
                 React.createElement(
                     'span',

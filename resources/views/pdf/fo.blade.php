@@ -45,14 +45,6 @@
             .arabic-font {
                 font-family: 'Noto Sans Arabic', sans-serif !important;
                 text-transform: none !important;
-                /*
-             * ArPHP::utf8Glyphs() sudah mengubah teks Arab ke visual-order (pre-shaped).
-             * JANGAN pakai direction:rtl karena DOMPDF tidak bisa melakukan BiDi reorder
-             * dan justru akan membalik ulang karakter yang sudah di-reshape.
-             * Biarkan DOMPDF render dari kiri-ke-kanan (LTR) seperti teks biasa.
-             */
-                direction: ltr;
-                unicode-bidi: bidi-override;
             }
 
             /* === CSS TEMPLATE DASAR PDF A4 (Polished) === */

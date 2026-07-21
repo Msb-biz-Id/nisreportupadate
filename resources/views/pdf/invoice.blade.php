@@ -43,9 +43,6 @@ $primaryColor = $invoice->brand?->warna_primary
         .arabic-font {
             font-family: 'Noto Sans Arabic', sans-serif !important;
             text-transform: none !important;
-            /* ArPHP::utf8Glyphs() sudah reshape — gunakan ltr agar tidak di-reverse ulang */
-            direction: ltr;
-            unicode-bidi: bidi-override;
         }
 
         * {
