@@ -1124,7 +1124,7 @@ class DashboardService
             ->orderByDesc('updated_at')
             ->limit($limit)
             ->get()
-            ->map(function ($o) {
+            ->map(function (\App\Models\Order\Order $o) {
                 $totalTagihan = $o->totalTagihan();
                 $totalPaid = $o->totalPaid();
                 $sisa = max(0, $totalTagihan - $totalPaid);
