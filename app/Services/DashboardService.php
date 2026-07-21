@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Brand;
 use App\Models\Master\Customer;
+use App\Models\Order\DesignDeposit;
 use App\Models\Order\Invoice;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItem;
@@ -93,12 +94,12 @@ class DashboardService
                     ->when($brandId, $this->bf($brandId))
                     ->whereNotNull('kabupaten_code')->distinct('kabupaten_code')->count('kabupaten_code');
 
-                $dpPendingCount = \App\Models\Order\DesignDeposit::query()
+                $dpPendingCount = DesignDeposit::query()
                     ->when($brandId, $this->bf($brandId))
                     ->where('status', 'pending')
                     ->count();
 
-                $refundPendingCount = \App\Models\Order\Refund::query()
+                $refundPendingCount = Refund::query()
                     ->when($brandId, $this->bf($brandId))
                     ->where('status', 'pending_review')
                     ->count();
@@ -130,14 +131,14 @@ class DashboardService
                     'trend_bulanan'                 => $this->trendBulanan($brandId),
                     'target_progress'               => $this->getTargetProgress($brandId),
                     'po_siap_dikirim'               => $this->poSiapDikirim($brandId, 10),
-                    'dp_pending_list' => \App\Models\Order\DesignDeposit::query()
+                    'dp_pending_list' => DesignDeposit::query()
                         ->when($brandId, $this->bf($brandId))
                         ->where('status', 'pending')
                         ->with(['customer:id,nama', 'brand:id,nama_brand,kode'])
                         ->orderByDesc('created_at')
                         ->limit(10)
                         ->get(),
-                    'refund_pending_list' => \App\Models\Order\Refund::query()
+                    'refund_pending_list' => Refund::query()
                         ->when($brandId, $this->bf($brandId))
                         ->where('status', 'pending_review')
                         ->with(['order:id,no_po', 'creator:id,name'])
@@ -308,7 +309,7 @@ class DashboardService
             $brandId,
             function () use ($brandId) {
                 $totalBrandAktif = Brand::active()->count();
-                $totalUser       = \App\Models\User::count();
+                $totalUser       = User::count();
                 
                 $baseOrder = Order::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
                 $totalOrder      = (clone $baseOrder)->count();
@@ -468,12 +469,12 @@ class DashboardService
             ->sum('total_tagihan')
             - ($totalPayments - $totalRefunds);
 
-        $dpPendingCount = \App\Models\Order\DesignDeposit::query()
+        $dpPendingCount = DesignDeposit::query()
             ->when($brandId && $brandId !== 'all', $this->bf($brandId))
             ->where('status', 'pending')
             ->count();
 
-        $dpVerifiedAmount = \App\Models\Order\DesignDeposit::query()
+        $dpVerifiedAmount = DesignDeposit::query()
             ->when($brandId && $brandId !== 'all', $this->bf($brandId))
             ->where('status', 'verified')
             ->sum('amount');
