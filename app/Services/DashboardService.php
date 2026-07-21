@@ -541,7 +541,7 @@ class DashboardService
             ];
         });
 
-        $brandsForReport = \App\Models\Brand::active()
+        $brandsForReport = Brand::active()
             ->when($brandId && $brandId !== 'all', fn ($q) => is_array($brandId) ? $q->whereIn('id', $brandId) : $q->where('id', $brandId))
             ->get();
 
@@ -630,7 +630,7 @@ class DashboardService
             ->filter(fn ($b) => $b['total_revenue'] > 0 || $b['total_payments'] > 0)
             ->values();
 
-        $allActiveBrands = \App\Models\Brand::active()->get(['id', 'nama_brand', 'kode']);
+        $allActiveBrands = Brand::active()->get(['id', 'nama_brand', 'kode']);
 
         return [
             'cards' => [
@@ -653,7 +653,7 @@ class DashboardService
                 ->where('status', 'pending_review')
                 ->with(['order:id,no_po', 'creator:id,name'])
                 ->orderByDesc('created_at')->limit(10)->get(),
-            'dp_pending_list' => \App\Models\Order\DesignDeposit::query()
+            'dp_pending_list' => DesignDeposit::query()
                 ->when($brandId && $brandId !== 'all', $this->bf($brandId))
                 ->where('status', 'pending')
                 ->with(['customer:id,nama', 'brand:id,nama_brand,kode'])
@@ -1125,7 +1125,7 @@ class DashboardService
             ->orderByDesc('updated_at')
             ->limit($limit)
             ->get()
-            ->map(function (\App\Models\Order\Order $o) {
+            ->map(function (Order $o) {
                 $totalTagihan = $o->totalTagihan();
                 $totalPaid = $o->totalPaid();
                 $sisa = max(0, $totalTagihan - $totalPaid);
