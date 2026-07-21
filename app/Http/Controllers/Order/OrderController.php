@@ -1705,7 +1705,6 @@ class OrderController extends Controller
             'jenis_orders' => JenisOrder::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama']),
             'sumber_orders' => SumberOrder::active()
                 ->where($masterQ)
-                ->whereDoesntHave('children')
                 ->with('parent:id,nama')
                 ->get(['id', 'nama', 'parent_id'])
                 ->map(fn($s) => [
