@@ -38,7 +38,7 @@ class ReportController extends Controller
         $result          = $this->runner->run($slug, $queryBrandScope, $filters);
 
         $role            = $user?->getRoleNames()->first();
-        $isGlobal        = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']));
+        $isGlobal        = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']));
 
         $bankAccounts    = $this->getBankAccounts($request, $isGlobal, $effectiveId);
         $props           = $this->getShowProps($request, $user, $role, $isGlobal, $effectiveId, $masterBrandId, $bankAccounts);
@@ -198,7 +198,7 @@ class ReportController extends Controller
         if (! $user) {
             return null;
         }
-        $isGlobal = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+        $isGlobal = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']);
         $selectedBrandId = $filters['brand_id'] ?? null;
         if ($selectedBrandId === '__all__') {
             $selectedBrandId = null;

@@ -54,10 +54,10 @@ class OrderController extends Controller
 
         $user             = $request->user();
         $brandId          = BrandContext::current($request);
-        $canSeeMultiBrand = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi', 'admin_reseller', 'admin_brand']);
+        $canSeeMultiBrand = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi', 'admin_reseller', 'admin_brand']);
 
         $filterBrandId    = $request->string('brand_id')->toString();
-        $userBrandIds     = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])
+        $userBrandIds     = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi'])
             ? null
             : $user->brands()->pluck('brands.id')->toArray();
 
@@ -197,7 +197,7 @@ class OrderController extends Controller
     {
         $brands = [];
         if ($canSeeMultiBrand) {
-            if ($user->hasRole(['admin_produksi', 'admin_keuangan'])) {
+            if ($user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_produksi', 'admin_keuangan'])) {
                 $brands = Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode']);
             } else {
                 $effectiveBrandIds = BrandContext::effectiveBrandIds($request);
@@ -228,10 +228,10 @@ class OrderController extends Controller
 
         $user      = $request->user();
         $brandId   = BrandContext::current($request);
-        $canSeeMultiBrand = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi', 'admin_reseller', 'admin_brand']);
+        $canSeeMultiBrand = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi', 'admin_reseller', 'admin_brand']);
 
         $filterBrandId = $request->string('brand_id')->toString();
-        $userBrandIds  = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])
+        $userBrandIds  = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi'])
             ? null
             : $user->brands()->pluck('brands.id')->toArray();
 
@@ -1754,7 +1754,7 @@ class OrderController extends Controller
         $currentBrandId = $currentBrandId ?? $masterBrandId;
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
-        $userBrandIds = ($user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])))
+        $userBrandIds = ($user && ($user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi'])))
             ? null
             : ($user ? $user->brands()->pluck('brands.id')->toArray() : []);
 
@@ -1768,7 +1768,7 @@ class OrderController extends Controller
         $rawBanks = $banksQuery->orderBy($bankCol)->get(['id', 'bank', 'atas_nama', 'nomor_rekening', 'brand_id']);
 
         $banks = collect();
-        $accessibleBrands = ($user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])))
+        $accessibleBrands = ($user && ($user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi'])))
             ? Brand::all()
             : ($user ? $user->brands : collect());
 

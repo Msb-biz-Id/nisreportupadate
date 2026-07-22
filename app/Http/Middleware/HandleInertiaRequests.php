@@ -29,7 +29,7 @@ class HandleInertiaRequests extends Middleware
             $userRoles = $user->getRoleNames()->all();
             $userPermissions = $user->getAllPermissions()->pluck('name')->all();
 
-            $canSeeAllGlobalBrands = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+            $canSeeAllGlobalBrands = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']);
             $nameCol = 'nama_brand';
 
             if ($canSeeAllGlobalBrands) {

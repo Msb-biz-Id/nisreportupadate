@@ -24,7 +24,7 @@ class ComparisonController extends Controller
             abort(403, 'Anda tidak memiliki akses ke laporan ini.');
         }
 
-        $isGlobal = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']));
+        $isGlobal = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']));
         $availableBrands = $isGlobal
             ? Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary'])
             : $user->brands()->where('is_active', true)->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode', 'warna_primary']);
@@ -98,7 +98,7 @@ class ComparisonController extends Controller
             abort(403, 'Anda tidak memiliki akses ke laporan ini.');
         }
 
-        $isGlobal = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']));
+        $isGlobal = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']));
         $availableBrands = $isGlobal
             ? Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary'])
             : $user->brands()->where('is_active', true)->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode', 'warna_primary']);
@@ -215,7 +215,7 @@ class ComparisonController extends Controller
             abort(403, 'Anda tidak memiliki akses ke laporan ini.');
         }
 
-        $isGlobal = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']));
+        $isGlobal = $user && ($user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']));
         $availableBrands = $isGlobal
             ? Brand::active()->orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary'])
             : $user->brands()->where('is_active', true)->orderBy('nama_brand')->get(['brands.id', 'nama_brand', 'kode', 'warna_primary']);

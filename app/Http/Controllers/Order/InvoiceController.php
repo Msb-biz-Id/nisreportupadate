@@ -270,7 +270,7 @@ class InvoiceController extends Controller
         }
 
         // admin_keuangan & admin_produksi = lintas-brand (lihat semua brand + reseller)
-        $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+        $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']);
 
         $brands = $isAllBrandsRole
             ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
@@ -382,7 +382,7 @@ class InvoiceController extends Controller
             $selectedBrandId = 'all';
         }
 
-        $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+        $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']);
 
         $brands = $isAllBrandsRole
             ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])
@@ -618,7 +618,7 @@ class InvoiceController extends Controller
             $selectedBrandId = 'all';
         }
 
-        $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+        $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']);
 
         $brands = $isAllBrandsRole
             ? \App\Models\Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode'])

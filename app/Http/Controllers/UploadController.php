@@ -192,7 +192,7 @@ class UploadController extends Controller
             }
 
             // Multi-tenant folder isolation check
-            if (!$user->isSuperadmin() && !$user->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])) {
+            if (!$user->isSuperadmin() && !$user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi'])) {
                 $allowedBrandIds = BrandContext::effectiveBrandIds($request, 'all');
                 $allowedBrandSlugs = \App\Models\Brand::whereIn('id', $allowedBrandIds)
                     ->pluck('nama_brand')

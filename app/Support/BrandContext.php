@@ -25,11 +25,18 @@ class BrandContext
         
         $current = $request->session()->get(self::SESSION_KEY);
         if (! $current) {
-            $defaultBrand = $user->defaultBrand();
-            if ($defaultBrand && $brands->firstWhere('id', $defaultBrand->id)) {
-                $current = $defaultBrand->id;
-            } else {
+            $explicitDefault = $user->brands()->wherePivot('is_default', true)->first();
+            if ($explicitDefault && $brands->firstWhere('id', $explicitDefault->id)) {
+                $current = $explicitDefault->id;
+            } elseif ($user->last_brand_id && $brands->firstWhere('id', $user->last_brand_id)) {
                 $current = $user->last_brand_id;
+            } elseif ($canSeeAll) {
+                $current = 'all';
+            } else {
+                $firstBrand = $user->brands()->first();
+                if ($firstBrand && $brands->firstWhere('id', $firstBrand->id)) {
+                    $current = $firstBrand->id;
+                }
             }
         }
 
@@ -98,7 +105,7 @@ class BrandContext
             return null;
         }
 
-        $canSeeAllGlobalBrands = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+        $canSeeAllGlobalBrands = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']);
 
         if ($canSeeAllGlobalBrands) {
             $availableBrands = Brand::orderBy('nama_brand')->get(['id', 'nama_brand', 'kode', 'warna_primary', 'is_active']);
@@ -131,7 +138,7 @@ class BrandContext
                 return [];
             }
 
-            $canSeeAllGlobalBrands = $user->isSuperadmin() || $user->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+            $canSeeAllGlobalBrands = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']);
             if ($canSeeAllGlobalBrands) {
                 return Brand::pluck('id')->toArray();
             }

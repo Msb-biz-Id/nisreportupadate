@@ -73,7 +73,7 @@ class User extends Authenticatable
     public function hasAccessToBrand(string $brandId): bool
     {
         if ($brandId === 'all') {
-            $canSeeAllGlobalBrands = $this->isSuperadmin() || $this->hasRole(['owner', 'admin_keuangan', 'admin_produksi']);
+            $canSeeAllGlobalBrands = $this->isSuperadmin() || $this->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']);
             if ($canSeeAllGlobalBrands) {
                 return true;
             }
@@ -83,7 +83,7 @@ class User extends Authenticatable
             return $this->brands()->count() > 1;
         }
 
-        if ($this->isSuperadmin() || $this->hasRole(['owner', 'admin_keuangan', 'admin_produksi'])) {
+        if ($this->isSuperadmin() || $this->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi'])) {
             return true;
         }
 
