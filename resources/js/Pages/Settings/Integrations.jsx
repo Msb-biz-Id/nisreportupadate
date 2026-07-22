@@ -258,7 +258,6 @@ function SystemSection({ sys }) {
         telegram_enabled: !!sys.telegram_enabled,
         customer_import_enabled: !!sys.customer_import_enabled,
         theme_color: sys.theme_color || '#a8001c',
-        target_view: sys.target_view || 'both',
     });
 
     function submit(e) {
@@ -305,18 +304,6 @@ function SystemSection({ sys }) {
                                 <SelectItem value="both">Keduanya (WhatsApp + Telegram)</SelectItem>
                             </SelectContent>
                         </Select>
-                    </div>
-                    <div>
-                        <Label className="text-xs font-semibold text-gray-700">Tampilan Target Dashboard Default</Label>
-                        <Select value={data.target_view} onValueChange={(v) => setData('target_view', v)}>
-                            <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="both">Keduanya (Nominal & Qty)</SelectItem>
-                                <SelectItem value="revenue">Nominal (Omset) saja</SelectItem>
-                                <SelectItem value="pcs">Qty (Pcs) saja</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <p className="mt-1 text-xs text-muted-foreground">Tentukan metrik default yang akan ditampilkan pada widget Target Progress di Dashboard (Superadmin, Owner, & Admin Brand).</p>
                     </div>
                     <div className="flex items-center justify-between rounded-lg border p-4 bg-muted/20">
                         <div>

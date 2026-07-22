@@ -280,7 +280,7 @@ class SettingsController extends Controller
             'telegram_enabled' => ['boolean'],
             'customer_import_enabled' => ['boolean'],
             'theme_color' => ['required', 'string', 'regex:/^#[a-fA-F0-9]{6}$/'],
-            'target_view' => ['required', 'in:both,revenue,pcs'],
+            'target_view' => ['nullable', 'in:both,revenue,pcs'],
         ]);
 
         SystemSetting::set('system', 'notification_channel', $data['notification_channel']);
@@ -288,7 +288,7 @@ class SettingsController extends Controller
         SystemSetting::set('system', 'telegram_enabled', $data['telegram_enabled'] ? '1' : '0');
         SystemSetting::set('system', 'customer_import_enabled', $data['customer_import_enabled'] ? '1' : '0');
         SystemSetting::set('system', 'theme_color', $data['theme_color']);
-        SystemSetting::set('system', 'target_view', $data['target_view']);
+        SystemSetting::set('system', 'target_view', $data['target_view'] ?? 'pcs');
 
         \App\Services\ActivityLogger::log('update', 'settings', null, 'Perbarui pengaturan sistem & notifikasi');
 

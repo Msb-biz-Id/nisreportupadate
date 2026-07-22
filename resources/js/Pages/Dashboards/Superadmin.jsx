@@ -27,86 +27,47 @@ export default function Superadmin({ stats }) {
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                                <Target className="h-4 w-4 text-indigo-650" /> Target Global Bulanan ({stats.target_progress.month_name})
+                                <Target className="h-4 w-4 text-indigo-655" /> Target Global Bulanan ({stats.target_progress.month_name})
                             </h3>
                             <p className="text-xs text-muted-foreground">Monitor pencapaian target global bulan ini.</p>
                         </div>
                     </div>
 
-                    <div className={`grid grid-cols-1 gap-4 ${targetView === 'both' ? 'md:grid-cols-2' : ''}`}>
-                        {(targetView === 'both' || targetView === 'revenue') && (
-                            <Card className="bg-gradient-to-br from-indigo-50/50 to-white border-l-4 border-indigo-600">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                                        <Target className="h-4 w-4 text-indigo-600" /> Target Omset Global Bulan Ini ({stats.target_progress.month_name})
-                                    </CardTitle>
-                                    <CardDescription>Realisasi omset seluruh brand dibandingkan target.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <div className="flex items-baseline justify-between">
-                                        <span className="text-2xl font-black text-slate-800 font-mono">
-                                            {formatRupiah(stats.target_progress.actual_revenue)}
-                                        </span>
-                                        <span className="text-xs text-muted-foreground font-semibold">
-                                            dari target {formatRupiah(stats.target_progress.target_revenue)}
-                                        </span>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between text-xs font-bold text-indigo-700">
-                                            <span>Pencapaian</span>
-                                            <span>
-                                                {stats.target_progress.target_revenue > 0 
-                                                    ? `${stats.target_progress.revenue_percentage}%` 
-                                                    : 'Belum ada target'}
-                                            </span>
-                                        </div>
-                                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
-                                            <div 
-                                                className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
-                                                style={{ width: `${stats.target_progress.target_revenue > 0 ? Math.min(100, stats.target_progress.revenue_percentage) : 0}%` }} 
-                                            />
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {(targetView === 'both' || targetView === 'pcs') && (
-                            <Card className="bg-gradient-to-br from-emerald-50/50 to-white border-l-4 border-emerald-500">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                                        <Target className="h-4 w-4 text-emerald-500" /> Target Qty Global (Pcs) Bulan Ini ({stats.target_progress.month_name})
-                                    </CardTitle>
-                                    <CardDescription>Realisasi qty produk seluruh brand dibandingkan target.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <div className="flex items-baseline justify-between">
-                                        <span className="text-2xl font-black text-slate-800 font-mono">
-                                            {stats.target_progress.actual_pcs.toLocaleString('id-ID')} Pcs
-                                        </span>
-                                        <span className="text-xs text-muted-foreground font-semibold">
-                                            dari target {stats.target_progress.target_pcs.toLocaleString('id-ID')} Pcs
+                    <div>
+                        <Card className="bg-gradient-to-br from-emerald-50/50 to-white border-l-4 border-emerald-500">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                                    <Target className="h-4 w-4 text-emerald-500" /> Target Qty Global (Pcs) Bulan Ini ({stats.target_progress.month_name})
+                                </CardTitle>
+                                <CardDescription>Realisasi qty produk seluruh brand dibandingkan target.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <div className="flex items-baseline justify-between">
+                                    <span className="text-2xl font-black text-slate-800 font-mono">
+                                        {stats.target_progress.actual_pcs.toLocaleString('id-ID')} Pcs
+                                    </span>
+                                    <span className="text-xs text-muted-foreground font-semibold">
+                                        dari target {stats.target_progress.target_pcs.toLocaleString('id-ID')} Pcs
+                                    </span>
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="flex justify-between text-xs font-bold text-emerald-700">
+                                        <span>Pencapaian</span>
+                                        <span>
+                                            {stats.target_progress.target_pcs > 0 
+                                                ? `${stats.target_progress.pcs_percentage}%` 
+                                                : 'Belum ada target'}
                                         </span>
                                     </div>
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between text-xs font-bold text-emerald-700">
-                                            <span>Pencapaian</span>
-                                            <span>
-                                                {stats.target_progress.target_pcs > 0 
-                                                    ? `${stats.target_progress.pcs_percentage}%` 
-                                                    : 'Belum ada target'}
-                                            </span>
-                                        </div>
-                                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
-                                            <div 
-                                                className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
-                                                style={{ width: `${stats.target_progress.target_pcs > 0 ? Math.min(100, stats.target_progress.pcs_percentage) : 0}%` }} 
-                                            />
-                                        </div>
+                                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
+                                        <div 
+                                            className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+                                            style={{ width: `${stats.target_progress.target_pcs > 0 ? Math.min(100, stats.target_progress.pcs_percentage) : 0}%` }} 
+                                        />
                                     </div>
-                                </CardContent>
-                            </Card>
-                        )}
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
                 </div>
             )}
@@ -217,14 +178,13 @@ export default function Superadmin({ stats }) {
                             type="bar" height={260}
                             series={[
                                 { name: 'Omset (Rp)', data: stats.trend_bulanan.map(tb => tb.total_omset), type: 'bar' },
-                                { name: 'Target Omset (Rp)', data: stats.trend_bulanan.map(tb => tb.target_revenue), type: 'bar' },
                                 { name: 'PCS', data: stats.trend_bulanan.map(tb => tb.total_pcs), type: 'line' },
                                 { name: 'Target PCS', data: stats.trend_bulanan.map(tb => tb.target_pcs), type: 'line' },
                             ]}
                             options={{
                                 chart: { type: 'bar' },
                                 xaxis: { categories: stats.trend_bulanan.map(tb => tb.bulan.substring(0, 3)) },
-                                colors: ['#6366F1', '#A5B4FC', '#10B981', '#6EE7B7'],
+                                colors: ['#6366F1', '#10B981', '#6EE7B7'],
                                 yaxis: [
                                     { title: { text: 'Omset (Rp)' }, labels: { formatter: (v) => 'Rp ' + (v / 1000000).toFixed(1) + 'jt' } },
                                     { opposite: true, title: { text: 'PCS' } },

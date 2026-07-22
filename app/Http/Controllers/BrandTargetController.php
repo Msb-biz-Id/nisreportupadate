@@ -67,7 +67,7 @@ class BrandTargetController extends Controller
             'targets' => ['required', 'array'],
             'targets.*.brand_id' => ['required', 'uuid', 'exists:brands,id'],
             'targets.*.month' => ['required', 'integer', 'min:1', 'max:12'],
-            'targets.*.target_revenue' => ['required', 'numeric', 'min:0'],
+            'targets.*.target_revenue' => ['nullable', 'numeric', 'min:0'],
             'targets.*.target_pcs' => ['required', 'integer', 'min:0'],
         ]);
 
@@ -86,7 +86,7 @@ class BrandTargetController extends Controller
                         'month' => $target['month'],
                     ],
                     [
-                        'target_revenue' => $target['target_revenue'],
+                        'target_revenue' => $target['target_revenue'] ?? 0,
                         'target_pcs' => $target['target_pcs'],
                     ]
                 );

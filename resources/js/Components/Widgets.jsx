@@ -374,7 +374,7 @@ export function POTypeDistributionWidget({ data }) {
                                 </div>
                             </div>
                             <div className="text-right">
-                                <div className="text-sm font-bold text-slate-900 font-mono">{normal?.count || 0} PO</div>
+                                <div className="text-sm font-bold text-slate-900 font-mono">{normal?.count || 0} PO ({normal?.pcs || 0} Pcs)</div>
                                 <div className="text-xs text-blue-600 font-bold font-mono">{formatRupiah(normal?.value || 0)}</div>
                             </div>
                         </div>
@@ -389,7 +389,7 @@ export function POTypeDistributionWidget({ data }) {
                                 </div>
                             </div>
                             <div className="text-right">
-                                <div className="text-sm font-bold text-slate-900 font-mono">{special?.count || 0} PO</div>
+                                <div className="text-sm font-bold text-slate-900 font-mono">{special?.count || 0} PO ({special?.pcs || 0} Pcs)</div>
                                 <div className="text-xs text-violet-600 font-bold font-mono">{formatRupiah(special?.value || 0)}</div>
                             </div>
                         </div>
@@ -404,7 +404,7 @@ export function POTypeDistributionWidget({ data }) {
                                 </div>
                             </div>
                             <div className="text-right">
-                                <div className="text-sm font-bold text-slate-900 font-mono">{reseller?.count || 0} PO</div>
+                                <div className="text-sm font-bold text-slate-900 font-mono">{reseller?.count || 0} PO ({reseller?.pcs || 0} Pcs)</div>
                                 <div className="text-xs text-amber-600 font-bold font-mono">{formatRupiah(reseller?.value || 0)}</div>
                             </div>
                         </div>

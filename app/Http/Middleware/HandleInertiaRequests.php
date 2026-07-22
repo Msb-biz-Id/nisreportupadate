@@ -312,7 +312,7 @@ class HandleInertiaRequests extends Middleware
                     }
                     return $appTheme;
                 })(),
-                'target_view' => SystemSetting::get('system', 'target_view', 'both'),
+                'target_view' => 'pcs',
             ],
         ];
     }

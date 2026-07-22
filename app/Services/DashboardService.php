@@ -1190,18 +1190,35 @@ class DashboardService
             )
             ->first();
 
+        // Optimized query to fetch pcs (atasan only) per PO category using the same filters
+        $pcsStats = OrderItem::query()
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->when($brandId, $this->obf($brandId))
+            ->whereBetween('orders.tanggal_masuk', [$startDate, $endDate])
+            ->where('orders.status_po', '!=', 'draft')
+            ->where('order_items.is_addon', false)
+            ->select(
+                DB::raw("COALESCE(SUM(CASE WHEN orders.is_special_order = 0 AND orders.is_reseller_price = 0 THEN (CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END) ELSE 0 END), 0) as normal_pcs"),
+                DB::raw("COALESCE(SUM(CASE WHEN orders.is_special_order = 1 THEN (CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END) ELSE 0 END), 0) as special_pcs"),
+                DB::raw("COALESCE(SUM(CASE WHEN orders.is_reseller_price = 1 THEN (CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END) ELSE 0 END), 0) as reseller_pcs")
+            )
+            ->first();
+
         return [
             'normal' => [
                 'count' => (int) ($stats->normal_count ?? 0),
                 'value' => (float) ($stats->normal_value ?? 0),
+                'pcs'   => (int) ($pcsStats->normal_pcs ?? 0),
             ],
             'special' => [
                 'count' => (int) ($stats->special_count ?? 0),
                 'value' => (float) ($stats->special_value ?? 0),
+                'pcs'   => (int) ($pcsStats->special_pcs ?? 0),
             ],
             'reseller' => [
                 'count' => (int) ($stats->reseller_count ?? 0),
                 'value' => (float) ($stats->reseller_value ?? 0),
+                'pcs'   => (int) ($pcsStats->reseller_pcs ?? 0),
             ],
             'date_range' => [
                 'start' => $startDate->toDateString(),
