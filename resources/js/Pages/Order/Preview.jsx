@@ -710,8 +710,10 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
     }
 
     function publish() {
-        if (!order.is_free_ongkir && Number(order.ongkir) <= 0) {
-            alert('PO tidak bisa diterbitkan. Harap edit PO terlebih dahulu untuk mengisi Biaya Ongkir atau mengaktifkan Gratis Ongkir.');
+        const isFreeOngkir = order.is_free_ongkir || order.tipe_pengiriman === 'free_ongkir';
+        const isPickupCod = order.tipe_pengiriman === 'pickup_cod';
+        if (!isFreeOngkir && !isPickupCod && Number(order.ongkir) <= 0) {
+            alert('PO tidak bisa diterbitkan. Harap edit PO terlebih dahulu untuk mengisi Biaya Ongkir atau memilih Gratis Ongkir / Ambil di Tempat.');
             return;
         }
         if (!isDpSufficient) {
