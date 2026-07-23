@@ -170,17 +170,34 @@ export default function Kanban({ columns: initialColumns }) {
                 <span className="flex items-center gap-1 ml-auto font-medium text-slate-600">Total: {totalOrders} PO</span>
             </div>
 
-            <div className="-mx-4 overflow-x-auto px-4 pb-4">
-                <div className="flex min-w-max gap-4">
+            <style>{`
+                .kanban-column-scroll::-webkit-scrollbar {
+                    width: 5px;
+                    height: 5px;
+                }
+                .kanban-column-scroll::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .kanban-column-scroll::-webkit-scrollbar-thumb {
+                    background-color: #cbd5e1;
+                    border-radius: 20px;
+                }
+                .kanban-column-scroll::-webkit-scrollbar-thumb:hover {
+                    background-color: #94a3b8;
+                }
+            `}</style>
+
+            <div className="-mx-4 overflow-x-auto px-4 pb-2">
+                <div className="flex min-w-max gap-4 h-[calc(100vh-175px)] min-h-[450px] pb-2">
                     {Object.entries(columns).map(([key, col]) => {
                         const overdueCount = col.orders.filter(o => o.days_remaining !== null && o.days_remaining < 0).length;
                         const totalPcs = col.orders.reduce((sum, o) => sum + (o.total_items || 0), 0);
 
                         return (
-                            <div key={key} className="flex w-72 shrink-0 flex-col rounded-xl border bg-slate-50/50 p-2">
+                            <div key={key} className="flex w-72 shrink-0 flex-col rounded-xl border bg-slate-50/50 p-2 h-full max-h-full">
                                 {/* Column Header */}
                                 <div
-                                    className="mb-2 flex flex-col gap-0.5 rounded-lg px-3 py-2 text-white shadow-sm"
+                                    className="mb-2 flex flex-col gap-0.5 rounded-lg px-3 py-2 text-white shadow-sm shrink-0"
                                     style={{ background: col.color }}
                                 >
                                     <div className="flex items-center justify-between text-sm font-semibold">
@@ -203,9 +220,9 @@ export default function Kanban({ columns: initialColumns }) {
                                 </div>
 
                                 {/* Cards */}
-                                <div className="min-h-[200px] space-y-2">
+                                <div className="flex-1 overflow-y-auto space-y-2 pr-1.5 min-h-0 kanban-column-scroll">
                                     {col.orders.length === 0 && (
-                                        <div className="rounded-lg border-2 border-dashed py-8 text-center text-xs text-muted-foreground">
+                                        <div className="rounded-lg border-2 border-dashed py-8 text-center text-xs text-muted-foreground shrink-0">
                                             Kosong
                                         </div>
                                     )}
