@@ -22,6 +22,7 @@ class Invoice extends Model
         'tanggal_terbit', 'jatuh_tempo', 'status',
         'total_tagihan', 'total_bayar', 'dp_amount', 'sisa_pembayaran',
         'diskon_type', 'diskon_value', 'biaya_pengiriman', 'jasa_pengiriman',
+        'voucher_discount_amount',
         'bank_id', 'catatan', 'peraturan', 'faq', 'qr_code',
         'sent_via', 'sent_at', 'created_by',
     ];
@@ -37,6 +38,7 @@ class Invoice extends Model
         'sisa_pembayaran' => 'decimal:2',
         'diskon_value' => 'decimal:2',
         'biaya_pengiriman' => 'decimal:2',
+        'voucher_discount_amount' => 'decimal:2',
     ];
 
     public function brand(): BelongsTo { return $this->belongsTo(Brand::class); }
@@ -85,6 +87,7 @@ class Invoice extends Model
             'total_bayar'     => $newPaid,
             'sisa_pembayaran' => $newSisa,
             'status'          => $targetStatus,
+            'voucher_discount_amount' => $order->voucher_discount_amount,
         ]);
     }
 }

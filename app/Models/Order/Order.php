@@ -33,6 +33,7 @@ class Order extends Model
 
     protected $fillable = [
         'brand_id', 'reseller_display_brand_id', 'no_po', 'nama_po', 'status_po', 'is_special_order', 'is_free_ongkir', 'tipe_pengiriman', 'is_reseller_price', 'ongkir',
+        'voucher_discount_amount',
         'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date',
         'kategori_order_id', 'jenis_order_id', 'sumber_order_id', 'paket_order_id',
         'jenis_setelan_id', 'pola_produksi_id',
@@ -77,6 +78,7 @@ class Order extends Model
         'is_free_ongkir' => 'boolean',
         'is_reseller_price' => 'boolean',
         'ongkir' => 'decimal:2',
+        'voucher_discount_amount' => 'decimal:2',
         'is_repeat_order' => 'boolean',
         'is_lunas' => 'boolean',
         'is_dp_bypassed' => 'boolean',
@@ -175,8 +177,9 @@ class Order extends Model
             ->sum('amount');
         
         $ongkirCharge = ($this->isFreeOngkir() || $this->isPickupCod()) ? 0.0 : (float) ($this->ongkir > 0 ? $this->ongkir : $ongkir_payment);
+        $voucherDiscount = (float) $this->voucher_discount_amount;
         
-        return max(0, $subtotal + $penambahan + $ongkirCharge + $tambahan - $pengurangan - $cashback - $return);
+        return max(0, $subtotal + $penambahan + $ongkirCharge + $tambahan - $pengurangan - $cashback - $return - $voucherDiscount);
     }
 
     public function totalPaid(): float

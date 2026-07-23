@@ -855,6 +855,13 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                     );
                                 })()}
 
+                                {Number(invoice.voucher_discount_amount || 0) > 0 && (
+                                    <div className="flex justify-between items-center text-xs text-rose-600 font-bold">
+                                        <span>Voucher</span>
+                                        <span className="font-mono">- {formatRupiah(Number(invoice.voucher_discount_amount))}</span>
+                                    </div>
+                                )}
+
                                 {invoice.order?.tipe_pengiriman === 'pickup_cod' ? (
                                     <div className="flex justify-between items-center text-xs font-bold text-cyan-700">
                                         <span>Metode Pengiriman</span>

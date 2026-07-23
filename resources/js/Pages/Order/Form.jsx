@@ -1368,6 +1368,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
         tipe_pengiriman: order?.tipe_pengiriman ?? (order?.is_free_ongkir ? 'free_ongkir' : (Number(order?.ongkir) > 0 ? 'ongkir' : 'ongkir')),
         is_reseller_price: order?.is_reseller_price ?? false,
         ongkir: order?.ongkir !== undefined ? Number(order.ongkir) : 0,
+        voucher_discount_amount: order?.voucher_discount_amount !== undefined ? Number(order.voucher_discount_amount) : 0,
         tanggal_masuk: order?.tanggal_masuk?.slice?.(0, 10) ?? new Date().toISOString().slice(0, 10),
         deadline_customer: order?.deadline_customer?.slice?.(0, 10) ?? '',
         jenis_order_id: order?.jenis_order_id ?? '',
@@ -1559,6 +1560,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
     const totalCoreHarga = useMemo(() => coreItems.reduce((s, i) => s + getCalculatedSubtotal(i), 0), [coreItems]);
     const totalAddonHarga = useMemo(() => addonItems.reduce((s, i) => s + getCalculatedSubtotal(i), 0), [addonItems]);
     const totalHarga = totalCoreHarga + totalAddonHarga;
+    const finalTotal = Math.max(0, totalHarga + (Number(data.ongkir) || 0) - (Number(data.voucher_discount_amount) || 0));
 
     const pageTitle = isEdit ? `Edit PO ${order.no_po}` : 'Buat PO Baru';
 
@@ -1682,6 +1684,22 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                     </div>
                                 )}
                             </div>
+
+                            {/* Voucher Input */}
+                            <div className="flex items-center gap-1.5 bg-slate-800/90 p-1 rounded-lg border border-slate-700">
+                                <span className="text-[9px] text-slate-400 uppercase font-extrabold pl-1">Voucher:</span>
+                                <input 
+                                    type="text"
+                                    value={data.voucher_discount_amount ? `Rp ${new Intl.NumberFormat('id-ID').format(data.voucher_discount_amount)}` : ''} 
+                                    placeholder="Rp 0" 
+                                    onChange={(e) => {
+                                        const rawValue = e.target.value.replace(/\D/g, '');
+                                        const numericValue = rawValue ? parseInt(rawValue, 10) : 0;
+                                        setData('voucher_discount_amount', numericValue);
+                                    }} 
+                                    className="w-28 bg-white border border-slate-300 rounded px-2 py-0.5 text-center text-xs font-semibold text-slate-950 focus:outline-none focus:border-red-500 shadow-sm" 
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -1696,7 +1714,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                             >
                                 <div className="text-left">
                                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Total Tagihan ({totalPcs} Pcs)</p>
-                                    <p className="font-mono font-black text-sm text-emerald-400 mt-1 leading-none">{formatRupiah(totalHarga)}</p>
+                                    <p className="font-mono font-black text-sm text-emerald-400 mt-1 leading-none">{formatRupiah(finalTotal)}</p>
                                 </div>
                                 <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200 ${showSummaryDropdown ? 'rotate-180' : ''}`} />
                             </button>
@@ -1775,9 +1793,27 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                         )}
                                     </div>
 
-                                    <div className="border-t border-slate-100 pt-2.5 flex justify-between items-center text-xs font-black">
-                                        <span className="uppercase text-slate-500">Total Keseluruhan</span>
-                                        <span className="font-mono text-red-600 text-sm">{formatRupiah(totalHarga)}</span>
+                                    <div className="border-t border-slate-100 pt-2.5 space-y-1.5 text-xs">
+                                        <div className="flex justify-between items-center text-slate-500 font-medium">
+                                            <span>Subtotal</span>
+                                            <span className="font-mono">{formatRupiah(totalHarga)}</span>
+                                        </div>
+                                        {Number(data.ongkir) > 0 && (
+                                            <div className="flex justify-between items-center text-slate-500 font-medium">
+                                                <span>Ongkir</span>
+                                                <span className="font-mono">+ {formatRupiah(Number(data.ongkir))}</span>
+                                            </div>
+                                        )}
+                                        {Number(data.voucher_discount_amount) > 0 && (
+                                            <div className="flex justify-between items-center text-rose-600 font-medium">
+                                                <span>Voucher</span>
+                                                <span className="font-mono">- {formatRupiah(Number(data.voucher_discount_amount))}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between items-center font-black pt-1.5 border-t border-dashed border-slate-150">
+                                            <span className="uppercase text-slate-700">Total Keseluruhan</span>
+                                            <span className="font-mono text-red-650 text-sm">{formatRupiah(finalTotal)}</span>
+                                        </div>
                                     </div>
                                 </div>
                             )}

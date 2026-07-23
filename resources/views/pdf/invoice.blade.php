@@ -573,6 +573,14 @@ $primaryColor = $invoice->brand?->warna_primary
                         </td>
                     </tr>
 
+                    <!-- Voucher -->
+                    @if ($invoice->voucher_discount_amount > 0)
+                    <tr>
+                        <td style="padding: 4px 0; color: #6B7280;">Voucher</td>
+                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #DC2626;">- Rp {{ number_format((float) $invoice->voucher_discount_amount, 0, ',', '.') }}</td>
+                    </tr>
+                    @endif
+
                     <!-- Ongkir / Pengiriman -->
                     @if ($invoice->order?->isPickupCod())
                     <tr>

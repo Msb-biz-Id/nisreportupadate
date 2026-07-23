@@ -402,7 +402,7 @@ class OrderController extends Controller
 
         $brand = Brand::findOrFail($effectiveBrandId);
 
-        $order = DB::transaction(function () use ($brand, $data, $user) {
+         $order = DB::transaction(function () use ($brand, $data, $user) {
             $order = Order::create([
                 'brand_id' => $brand->id,
                 'reseller_display_brand_id' => $data['reseller_display_brand_id'] ?? null,
@@ -414,6 +414,7 @@ class OrderController extends Controller
                 'tipe_pengiriman' => $data['tipe_pengiriman'] ?? (($data['is_free_ongkir'] ?? false) ? 'free_ongkir' : 'ongkir'),
                 'is_reseller_price' => $data['is_reseller_price'] ?? false,
                 'ongkir' => (in_array(($data['tipe_pengiriman'] ?? ''), ['free_ongkir', 'pickup_cod'], true) || ($data['is_free_ongkir'] ?? false)) ? 0.0 : ($data['ongkir'] ?? 0.0),
+                'voucher_discount_amount' => $data['voucher_discount_amount'] ?? 0.0,
                 'tanggal_masuk' => $data['tanggal_masuk'],
                 'deadline_customer' => $data['deadline_customer'],
                 'kategori_order_id' => $data['kategori_order_id'] ?? null,
@@ -464,6 +465,7 @@ class OrderController extends Controller
                 'sisa_pembayaran' => max(0, $invoiceTotalTagihan - $dp),
                 'diskon_type'     => $diskonType,
                 'diskon_value'    => $diskonValue,
+                'voucher_discount_amount' => $order->voucher_discount_amount,
                 'created_by'      => $user->id,
             ]);
 
@@ -532,6 +534,7 @@ class OrderController extends Controller
                 'tipe_pengiriman' => $data['tipe_pengiriman'] ?? (($data['is_free_ongkir'] ?? false) ? 'free_ongkir' : 'ongkir'),
                 'is_reseller_price' => $data['is_reseller_price'] ?? false,
                 'ongkir' => (in_array(($data['tipe_pengiriman'] ?? ''), ['free_ongkir', 'pickup_cod'], true) || ($data['is_free_ongkir'] ?? false)) ? 0.0 : ($data['ongkir'] ?? 0.0),
+                'voucher_discount_amount' => $data['voucher_discount_amount'] ?? 0.0,
                 'tanggal_masuk' => $data['tanggal_masuk'],
                 'deadline_customer' => $data['deadline_customer'],
                 'kategori_order_id' => $data['kategori_order_id'] ?? null,
@@ -590,6 +593,7 @@ class OrderController extends Controller
                     'jatuh_tempo' => $order->deadline_customer,
                     'diskon_type' => $diskonNominalFromOrder > 0 ? 'nominal' : $invoice->diskon_type,
                     'diskon_value' => $diskonNominalFromOrder > 0 ? $diskonNominalFromOrder : $invoice->diskon_value,
+                    'voucher_discount_amount' => $order->voucher_discount_amount,
                 ]);
             }
 
@@ -1825,6 +1829,7 @@ class OrderController extends Controller
             'tipe_pengiriman' => ['nullable', 'string', 'in:ongkir,free_ongkir,pickup_cod'],
             'is_reseller_price' => ['nullable', 'boolean'],
             'ongkir' => ['nullable', 'numeric', 'min:0'],
+            'voucher_discount_amount' => ['nullable', 'numeric', 'min:0'],
             'tanggal_masuk' => ['required', 'date'],
             'deadline_customer' => ['required', 'date', 'after_or_equal:tanggal_masuk'],
             'kategori_order_id' => ['nullable', 'uuid'],

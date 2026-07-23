@@ -1405,6 +1405,9 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     {totalDiskon > 0 && (
                                         <div className="flex justify-between text-rose-600"><span className="text-muted-foreground text-rose-600">Total Diskon</span><span className="font-mono">- {formatRupiah(totalDiskon)}</span></div>
                                     )}
+                                    {Number(order.voucher_discount_amount) > 0 && (
+                                        <div className="flex justify-between text-rose-600"><span className="text-muted-foreground text-rose-600">Voucher</span><span className="font-mono">- {formatRupiah(Number(order.voucher_discount_amount))}</span></div>
+                                    )}
                                     {order.tipe_pengiriman === 'pickup_cod' ? (
                                         <div className="flex justify-between text-cyan-600 font-medium"><span className="text-muted-foreground text-cyan-600 font-medium">Pengiriman</span><span className="font-mono">Ambil di Tempat / COD</span></div>
                                     ) : (order.is_free_ongkir || order.tipe_pengiriman === 'free_ongkir') ? (

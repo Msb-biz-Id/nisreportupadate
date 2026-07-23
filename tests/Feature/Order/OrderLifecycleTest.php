@@ -1406,6 +1406,88 @@ class OrderLifecycleTest extends TestCase
         ]);
     }
 
+    public function test_order_creation_with_voucher_discount_amount(): void
+    {
+        $brand = $this->setupBrandWithMasters();
+        $user = $this->makeUser('admin_brand', [$brand]);
+        $customer = Customer::where('brand_id', $brand->id)->first();
+        $bank = \App\Models\Master\BankAccount::where('brand_id', $brand->id)->first();
+
+        // 1. Create order with voucher discount
+        $this->actingAsWithBrand($user, $brand)
+            ->post(route('orders.store'), [
+                'nama_po' => 'Voucher PO Test',
+                'tanggal_masuk' => now()->toDateString(),
+                'deadline_customer' => now()->addDays(14)->toDateString(),
+                'pelanggan_id' => $customer->id,
+                'bank_id' => $bank->id,
+                'voucher_discount_amount' => 50000,
+                'items' => [
+                    [
+                        'nama_produk' => 'Jersey A',
+                        'quantity' => 10,
+                        'harga_satuan' => 100000,
+                        'discount_type' => '',
+                        'discount_value' => 0,
+                    ]
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('orders', [
+            'nama_po' => 'Voucher PO Test',
+            'status_po' => 'draft',
+            'total_tagihan' => 950000, // 1,000,000 - 50,000
+            'voucher_discount_amount' => 50000,
+        ]);
+
+        $order = Order::where('nama_po', 'Voucher PO Test')->first();
+
+        // Verify Invoice has synced voucher
+        $this->assertDatabaseHas('invoices', [
+            'order_id' => $order->id,
+            'total_tagihan' => 950000,
+            'voucher_discount_amount' => 50000,
+        ]);
+
+        // 2. Update order and increase voucher discount
+        $jerseyA = $order->fresh()->items()->first();
+
+        $this->actingAsWithBrand($user, $brand)
+            ->put(route('orders.update', $order->id), [
+                'nama_po' => 'Voucher PO Test Updated',
+                'tanggal_masuk' => now()->toDateString(),
+                'deadline_customer' => now()->addDays(14)->toDateString(),
+                'pelanggan_id' => $customer->id,
+                'bank_id' => $bank->id,
+                'voucher_discount_amount' => 150000,
+                'items' => [
+                    [
+                        'id' => $jerseyA->id,
+                        'nama_produk' => 'Jersey A',
+                        'quantity' => 10,
+                        'harga_satuan' => 100000,
+                        'discount_type' => '',
+                        'discount_value' => 0,
+                    ]
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'nama_po' => 'Voucher PO Test Updated',
+            'total_tagihan' => 850000, // 1,000,000 - 150,000
+            'voucher_discount_amount' => 150000,
+        ]);
+
+        $this->assertDatabaseHas('invoices', [
+            'order_id' => $order->id,
+            'total_tagihan' => 850000,
+            'voucher_discount_amount' => 150000,
+        ]);
+    }
+
     public function test_fo_pdf_and_preview_access(): void
     {
         $brand = $this->setupBrandWithMasters();
