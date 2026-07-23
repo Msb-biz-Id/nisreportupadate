@@ -354,7 +354,12 @@ class ReportTest extends TestCase
         ]);
 
         $response = $this->actingAs($sa)
-            ->get(route('reports.show', ['slug' => 'monitoring-deadline', 'threshold' => 7]));
+            ->get(route('reports.show', [
+                'slug' => 'monitoring-deadline',
+                'threshold' => 7,
+                'from' => now()->toDateString(),
+                'to' => now()->addDays(10)->toDateString(),
+            ]));
 
         $response->assertOk();
 

@@ -109,7 +109,7 @@ class ProductionController extends Controller
         $orders = Order::query()
             ->forBrand($brandId)
             ->published()
-            ->whereNotIn($statusPoCol, ['sudah_dikirim', 'selesai'])
+            ->whereNotIn($statusPoCol, ['selesai'])
             ->with([
                 'pelanggan:id,nama',
                 'lockStatus',
