@@ -331,9 +331,7 @@ class CustomerController extends Controller
                 // Generate customer code if not provided
                 $custCode = $data['customer_code'] ?? $data['customer_kode'];
                 if (!$custCode) {
-                    $prefixCode = 'CUST';
-                    $next = Customer::where('brand_id', $brand->id)->withTrashed()->count() + 1;
-                    $custCode = $prefixCode . '-' . Str::padLeft((string) $next, 5, '0');
+                    $custCode = Customer::generateUniqueKode($brand->id);
                 }
 
                 // 4. Create or Update Customer
@@ -392,8 +390,6 @@ class CustomerController extends Controller
     private function generateKode(Request $request): string
     {
         $brandId = BrandContext::masterDataId($request);
-        $prefix = 'CUST';
-        $next = Customer::where('brand_id', $brandId)->withTrashed()->count() + 1;
-        return $prefix . '-' . Str::padLeft((string) $next, 5, '0');
+        return Customer::generateUniqueKode($brandId);
     }
 }

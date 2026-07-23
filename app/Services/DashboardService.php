@@ -451,18 +451,24 @@ class DashboardService
         return CacheService::rememberDashboard(
             'financeStats',
             $brandId,
-            function () use ($brandId) {
-                $invoices = Invoice::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
-                $refunds  = Refund::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
+            fn () => $this->calculateFinanceStats($brandId),
+            CacheService::TTL_SHORT
+        );
+    }
 
-                $invoicePending      = (clone $invoices)->whereIn('status', ['draft', 'validated'])->count();
-                $invoiceToday        = (clone $invoices)->where('tanggal_terbit', today()->toDateString())->count();
-                $totalTagihanPending = (clone $invoices)->whereIn('status', ['draft', 'validated', 'published'])->sum('sisa_pembayaran');
+    private function calculateFinanceStats(string|array|null $brandId): array
+    {
+        $invoices = Invoice::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
+        $refunds  = Refund::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
 
-                $paidToday = OrderPayment::query()
-                    ->where('payment_date', today()->toDateString())
-                    ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
-                    ->sum('amount');
+        $invoicePending      = (clone $invoices)->whereIn('status', ['draft', 'validated'])->count();
+        $invoiceToday        = (clone $invoices)->where('tanggal_terbit', today()->toDateString())->count();
+        $totalTagihanPending = (clone $invoices)->whereIn('status', ['draft', 'validated', 'published'])->sum('sisa_pembayaran');
+
+        $paidToday = OrderPayment::query()
+            ->where('payment_date', today()->toDateString())
+            ->when($brandId && $brandId !== 'all', fn ($q) => $q->whereHas('order', $this->bf($brandId)))
+            ->sum('amount');
 
         $refundPending        = (clone $refunds)->where('status', 'pending_review')->count();
         $refundPublished      = (clone $refunds)->where('status', 'published');
@@ -499,6 +505,45 @@ class DashboardService
             ->where('status', 'verified')
             ->sum('amount');
 
+        $allActiveBrands = Brand::active()->get(['id', 'nama_brand', 'kode']);
+
+        return [
+            'cards' => [
+                ['label' => 'Invoice Pending',      'value' => $invoicePending,       'icon' => 'FileText',    'accent' => 'amber'],
+                ['label' => 'Invoice Hari Ini',     'value' => $invoiceToday,         'icon' => 'FileCheck',   'accent' => 'emerald'],
+                ['label' => 'Tagihan Pending',       'value' => $totalTagihanPending,  'currency' => true, 'icon' => 'CreditCard',  'accent' => 'blue'],
+                ['label' => 'Pembayaran Hari Ini',  'value' => $paidToday,            'currency' => true, 'icon' => 'TrendingUp',  'accent' => 'emerald'],
+                ['label' => 'Outstanding Total',    'value' => max(0, $outstandingTotal), 'currency' => true, 'icon' => 'AlertCircle', 'accent' => 'red'],
+                ['label' => 'Refund Pending',       'value' => $refundPending,        'icon' => 'RotateCcw',   'accent' => 'orange'],
+                ['label' => 'Refund Diterbitkan',   'value' => $refundPublishedCount,  'icon' => 'CheckCircle2', 'accent' => 'violet'],
+                ['label' => 'Total Refund',         'value' => $refundPublishedAmount, 'currency' => true, 'icon' => 'TrendingDown', 'accent' => 'pink'],
+                ['label' => 'DP Desain Pending',     'value' => $dpPendingCount,       'icon' => 'Sparkles',    'accent' => 'amber'],
+                ['label' => 'DP Desain Terverifikasi', 'value' => $dpVerifiedAmount,     'currency' => true, 'icon' => 'CheckCircle', 'accent' => 'indigo'],
+            ],
+            'invoice_pending_list' => (clone $invoices)
+                ->whereIn('status', ['draft', 'validated'])
+                ->with(['order:id,no_po,pelanggan_id', 'order.pelanggan:id,nama'])
+                ->orderByDesc('created_at')->limit(10)->get(),
+            'refund_pending_list' => (clone $refunds)
+                ->where('status', 'pending_review')
+                ->with(['order:id,no_po', 'creator:id,name'])
+                ->orderByDesc('created_at')->limit(10)->get(),
+            'dp_pending_list' => DesignDeposit::query()
+                ->when($brandId && $brandId !== 'all', $this->bf($brandId))
+                ->where('status', 'pending')
+                ->with(['customer:id,nama', 'brand:id,nama_brand,kode'])
+                ->orderByDesc('created_at')->limit(10)->get(),
+            'payment_status' => $this->paymentStatusBreakdown($brandId),
+            'bank_accounts_summary' => $this->getBankAccountsSummary($brandId),
+            'brand_financial_reports' => $this->getBrandFinancialReports($brandId),
+            'brands' => $allActiveBrands,
+            'progress_distribution' => $this->progressDistribution($brandId),
+            'current_brand_id' => $brandId ?: 'all',
+        ];
+    }
+
+    private function getBankAccountsSummary(string|array|null $brandId): \Illuminate\Support\Collection
+    {
         $bankAccountsSummary = \App\Models\Master\BankAccount::query()
             ->when($brandId && $brandId !== 'all', $this->bf($brandId))
             ->with('brand:id,nama_brand,kode')
@@ -532,7 +577,7 @@ class DashboardService
                 ->groupBy('bank_id');
         }
 
-        $bankAccountsSummary = $bankAccountsSummary->map(function ($bank) use ($verifiedPaymentsByBank, $recentPayments) {
+        return $bankAccountsSummary->map(function ($bank) use ($verifiedPaymentsByBank, $recentPayments) {
             $totalReceived = $verifiedPaymentsByBank[$bank->id] ?? 0.0;
             
             $recentTransactions = collect($recentPayments->get($bank->id) ?? [])
@@ -560,7 +605,10 @@ class DashboardService
                 'recent_transactions' => $recentTransactions,
             ];
         });
+    }
 
+    private function getBrandFinancialReports(string|array|null $brandId): \Illuminate\Support\Collection
+    {
         $brandsForReport = Brand::active()
             ->when($brandId && $brandId !== 'all', fn ($q) => is_array($brandId) ? $q->whereIn('id', $brandId) : $q->where('id', $brandId))
             ->get();
@@ -617,7 +665,7 @@ class DashboardService
                 ->groupBy('brand_id');
         }
 
-        $brandFinancialReports = $brandsForReport
+        return $brandsForReport
             ->map(function ($brand) use ($brandRevenues, $brandPayments, $brandRefunds, $brandPaymentTypesRaw) {
                 $totalRevenue = $brandRevenues[$brand->id] ?? 0.0;
                 $totalPayments = $brandPayments[$brand->id] ?? 0.0;
@@ -649,45 +697,6 @@ class DashboardService
             })
             ->filter(fn ($b) => $b['total_revenue'] > 0 || $b['total_payments'] > 0)
             ->values();
-
-        $allActiveBrands = Brand::active()->get(['id', 'nama_brand', 'kode']);
-
-        return [
-            'cards' => [
-                ['label' => 'Invoice Pending',      'value' => $invoicePending,       'icon' => 'FileText',    'accent' => 'amber'],
-                ['label' => 'Invoice Hari Ini',     'value' => $invoiceToday,         'icon' => 'FileCheck',   'accent' => 'emerald'],
-                ['label' => 'Tagihan Pending',       'value' => $totalTagihanPending,  'currency' => true, 'icon' => 'CreditCard',  'accent' => 'blue'],
-                ['label' => 'Pembayaran Hari Ini',  'value' => $paidToday,            'currency' => true, 'icon' => 'TrendingUp',  'accent' => 'emerald'],
-                ['label' => 'Outstanding Total',    'value' => max(0, $outstandingTotal), 'currency' => true, 'icon' => 'AlertCircle', 'accent' => 'red'],
-                ['label' => 'Refund Pending',       'value' => $refundPending,        'icon' => 'RotateCcw',   'accent' => 'orange'],
-                ['label' => 'Refund Diterbitkan',   'value' => $refundPublishedCount,  'icon' => 'CheckCircle2', 'accent' => 'violet'],
-                ['label' => 'Total Refund',         'value' => $refundPublishedAmount, 'currency' => true, 'icon' => 'TrendingDown', 'accent' => 'pink'],
-                ['label' => 'DP Desain Pending',     'value' => $dpPendingCount,       'icon' => 'Sparkles',    'accent' => 'amber'],
-                ['label' => 'DP Desain Terverifikasi', 'value' => $dpVerifiedAmount,     'currency' => true, 'icon' => 'CheckCircle', 'accent' => 'indigo'],
-            ],
-            'invoice_pending_list' => (clone $invoices)
-                ->whereIn('status', ['draft', 'validated'])
-                ->with(['order:id,no_po,pelanggan_id', 'order.pelanggan:id,nama'])
-                ->orderByDesc('created_at')->limit(10)->get(),
-            'refund_pending_list' => (clone $refunds)
-                ->where('status', 'pending_review')
-                ->with(['order:id,no_po', 'creator:id,name'])
-                ->orderByDesc('created_at')->limit(10)->get(),
-            'dp_pending_list' => DesignDeposit::query()
-                ->when($brandId && $brandId !== 'all', $this->bf($brandId))
-                ->where('status', 'pending')
-                ->with(['customer:id,nama', 'brand:id,nama_brand,kode'])
-                ->orderByDesc('created_at')->limit(10)->get(),
-            'payment_status' => $this->paymentStatusBreakdown($brandId),
-            'bank_accounts_summary' => $bankAccountsSummary,
-            'brand_financial_reports' => $brandFinancialReports,
-            'brands' => $allActiveBrands,
-            'progress_distribution' => $this->progressDistribution($brandId),
-            'current_brand_id' => $brandId ?: 'all',
-        ];
-            },
-            CacheService::TTL_SHORT
-        );
     }
 
     // ----- private helpers -----

@@ -156,9 +156,7 @@ class ImportCustomersCommand extends Command
                 // Generate customer code
                 $custCode = $data['customer_code'] ?? $data['customer_kode'];
                 if (!$custCode) {
-                    $prefixCode = 'CUST';
-                    $next = Customer::where('brand_id', $brand->id)->withTrashed()->count() + 1;
-                    $custCode = $prefixCode . '-' . Str::padLeft((string) $next, 5, '0');
+                    $custCode = Customer::generateUniqueKode($brand->id);
                 }
 
                 // 4. Create or Update Customer

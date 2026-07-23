@@ -44,12 +44,44 @@ class Customer extends Model
         return $this->belongsTo(SumberOrder::class, 'sumber_daftar_id');
     }
 
-    public function scopeActive($q) { return $q->where('is_active', true); }
+    public function scopeActive(\Illuminate\Database\Eloquent\Builder $q): \Illuminate\Database\Eloquent\Builder
+    {
+        return $q->where('is_active', true);
+    }
 
-    public function scopeForBrand($q, $brandId)
+    public function scopeForBrand(\Illuminate\Database\Eloquent\Builder $q, ?string $brandId): \Illuminate\Database\Eloquent\Builder
     {
         return $q->where(function ($w) use ($brandId) {
             $w->where('brand_id', $brandId)->orWhereNull('brand_id');
         });
     }
+
+    public static function generateUniqueKode(?string $brandId, string $prefix = 'CUST'): string
+    {
+        $lastCustomer = self::where('brand_id', $brandId)
+            ->where('kode', 'like', $prefix . '-%')
+            ->withTrashed()
+            ->orderByDesc('kode')
+            ->first();
+
+        $nextNum = 1;
+        if ($lastCustomer) {
+            $lastNum = (int) str_replace($prefix . '-', '', $lastCustomer->kode);
+            $nextNum = $lastNum + 1;
+        }
+
+        do {
+            $custCode = $prefix . '-' . \Illuminate\Support\Str::padLeft((string) $nextNum, 5, '0');
+            $exists = self::where('brand_id', $brandId)
+                ->where('kode', $custCode)
+                ->withTrashed()
+                ->exists();
+            if ($exists) {
+                $nextNum++;
+            }
+        } while ($exists);
+
+        return $custCode;
+    }
 }
+
