@@ -528,7 +528,7 @@ class OrderLifecycleTest extends TestCase
             ->assertRedirect();
 
         $order = $order->fresh();
-        $this->assertEquals('published', $order->status_po);
+        $this->assertEquals('on_progress', $order->status_po);
 
         // Update PACKING to selesai
         $this->actingAsWithBrand($adminProduction, $brand)

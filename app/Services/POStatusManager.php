@@ -57,12 +57,12 @@ class POStatusManager
             $detail->updated_by = $user->id;
 
             if ($newStatus === 'on_progress' && ! $detail->started_at) {
-                $detail->started_at = now();
+                $detail->started_at = \Illuminate\Support\Carbon::now();
             }
             if ($newStatus === 'selesai') {
-                $detail->completed_at = now();
+                $detail->completed_at = \Illuminate\Support\Carbon::now();
                 if (!$detail->started_at) {
-                    $detail->started_at = now();
+                    $detail->started_at = \Illuminate\Support\Carbon::now();
                 }
             }
             $detail->save();
@@ -72,7 +72,7 @@ class POStatusManager
                 POLockStatus::create([
                     'order_id' => $order->id,
                     'is_locked' => true,
-                    'locked_at' => now(),
+                    'locked_at' => \Illuminate\Support\Carbon::now(),
                     'locked_by' => $user->id,
                 ]);
             }
@@ -88,7 +88,7 @@ class POStatusManager
         $details = $order->progressDetails()->with('progress')->get();
         if ($details->isEmpty()) return;
 
-        $hasOnProgress = $details->contains(fn ($d) => $d->status === 'on_progress');
+        $hasStarted = $details->contains(fn ($d) => in_array($d->status, ['on_progress', 'selesai', 'skipped'], true));
         $allSelesaiOrSkipped = $details->every(fn ($d) => in_array($d->status, ['selesai', 'skipped'], true));
 
         // Cek tahap PACKING & SENDING (by nama, sesuai BRD 5.12)
@@ -107,14 +107,14 @@ class POStatusManager
             $newStatus = 'siap_dikirim';
         } elseif ($allSelesaiOrSkipped) {
             $newStatus = 'selesai_produksi';
-        } elseif ($hasOnProgress) {
+        } elseif ($hasStarted) {
             $newStatus = 'on_progress';
         } else {
             $newStatus = 'published';
         }
 
         // Delay check: deadline_customer terlewati & belum sudah_dikirim
-        if ($order->deadline_customer && $order->deadline_customer->isPast()
+        if ($order->deadline_customer && \Carbon\Carbon::parse($order->deadline_customer)->isPast()
             && ! in_array($newStatus, ['sudah_dikirim'], true)) {
             $newStatus = 'delay';
         }
