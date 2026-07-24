@@ -25,17 +25,19 @@ class BrandContext
         
         $current = $request->session()->get(self::SESSION_KEY);
         if (! $current) {
-            $explicitDefault = $user->brands()->wherePivot('is_default', true)->first();
-            if ($explicitDefault && $brands->firstWhere('id', $explicitDefault->id)) {
-                $current = $explicitDefault->id;
-            } elseif ($user->last_brand_id && $brands->firstWhere('id', $user->last_brand_id)) {
+            if ($user->last_brand_id && $brands->firstWhere('id', $user->last_brand_id)) {
                 $current = $user->last_brand_id;
             } elseif ($canSeeAll) {
                 $current = 'all';
             } else {
-                $firstBrand = $user->brands()->first();
-                if ($firstBrand && $brands->firstWhere('id', $firstBrand->id)) {
-                    $current = $firstBrand->id;
+                $explicitDefault = $user->brands()->wherePivot('is_default', true)->first();
+                if ($explicitDefault && $brands->firstWhere('id', $explicitDefault->id)) {
+                    $current = $explicitDefault->id;
+                } else {
+                    $firstBrand = $user->brands()->first();
+                    if ($firstBrand && $brands->firstWhere('id', $firstBrand->id)) {
+                        $current = $firstBrand->id;
+                    }
                 }
             }
         }

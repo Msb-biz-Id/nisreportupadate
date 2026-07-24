@@ -452,7 +452,7 @@
                     <tr>
                         <th style="width: 25%; text-align: left;">JENIS PESANAN</th>
                         @foreach($nonAddonItems as $item)
-                        <th>{{ strtoupper(($item['varian_label'] ?? '') ?: ($item['nama_produk'] ?? '')) }}</th>
+                        <th>{{ ($item['varian_label'] ?? '') ?: ($item['nama_produk'] ?? '') }}</th>
                         @endforeach
                     </tr>
                 </thead>
@@ -556,7 +556,7 @@
                         <th style="text-align:left; width:25%;">JAHITAN / DETAIL</th>
                         @foreach($nonAddonItems as $item)
                         <th>
-                            {{ strtoupper(($item['varian_label'] ?? '') ?: ($item['nama_produk'] ?? '')) }}
+                            {{ ($item['varian_label'] ?? '') ?: ($item['nama_produk'] ?? '') }}
                         </th>
                         @endforeach
                     </tr>
@@ -649,7 +649,7 @@
 
         <div class="img-wrapper" style="padding:6px; margin-bottom:10px;">
             <div class="title-box-center" style="margin-top:0;">
-                REFERENSI DESAIN {{ strtoupper($item['nama_produk'] ?? '') }} @if(!empty($item['varian_label'])) — {{ strtoupper($item['varian_label']) }}@endif
+                REFERENSI DESAIN {{ $item['nama_produk'] ?? '' }} @if(!empty($item['varian_label'])) — {{ $item['varian_label'] }}@endif
             </div>
 
             @if(!empty($item['gambar_desain']))
@@ -843,7 +843,7 @@
             @else
             <div class="title-box-center" style="font-size:11.5pt;">
                 @endif
-                DATA PESANAN {{ strtoupper($item['nama_produk'] ?? '') }} @if(!empty($item['varian_label'])) — {{ strtoupper($item['varian_label']) }}@endif
+                DATA PESANAN {{ $item['nama_produk'] ?? '' }} @if(!empty($item['varian_label'])) — {{ $item['varian_label'] }}@endif
             </div>
             @if($hasCustomization)
             <table class="{{ $tableClass }}" style="border-top:none; table-layout: fixed; width: 100%;">
@@ -1154,10 +1154,10 @@
             // Construct descriptive title
             $varDetails = [];
             if (!empty($item['nama_produk'])) {
-            $varDetails[] = strtoupper($item['nama_produk']);
+            $varDetails[] = $item['nama_produk'];
             }
             if (!empty($item['varian_label'])) {
-            $varDetails[] = strtoupper($item['varian_label']);
+            $varDetails[] = $item['varian_label'];
             }
             $groupSubtitle = implode(' — ', $varDetails);
             @endphp

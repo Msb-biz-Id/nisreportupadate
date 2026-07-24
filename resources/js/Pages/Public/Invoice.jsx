@@ -192,7 +192,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                         <div className="font-bold text-[9px] tracking-wider uppercase text-black border-b border-black pb-0.5">PRODUK UTAMA</div>
                                         {mainItems.map((item, idx) => (
                                             <div key={item.id} className="space-y-0.5">
-                                                <div className="font-bold text-black uppercase">{item.produk}</div>
+                                                <div className="font-bold text-black">{item.produk}</div>
                                                 <div className="flex justify-between pl-1 text-black">
                                                     <span>{item.jumlah}x {formatRupiah(item.harga_satuan)}</span>
                                                     <span className="font-bold">{formatRupiah(item.subtotal)}</span>
@@ -206,7 +206,7 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                         <div className="font-bold text-[9px] tracking-wider uppercase text-black border-b border-black pb-0.5">TAMBAHAN / ADD-ON</div>
                                         {addonItems.map((item, idx) => (
                                             <div key={item.id} className="space-y-0.5">
-                                                <div className="font-bold text-black uppercase">{item.produk}</div>
+                                                <div className="font-bold text-black">{item.produk}</div>
                                                 <div className="flex justify-between pl-1 text-black">
                                                     <span>{item.jumlah}x {formatRupiah(item.harga_satuan)}</span>
                                                     <span className="font-bold">{formatRupiah(item.subtotal)}</span>

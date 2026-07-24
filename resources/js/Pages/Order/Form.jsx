@@ -783,7 +783,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                         {item.is_addon ? `ADD-ON #${index + 1}` : `PRODUK #${index + 1}`}
                     </span>
                     {item.nama_produk && (
-                        <span className="text-slate-300 text-xs font-bold uppercase truncate">
+                        <span className="text-slate-300 text-xs font-bold truncate">
                             — {item.nama_produk}
                             {item.varian_label && ` (${item.varian_label})`}
                         </span>
@@ -863,11 +863,11 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                         </div>
                         <div className="sm:col-span-4">
                             <FieldLabel>Nama Produk <span className="text-red-500">*</span></FieldLabel>
-                            <Input value={item.nama_produk} onChange={(e) => patch('nama_produk', e.target.value)} className="h-8 text-xs font-bold uppercase" />
+                            <Input value={item.nama_produk} onChange={(e) => patch('nama_produk', e.target.value)} className="h-8 text-xs font-bold" />
                         </div>
                         <div className="sm:col-span-3">
                             <FieldLabel>Varian / Label</FieldLabel>
-                            <Input value={item.varian_label} onChange={(e) => patch('varian_label', e.target.value)} placeholder="Pemain Utama / Cadangan" className="h-8 text-xs uppercase" />
+                            <Input value={item.varian_label} onChange={(e) => patch('varian_label', e.target.value)} placeholder="Pemain Utama / Cadangan" className="h-8 text-xs" />
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 mt-3">
@@ -1738,7 +1738,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                                     return (
                                                         <div key={origIdx} className="flex justify-between items-center text-xs">
                                                             <div className="flex flex-col min-w-0">
-                                                                <span className="font-bold text-slate-700 uppercase truncate max-w-[170px]" title={item.nama_produk}>
+                                                                <span className="font-bold text-slate-700 truncate max-w-[170px]" title={item.nama_produk}>
                                                                     {item.nama_produk || `Produk #${origIdx + 1}`}
                                                                 </span>
                                                                 {Number(item.discount_value) > 0 && (
@@ -1769,7 +1769,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                                     return (
                                                         <div key={origIdx} className="flex justify-between items-center text-xs">
                                                             <div className="flex flex-col min-w-0">
-                                                                <span className="font-bold text-slate-700 uppercase truncate max-w-[170px]" title={item.nama_produk}>
+                                                                <span className="font-bold text-slate-700 truncate max-w-[170px]" title={item.nama_produk}>
                                                                     {item.nama_produk || `Add-on #${origIdx + 1}`}
                                                                 </span>
                                                                 {Number(item.discount_value) > 0 && (

@@ -287,7 +287,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         <tr className="bg-slate-300 font-bold">
                                             <th className="border border-black p-1.5 text-left w-1/4">JENIS PESANAN</th>
                                             {nonAddonItems.map(item => (
-                                                <th key={item.id} className="border border-black p-1.5 text-center">
+                                                <th key={item.id} className="border border-black p-1.5 text-center normal-case">
                                                     {item.varian_label || item.nama_produk}
                                                 </th>
                                             ))}
@@ -441,7 +441,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         <tr className="bg-slate-300 font-bold">
                                             <th className="border border-black p-1.5 text-left w-1/4">JAHITAN / DETAIL</th>
                                             {nonAddonItems.map(item => (
-                                                <th key={item.id} className="border border-black p-1.5 text-center">
+                                                <th key={item.id} className="border border-black p-1.5 text-center normal-case">
                                                     {item.varian_label || item.nama_produk}
                                                 </th>
                                             ))}
@@ -620,7 +620,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                     <div key={`design-${item.id}`} className="mt-8 border-t-2 border-dashed border-slate-400 pt-8 print:break-before-page print:pt-4">
                                         <div className="border-2 border-black p-1.5 mb-3 bg-white">
                                             <div className="bg-slate-300 font-bold text-[13px] border border-black p-1.5 text-center">
-                                                REFERENSI DESAIN {item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}
+                                                REFERENSI DESAIN <span className="normal-case">{item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}</span>
                                             </div>
 
                                             <div className="border border-black border-t-0 p-1 mb-2 bg-white flex justify-center items-center min-h-[200px]">
@@ -688,7 +688,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         {hasCustomization && (
                                             <div className="mb-6">
                                                 <div className="bg-slate-300 font-bold text-[12.5px] border border-black p-1.5 text-center mb-2 uppercase">
-                                                    DATA PESANAN: {item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}
+                                                    DATA PESANAN: <span className="normal-case">{item.nama_produk} {item.varian_label ? `— ${item.varian_label}` : ''}</span>
                                                 </div>
                                                 <table className="w-full table-fixed border-collapse border border-black text-center mb-3">
                                                     <colgroup>
@@ -944,7 +944,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                     return (
                                         <div key={item.id || item.nama_produk} className="mb-6">
                                             <div className="bg-slate-300 font-bold text-[12px] border border-black p-1 text-center mb-2 uppercase">
-                                                DATA PESANAN: {groupSubtitle}
+                                                DATA PESANAN: <span className="normal-case">{groupSubtitle}</span>
                                             </div>
                                             {sortedSizeKeys.map((sizeKey, sIdx) => {
                                                 const namesetsInSize = groupedBySize[sizeKey] || [];
