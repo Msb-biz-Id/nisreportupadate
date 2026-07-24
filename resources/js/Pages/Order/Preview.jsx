@@ -735,6 +735,19 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
     function doDelete() {
         router.delete(route('orders.destroy', order.id));
     }
+    function toggleHold() {
+        if (order.status_po === 'hold') {
+            const hasStarted = (order.progress_details || []).some(d => ['on_progress', 'selesai', 'skipped'].includes(d.status));
+            const targetStatus = hasStarted ? 'on_progress' : 'published';
+            if (confirm('Apakah Anda yakin ingin mengaktifkan PO ini kembali?')) {
+                router.put(route('produksi.move-status', order.id), { to_status: targetStatus });
+            }
+        } else {
+            if (confirm('Apakah Anda yakin ingin menangguhkan (Hold) PO ini?')) {
+                router.put(route('produksi.move-status', order.id), { to_status: 'hold' });
+            }
+        }
+    }
     function completeOrder() {
         if (!confirm('Apakah Anda yakin ingin menyelesaikan pesanan ini? Status "Selesai" adalah terminal state yang tidak dapat diubah kembali.')) return;
         router.post(route('orders.complete', order.id), {}, { preserveScroll: true });
@@ -897,6 +910,26 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                             >
                                                 <RotateCw className="h-4 w-4 text-slate-400" />
                                                 Repeat Order
+                                            </DropdownMenuItem>
+                                        )}
+
+                                        {/* Hold / Unhold PO */}
+                                        {can?.hold && order.status_po !== 'draft' && order.status_po !== 'selesai' && (
+                                            <DropdownMenuItem
+                                                onClick={toggleHold}
+                                                className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md"
+                                            >
+                                                {order.status_po === 'hold' ? (
+                                                    <>
+                                                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                                        Aktifkan PO Kembali
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                                                        Tangguhkan PO (Hold)
+                                                    </>
+                                                )}
                                             </DropdownMenuItem>
                                         )}
 

@@ -722,6 +722,7 @@ class OrderController extends Controller
                 'add_payment' => ! $request->user()->hasRole('admin_produksi'),
                 'edit_timeline' => $request->user()->hasRole('admin_produksi'),
                 'mark_lunas' => $request->user()->isSuperadmin() || $request->user()->hasRole('admin_keuangan'),
+                'hold' => $request->user()->can('production.update-progress'),
             ],
         ]);
     }
