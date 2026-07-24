@@ -10,6 +10,7 @@ const STATUS_BADGE = {
     selesai_produksi: { label: 'Selesai Produksi', class: 'bg-emerald-100 text-emerald-700' },
     siap_dikirim: { label: 'Siap Dikirim', class: 'bg-cyan-100 text-cyan-700' },
     sudah_dikirim: { label: 'Sudah Dikirim', class: 'bg-violet-100 text-violet-700' },
+    selesai: { label: 'Produk Telah Diterima', class: 'bg-green-100 text-green-700' },
     delay: { label: 'Terlambat', class: 'bg-red-100 text-red-700' },
     hold: { label: 'Ditahan', class: 'bg-orange-100 text-orange-700' },
 };
