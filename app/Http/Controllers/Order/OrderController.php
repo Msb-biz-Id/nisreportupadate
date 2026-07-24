@@ -582,6 +582,14 @@ class OrderController extends Controller
 
                 $diskonNominalFromOrder = (float) $order->items->sum('discount_amount');
 
+                if ($order->is_special_order) {
+                    $diskonType = 'persen';
+                    $diskonValue = 100.0;
+                } else {
+                    $diskonType = $diskonNominalFromOrder > 0 ? 'nominal' : null;
+                    $diskonValue = $diskonNominalFromOrder > 0 ? $diskonNominalFromOrder : 0.0;
+                }
+
                 $invoice->update([
                     'biaya_pengiriman' => $order->is_free_ongkir ? 0.0 : (float) $order->ongkir,
                     'total_tagihan' => $totalTagihan,
@@ -591,8 +599,8 @@ class OrderController extends Controller
                     'bank_id' => $data['bank_id'],
                     'tanggal_terbit' => $order->tanggal_masuk,
                     'jatuh_tempo' => $order->deadline_customer,
-                    'diskon_type' => $diskonNominalFromOrder > 0 ? 'nominal' : $invoice->diskon_type,
-                    'diskon_value' => $diskonNominalFromOrder > 0 ? $diskonNominalFromOrder : $invoice->diskon_value,
+                    'diskon_type' => $diskonType,
+                    'diskon_value' => $diskonValue,
                     'voucher_discount_amount' => $order->voucher_discount_amount,
                 ]);
             }
