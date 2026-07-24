@@ -88,17 +88,35 @@ class PoGroupHelper
 
             $coreItem = null;
             if ($freeName !== '') {
+                // 1. Exact match by name
                 $coreItem = $coreItems->first(function ($c) use ($freeName) {
                     $cName = strtolower(trim(is_array($c) ? ($c['nama_produk'] ?? '') : ($c->nama_produk ?? '')));
                     return $cName === $freeName;
                 });
+
+                // 2. Fuzzy match by name (contains)
+                if (!$coreItem) {
+                    $coreItem = $coreItems->first(function ($c) use ($freeName) {
+                        $cName = strtolower(trim(is_array($c) ? ($c['nama_produk'] ?? '') : ($c->nama_produk ?? '')));
+                        return $cName !== '' && (str_contains($freeName, $cName) || str_contains($cName, $freeName));
+                    });
+                }
             }
 
             if (!$coreItem && $freeVarian !== '') {
+                // 3. Exact match by variant
                 $coreItem = $coreItems->first(function ($c) use ($freeVarian) {
                     $cVarian = strtolower(trim(is_array($c) ? ($c['varian_label'] ?? '') : ($c->varian_label ?? '')));
                     return $cVarian === $freeVarian;
                 });
+
+                // 4. Fuzzy match by variant (contains)
+                if (!$coreItem) {
+                    $coreItem = $coreItems->first(function ($c) use ($freeVarian) {
+                        $cVarian = strtolower(trim(is_array($c) ? ($c['varian_label'] ?? '') : ($c->varian_label ?? '')));
+                        return $cVarian !== '' && (str_contains($freeVarian, $cVarian) || str_contains($cVarian, $freeVarian));
+                    });
+                }
             }
 
             if (!$coreItem) {
