@@ -685,6 +685,72 @@ class OrderController extends Controller
 
         $this->resolveItemNamesInBatch($order);
 
+        if ($order->invoices->isEmpty()) {
+            try {
+                DB::transaction(function () use ($order) {
+                    $brand = $order->brand;
+                    $totalTagihan = (float) $order->totalTagihan();
+                    $dp = 0.0;
+                    $diskonNominalFromOrder = (float) $order->items->sum('discount_amount');
+
+                    $isSpecial = (bool) $order->is_special_order;
+                    $biayaPengiriman = $order->is_free_ongkir ? 0.0 : (float) $order->ongkir;
+
+                    if ($isSpecial) {
+                        $invoiceTotalTagihan = $biayaPengiriman;
+                        $diskonType = 'persen';
+                        $diskonValue = 100.0;
+                    } else {
+                        $invoiceTotalTagihan = $totalTagihan;
+                        $diskonType = $diskonNominalFromOrder > 0 ? 'nominal' : null;
+                        $diskonValue = $diskonNominalFromOrder > 0 ? $diskonNominalFromOrder : 0.0;
+                    }
+
+                    $bank = BankAccount::where('brand_id', $order->brand_id)->active()->first();
+                    $bankId = $bank?->id;
+
+                    $invoice = Invoice::create([
+                        'brand_id'        => $order->brand_id,
+                        'order_id'        => $order->id,
+                        'invoice_number'  => $this->numbers->generateInvoiceNumber($brand, $order),
+                        'tanggal_terbit'  => $order->tanggal_masuk ?: now()->toDateString(),
+                        'jatuh_tempo'     => $order->deadline_customer ?: now()->addDays(7)->toDateString(),
+                        'status'          => $order->status_po === 'draft' ? 'draft' : 'published',
+                        'biaya_pengiriman' => $biayaPengiriman,
+                        'total_tagihan'   => $invoiceTotalTagihan,
+                        'bank_id'         => $bankId,
+                        'dp_amount'       => $dp,
+                        'sisa_pembayaran' => max(0, $invoiceTotalTagihan - $dp),
+                        'diskon_type'     => $diskonType,
+                        'diskon_value'    => $diskonValue,
+                        'voucher_discount_amount' => $order->voucher_discount_amount,
+                        'created_by'      => $order->created_by ?: 1,
+                    ]);
+
+                    foreach ($order->items as $item) {
+                        $itemSubtotal = $isSpecial ? 0.0 : $item->subtotal;
+                        $itemDiscountType = $isSpecial ? 'persen' : $item->discount_type;
+                        $itemDiscountValue = $isSpecial ? 100.0 : $item->discount_value;
+                        $itemDiscountAmount = $isSpecial ? $item->subtotal : $item->discount_amount;
+
+                        InvoiceItem::create([
+                            'invoice_id'   => $invoice->id,
+                            'produk'       => $item->nama_produk . ($item->varian_label ? " ({$item->varian_label})" : '') . ((float)$item->harga_satuan === 0.0 ? ' (Bonus)' : ''),
+                            'harga_satuan' => $isSpecial ? 0.0 : $item->harga_satuan,
+                            'jumlah'       => $item->quantity,
+                            'subtotal'     => $itemSubtotal,
+                            'discount_type'   => $itemDiscountType,
+                            'discount_value'  => $itemDiscountValue,
+                            'discount_amount' => $itemDiscountAmount,
+                        ]);
+                    }
+                });
+                $order->load('invoices');
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("Failed to repair missing invoice for order {$order->id}: " . $e->getMessage());
+            }
+        }
+
         $printings = collect();
         if (!empty($order->printing_ids)) {
             $printings = Printing::whereIn('id', $order->printing_ids)->get(['id', 'nama']);
@@ -861,6 +927,64 @@ class OrderController extends Controller
                 }
             }
             $clone->update(['total_tagihan' => $clone->items()->sum('subtotal')]);
+
+            // Create new invoice for the repeat order
+            $parentInvoice = $order->invoices()->first();
+            $bankId = $parentInvoice?->bank_id;
+
+            $clone->load('items');
+            $totalTagihan = (float) $clone->total_tagihan;
+            $dp = 0.0;
+            $diskonNominalFromOrder = (float) $clone->items->sum('discount_amount');
+
+            $isSpecial = (bool) $clone->is_special_order;
+            $biayaPengiriman = $clone->is_free_ongkir ? 0.0 : (float) $clone->ongkir;
+
+            if ($isSpecial) {
+                $invoiceTotalTagihan = $biayaPengiriman;
+                $diskonType = 'persen';
+                $diskonValue = 100.0;
+            } else {
+                $invoiceTotalTagihan = $totalTagihan;
+                $diskonType = $diskonNominalFromOrder > 0 ? 'nominal' : null;
+                $diskonValue = $diskonNominalFromOrder > 0 ? $diskonNominalFromOrder : 0.0;
+            }
+
+            $invoice = Invoice::create([
+                'brand_id'        => $clone->brand_id,
+                'order_id'        => $clone->id,
+                'invoice_number'  => $this->numbers->generateInvoiceNumber($brand, $clone),
+                'tanggal_terbit'  => $clone->tanggal_masuk,
+                'jatuh_tempo'     => $clone->deadline_customer,
+                'status'          => 'draft',
+                'biaya_pengiriman' => $biayaPengiriman,
+                'total_tagihan'   => $invoiceTotalTagihan,
+                'bank_id'         => $bankId,
+                'dp_amount'       => $dp,
+                'sisa_pembayaran' => max(0, $invoiceTotalTagihan - $dp),
+                'diskon_type'     => $diskonType,
+                'diskon_value'    => $diskonValue,
+                'voucher_discount_amount' => $clone->voucher_discount_amount,
+                'created_by'      => $user->id,
+            ]);
+
+            foreach ($clone->items as $newItem) {
+                $itemSubtotal = $isSpecial ? 0.0 : $newItem->subtotal;
+                $itemDiscountType = $isSpecial ? 'persen' : $newItem->discount_type;
+                $itemDiscountValue = $isSpecial ? 100.0 : $newItem->discount_value;
+                $itemDiscountAmount = $isSpecial ? $newItem->subtotal : $newItem->discount_amount;
+
+                InvoiceItem::create([
+                    'invoice_id'   => $invoice->id,
+                    'produk'       => $newItem->nama_produk . ($newItem->varian_label ? " ({$newItem->varian_label})" : '') . ((float)$newItem->harga_satuan === 0.0 ? ' (Bonus)' : ''),
+                    'harga_satuan' => $isSpecial ? 0.0 : $newItem->harga_satuan,
+                    'jumlah'       => $newItem->quantity,
+                    'subtotal'     => $itemSubtotal,
+                    'discount_type'   => $itemDiscountType,
+                    'discount_value'  => $itemDiscountValue,
+                    'discount_amount' => $itemDiscountAmount,
+                ]);
+            }
 
             return $clone;
         });
