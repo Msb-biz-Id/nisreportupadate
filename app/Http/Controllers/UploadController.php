@@ -133,7 +133,7 @@ class UploadController extends Controller
 
             $width = imagesx($image);
             $height = imagesy($image);
-            $maxWidth = 1200;
+            $maxWidth = 2400;
 
             // Resize secara proporsional jika lebar melebihi batas maksimum
             if ($width > $maxWidth) {
@@ -152,8 +152,8 @@ class UploadController extends Controller
                 @mkdir($dir, 0755, true);
             }
 
-            // Simpan sebagai WebP berkualitas 75%
-            $success = @imagewebp($image, $targetPath, 75);
+            // Simpan sebagai WebP berkualitas 85% (HD)
+            $success = @imagewebp($image, $targetPath, 85);
             imagedestroy($image);
 
             return $success;
