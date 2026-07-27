@@ -65,14 +65,27 @@ class CustomerController extends Controller
 
         $data = $this->validatePayload($request);
 
-        if (empty($data['kode'])) {
-            $data['kode'] = $this->generateKode($request);
-        }
-
         $brandId = BrandContext::masterDataId($request);
         $data['brand_id'] = $brandId;
 
-        $customer = Customer::create($data);
+        $attempts = 0;
+        $maxAttempts = 5;
+        while (true) {
+            try {
+                if (empty($data['kode'])) {
+                    $data['kode'] = Customer::generateUniqueKode($brandId);
+                }
+                $customer = Customer::create($data);
+                break; // Success
+            } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+                $attempts++;
+                if ($attempts >= $maxAttempts || !empty($request->input('kode'))) {
+                    throw $e;
+                }
+                $data['kode'] = null;
+                usleep(10000); // 10ms
+            }
+        }
 
         \App\Services\ActivityLogger::log('create', 'master_data', $customer, "Tambah pelanggan baru: {$customer->nama} ({$customer->kode})");
 
@@ -328,37 +341,51 @@ class CustomerController extends Controller
                     }
                 }
 
-                // Generate customer code if not provided
-                $custCode = $data['customer_code'] ?? $data['customer_kode'];
-                if (!$custCode) {
-                    $custCode = Customer::generateUniqueKode($brand->id);
-                }
+                // Generate and save/update customer with retry loop for unique code constraint
+                $attempts = 0;
+                $maxAttempts = 5;
+                $providedCode = $data['customer_code'] ?? $data['customer_kode'];
 
-                // 4. Create or Update Customer
-                Customer::updateOrCreate(
-                    [
-                        'brand_id' => $brand->id,
-                        'nomor_hp' => $custHp,
-                    ],
-                    [
-                        'nama' => $custNama,
-                        'kode' => $custCode,
-                        'email' => $data['customer_email'],
-                        'type_pelanggan_id' => $typeId,
-                        'provinsi_code' => $provCode,
-                        'provinsi_nama' => $provNama ?: $data['provinsi_nama'],
-                        'kabupaten_code' => $kabCode,
-                        'kabupaten_nama' => $kabNama ?: $data['kabupaten_nama'],
-                        'kecamatan_code' => $kecCode,
-                        'kecamatan_nama' => $kecNama ?: $data['kecamatan_nama'],
-                        'desa_code' => $desaCode,
-                        'desa_nama' => $desaNama ?: $data['desa_nama'],
-                        'detail_alamat' => $data['customer_detail_alamat'],
-                        'kodepos' => $data['customer_kodepos'],
-                        'notes' => $data['customer_notes'],
-                        'is_active' => true,
-                    ]
-                );
+                while (true) {
+                    try {
+                        $custCode = $providedCode;
+                        if (!$custCode) {
+                            $custCode = Customer::generateUniqueKode($brand->id);
+                        }
+
+                        Customer::updateOrCreate(
+                            [
+                                'brand_id' => $brand->id,
+                                'nomor_hp' => $custHp,
+                            ],
+                            [
+                                'nama' => $custNama,
+                                'kode' => $custCode,
+                                'email' => $data['customer_email'],
+                                'type_pelanggan_id' => $typeId,
+                                'provinsi_code' => $provCode,
+                                'provinsi_nama' => $provNama ?: $data['provinsi_nama'],
+                                'kabupaten_code' => $kabCode,
+                                'kabupaten_nama' => $kabNama ?: $data['kabupaten_nama'],
+                                'kecamatan_code' => $kecCode,
+                                'kecamatan_nama' => $kecNama ?: $data['kecamatan_nama'],
+                                'desa_code' => $desaCode,
+                                'desa_nama' => $desaNama ?: $data['desa_nama'],
+                                'detail_alamat' => $data['customer_detail_alamat'],
+                                'kodepos' => $data['customer_kodepos'],
+                                'notes' => $data['customer_notes'],
+                                'is_active' => true,
+                            ]
+                        );
+                        break; // Success
+                    } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+                        $attempts++;
+                        if ($attempts >= $maxAttempts || !empty($providedCode)) {
+                            throw $e;
+                        }
+                        usleep(10000); // 10ms
+                    }
+                }
 
                 $imported++;
             }

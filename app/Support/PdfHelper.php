@@ -140,7 +140,7 @@ class PdfHelper
     public static function resolveImageForPdf(?string $path): string
     {
         if (empty($path)) {
-            \Log::debug("PdfHelper::resolveImageForPdf - Empty path provided");
+            Log::debug("PdfHelper::resolveImageForPdf - Empty path provided");
             return '';
         }
 
@@ -176,7 +176,7 @@ class PdfHelper
         }
 
         if (!$fullPath) {
-            \Log::warning("PdfHelper::resolveImageForPdf - File not found for input: {$path}", [
+            Log::warning("PdfHelper::resolveImageForPdf - File not found for input: {$path}", [
                 'input_path' => $path,
                 'normalized_path' => $normalizedPath,
                 'searched_candidates' => $candidates
@@ -187,7 +187,7 @@ class PdfHelper
         // Normalize slashes and resolve drive letters on Windows
         $realPath = realpath($fullPath);
         if (!$realPath) {
-            \Log::warning("PdfHelper::resolveImageForPdf - Realpath failed for: {$fullPath}");
+            Log::warning("PdfHelper::resolveImageForPdf - Realpath failed for: {$fullPath}");
             $realPath = $fullPath;
         }
 
@@ -197,7 +197,7 @@ class PdfHelper
 
             // Handle WebP in-memory conversion to PNG
             if ($extension === 'webp' || $mime === 'image/webp') {
-                \Log::debug("PdfHelper::resolveImageForPdf - Attempting WebP conversion for: {$realPath}");
+                Log::debug("PdfHelper::resolveImageForPdf - Attempting WebP conversion for: {$realPath}");
                 if (function_exists('imagecreatefromwebp')) {
                     $im = @imagecreatefromwebp($realPath);
                     if ($im) {
@@ -206,13 +206,13 @@ class PdfHelper
                         $pngData = ob_get_clean();
                         imagedestroy($im);
                         
-                        \Log::info("PdfHelper::resolveImageForPdf - WebP converted successfully to PNG base64 in-memory: {$realPath}");
+                        Log::info("PdfHelper::resolveImageForPdf - WebP converted successfully to PNG base64 in-memory: {$realPath}");
                         return 'data:image/png;base64,' . base64_encode($pngData);
                     } else {
-                        \Log::error("PdfHelper::resolveImageForPdf - imagecreatefromwebp failed to read image at: {$realPath}");
+                        Log::error("PdfHelper::resolveImageForPdf - imagecreatefromwebp failed to read image at: {$realPath}");
                     }
                 } else {
-                    \Log::warning("PdfHelper::resolveImageForPdf - function imagecreatefromwebp does not exist, GD library might be missing WebP support.");
+                    Log::warning("PdfHelper::resolveImageForPdf - function imagecreatefromwebp does not exist, GD library might be missing WebP support.");
                 }
             }
 
@@ -234,7 +234,7 @@ class PdfHelper
                 return 'data:' . $mime . ';base64,' . base64_encode($data);
             }
         } catch (\Throwable $e) {
-            \Log::error("PdfHelper::resolveImageForPdf - Exception during conversion: " . $e->getMessage(), [
+            Log::error("PdfHelper::resolveImageForPdf - Exception during conversion: " . $e->getMessage(), [
                 'exception' => $e
             ]);
         }
