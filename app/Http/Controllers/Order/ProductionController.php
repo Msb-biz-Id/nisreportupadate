@@ -482,20 +482,33 @@ class ProductionController extends Controller
         $allowed = self::TRANSITIONS[$from] ?? [];
 
         if (! in_array($to, $allowed, true)) {
+            $errorMsg = "Transisi '{$from}' → '{$to}' tidak diizinkan via Kanban. Gunakan halaman progress untuk update detail tahapan.";
+            if ($request->hasHeader('X-Inertia')) {
+                return back()->with('error', $errorMsg);
+            }
             return response()->json([
                 'success' => false,
-                'error' => "Transisi '{$from}' → '{$to}' tidak diizinkan via Kanban. Gunakan halaman progress untuk update detail tahapan.",
+                'error' => $errorMsg,
             ], 422);
         }
 
         if ($to === 'sudah_dikirim' && ! $order->is_lunas && ! $order->is_special_order) {
+            $errorMsg = 'Gagal memindahkan. Konfirmasi LUNAS dari Keuangan diperlukan terlebih dahulu sebelum pesanan dapat dikirim.';
+            if ($request->hasHeader('X-Inertia')) {
+                return back()->with('error', $errorMsg);
+            }
             return response()->json([
                 'success' => false,
-                'error' => 'Gagal memindahkan. Konfirmasi LUNAS dari Keuangan diperlukan terlebih dahulu sebelum pesanan dapat dikirim.',
+                'error' => $errorMsg,
             ], 422);
         }
 
         $order->update(['status_po' => $to]);
+
+        if ($request->hasHeader('X-Inertia')) {
+            $statusLabel = $to === 'hold' ? 'ditangguhkan (hold)' : 'diaktifkan kembali';
+            return back()->with('success', "Status PO berhasil diperbarui menjadi {$statusLabel}.");
+        }
 
         return response()->json([
             'success' => true,

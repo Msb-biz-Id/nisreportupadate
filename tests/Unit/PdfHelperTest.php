@@ -135,4 +135,20 @@ class PdfHelperTest extends TestCase
         $formattedWeb = PdfHelper::formatTextWeb($javaneseText);
         $this->assertStringContainsString('class="javanese-font"', $formattedWeb);
     }
+
+    public function test_arabic_digits_are_not_reversed(): void
+    {
+        // 27 in Arabic-Indic digits is ٢٧.
+        // It should NOT be reversed to ٧٢.
+        $inputText = "٢٧";
+        $formatted = PdfHelper::formatText($inputText);
+        $this->assertStringContainsString('٢٧', $formatted);
+        $this->assertStringNotContainsString('٧٢', $formatted);
+
+        // Mixed Arabic text and Arabic-Indic digits
+        $mixedText = "حليم (٢٧) XXL";
+        $formattedMixed = PdfHelper::formatText($mixedText);
+        $this->assertStringContainsString('٢٧', $formattedMixed);
+        $this->assertStringNotContainsString('٧٢', $formattedMixed);
+    }
 }

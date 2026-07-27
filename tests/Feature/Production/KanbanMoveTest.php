@@ -116,4 +116,19 @@ class KanbanMoveTest extends TestCase
             ->putJson(route('produksi.move-status', $order->id), ['to_status' => 'on_progress'])
             ->assertForbidden();
     }
+
+    public function test_move_status_via_inertia_redirects_back_with_flash_message(): void
+    {
+        $order = $this->makePoWithStatus('published');
+        $produksi = $this->makeUser('admin_produksi', [$order->brand]);
+
+        $response = $this->actingAsWithBrand($produksi, $order->brand)
+            ->put(route('produksi.move-status', $order->id), ['to_status' => 'on_progress'], [
+                'X-Inertia' => 'true'
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        $this->assertEquals('on_progress', $order->fresh()->status_po);
+    }
 }

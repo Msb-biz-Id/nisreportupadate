@@ -18,6 +18,17 @@ class PdfHelper
         return self::$arabic;
     }
 
+    private static function arabicToLatinDigits(string $string): string
+    {
+        $arabicIndic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+        $persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+        $latin = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+        $string = str_replace($arabicIndic, $latin, $string);
+        $string = str_replace($persian, $latin, $string);
+        return $string;
+    }
+
     /**
      * Format text for **PDF** output (DOMPDF).
      *
@@ -64,7 +75,8 @@ class PdfHelper
         // into pre-shaped visual-order glyphs so DOMPDF displays them joined correctly.
         $processed = preg_replace_callback($arabicPattern, function ($matches) {
             try {
-                $reshaped = self::arPhp()->utf8Glyphs($matches[0]);
+                $preProcessed = self::arabicToLatinDigits($matches[0]);
+                $reshaped = self::arPhp()->utf8Glyphs($preProcessed);
                 return '<span class="arabic-font">' . $reshaped . '</span>';
             } catch (\Throwable) {
                 // Fallback: render un-shaped (still readable with Noto Sans Arabic font)
