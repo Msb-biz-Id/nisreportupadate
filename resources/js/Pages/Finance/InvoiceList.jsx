@@ -355,6 +355,10 @@ export default function InvoiceList({
         return inv.status === 'paid' || fin.sisa <= 0;
     });
 
+    // Counts across all pages matching filters
+    const totalUnpaidCount = (all_filtered_invoices || []).filter(inv => inv.status !== 'paid' && inv.sisa_selisih > 0).length;
+    const totalPaidCount = (all_filtered_invoices || []).filter(inv => inv.status === 'paid' || inv.sisa_selisih <= 0).length;
+
     function applyFilters(overrides = {}) {
         router.get(route('invoices.list'), {
             q: overrides.hasOwnProperty('q') ? overrides.q : search,
@@ -714,7 +718,7 @@ export default function InvoiceList({
                                     }`}
                             >
                                 <Clock className="h-3.5 w-3.5" />
-                                Belum Lunas ({unpaidInvoices.length})
+                                Belum Lunas ({totalUnpaidCount})
                             </button>
                             <button
                                 onClick={() => setActiveTab('sudah_lunas')}
@@ -724,7 +728,7 @@ export default function InvoiceList({
                                     }`}
                             >
                                 <CheckCircle className="h-3.5 w-3.5" />
-                                Sudah Lunas ({paidInvoices.length})
+                                Sudah Lunas ({totalPaidCount})
                             </button>
                             <button
                                 onClick={() => setActiveTab('tanda_jadi')}
@@ -1201,6 +1205,27 @@ export default function InvoiceList({
                                 </Table>
                             )}
                         </div>
+
+                        {activeTab !== 'tanda_jadi' && invoices.last_page > 1 && (
+                            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm pt-4 border-t border-slate-100">
+                                <span className="text-muted-foreground font-medium">
+                                    Menampilkan {invoices.from ?? 0}–{invoices.to ?? 0} dari {invoices.total} data
+                                </span>
+                                <div className="flex gap-1">
+                                    {invoices.links.map((link, i) => (
+                                        <Button
+                                            key={i}
+                                            variant={link.active ? 'default' : 'outline'}
+                                            size="sm"
+                                            disabled={!link.url}
+                                            onClick={() => link.url && router.visit(link.url, { preserveScroll: true })}
+                                            dangerouslySetInnerHTML={{ __html: link.label }}
+                                            className="rounded-lg text-xs"
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
                 <StickyScrollbar targetRef={tableContainerRef} minWidth="1200px" />
