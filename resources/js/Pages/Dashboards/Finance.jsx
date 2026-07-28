@@ -95,9 +95,10 @@ export default function Finance({ stats }) {
                             height={260}
                             series={[{ name: 'PO dalam proses', data: progressDist.map((r) => r.count) }]}
                             options={{
-                                plotOptions: { bar: { borderRadius: 6, columnWidth: '55%' } },
+                                plotOptions: { bar: { borderRadius: 6, columnWidth: '55%', distributed: true } },
                                 xaxis: { categories: progressDist.map((r) => r.label), labels: { rotate: -20, style: { fontSize: '10px' } } },
-                                colors: ['#F59E0B'],
+                                colors: progressDist.map((r) => r.warna || '#F59E0B'),
+                                legend: { show: false },
                             }}
                         />
                     )}

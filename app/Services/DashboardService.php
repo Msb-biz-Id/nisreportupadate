@@ -979,11 +979,11 @@ class DashboardService
             ->join('orders', 'orders.id', '=', 'order_progress_details.order_id')
             ->when($brandId, $this->obf($brandId))
             ->where('order_progress_details.status', 'on_progress')
-            ->select('progress.nama_progress as label', DB::raw('COUNT(*) as count'))
-            ->groupBy('progress.nama_progress', 'progress.urutan')
+            ->select('progress.nama_progress as label', 'progress.warna as warna', DB::raw('COUNT(*) as count'))
+            ->groupBy('progress.nama_progress', 'progress.warna', 'progress.urutan')
             ->orderBy('progress.urutan')
             ->get()
-            ->map(fn ($r) => ['label' => $r->label, 'count' => (int) $r->count])
+            ->map(fn ($r) => ['label' => $r->label, 'warna' => $r->warna, 'count' => (int) $r->count])
             ->all();
     }
 
