@@ -311,12 +311,13 @@ class DashboardService
                 $totalBrandAktif = Brand::active()->count();
                 $totalUser       = User::count();
                 
-                $baseOrder = Order::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
+                $baseOrder = Order::query()->when($brandId && $brandId !== 'all', $this->bf($brandId))->where('status_po', '!=', 'draft');
                 $totalOrder      = (clone $baseOrder)->count();
                 $totalRevenue    = (clone $baseOrder)->sum('total_tagihan');
 
                 $ordersSummary = Order::query()
                     ->when($brandId && $brandId !== 'all', $this->bf($brandId))
+                    ->where('status_po', '!=', 'draft')
                     ->select('brand_id', DB::raw('COUNT(id) as total'), DB::raw('SUM(total_tagihan) as revenue'))
                     ->groupBy('brand_id')
                     ->with('brand:id,nama_brand,kode,warna_primary')
@@ -325,6 +326,7 @@ class DashboardService
                 $pcsByBrand = OrderItem::query()
                     ->join('orders', 'orders.id', '=', 'order_items.order_id')
                     ->where('order_items.is_addon', false)
+                    ->where('orders.status_po', '!=', 'draft')
                     ->when($brandId && $brandId !== 'all', $this->obf($brandId))
                     ->select('orders.brand_id', DB::raw('SUM(COALESCE(NULLIF(order_items.jml_atasan, ""), order_items.quantity)) as total_pcs'))
                     ->groupBy('orders.brand_id')
@@ -381,7 +383,7 @@ class DashboardService
                     $opBrandIds = $allOpIds;
                 }
 
-                $base         = Order::query()->whereIn('brand_id', $opBrandIds);
+                $base         = Order::query()->whereIn('brand_id', $opBrandIds)->where('status_po', '!=', 'draft');
                 $totalRevenue = (clone $base)->sum('total_tagihan');
                 $totalPo      = (clone $base)->count();
                 $outstanding  = $totalRevenue - OrderPayment::whereHas(
@@ -400,6 +402,7 @@ class DashboardService
             'brand_performance' => (function() use ($opBrandIds) {
                 $ordersSummary = Order::query()
                     ->whereIn('orders.brand_id', $opBrandIds)
+                    ->where('orders.status_po', '!=', 'draft')
                     ->select('orders.brand_id', DB::raw('COUNT(orders.id) as total'), DB::raw('SUM(orders.total_tagihan) as revenue'))
                     ->groupBy('orders.brand_id')
                     ->with('brand:id,nama_brand,kode,warna_primary')
@@ -408,6 +411,7 @@ class DashboardService
                 $pcsByBrand = OrderItem::query()
                     ->join('orders', 'orders.id', '=', 'order_items.order_id')
                     ->where('order_items.is_addon', false)
+                    ->where('orders.status_po', '!=', 'draft')
                     ->whereIn('orders.brand_id', $opBrandIds)
                     ->select('orders.brand_id', DB::raw('SUM(COALESCE(NULLIF(order_items.jml_atasan, ""), order_items.quantity)) as total_pcs'))
                     ->groupBy('orders.brand_id')
