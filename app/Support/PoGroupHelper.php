@@ -182,6 +182,8 @@ class PoGroupHelper
             $isFree = ((float)($item['harga_satuan'] ?? 0.0) === 0.0) ? 'free' : 'paid';
             return md5(implode('|', [
                 $isFree,
+                strtolower(trim($item['nama_produk'] ?? '')),
+                strtolower(trim($item['varian_label'] ?? '')),
                 $item['jenis_setelan_id'] ?? '',
                 $item['pola_produksi_id'] ?? '',
                 $item['bahan_kain_id'] ?? '',
@@ -214,6 +216,8 @@ class PoGroupHelper
         $isFree = ((float)($item->harga_satuan ?? 0.0) === 0.0) ? 'free' : 'paid';
         return md5(implode('|', [
             $isFree,
+            strtolower(trim($item->nama_produk ?? '')),
+            strtolower(trim($item->varian_label ?? '')),
             $item->jenis_setelan_id,
             $item->pola_produksi_id,
             $item->bahan_kain_id,
