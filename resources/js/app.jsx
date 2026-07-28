@@ -6,11 +6,22 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { toast } from 'sonner';
 
-// Prevent WAF/firewall blocks from displaying as full-screen modal overlays, avoiding data loss
+// Prevent WAF/firewall blocks or server errors from displaying as full-screen modal overlays, avoiding data loss
 router.on('invalid', (event) => {
     event.preventDefault();
-    console.error('Inertia invalid response intercepted:', event.detail.response);
-    toast.error('Keamanan server (WAF) mendeteksi aktivitas tidak biasa atau koneksi terputus. Silakan sesuaikan data atau coba Simpan kembali.');
+    const response = event.detail.response;
+    console.error('Inertia invalid response intercepted:', response);
+
+    const status = response?.status;
+    const bodyText = (typeof response?.data === 'string') ? response.data : '';
+
+    if (status === 500) {
+        toast.error('Terjadi kesalahan internal pada server (Error 500). Silakan hubungi Developer.');
+    } else if (status === 403 || status === 406 || bodyText.includes('verifikasi') || bodyText.includes('Imunify') || bodyText.includes('shield') || bodyText.includes('Turnstile')) {
+        toast.error('Keamanan server (WAF/Imunify360) mendeteksi payload tidak biasa. Data Anda aman di layar, silakan coba klik Simpan kembali.');
+    } else {
+        toast.error('Koneksi terputus atau respon server tidak valid. Silakan coba kembali.');
+    }
 });
 
 const appName = import.meta.env.VITE_APP_NAME || 'ProTrack';

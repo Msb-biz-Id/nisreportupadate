@@ -23,10 +23,3 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
-
-# Attempt to disable ModSecurity rules to prevent false positives on form requests
-<IfModule mod_security.c>
-    SecRuleEngine Off
-    SecFilterEngine Off
-    SecFilterScanPOST Off
-</IfModule>
