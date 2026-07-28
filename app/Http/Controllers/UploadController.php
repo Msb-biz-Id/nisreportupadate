@@ -152,8 +152,8 @@ class UploadController extends Controller
                 @mkdir($dir, 0755, true);
             }
 
-            // Simpan sebagai WebP berkualitas 80%
-            $success = @imagewebp($image, $targetPath, 80);
+            // Simpan sebagai WebP berkualitas 90% (Sangat Tajam & Optimal)
+            $success = @imagewebp($image, $targetPath, 90);
             imagedestroy($image);
 
             return $success;
