@@ -367,6 +367,7 @@ export default function InvoiceList({
             start_date: overrides.hasOwnProperty('start_date') ? overrides.start_date : startDate,
             end_date: overrides.hasOwnProperty('end_date') ? overrides.end_date : endDate,
             payment_type_filter: (overrides.hasOwnProperty('payment_type_filter') ? overrides.payment_type_filter : paymentTypeFilter) === 'all' ? '' : (overrides.hasOwnProperty('payment_type_filter') ? overrides.payment_type_filter : paymentTypeFilter),
+            per_page: overrides.hasOwnProperty('per_page') ? overrides.per_page : (filters?.per_page ?? 15),
         }, { preserveScroll: true, preserveState: true });
     }
 
@@ -1206,24 +1207,47 @@ export default function InvoiceList({
                             )}
                         </div>
 
-                        {activeTab !== 'tanda_jadi' && invoices.last_page > 1 && (
-                            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm pt-4 border-t border-slate-100">
-                                <span className="text-muted-foreground font-medium">
-                                    Menampilkan {invoices.from ?? 0}–{invoices.to ?? 0} dari {invoices.total} data
-                                </span>
-                                <div className="flex gap-1">
-                                    {invoices.links.map((link, i) => (
-                                        <Button
-                                            key={i}
-                                            variant={link.active ? 'default' : 'outline'}
-                                            size="sm"
-                                            disabled={!link.url}
-                                            onClick={() => link.url && router.visit(link.url, { preserveScroll: true })}
-                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                            className="rounded-lg text-xs"
-                                        />
-                                    ))}
+                        {activeTab !== 'tanda_jadi' && (
+                            <div className="mt-4 flex flex-wrap items-center justify-between gap-4 text-sm pt-4 border-t border-slate-100">
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                                    <span className="text-muted-foreground font-medium">
+                                        Menampilkan {invoices.from ?? 0}–{invoices.to ?? 0} dari {invoices.total} data
+                                    </span>
+                                    <span className="text-slate-200 hidden sm:inline">|</span>
+                                    <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                                        <span>Tampilkan</span>
+                                        <select
+                                            value={filters?.per_page ?? 15}
+                                            onChange={(e) => {
+                                                applyFilters({ per_page: e.target.value });
+                                            }}
+                                            className="h-7 rounded-lg border border-slate-200 bg-white px-2 py-0 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                                        >
+                                            <option value="10">10</option>
+                                            <option value="15">15</option>
+                                            <option value="25">25</option>
+                                            <option value="50">50</option>
+                                            <option value="100">100</option>
+                                            <option value="250">250</option>
+                                        </select>
+                                        <span>data</span>
+                                    </div>
                                 </div>
+                                {invoices.last_page > 1 && (
+                                    <div className="flex gap-1">
+                                        {invoices.links.map((link, i) => (
+                                            <Button
+                                                key={i}
+                                                variant={link.active ? 'default' : 'outline'}
+                                                size="sm"
+                                                disabled={!link.url}
+                                                onClick={() => link.url && router.visit(link.url, { preserveScroll: true })}
+                                                dangerouslySetInnerHTML={{ __html: link.label }}
+                                                className="rounded-lg text-xs"
+                                            />
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </CardContent>

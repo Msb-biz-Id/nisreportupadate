@@ -413,7 +413,12 @@ class InvoiceController extends Controller
             ->get(['id', 'invoice_number', 'order_id', 'tanggal_terbit', 'total_tagihan', 'sisa_pembayaran', 'status'])
             ->map(fn ($inv) => $this->formatInvoiceForList($inv));
 
-        $invoices = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
+        $perPage = $request->integer('per_page', 15);
+        if (!in_array($perPage, [10, 25, 50, 100, 250])) {
+            $perPage = 15;
+        }
+
+        $invoices = $query->orderByDesc('created_at')->paginate($perPage)->withQueryString();
 
         $search = $request->string('q')->toString();
         $designDeposits = $this->getDesignDeposits($selectedBrandId, $userBrandIds, $isAllBrandsRole, $search);
@@ -437,6 +442,7 @@ class InvoiceController extends Controller
                 'start_date' => $request->string('start_date')->toString(),
                 'end_date' => $request->string('end_date')->toString(),
                 'payment_type_filter' => $paymentTypeFilter,
+                'per_page' => $perPage,
             ],
             'statuses' => Invoice::STATUSES,
             'can' => [
