@@ -393,10 +393,29 @@ class InvoiceController extends Controller
             abort_unless(in_array($selectedBrandId, $userBrandIds), 403, 'Unauthorized brand context.');
         }
 
+        $tab = $request->string('tab', 'belum_lunas')->toString();
+        if (!in_array($tab, ['belum_lunas', 'sudah_lunas', 'tanda_jadi'])) {
+            $tab = 'belum_lunas';
+        }
+
         $paymentTypeFilter = $request->string('payment_type_filter')->toString();
         $baseQuery = $this->buildBaseInvoiceQuery($request, $selectedBrandId, $userBrandIds, $isAllBrandsRole, $paymentTypeFilter);
 
-        $query = (clone $baseQuery)->with([
+        // Calculate counts dynamically from base query (database-level count)
+        $totalUnpaidCount = (clone $baseQuery)->where('status', '!=', 'paid')->where('sisa_pembayaran', '>', 0)->count();
+        $totalPaidCount = (clone $baseQuery)->where(fn($q) => $q->where('status', 'paid')->orWhere('sisa_pembayaran', '<=', 0))->count();
+
+        // Apply tab filter on invoice query
+        $tabQuery = clone $baseQuery;
+        if ($tab === 'belum_lunas') {
+            $tabQuery->where('status', '!=', 'paid')->where('sisa_pembayaran', '>', 0);
+        } elseif ($tab === 'sudah_lunas') {
+            $tabQuery->where(fn($q) => $q->where('status', 'paid')->orWhere('sisa_pembayaran', '<=', 0));
+        } elseif ($tab === 'tanda_jadi') {
+            $tabQuery->whereRaw('1 = 0');
+        }
+
+        $query = $tabQuery->with([
             'order:id,no_po,nama_po,pelanggan_id,total_tagihan,brand_id,nama_ekspedisi,is_special_order', 
             'order.pelanggan:id,nama',
             'order.payments.masterJenisPembayaran',
@@ -404,7 +423,7 @@ class InvoiceController extends Controller
             'order.items:id,order_id,quantity,harga_satuan,discount_amount'
         ]);
 
-        $allFiltered = (clone $baseQuery)->with([
+        $allFiltered = (clone $tabQuery)->with([
                 'order:id,no_po,pelanggan_id,total_tagihan', 
                 'order.pelanggan:id,nama',
                 'order.payments.masterJenisPembayaran'
@@ -435,6 +454,8 @@ class InvoiceController extends Controller
             'bank_accounts' => $bankAccounts,
             'customers' => $customers,
             'master_jenis_pembayarans' => \App\Models\Finance\MasterJenisPembayaran::where('is_active', true)->orderBy('nama')->get(['id', 'nama', 'tipe_keuangan', 'efek_tagihan', 'deskripsi']),
+            'total_unpaid_count' => $totalUnpaidCount,
+            'total_paid_count' => $totalPaidCount,
             'filters' => [
                 'q' => $search,
                 'status' => $request->string('status')->toString(),
@@ -443,6 +464,7 @@ class InvoiceController extends Controller
                 'end_date' => $request->string('end_date')->toString(),
                 'payment_type_filter' => $paymentTypeFilter,
                 'per_page' => $perPage,
+                'tab' => $tab,
             ],
             'statuses' => Invoice::STATUSES,
             'can' => [

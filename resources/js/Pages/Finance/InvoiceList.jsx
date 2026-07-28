@@ -194,7 +194,9 @@ export default function InvoiceList({
     master_jenis_pembayarans = [],
     filters = {},
     statuses = [],
-    can = {}
+    can = {},
+    total_unpaid_count = 0,
+    total_paid_count = 0
 }) {
     const { auth, brandContext } = usePage().props;
     const tableContainerRef = useRef(null);
@@ -203,15 +205,13 @@ export default function InvoiceList({
     const dashboardUrl = hasFinanceView ? route('invoices.index') : route('dashboard');
 
     // Get initial tab from query params if available
-    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    const tabParam = urlParams ? urlParams.get('tab') : null;
-    const [activeTab, setActiveTab] = useState(tabParam || 'belum_lunas');
+    const [activeTab, setActiveTab] = useState(filters?.tab || 'belum_lunas');
 
     useEffect(() => {
-        if (tabParam && ['belum_lunas', 'sudah_lunas', 'tanda_jadi'].includes(tabParam)) {
-            setActiveTab(tabParam);
+        if (filters?.tab && ['belum_lunas', 'sudah_lunas', 'tanda_jadi'].includes(filters.tab)) {
+            setActiveTab(filters.tab);
         }
-    }, [tabParam]);
+    }, [filters?.tab]);
 
     // Dialogs & Modals state
     const [showAddDeposit, setShowAddDeposit] = useState(false);
@@ -355,10 +355,6 @@ export default function InvoiceList({
         return inv.status === 'paid' || fin.sisa <= 0;
     });
 
-    // Counts across all pages matching filters
-    const totalUnpaidCount = (all_filtered_invoices || []).filter(inv => inv.status !== 'paid' && inv.sisa_selisih > 0).length;
-    const totalPaidCount = (all_filtered_invoices || []).filter(inv => inv.status === 'paid' || inv.sisa_selisih <= 0).length;
-
     function applyFilters(overrides = {}) {
         router.get(route('invoices.list'), {
             q: overrides.hasOwnProperty('q') ? overrides.q : search,
@@ -368,6 +364,8 @@ export default function InvoiceList({
             end_date: overrides.hasOwnProperty('end_date') ? overrides.end_date : endDate,
             payment_type_filter: (overrides.hasOwnProperty('payment_type_filter') ? overrides.payment_type_filter : paymentTypeFilter) === 'all' ? '' : (overrides.hasOwnProperty('payment_type_filter') ? overrides.payment_type_filter : paymentTypeFilter),
             per_page: overrides.hasOwnProperty('per_page') ? overrides.per_page : (filters?.per_page ?? 15),
+            tab: overrides.hasOwnProperty('tab') ? overrides.tab : activeTab,
+            page: overrides.hasOwnProperty('page') ? overrides.page : undefined,
         }, { preserveScroll: true, preserveState: true });
     }
 
@@ -712,27 +710,36 @@ export default function InvoiceList({
                         {/* Tabs */}
                         <div className="flex space-x-1 p-1 bg-slate-100 rounded-xl max-w-md w-full sm:w-auto">
                             <button
-                                onClick={() => setActiveTab('belum_lunas')}
+                                onClick={() => {
+                                    setActiveTab('belum_lunas');
+                                    applyFilters({ tab: 'belum_lunas', page: 1 });
+                                }}
                                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'belum_lunas'
                                         ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/50'
                                         : 'text-slate-600 hover:text-slate-800'
                                     }`}
                             >
                                 <Clock className="h-3.5 w-3.5" />
-                                Belum Lunas ({totalUnpaidCount})
+                                Belum Lunas ({total_unpaid_count})
                             </button>
                             <button
-                                onClick={() => setActiveTab('sudah_lunas')}
+                                onClick={() => {
+                                    setActiveTab('sudah_lunas');
+                                    applyFilters({ tab: 'sudah_lunas', page: 1 });
+                                }}
                                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'sudah_lunas'
                                         ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/50'
                                         : 'text-slate-600 hover:text-slate-800'
                                     }`}
                             >
                                 <CheckCircle className="h-3.5 w-3.5" />
-                                Sudah Lunas ({totalPaidCount})
+                                Sudah Lunas ({total_paid_count})
                             </button>
                             <button
-                                onClick={() => setActiveTab('tanda_jadi')}
+                                onClick={() => {
+                                    setActiveTab('tanda_jadi');
+                                    applyFilters({ tab: 'tanda_jadi', page: 1 });
+                                }}
                                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'tanda_jadi'
                                         ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/50'
                                         : 'text-slate-600 hover:text-slate-800'
