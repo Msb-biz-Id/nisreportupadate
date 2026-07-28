@@ -98,6 +98,9 @@ class CustomerController extends Controller
         $this->guardOwnership($request, $customer);
 
         $data = $this->validatePayload($request, $customer->id);
+        if (empty($data['kode'])) {
+            $data['kode'] = $customer->kode ?: Customer::generateUniqueKode($customer->brand_id);
+        }
         $customer->update($data);
 
         \App\Services\ActivityLogger::log('update', 'master_data', $customer, "Perbarui pelanggan: {$customer->nama} ({$customer->kode})");
