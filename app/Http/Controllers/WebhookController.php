@@ -11,6 +11,7 @@ use App\Models\Settings\SystemSetting;
 use App\Services\Ai\GeminiClient;
 use App\Services\Notifications\SidobeClient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -176,6 +177,8 @@ class WebhookController extends Controller
             'realtime_production' => $this->getProductionContext($brandIds, $textLower),
             'overdue_summary' => $this->getOverdueContext($brandIds, $textLower),
             'matched_specific_orders' => $this->getMatchedOrdersContext($brandIds, $text),
+            'brand_comparison' => $this->getBrandComparisonContext($brandIds, $textLower),
+            'po_type_statistics' => $this->getPoTypeContext($brandIds, $textLower),
         ];
 
         $accessibleBrandsJson = json_encode($context['accessible_brands']);
@@ -184,6 +187,8 @@ class WebhookController extends Controller
         $realtimeProductionJson = json_encode($context['realtime_production']);
         $overdueSummaryJson = json_encode($context['overdue_summary']);
         $matchedOrdersJson = json_encode($context['matched_specific_orders']);
+        $brandComparisonJson = json_encode($context['brand_comparison']);
+        $poTypeStatsJson = json_encode($context['po_type_statistics']);
 
         $prompt = <<<PROMPT
 Kamu adalah AI Chatbot Asisten ProTrack (Sistem Tracking PO & Invoice Apparel).
@@ -209,6 +214,12 @@ Informasi PO Terlambat (Overdue):
 
 Detail Order Terkait Pencarian Kata Kunci/Kode:
 {$matchedOrdersJson}
+
+Perbandingan Komparasi Brand (30 Hari Terakhir):
+{$brandComparisonJson}
+
+Breakdown PO Berdasarkan Tipe/Jenis/Kategori/Sumber:
+{$poTypeStatsJson}
 
 PERTANYAAN USER:
 "{$text}"
@@ -365,6 +376,85 @@ PROMPT;
         }
 
         return $brandStats;
+    }
+
+    private function getBrandComparisonContext(array $brandIds, string $textLower): array
+    {
+        if (!preg_match('/(komparasi|banding|bandingkan|perbandingan|head-to-head|vs|head to head|juara|pemenang)/i', $textLower)) {
+            return [];
+        }
+
+        try {
+            $runner = new \App\Services\Reports\ComparisonRunner();
+            $data = $runner->run($brandIds, now()->subDays(30)->toDateString(), now()->toDateString());
+            
+            // Format revenue so Gemini can easily understand
+            if (isset($data['brands'])) {
+                foreach ($data['brands'] as $i => $b) {
+                    $data['brands'][$i]['revenue_formatted'] = 'Rp' . number_format($b['revenue'], 0, ',', '.');
+                    $data['brands'][$i]['refund_formatted'] = 'Rp' . number_format($b['refund_amount'], 0, ',', '.');
+                }
+            }
+            if (isset($data['summary'])) {
+                $data['summary']['total_revenue_formatted'] = 'Rp' . number_format($data['summary']['total_revenue'], 0, ',', '.');
+            }
+            return $data;
+        } catch (\Exception $e) {
+            Log::error('ComparisonRunner failed in chatbot: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    private function getPoTypeContext(array $brandIds, string $textLower): array
+    {
+        if (!preg_match('/(jenis|tipe|kategori|sumber|tipe po|jenis po|kategori po|sumber po)/i', $textLower)) {
+            return [];
+        }
+
+        // Kueri breakdown berdasarkan Jenis Order
+        $jenisOrderStats = Order::whereIn('brand_id', $brandIds)
+            ->whereNotNull('jenis_order_id')
+            ->join('jenis_orders', 'orders.jenis_order_id', '=', 'jenis_orders.id')
+            ->select('jenis_orders.nama', DB::raw('COUNT(*) as total'), DB::raw('SUM(orders.total_tagihan) as omset'))
+            ->groupBy('jenis_orders.nama')
+            ->get()
+            ->map(fn($item) => [
+                'nama' => $item->nama,
+                'total_po' => $item->total,
+                'omset' => 'Rp' . number_format($item->omset, 0, ',', '.'),
+            ])->toArray();
+
+        // Kueri breakdown berdasarkan Kategori Order
+        $kategoriOrderStats = Order::whereIn('brand_id', $brandIds)
+            ->whereNotNull('kategori_order_id')
+            ->join('kategori_orders', 'orders.kategori_order_id', '=', 'kategori_orders.id')
+            ->select('kategori_orders.nama', DB::raw('COUNT(*) as total'), DB::raw('SUM(orders.total_tagihan) as omset'))
+            ->groupBy('kategori_orders.nama')
+            ->get()
+            ->map(fn($item) => [
+                'nama' => $item->nama,
+                'total_po' => $item->total,
+                'omset' => 'Rp' . number_format($item->omset, 0, ',', '.'),
+            ])->toArray();
+
+        // Kueri breakdown berdasarkan Sumber Order
+        $sumberOrderStats = Order::whereIn('brand_id', $brandIds)
+            ->whereNotNull('sumber_order_id')
+            ->join('sumber_orders', 'orders.sumber_order_id', '=', 'sumber_orders.id')
+            ->select('sumber_orders.nama', DB::raw('COUNT(*) as total'), DB::raw('SUM(orders.total_tagihan) as omset'))
+            ->groupBy('sumber_orders.nama')
+            ->get()
+            ->map(fn($item) => [
+                'nama' => $item->nama,
+                'total_po' => $item->total,
+                'omset' => 'Rp' . number_format($item->omset, 0, ',', '.'),
+            ])->toArray();
+
+        return [
+            'berdasarkan_jenis' => $jenisOrderStats,
+            'berdasarkan_kategori' => $kategoriOrderStats,
+            'berdasarkan_sumber' => $sumberOrderStats,
+        ];
     }
 
     private function sendTelegramMessage(string $botToken, string $chatId, string $text): void
