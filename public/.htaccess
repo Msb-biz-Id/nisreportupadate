@@ -5,19 +5,9 @@
 
     RewriteEngine On
 
-    # Redirect to HTTPS and force WWW prefix
-    RewriteCond %{HTTPS} off [OR]
-    RewriteCond %{HTTP_HOST} !^www\. [NC]
-    RewriteCond %{HTTP_HOST} ^(?:www\.)?(.+)$ [NC]
-    RewriteRule ^ https://www.%1%{REQUEST_URI} [L,R=301]
-
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-
-    # Handle X-XSRF-Token Header
-    RewriteCond %{HTTP:x-xsrf-token} .
-    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
     # Redirect Trailing Slashes If Not A Folder...
     RewriteCond %{REQUEST_FILENAME} !-d
@@ -29,17 +19,3 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
-
-# Security Headers & Hardening
-<IfModule mod_headers.c>
-    Header set X-XSS-Protection "1; mode=block"
-    Header set X-Frame-Options "SAMEORIGIN"
-    Header set X-Content-Type-Options "nosniff"
-    Header set Referrer-Policy "strict-origin-when-cross-origin"
-</IfModule>
-
-# Block direct access to sensitive config & hidden files
-<FilesMatch "^\.(env|git|htaccess|gitignore|gitattributes|editorconfig|npmrc|package\.json|composer\.json)$">
-    Order allow,deny
-    Deny from all
-</FilesMatch>
