@@ -168,6 +168,146 @@ PROMPT;
     {
         $bid = $brand->id;
 
+        if ($periode === 'bulanan') {
+            $ordersMonth = Order::where('brand_id', $bid)
+                ->where('status_po', '!=', 'draft')
+                ->whereBetween('tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
+                ->with(['items:id,order_id,is_addon,quantity,jml_atasan', 'pelanggan:id,nama'])
+                ->get();
+
+            foreach ($ordersMonth as $o) {
+                $o->computed_pcs = $this->getOrderPcs($o);
+            }
+
+            $totalPo = $ordersMonth->count();
+            $totalPcs = $ordersMonth->sum('computed_pcs');
+
+            $selesaiMonth = Order::where('brand_id', $bid)
+                ->where('status_po', 'selesai_produksi')
+                ->whereBetween('updated_at', [now()->startOfMonth()->startOfDay(), now()->endOfMonth()->endOfDay()])
+                ->count();
+
+            $totalRijek = Rijek::query()
+                ->join('orders', 'orders.id', '=', 'rijeks.order_id')
+                ->where('orders.brand_id', $bid)
+                ->whereBetween('rijeks.created_at', [now()->startOfMonth()->startOfDay(), now()->endOfMonth()->endOfDay()])
+                ->sum('rijeks.jumlah');
+
+            $rijekRate = $totalPcs > 0 ? round(($totalRijek / $totalPcs) * 100, 1) : 0;
+
+            $terlambat = Order::where('brand_id', $bid)
+                ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
+                ->where('deadline_customer', '<', today())
+                ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(5)->get();
+
+            $lines = [
+                "📊 *LAPORAN BULANAN PRODUKSI - {$brand->nama_brand}*",
+                "📅 Periode: " . now()->translatedFormat('F Y'),
+                "",
+                "📦 *PRODUKTIVITAS PRODUKSI BULAN INI:*",
+                "• PO Baru Masuk: {$totalPo} order ({$totalPcs} pcs)",
+                "• PO Selesai Produksi: {$selesaiMonth} order",
+                "",
+                "⚠️ *KUALITAS & RIJEK BULAN INI:*",
+                "• Rate Rijek: {$rijekRate}% | Total Rijek: {$totalRijek} pcs dari {$totalPcs} pcs",
+                "",
+                "⚠️ *PO TERLAMBAT:*",
+            ];
+
+            if ($terlambat->isEmpty()) {
+                $lines[] = "• Tidak ada PO terlambat";
+            } else {
+                foreach ($terlambat as $po) {
+                    $hari = abs((int) now()->startOfDay()->diffInDays($po->deadline_customer, false));
+                    $lines[] = "• {$po->no_po} - {$po->pelanggan?->nama} ({$hari} hari)";
+                }
+            }
+
+            $aiCtx = "Brand {$brand->nama_brand}. Produksi bulanan — PO baru: {$totalPo} ({$totalPcs} pcs), selesai: {$selesaiMonth}, rijek rate: {$rijekRate}%. PO terlambat: " . $terlambat->count() . ".";
+            $this->appendAiInsight($lines, $aiCtx);
+
+            $lines[] = "";
+            $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · BULANAN · " . now()->format('d/m/Y H:i') . "_";
+            return implode("\n", $lines);
+        }
+
+        if ($periode === 'mingguan') {
+            $ordersWeek = Order::where('brand_id', $bid)
+                ->where('status_po', '!=', 'draft')
+                ->whereBetween('tanggal_masuk', [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()])
+                ->with(['items:id,order_id,is_addon,quantity,jml_atasan', 'pelanggan:id,nama'])
+                ->get();
+
+            foreach ($ordersWeek as $o) {
+                $o->computed_pcs = $this->getOrderPcs($o);
+            }
+
+            $totalPo = $ordersWeek->count();
+            $totalPcs = $ordersWeek->sum('computed_pcs');
+
+            $selesaiWeek = Order::where('brand_id', $bid)
+                ->where('status_po', 'selesai_produksi')
+                ->whereBetween('updated_at', [now()->startOfWeek()->startOfDay(), now()->endOfWeek()->endOfDay()])
+                ->count();
+
+            $totalRijek = Rijek::query()
+                ->join('orders', 'orders.id', '=', 'rijeks.order_id')
+                ->where('orders.brand_id', $bid)
+                ->whereBetween('rijeks.created_at', [now()->startOfWeek()->startOfDay(), now()->endOfWeek()->endOfDay()])
+                ->sum('rijeks.jumlah');
+
+            $rijekRate = $totalPcs > 0 ? round(($totalRijek / $totalPcs) * 100, 1) : 0;
+
+            $deadlines = Order::where('brand_id', $bid)
+                ->whereIn('status_po', ['published', 'on_progress'])
+                ->whereBetween('deadline_customer', [now(), now()->addDays(7)])
+                ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(5)->get();
+
+            $terlambat = Order::where('brand_id', $bid)
+                ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
+                ->where('deadline_customer', '<', today())
+                ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(5)->get();
+
+            $lines = [
+                "📊 *LAPORAN MINGGUAN PRODUKSI - {$brand->nama_brand}*",
+                "📅 Periode: Minggu ini (" . now()->startOfWeek()->format('d M') . " - " . now()->endOfWeek()->format('d M Y') . ")",
+                "",
+                "📦 *PRODUKTIVITAS PRODUKSI MINGGU INI:*",
+                "• PO Baru Masuk: {$totalPo} order ({$totalPcs} pcs)",
+                "• PO Selesai Produksi: {$selesaiWeek} order",
+                "",
+                "⚠️ *KUALITAS & RIJEK MINGGU INI:*",
+                "• Rate Rijek: {$rijekRate}% | Total Rijek: {$totalRijek} pcs dari {$totalPcs} pcs",
+            ];
+
+            if ($deadlines->isNotEmpty()) {
+                $lines[] = "";
+                $lines[] = "⏰ *DEADLINE 7 HARI KE DEPAN:*";
+                foreach ($deadlines as $po) {
+                    $h = (int) now()->startOfDay()->diffInDays($po->deadline_customer, false);
+                    $lines[] = "• {$po->no_po} - {$po->pelanggan?->nama} (H-{$h})";
+                }
+            }
+
+            $lines[] = "";
+            $lines[] = "⚠️ *PO TERLAMBAT:*";
+            if ($terlambat->isEmpty()) {
+                $lines[] = "• Tidak ada PO terlambat";
+            } else {
+                foreach ($terlambat as $po) {
+                    $hari = abs((int) now()->startOfDay()->diffInDays($po->deadline_customer, false));
+                    $lines[] = "• {$po->no_po} - {$po->pelanggan?->nama} ({$hari} hari)";
+                }
+            }
+
+            $aiCtx = "Brand {$brand->nama_brand}. Produksi mingguan — PO baru: {$totalPo} ({$totalPcs} pcs), selesai: {$selesaiWeek}, rijek rate: {$rijekRate}%. PO terlambat: " . $terlambat->count() . ".";
+            $this->appendAiInsight($lines, $aiCtx);
+
+            $lines[] = "";
+            $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · MINGGUAN · " . now()->format('d/m/Y H:i') . "_";
+            return implode("\n", $lines);
+        }
+
         $dalamProses    = Order::where('brand_id', $bid)->where('status_po', 'on_progress')->count();
         $masukHariIni   = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->where('tanggal_masuk', today()->toDateString())->count();
         $selesaiHariIni = Order::where('brand_id', $bid)->where('status_po', 'selesai_produksi')->whereBetween('updated_at', [today()->startOfDay(), today()->endOfDay()])->count();
@@ -256,6 +396,113 @@ PROMPT;
     public function adminBrand(Brand $brand, string $periode): string
     {
         $bid = $brand->id;
+
+        if ($periode === 'mingguan') {
+            $ordersWeek = Order::where('brand_id', $bid)
+                ->where('status_po', '!=', 'draft')
+                ->whereBetween('tanggal_masuk', [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()])
+                ->with(['items:id,order_id,is_addon,quantity,jml_atasan', 'sumberOrder:id,nama', 'pelanggan:id,nama'])
+                ->get();
+
+            foreach ($ordersWeek as $o) {
+                $o->computed_pcs = $this->getOrderPcs($o);
+            }
+
+            $totalPo = $ordersWeek->count();
+            $totalPcs = $ordersWeek->sum('computed_pcs');
+
+            $normalPOs = $ordersWeek->filter(fn($o) => !$o->is_special_order && !$o->is_reseller_price);
+            $normalCount = $normalPOs->count();
+            $normalPcs = $normalPOs->sum('computed_pcs');
+
+            $resellerPOs = $ordersWeek->filter(fn($o) => $o->is_reseller_price);
+            $resellerCount = $resellerPOs->count();
+            $resellerPcs = $resellerPOs->sum('computed_pcs');
+
+            $specialPOs = $ordersWeek->filter(fn($o) => $o->is_special_order);
+            $specialCount = $specialPOs->count();
+            $specialPcs = $specialPOs->sum('computed_pcs');
+
+            $sumberGroups = $ordersWeek->groupBy(fn($o) => $o->sumberOrder?->nama ?? 'Lainnya/Tanpa Sumber');
+            $sumberList = [];
+            foreach ($sumberGroups as $name => $g) {
+                $sumberList[] = [
+                    'name' => $name,
+                    'po' => $g->count(),
+                    'pcs' => $g->sum('computed_pcs'),
+                ];
+            }
+            usort($sumberList, fn($a, $b) => $b['po'] <=> $a['po']);
+
+            $deadlines = Order::where('brand_id', $bid)
+                ->whereIn('status_po', ['published', 'on_progress'])
+                ->whereBetween('deadline_customer', [now(), now()->addDays(7)])
+                ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(5)->get();
+
+            $tunggakanPOs = Order::where('brand_id', $bid)
+                ->whereNotIn('status_po', ['draft', 'selesai'])
+                ->with(['pelanggan:id,nama', 'items', 'payments.masterJenisPembayaran'])
+                ->get()
+                ->filter(fn($o) => $o->sisaTagihan() > 0.99)
+                ->sortByDesc(fn($o) => $o->sisaTagihan())
+                ->take(5);
+
+            $revWeek = $ordersWeek->sum('total_tagihan');
+
+            $lines = [
+                "📊 *LAPORAN MINGGUAN ADMIN BRAND - {$brand->nama_brand}*",
+                "📅 Periode: Minggu ini (" . now()->startOfWeek()->format('d M') . " - " . now()->endOfWeek()->format('d M Y') . ")",
+                "",
+                "📦 *RINGKASAN PO & PCS MINGGU INI:*",
+                "• Total PO: {$totalPo} order ({$totalPcs} pcs)",
+                "  - PO Normal: {$normalCount} order ({$normalPcs} pcs)",
+                "  - PO Harga Reseller: {$resellerCount} order ({$resellerPcs} pcs)",
+                "  - PO Spesial Order: {$specialCount} order ({$specialPcs} pcs)",
+                "",
+                "🔌 *SUMBER ORDER MINGGU INI:*",
+            ];
+
+            if (empty($sumberList)) {
+                $lines[] = "• Belum ada data sumber order";
+            } else {
+                foreach ($sumberList as $i => $s) {
+                    $lines[] = ($i + 1) . ". {$s['name']}: {$s['po']} PO ({$s['pcs']} pcs)";
+                }
+            }
+
+            $lines[] = "";
+            $lines[] = "💰 *KEUANGAN & REVENUE:*";
+            $lines[] = "• Revenue Minggu Ini: Rp " . number_format($revWeek, 0, ',', '.');
+
+            if ($deadlines->isNotEmpty()) {
+                $lines[] = "";
+                $lines[] = "⏰ *DEADLINE 7 HARI KE DEPAN:*";
+                foreach ($deadlines as $po) {
+                    $h = (int) now()->startOfDay()->diffInDays($po->deadline_customer, false);
+                    $lines[] = "• {$po->no_po} - {$po->pelanggan?->nama} (H-{$h})";
+                }
+            }
+
+            $lines[] = "";
+            $lines[] = "⚠️ *DAFTAR PO MENUNGGU PELUNASAN (TUNGGAKAN):*";
+            if ($tunggakanPOs->isEmpty()) {
+                $lines[] = "• Bersih / Tidak ada tunggakan PO";
+            } else {
+                $idx = 1;
+                foreach ($tunggakanPOs as $po) {
+                    $lines[] = $idx . ". {$po->no_po} - {$po->pelanggan?->nama} (Sisa: Rp " . number_format($po->sisaTagihan(), 0, ',', '.') . ")";
+                    $idx++;
+                }
+            }
+
+            $aiCtx = "Brand {$brand->nama_brand}. Minggu ini — total PO: {$totalPo} ({$totalPcs} pcs), revenue: Rp " . number_format($revWeek, 0) . ". "
+                . "Tunggakan PO: " . $tunggakanPOs->count() . " PO.";
+            $this->appendAiInsight($lines, $aiCtx);
+
+            $lines[] = "";
+            $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · MINGGUAN · " . now()->format('d/m/Y H:i') . "_";
+            return implode("\n", $lines);
+        }
 
         if ($periode === 'bulanan') {
             $ordersMonth = Order::where('brand_id', $bid)
@@ -464,6 +711,108 @@ PROMPT;
     public function owner(Brand $brand, string $periode): string
     {
         $bid = $brand->id;
+
+        if ($periode === 'mingguan') {
+            $ordersWeek = Order::where('brand_id', $bid)
+                ->where('status_po', '!=', 'draft')
+                ->whereBetween('tanggal_masuk', [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()])
+                ->with(['items:id,order_id,is_addon,quantity,jml_atasan', 'sumberOrder:id,nama', 'pelanggan:id,nama'])
+                ->get();
+
+            foreach ($ordersWeek as $o) {
+                $o->computed_pcs = $this->getOrderPcs($o);
+            }
+
+            $totalPo = $ordersWeek->count();
+            $totalPcs = $ordersWeek->sum('computed_pcs');
+
+            $normalPOs = $ordersWeek->filter(fn($o) => !$o->is_special_order && !$o->is_reseller_price);
+            $normalCount = $normalPOs->count();
+            $normalPcs = $normalPOs->sum('computed_pcs');
+
+            $resellerPOs = $ordersWeek->filter(fn($o) => $o->is_reseller_price);
+            $resellerCount = $resellerPOs->count();
+            $resellerPcs = $resellerPOs->sum('computed_pcs');
+
+            $specialPOs = $ordersWeek->filter(fn($o) => $o->is_special_order);
+            $specialCount = $specialPOs->count();
+            $specialPcs = $specialPOs->sum('computed_pcs');
+
+            $sumberGroups = $ordersWeek->groupBy(fn($o) => $o->sumberOrder?->nama ?? 'Lainnya/Tanpa Sumber');
+            $sumberList = [];
+            foreach ($sumberGroups as $name => $g) {
+                $sumberList[] = [
+                    'name' => $name,
+                    'po' => $g->count(),
+                    'pcs' => $g->sum('computed_pcs'),
+                ];
+            }
+            usort($sumberList, fn($a, $b) => $b['po'] <=> $a['po']);
+
+            $tunggakanPOs = Order::where('brand_id', $bid)
+                ->whereNotIn('status_po', ['draft', 'selesai'])
+                ->with(['pelanggan:id,nama', 'items', 'payments.masterJenisPembayaran'])
+                ->get()
+                ->filter(fn($o) => $o->sisaTagihan() > 0.99)
+                ->sortByDesc(fn($o) => $o->sisaTagihan())
+                ->take(5);
+
+            $revWeek = $ordersWeek->sum('total_tagihan');
+            $revLastWeek = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
+                ->whereBetween('tanggal_masuk', [now()->subWeek()->startOfWeek()->toDateString(), now()->subWeek()->endOfWeek()->toDateString()])
+                ->sum('total_tagihan');
+
+            $growth    = $revLastWeek > 0 ? round((($revWeek - $revLastWeek) / $revLastWeek) * 100, 1) : 0;
+            $growthStr = $growth >= 0 ? "📈 +{$growth}% vs minggu lalu" : "📉 {$growth}% vs minggu lalu";
+
+            $lines = [
+                "📊 *LAPORAN MINGGUAN OWNER - {$brand->nama_brand}*",
+                "📅 Periode: Minggu ini (" . now()->startOfWeek()->format('d M') . " - " . now()->endOfWeek()->format('d M Y') . ")",
+                "",
+                "🏢 BRAND: *{$brand->nama_brand}* ({$brand->kode})",
+                "",
+                "📦 *RINGKASAN PO & PCS MINGGU INI:*",
+                "• Total PO: {$totalPo} order ({$totalPcs} pcs)",
+                "  - PO Normal: {$normalCount} order ({$normalPcs} pcs)",
+                "  - PO Harga Reseller: {$resellerCount} order ({$resellerPcs} pcs)",
+                "  - PO Spesial Order: {$specialCount} order ({$specialPcs} pcs)",
+                "",
+                "🔌 *SUMBER ORDER MINGGU INI:*",
+            ];
+
+            if (empty($sumberList)) {
+                $lines[] = "• Belum ada data sumber order";
+            } else {
+                foreach ($sumberList as $i => $s) {
+                    $lines[] = ($i + 1) . ". {$s['name']}: {$s['po']} PO ({$s['pcs']} pcs)";
+                }
+            }
+
+            $lines[] = "";
+            $lines[] = "💰 *KEUANGAN & REVENUE:*";
+            $lines[] = "• Revenue Minggu Ini: Rp " . number_format($revWeek, 0, ',', '.');
+            $lines[] = "• {$growthStr} (Minggu lalu: Rp " . number_format($revLastWeek, 0, ',', '.') . ")";
+
+            $lines[] = "";
+            $lines[] = "⚠️ *DAFTAR PO MENUNGGU PELUNASAN (TUNGGAKAN):*";
+            if ($tunggakanPOs->isEmpty()) {
+                $lines[] = "• Bersih / Tidak ada tunggakan PO";
+            } else {
+                $idx = 1;
+                foreach ($tunggakanPOs as $po) {
+                    $lines[] = $idx . ". {$po->no_po} - {$po->pelanggan?->nama} (Sisa: Rp " . number_format($po->sisaTagihan(), 0, ',', '.') . ")";
+                    $idx++;
+                }
+            }
+
+            $aiCtx = "Brand {$brand->nama_brand}. Minggu ini — total PO: {$totalPo} ({$totalPcs} pcs), revenue: Rp " . number_format($revWeek, 0) . ". "
+                . "Tunggakan PO: " . $tunggakanPOs->count() . " PO.";
+            $this->appendAiInsight($lines, $aiCtx);
+
+            $lines[] = "";
+            $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · MINGGUAN · " . now()->format('d/m/Y H:i') . "_";
+            return implode("\n", $lines);
+        }
 
         if ($periode === 'bulanan') {
             $ordersMonth = Order::where('brand_id', $bid)
@@ -709,74 +1058,145 @@ PROMPT;
     {
         $bid = $brand->id;
 
-        $pemasukanToday   = Pemasukan::where('brand_id', $bid)->where('tanggal', today()->toDateString())->sum('nominal');
-        $pengeluaranToday = Pengeluaran::where('brand_id', $bid)->where('tanggal', today()->toDateString())->sum('nominal');
-        $labaToday        = $pemasukanToday - $pengeluaranToday;
+        if ($periode === 'harian') {
+            $pemasukanToday   = Pemasukan::where('brand_id', $bid)->where('tanggal', today()->toDateString())->sum('nominal');
+            $pengeluaranToday = Pengeluaran::where('brand_id', $bid)->where('tanggal', today()->toDateString())->sum('nominal');
+            $labaToday        = $pemasukanToday - $pengeluaranToday;
 
-        $pemasukanMonth   = Pemasukan::where('brand_id', $bid)->whereBetween('tanggal', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])->sum('nominal');
-        $pengeluaranMonth = Pengeluaran::where('brand_id', $bid)->whereBetween('tanggal', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])->sum('nominal');
-        $labaMonth        = $pemasukanMonth - $pengeluaranMonth;
+            $refundPending = Refund::where('brand_id', $bid)->where('status', 'pending_review')
+                ->with('order:id,no_po')->orderByDesc('created_at')->limit(3)->get();
 
-        $refundPending = Refund::where('brand_id', $bid)->where('status', 'pending_review')
-            ->with('order:id,no_po')->orderByDesc('created_at')->limit(3)->get();
+            $invoicePendingCount  = Invoice::where('brand_id', $bid)->whereIn('status', ['draft', 'validated'])->count();
+            $invoicePendingAmount = Invoice::where('brand_id', $bid)->whereIn('status', ['draft', 'validated'])->sum('sisa_pembayaran');
 
-        $invoicePendingCount  = Invoice::where('brand_id', $bid)->whereIn('status', ['draft', 'validated'])->count();
-        $invoicePendingAmount = Invoice::where('brand_id', $bid)->whereIn('status', ['draft', 'validated'])->sum('sisa_pembayaran');
+            $invoiceJatuhTempo = Invoice::where('brand_id', $bid)
+                ->where('status', 'published')
+                ->whereNotNull('jatuh_tempo')
+                ->where('jatuh_tempo', '<=', now()->addDays(3))
+                ->with(['order:id,no_po,pelanggan_id', 'order.pelanggan:id,nama'])
+                ->orderBy('jatuh_tempo')->limit(3)->get();
 
-        $invoiceJatuhTempo = Invoice::where('brand_id', $bid)
-            ->where('status', 'published')
-            ->whereNotNull('jatuh_tempo')
-            ->where('jatuh_tempo', '<=', now()->addDays(3))
-            ->with(['order:id,no_po,pelanggan_id', 'order.pelanggan:id,nama'])
-            ->orderBy('jatuh_tempo')->limit(3)->get();
+            $lines = [
+                "📊 *LAPORAN HARIAN KEUANGAN - {$brand->nama_brand}*",
+                "📅 Tanggal: " . now()->translatedFormat('d M Y'),
+                "",
+                "💰 *RINGKASAN HARI INI:*",
+                "• Pemasukan: Rp " . number_format($pemasukanToday, 0, ',', '.'),
+                "• Pengeluaran: Rp " . number_format($pengeluaranToday, 0, ',', '.'),
+                "• Laba Bersih: Rp " . number_format($labaToday, 0, ',', '.'),
+            ];
 
-        $lines = [
-            "📊 *LAPORAN KEUANGAN - {$brand->nama_brand}*",
-            "📅 " . now()->translatedFormat('d M Y, H:i'),
-            "",
-            "💰 *RINGKASAN HARI INI:*",
-            "• Pemasukan: Rp " . number_format($pemasukanToday, 0, ',', '.'),
-            "• Pengeluaran: Rp " . number_format($pengeluaranToday, 0, ',', '.'),
-            "• Laba Bersih: Rp " . number_format($labaToday, 0, ',', '.'),
-            "",
-            "📈 *RINGKASAN BULAN INI:*",
-            "• Pemasukan: Rp " . number_format($pemasukanMonth, 0, ',', '.'),
-            "• Pengeluaran: Rp " . number_format($pengeluaranMonth, 0, ',', '.'),
-            "• Laba Bersih: Rp " . number_format($labaMonth, 0, ',', '.'),
-        ];
-
-        if ($refundPending->isNotEmpty()) {
-            $lines[] = "";
-            $lines[] = "📋 *REFUND BARU (PENDING):*";
-            foreach ($refundPending as $i => $r) {
-                $lines[] = ($i + 1) . ". {$r->order?->no_po} - Rp " . number_format($r->nominal_refund, 0, ',', '.');
+            if ($refundPending->isNotEmpty()) {
+                $lines[] = "";
+                $lines[] = "📋 *REFUND BARU (PENDING):*";
+                foreach ($refundPending as $i => $r) {
+                    $lines[] = ($i + 1) . ". {$r->order?->no_po} - Rp " . number_format($r->nominal_refund, 0, ',', '.');
+                }
             }
+
+            $lines[] = "";
+            $lines[] = "🧾 *INVOICE MENUNGGU:*";
+            $lines[] = "• {$invoicePendingCount} Invoice (Total: Rp " . number_format($invoicePendingAmount, 0, ',', '.') . ")";
+
+            if ($invoiceJatuhTempo->isNotEmpty()) {
+                $lines[] = "";
+                $lines[] = "⚠️ *INVOICE JATUH TEMPO (< 3 HARI):*";
+                foreach ($invoiceJatuhTempo as $i => $inv) {
+                    $lines[] = ($i + 1) . ". {$inv->order?->no_po} - {$inv->order?->pelanggan?->nama} - Rp " . number_format($inv->sisa_pembayaran, 0, ',', '.');
+                }
+            }
+
+            $aiCtx = "Brand {$brand->nama_brand}. Keuangan harian — pemasukan: Rp " . number_format($pemasukanToday, 0) . ", pengeluaran: Rp " . number_format($pengeluaranToday, 0) . ".";
+            $this->appendAiInsight($lines, $aiCtx);
+
+            $lines[] = "";
+            $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · HARIAN · " . now()->format('d/m/Y H:i') . "_";
+            return implode("\n", $lines);
         }
 
-        $lines[] = "";
-        $lines[] = "🧾 *INVOICE MENUNGGU:*";
-        $lines[] = "• {$invoicePendingCount} Invoice (Total: Rp " . number_format($invoicePendingAmount, 0, ',', '.') . ")";
+        if ($periode === 'mingguan') {
+            $from = now()->startOfWeek()->toDateString();
+            $to = now()->endOfWeek()->toDateString();
 
-        if ($invoiceJatuhTempo->isNotEmpty()) {
-            $lines[] = "";
-            $lines[] = "⚠️ *INVOICE JATUH TEMPO (< 3 HARI):*";
-            foreach ($invoiceJatuhTempo as $i => $inv) {
-                $lines[] = ($i + 1) . ". {$inv->order?->no_po} - {$inv->order?->pelanggan?->nama} - Rp " . number_format($inv->sisa_pembayaran, 0, ',', '.');
+            $pemasukanWeek   = Pemasukan::where('brand_id', $bid)->whereBetween('tanggal', [$from, $to])->sum('nominal');
+            $pengeluaranWeek = Pengeluaran::where('brand_id', $bid)->whereBetween('tanggal', [$from, $to])->sum('nominal');
+            $labaWeek        = $pemasukanWeek - $pengeluaranWeek;
+
+            $lines = [
+                "📊 *LAPORAN MINGGUAN KEUANGAN - {$brand->nama_brand}*",
+                "📅 Periode: Minggu ini (" . now()->startOfWeek()->format('d M') . " - " . now()->endOfWeek()->format('d M Y') . ")",
+                "",
+                "💰 *RINGKASAN MINGGU INI:*",
+                "• Pemasukan: Rp " . number_format($pemasukanWeek, 0, ',', '.'),
+                "• Pengeluaran: Rp " . number_format($pengeluaranWeek, 0, ',', '.'),
+                "• Laba Bersih: Rp " . number_format($labaWeek, 0, ',', '.'),
+            ];
+
+            $invoiceJatuhTempo = Invoice::where('brand_id', $bid)
+                ->where('status', 'published')
+                ->whereNotNull('jatuh_tempo')
+                ->where('jatuh_tempo', '<=', now()->addDays(7))
+                ->with(['order:id,no_po,pelanggan_id', 'order.pelanggan:id,nama'])
+                ->orderBy('jatuh_tempo')->limit(5)->get();
+
+            if ($invoiceJatuhTempo->isNotEmpty()) {
+                $lines[] = "";
+                $lines[] = "⏰ *INVOICE JATUH TEMPO (7 HARI KE DEPAN):*";
+                foreach ($invoiceJatuhTempo as $inv) {
+                    $lines[] = "• {$inv->order?->no_po} - {$inv->order?->pelanggan?->nama} (Sisa: Rp " . number_format($inv->sisa_pembayaran, 0, ',', '.') . ")";
+                }
             }
+
+            $aiCtx = "Brand {$brand->nama_brand}. Keuangan mingguan — pemasukan: Rp " . number_format($pemasukanWeek, 0) . ", pengeluaran: Rp " . number_format($pengeluaranWeek, 0) . ".";
+            $this->appendAiInsight($lines, $aiCtx);
+
+            $lines[] = "";
+            $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · MINGGUAN · " . now()->format('d/m/Y H:i') . "_";
+            return implode("\n", $lines);
         }
 
-        // AI Insight
-        $aiCtx = "Brand {$brand->nama_brand}. Keuangan hari ini — pemasukan: Rp " . number_format($pemasukanToday, 0)
-            . ", pengeluaran: Rp " . number_format($pengeluaranToday, 0) . ", laba bersih: Rp " . number_format($labaToday, 0) . ". "
-            . "Bulan ini — pemasukan: Rp " . number_format($pemasukanMonth, 0) . ", pengeluaran: Rp " . number_format($pengeluaranMonth, 0)
-            . ", laba bersih: Rp " . number_format($labaMonth, 0) . ". "
-            . "Refund pending: {$refundPending->count()}. Invoice menunggu: {$invoicePendingCount} (Rp " . number_format($invoicePendingAmount, 0) . "). "
-            . "Invoice jatuh tempo < 3 hari: {$invoiceJatuhTempo->count()}.";
-        $this->appendAiInsight($lines, $aiCtx);
+        if ($periode === 'bulanan') {
+            $from = now()->startOfMonth()->toDateString();
+            $to = now()->endOfMonth()->toDateString();
 
-        $lines[] = "";
-        $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
-        return implode("\n", $lines);
+            $pemasukanMonth   = Pemasukan::where('brand_id', $bid)->whereBetween('tanggal', [$from, $to])->sum('nominal');
+            $pengeluaranMonth = Pengeluaran::where('brand_id', $bid)->whereBetween('tanggal', [$from, $to])->sum('nominal');
+            $labaMonth        = $pemasukanMonth - $pengeluaranMonth;
+
+            $lines = [
+                "📊 *LAPORAN BULANAN KEUANGAN - {$brand->nama_brand}*",
+                "📅 Periode: " . now()->translatedFormat('F Y'),
+                "",
+                "💰 *RINGKASAN BULAN INI:*",
+                "• Pemasukan: Rp " . number_format($pemasukanMonth, 0, ',', '.'),
+                "• Pengeluaran: Rp " . number_format($pengeluaranMonth, 0, ',', '.'),
+                "• Laba Bersih: Rp " . number_format($labaMonth, 0, ',', '.'),
+            ];
+
+            $invoiceJatuhTempo = Invoice::where('brand_id', $bid)
+                ->where('status', 'published')
+                ->whereNotNull('jatuh_tempo')
+                ->where('jatuh_tempo', '<=', now()->addDays(14))
+                ->with(['order:id,no_po,pelanggan_id', 'order.pelanggan:id,nama'])
+                ->orderBy('jatuh_tempo')->limit(5)->get();
+
+            if ($invoiceJatuhTempo->isNotEmpty()) {
+                $lines[] = "";
+                $lines[] = "⏰ *INVOICE JATUH TEMPO (14 HARI KE DEPAN):*";
+                foreach ($invoiceJatuhTempo as $inv) {
+                    $lines[] = "• {$inv->order?->no_po} - {$inv->order?->pelanggan?->nama} (Sisa: Rp " . number_format($inv->sisa_pembayaran, 0, ',', '.') . ")";
+                }
+            }
+
+            $aiCtx = "Brand {$brand->nama_brand}. Keuangan bulanan — pemasukan: Rp " . number_format($pemasukanMonth, 0) . ", pengeluaran: Rp " . number_format($pengeluaranMonth, 0) . ".";
+            $this->appendAiInsight($lines, $aiCtx);
+
+            $lines[] = "";
+            $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · BULANAN · " . now()->format('d/m/Y H:i') . "_";
+            return implode("\n", $lines);
+        }
+
+        return '';
     }
 
     private function getOrderPcs(Order $po): int
