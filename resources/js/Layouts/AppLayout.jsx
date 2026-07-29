@@ -472,10 +472,18 @@ export default function AppLayout({ title, header, children }) {
                 successCount++;
             } catch (error) {
                 console.error('Failed to sync draft:', error);
-                remainingDrafts.push(draft);
-                toast.error(`Gagal menyimpan PO "${draft.nama_po}".`, {
-                    description: error.response?.data?.message || 'Terjadi kesalahan pada server.'
-                });
+                const status = error.response?.status;
+                if (status && status >= 400 && status < 500 && status !== 429) {
+                    console.warn(`Discarding invalid offline draft: ${draft.nama_po} due to client error ${status}`);
+                    toast.error(`Draft PO "${draft.nama_po}" dibatalkan karena tidak valid.`, {
+                        description: error.response?.data?.message || 'Data tidak didukung oleh server.'
+                    });
+                } else {
+                    remainingDrafts.push(draft);
+                    toast.error(`Gagal menyimpan PO "${draft.nama_po}".`, {
+                        description: error.response?.data?.message || 'Terjadi kesalahan pada server.'
+                    });
+                }
             }
         }
 
@@ -499,10 +507,18 @@ export default function AppLayout({ title, header, children }) {
                 successCount++;
             } catch (error) {
                 console.error('Failed to sync queued request:', error);
-                remainingQueue.push(req);
-                toast.error(`Gagal menyinkronkan "${req.actionName}".`, {
-                    description: error.response?.data?.message || 'Terjadi kesalahan pada server.'
-                });
+                const status = error.response?.status;
+                if (status && status >= 400 && status < 500 && status !== 429) {
+                    console.warn(`Discarding invalid offline request: ${req.actionName} due to client error ${status}`);
+                    toast.error(`Aksi "${req.actionName}" dibatalkan karena tidak valid.`, {
+                        description: error.response?.data?.message || 'Data tidak didukung oleh server.'
+                    });
+                } else {
+                    remainingQueue.push(req);
+                    toast.error(`Gagal menyinkronkan "${req.actionName}".`, {
+                        description: error.response?.data?.message || 'Terjadi kesalahan pada server.'
+                    });
+                }
             }
         }
 
