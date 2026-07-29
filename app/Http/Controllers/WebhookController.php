@@ -3,6 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order\Invoice;
+use App\Models\Brand;
+use App\Models\Order\Order;
+use App\Models\Order\OrderPayment;
+use App\Models\User;
+use App\Models\Settings\SystemSetting;
+use App\Services\Ai\GeminiClient;
 use App\Services\Notifications\SidobeClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -79,7 +85,7 @@ class WebhookController extends Controller
         $payload = $request->all();
         Log::info('Telegram webhook received', ['payload' => $payload]);
 
-        $botToken = \App\Models\Settings\SystemSetting::get('telegram', 'bot_token');
+        $botToken = SystemSetting::get('telegram', 'bot_token');
         if (empty($botToken)) {
             return response()->json(['ok' => false, 'reason' => 'bot_token_not_configured']);
         }
@@ -102,7 +108,7 @@ class WebhookController extends Controller
                 $normalizedPhone = SidobeClient::normalizePhone($phone);
 
                 // Cari user berdasarkan nomor HP yang terdaftar
-                $user = \App\Models\User::all()->first(function ($u) use ($normalizedPhone) {
+                $user = User::all()->first(function ($u) use ($normalizedPhone) {
                     if (empty($u->phone)) return false;
                     return SidobeClient::normalizePhone($u->phone) === $normalizedPhone;
                 });
@@ -122,7 +128,7 @@ class WebhookController extends Controller
         }
 
         // 2. Cek apakah user sudah terhubung sebelumnya
-        $user = \App\Models\User::where('telegram_chat_id', (string) $chatId)->first();
+        $user = User::where('telegram_chat_id', (string) $chatId)->first();
         if (! $user) {
             // Jika belum terhubung, minta bagikan kontak
             $this->requestTelegramContact($botToken, $chatId);
@@ -143,9 +149,9 @@ class WebhookController extends Controller
     /**
      * Proses pertanyaan Telegram via Gemini AI dengan konteks database & hak akses
      */
-    private function handleAiChatbot(\App\Models\User $user, string $text, string $chatId, string $botToken): void
+    private function handleAiChatbot(User $user, string $text, string $chatId, string $botToken): void
     {
-        $gemini = \App\Services\Ai\GeminiClient::fromSettings();
+        $gemini = GeminiClient::fromSettings();
         if (! $gemini->isConfigured()) {
             $this->sendTelegramMessage($botToken, $chatId, "⚠️ Layanan AI (Gemini) belum dikonfigurasi oleh Administrator.");
             return;
@@ -153,131 +159,10 @@ class WebhookController extends Controller
 
         // Tentukan brand yang diizinkan sesuai hak akses user
         $brandIds = $user->isSuperadmin() 
-            ? \App\Models\Brand::pluck('id')->all()
+            ? Brand::pluck('id')->all()
             : $user->brands()->pluck('brands.id')->all();
 
         $textLower = strtolower($text);
-
-        // --- CONTEXT 1: STATISTIK KEUANGAN & OMSET (REAL-TIME) ---
-        $financialSummary = [];
-        if (preg_match('/(omset|omzet|uang|pendapatan|keuangan|penjualan|tagihan|dp|lunas|bayar|harga)/i', $textLower)) {
-            $financialSummary = [
-                'total_tagihan_po_aktif' => 'Rp' . number_format(\App\Models\Order\Order::whereIn('brand_id', $brandIds)->whereIn('status_po', ['published', 'on_progress', 'selesai_produksi'])->sum('total_tagihan'), 0, ',', '.'),
-                'total_lunas_po' => \App\Models\Order\Order::whereIn('brand_id', $brandIds)->where('is_lunas', true)->count(),
-                'total_belum_lunas_po' => \App\Models\Order\Order::whereIn('brand_id', $brandIds)->where('is_lunas', false)->count(),
-                'total_pembayaran_diterima' => 'Rp' . number_format(\App\Models\Order\OrderPayment::whereHas('order', fn($q) => $q->whereIn('brand_id', $brandIds))->where('status', 'verified')->sum('jumlah_bayar'), 0, ',', '.'),
-                'omset_hari_ini' => 'Rp' . number_format(\App\Models\Order\Order::whereIn('brand_id', $brandIds)->whereDate('created_at', today())->sum('total_tagihan'), 0, ',', '.'),
-                'pembayaran_hari_ini' => 'Rp' . number_format(\App\Models\Order\OrderPayment::whereHas('order', fn($q) => $q->whereIn('brand_id', $brandIds))->where('status', 'verified')->whereDate('verified_at', today())->sum('jumlah_bayar'), 0, ',', '.'),
-            ];
-        }
-
-        // --- CONTEXT 2: STATUS PRODUKSI & ANTREAN PO (REAL-TIME) ---
-        $productionSummary = [];
-        if (preg_match('/(produksi|po|status|kerja|proses|antrean|antri|selesai|kirim|deadline|tanggal|lambat|delay)/i', $textLower)) {
-            $statuses = ['draft', 'published', 'on_progress', 'selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'delay', 'hold', 'selesai'];
-            foreach ($statuses as $st) {
-                $productionSummary[$st] = \App\Models\Order\Order::whereIn('brand_id', $brandIds)->where('status_po', $st)->count();
-            }
-            // Tambahkan PO deadline terdekat
-            $productionSummary['po_deadline_terdekat'] = \App\Models\Order\Order::whereIn('brand_id', $brandIds)
-                ->whereIn('status_po', ['published', 'on_progress'])
-                ->whereNotNull('deadline_customer')
-                ->orderBy('deadline_customer')
-                ->limit(5)
-                ->get()
-                ->map(fn($o) => [
-                    'no_po' => $o->no_po,
-                    'nama_po' => $o->nama_po,
-                    'status' => $o->status_po,
-                    'deadline' => $o->deadline_customer,
-                ])->toArray();
-        }
-
-        // --- CONTEXT 2.5: PO YANG TERLAMBAT (OVERDUE PO) ---
-        $overdueSummary = [];
-        if (preg_match('/(lambat|telat|terlambat|delay|overdue|lewat|deadline)/i', $textLower)) {
-            $overdueOrders = \App\Models\Order\Order::whereIn('brand_id', $brandIds)
-                ->where(function ($q) {
-                    $q->where(function ($sub) {
-                        $sub->whereNotNull('deadline_customer')
-                            ->where('deadline_customer', '<', today()->format('Y-m-d'))
-                            ->whereNotIn('status_po', ['sudah_dikirim', 'selesai', 'draft']);
-                    })
-                    ->orWhere('status_po', 'delay');
-                })
-                ->with(['brand', 'customer'])
-                ->orderBy('deadline_customer')
-                ->get();
-
-            $overdueSummary['total_terlambat'] = $overdueOrders->count();
-            $overdueSummary['detail_po_terlambat'] = $overdueOrders->map(function ($o) {
-                $daysLate = $o->deadline_customer ? today()->diffInDays(\Carbon\Carbon::parse($o->deadline_customer), false) : null;
-                // Selisih negatif berarti terlambat
-                $lateText = $daysLate !== null && $daysLate < 0 ? abs($daysLate) . ' hari terlambat' : 'Terlambat';
-
-                return [
-                    'no_po' => $o->no_po,
-                    'kode_order' => $o->kode_order,
-                    'nama_po' => $o->nama_po,
-                    'brand' => $o->brand->nama_brand ?? '',
-                    'customer' => $o->customer->nama ?? '',
-                    'status_po' => $o->status_po,
-                    'deadline' => $o->deadline_customer,
-                    'keterangan_telat' => $lateText,
-                ];
-            })->toArray();
-        }
-
-        // --- CONTEXT 3: PENCARIAN PO SPESIFIK & CUSTOMER ---
-        $matchedOrders = [];
-        $words = array_filter(array_map('trim', explode(' ', preg_replace('/[^A-Za-z0-9-]/', ' ', $text))));
-        foreach ($words as $word) {
-            if (strlen($word) >= 3) {
-                // Cari PO berdasarkan No PO, Nama PO, Kode Order, atau Nama Pelanggan
-                $found = \App\Models\Order\Order::whereIn('brand_id', $brandIds)
-                    ->where(function ($q) use ($word) {
-                        $q->where('no_po', 'like', "%{$word}%")
-                          ->orWhere('nama_po', 'like', "%{$word}%")
-                          ->orWhere('kode_order', 'like', "%{$word}%")
-                          ->orWhereHas('customer', fn($c) => $c->where('nama', 'like', "%{$word}%"));
-                    })
-                    ->with(['brand', 'customer', 'items', 'payments'])
-                    ->limit(5)
-                    ->get();
-                
-                foreach ($found as $f) {
-                    $verifiedPayments = $f->payments->where('status', 'verified')->sum('jumlah_bayar');
-                    $sisaTagihan = max(0, $f->total_tagihan - $verifiedPayments);
-
-                    $matchedOrders[$f->no_po] = [
-                        'no_po' => $f->no_po,
-                        'kode_order' => $f->kode_order,
-                        'nama_po' => $f->nama_po,
-                        'brand' => $f->brand->nama_brand ?? '',
-                        'customer' => $f->customer->nama ?? '',
-                        'status_po' => $f->status_po,
-                        'total_tagihan' => 'Rp' . number_format($f->total_tagihan, 0, ',', '.'),
-                        'sisa_tagihan' => 'Rp' . number_format($sisaTagihan, 0, ',', '.'),
-                        'items' => $f->items->map(fn($it) => $it->nama_produk . ' (qty: ' . $it->qty . ')')->toArray(),
-                        'payments' => $f->payments->map(fn($p) => 'Rp' . number_format($p->jumlah_bayar, 0, ',', '.') . ' (' . $p->status . ')')->toArray(),
-                        'tanggal_masuk' => $f->tanggal_masuk,
-                        'deadline' => $f->deadline_customer,
-                    ];
-                }
-            }
-        }
-
-        // --- CONTEXT 4: STATISTIK GLOBAL BRAND ---
-        $brandStats = [];
-        $brands = \App\Models\Brand::whereIn('id', $brandIds)->get();
-        foreach ($brands as $b) {
-            $brandStats[] = [
-                'nama' => $b->nama_brand,
-                'kode' => $b->kode,
-                'total_po' => \App\Models\Order\Order::where('brand_id', $b->id)->count(),
-                'total_omset' => 'Rp' . number_format(\App\Models\Order\Order::where('brand_id', $b->id)->sum('total_tagihan'), 0, ',', '.'),
-            ];
-        }
 
         $context = [
             'user' => [
@@ -285,12 +170,12 @@ class WebhookController extends Controller
                 'email' => $user->email,
                 'role' => $user->roles->pluck('name')->implode(','),
             ],
-            'accessible_brands' => $brands->pluck('nama_brand')->toArray(),
-            'brand_statistics' => $brandStats,
-            'realtime_financials' => $financialSummary,
-            'realtime_production' => $productionSummary,
-            'overdue_summary' => $overdueSummary,
-            'matched_specific_orders' => array_values($matchedOrders),
+            'accessible_brands' => Brand::whereIn('id', $brandIds)->pluck('nama_brand')->toArray(),
+            'brand_statistics' => $this->getBrandStatsContext($brandIds),
+            'realtime_financials' => $this->getFinancialContext($brandIds, $textLower),
+            'realtime_production' => $this->getProductionContext($brandIds, $textLower),
+            'overdue_summary' => $this->getOverdueContext($brandIds, $textLower),
+            'matched_specific_orders' => $this->getMatchedOrdersContext($brandIds, $text),
         ];
 
         $accessibleBrandsJson = json_encode($context['accessible_brands']);
@@ -339,6 +224,147 @@ PROMPT;
         $answer = $response['text'] ?? 'Maaf, saya tidak dapat memproses jawaban saat ini.';
 
         $this->sendTelegramMessage($botToken, $chatId, $answer);
+    }
+
+    private function getFinancialContext(array $brandIds, string $textLower): array
+    {
+        if (!preg_match('/(omset|omzet|uang|pendapatan|keuangan|penjualan|tagihan|dp|lunas|bayar|harga)/i', $textLower)) {
+            return [];
+        }
+
+        return [
+            'total_tagihan_po_aktif' => 'Rp' . number_format(Order::whereIn('brand_id', $brandIds)->whereIn('status_po', ['published', 'on_progress', 'selesai_produksi'])->sum('total_tagihan'), 0, ',', '.'),
+            'total_lunas_po' => Order::whereIn('brand_id', $brandIds)->where('is_lunas', true)->count(),
+            'total_belum_lunas_po' => Order::whereIn('brand_id', $brandIds)->where('is_lunas', false)->count(),
+            'total_pembayaran_diterima' => 'Rp' . number_format(OrderPayment::whereHas('order', fn($q) => $q->whereIn('brand_id', $brandIds))->where('status', 'verified')->sum('jumlah_bayar'), 0, ',', '.'),
+            'omset_hari_ini' => 'Rp' . number_format(Order::whereIn('brand_id', $brandIds)->whereDate('created_at', today())->sum('total_tagihan'), 0, ',', '.'),
+            'pembayaran_hari_ini' => 'Rp' . number_format(OrderPayment::whereHas('order', fn($q) => $q->whereIn('brand_id', $brandIds))->where('status', 'verified')->whereDate('verified_at', today())->sum('jumlah_bayar'), 0, ',', '.'),
+        ];
+    }
+
+    private function getProductionContext(array $brandIds, string $textLower): array
+    {
+        if (!preg_match('/(produksi|po|status|kerja|proses|antrean|antri|selesai|kirim|deadline|tanggal|lambat|delay)/i', $textLower)) {
+            return [];
+        }
+
+        $productionSummary = [];
+        $statuses = ['draft', 'published', 'on_progress', 'selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'delay', 'hold', 'selesai'];
+        foreach ($statuses as $st) {
+            $productionSummary[$st] = Order::whereIn('brand_id', $brandIds)->where('status_po', $st)->count();
+        }
+
+        $productionSummary['po_deadline_terdekat'] = Order::whereIn('brand_id', $brandIds)
+            ->whereIn('status_po', ['published', 'on_progress'])
+            ->whereNotNull('deadline_customer')
+            ->orderBy('deadline_customer')
+            ->limit(5)
+            ->get()
+            ->map(fn($o) => [
+                'no_po' => $o->no_po,
+                'nama_po' => $o->nama_po,
+                'status' => $o->status_po,
+                'deadline' => $o->deadline_customer,
+            ])->toArray();
+
+        return $productionSummary;
+    }
+
+    private function getOverdueContext(array $brandIds, string $textLower): array
+    {
+        if (!preg_match('/(lambat|telat|terlambat|delay|overdue|lewat|deadline)/i', $textLower)) {
+            return [];
+        }
+
+        $overdueOrders = Order::whereIn('brand_id', $brandIds)
+            ->where(function ($q) {
+                $q->where(function ($sub) {
+                    $sub->whereNotNull('deadline_customer')
+                        ->where('deadline_customer', '<', today()->format('Y-m-d'))
+                        ->whereNotIn('status_po', ['sudah_dikirim', 'selesai', 'draft']);
+                })
+                ->orWhere('status_po', 'delay');
+            })
+            ->with(['brand', 'customer'])
+            ->orderBy('deadline_customer')
+            ->get();
+
+        return [
+            'total_terlambat' => $overdueOrders->count(),
+            'detail_po_terlambat' => $overdueOrders->map(function ($o) {
+                $daysLate = $o->deadline_customer ? today()->diffInDays(\Carbon\Carbon::parse($o->deadline_customer), false) : null;
+                $lateText = $daysLate !== null && $daysLate < 0 ? abs($daysLate) . ' hari terlambat' : 'Terlambat';
+
+                return [
+                    'no_po' => $o->no_po,
+                    'kode_order' => $o->kode_order,
+                    'nama_po' => $o->nama_po,
+                    'brand' => $o->brand->nama_brand ?? '',
+                    'customer' => $o->customer->nama ?? '',
+                    'status_po' => $o->status_po,
+                    'deadline' => $o->deadline_customer,
+                    'keterangan_telat' => $lateText,
+                ];
+            })->toArray()
+        ];
+    }
+
+    private function getMatchedOrdersContext(array $brandIds, string $text): array
+    {
+        $matchedOrders = [];
+        $words = array_filter(array_map('trim', explode(' ', preg_replace('/[^A-Za-z0-9-]/', ' ', $text))));
+        foreach ($words as $word) {
+            if (strlen($word) >= 3) {
+                $found = Order::whereIn('brand_id', $brandIds)
+                    ->where(function ($q) use ($word) {
+                        $q->where('no_po', 'like', "%{$word}%")
+                          ->orWhere('nama_po', 'like', "%{$word}%")
+                          ->orWhere('kode_order', 'like', "%{$word}%")
+                          ->orWhereHas('customer', fn($c) => $c->where('nama', 'like', "%{$word}%"));
+                    })
+                    ->with(['brand', 'customer', 'items', 'payments'])
+                    ->limit(5)
+                    ->get();
+                
+                foreach ($found as $f) {
+                    $verifiedPayments = $f->payments->where('status', 'verified')->sum('jumlah_bayar');
+                    $sisaTagihan = max(0, $f->total_tagihan - $verifiedPayments);
+
+                    $matchedOrders[$f->no_po] = [
+                        'no_po' => $f->no_po,
+                        'kode_order' => $f->kode_order,
+                        'nama_po' => $f->nama_po,
+                        'brand' => $f->brand->nama_brand ?? '',
+                        'customer' => $f->customer->nama ?? '',
+                        'status_po' => $f->status_po,
+                        'total_tagihan' => 'Rp' . number_format($f->total_tagihan, 0, ',', '.'),
+                        'sisa_tagihan' => 'Rp' . number_format($sisaTagihan, 0, ',', '.'),
+                        'items' => $f->items->map(fn($it) => $it->nama_produk . ' (qty: ' . $it->qty . ')')->toArray(),
+                        'payments' => $f->payments->map(fn($p) => 'Rp' . number_format($p->jumlah_bayar, 0, ',', '.') . ' (' . $p->status . ')')->toArray(),
+                        'tanggal_masuk' => $f->tanggal_masuk,
+                        'deadline' => $f->deadline_customer,
+                    ];
+                }
+            }
+        }
+
+        return array_values($matchedOrders);
+    }
+
+    private function getBrandStatsContext(array $brandIds): array
+    {
+        $brandStats = [];
+        $brands = Brand::whereIn('id', $brandIds)->get();
+        foreach ($brands as $b) {
+            $brandStats[] = [
+                'nama' => $b->nama_brand,
+                'kode' => $b->kode,
+                'total_po' => Order::where('brand_id', $b->id)->count(),
+                'total_omset' => 'Rp' . number_format(Order::where('brand_id', $b->id)->sum('total_tagihan'), 0, ',', '.'),
+            ];
+        }
+
+        return $brandStats;
     }
 
     private function sendTelegramMessage(string $botToken, string $chatId, string $text): void
