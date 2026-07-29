@@ -64,17 +64,17 @@ class ComparisonRunner
             ->where('brand_id', $brand->id)
             ->whereBetween('tanggal_masuk', [$from, $to]);
 
-        $poCount = (clone $baseQ)->where('status_po', '!=', 'draft')->count();
-        $revenue = (float) (clone $baseQ)->where('status_po', '!=', 'draft')->sum('total_tagihan');
+        $poCount = (clone $baseQ)->whereNotIn('status_po', ['draft', 'published'])->count();
+        $revenue = (float) (clone $baseQ)->whereNotIn('status_po', ['draft', 'published'])->sum('total_tagihan');
 
-        $customers = (clone $baseQ)->where('status_po', '!=', 'draft')
+        $customers = (clone $baseQ)->whereNotIn('status_po', ['draft', 'published'])
             ->distinct('pelanggan_id')->count('pelanggan_id');
 
         $totalQty = OrderItem::query()
             ->where('is_addon', false)
             ->whereHas('order', fn ($q) => $q->where('brand_id', $brand->id)
                 ->whereBetween('tanggal_masuk', [$from, $to])
-                ->where('status_po', '!=', 'draft'))
+                ->whereNotIn('status_po', ['draft', 'published']))
             ->sum('quantity');
 
         $totalRijek = Rijek::query()
@@ -93,7 +93,8 @@ class ComparisonRunner
         $topProduct = OrderItem::query()
             ->where('is_addon', false)
             ->whereHas('order', fn ($q) => $q->where('brand_id', $brand->id)
-                ->whereBetween('tanggal_masuk', [$from, $to]))
+                ->whereBetween('tanggal_masuk', [$from, $to])
+                ->whereNotIn('status_po', ['draft', 'published']))
             ->select('nama_produk', DB::raw('SUM(quantity) as qty'))
             ->groupBy('nama_produk')
             ->orderByDesc('qty')
@@ -183,7 +184,7 @@ class ComparisonRunner
         $orders = Order::query()
             ->where('brand_id', $brandId)
             ->whereBetween('tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])
-            ->where('status_po', '!=', 'draft')
+            ->whereNotIn('status_po', ['draft', 'published'])
             ->select(
                 DB::raw("$monthExpr as bulan"),
                 DB::raw('COUNT(*) as total_po'),
@@ -198,7 +199,7 @@ class ComparisonRunner
             ->whereHas('order', function ($q) use ($brandId, $year) {
                 $q->where('brand_id', $brandId)
                   ->whereBetween('tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])
-                  ->where('status_po', '!=', 'draft');
+                  ->whereNotIn('status_po', ['draft', 'published']);
             })
             ->select(
                 DB::raw("$orderMonthExpr as idx"),
