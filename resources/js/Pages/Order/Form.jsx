@@ -78,8 +78,16 @@ function getCalculatedSubtotal(item) {
     }
     return Math.max(0, raw - amount);
 }
-
-
+function formatSuperscriptTrailing(str) {
+    if (typeof str !== 'string') return str;
+    const map = {
+        '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+        '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'
+    };
+    return str.replace(/\s+(\d+)$/, (match, p1) => {
+        return p1.split('').map(char => map[char] ?? char).join('');
+    });
+}
 
 function newNameset() {
     return {
@@ -460,7 +468,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                     } else {
                         // Skip empty values untuk mencegah data bergeser akibat gap
                         if (val && val.trim() !== '') {
-                            rowData[field] = val;
+                            rowData[field] = field === 'keterangan' ? val : formatSuperscriptTrailing(val);
                         }
                     }
                 });
@@ -721,7 +729,8 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
     }
     function patchNameset(i, field, value) {
         const next = [...item.namesets];
-        next[i] = { ...next[i], [field]: value };
+        const val = field === 'keterangan' ? value : formatSuperscriptTrailing(value);
+        next[i] = { ...next[i], [field]: val };
         if (field === 'size_id') {
             const s = masters.sizes.find((x) => x.id === value);
             next[i].size_label = s ? s.ukuran : '';
