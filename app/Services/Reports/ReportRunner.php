@@ -1231,7 +1231,7 @@ class ReportRunner
         $q = Order::query()
             ->when($brandId, $this->bf($brandId))
             ->whereBetween('tanggal_masuk', [$from, $to])
-            ->whereNotIn('status_po', ['draft', 'published'])
+            ->where('status_po', '!=', 'draft')
             ->when($jenisPoFilter, function($query) use ($jenisPoFilter) {
                 if ($jenisPoFilter === 'normal') {
                     $query->where('is_special_order', false)->where('is_reseller_price', false);
