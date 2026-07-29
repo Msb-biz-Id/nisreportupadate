@@ -139,24 +139,27 @@ class SendScheduledReport extends Command
 
         // Jika kolom pengaturan kosong/tidak diisi manual, cari dinamis berdasarkan User & Role & Brand Access
         if (empty($wa) && empty($tg) && $roleName) {
-            $usersQuery = \App\Models\User::role($roleName)->where('is_active', true);
-            $users = $usersQuery->get();
+            $roleExists = \Spatie\Permission\Models\Role::where('name', $roleName)->exists();
+            if ($roleExists) {
+                $usersQuery = \App\Models\User::role($roleName)->where('is_active', true);
+                $users = $usersQuery->get();
 
-            // Filter brand access jika laporan ini bersifat per-brand
-            if ($brandId) {
-                $users = $users->filter(function ($u) use ($brandId) {
-                    return $u->isSuperadmin() || 
-                           $u->hasRole(['owner', 'admin_keuangan', 'admin_produksi']) || 
-                           $u->hasAccessToBrand($brandId);
-                });
-            }
-
-            foreach ($users as $u) {
-                if ($u->phone) {
-                    $wa[] = $u->phone;
+                // Filter brand access jika laporan ini bersifat per-brand
+                if ($brandId) {
+                    $users = $users->filter(function ($u) use ($brandId) {
+                        return $u->isSuperadmin() || 
+                               $u->hasRole(['owner', 'admin_keuangan', 'admin_produksi']) || 
+                               $u->hasAccessToBrand($brandId);
+                    });
                 }
-                if ($u->telegram_chat_id) {
-                    $tg[] = $u->telegram_chat_id;
+
+                foreach ($users as $u) {
+                    if ($u->phone) {
+                        $wa[] = $u->phone;
+                    }
+                    if ($u->telegram_chat_id) {
+                        $tg[] = $u->telegram_chat_id;
+                    }
                 }
             }
         }
