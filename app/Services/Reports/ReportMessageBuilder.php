@@ -257,6 +257,110 @@ PROMPT;
     {
         $bid = $brand->id;
 
+        if ($periode === 'bulanan') {
+            $ordersMonth = Order::where('brand_id', $bid)
+                ->where('status_po', '!=', 'draft')
+                ->whereBetween('tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
+                ->with(['items:id,order_id,is_addon,quantity,jml_atasan', 'sumberOrder:id,nama', 'pelanggan:id,nama'])
+                ->get();
+
+            foreach ($ordersMonth as $o) {
+                $o->computed_pcs = $this->getOrderPcs($o);
+            }
+
+            $totalPo = $ordersMonth->count();
+            $totalPcs = $ordersMonth->sum('computed_pcs');
+
+            $normalPOs = $ordersMonth->filter(fn($o) => !$o->is_special_order && !$o->is_reseller_price);
+            $normalCount = $normalPOs->count();
+            $normalPcs = $normalPOs->sum('computed_pcs');
+
+            $resellerPOs = $ordersMonth->filter(fn($o) => $o->is_reseller_price);
+            $resellerCount = $resellerPOs->count();
+            $resellerPcs = $resellerPOs->sum('computed_pcs');
+
+            $specialPOs = $ordersMonth->filter(fn($o) => $o->is_special_order);
+            $specialCount = $specialPOs->count();
+            $specialPcs = $specialPOs->sum('computed_pcs');
+
+            $sumberGroups = $ordersMonth->groupBy(fn($o) => $o->sumberOrder?->nama ?? 'Lainnya/Tanpa Sumber');
+            $sumberList = [];
+            foreach ($sumberGroups as $name => $g) {
+                $sumberList[] = [
+                    'name' => $name,
+                    'po' => $g->count(),
+                    'pcs' => $g->sum('computed_pcs'),
+                ];
+            }
+            usort($sumberList, fn($a, $b) => $b['po'] <=> $a['po']);
+
+            $tunggakanPOs = Order::where('brand_id', $bid)
+                ->whereNotIn('status_po', ['draft', 'selesai'])
+                ->with(['pelanggan:id,nama', 'items', 'payments.masterJenisPembayaran'])
+                ->get()
+                ->filter(fn($o) => $o->sisaTagihan() > 0.99)
+                ->sortByDesc(fn($o) => $o->sisaTagihan())
+                ->take(10);
+
+            $revMonth = $ordersMonth->sum('total_tagihan');
+
+            $topProduk = OrderItem::query()
+                ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                ->where('orders.brand_id', $bid)->where('orders.status_po', '!=', 'draft')
+                ->whereBetween('orders.tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
+                ->select('order_items.nama_produk', DB::raw("SUM(CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) WHEN (SELECT COUNT(*) FROM order_items AS oi WHERE oi.order_id = order_items.order_id AND oi.is_addon = 0 AND oi.jml_atasan IS NOT NULL AND oi.jml_atasan != '') > 0 THEN 0 ELSE order_items.quantity END) as total_qty"))
+                ->groupBy('order_items.nama_produk')->orderByDesc('total_qty')->first();
+
+            $newPelanggan = $ordersMonth->unique('pelanggan_id')->count();
+
+            $lines = [
+                "📊 *LAPORAN BULANAN ADMIN BRAND - {$brand->nama_brand}*",
+                "📅 Periode: " . now()->translatedFormat('F Y'),
+                "",
+                "📦 *RINGKASAN PO & PCS BULAN INI:*",
+                "• Total PO: {$totalPo} order ({$totalPcs} pcs)",
+                "  - PO Normal: {$normalCount} order ({$normalPcs} pcs)",
+                "  - PO Harga Reseller: {$resellerCount} order ({$resellerPcs} pcs)",
+                "  - PO Spesial Order: {$specialCount} order ({$specialPcs} pcs)",
+                "",
+                "🔌 *SUMBER ORDER BULAN INI:*",
+            ];
+
+            if (empty($sumberList)) {
+                $lines[] = "• Belum ada data sumber order";
+            } else {
+                foreach ($sumberList as $i => $s) {
+                    $lines[] = ($i + 1) . ". {$s['name']}: {$s['po']} PO ({$s['pcs']} pcs)";
+                }
+            }
+
+            $lines[] = "";
+            $lines[] = "💰 *KEUANGAN & REVENUE:*";
+            $lines[] = "• Revenue Bulan Ini: Rp " . number_format($revMonth, 0, ',', '.');
+            $lines[] = "• Produk Terlaris: " . ($topProduk?->nama_produk ?? '-') . " (" . ($topProduk?->total_qty ?? 0) . " pcs)";
+            $lines[] = "• Pelanggan Baru: {$newPelanggan} customer";
+
+            $lines[] = "";
+            $lines[] = "⚠️ *DAFTAR PO MENUNGGU PELUNASAN (TUNGGAKAN):*";
+            if ($tunggakanPOs->isEmpty()) {
+                $lines[] = "• Bersih / Tidak ada tunggakan PO";
+            } else {
+                $idx = 1;
+                foreach ($tunggakanPOs as $po) {
+                    $lines[] = $idx . ". {$po->no_po} - {$po->pelanggan?->nama} (Sisa: Rp " . number_format($po->sisaTagihan(), 0, ',', '.') . ")";
+                    $idx++;
+                }
+            }
+
+            $aiCtx = "Brand {$brand->nama_brand}. Bulan ini — total PO: {$totalPo} ({$totalPcs} pcs), revenue: Rp " . number_format($revMonth, 0) . ". "
+                . "Tunggakan PO: " . $tunggakanPOs->count() . " PO. Produk terlaris: " . ($topProduk?->nama_produk ?? '-') . ".";
+            $this->appendAiInsight($lines, $aiCtx);
+
+            $lines[] = "";
+            $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · BULANAN · " . now()->format('d/m/Y H:i') . "_";
+            return implode("\n", $lines);
+        }
+
         $statusRows = Order::where('brand_id', $bid)
             ->select('status_po', DB::raw('COUNT(*) as cnt'))
             ->groupBy('status_po')->pluck('cnt', 'status_po');
@@ -360,6 +464,119 @@ PROMPT;
     public function owner(Brand $brand, string $periode): string
     {
         $bid = $brand->id;
+
+        if ($periode === 'bulanan') {
+            $ordersMonth = Order::where('brand_id', $bid)
+                ->where('status_po', '!=', 'draft')
+                ->whereBetween('tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
+                ->with(['items:id,order_id,is_addon,quantity,jml_atasan', 'sumberOrder:id,nama', 'pelanggan:id,nama'])
+                ->get();
+
+            foreach ($ordersMonth as $o) {
+                $o->computed_pcs = $this->getOrderPcs($o);
+            }
+
+            $totalPo = $ordersMonth->count();
+            $totalPcs = $ordersMonth->sum('computed_pcs');
+
+            $normalPOs = $ordersMonth->filter(fn($o) => !$o->is_special_order && !$o->is_reseller_price);
+            $normalCount = $normalPOs->count();
+            $normalPcs = $normalPOs->sum('computed_pcs');
+
+            $resellerPOs = $ordersMonth->filter(fn($o) => $o->is_reseller_price);
+            $resellerCount = $resellerPOs->count();
+            $resellerPcs = $resellerPOs->sum('computed_pcs');
+
+            $specialPOs = $ordersMonth->filter(fn($o) => $o->is_special_order);
+            $specialCount = $specialPOs->count();
+            $specialPcs = $specialPOs->sum('computed_pcs');
+
+            $sumberGroups = $ordersMonth->groupBy(fn($o) => $o->sumberOrder?->nama ?? 'Lainnya/Tanpa Sumber');
+            $sumberList = [];
+            foreach ($sumberGroups as $name => $g) {
+                $sumberList[] = [
+                    'name' => $name,
+                    'po' => $g->count(),
+                    'pcs' => $g->sum('computed_pcs'),
+                ];
+            }
+            usort($sumberList, fn($a, $b) => $b['po'] <=> $a['po']);
+
+            $tunggakanPOs = Order::where('brand_id', $bid)
+                ->whereNotIn('status_po', ['draft', 'selesai'])
+                ->with(['pelanggan:id,nama', 'items', 'payments.masterJenisPembayaran'])
+                ->get()
+                ->filter(fn($o) => $o->sisaTagihan() > 0.99)
+                ->sortByDesc(fn($o) => $o->sisaTagihan())
+                ->take(10);
+
+            $revMonth = $ordersMonth->sum('total_tagihan');
+            $revLastMonth = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
+                ->whereBetween('tanggal_masuk', [now()->subMonth()->startOfMonth()->toDateString(), now()->subMonth()->endOfMonth()->toDateString()])
+                ->sum('total_tagihan');
+
+            $growth    = $revLastMonth > 0 ? round((($revMonth - $revLastMonth) / $revLastMonth) * 100, 1) : 0;
+            $growthStr = $growth >= 0 ? "📈 +{$growth}% vs bulan lalu" : "📉 {$growth}% vs bulan lalu";
+
+            $topProduk = OrderItem::query()
+                ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                ->where('orders.brand_id', $bid)->where('orders.status_po', '!=', 'draft')
+                ->whereBetween('orders.tanggal_masuk', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
+                ->select('order_items.nama_produk', DB::raw("SUM(CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) WHEN (SELECT COUNT(*) FROM order_items AS oi WHERE oi.order_id = order_items.order_id AND oi.is_addon = 0 AND oi.jml_atasan IS NOT NULL AND oi.jml_atasan != '') > 0 THEN 0 ELSE order_items.quantity END) as total_qty"))
+                ->groupBy('order_items.nama_produk')->orderByDesc('total_qty')->first();
+
+            $newPelanggan = $ordersMonth->unique('pelanggan_id')->count();
+
+            $lines = [
+                "📊 *LAPORAN BULANAN OWNER - {$brand->nama_brand}*",
+                "📅 Periode: " . now()->translatedFormat('F Y'),
+                "",
+                "🏢 BRAND: *{$brand->nama_brand}* ({$brand->kode})",
+                "",
+                "📦 *RINGKASAN PO & PCS BULAN INI:*",
+                "• Total PO: {$totalPo} order ({$totalPcs} pcs)",
+                "  - PO Normal: {$normalCount} order ({$normalPcs} pcs)",
+                "  - PO Harga Reseller: {$resellerCount} order ({$resellerPcs} pcs)",
+                "  - PO Spesial Order: {$specialCount} order ({$specialPcs} pcs)",
+                "",
+                "🔌 *SUMBER ORDER BULAN INI:*",
+            ];
+
+            if (empty($sumberList)) {
+                $lines[] = "• Belum ada data sumber order";
+            } else {
+                foreach ($sumberList as $i => $s) {
+                    $lines[] = ($i + 1) . ". {$s['name']}: {$s['po']} PO ({$s['pcs']} pcs)";
+                }
+            }
+
+            $lines[] = "";
+            $lines[] = "💰 *KEUANGAN & REVENUE:*";
+            $lines[] = "• Revenue Bulan Ini: Rp " . number_format($revMonth, 0, ',', '.');
+            $lines[] = "• {$growthStr} (Bulan lalu: Rp " . number_format($revLastMonth, 0, ',', '.') . ")";
+            $lines[] = "• Produk Terlaris: " . ($topProduk?->nama_produk ?? '-') . " (" . ($topProduk?->total_qty ?? 0) . " pcs)";
+            $lines[] = "• Pelanggan Baru: {$newPelanggan} customer";
+
+            $lines[] = "";
+            $lines[] = "⚠️ *DAFTAR PO MENUNGGU PELUNASAN (TUNGGAKAN):*";
+            if ($tunggakanPOs->isEmpty()) {
+                $lines[] = "• Bersih / Tidak ada tunggakan PO";
+            } else {
+                $idx = 1;
+                foreach ($tunggakanPOs as $po) {
+                    $lines[] = $idx . ". {$po->no_po} - {$po->pelanggan?->nama} (Sisa: Rp " . number_format($po->sisaTagihan(), 0, ',', '.') . ")";
+                    $idx++;
+                }
+            }
+
+            $aiCtx = "Brand {$brand->nama_brand}. Bulan ini — total PO: {$totalPo} ({$totalPcs} pcs), revenue: Rp " . number_format($revMonth, 0) . ". "
+                . "Tunggakan PO: " . $tunggakanPOs->count() . " PO. Produk terlaris: " . ($topProduk?->nama_produk ?? '-') . ".";
+            $this->appendAiInsight($lines, $aiCtx);
+
+            $lines[] = "";
+            $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · BULANAN · " . now()->format('d/m/Y H:i') . "_";
+            return implode("\n", $lines);
+        }
 
         $statusRows = Order::where('brand_id', $bid)
             ->select('status_po', DB::raw('COUNT(*) as cnt'))
