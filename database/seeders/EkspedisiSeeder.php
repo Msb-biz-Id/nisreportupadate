@@ -73,12 +73,13 @@ class EkspedisiSeeder extends Seeder
         ];
 
         foreach ($ekspedisis as $ekspedisi) {
-            Ekspedisi::create([
-                'id' => (string) Str::uuid(),
-                'nama' => $ekspedisi['nama'],
-                'deskripsi' => $ekspedisi['deskripsi'],
-                'is_active' => true,
-            ]);
+            Ekspedisi::updateOrCreate(
+                ['nama' => $ekspedisi['nama']],
+                [
+                    'deskripsi' => $ekspedisi['deskripsi'],
+                    'is_active' => true,
+                ]
+            );
         }
     }
 }
