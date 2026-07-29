@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Order\Invoice;
 use App\Models\Brand;
+use App\Models\Master\Customer;
 use App\Models\Order\Order;
+use App\Models\Order\OrderItem;
 use App\Models\Order\OrderPayment;
 use App\Models\User;
 use App\Models\Settings\SystemSetting;
@@ -179,6 +181,7 @@ class WebhookController extends Controller
             'matched_specific_orders' => $this->getMatchedOrdersContext($brandIds, $text),
             'brand_comparison' => $this->getBrandComparisonContext($brandIds, $textLower),
             'po_type_statistics' => $this->getPoTypeContext($brandIds, $textLower),
+            'top_products_and_customers' => $this->getTopProductsAndCustomersContext($brandIds, $textLower),
         ];
 
         $accessibleBrandsJson = json_encode($context['accessible_brands']);
@@ -189,6 +192,7 @@ class WebhookController extends Controller
         $matchedOrdersJson = json_encode($context['matched_specific_orders']);
         $brandComparisonJson = json_encode($context['brand_comparison']);
         $poTypeStatsJson = json_encode($context['po_type_statistics']);
+        $topProductsCustomersJson = json_encode($context['top_products_and_customers']);
 
         $prompt = <<<PROMPT
 Kamu adalah AI Chatbot Asisten ProTrack (Sistem Tracking PO & Invoice Apparel).
@@ -220,6 +224,9 @@ Perbandingan Komparasi Brand (30 Hari Terakhir):
 
 Breakdown PO Berdasarkan Tipe/Jenis/Kategori/Sumber:
 {$poTypeStatsJson}
+
+Informasi Produk Terlaris & Pelanggan Terloyal (30 Hari Terakhir):
+{$topProductsCustomersJson}
 
 PERTANYAAN USER:
 "{$text}"
@@ -454,6 +461,47 @@ PROMPT;
             'berdasarkan_jenis' => $jenisOrderStats,
             'berdasarkan_kategori' => $kategoriOrderStats,
             'berdasarkan_sumber' => $sumberOrderStats,
+        ];
+    }
+
+    private function getTopProductsAndCustomersContext(array $brandIds, string $textLower): array
+    {
+        if (!preg_match('/(produk|barang|jersey|baju|terlaris|populer|pelanggan|customer|pembeli|terloyal|belanja|order)/i', $textLower)) {
+            return [];
+        }
+
+        // Top 5 Produk Terlaris
+        $topProducts = OrderItem::query()
+            ->where('is_addon', false)
+            ->whereHas('order', fn($q) => $q->whereIn('brand_id', $brandIds)->where('status_po', '!=', 'draft'))
+            ->select('nama_produk', DB::raw('SUM(quantity) as total_qty'))
+            ->groupBy('nama_produk')
+            ->orderByDesc('total_qty')
+            ->limit(5)
+            ->get()
+            ->map(fn($item) => [
+                'nama' => $item->nama_produk,
+                'total_qty' => (int) $item->total_qty,
+            ])->toArray();
+
+        // Top 5 Pelanggan Terloyal (Berdasarkan Belanjaan)
+        $topCustomers = Order::whereIn('brand_id', $brandIds)
+            ->where('status_po', '!=', 'draft')
+            ->join('customers', 'orders.pelanggan_id', '=', 'customers.id')
+            ->select('customers.nama', DB::raw('COUNT(*) as total_order'), DB::raw('SUM(orders.total_tagihan) as total_belanja'))
+            ->groupBy('customers.nama')
+            ->orderByDesc('total_belanja')
+            ->limit(5)
+            ->get()
+            ->map(fn($item) => [
+                'nama' => $item->nama,
+                'total_order' => $item->total_order,
+                'total_belanja' => 'Rp' . number_format($item->total_belanja, 0, ',', '.'),
+            ])->toArray();
+
+        return [
+            'produk_terlaris' => $topProducts,
+            'pelanggan_terloyal' => $topCustomers,
         ];
     }
 

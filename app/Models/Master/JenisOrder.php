@@ -4,6 +4,7 @@ namespace App\Models\Master;
 
 use App\Models\Brand;
 use App\Models\Concerns\HasUuidAndSoftDeletes;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,11 +24,14 @@ class JenisOrder extends Model
         return $this->belongsTo(Brand::class);
     }
 
-    public function scopeActive($q) { return $q->where('is_active', true); }
-
-    public function scopeForBrand($q, $brandId)
+    public function scopeActive(Builder $q): Builder
     {
-        return $q->where(function ($w) use ($brandId) {
+        return $q->where('is_active', true);
+    }
+
+    public function scopeForBrand(Builder $q, ?string $brandId): Builder
+    {
+        return $q->where(function (Builder $w) use ($brandId) {
             $w->where('brand_id', $brandId)->orWhereNull('brand_id');
         });
     }
