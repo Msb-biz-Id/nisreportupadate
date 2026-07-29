@@ -39,6 +39,11 @@ class TelegramSetWebhook extends Command
         }
 
         $webhookUrl = url('/webhooks/telegram');
+        
+        if (! str_starts_with($webhookUrl, 'https://')) {
+            $this->warn('⚠️ Peringatan: Webhook Telegram mewajibkan protokol HTTPS (SSL). Pastikan APP_URL di file .env Anda sudah menggunakan https:// agar Telegram bisa mengirimkan data.');
+        }
+
         $this->info("Menghubungkan webhook Telegram ke: {$webhookUrl}");
 
         $response = Http::post("https://api.telegram.org/bot{$botToken}/setWebhook", [
