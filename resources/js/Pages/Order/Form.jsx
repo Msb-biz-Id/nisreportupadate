@@ -79,16 +79,7 @@ function getCalculatedSubtotal(item) {
     return Math.max(0, raw - amount);
 }
 
-function cleanSuperscript(str) {
-    if (typeof str !== 'string') return str;
-    const map = {
-        '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
-        '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
-        '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4',
-        '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9'
-    };
-    return str.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉]/g, m => map[m]);
-}
+
 
 function newNameset() {
     return {
@@ -515,7 +506,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                         placeholder={"No\tNama Punggung\tNo. Punggung\tNama Dada\tNo. Dada\tNama Lengan\tNo. Lengan\tNo. Punggung 2\tNama Punggung 2\tSize Atasan\tSize Celana\tKeterangan\n1\tAhmad\t7\tAmd\t7\tAh\t7\t7B\tAhmad B\tS\tS\tLengan Panjang\n2\tBudi\t10\tBud\t10\tBu\t10\t10B\tBudi B\tM\tM\tKeterangan tambahan"}
                         value={text}
                         onChange={(e) => {
-                            setText(cleanSuperscript(e.target.value));
+                            setText(e.target.value);
                             setSizeOverrides({});
                         }}
                         autoFocus
@@ -730,7 +721,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
     }
     function patchNameset(i, field, value) {
         const next = [...item.namesets];
-        next[i] = { ...next[i], [field]: cleanSuperscript(value) };
+        next[i] = { ...next[i], [field]: value };
         if (field === 'size_id') {
             const s = masters.sizes.find((x) => x.id === value);
             next[i].size_label = s ? s.ukuran : '';
