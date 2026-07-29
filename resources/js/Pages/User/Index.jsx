@@ -124,11 +124,6 @@ function UserForm({ open, onOpenChange, user, roles, brands, onSuccess }) {
                             <Input id="phone" value={data.phone ?? ''} onChange={(e) => setData('phone', e.target.value)} className="mt-1.5" placeholder="628xxxxxxxx" />
                         </div>
                         <div>
-                            <Label htmlFor="telegram_chat_id">Telegram Chat ID</Label>
-                            <Input id="telegram_chat_id" value={data.telegram_chat_id ?? ''} onChange={(e) => setData('telegram_chat_id', e.target.value)} className="mt-1.5" placeholder="Misal: 895581542" />
-                            {errors.telegram_chat_id && <p className="mt-1 text-xs text-destructive">{errors.telegram_chat_id}</p>}
-                        </div>
-                        <div>
                             <Label htmlFor="role">Role <span className="text-destructive">*</span></Label>
                             <Select value={data.role} onValueChange={(v) => setData('role', v)}>
                                 <SelectTrigger id="role" className="mt-1.5">
