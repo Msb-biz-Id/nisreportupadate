@@ -99,12 +99,12 @@ class WebhookController extends Controller
             $phone = $message['contact']['phone_number'] ?? '';
             if ($phone) {
                 // Normalisasi nomor telepon dari Telegram (bisa berawalan '+' atau '0')
-                $normalizedPhone = \App\Services\Notifications\SidobeClient::normalizePhone($phone);
+                $normalizedPhone = SidobeClient::normalizePhone($phone);
 
                 // Cari user berdasarkan nomor HP yang terdaftar
                 $user = \App\Models\User::all()->first(function ($u) use ($normalizedPhone) {
                     if (empty($u->phone)) return false;
-                    return \App\Services\Notifications\SidobeClient::normalizePhone($u->phone) === $normalizedPhone;
+                    return SidobeClient::normalizePhone($u->phone) === $normalizedPhone;
                 });
 
                 if ($user) {
