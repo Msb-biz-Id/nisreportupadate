@@ -157,7 +157,7 @@ class OrderItem extends Model
             return null;
         }
 
-        return \App\Models\Master\BahanKain::whereIn('id', $ids)->pluck('nama')->implode(', ');
+        return BahanKain::whereIn('id', $ids)->pluck('nama')->implode(', ');
     }
 }
 

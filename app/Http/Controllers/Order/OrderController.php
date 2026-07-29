@@ -73,10 +73,7 @@ class OrderController extends Controller
         }
         $orders = $query->paginate($perPage)->withQueryString();
         $orders->through(function (Order $order) {
-            $totalAtasan = $order->items->filter(fn($i) => empty($i->is_addon))->sum(function ($i) {
-                return ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity;
-            });
-            $order->core_items_sum_quantity = (int) $totalAtasan;
+            $order->core_items_sum_quantity = $order->calculateTotalAtasan();
             return $order;
         });
 

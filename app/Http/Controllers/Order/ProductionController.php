@@ -179,7 +179,7 @@ class ProductionController extends Controller
                 'is_locked'           => $order->isLocked(),
                 'is_special_order'    => (bool) $order->is_special_order,
                 'has_rijek'           => $order->has_rijek > 0,
-                'total_items'         => (int) $order->items->filter(fn($i) => empty($i->is_addon))->sum(fn($i) => ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity),
+                'total_items'         => $order->calculateTotalAtasan(),
                 'days_remaining'      => $daysRemaining,
                 'paket_order'       => $order->paketOrder ? [
                     'nama'      => $order->paketOrder->nama,

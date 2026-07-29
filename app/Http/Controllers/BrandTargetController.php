@@ -35,7 +35,7 @@ class BrandTargetController extends Controller
         $monthExpr = $isSqlite ? 'CAST(strftime("%m", orders.tanggal_masuk) AS INTEGER)' : 'MONTH(orders.tanggal_masuk)';
 
         $actualRows = Order::query()
-            ->leftJoin(DB::raw('(SELECT order_id, SUM(CASE WHEN jml_atasan IS NOT NULL AND jml_atasan != \'\' THEN CAST(jml_atasan AS UNSIGNED) ELSE quantity END) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
+            ->leftJoin(DB::raw('(SELECT order_id, SUM(CASE WHEN jml_atasan IS NOT NULL AND jml_atasan != \'\' THEN CAST(jml_atasan AS UNSIGNED) WHEN (SELECT COUNT(*) FROM order_items AS oi WHERE oi.order_id = order_items.order_id AND oi.is_addon = 0 AND oi.jml_atasan IS NOT NULL AND oi.jml_atasan != \'\') > 0 THEN 0 ELSE quantity END) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
             ->whereIn('orders.brand_id', $brandIds)
             ->whereBetween('orders.tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])
             ->where('orders.status_po', '!=', 'draft')

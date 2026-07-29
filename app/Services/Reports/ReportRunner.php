@@ -107,7 +107,7 @@ class ReportRunner
                   ->whereBetween('orders.tanggal_masuk', [$from, $to])
                   ->where('orders.status_po', '!=', 'draft');
             })
-            ->leftJoin(DB::raw('(SELECT order_id, SUM(CASE WHEN jml_atasan IS NOT NULL AND jml_atasan != \'\' THEN CAST(jml_atasan AS UNSIGNED) ELSE quantity END) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
+            ->leftJoin(DB::raw('(SELECT order_id, SUM(CASE WHEN jml_atasan IS NOT NULL AND jml_atasan != \'\' THEN CAST(jml_atasan AS UNSIGNED) WHEN (SELECT COUNT(*) FROM order_items AS oi WHERE oi.order_id = order_items.order_id AND oi.is_addon = 0 AND oi.jml_atasan IS NOT NULL AND oi.jml_atasan != \'\') > 0 THEN 0 ELSE quantity END) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
             // Array = reseller hub context → filter via orders.brand_id (customers live at hub, orders at branch)
             ->when(is_array($brandId), fn ($q) => $q->whereIn('orders.brand_id', $brandId))
             ->when(! is_array($brandId) && $brandId, fn ($q) => $q->where('customers.brand_id', $brandId))
@@ -234,7 +234,7 @@ class ReportRunner
             'pelanggan' => $o->pelanggan?->nama,
             'tanggal_masuk' => $o->tanggal_masuk?->toDateString(),
             'deadline' => $o->deadline_customer?->toDateString(),
-            'pcs' => (int) $o->items->filter(fn($i) => empty($i->is_addon))->sum(fn($i) => ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity),
+            'pcs' => $o->calculateTotalAtasan(),
             'status' => $o->status_po,
             'total' => (float) $o->total_tagihan,
         ])->all();
@@ -287,7 +287,7 @@ class ReportRunner
                 'nama_po' => $o->nama_po,
                 'brand_nama' => $o->brand?->nama_brand ?? '-',
                 'pelanggan' => $o->pelanggan?->nama ?? '-',
-                'pcs' => (int) $o->items->filter(fn($i) => empty($i->is_addon))->sum(fn($i) => ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity),
+                'pcs' => $o->calculateTotalAtasan(),
                 'jenis_printing' => implode(', ', $orderPrintings) ?: '-',
                 'status' => $o->status_po,
             ];
@@ -603,7 +603,7 @@ class ReportRunner
             ->leftJoin('customer_types', 'customer_types.id', '=', 'customers.type_pelanggan_id')
             ->leftJoin('sumber_orders', 'sumber_orders.id', '=', 'orders.sumber_order_id')
             ->leftJoin('sumber_orders as parent_sumber', 'parent_sumber.id', '=', 'sumber_orders.parent_id')
-            ->leftJoin(DB::raw('(SELECT order_id, SUM(CASE WHEN jml_atasan IS NOT NULL AND jml_atasan != \'\' THEN CAST(jml_atasan AS UNSIGNED) ELSE quantity END) as qty FROM order_items WHERE is_addon = 0 ' .
+            ->leftJoin(DB::raw('(SELECT order_id, SUM(CASE WHEN jml_atasan IS NOT NULL AND jml_atasan != \'\' THEN CAST(jml_atasan AS UNSIGNED) WHEN (SELECT COUNT(*) FROM order_items AS oi WHERE oi.order_id = order_items.order_id AND oi.is_addon = 0 AND oi.jml_atasan IS NOT NULL AND oi.jml_atasan != \'\') > 0 THEN 0 ELSE quantity END) as qty FROM order_items WHERE is_addon = 0 ' .
                 (!empty($filters['product_id']) ? 'AND product_id = ' . DB::connection()->getPdo()->quote($filters['product_id']) : '') .
                 ' GROUP BY order_id) as items_sum'), 'items_sum.order_id', '=', 'orders.id')
             ->whereBetween('orders.tanggal_masuk', [$from, $to])
@@ -1118,7 +1118,7 @@ class ReportRunner
                 'pelanggan' => $o->pelanggan?->nama ?? '-',
                 'tanggal_masuk' => $o->tanggal_masuk?->toDateString(),
                 'deadline' => $o->deadline_customer?->toDateString(),
-                'pcs' => (int) $o->items->filter(fn($i) => empty($i->is_addon))->sum(fn($i) => ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity),
+                'pcs' => $o->calculateTotalAtasan(),
                 'status' => $o->status_po,
                 'keterlambatan' => $lateness,
                 'durasi_total' => $durasiTotal,
@@ -1266,7 +1266,7 @@ class ReportRunner
                 'pelanggan' => $o->pelanggan?->nama ?? '-',
                 'tanggal_masuk' => $o->tanggal_masuk?->toDateString(),
                 'jenis_po' => $jenisPo,
-                'pcs' => (int) $o->items->filter(fn($i) => empty($i->is_addon))->sum(fn($i) => ($i->jml_atasan !== null && $i->jml_atasan !== '') ? (int)$i->jml_atasan : (int)$i->quantity),
+                'pcs' => $o->calculateTotalAtasan(),
                 'total_tagihan' => (float) $o->total_tagihan,
                 'status' => $o->status_po,
             ];
