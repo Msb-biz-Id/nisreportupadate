@@ -9,9 +9,31 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // Phase 6: Scheduled Reports (BRD 17.2.1)
-Schedule::command('reports:send harian')->dailyAt('08:00');
-Schedule::command('reports:send mingguan')->weeklyOn(1, '08:00');
-Schedule::command('reports:send bulanan')->monthlyOn(1, '08:00');
+try {
+    if (Illuminate\Support\Facades\Schema::hasTable('system_settings')) {
+        $dailyTime = App\Models\Settings\SystemSetting::get('reports', 'daily_report_time', '08:00');
+        
+        $weeklyDayStr = App\Models\Settings\SystemSetting::get('reports', 'weekly_report_day', 'monday');
+        $weeklyDay = [
+            'sunday' => 0, 'monday' => 1, 'tuesday' => 2, 'wednesday' => 3,
+            'thursday' => 4, 'friday' => 5, 'saturday' => 6
+        ][strtolower($weeklyDayStr)] ?? 1;
+
+        $monthlyDate = (int) App\Models\Settings\SystemSetting::get('reports', 'monthly_report_date', 1);
+
+        Schedule::command('reports:send harian')->dailyAt($dailyTime);
+        Schedule::command('reports:send mingguan')->weeklyOn($weeklyDay, $dailyTime);
+        Schedule::command('reports:send bulanan')->monthlyOn($monthlyDate, $dailyTime);
+    } else {
+        Schedule::command('reports:send harian')->dailyAt('08:00');
+        Schedule::command('reports:send mingguan')->weeklyOn(1, '08:00');
+        Schedule::command('reports:send bulanan')->monthlyOn(1, '08:00');
+    }
+} catch (\Throwable $e) {
+    Schedule::command('reports:send harian')->dailyAt('08:00');
+    Schedule::command('reports:send mingguan')->weeklyOn(1, '08:00');
+    Schedule::command('reports:send bulanan')->monthlyOn(1, '08:00');
+}
 
 // BRD 13.5.3: Reminder & overdue invoice WA setiap hari 09:00
 Schedule::command('invoices:send-reminders --days=3')->dailyAt('09:00');
