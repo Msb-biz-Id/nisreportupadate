@@ -10,6 +10,21 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string $email
+ * @property string|null $phone
+ * @property string|null $telegram_chat_id
+ * @property string|null $avatar
+ * @property bool $is_active
+ * @property string|null $last_brand_id
+ * @property bool $two_factor_enabled
+ * @property string|null $two_factor_secret
+ * @property string $password
+ *
+ * @mixin \Illuminate\Database\Eloquent\Model
+ */
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */

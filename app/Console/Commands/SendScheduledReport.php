@@ -45,8 +45,9 @@ class SendScheduledReport extends Command
         $brandId = $this->option('brand');
         $brands  = $brandId
             ? Brand::where('id', $brandId)->get()
-            : Brand::active()->get();
+            : Brand::where('is_active', true)->get();
 
+        // Track total sent messages
         $totalSent = 0;
 
         // ── Superadmin report (satu pesan global, bukan per-brand)

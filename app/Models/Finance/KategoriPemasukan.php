@@ -8,6 +8,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string $id
+ * @property string $brand_id
+ *
+ * @mixin Model
+ */
 class KategoriPemasukan extends Model
 {
     use HasFactory, HasUuidAndSoftDeletes;

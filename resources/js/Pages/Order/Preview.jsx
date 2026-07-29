@@ -626,13 +626,84 @@ function TimelineForm({ order, onDone }) {
     );
 }
 
-export default function OrderPreview({ order, can, dp_info = null, printings = [], banks = [], jenis_pembayarans = [], versions = [] }) {
+function UpdateShippingDialog({ order, open, onOpenChange, ekspedisis = [] }) {
+    const { data, setData, patch, processing, errors, reset } = useForm({
+        ekspedisi_id: order.ekspedisi_id ?? '',
+        no_resi: order.no_resi ?? '',
+    });
+
+    useEffect(() => {
+        if (open) {
+            setData({
+                ekspedisi_id: order.ekspedisi_id ?? '',
+                no_resi: order.no_resi ?? '',
+            });
+        }
+    }, [open, order]);
+
+    function submit(e) {
+        e.preventDefault();
+        patch(route('orders.shipping.update', order.id), {
+            transform: (data) => ({
+                ...data,
+                ekspedisi_id: data.ekspedisi_id === 'none' || !data.ekspedisi_id ? null : data.ekspedisi_id,
+            }),
+            preserveScroll: true,
+            onSuccess: () => onOpenChange(false),
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <form onSubmit={submit}>
+                    <DialogHeader>
+                        <DialogTitle>Edit Informasi Pengiriman</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3 py-4">
+                        <div>
+                            <Label>Ekspedisi</Label>
+                            <Select value={data.ekspedisi_id || 'none'} onValueChange={(v) => setData('ekspedisi_id', v)}>
+                                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pilih Ekspedisi..." /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">-- Tanpa Ekspedisi --</SelectItem>
+                                    {ekspedisis.map((eks) => (
+                                        <SelectItem key={eks.id} value={String(eks.id)}>{eks.nama}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {errors.ekspedisi_id && <p className="text-xs text-destructive">{errors.ekspedisi_id}</p>}
+                        </div>
+                        <div>
+                            <Label>Nomor Resi / Keterangan</Label>
+                            <Input value={data.no_resi} onChange={(e) => setData('no_resi', e.target.value)} className="mt-1.5" placeholder="Masukkan nomor resi..." />
+                            {errors.no_resi && <p className="text-xs text-destructive">{errors.no_resi}</p>}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
+                        <Button type="submit" disabled={processing}>Simpan</Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+export default function OrderPreview({ order, can, dp_info = null, printings = [], banks = [], jenis_pembayarans = [], versions = [], ekspedisis = [] }) {
     const { auth } = usePage().props;
     const user = auth?.user;
     const [openUnlock, setOpenUnlock] = useState(false);
     const [openRelock, setOpenRelock] = useState(false);
     const [openPayment, setOpenPayment] = useState(false);
+    const [openShipping, setOpenShipping] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
+
+    const canEditShipping = user && (
+        user.is_superadmin ||
+        user.permissions?.includes('order.update') ||
+        user.permissions?.includes('production.update-progress')
+    );
     const [editTimeline, setEditTimeline] = useState(false);
     const [openEditPayment, setOpenEditPayment] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState(null);
@@ -1376,7 +1447,12 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     },
                                     printings.length > 0 && { label: 'Jenis Printing', value: printings.map(p => p.nama).join(', ') },
                                     order.iklan?.nama && { label: 'Promo', value: order.iklan.nama + (order.iklan.platform ? ` (${order.iklan.platform})` : '') },
-                                    (order.nama_ekspedisi || order.no_resi) && { label: 'Ekspedisi', value: [order.nama_ekspedisi, order.no_resi].filter(Boolean).join(' · ') },
+                                    (canEditShipping || order.nama_ekspedisi || order.no_resi) && {
+                                        label: 'Ekspedisi',
+                                        value: (order.nama_ekspedisi || order.no_resi)
+                                            ? [order.nama_ekspedisi, order.no_resi].filter(Boolean).join(' · ')
+                                            : 'Belum diisi (Klik ikon edit)'
+                                    },
                                     order.catatan && { label: 'Catatan PO', value: order.catatan, full: true },
                                 ].filter(Boolean);
 
@@ -1400,7 +1476,21 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                     {fields.map((f) => (
                                                         <div key={f.label} className={f.full ? 'col-span-2' : ''}>
                                                             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{f.label}</span>
-                                                            {f.warna ? (
+                                                            {f.label === 'Ekspedisi' && canEditShipping ? (
+                                                                <div className="flex items-center gap-2 group mt-0.5">
+                                                                    <p className="text-sm font-medium whitespace-pre-wrap text-slate-800">
+                                                                        {f.value}
+                                                                    </p>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setOpenShipping(true)}
+                                                                        className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition shrink-0"
+                                                                        title="Edit data pengiriman/ekspedisi"
+                                                                    >
+                                                                        <Pencil className="h-3.5 w-3.5" />
+                                                                    </button>
+                                                                </div>
+                                                            ) : f.warna ? (
                                                                 <p className="mt-0.5 flex items-center gap-1.5 text-sm font-medium">
                                                                     <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: f.warna }} />
                                                                     {f.value}
@@ -2046,6 +2136,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
             <CompareVersionsDialog order={order} versions={versions} open={openCompare} onOpenChange={setOpenCompare} initialV1={selectedV1} initialV2={selectedV2} />
             <AddPaymentDialog order={order} open={openPayment} onOpenChange={setOpenPayment} banks={banks} jenis_pembayarans={jenis_pembayarans} />
             <EditPaymentDialog payment={selectedPayment} open={openEditPayment} onOpenChange={setOpenEditPayment} banks={banks} jenis_pembayarans={jenis_pembayarans} />
+            <UpdateShippingDialog order={order} open={openShipping} onOpenChange={setOpenShipping} ekspedisis={ekspedisis} />
 
             <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
                 <DialogContent>

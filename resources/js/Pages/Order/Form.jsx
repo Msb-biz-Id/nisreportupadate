@@ -1391,6 +1391,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
         bank_id: order?.bank_id ?? '',
         printing_ids: order?.printing_ids ?? [],
         iklan_id: order?.iklan_id ?? '',
+        ekspedisi_id: order?.ekspedisi_id ?? '',
         catatan: order?.catatan ?? '',
         items: (order?.items ?? []).map((i) => ({
             ...newItem(),
@@ -1679,20 +1680,35 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                 </div>
 
                                 {(data.tipe_pengiriman === 'ongkir' || (!data.tipe_pengiriman && !data.is_free_ongkir)) && (
-                                    <div className="flex items-center gap-1.5 border-t sm:border-t-0 sm:border-l border-slate-700 pt-1.5 sm:pt-0 sm:pl-2">
-                                        <span className="text-[9px] text-slate-400 uppercase font-extrabold">Biaya:</span>
-                                        <input 
-                                            type="text"
-                                            value={data.ongkir ? `Rp ${new Intl.NumberFormat('id-ID').format(data.ongkir)}` : ''} 
-                                            placeholder="Rp 0" 
-                                            onChange={(e) => {
-                                                const rawValue = e.target.value.replace(/\D/g, '');
-                                                const numericValue = rawValue ? parseInt(rawValue, 10) : 0;
-                                                setData('ongkir', numericValue);
-                                            }} 
-                                            className="w-28 bg-white border border-slate-300 rounded px-2 py-0.5 text-center text-xs font-semibold text-slate-950 focus:outline-none focus:border-red-500 shadow-sm" 
-                                        />
-                                    </div>
+                                    <>
+                                        <div className="flex items-center gap-1.5 border-t sm:border-t-0 sm:border-l border-slate-700 pt-1.5 sm:pt-0 sm:pl-2">
+                                            <span className="text-[9px] text-slate-400 uppercase font-extrabold">Ekspedisi:</span>
+                                            <select
+                                                value={data.ekspedisi_id || ''}
+                                                onChange={(e) => setData('ekspedisi_id', e.target.value || null)}
+                                                className="w-32 bg-white border border-slate-300 rounded px-2 py-0.5 text-xs font-semibold text-slate-950 focus:outline-none focus:border-red-500 shadow-sm"
+                                            >
+                                                <option value="">-- Pilih Ekspedisi --</option>
+                                                {(masters.ekspedisis ?? []).map((eks) => (
+                                                    <option key={eks.id} value={eks.id}>{eks.nama}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 border-t sm:border-t-0 sm:border-l border-slate-700 pt-1.5 sm:pt-0 sm:pl-2">
+                                            <span className="text-[9px] text-slate-400 uppercase font-extrabold">Biaya:</span>
+                                            <input 
+                                                type="text"
+                                                value={data.ongkir ? `Rp ${new Intl.NumberFormat('id-ID').format(data.ongkir)}` : ''} 
+                                                placeholder="Rp 0" 
+                                                onChange={(e) => {
+                                                    const rawValue = e.target.value.replace(/\D/g, '');
+                                                    const numericValue = rawValue ? parseInt(rawValue, 10) : 0;
+                                                    setData('ongkir', numericValue);
+                                                }} 
+                                                className="w-28 bg-white border border-slate-300 rounded px-2 py-0.5 text-center text-xs font-semibold text-slate-950 focus:outline-none focus:border-red-500 shadow-sm" 
+                                            />
+                                        </div>
+                                    </>
                                 )}
                             </div>
 

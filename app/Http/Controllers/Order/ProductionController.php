@@ -211,6 +211,7 @@ class ProductionController extends Controller
 
         return Inertia::render('Production/Progress', [
             'order' => $order,
+            'ekspedisis' => \App\Models\Master\Ekspedisi::active()->orderBy('nama')->get(['id', 'nama']),
             'can' => [
                 'update' => $request->user()->can('production.update-progress'),
                 'addReject' => $request->user()->can('production.add-reject'),
@@ -240,7 +241,8 @@ class ProductionController extends Controller
             'catatan'        => ['nullable', 'string'],
             'kendala'        => ['nullable', 'string'],
             'skipped_reason' => ['required_if:status,skipped', 'nullable', 'string'],
-            'nama_ekspedisi' => [$isSending && $request->input('status') === 'selesai' && ! $order->isPickupCod() ? 'required' : 'nullable', 'string', 'max:100'],
+            'ekspedisi_id'   => ['nullable', 'uuid', 'exists:ekspedisi,id'],
+            'nama_ekspedisi' => [$isSending && $request->input('status') === 'selesai' && ! $order->isPickupCod() && !$request->filled('ekspedisi_id') ? 'required' : 'nullable', 'string', 'max:100'],
             'no_resi'        => ['nullable', 'string', 'max:100'],
         ]);
 
@@ -255,10 +257,26 @@ class ProductionController extends Controller
         );
 
         if ($isSending && $data['status'] === 'selesai') {
+            $ekspedisiName = null;
+            if (!empty($data['ekspedisi_id'])) {
+                $ekspedisiName = \App\Models\Master\Ekspedisi::find($data['ekspedisi_id'])?->nama;
+            } elseif (!empty($data['nama_ekspedisi'])) {
+                $ekspedisiName = $data['nama_ekspedisi'];
+            }
+
             $order->update([
-                'nama_ekspedisi' => $order->isPickupCod() ? ($data['nama_ekspedisi'] ?: 'Ambil di Tempat / COD') : ($data['nama_ekspedisi'] ?? null),
+                'ekspedisi_id'   => $data['ekspedisi_id'] ?? null,
+                'nama_ekspedisi' => $order->isPickupCod() ? ($ekspedisiName ?: 'Ambil di Tempat / COD') : ($ekspedisiName ?? null),
                 'no_resi'        => $data['no_resi'] ?? null,
             ]);
+
+            // Sync with Invoice
+            $invoice = $order->invoices()->first();
+            if ($invoice) {
+                $invoice->update([
+                    'jasa_pengiriman' => $order->nama_ekspedisi,
+                ]);
+            }
         }
 
         \App\Services\Notifications\IdealNotificationService::dispatch('progress_updated', [
@@ -288,6 +306,7 @@ class ProductionController extends Controller
             'catatan'        => ['nullable', 'string'],
             'kendala'        => ['nullable', 'string'],
             'skipped_reason' => ['required_if:status,skipped', 'nullable', 'string'],
+            'ekspedisi_id'   => ['nullable', 'uuid', 'exists:ekspedisi,id'],
             'nama_ekspedisi' => ['nullable', 'string', 'max:100'],
             'no_resi'        => ['nullable', 'string', 'max:100'],
         ]);
@@ -316,10 +335,26 @@ class ProductionController extends Controller
             );
 
             if ($isSending && $data['status'] === 'selesai') {
+                $ekspedisiName = null;
+                if (!empty($data['ekspedisi_id'])) {
+                    $ekspedisiName = \App\Models\Master\Ekspedisi::find($data['ekspedisi_id'])?->nama;
+                } elseif (!empty($data['nama_ekspedisi'])) {
+                    $ekspedisiName = $data['nama_ekspedisi'];
+                }
+
                 $order->update([
-                    'nama_ekspedisi' => $data['nama_ekspedisi'] ?? null,
+                    'ekspedisi_id'   => $data['ekspedisi_id'] ?? null,
+                    'nama_ekspedisi' => $ekspedisiName ?? null,
                     'no_resi'        => $data['no_resi'] ?? null,
                 ]);
+
+                // Sync with Invoice
+                $invoice = $order->invoices()->first();
+                if ($invoice) {
+                    $invoice->update([
+                        'jasa_pengiriman' => $order->nama_ekspedisi,
+                    ]);
+                }
             }
 
             \App\Services\Notifications\IdealNotificationService::dispatch('progress_updated', [

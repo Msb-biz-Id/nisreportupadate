@@ -321,6 +321,12 @@ $primaryColor = $invoice->brand?->warna_primary
                     @if($invoice->order?->is_free_ongkir)
                     <br><span style="font-size: 8pt; color: #059669; font-weight: bold;">Status: Free Ongkir</span>
                     @endif
+                    @if($invoice->jasa_pengiriman)
+                    <br><span style="font-size: 8pt; color: #1e40af; font-weight: bold;">Ekspedisi: {{ $invoice->jasa_pengiriman }}</span>
+                    @endif
+                    @if($invoice->order?->no_resi)
+                    <br><span style="font-size: 8pt; color: #1e40af; font-weight: bold;">No. Resi: {{ $invoice->order->no_resi }}</span>
+                    @endif
                 </div>
             </div>
         </div>

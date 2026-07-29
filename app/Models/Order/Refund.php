@@ -9,6 +9,17 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string $id
+ * @property string $brand_id
+ * @property string $order_id
+ * @property string $refund_number
+ * @property string $alasan
+ * @property string $status
+ * @property int $created_by
+ *
+ * @mixin Model
+ */
 class Refund extends Model
 {
     use HasFactory, HasUuidAndSoftDeletes;

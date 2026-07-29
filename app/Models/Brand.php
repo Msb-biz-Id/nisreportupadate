@@ -10,6 +10,33 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property string $id
+ * @property string $nama_brand
+ * @property string $kode
+ * @property string|null $tagline
+ * @property string|null $deskripsi
+ * @property string|null $logo
+ * @property string|null $favicon
+ * @property string|null $email
+ * @property string|null $no_hp
+ * @property string|null $alamat
+ * @property string|null $instagram
+ * @property string|null $facebook
+ * @property string|null $tiktok
+ * @property string|null $whatsapp
+ * @property string|null $website
+ * @property string $timezone
+ * @property string $currency
+ * @property string|null $warna_primary
+ * @property bool $is_active
+ * @property string $brand_type
+ * @property string|null $parent_brand_id
+ * @property float $min_dp_percentage
+ * @property int|null $created_by
+ *
+ * @mixin Model
+ */
 class Brand extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;

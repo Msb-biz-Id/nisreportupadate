@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             MasterDataSeeder::class,
             FinanceSeeder::class,
             CustomerSeeder::class,
+            EkspedisiSeeder::class,
             OrderSeeder::class,
             // MultiFontTestSeeder::class,
         ]);

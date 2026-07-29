@@ -20,6 +20,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * @property string $id
+ * @property string $no_po
+ * @property string $status_po
+ * @property string $nama_po
+ * @property string $brand_id
+ * @property int $created_by
+ * @property string|null $ekspedisi_id
+ *
+ * @mixin Model
+ */
 class Order extends Model
 {
     use HasFactory, HasUuidAndSoftDeletes;
@@ -38,7 +49,7 @@ class Order extends Model
         'kategori_order_id', 'jenis_order_id', 'sumber_order_id', 'paket_order_id',
         'jenis_setelan_id', 'pola_produksi_id',
         'pelanggan_id', 'printing_ids', 'iklan_id',
-        'nama_ekspedisi', 'no_resi',
+        'ekspedisi_id', 'nama_ekspedisi', 'no_resi',
         'repeat_from_po_id', 'is_repeat_order',
         'published_at', 'published_by',
         'total_tagihan', 'catatan',
@@ -91,6 +102,7 @@ class Order extends Model
     public function brand(): BelongsTo { return $this->belongsTo(Brand::class); }
     public function resellerDisplayBrand(): BelongsTo { return $this->belongsTo(Brand::class, 'reseller_display_brand_id'); }
     public function pelanggan(): BelongsTo { return $this->belongsTo(Customer::class, 'pelanggan_id'); }
+    public function ekspedisi(): BelongsTo { return $this->belongsTo(\App\Models\Master\Ekspedisi::class, 'ekspedisi_id'); }
     public function kategoriOrder(): BelongsTo { return $this->belongsTo(KategoriOrder::class, 'kategori_order_id'); }
     public function jenisOrder(): BelongsTo { return $this->belongsTo(JenisOrder::class, 'jenis_order_id'); }
     public function sumberOrder(): BelongsTo { return $this->belongsTo(SumberOrder::class, 'sumber_order_id'); }

@@ -252,6 +252,23 @@ class MasterRegistry
                 'order_by' => 'nama',
             ],
 
+            'ekspedisi' => [
+                'slug' => 'ekspedisi',
+                'label' => 'Ekspedisi',
+                'group' => 'production',
+                'icon' => 'Truck',
+                'model' => \App\Models\Master\Ekspedisi::class,
+                'scope' => 'global',
+                'fields' => self::simpleNamaFields(),
+                'list_columns' => [
+                    ['key' => 'nama', 'label' => 'Nama Ekspedisi'],
+                    ['key' => 'deskripsi', 'label' => 'Deskripsi', 'class' => 'text-muted-foreground text-xs'],
+                    ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
+                ],
+                'search_fields' => ['nama', 'deskripsi'],
+                'order_by' => 'nama',
+            ],
+
             'jenis-setelan' => [
                 'slug'  => 'jenis-setelan',
                 'label' => 'Jenis Setelan',

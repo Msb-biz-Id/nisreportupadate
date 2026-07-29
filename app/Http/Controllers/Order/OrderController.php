@@ -430,6 +430,8 @@ class OrderController extends Controller
                 'pelanggan_id' => $data['pelanggan_id'],
                 'printing_ids' => $data['printing_ids'] ?? null,
                 'iklan_id' => $data['iklan_id'] ?? null,
+                'ekspedisi_id' => $data['ekspedisi_id'] ?? null,
+                'nama_ekspedisi' => !empty($data['ekspedisi_id']) ? \App\Models\Master\Ekspedisi::find($data['ekspedisi_id'])?->nama : null,
                 'catatan' => $data['catatan'] ?? null,
                 'created_by' => $user->id,
             ]);
@@ -463,6 +465,7 @@ class OrderController extends Controller
                 'jatuh_tempo'     => $order->deadline_customer,
                 'status'          => 'draft',
                 'biaya_pengiriman' => $biayaPengiriman,
+                'jasa_pengiriman'  => $order->nama_ekspedisi,
                 'total_tagihan'   => $invoiceTotalTagihan,
                 'bank_id'         => $data['bank_id'],
                 'dp_amount'       => $dp,
@@ -550,6 +553,8 @@ class OrderController extends Controller
                 'pelanggan_id' => $data['pelanggan_id'],
                 'printing_ids' => $data['printing_ids'] ?? null,
                 'iklan_id' => $data['iklan_id'] ?? null,
+                'ekspedisi_id' => $data['ekspedisi_id'] ?? null,
+                'nama_ekspedisi' => !empty($data['ekspedisi_id']) ? \App\Models\Master\Ekspedisi::find($data['ekspedisi_id'])?->nama : null,
                 'catatan' => $data['catatan'] ?? null,
                 'updated_by' => $user->id,
             ];
@@ -596,6 +601,7 @@ class OrderController extends Controller
 
                 $invoice->update([
                     'biaya_pengiriman' => $order->is_free_ongkir ? 0.0 : (float) $order->ongkir,
+                    'jasa_pengiriman' => $order->nama_ekspedisi,
                     'total_tagihan' => $totalTagihan,
                     'total_bayar' => $totalPaid,
                     'sisa_pembayaran' => $newSisa,
@@ -780,6 +786,7 @@ class OrderController extends Controller
             'banks' => $banks,
             'jenis_pembayarans' => $jenis_pembayarans,
             'versions' => $versions,
+            'ekspedisis' => \App\Models\Master\Ekspedisi::active()->orderBy('nama')->get(['id', 'nama']),
             'dp_info' => [
                 'total_tagihan'    => $computedTotal,
                 'total_paid'       => $computedPaid,
@@ -1884,6 +1891,7 @@ class OrderController extends Controller
             'pola_jahitans' => PolaJahitan::active()->orderBy($jenisPolaCol)->orderBy($namaCol)->get(['id', 'jenis_pola', 'nama']),
             'pola_jahitans_lengan' => PolaJahitan::active()->where($jenisPolaCol, 'like', '%Lengan%')->orderBy($namaCol)->get(['id', 'jenis_pola', 'nama']),
             'sizes' => Size::active()->orderBy($urutanCol)->get(['id', 'ukuran']),
+            'ekspedisis' => \App\Models\Master\Ekspedisi::active()->orderBy($namaCol)->get(['id', 'nama', 'deskripsi']),
         ];
     }
 
@@ -1981,6 +1989,7 @@ class OrderController extends Controller
             'printing_ids' => ['nullable', 'array'],
             'printing_ids.*' => ['uuid', 'exists:printings,id'],
             'iklan_id' => ['nullable', 'uuid', 'exists:iklans,id'],
+            'ekspedisi_id' => ['nullable', 'uuid', 'exists:ekspedisi,id'],
             'catatan' => ['nullable', 'string'],
             'items' => ['array'],
             'items.*.is_addon' => ['nullable', 'boolean'],
@@ -2261,5 +2270,63 @@ class OrderController extends Controller
             }
             $item->bahan_kain_bawahan_names = !empty($itemBahanKainBawahans) ? implode(', ', $itemBahanKainBawahans) : null;
         }
+    }
+
+    public function updateShipping(Request $request, Order $order)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        abort_unless($user && ($user->can('order.update') || $user->can('production.update-progress')), 403, 'Unauthorized');
+
+        $data = $request->validate([
+            'ekspedisi_id' => ['nullable', 'uuid', 'exists:ekspedisi,id'],
+            'no_resi' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $ekspedisiName = $data['ekspedisi_id'] ? \App\Models\Master\Ekspedisi::find($data['ekspedisi_id'])?->nama : null;
+
+        $oldEkspedisi = $order->nama_ekspedisi;
+        $oldResi = $order->no_resi;
+
+        DB::transaction(function () use ($order, $data, $ekspedisiName, $user, $oldEkspedisi, $oldResi) {
+            $order->update([
+                'ekspedisi_id' => $data['ekspedisi_id'],
+                'nama_ekspedisi' => $ekspedisiName,
+                'no_resi' => $data['no_resi'],
+            ]);
+
+            // Sync with Invoice
+            $invoice = $order->invoices()->first();
+            if ($invoice) {
+                $invoice->update([
+                    'jasa_pengiriman' => $ekspedisiName,
+                ]);
+            }
+
+            // Log changes to POChangeLog for audit
+            if ($oldEkspedisi !== $ekspedisiName) {
+                \App\Models\Order\POChangeLog::create([
+                    'order_id' => $order->id,
+                    'field_changed' => 'nama_ekspedisi',
+                    'old_value' => $oldEkspedisi,
+                    'new_value' => $ekspedisiName,
+                    'change_reason' => 'Perubahan Ekspedisi via Pengiriman',
+                    'changed_by' => $user->id,
+                ]);
+            }
+
+            if ($oldResi !== $data['no_resi']) {
+                \App\Models\Order\POChangeLog::create([
+                    'order_id' => $order->id,
+                    'field_changed' => 'no_resi',
+                    'old_value' => $oldResi,
+                    'new_value' => $data['no_resi'],
+                    'change_reason' => 'Perubahan No Resi via Pengiriman',
+                    'changed_by' => $user->id,
+                ]);
+            }
+        });
+
+        return back()->with('success', 'Data pengiriman berhasil diperbarui.');
     }
 }

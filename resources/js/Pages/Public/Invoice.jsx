@@ -599,6 +599,16 @@ export default function PublicInvoice({ invoice, qr_code, tracking_url }) {
                                         Status: <strong className="text-emerald-700">Bebas Ongkir (Free Ongkir)</strong>
                                     </div>
                                 ) : null}
+                                {invoice.jasa_pengiriman && (
+                                    <div className="text-xs text-slate-600 mt-1 font-medium">
+                                        Ekspedisi: <strong className="text-slate-850">{invoice.jasa_pengiriman}</strong>
+                                    </div>
+                                )}
+                                {invoice.order?.no_resi && (
+                                    <div className="text-xs text-slate-600 mt-1 font-medium">
+                                        No. Resi: <strong className="font-mono text-indigo-800">{invoice.order.no_resi}</strong>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

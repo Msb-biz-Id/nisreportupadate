@@ -19,7 +19,7 @@ const STATUS_VARIANT = {
     skipped: 'secondary',
 };
 
-function UpdateModal({ order, detail, open, onOpenChange }) {
+function UpdateModal({ order, detail, open, onOpenChange, ekspedisis = [] }) {
     const isSending = detail?.progress?.nama_progress?.toUpperCase() === 'SENDING';
 
     const { data, setData, put, processing, errors, reset } = useForm({
@@ -27,6 +27,7 @@ function UpdateModal({ order, detail, open, onOpenChange }) {
         catatan: detail?.catatan ?? '',
         kendala: detail?.kendala ?? '',
         skipped_reason: detail?.skipped_reason ?? '',
+        ekspedisi_id: order?.ekspedisi_id ?? '',
         nama_ekspedisi: order?.nama_ekspedisi ?? '',
         no_resi: order?.no_resi ?? '',
     });
@@ -89,8 +90,15 @@ function UpdateModal({ order, detail, open, onOpenChange }) {
                                     <>
                                         <div>
                                             <Label>Nama Ekspedisi <span className="text-destructive">*</span></Label>
-                                            <Input value={data.nama_ekspedisi} onChange={(e) => setData('nama_ekspedisi', e.target.value)} placeholder="JNE / J&T / SiCepat / dll" className="mt-1.5" required />
-                                            {errors.nama_ekspedisi && <p className="mt-1 text-xs text-destructive">{errors.nama_ekspedisi}</p>}
+                                            <Select value={data.ekspedisi_id || ''} onValueChange={(v) => setData('ekspedisi_id', v)}>
+                                                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pilih Ekspedisi..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {ekspedisis.map((eks) => (
+                                                        <SelectItem key={eks.id} value={eks.id}>{eks.nama}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            {errors.ekspedisi_id && <p className="mt-1 text-xs text-destructive">{errors.ekspedisi_id}</p>}
                                         </div>
                                         <div>
                                             <Label>Nomor Resi / Keterangan</Label>
@@ -111,7 +119,7 @@ function UpdateModal({ order, detail, open, onOpenChange }) {
     );
 }
 
-function BulkUpdateModal({ order, ids, open, onOpenChange, sortedDetails, onSuccess }) {
+function BulkUpdateModal({ order, ids, open, onOpenChange, sortedDetails, onSuccess, ekspedisis = [] }) {
     const selectedNames = sortedDetails
         .filter(d => ids.includes(d.id))
         .map(d => d.progress?.nama_progress)
@@ -127,6 +135,7 @@ function BulkUpdateModal({ order, ids, open, onOpenChange, sortedDetails, onSucc
         catatan: '',
         kendala: '',
         skipped_reason: '',
+        ekspedisi_id: order?.ekspedisi_id ?? '',
         nama_ekspedisi: order?.nama_ekspedisi ?? '',
         no_resi: order?.no_resi ?? '',
     });
@@ -193,8 +202,15 @@ function BulkUpdateModal({ order, ids, open, onOpenChange, sortedDetails, onSucc
                                     <>
                                         <div>
                                             <Label>Nama Ekspedisi <span className="text-destructive">*</span></Label>
-                                            <Input value={data.nama_ekspedisi} onChange={(e) => setData('nama_ekspedisi', e.target.value)} placeholder="JNE / J&T / SiCepat / dll" className="mt-1.5" required />
-                                            {errors.nama_ekspedisi && <p className="mt-1 text-xs text-destructive">{errors.nama_ekspedisi}</p>}
+                                            <Select value={data.ekspedisi_id || ''} onValueChange={(v) => setData('ekspedisi_id', v)}>
+                                                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pilih Ekspedisi..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {ekspedisis.map((eks) => (
+                                                        <SelectItem key={eks.id} value={eks.id}>{eks.nama}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            {errors.ekspedisi_id && <p className="mt-1 text-xs text-destructive">{errors.ekspedisi_id}</p>}
                                         </div>
                                         <div>
                                             <Label>Nomor Resi</Label>
@@ -329,7 +345,7 @@ function RijekModal({ order, open, onOpenChange, progressOptions, rijek = null }
     );
 }
 
-export default function ProgressPage({ order, can }) {
+export default function ProgressPage({ order, can, ekspedisis = [] }) {
     const [updating, setUpdating] = useState(null);
     const [openRijek, setOpenRijek] = useState(false);
     const [editingRijek, setEditingRijek] = useState(null);
@@ -572,6 +588,7 @@ export default function ProgressPage({ order, can }) {
                     detail={updating}
                     open={!!updating}
                     onOpenChange={(v) => !v && setUpdating(null)}
+                    ekspedisis={ekspedisis}
                 />
             )}
             {openBulkUpdate && (
@@ -582,6 +599,7 @@ export default function ProgressPage({ order, can }) {
                     onOpenChange={setOpenBulkUpdate}
                     sortedDetails={sortedDetails}
                     onSuccess={() => setSelectedIds([])}
+                    ekspedisis={ekspedisis}
                 />
             )}
             <RijekModal

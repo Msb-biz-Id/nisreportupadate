@@ -9,6 +9,17 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string $id
+ * @property string $order_id
+ * @property string $status
+ * @property string|null $catatan
+ * @property string|null $kendala
+ * @property string|null $skipped_reason
+ * @property int|null $updated_by
+ *
+ * @mixin Model
+ */
 class OrderProgressDetail extends Model
 {
     use HasFactory, HasUuids;
