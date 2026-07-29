@@ -373,23 +373,5 @@ class Order extends Model
 
         return false;
     }
-
-    public function calculateTotalAtasan(): int
-    {
-        if (!$this->relationLoaded('items')) {
-            $this->load('items');
-        }
-
-        $coreItems = $this->items->filter(fn($i) => empty($i->is_addon));
-
-        $hasAnyJmlAtasan = $coreItems->contains(fn($i) => $i->jml_atasan !== null && $i->jml_atasan !== '');
-
-        return (int) $coreItems->sum(function ($i) use ($hasAnyJmlAtasan) {
-            if ($i->jml_atasan !== null && $i->jml_atasan !== '') {
-                return (int)$i->jml_atasan;
-            }
-            return $hasAnyJmlAtasan ? 0 : (int)$i->quantity;
-        });
-    }
 }
 

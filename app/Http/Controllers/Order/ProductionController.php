@@ -179,7 +179,16 @@ class ProductionController extends Controller
                 'is_locked'           => $order->isLocked(),
                 'is_special_order'    => (bool) $order->is_special_order,
                 'has_rijek'           => $order->has_rijek > 0,
-                'total_items'         => $order->calculateTotalAtasan(),
+                'total_items'         => (int) (function() use ($order) {
+                    $coreItems = $order->items->filter(fn($i) => empty($i->is_addon));
+                    $hasAnyJmlAtasan = $coreItems->contains(fn($i) => $i->jml_atasan !== null && $i->jml_atasan !== '');
+                    return $coreItems->sum(function ($i) use ($hasAnyJmlAtasan) {
+                        if ($i->jml_atasan !== null && $i->jml_atasan !== '') {
+                            return (int)$i->jml_atasan;
+                        }
+                        return $hasAnyJmlAtasan ? 0 : (int)$i->quantity;
+                    });
+                })(),
                 'days_remaining'      => $daysRemaining,
                 'paket_order'       => $order->paketOrder ? [
                     'nama'      => $order->paketOrder->nama,

@@ -234,7 +234,7 @@ class ReportRunner
             'pelanggan' => $o->pelanggan?->nama,
             'tanggal_masuk' => $o->tanggal_masuk?->toDateString(),
             'deadline' => $o->deadline_customer?->toDateString(),
-            'pcs' => $o->calculateTotalAtasan(),
+            'pcs' => $this->getOrderPcs($o),
             'status' => $o->status_po,
             'total' => (float) $o->total_tagihan,
         ])->all();
@@ -287,7 +287,7 @@ class ReportRunner
                 'nama_po' => $o->nama_po,
                 'brand_nama' => $o->brand?->nama_brand ?? '-',
                 'pelanggan' => $o->pelanggan?->nama ?? '-',
-                'pcs' => $o->calculateTotalAtasan(),
+                'pcs' => $this->getOrderPcs($o),
                 'jenis_printing' => implode(', ', $orderPrintings) ?: '-',
                 'status' => $o->status_po,
             ];
@@ -1118,7 +1118,7 @@ class ReportRunner
                 'pelanggan' => $o->pelanggan?->nama ?? '-',
                 'tanggal_masuk' => $o->tanggal_masuk?->toDateString(),
                 'deadline' => $o->deadline_customer?->toDateString(),
-                'pcs' => $o->calculateTotalAtasan(),
+                'pcs' => $this->getOrderPcs($o),
                 'status' => $o->status_po,
                 'keterlambatan' => $lateness,
                 'durasi_total' => $durasiTotal,
@@ -1266,7 +1266,7 @@ class ReportRunner
                 'pelanggan' => $o->pelanggan?->nama ?? '-',
                 'tanggal_masuk' => $o->tanggal_masuk?->toDateString(),
                 'jenis_po' => $jenisPo,
-                'pcs' => $o->calculateTotalAtasan(),
+                'pcs' => $this->getOrderPcs($o),
                 'total_tagihan' => (float) $o->total_tagihan,
                 'status' => $o->status_po,
             ];
@@ -1301,5 +1301,17 @@ class ReportRunner
                 ['label' => 'Total Nilai PO', 'value' => $totalVal, 'format' => 'currency'],
             ],
         ];
+    }
+
+    private function getOrderPcs(Order $o): int
+    {
+        $coreItems = $o->items->filter(fn($i) => empty($i->is_addon));
+        $hasAnyJmlAtasan = $coreItems->contains(fn($i) => $i->jml_atasan !== null && $i->jml_atasan !== '');
+        return (int) $coreItems->sum(function ($i) use ($hasAnyJmlAtasan) {
+            if ($i->jml_atasan !== null && $i->jml_atasan !== '') {
+                return (int)$i->jml_atasan;
+            }
+            return $hasAnyJmlAtasan ? 0 : (int)$i->quantity;
+        });
     }
 }

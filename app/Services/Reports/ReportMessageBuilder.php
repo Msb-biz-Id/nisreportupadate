@@ -215,7 +215,7 @@ PROMPT;
             foreach ($poMasuk as $i => $po) {
                 /** @var Order $po */
                 $produk = $po->items->first()?->nama_produk ?? '-';
-                $qty    = $po->calculateTotalAtasan();
+                $qty    = $this->getOrderPcs($po);
                 $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} - {$produk} x{$qty}";
             }
         }
@@ -310,7 +310,7 @@ PROMPT;
             foreach ($poTerbaru as $i => $po) {
                 /** @var Order $po */
                 $produk = $po->items->first()?->nama_produk ?? '-';
-                $qty    = $po->calculateTotalAtasan();
+                $qty    = $this->getOrderPcs($po);
                 $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} - {$produk} x{$qty}";
             }
         }
@@ -424,7 +424,7 @@ PROMPT;
             $lines[] = "📋 *PO BARU HARI INI:*";
             foreach ($poHariIni as $i => $po) {
                 /** @var Order $po */
-                $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} - " . $po->calculateTotalAtasan() . " pcs";
+                $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} - " . $this->getOrderPcs($po) . " pcs";
             }
         }
 
@@ -441,7 +441,7 @@ PROMPT;
             $lines[] = "✅ *SELESAI HARI INI:*";
             foreach ($poSelesai as $i => $po) {
                 /** @var Order $po */
-                $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} - " . $po->calculateTotalAtasan() . " pcs";
+                $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} - " . $this->getOrderPcs($po) . " pcs";
             }
         }
 
@@ -560,5 +560,17 @@ PROMPT;
         $lines[] = "";
         $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
         return implode("\n", $lines);
+    }
+
+    private function getOrderPcs(Order $po): int
+    {
+        $coreItems = $po->items->filter(fn($i) => empty($i->is_addon));
+        $hasAnyJmlAtasan = $coreItems->contains(fn($i) => $i->jml_atasan !== null && $i->jml_atasan !== '');
+        return (int) $coreItems->sum(function ($i) use ($hasAnyJmlAtasan) {
+            if ($i->jml_atasan !== null && $i->jml_atasan !== '') {
+                return (int)$i->jml_atasan;
+            }
+            return $hasAnyJmlAtasan ? 0 : (int)$i->quantity;
+        });
     }
 }
