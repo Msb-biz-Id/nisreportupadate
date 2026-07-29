@@ -193,6 +193,41 @@ class WebhookController extends Controller
                 ])->toArray();
         }
 
+        // --- CONTEXT 2.5: PO YANG TERLAMBAT (OVERDUE PO) ---
+        $overdueSummary = [];
+        if (preg_match('/(lambat|telat|terlambat|delay|overdue|lewat|deadline)/i', $textLower)) {
+            $overdueOrders = \App\Models\Order\Order::whereIn('brand_id', $brandIds)
+                ->where(function ($q) {
+                    $q->where(function ($sub) {
+                        $sub->whereNotNull('deadline_customer')
+                            ->where('deadline_customer', '<', today()->format('Y-m-d'))
+                            ->whereNotIn('status_po', ['sudah_dikirim', 'selesai', 'draft']);
+                    })
+                    ->orWhere('status_po', 'delay');
+                })
+                ->with(['brand', 'customer'])
+                ->orderBy('deadline_customer')
+                ->get();
+
+            $overdueSummary['total_terlambat'] = $overdueOrders->count();
+            $overdueSummary['detail_po_terlambat'] = $overdueOrders->map(function ($o) {
+                $daysLate = $o->deadline_customer ? today()->diffInDays(\Carbon\Carbon::parse($o->deadline_customer), false) : null;
+                // Selisih negatif berarti terlambat
+                $lateText = $daysLate !== null && $daysLate < 0 ? abs($daysLate) . ' hari terlambat' : 'Terlambat';
+
+                return [
+                    'no_po' => $o->no_po,
+                    'kode_order' => $o->kode_order,
+                    'nama_po' => $o->nama_po,
+                    'brand' => $o->brand->nama_brand ?? '',
+                    'customer' => $o->customer->nama ?? '',
+                    'status_po' => $o->status_po,
+                    'deadline' => $o->deadline_customer,
+                    'keterangan_telat' => $lateText,
+                ];
+            })->toArray();
+        }
+
         // --- CONTEXT 3: PENCARIAN PO SPESIFIK & CUSTOMER ---
         $matchedOrders = [];
         $words = array_filter(array_map('trim', explode(' ', preg_replace('/[^A-Za-z0-9-]/', ' ', $text))));
@@ -254,6 +289,7 @@ class WebhookController extends Controller
             'brand_statistics' => $brandStats,
             'realtime_financials' => $financialSummary,
             'realtime_production' => $productionSummary,
+            'overdue_summary' => $overdueSummary,
             'matched_specific_orders' => array_values($matchedOrders),
         ];
 
@@ -275,6 +311,9 @@ Informasi Keuangan Realtime:
 
 Informasi Status Produksi & Antrean PO:
 {json_encode($context['realtime_production'])}
+
+Informasi PO Terlambat (Overdue):
+{json_encode($context['overdue_summary'])}
 
 Detail Order Terkait Pencarian Kata Kunci/Kode:
 {json_encode($context['matched_specific_orders'])}
