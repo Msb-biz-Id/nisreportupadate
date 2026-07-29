@@ -51,7 +51,7 @@ class SendScheduledReport extends Command
 
         // ── Superadmin report (satu pesan global, bukan per-brand)
         if (in_array('superadmin', $types)) {
-            $recipients = $this->parseRecipients('superadmin_recipients');
+            $recipients = $this->parseRecipients('superadmin_recipients', 'superadmin');
             if (! empty($recipients['whatsapp']) || ! empty($recipients['telegram'])) {
                 $message = $builder->superadmin($periode);
                 $results = $dispatcher->send($message, $recipients);
@@ -68,7 +68,7 @@ class SendScheduledReport extends Command
             $this->info("── Brand: {$brand->kode} ──");
 
             if (in_array('produksi', $types)) {
-                $r = $this->parseRecipients('produksi_recipients');
+                $r = $this->parseRecipients('produksi_recipients', 'admin_produksi', $brand->id);
                 if (! empty($r['whatsapp']) || ! empty($r['telegram'])) {
                     $msg     = $builder->adminProduksi($brand, $periode);
                     $results = $dispatcher->send($msg, $r);
@@ -79,7 +79,7 @@ class SendScheduledReport extends Command
             }
 
             if (in_array('brand', $types)) {
-                $r = $this->parseRecipients('brand_recipients');
+                $r = $this->parseRecipients('brand_recipients', 'admin_brand', $brand->id);
                 if (! empty($r['whatsapp']) || ! empty($r['telegram'])) {
                     $msg     = $builder->adminBrand($brand, $periode);
                     $results = $dispatcher->send($msg, $r);
@@ -90,7 +90,7 @@ class SendScheduledReport extends Command
             }
 
             if (in_array('owner', $types)) {
-                $r = $this->parseRecipients('owner_recipients');
+                $r = $this->parseRecipients('owner_recipients', 'owner', $brand->id);
                 if (! empty($r['whatsapp']) || ! empty($r['telegram'])) {
                     $msg     = $builder->owner($brand, $periode);
                     $results = $dispatcher->send($msg, $r);
@@ -101,7 +101,7 @@ class SendScheduledReport extends Command
             }
 
             if (in_array('keuangan', $types)) {
-                $r = $this->parseRecipients('keuangan_recipients');
+                $r = $this->parseRecipients('keuangan_recipients', 'admin_keuangan', $brand->id);
                 if (! empty($r['whatsapp']) || ! empty($r['telegram'])) {
                     $msg     = $builder->keuangan($brand, $periode);
                     $results = $dispatcher->send($msg, $r);
@@ -118,9 +118,9 @@ class SendScheduledReport extends Command
 
     /**
      * Parse recipients dari settings ke format dispatcher.
-     * Fallback ke default_recipient / default_chat_id jika belum dikonfigurasi per-role.
+     * Fallback ke database User dengan matching Role & Brand, lalu ke default global.
      */
-    private function parseRecipients(string $settingKey): array
+    private function parseRecipients(string $settingKey, ?string $roleName = null, ?string $brandId = null): array
     {
         $raw = SystemSetting::get('reports', $settingKey, '');
         $items = array_filter(array_map('trim', explode(',', $raw ?? '')));
@@ -134,6 +134,30 @@ class SendScheduledReport extends Command
                 $tg[] = $item;
             } else {
                 $wa[] = $item;
+            }
+        }
+
+        // Jika kolom pengaturan kosong/tidak diisi manual, cari dinamis berdasarkan User & Role & Brand Access
+        if (empty($wa) && empty($tg) && $roleName) {
+            $usersQuery = \App\Models\User::role($roleName)->where('is_active', true);
+            $users = $usersQuery->get();
+
+            // Filter brand access jika laporan ini bersifat per-brand
+            if ($brandId) {
+                $users = $users->filter(function ($u) use ($brandId) {
+                    return $u->isSuperadmin() || 
+                           $u->hasRole(['owner', 'admin_keuangan', 'admin_produksi']) || 
+                           $u->hasAccessToBrand($brandId);
+                });
+            }
+
+            foreach ($users as $u) {
+                if ($u->phone) {
+                    $wa[] = $u->phone;
+                }
+                if ($u->telegram_chat_id) {
+                    $tg[] = $u->telegram_chat_id;
+                }
             }
         }
 
