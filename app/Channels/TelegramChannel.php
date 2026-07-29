@@ -25,6 +25,11 @@ class TelegramChannel
 
         $chatId = $notifiable->telegram_chat_id ?? null;
         if (empty($chatId)) {
+            // Fallback ke default global chat ID dari SystemSetting (Grup Telegram)
+            $chatId = \App\Models\Settings\SystemSetting::get('telegram', 'default_chat_id');
+        }
+
+        if (empty($chatId)) {
             return;
         }
 

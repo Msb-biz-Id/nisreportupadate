@@ -48,9 +48,27 @@ class SidobeClient
         ];
     }
 
+    public static function normalizePhone(string $phone): string
+    {
+        $phone = trim(preg_replace('/[^0-9+]/', '', $phone));
+        if ($phone === '' || $phone === '+') {
+            return '';
+        }
+        if (str_starts_with($phone, '0')) {
+            return '62' . substr($phone, 1);
+        }
+        if (str_starts_with($phone, '+62')) {
+            return substr($phone, 1); // hapus tanda +
+        }
+        if (! str_starts_with($phone, '62')) {
+            return '62' . $phone;
+        }
+        return $phone;
+    }
+
     private function baseBody(string $phone): array
     {
-        $body = ['phone' => $phone];
+        $body = ['phone' => self::normalizePhone($phone)];
         if ($this->senderPhone) {
             $body['sender_phone'] = $this->senderPhone;
         }
@@ -156,7 +174,7 @@ class SidobeClient
     {
         if (! $this->isConfigured()) return null;
 
-        $result = $this->post('utilities/check-number', ['phone' => $phone]);
+        $result = $this->post('utilities/check-number', ['phone' => self::normalizePhone($phone)]);
         if (! $result['success']) return null;
 
         return (bool) ($result['data']['is_registered'] ?? false);
