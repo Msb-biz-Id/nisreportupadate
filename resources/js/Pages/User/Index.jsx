@@ -53,6 +53,7 @@ function UserForm({ open, onOpenChange, user, roles, brands, onSuccess }) {
         name: user?.name ?? '',
         email: user?.email ?? '',
         phone: user?.phone ?? '',
+        telegram_chat_id: user?.telegram_chat_id ?? '',
         password: '',
         password_confirmation: '',
         is_active: user?.is_active ?? true,
@@ -119,8 +120,13 @@ function UserForm({ open, onOpenChange, user, roles, brands, onSuccess }) {
                             {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email}</p>}
                         </div>
                         <div>
-                            <Label htmlFor="phone">No. HP</Label>
-                            <Input id="phone" value={data.phone ?? ''} onChange={(e) => setData('phone', e.target.value)} className="mt-1.5" />
+                            <Label htmlFor="phone">No. HP (WhatsApp)</Label>
+                            <Input id="phone" value={data.phone ?? ''} onChange={(e) => setData('phone', e.target.value)} className="mt-1.5" placeholder="628xxxxxxxx" />
+                        </div>
+                        <div>
+                            <Label htmlFor="telegram_chat_id">Telegram Chat ID</Label>
+                            <Input id="telegram_chat_id" value={data.telegram_chat_id ?? ''} onChange={(e) => setData('telegram_chat_id', e.target.value)} className="mt-1.5" placeholder="Misal: 895581542" />
+                            {errors.telegram_chat_id && <p className="mt-1 text-xs text-destructive">{errors.telegram_chat_id}</p>}
                         </div>
                         <div>
                             <Label htmlFor="role">Role <span className="text-destructive">*</span></Label>

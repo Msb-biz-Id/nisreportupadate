@@ -83,6 +83,7 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
             'phone' => ['nullable', 'string', 'max:20'],
+            'telegram_chat_id' => ['nullable', 'string', 'max:50'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'is_active' => ['boolean'],
             'role' => ['required', 'string', Rule::in($allowedRoles)],
@@ -99,6 +100,7 @@ class UserController extends Controller
             'name' => $data['name'],
             'email' => $data['email'],
             'phone' => $data['phone'] ?? null,
+            'telegram_chat_id' => $data['telegram_chat_id'] ?? null,
             'password' => Hash::make($data['password']),
             'is_active' => $data['is_active'] ?? true,
             'email_verified_at' => now(),
@@ -150,6 +152,7 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'phone' => ['nullable', 'string', 'max:20'],
+            'telegram_chat_id' => ['nullable', 'string', 'max:50'],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'is_active' => ['boolean'],
             'role' => ['required', 'string', Rule::in($allowedRoles)],
@@ -166,6 +169,7 @@ class UserController extends Controller
             'name' => $data['name'],
             'email' => $data['email'],
             'phone' => $data['phone'] ?? null,
+            'telegram_chat_id' => $data['telegram_chat_id'] ?? null,
             'is_active' => $data['is_active'] ?? true,
         ]);
 
