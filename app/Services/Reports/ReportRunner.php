@@ -1226,14 +1226,12 @@ class ReportRunner
     {
         [$from, $to] = $this->dateRange($filters);
 
-        $statusFilter = $filters['status'] ?? null;
         $jenisPoFilter = $filters['jenis_po'] ?? null;
 
         $q = Order::query()
             ->when($brandId, $this->bf($brandId))
             ->whereBetween('tanggal_masuk', [$from, $to])
-            ->where('status_po', '!=', 'draft')
-            ->when($statusFilter, fn($query) => $query->where('status_po', $statusFilter))
+            ->whereNotIn('status_po', ['draft', 'published'])
             ->when($jenisPoFilter, function($query) use ($jenisPoFilter) {
                 if ($jenisPoFilter === 'normal') {
                     $query->where('is_special_order', false)->where('is_reseller_price', false);
