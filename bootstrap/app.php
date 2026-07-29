@@ -27,9 +27,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'turnstile' => \App\Http\Middleware\VerifyTurnstile::class,
         ]);
 
-        // Exclude Sidobe webhook dari CSRF — endpoint public yang diakses server Sidobe
+        // Exclude Sidobe & Telegram webhook dari CSRF — endpoint public yang diakses server luar
         $middleware->validateCsrfTokens(except: [
             'webhooks/sidobe',
+            'webhooks/telegram',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

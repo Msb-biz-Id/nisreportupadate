@@ -69,4 +69,92 @@ class WebhookController extends Controller
         // Tidak ada aksi tambahan untuk saat ini — status pengiriman dicatat di log.
         // Jika perlu, bisa update invoice.status berdasar message_id di sini.
     }
+
+    /**
+     * POST /webhooks/telegram
+     * Menerima updates dari Telegram Bot API.
+     */
+    public function telegram(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $payload = $request->all();
+        Log::info('Telegram webhook received', ['payload' => $payload]);
+
+        $botToken = \App\Models\Settings\SystemSetting::get('telegram', 'bot_token');
+        if (empty($botToken)) {
+            return response()->json(['ok' => false, 'reason' => 'bot_token_not_configured']);
+        }
+
+        $message = $payload['message'] ?? null;
+        if (! $message) {
+            return response()->json(['ok' => true]);
+        }
+
+        $chatId = $message['chat']['id'] ?? null;
+        if (! $chatId) {
+            return response()->json(['ok' => true]);
+        }
+
+        // 1. Jika ada data Contact (User menekan tombol "Hubungkan Kontak")
+        if (isset($message['contact'])) {
+            $phone = $message['contact']['phone_number'] ?? '';
+            if ($phone) {
+                // Normalisasi nomor telepon dari Telegram (bisa berawalan '+' atau '0')
+                $normalizedPhone = \App\Services\Notifications\SidobeClient::normalizePhone($phone);
+
+                // Cari user berdasarkan nomor HP yang terdaftar
+                $user = \App\Models\User::all()->first(function ($u) use ($normalizedPhone) {
+                    if (empty($u->phone)) return false;
+                    return \App\Services\Notifications\SidobeClient::normalizePhone($u->phone) === $normalizedPhone;
+                });
+
+                if ($user) {
+                    $user->telegram_chat_id = (string) $chatId;
+                    $user->save();
+
+                    // Kirim konfirmasi berhasil
+                    $this->sendTelegramMessage($botToken, $chatId, "✅ *Sukses!* Akun Telegram Anda telah terhubung dengan user *{$user->name}* ({$user->email}).\n\nAnda sekarang akan menerima laporan berkala dan notifikasi transaksi pribadi di sini secara otomatis.");
+                } else {
+                    // Kirim pesan gagal karena nomor HP tidak terdaftar
+                    $this->sendTelegramMessage($botToken, $chatId, "⚠️ Nomor HP *{$phone}* tidak ditemukan di sistem database kami.\n\nSilakan pastikan nomor HP Anda di profil sistem sudah terdaftar dengan benar.");
+                }
+            }
+            return response()->json(['ok' => true]);
+        }
+
+        // 2. Jika pesan teks biasa (misal '/start' atau apa saja)
+        // Kita minta mereka membagikan kontak menggunakan reply keyboard
+        $this->requestTelegramContact($botToken, $chatId);
+
+        return response()->json(['ok' => true]);
+    }
+
+    private function sendTelegramMessage(string $botToken, string $chatId, string $text): void
+    {
+        \Illuminate\Support\Facades\Http::post("https://api.telegram.org/bot{$botToken}/sendMessage", [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'parse_mode' => 'Markdown',
+            'reply_markup' => json_encode([
+                'remove_keyboard' => true // Hapus keyboard setelah sukses
+            ])
+        ]);
+    }
+
+    private function requestTelegramContact(string $botToken, string $chatId): void
+    {
+        \Illuminate\Support\Facades\Http::post("https://api.telegram.org/bot{$botToken}/sendMessage", [
+            'chat_id' => $chatId,
+            'text' => "Halo! Silakan klik tombol di bawah ini untuk menghubungkan nomor WhatsApp/HP Anda dengan Telegram agar dapat menerima notifikasi laporan pribadi otomatis.",
+            'parse_mode' => 'Markdown',
+            'reply_markup' => json_encode([
+                'keyboard' => [
+                    [
+                        ['text' => 'Hubungkan Kontak / Nomor HP 📱', 'request_contact' => true]
+                    ]
+                ],
+                'one_time_keyboard' => true,
+                'resize_keyboard' => true
+            ])
+        ]);
+    }
 }

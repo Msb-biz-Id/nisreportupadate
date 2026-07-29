@@ -54,6 +54,11 @@ Route::post('/webhooks/sidobe', [\App\Http\Controllers\WebhookController::class,
     ->name('webhooks.sidobe')
     ->middleware('throttle:300,1');
 
+// Webhook Telegram — public endpoint, no auth, CSRF excluded
+Route::post('/webhooks/telegram', [\App\Http\Controllers\WebhookController::class, 'telegram'])
+    ->name('webhooks.telegram')
+    ->middleware('throttle:300,1');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
