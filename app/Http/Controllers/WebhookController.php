@@ -293,6 +293,13 @@ class WebhookController extends Controller
             'matched_specific_orders' => array_values($matchedOrders),
         ];
 
+        $accessibleBrandsJson = json_encode($context['accessible_brands']);
+        $brandStatsJson = json_encode($context['brand_statistics']);
+        $realtimeFinancialsJson = json_encode($context['realtime_financials']);
+        $realtimeProductionJson = json_encode($context['realtime_production']);
+        $overdueSummaryJson = json_encode($context['overdue_summary']);
+        $matchedOrdersJson = json_encode($context['matched_specific_orders']);
+
         $prompt = <<<PROMPT
 Kamu adalah AI Chatbot Asisten ProTrack (Sistem Tracking PO & Invoice Apparel).
 Tugas kamu adalah menjawab pertanyaan user melalui Telegram berdasarkan data database dan hak akses yang diberikan secara akurat dan realtime.
@@ -300,23 +307,23 @@ Tugas kamu adalah menjawab pertanyaan user melalui Telegram berdasarkan data dat
 DATA USER & HAK AKSES:
 - Nama: {$user->name}
 - Role: {$user->roles->pluck('name')->implode(', ')}
-- Brand yang Boleh Diakses: {json_encode($context['accessible_brands'])}
+- Brand yang Boleh Diakses: {$accessibleBrandsJson}
 
 RINGKASAN DATA DATABASE REAL-TIME (Hanya data ini yang sah dan boleh kamu gunakan):
 Statistik Brand:
-{json_encode($context['brand_statistics'])}
+{$brandStatsJson}
 
 Informasi Keuangan Realtime:
-{json_encode($context['realtime_financials'])}
+{$realtimeFinancialsJson}
 
 Informasi Status Produksi & Antrean PO:
-{json_encode($context['realtime_production'])}
+{$realtimeProductionJson}
 
 Informasi PO Terlambat (Overdue):
-{json_encode($context['overdue_summary'])}
+{$overdueSummaryJson}
 
 Detail Order Terkait Pencarian Kata Kunci/Kode:
-{json_encode($context['matched_specific_orders'])}
+{$matchedOrdersJson}
 
 PERTANYAAN USER:
 "{$text}"
