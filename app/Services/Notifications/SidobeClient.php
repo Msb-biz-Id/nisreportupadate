@@ -54,16 +54,16 @@ class SidobeClient
         if ($phone === '' || $phone === '+') {
             return '';
         }
+        if (str_starts_with($phone, '+')) {
+            return $phone;
+        }
         if (str_starts_with($phone, '0')) {
-            return '62' . substr($phone, 1);
+            return '+62' . substr($phone, 1);
         }
-        if (str_starts_with($phone, '+62')) {
-            return substr($phone, 1); // hapus tanda +
+        if (str_starts_with($phone, '62')) {
+            return '+' . $phone;
         }
-        if (! str_starts_with($phone, '62')) {
-            return '62' . $phone;
-        }
-        return $phone;
+        return '+62' . $phone;
     }
 
     private function baseBody(string $phone): array
