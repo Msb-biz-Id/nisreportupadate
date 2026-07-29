@@ -123,7 +123,19 @@ class SendScheduledReport extends Command
     private function parseRecipients(string $settingKey): array
     {
         $raw = SystemSetting::get('reports', $settingKey, '');
-        $wa  = array_filter(array_map('trim', explode(',', $raw ?? '')));
+        $items = array_filter(array_map('trim', explode(',', $raw ?? '')));
+
+        $wa = [];
+        $tg = [];
+
+        foreach ($items as $item) {
+            // Klasifikasikan sebagai Telegram jika berupa ID grup (diawali '-') atau ID user/chat numerik pendek yang bukan berawalan 62/08
+            if (str_starts_with($item, '-') || (!str_starts_with($item, '62') && !str_starts_with($item, '08') && is_numeric($item) && strlen($item) < 11)) {
+                $tg[] = $item;
+            } else {
+                $wa[] = $item;
+            }
+        }
 
         if (empty($wa)) {
             // Fallback ke default global
@@ -131,8 +143,11 @@ class SendScheduledReport extends Command
             if ($defaultWa) $wa = [$defaultWa];
         }
 
-        $defaultTg = SystemSetting::get('telegram', 'default_chat_id');
-        $tg = $defaultTg ? [$defaultTg] : [];
+        if (empty($tg)) {
+            // Fallback ke default global
+            $defaultTg = SystemSetting::get('telegram', 'default_chat_id');
+            if ($defaultTg) $tg = [$defaultTg];
+        }
 
         return ['whatsapp' => $wa, 'telegram' => $tg];
     }
