@@ -218,7 +218,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         </div>
                                         <div className="text-[12px] font-bold">
                                             JENIS PRINTING:<br />
-                                            <span className="text-[13px] font-black text-black">{printingStr}</span>
+                                            <span className="text-[13px] font-black text-red-600">{printingStr}</span>
                                         </div>
                                     </>
                                 ) : (brand && (brand.brand_type === 'reseller_hub' || brand.brand_type === 'reseller_branch') && brand.parent_brand_id) ? (
@@ -229,7 +229,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         </div>
                                         <div className="text-[12px] font-bold">
                                             JENIS PRINTING:<br />
-                                            <span className="text-[13px] font-black text-black">{printingStr}</span>
+                                            <span className="text-[13px] font-black text-red-600">{printingStr}</span>
                                         </div>
                                     </>
                                 ) : (
@@ -239,7 +239,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         </div>
                                         <div className="text-[12px] font-bold mt-2 pt-2">
                                             JENIS PRINTING:<br />
-                                            <span className="text-[13px] font-black text-black">{printingStr}</span>
+                                            <span className="text-[13px] font-black text-red-600">{printingStr}</span>
                                         </div>
                                     </>
                                 )}
@@ -305,10 +305,10 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         </tr>
                                         {/* POLA */}
                                         <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">POLA</td>
+                                            <td className="border border-black p-1.5 font-bold bg-slate-100">MODEL</td>
                                             {nonAddonItems.map(item => (
                                                 <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.pola_produksi?.nama || item.pola || ''}
+                                                    {item.model_produksi?.nama || item.model || ''}
                                                 </td>
                                             ))}
                                         </tr>
@@ -859,7 +859,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                             return lampFilled.length > 0;
                         });
 
-                        if (!hasAnyLampFilled) return null;
+                        if (!hasAnyLampFilled || grandTotal < 10) return null;
 
                         let globalGroupIdx = 1;
 
@@ -883,6 +883,17 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
 
                                     const currentGroupIndex = globalGroupIdx++;
 
+                                    const isSizeOnly = lampFilled.every(ns =>
+                                        !(ns.nama_punggung || '').toString().trim() &&
+                                        !(ns.nomor_punggung || '').toString().trim() &&
+                                        !(ns.nama_dada || '').toString().trim() &&
+                                        !(ns.nomor_dada || '').toString().trim() &&
+                                        !(ns.nama_lengan || '').toString().trim() &&
+                                        !(ns.nomor_lengan || '').toString().trim() &&
+                                        !(ns.nama_punggung_2 || '').toString().trim() &&
+                                        !(ns.nomor_punggung_2 || '').toString().trim()
+                                    );
+
                                     const hasNamaPunggung = lampFilled.some(ns => (ns.nama_punggung || '').toString().trim());
                                     const hasNoPunggung = lampFilled.some(ns => (ns.nomor_punggung || '').toString().trim());
                                     const hasNamaDada = lampFilled.some(ns => (ns.nama_dada || '').toString().trim());
@@ -894,6 +905,81 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                     const hasSA = lampFilled.some(ns => ns.size_id || (ns.size_label || '').toString().trim());
                                     const hasSB = lampFilled.some(ns => ns.size_celana_id || (ns.size_celana_label || '').toString().trim());
                                     const hasKet = lampFilled.some(ns => (ns.keterangan || '').toString().trim());
+
+                                    const varDetails = [];
+                                    if (item.nama_produk) varDetails.push(item.nama_produk);
+                                    if (item.varian_label) varDetails.push(item.varian_label);
+                                    const groupSubtitle = varDetails.join(' — ');
+
+                                    if (isSizeOnly) {
+                                        // Group by size + keterangan for rekap
+                                        const rekapGroups = {};
+                                        lampFilled.forEach(ns => {
+                                            let szKey = '-';
+                                            if (hasSA) {
+                                                szKey = ns.size ? ns.size.ukuran : ns.size_label?.split('-').pop()?.trim();
+                                            } else if (hasSB) {
+                                                szKey = ns.size_celana ? ns.size_celana.ukuran : ns.size_celana_label?.split('-').pop()?.trim();
+                                            }
+                                            if (!szKey) szKey = '-';
+                                            const ket = (ns.keterangan || '').toString().trim();
+                                            const groupKey = `${szKey}|||${ket}`;
+                                            if (!rekapGroups[groupKey]) {
+                                                rekapGroups[groupKey] = [];
+                                            }
+                                            rekapGroups[groupKey].push(ns);
+                                        });
+
+                                        const rekapItems = Object.keys(rekapGroups).map(key => {
+                                            const [size, keterangan] = key.split('|||');
+                                            return {
+                                                size,
+                                                keterangan,
+                                                count: rekapGroups[key].length
+                                            };
+                                        });
+
+                                        rekapItems.sort((a, b) => getSizeSortWeight(a.size) - getSizeSortWeight(b.size));
+
+                                        // Chunk to 6 columns per table
+                                        const chunks = [];
+                                        for (let i = 0; i < rekapItems.length; i += 6) {
+                                            chunks.push(rekapItems.slice(i, i + 6));
+                                        }
+
+                                        return (
+                                            <div key={item.id || item.nama_produk} className="mb-6">
+                                                <div className="bg-slate-300 font-bold text-[12px] border border-black p-1 text-center mb-2 uppercase">
+                                                    DATA PESANAN: <span className="normal-case">{groupSubtitle}</span>
+                                                </div>
+                                                {chunks.map((chunk, chunkIdx) => (
+                                                    <table key={chunkIdx} className="border-collapse mx-auto border-2 border-black text-center mb-4 table-fixed" style={{ width: `${chunk.length * 110}px` }}>
+                                                        <tbody>
+                                                            <tr className="border-b-2 border-black font-bold">
+                                                                {chunk.map((cell, idx) => (
+                                                                    <td key={idx} className="border-r border-black p-3 align-middle font-bold text-center" style={{ width: '110px' }}>
+                                                                        <div className="text-[48px] leading-tight font-black">{cell.size}</div>
+                                                                        {cell.keterangan && (
+                                                                            <div className="text-[9px] font-bold mt-1 uppercase text-slate-700 whitespace-normal break-words leading-tight max-w-[100px] mx-auto">
+                                                                                {cell.keterangan}
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                ))}
+                                                            </tr>
+                                                            <tr className="font-bold text-center">
+                                                                {chunk.map((cell, idx) => (
+                                                                    <td key={idx} className="border-r border-black p-3 align-middle text-[48px] font-black leading-tight text-center" style={{ width: '110px' }}>
+                                                                        {cell.count}
+                                                                    </td>
+                                                                ))}
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                ))}
+                                            </div>
+                                        );
+                                    }
 
                                     const cols = [{ type: 'no', label: 'NO.', weight: 6 }];
                                     if (hasNamaPunggung) cols.push({ type: 'nama_punggung', label: 'NAMA PUNGGUNG', weight: 22, align: 'text-left pl-1.5 normal-case' });
@@ -936,11 +1022,6 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                         return getSizeSortWeight(a) - getSizeSortWeight(b);
                                     });
 
-                                    const varDetails = [];
-                                    if (item.nama_produk) varDetails.push(item.nama_produk);
-                                    if (item.varian_label) varDetails.push(item.varian_label);
-                                    const groupSubtitle = varDetails.join(' — ');
-
                                     return (
                                         <div key={item.id || item.nama_produk} className="mb-6">
                                             <div className="bg-slate-300 font-bold text-[12px] border border-black p-1 text-center mb-2 uppercase">
@@ -967,7 +1048,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                                             </thead>
                                                             <tbody>
                                                                 {namesetsInSize.map((ns, idx) => (
-                                                                    <tr key={ns.id} className="border-b border-black bg-white hover:bg-slate-50/50">
+                                                                    <tr key={ns.id || idx} className="border-b border-black bg-white hover:bg-slate-50/50">
                                                                         {finalCols.map((col, cidx) => {
                                                                             let val = '';
                                                                             if (col.type === 'no') val = `${idx + 1}.`;

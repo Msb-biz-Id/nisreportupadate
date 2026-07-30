@@ -1751,7 +1751,7 @@ class OrderLifecycleTest extends TestCase
         ]);
     }
 
-    public function test_order_items_can_save_jenis_setelan_and_pola_produksi_and_render_in_pdf(): void
+    public function test_order_items_can_save_jenis_setelan_and_model_produksi_and_render_in_pdf(): void
     {
         $brand = $this->setupBrandWithMasters();
         $user = $this->makeUser('admin_brand', [$brand]);
@@ -1764,9 +1764,9 @@ class OrderLifecycleTest extends TestCase
             'is_active' => true,
         ]);
 
-        $polaProduksi = \App\Models\Master\PolaProduksi::create([
+        $modelProduksi = \App\Models\Master\ModelProduksi::create([
             'id' => '019e2969-0000-0000-0000-000000000201',
-            'nama' => 'Pola Raglan A',
+            'nama' => 'Model Raglan A',
             'is_active' => true,
         ]);
 
@@ -1782,7 +1782,7 @@ class OrderLifecycleTest extends TestCase
                     'quantity' => 10,
                     'harga_satuan' => 100000,
                     'jenis_setelan_id' => $jenisSetelan->id,
-                    'pola_produksi_id' => $polaProduksi->id,
+                    'model_produksi_id' => $modelProduksi->id,
                 ]],
             ])
             ->assertRedirect();
@@ -1790,7 +1790,7 @@ class OrderLifecycleTest extends TestCase
         $this->assertDatabaseHas('order_items', [
             'nama_produk' => 'Jersey Test',
             'jenis_setelan_id' => $jenisSetelan->id,
-            'pola_produksi_id' => $polaProduksi->id,
+            'model_produksi_id' => $modelProduksi->id,
         ]);
 
         $order = Order::where('nama_po', 'PO Master Data Test')->first();

@@ -31,13 +31,13 @@ function newItem() {
         discount_amount: 0,
         is_addon: false,
         jenis_setelan_id: '',
-        pola_produksi_id: '',
+        model_produksi_id: '',
         bahan_kain_id: '',
         bahan_kain_ids: [],           // multiple bahan atasan
         bahan_kain_bawahan_id: '',
         bahan_kain_bawahan_ids: [],   // multiple bahan bawahan
         jenis_setelan: '',
-        pola: '',
+        model: '',
         logo_id: '',
         logo_ids: [],                 // multiple logo (dari MultiSelect)
         resleting_id: '',
@@ -105,7 +105,7 @@ function newPayment() {
     return { master_jenis_pembayaran_id: '', amount: 0, payment_date: new Date().toISOString().slice(0, 10), bank_id: '', notes: '' };
 }
 
-function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null, polaProduksi = [] }) {
+function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null, modelProduksi = [] }) {
     const [text, setText] = useState('');
     const [hasHeaderRow, setHasHeaderRow] = useState(false);
     const [mappings, setMappings] = useState([]);
@@ -997,12 +997,12 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                                     />
                                 </div>
                                 <div className="flex flex-col">
-                                    <FieldLabel>Pola Produksi</FieldLabel>
+                                    <FieldLabel>Model</FieldLabel>
                                     <SearchableSelect
-                                        value={item.pola_produksi_id || ''}
-                                        onValueChange={(v) => patch('pola_produksi_id', v)}
-                                        options={(masters.pola_produksi ?? []).map((p) => ({ value: p.id, label: p.nama }))}
-                                        placeholder="— Pilih pola —"
+                                        value={item.model_produksi_id || ''}
+                                        onValueChange={(v) => patch('model_produksi_id', v)}
+                                        options={(masters.model_produksi ?? []).map((p) => ({ value: p.id, label: p.nama }))}
+                                        placeholder="— Pilih model —"
                                         className="h-8 text-xs"
                                     />
                                 </div>
@@ -1332,7 +1332,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                 onClose={() => setPasteOpen(false)}
                 sizes={masters.sizes}
                 item={item}
-                polaProduksi={masters.pola_produksi}
+                modelProduksi={masters.model_produksi}
                 onConfirm={(rows, mode = 'replace') => {
                     let nextNamesets;
                     if (mode === 'replace') {
@@ -1406,13 +1406,13 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
             discount_amount: i.discount_amount !== undefined ? Number(i.discount_amount) : 0,
             is_addon: i.is_addon ?? false,
             jenis_setelan_id: i.jenis_setelan_id ?? '',
-            pola_produksi_id: i.pola_produksi_id ?? '',
+            model_produksi_id: i.model_produksi_id ?? '',
             bahan_kain_id: i.bahan_kain_id ?? '',
             bahan_kain_ids: i.bahan_kain_ids ?? [],
             bahan_kain_bawahan_id: i.bahan_kain_bawahan_id ?? '',
             bahan_kain_bawahan_ids: i.bahan_kain_bawahan_ids ?? [],
             jenis_setelan: i.jenis_setelan ?? '',
-            pola: i.pola ?? '',
+            model: i.model ?? '',
             logo_id: i.logo_id ?? '',
             logo_ids: i.logo_ids ?? [],
             resleting_id: i.resleting_id ?? '',

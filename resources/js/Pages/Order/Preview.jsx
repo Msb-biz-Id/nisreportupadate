@@ -1445,7 +1445,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         label: 'Harga Reseller',
                                         value: 'Ya (Aktif)',
                                     },
-                                    printings.length > 0 && { label: 'Jenis Printing', value: printings.map(p => p.nama).join(', ') },
+                                    printings.length > 0 && { label: 'Jenis Printing', value: printings.map(p => p.nama).join(', '), className: 'text-red-600 font-bold' },
                                     order.iklan?.nama && { label: 'Promo', value: order.iklan.nama + (order.iklan.platform ? ` (${order.iklan.platform})` : '') },
                                     (canEditShipping || order.nama_ekspedisi || order.no_resi) && {
                                         label: 'Ekspedisi',
@@ -1496,7 +1496,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                                     {f.value}
                                                                 </p>
                                                             ) : (
-                                                                <p className="mt-0.5 text-sm font-medium whitespace-pre-wrap">{f.value}</p>
+                                                                <p className={`mt-0.5 text-sm font-medium whitespace-pre-wrap ${f.className || ''}`}>{f.value}</p>
                                                             )}
                                                         </div>
                                                     ))}
@@ -1777,7 +1777,10 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
 
                                 const specFields = [
                                     item.jenis_setelan && { label: 'Setelan', value: jenisSetelanVal },
-                                    item.pola && { label: 'Pola', value: item.pola === 'perempuan' ? 'Perempuan' : 'Standart' },
+                                    (item.model_produksi || item.model) && {
+                                        label: 'Model',
+                                        value: item.model_produksi?.nama || (item.model === 'perempuan' ? 'Perempuan' : (item.model === 'standart' ? 'Standart' : item.model))
+                                    },
                                     bahanAtasanStr && { label: 'Bahan Atasan', value: bahanAtasanStr },
                                     bahanBawahanStr && { label: 'Bahan Bawahan', value: bahanBawahanStr },
                                     item.warna && { label: 'Warna', value: item.warna },

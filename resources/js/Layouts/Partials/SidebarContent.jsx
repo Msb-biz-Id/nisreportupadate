@@ -67,7 +67,7 @@ const MASTER_ITEMS = [
     { slug: 'size', name: 'Size / Ukuran', icon: Ruler, group: 'global' },
     { slug: 'pola-jahitan', name: 'Pola Jahitan', icon: Scissors, group: 'global' },
     { slug: 'jenis-setelan',  name: 'Jenis Setelan',  icon: Layers,    group: 'production' },
-    { slug: 'pola-produksi',  name: 'Pola Produksi',  icon: Scissors,  group: 'production' },
+    { slug: 'model-produksi',  name: 'Model',  icon: Scissors,  group: 'production' },
     { slug: 'jenis-produk',   name: 'Jenis Produk',   icon: Layers,    group: 'production' },
     { slug: 'ekspedisi',      name: 'Ekspedisi',      icon: Truck,     group: 'production' },
     { slug: 'progress',       name: 'Tahapan Progress', icon: ListChecks, group: 'production' },

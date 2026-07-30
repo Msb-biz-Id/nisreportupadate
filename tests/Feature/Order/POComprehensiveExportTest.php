@@ -95,7 +95,7 @@ class POComprehensiveExportTest extends TestCase
                 'harga_satuan' => 150000,
                 'quantity' => 10,
                 'jenis_setelan_id' => 1,
-                'pola_produksi_id' => 2,
+                'model_produksi_id' => 2,
                 'bahan_kain_id' => 3,
                 'warna' => 'Merah',
                 'logo_id' => 4,
@@ -111,7 +111,7 @@ class POComprehensiveExportTest extends TestCase
                 'harga_satuan' => 0,
                 'quantity' => 2,
                 'jenis_setelan_id' => null, // empty, should inherit 1
-                'pola_produksi_id' => null, // empty, should inherit 2
+                'model_produksi_id' => null, // empty, should inherit 2
                 'bahan_kain_id' => null, // empty, should inherit 3
                 'warna' => null, // empty, should inherit 'Merah'
                 'logo_id' => null, // empty, should inherit 4
@@ -127,7 +127,7 @@ class POComprehensiveExportTest extends TestCase
                 'harga_satuan' => 0,
                 'quantity' => 1,
                 'jenis_setelan_id' => null, // empty, should inherit 1
-                'pola_produksi_id' => null, // empty, should inherit 2
+                'model_produksi_id' => null, // empty, should inherit 2
                 'bahan_kain_id' => null, // empty, should inherit 3
                 'warna' => 'Biru', // OVERRIDE: not empty, should keep 'Biru'
                 'logo_id' => null, // empty, should inherit 4
@@ -149,7 +149,7 @@ class POComprehensiveExportTest extends TestCase
         $group1 = $grouped->first();
         $this->assertEquals(10, $group1['quantity']);
         $this->assertEquals(1, $group1['jenis_setelan_id']);
-        $this->assertEquals(2, $group1['pola_produksi_id']);
+        $this->assertEquals(2, $group1['model_produksi_id']);
         $this->assertEquals(3, $group1['bahan_kain_id']);
         $this->assertEquals('Merah', $group1['warna']);
         $this->assertEquals(4, $group1['logo_id']);

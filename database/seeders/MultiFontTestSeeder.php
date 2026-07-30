@@ -40,7 +40,7 @@ class MultiFontTestSeeder extends Seeder
             return;
         }
 
-        $superadmin = User::where('email', 'superadmin@nisreport.local')->first();
+        $superadmin = User::whereHas('roles', fn($q) => $q->where('name', 'superadmin'))->first() ?? User::first();
         $creator    = $superadmin;
 
         // Ambil customer pertama milik brand ALG, atau buat satu jika belum ada
@@ -103,7 +103,7 @@ class MultiFontTestSeeder extends Seeder
             'subtotal'     => count($this->japaneseNamesets()) * $products->harga,
             'bahan_kain_id' => $bahan?->id,
             'jenis_setelan' => 'atasan_saja',
-            'pola'         => 'Reguler',
+            'model'        => 'Reguler',
             'logo_id'      => $logo?->id,
             'printing_id'  => $print?->id,
             'resleting_id' => $reslt?->id,
@@ -181,7 +181,7 @@ class MultiFontTestSeeder extends Seeder
             'subtotal'     => count($this->arabicNamesets()) * $products->harga,
             'bahan_kain_id' => $bahan?->id,
             'jenis_setelan' => 'atasan_saja',
-            'pola'         => 'Reguler',
+            'model'        => 'Reguler',
             'logo_id'      => $logo?->id,
             'printing_id'  => $print?->id,
             'resleting_id' => $reslt?->id,
@@ -259,7 +259,7 @@ class MultiFontTestSeeder extends Seeder
             'subtotal'     => count($this->mixedNamesets()) * $products->harga,
             'bahan_kain_id' => $bahan?->id,
             'jenis_setelan' => 'stell',
-            'pola'         => 'Slim Fit',
+            'model'        => 'Slim Fit',
             'logo_id'      => $logo?->id,
             'printing_id'  => $print?->id,
             'resleting_id' => $reslt?->id,

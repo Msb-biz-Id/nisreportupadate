@@ -15,7 +15,7 @@ use App\Models\Master\PolaJahitan;
 use App\Models\Master\Printing;
 use App\Models\Master\JenisProduk;
 use App\Models\Master\JenisSetelan;
-use App\Models\Master\PolaProduksi;
+use App\Models\Master\ModelProduksi;
 use App\Models\Master\Product;
 use App\Models\Master\Progress;
 use App\Models\Master\Resleting;
@@ -39,7 +39,7 @@ class MasterDataSeeder extends Seeder
         $this->seedPolaJahitan();
         $this->seedProgress();
         $this->seedJenisSetelan();
-        $this->seedPolaProduksi();
+        $this->seedModelProduksi();
         $this->seedJenisProduk();
         $this->seedKategoriOrder();
         $this->seedJenisOrder();
@@ -356,15 +356,15 @@ class MasterDataSeeder extends Seeder
         foreach ($items as $i) JenisSetelan::firstOrCreate(['nama' => $i['nama']], $i + ['is_active' => true]);
     }
 
-    private function seedPolaProduksi(): void
+    private function seedModelProduksi(): void
     {
         $items = [
-            ['nama' => 'Standart',   'deskripsi' => 'Pola produksi standar'],
-            ['nama' => 'Perempuan',  'deskripsi' => 'Pola khusus perempuan (lebih slim)'],
-            ['nama' => 'Slim Fit',   'deskripsi' => 'Pola body fit'],
-            ['nama' => 'Oversize',   'deskripsi' => 'Pola longgar / oversize'],
+            ['nama' => 'Standart',   'deskripsi' => 'Model produksi standar'],
+            ['nama' => 'Perempuan',  'deskripsi' => 'Model khusus perempuan (lebih slim)'],
+            ['nama' => 'Slim Fit',   'deskripsi' => 'Model body fit'],
+            ['nama' => 'Oversize',   'deskripsi' => 'Model longgar / oversize'],
         ];
-        foreach ($items as $i) PolaProduksi::firstOrCreate(['nama' => $i['nama']], $i + ['is_active' => true]);
+        foreach ($items as $i) ModelProduksi::firstOrCreate(['nama' => $i['nama']], $i + ['is_active' => true]);
     }
 
     private function seedJenisProduk(): void

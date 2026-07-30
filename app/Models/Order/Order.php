@@ -10,7 +10,7 @@ use App\Models\Master\JenisOrder;
 use App\Models\Master\KategoriOrder;
 use App\Models\Master\JenisSetelan;
 use App\Models\Master\PaketOrder;
-use App\Models\Master\PolaProduksi;
+use App\Models\Master\ModelProduksi;
 use App\Models\Master\SumberOrder;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -47,7 +47,7 @@ class Order extends Model
         'voucher_discount_amount',
         'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date',
         'kategori_order_id', 'jenis_order_id', 'sumber_order_id', 'paket_order_id',
-        'jenis_setelan_id', 'pola_produksi_id',
+        'jenis_setelan_id', 'model_produksi_id',
         'pelanggan_id', 'printing_ids', 'iklan_id',
         'ekspedisi_id', 'nama_ekspedisi', 'no_resi',
         'repeat_from_po_id', 'is_repeat_order',
@@ -108,7 +108,7 @@ class Order extends Model
     public function sumberOrder(): BelongsTo { return $this->belongsTo(SumberOrder::class, 'sumber_order_id'); }
     public function paketOrder(): BelongsTo  { return $this->belongsTo(PaketOrder::class, 'paket_order_id'); }
     public function jenisSetelan(): BelongsTo { return $this->belongsTo(JenisSetelan::class, 'jenis_setelan_id'); }
-    public function polaProduksi(): BelongsTo { return $this->belongsTo(PolaProduksi::class, 'pola_produksi_id'); }
+    public function modelProduksi(): BelongsTo { return $this->belongsTo(ModelProduksi::class, 'model_produksi_id'); }
     public function iklan(): BelongsTo { return $this->belongsTo(Iklan::class, 'iklan_id'); }
     public function repeatFrom(): BelongsTo { return $this->belongsTo(Order::class, 'repeat_from_po_id'); }
     public function repeats(): HasMany { return $this->hasMany(Order::class, 'repeat_from_po_id'); }

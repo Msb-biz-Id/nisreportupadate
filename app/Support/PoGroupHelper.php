@@ -44,7 +44,7 @@ class PoGroupHelper
 
         $fields = [
             'jenis_setelan_id' => 'jenisSetelan',
-            'pola_produksi_id' => 'polaProduksi',
+            'model_produksi_id' => 'modelProduksi',
             'bahan_kain_id' => 'bahanKain',
             'bahan_kain_ids' => null,
             'bahan_kains_names' => null,
@@ -185,7 +185,7 @@ class PoGroupHelper
                 strtolower(trim($item['nama_produk'] ?? '')),
                 strtolower(trim($item['varian_label'] ?? '')),
                 $item['jenis_setelan_id'] ?? '',
-                $item['pola_produksi_id'] ?? '',
+                $item['model_produksi_id'] ?? '',
                 $item['bahan_kain_id'] ?? '',
                 json_encode($item['bahan_kain_ids'] ?? []),
                 $item['bahan_kain_bawahan_id'] ?? '',
@@ -219,7 +219,7 @@ class PoGroupHelper
             strtolower(trim($item->nama_produk ?? '')),
             strtolower(trim($item->varian_label ?? '')),
             $item->jenis_setelan_id,
-            $item->pola_produksi_id,
+            $item->model_produksi_id,
             $item->bahan_kain_id,
             json_encode($item->bahan_kain_ids),
             $item->bahan_kain_bawahan_id,

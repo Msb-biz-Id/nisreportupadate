@@ -100,6 +100,20 @@
                 border-collapse: collapse;
             }
 
+            .rekap-table {
+                margin: 15px auto;
+                border-collapse: collapse;
+                border: 2px solid #000;
+                text-align: center;
+                table-layout: fixed;
+            }
+            .rekap-table-1 { width: 110px !important; }
+            .rekap-table-2 { width: 220px !important; }
+            .rekap-table-3 { width: 330px !important; }
+            .rekap-table-4 { width: 440px !important; }
+            .rekap-table-5 { width: 550px !important; }
+            .rekap-table-6 { width: 660px !important; }
+
             td,
             th {
                 padding: 5px;
@@ -391,7 +405,7 @@
                               @endif
                              <div style="font-size: 10pt; font-weight: bold; line-height: 1.2;">
                                  JENIS PRINTING:<br>
-                                 <span style="font-size: 12pt; font-weight: 900; color: #000;">{{ strtoupper($printingStr) }}</span>
+                                 <span style="font-size: 12pt; font-weight: 900; color: #dc2626;">{{ strtoupper($printingStr) }}</span>
                              </div>
                              @if($order->paketOrder)
                              <div style="font-size: 10pt; font-weight: bold; margin-top: 10px; padding-top: 5px; line-height: 1.2;">
@@ -443,9 +457,9 @@
                             @endforeach
                         </tr>
                         <tr>
-                            <td class="spec-row-head">POLA</td>
+                            <td class="spec-row-head">MODEL</td>
                             @foreach($nonAddonItems as $item)
-                            <td>{{ strtoupper($item->polaProduksi->nama ?? $item->pola ?? '') ?: '' }}</td>
+                            <td>{{ strtoupper($item->modelProduksi->nama ?? $item->model ?? '') ?: '' }}</td>
                             @endforeach
                         </tr>
                         <tr>
@@ -991,7 +1005,7 @@
             }
             @endphp
 
-            @if($hasAnyLampFilled)
+            @if($hasAnyLampFilled && $grandTotal >= 10)
             <div class="page-break"></div>
             <div style="font-size:12pt; font-weight:900; text-decoration:underline; margin-bottom:10px; border-bottom:2px solid #000; padding-bottom:4px;">
                 LAMPIRAN: DATA PESANAN
@@ -1047,80 +1061,12 @@
             @php
             $currentGroupIndex = $globalGroupIdx++;
 
-            $hasLampNamaPunggung = $lampFilled->contains(fn($ns) => $hasVal($ns->nama_punggung ?? ''));
-            $hasLampNoPunggung = $lampFilled->contains(fn($ns) => $hasVal($ns->nomor_punggung ?? ''));
-            $hasLampNamaDada = $lampFilled->contains(fn($ns) => $hasVal($ns->nama_dada ?? ''));
-            $hasLampNoDada = $lampFilled->contains(fn($ns) => $hasVal($ns->nomor_dada ?? ''));
-            $hasLampNamaLengan = $lampFilled->contains(fn($ns) => $hasVal($ns->nama_lengan ?? ''));
-            $hasLampNoLengan = $lampFilled->contains(fn($ns) => $hasVal($ns->nomor_lengan ?? ''));
-            $hasLampNamaPunggung2 = $lampFilled->contains(fn($ns) => $hasVal($ns->nama_punggung_2 ?? ''));
-            $hasLampNoPunggung2 = $lampFilled->contains(fn($ns) => $hasVal($ns->nomor_punggung_2 ?? ''));
-            $hasLampSizeAtasan = $lampFilled->contains(fn($ns) => $hasVal($ns->size_id ?? '') || $hasVal($ns->size_label ?? ''));
-            $hasLampSizeBawahan = $lampFilled->contains(fn($ns) => $hasVal($ns->size_celana_id ?? '') || $hasVal($ns->size_celana_label ?? ''));
-            $hasLampKeterangan = $lampFilled->contains(fn($ns) => $hasVal($ns->keterangan ?? ''));
-
-            $cols = [];
-            $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 6];
-            if ($hasLampNamaPunggung) {
-                $cols[] = ['type' => 'nama_punggung', 'label' => 'NAMA PUNGGUNG', 'weight' => 22, 'align' => 't-left'];
-            }
-            if ($hasLampNoPunggung) {
-                $cols[] = ['type' => 'no_punggung', 'label' => 'NOPUNG', 'weight' => 12];
-            }
-            if ($hasLampNamaDada) {
-                $cols[] = ['type' => 'nama_dada', 'label' => 'NAMA DADA', 'weight' => 18, 'align' => 't-left'];
-            }
-            if ($hasLampNoDada) {
-                $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 12];
-            }
-            if ($hasLampNamaLengan) {
-                $cols[] = ['type' => 'nama_lengan', 'label' => 'NAMA LENGAN', 'weight' => 18, 'align' => 't-left'];
-            }
-            if ($hasLampNoLengan) {
-                $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 12];
-            }
-            if ($hasLampNoPunggung2) {
-                $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 12];
-            }
-            if ($hasLampNamaPunggung2) {
-                $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 22, 'align' => 't-left'];
-            }
-            if ($hasLampSizeAtasan) {
-                $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 10];
-            }
-            if ($hasLampSizeBawahan) {
-                $cols[] = ['type' => 'size_celana', 'label' => 'SIZE CELANA', 'weight' => 12];
-            }
-            if ($hasLampKeterangan) {
-                $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 18, 'align' => 't-left'];
-            }
-
-            $weightKey = 'weight';
-            $totalWeight = collect($cols)->sum($weightKey);
-            foreach ($cols as &$col) {
-                $col['pct'] = round(($col['weight'] / $totalWeight) * 100, 1);
-            }
-            unset($col);
-
-            $tableClass = count($cols) > 7 ? 'ns-table ns-table-dense' : 'ns-table';
-
-            // Group by size
-            $groupedBySize = $lampFilled->groupBy(function($ns) use ($hasLampSizeAtasan, $hasLampSizeBawahan) {
-                if ($hasLampSizeAtasan) {
-                    $sv = $ns->size ? $ns->size->ukuran : trim(last(explode('-', $ns->size_label ?? '')));
-                    if (!empty($sv)) return $sv;
-                }
-                if ($hasLampSizeBawahan) {
-                    $svc = $ns->sizeCelana ? $ns->sizeCelana->ukuran : trim(last(explode('-', $ns->size_celana_label ?? '')));
-                    if (!empty($svc)) return $svc;
-                }
-                return '-';
-            });
-
-            // Sort size keys
-            $sortedSizeKeys = $groupedBySize->keys()->sortBy(function($sizeName) use ($getSizeSortWeight) {
-                return $getSizeSortWeight($sizeName);
-            });
+            $isSizeOnly = $lampFilled->every(fn($ns) =>
+                !$hasVal($ns->nama_punggung ?? '') && !$hasVal($ns->nomor_punggung ?? '') &&
+                !$hasVal($ns->nama_dada ?? '') && !$hasVal($ns->nomor_dada ?? '') &&
+                !$hasVal($ns->nama_lengan ?? '') && !$hasVal($ns->nomor_lengan ?? '') &&
+                !$hasVal($ns->nama_punggung_2 ?? '') && !$hasVal($ns->nomor_punggung_2 ?? '')
+            );
 
             // Construct descriptive title
             $varDetails = [];
@@ -1137,62 +1083,196 @@
                 DATA PESANAN: {{ $groupSubtitle }}
             </div>
 
-            @foreach($sortedSizeKeys as $sizeKey)
+            @if($isSizeOnly)
                 @php
-                $namesetsInSize = $groupedBySize->get($sizeKey);
+                $hasLampSizeAtasan = $lampFilled->contains(fn($ns) => $hasVal($ns->size_id ?? '') || $hasVal($ns->size_label ?? ''));
+                $hasLampSizeBawahan = $lampFilled->contains(fn($ns) => $hasVal($ns->size_celana_id ?? '') || $hasVal($ns->size_celana_label ?? ''));
+
+                $rekapGroups = $lampFilled->groupBy(function($ns) use ($hasLampSizeAtasan, $hasLampSizeBawahan) {
+                    $sizeName = '-';
+                    if ($hasLampSizeAtasan) {
+                        $sizeName = $ns->size ? $ns->size->ukuran : trim(last(explode('-', $ns->size_label ?? '')));
+                    } elseif ($hasLampSizeBawahan) {
+                        $sizeName = $ns->sizeCelana ? $ns->sizeCelana->ukuran : trim(last(explode('-', $ns->size_celana_label ?? '')));
+                    }
+                    $sizeName = !empty($sizeName) ? $sizeName : '-';
+                    $ket = trim($ns->keterangan ?? '');
+                    return $sizeName . '|||' . $ket;
+                });
+
+                $rekapItems = [];
+                foreach ($rekapGroups as $key => $items) {
+                    list($sizeName, $ket) = explode('|||', $key);
+                    $rekapItems[] = [
+                        'size' => $sizeName,
+                        'keterangan' => $ket,
+                        'count' => $items->count(),
+                    ];
+                }
+
+                usort($rekapItems, function($a, $b) use ($getSizeSortWeight) {
+                    return $getSizeSortWeight($a['size']) - $getSizeSortWeight($b['size']);
+                });
+
+                $rekapChunks = array_chunk($rekapItems, 6);
                 @endphp
-                <table class="{{ $tableClass }}" style="margin-bottom:12px; table-layout: fixed; width: 100%;">
-                    <colgroup>
-                        @foreach($cols as $col)
-                        <col width="{{ $col['pct'] }}%">
-                        @endforeach
-                    </colgroup>
-                    <thead>
-                        <tr>
-                            @foreach($cols as $col)
-                            <th class="{{ $col['align'] ?? '' }}" width="{{ $col['pct'] }}%">{{ $col['label'] }}</th>
-                            @endforeach
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($namesetsInSize->values() as $i => $ns)
-                        <tr>
-                            @foreach($cols as $col)
-                            @if($col['type'] === 'no')
-                            <td>{{ $i + 1 }}.</td>
-                            @elseif($col['type'] === 'nama_punggung')
-                            <td class="t-left ns-name">
-                                {!! \App\Support\PdfHelper::formatText($ns->nama_punggung) !!}
-                            </td>
-                            @elseif($col['type'] === 'no_punggung')
-                            <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_punggung) !!}</td>
-                            @elseif($col['type'] === 'nama_dada')
-                            <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_dada) !!}</td>
-                            @elseif($col['type'] === 'no_dada')
-                            <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_dada) !!}</td>
-                            @elseif($col['type'] === 'nama_lengan')
-                            <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_lengan) !!}</td>
-                            @elseif($col['type'] === 'no_lengan')
-                            <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_lengan) !!}</td>
-                            @elseif($col['type'] === 'nama_punggung_2')
-                            <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_punggung_2) !!}</td>
-                            @elseif($col['type'] === 'no_punggung_2')
-                            <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_punggung_2) !!}</td>
-                            @elseif($col['type'] === 'size')
-                            @php $sv = $ns->size ? $ns->size->ukuran : trim(last(explode('-', $ns->size_label ?? ''))); @endphp
-                            <td>{!! \App\Support\PdfHelper::formatText($sv) !!}</td>
-                            @elseif($col['type'] === 'size_celana')
-                            @php $svc = $ns->sizeCelana ? $ns->sizeCelana->ukuran : trim(last(explode('-', $ns->size_celana_label ?? ''))); @endphp
-                            <td>{!! \App\Support\PdfHelper::formatText($svc) !!}</td>
-                            @elseif($col['type'] === 'keterangan')
-                            <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->keterangan) !!}</td>
+
+                @foreach($rekapChunks as $chunk)
+                <table class="rekap-table rekap-table-{{ count($chunk) }}">
+                    <tr>
+                        @foreach($chunk as $cell)
+                        <td style="border: 2px solid #000; padding: 12px 10px; font-weight: bold; vertical-align: middle; width: 110px;">
+                            <div style="font-size: 48px; line-height: 1.1;">{{ $cell['size'] }}</div>
+                            @if(!empty($cell['keterangan']))
+                            <div style="font-size: 8px; font-weight: bold; margin-top: 4px; text-transform: uppercase; color: #333; word-wrap: break-word; white-space: normal;">{{ $cell['keterangan'] }}</div>
                             @endif
-                            @endforeach
-                        </tr>
+                        </td>
                         @endforeach
-                    </tbody>
+                    </tr>
+                    <tr>
+                        @foreach($chunk as $cell)
+                        <td style="border: 2px solid #000; padding: 12px 10px; font-size: 48px; font-weight: bold; vertical-align: middle; width: 110px;">
+                            {{ $cell['count'] }}
+                        </td>
+                        @endforeach
+                    </tr>
                 </table>
-            @endforeach
+                @endforeach
+            @else
+                @php
+                $hasLampNamaPunggung = $lampFilled->contains(fn($ns) => $hasVal($ns->nama_punggung ?? ''));
+                $hasLampNoPunggung = $lampFilled->contains(fn($ns) => $hasVal($ns->nomor_punggung ?? ''));
+                $hasLampNamaDada = $lampFilled->contains(fn($ns) => $hasVal($ns->nama_dada ?? ''));
+                $hasLampNoDada = $lampFilled->contains(fn($ns) => $hasVal($ns->nomor_dada ?? ''));
+                $hasLampNamaLengan = $lampFilled->contains(fn($ns) => $hasVal($ns->nama_lengan ?? ''));
+                $hasLampNoLengan = $lampFilled->contains(fn($ns) => $hasVal($ns->nomor_lengan ?? ''));
+                $hasLampNamaPunggung2 = $lampFilled->contains(fn($ns) => $hasVal($ns->nama_punggung_2 ?? ''));
+                $hasLampNoPunggung2 = $lampFilled->contains(fn($ns) => $hasVal($ns->nomor_punggung_2 ?? ''));
+                $hasLampSizeAtasan = $lampFilled->contains(fn($ns) => $hasVal($ns->size_id ?? '') || $hasVal($ns->size_label ?? ''));
+                $hasLampSizeBawahan = $lampFilled->contains(fn($ns) => $hasVal($ns->size_celana_id ?? '') || $hasVal($ns->size_celana_label ?? ''));
+                $hasLampKeterangan = $lampFilled->contains(fn($ns) => $hasVal($ns->keterangan ?? ''));
+
+                $cols = [];
+                $cols[] = ['type' => 'no', 'label' => 'NO.', 'weight' => 6];
+                if ($hasLampNamaPunggung) {
+                    $cols[] = ['type' => 'nama_punggung', 'label' => 'NAMA PUNGGUNG', 'weight' => 22, 'align' => 't-left'];
+                }
+                if ($hasLampNoPunggung) {
+                    $cols[] = ['type' => 'no_punggung', 'label' => 'NOPUNG', 'weight' => 12];
+                }
+                if ($hasLampNamaDada) {
+                    $cols[] = ['type' => 'nama_dada', 'label' => 'NAMA DADA', 'weight' => 18, 'align' => 't-left'];
+                }
+                if ($hasLampNoDada) {
+                    $cols[] = ['type' => 'no_dada', 'label' => 'NO. DADA', 'weight' => 12];
+                }
+                if ($hasLampNamaLengan) {
+                    $cols[] = ['type' => 'nama_lengan', 'label' => 'NAMA LENGAN', 'weight' => 18, 'align' => 't-left'];
+                }
+                if ($hasLampNoLengan) {
+                    $cols[] = ['type' => 'no_lengan', 'label' => 'NO. LENGAN', 'weight' => 12];
+                }
+                if ($hasLampNoPunggung2) {
+                    $cols[] = ['type' => 'no_punggung_2', 'label' => 'NO. PUNGGUNG 2', 'weight' => 12];
+                }
+                if ($hasLampNamaPunggung2) {
+                    $cols[] = ['type' => 'nama_punggung_2', 'label' => 'NAMA PUNGGUNG 2', 'weight' => 22, 'align' => 't-left'];
+                }
+                if ($hasLampSizeAtasan) {
+                    $cols[] = ['type' => 'size', 'label' => 'SIZE', 'weight' => 10];
+                }
+                if ($hasLampSizeBawahan) {
+                    $cols[] = ['type' => 'size_celana', 'label' => 'SIZE CELANA', 'weight' => 12];
+                }
+                if ($hasLampKeterangan) {
+                    $cols[] = ['type' => 'keterangan', 'label' => 'KETERANGAN', 'weight' => 18, 'align' => 't-left'];
+                }
+
+                $weightKey = 'weight';
+                $totalWeight = collect($cols)->sum($weightKey);
+                foreach ($cols as &$col) {
+                    $col['pct'] = round(($col['weight'] / $totalWeight) * 100, 1);
+                }
+                unset($col);
+
+                $tableClass = count($cols) > 7 ? 'ns-table ns-table-dense' : 'ns-table';
+
+                // Group by size
+                $groupedBySize = $lampFilled->groupBy(function($ns) use ($hasLampSizeAtasan, $hasLampSizeBawahan) {
+                    if ($hasLampSizeAtasan) {
+                        $sv = $ns->size ? $ns->size->ukuran : trim(last(explode('-', $ns->size_label ?? '')));
+                        if (!empty($sv)) return $sv;
+                    }
+                    if ($hasLampSizeBawahan) {
+                        $svc = $ns->sizeCelana ? $ns->sizeCelana->ukuran : trim(last(explode('-', $ns->size_celana_label ?? '')));
+                        if (!empty($svc)) return $svc;
+                    }
+                    return '-';
+                });
+
+                // Sort size keys
+                $sortedSizeKeys = $groupedBySize->keys()->sortBy(function($sizeName) use ($getSizeSortWeight) {
+                    return $getSizeSortWeight($sizeName);
+                });
+                @endphp
+
+                @foreach($sortedSizeKeys as $sizeKey)
+                    @php
+                    $namesetsInSize = $groupedBySize->get($sizeKey);
+                    @endphp
+                    <table class="{{ $tableClass }}" style="margin-bottom:12px; table-layout: fixed; width: 100%;">
+                        <colgroup>
+                            @foreach($cols as $col)
+                            <col width="{{ $col['pct'] }}%">
+                            @endforeach
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                @foreach($cols as $col)
+                                <th class="{{ $col['align'] ?? '' }}" width="{{ $col['pct'] }}%">{{ $col['label'] }}</th>
+                                @endforeach
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($namesetsInSize->values() as $i => $ns)
+                            <tr>
+                                @foreach($cols as $col)
+                                @if($col['type'] === 'no')
+                                <td>{{ $i + 1 }}.</td>
+                                @elseif($col['type'] === 'nama_punggung')
+                                <td class="t-left ns-name">
+                                    {!! \App\Support\PdfHelper::formatText($ns->nama_punggung) !!}
+                                </td>
+                                @elseif($col['type'] === 'no_punggung')
+                                <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_punggung) !!}</td>
+                                @elseif($col['type'] === 'nama_dada')
+                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_dada) !!}</td>
+                                @elseif($col['type'] === 'no_dada')
+                                <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_dada) !!}</td>
+                                @elseif($col['type'] === 'nama_lengan')
+                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_lengan) !!}</td>
+                                @elseif($col['type'] === 'no_lengan')
+                                <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_lengan) !!}</td>
+                                @elseif($col['type'] === 'nama_punggung_2')
+                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->nama_punggung_2) !!}</td>
+                                @elseif($col['type'] === 'no_punggung_2')
+                                <td>{!! \App\Support\PdfHelper::formatText($ns->nomor_punggung_2) !!}</td>
+                                @elseif($col['type'] === 'size')
+                                @php $sv = $ns->size ? $ns->size->ukuran : trim(last(explode('-', $ns->size_label ?? ''))); @endphp
+                                <td>{!! \App\Support\PdfHelper::formatText($sv) !!}</td>
+                                @elseif($col['type'] === 'size_celana')
+                                @php $svc = $ns->sizeCelana ? $ns->sizeCelana->ukuran : trim(last(explode('-', $ns->size_celana_label ?? ''))); @endphp
+                                <td>{!! \App\Support\PdfHelper::formatText($svc) !!}</td>
+                                @elseif($col['type'] === 'keterangan')
+                                <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns->keterangan) !!}</td>
+                                @endif
+                                @endforeach
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @endforeach
+            @endif
             @endif
             @endforeach
             @endif

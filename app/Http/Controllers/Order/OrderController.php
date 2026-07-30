@@ -8,7 +8,7 @@ use App\Models\Master\BahanKain;
 use App\Models\Master\JenisProduk;
 use App\Models\Master\JenisSetelan;
 use App\Models\Master\PaketOrder;
-use App\Models\Master\PolaProduksi;
+use App\Models\Master\ModelProduksi;
 use App\Models\Master\BankAccount;
 use App\Models\Master\Customer;
 use App\Models\Master\Iklan;
@@ -426,7 +426,7 @@ class OrderController extends Controller
                 'sumber_order_id' => $data['sumber_order_id'] ?? null,
                 'paket_order_id'   => $data['paket_order_id'] ?? null,
                 'jenis_setelan_id' => $data['jenis_setelan_id'] ?? null,
-                'pola_produksi_id' => $data['pola_produksi_id'] ?? null,
+                'model_produksi_id' => $data['model_produksi_id'] ?? null,
                 'pelanggan_id' => $data['pelanggan_id'],
                 'printing_ids' => $data['printing_ids'] ?? null,
                 'iklan_id' => $data['iklan_id'] ?? null,
@@ -549,7 +549,7 @@ class OrderController extends Controller
                 'sumber_order_id' => $data['sumber_order_id'] ?? null,
                 'paket_order_id'   => $data['paket_order_id'] ?? null,
                 'jenis_setelan_id' => $data['jenis_setelan_id'] ?? null,
-                'pola_produksi_id' => $data['pola_produksi_id'] ?? null,
+                'model_produksi_id' => $data['model_produksi_id'] ?? null,
                 'pelanggan_id' => $data['pelanggan_id'],
                 'printing_ids' => $data['printing_ids'] ?? null,
                 'iklan_id' => $data['iklan_id'] ?? null,
@@ -682,7 +682,7 @@ class OrderController extends Controller
             'items.bahanKain', 'items.bahanKainBawahan',
             'items.logo', 'items.printing', 'items.resleting',
             'items.polaJahitan', 'items.polaJahitanLengan',
-            'items.jenisProduk', 'items.jenisSetelan', 'items.polaProduksi',
+            'items.jenisProduk', 'items.jenisSetelan', 'items.modelProduksi',
             'payments.bank', 'payments.recorder', 'payments.verifier', 'payments.masterJenisPembayaran',
             'progressDetails.progress', 'progressDetails.updater',
             'rijeks.progress', 'rijeks.creator',
@@ -1399,7 +1399,7 @@ class OrderController extends Controller
         $resletingIds = [];
         $printingIdsAll = $printingIds;
         $jenisSetelanIds = [];
-        $polaProduksiIds = [];
+        $modelProduksiIds = [];
         $sizeIds = [];
 
         foreach ($rawItems as $item) {
@@ -1420,7 +1420,7 @@ class OrderController extends Controller
             if (!empty($item['resleting_id'])) $resletingIds[] = $item['resleting_id'];
             if (!empty($item['printing_id'])) $printingIdsAll[] = $item['printing_id'];
             if (!empty($item['jenis_setelan_id'])) $jenisSetelanIds[] = $item['jenis_setelan_id'];
-            if (!empty($item['pola_produksi_id'])) $polaProduksiIds[] = $item['pola_produksi_id'];
+            if (!empty($item['model_produksi_id'])) $modelProduksiIds[] = $item['model_produksi_id'];
 
             if (!empty($item['pola_jahitan_id'])) $polaJahitanIds[] = $item['pola_jahitan_id'];
             if (!empty($item['pola_jahitan_lengan_id'])) $polaJahitanIds[] = $item['pola_jahitan_lengan_id'];
@@ -1443,14 +1443,14 @@ class OrderController extends Controller
         $resletings = !empty($resletingIds) ? Resleting::whereIn($idCol, array_unique($resletingIds))->pluck('nama', 'id')->toArray() : [];
         $printings = !empty($printingIdsAll) ? Printing::whereIn($idCol, array_unique($printingIdsAll))->pluck('nama', 'id')->toArray() : [];
         $jenisSetelans = !empty($jenisSetelanIds) ? JenisSetelan::whereIn($idCol, array_unique($jenisSetelanIds))->pluck('nama', 'id')->toArray() : [];
-        $polaProduksis = !empty($polaProduksiIds) ? PolaProduksi::whereIn($idCol, array_unique($polaProduksiIds))->pluck('nama', 'id')->toArray() : [];
+        $modelProduksis = !empty($modelProduksiIds) ? ModelProduksi::whereIn($idCol, array_unique($modelProduksiIds))->pluck('nama', 'id')->toArray() : [];
         
         $sizes = collect();
         if (!empty($sizeIds)) {
             $sizes = Size::whereIn($idCol, array_unique($sizeIds))->get()->keyBy($idCol);
         }
 
-        return collect($rawItems)->map(function ($item) use ($bahanKains, $logos, $polaJahitans, $resletings, $printings, $jenisSetelans, $polaProduksis, $sizes) {
+        return collect($rawItems)->map(function ($item) use ($bahanKains, $logos, $polaJahitans, $resletings, $printings, $jenisSetelans, $modelProduksis, $sizes) {
             $item['_bahan_kain'] = !empty($item['bahan_kain_id']) ? ($bahanKains[$item['bahan_kain_id']] ?? null) : null;
             
             $itemBahanKainNames = [];
@@ -1497,7 +1497,7 @@ class OrderController extends Controller
             $item['_pola_jahitan_lengan'] = !empty($item['pola_jahitan_lengan_id']) ? ['nama' => $polaJahitans[$item['pola_jahitan_lengan_id']] ?? ''] : null;
 
             $item['_jenis_setelan'] = !empty($item['jenis_setelan_id']) ? ($jenisSetelans[$item['jenis_setelan_id']] ?? null) : ($item['jenis_setelan'] ?? null);
-            $item['_pola_produksi'] = !empty($item['pola_produksi_id']) ? ($polaProduksis[$item['pola_produksi_id']] ?? null) : ($item['pola'] ?? null);
+            $item['_model_produksi'] = !empty($item['model_produksi_id']) ? ($modelProduksis[$item['model_produksi_id']] ?? null) : ($item['model'] ?? null);
 
             $item['namesets'] = collect($item['namesets'] ?? [])->map(function ($ns) use ($sizes) {
                 if (!empty($ns['size_id'])) {
@@ -1580,7 +1580,7 @@ class OrderController extends Controller
             'brand.parentBrand', 'resellerDisplayBrand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
             'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'items.resleting', 'items.printing',
             'items.polaJahitan', 'items.polaJahitanLengan',
-            'items.jenisSetelan', 'items.polaProduksi',
+            'items.jenisSetelan', 'items.modelProduksi',
             'items.namesets.size', 'items.namesets.sizeCelana',
             'creator.brands', 'repeatFrom:id,no_po,nama_po',
         ]);
@@ -1621,7 +1621,7 @@ class OrderController extends Controller
             'brand', 'resellerDisplayBrand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
             'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'items.resleting', 'items.printing',
             'items.polaJahitan', 'items.polaJahitanLengan',
-            'items.jenisSetelan', 'items.polaProduksi',
+            'items.jenisSetelan', 'items.modelProduksi',
             'items.namesets.size', 'items.namesets.sizeCelana',
             'creator.brands', 'repeatFrom:id,no_po,nama_po',
         ]);
@@ -1668,7 +1668,7 @@ class OrderController extends Controller
             'brand', 'resellerDisplayBrand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
             'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'items.resleting', 'items.printing',
             'items.polaJahitan', 'items.polaJahitanLengan',
-            'items.jenisSetelan', 'items.polaProduksi',
+            'items.jenisSetelan', 'items.modelProduksi',
             'items.namesets.size', 'items.namesets.sizeCelana',
             'creator.brands', 'repeatFrom:id,no_po,nama_po',
         ]);
@@ -1718,7 +1718,7 @@ class OrderController extends Controller
             'brand.parentBrand', 'pelanggan', 'kategoriOrder', 'jenisOrder', 'sumberOrder', 'paketOrder',
             'items.bahanKain', 'items.bahanKainBawahan', 'items.logo', 'items.resleting', 'items.printing',
             'items.polaJahitan', 'items.polaJahitanLengan',
-            'items.jenisSetelan', 'items.polaProduksi',
+            'items.jenisSetelan', 'items.modelProduksi',
             'items.namesets.size', 'items.namesets.sizeCelana',
             'creator.brands',
         ]);
@@ -1880,7 +1880,7 @@ class OrderController extends Controller
         $urutanCol = 'urutan';
         return [
             'jenis_setelan'  => JenisSetelan::active()->orderBy($namaCol)->get(['id', 'nama', 'deskripsi']),
-            'pola_produksi'  => PolaProduksi::active()->orderBy($namaCol)->get(['id', 'nama', 'deskripsi']),
+            'model_produksi'  => ModelProduksi::active()->orderBy($namaCol)->get(['id', 'nama', 'deskripsi']),
             'jenis_produk'  => JenisProduk::active()->orderBy($namaCol)->get(['id', 'nama']),
             'paket_orders'  => PaketOrder::active()->orderBy($prioritasCol)->orderBy($namaCol)->get(['id', 'nama', 'warna', 'prioritas']),
             'produk' => Product::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama', 'harga']),
@@ -1982,7 +1982,7 @@ class OrderController extends Controller
             'sumber_order_id' => ['nullable', 'uuid'],
             'paket_order_id'    => ['nullable', 'uuid', 'exists:paket_orders,id'],
             'jenis_setelan_id'  => ['nullable', 'uuid', 'exists:jenis_setelan,id'],
-            'pola_produksi_id'  => ['nullable', 'uuid', 'exists:pola_produksi,id'],
+            'model_produksi_id'  => ['nullable', 'uuid', 'exists:model_produksi,id'],
             'pelanggan_id' => ['required', 'uuid', 'exists:customers,id'],
             'branch_brand_id' => ['nullable', 'uuid', 'exists:brands,id'],
             'reseller_display_brand_id' => ['nullable', 'uuid', 'exists:brands,id'],
@@ -2010,8 +2010,8 @@ class OrderController extends Controller
             'items.*.bahan_kain_bawahan_ids.*' => ['uuid', 'exists:bahan_kains,id'],
             'items.*.jenis_setelan' => ['nullable', Rule::in(['stell', 'non_stell', 'atasan_saja', 'bawahan_saja'])],
             'items.*.jenis_setelan_id' => ['nullable', 'uuid', 'exists:jenis_setelan,id'],
-            'items.*.pola' => ['nullable', 'string', 'max:50'],
-            'items.*.pola_produksi_id' => ['nullable', 'uuid', 'exists:pola_produksi,id'],
+            'items.*.model' => ['nullable', 'string', 'max:50'],
+            'items.*.model_produksi_id' => ['nullable', 'uuid', 'exists:model_produksi,id'],
             'items.*.logo_id' => ['nullable', 'uuid'],
             'items.*.logo_ids' => ['nullable', 'array'],
             'items.*.logo_ids.*' => ['uuid', 'exists:logos,id'],
@@ -2296,6 +2296,7 @@ class OrderController extends Controller
             ]);
 
             // Sync with Invoice
+            /** @var Invoice|null $invoice */
             $invoice = $order->invoices()->first();
             if ($invoice) {
                 $invoice->update([

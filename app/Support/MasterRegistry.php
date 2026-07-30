@@ -10,7 +10,7 @@ use App\Models\Master\JenisSetelan;
 use App\Models\Master\JenisProduk;
 use App\Models\Master\PaketOrder;
 use App\Models\Master\PolaJahitan;
-use App\Models\Master\PolaProduksi;
+use App\Models\Master\ModelProduksi;
 use App\Models\Master\Printing;
 use App\Models\Master\Product;
 use App\Models\Master\Progress;
@@ -291,21 +291,21 @@ class MasterRegistry
                 'order_by' => 'nama',
             ],
 
-            'pola-produksi' => [
-                'slug'  => 'pola-produksi',
-                'label' => 'Pola Produksi',
+            'model-produksi' => [
+                'slug'  => 'model-produksi',
+                'label' => 'Model',
                 'group' => 'production',
                 'icon'  => 'Scissors',
-                'model' => PolaProduksi::class,
+                'model' => ModelProduksi::class,
                 'scope' => 'global',
                 'fields' => [
-                    ['name' => 'nama',      'label' => 'Nama Pola', 'type' => 'text', 'required' => true, 'max' => 100,
+                    ['name' => 'nama',      'label' => 'Nama Model', 'type' => 'text', 'required' => true, 'max' => 100,
                      'placeholder' => 'Contoh: Standart, Perempuan, Slim Fit'],
                     ['name' => 'deskripsi', 'label' => 'Deskripsi', 'type' => 'textarea'],
                     ['name' => 'is_active', 'label' => 'Aktif', 'type' => 'switch', 'default' => true],
                 ],
                 'list_columns' => [
-                    ['key' => 'nama',      'label' => 'Nama Pola'],
+                    ['key' => 'nama',      'label' => 'Nama Model'],
                     ['key' => 'deskripsi', 'label' => 'Deskripsi', 'class' => 'text-muted-foreground text-xs'],
                     ['key' => 'is_active', 'label' => 'Status', 'type' => 'badge_active'],
                 ],
@@ -318,7 +318,7 @@ class MasterRegistry
                 'label' => 'Jenis Produk',
                 'group' => 'production',
                 'icon' => 'Layers',
-                'model' => \App\Models\Master\JenisProduk::class,
+                'model' => JenisProduk::class,
                 'scope' => 'global',
                 'fields' => [
                     ['name' => 'nama', 'label' => 'Nama Jenis Produk', 'type' => 'text', 'required' => true, 'max' => 100],

@@ -9,7 +9,7 @@ use App\Models\Master\PolaJahitan;
 use App\Models\Master\Printing;
 use App\Models\Master\JenisProduk;
 use App\Models\Master\JenisSetelan;
-use App\Models\Master\PolaProduksi;
+use App\Models\Master\ModelProduksi;
 use App\Models\Master\Product;
 use App\Models\Master\Resleting;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -45,8 +45,8 @@ class OrderItem extends Model
         'bahan_kain_bawahan_ids',
         'jenis_setelan',
         'jenis_setelan_id',
-        'pola',
-        'pola_produksi_id',
+        'model',
+        'model_produksi_id',
         'logo_id',
         'logo_ids',
         'printing_id',
@@ -105,9 +105,9 @@ class OrderItem extends Model
     {
         return $this->belongsTo(JenisSetelan::class, 'jenis_setelan_id');
     }
-    public function polaProduksi(): BelongsTo
+    public function modelProduksi(): BelongsTo
     {
-        return $this->belongsTo(PolaProduksi::class, 'pola_produksi_id');
+        return $this->belongsTo(ModelProduksi::class, 'model_produksi_id');
     }
     public function bahanKain(): BelongsTo
     {
