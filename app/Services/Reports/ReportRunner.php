@@ -1303,13 +1303,6 @@ class ReportRunner
 
     private function getOrderPcs(Order $o): int
     {
-        $coreItems = $o->items->filter(fn($i) => empty($i->is_addon));
-        $hasAnyJmlAtasan = $coreItems->contains(fn($i) => $i->jml_atasan !== null && $i->jml_atasan !== '');
-        return (int) $coreItems->sum(function ($i) use ($hasAnyJmlAtasan) {
-            if ($i->jml_atasan !== null && $i->jml_atasan !== '') {
-                return (int)$i->jml_atasan;
-            }
-            return $hasAnyJmlAtasan ? 0 : (int)$i->quantity;
-        });
+        return (int) $o->items->filter(fn($i) => empty($i->is_addon))->sum('quantity');
     }
 }

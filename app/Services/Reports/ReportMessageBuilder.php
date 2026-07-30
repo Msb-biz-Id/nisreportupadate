@@ -687,11 +687,33 @@ PROMPT;
             ->select('order_items.nama_produk', DB::raw("SUM(CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) WHEN (SELECT COUNT(*) FROM order_items AS oi WHERE oi.order_id = order_items.order_id AND oi.is_addon = 0 AND oi.jml_atasan IS NOT NULL AND oi.jml_atasan != '') > 0 THEN 0 ELSE order_items.quantity END) as total_qty"))
             ->groupBy('order_items.nama_produk')->orderByDesc('total_qty')->first();
 
+        $poHariIniAll = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
+            ->where('tanggal_masuk', today()->toDateString())
+            ->with(['pelanggan:id,nama', 'items'])
+            ->get();
+
+        foreach ($poHariIniAll as $o) {
+            $o->computed_pcs = $this->getOrderPcs($o);
+        }
+
+        $totalTodayPo = $poHariIniAll->count();
+        $totalTodayPcs = $poHariIniAll->sum('computed_pcs');
+
+        $normalToday = $poHariIniAll->filter(fn($o) => !$o->is_special_order && !$o->is_reseller_price);
+        $resellerToday = $poHariIniAll->filter(fn($o) => $o->is_reseller_price);
+        $specialToday = $poHariIniAll->filter(fn($o) => $o->is_special_order);
+
         $lines = [
             "📊 *LAPORAN HARIAN - {$brand->nama_brand}*",
             "📅 " . now()->translatedFormat('d M Y, H:i'),
             "",
-            "📦 *ORDER:*",
+            "📦 *AKTIVITAS PO BARU HARI INI:*",
+            "• Total PO Baru: {$totalTodayPo} order ({$totalTodayPcs} pcs)",
+            "  - PO Normal: " . $normalToday->count() . " order (" . $normalToday->sum('computed_pcs') . " pcs)",
+            "  - PO Harga Reseller: " . $resellerToday->count() . " order (" . $resellerToday->sum('computed_pcs') . " pcs)",
+            "  - PO Spesial Order: " . $specialToday->count() . " order (" . $specialToday->sum('computed_pcs') . " pcs)",
+            "",
+            "📦 *ORDER KESELURUHAN:*",
             "• Masuk: {$masuk} order",
             "• Proses: {$proses} order",
             "• Selesai: {$selesai} order",
@@ -979,9 +1001,23 @@ PROMPT;
         $selesai = (int)(($statusRows['selesai_produksi'] ?? 0) + ($statusRows['siap_dikirim'] ?? 0) + ($statusRows['sudah_dikirim'] ?? 0) + ($statusRows['selesai'] ?? 0));
         $delay   = (int)($statusRows['delay'] ?? 0);
 
-        $poHariIni = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
+        $poHariIniAll = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
             ->where('tanggal_masuk', today()->toDateString())
-            ->with(['pelanggan:id,nama', 'items:order_id,quantity'])->limit(3)->get();
+            ->with(['pelanggan:id,nama', 'items'])
+            ->get();
+
+        foreach ($poHariIniAll as $o) {
+            $o->computed_pcs = $this->getOrderPcs($o);
+        }
+
+        $totalTodayPo = $poHariIniAll->count();
+        $totalTodayPcs = $poHariIniAll->sum('computed_pcs');
+
+        $normalToday = $poHariIniAll->filter(fn($o) => !$o->is_special_order && !$o->is_reseller_price);
+        $resellerToday = $poHariIniAll->filter(fn($o) => $o->is_reseller_price);
+        $specialToday = $poHariIniAll->filter(fn($o) => $o->is_special_order);
+
+        $poHariIni = $poHariIniAll->take(3);
 
         $poProduksi = Order::where('brand_id', $bid)->where('status_po', 'on_progress')
             ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(3)->get();
@@ -1024,7 +1060,13 @@ PROMPT;
             "",
             "🏢 BRAND: *{$brand->nama_brand}* ({$brand->kode})",
             "",
-            "📦 *STATUS ORDER:*",
+            "📦 *AKTIVITAS PO BARU HARI INI:*",
+            "• Total PO Baru: {$totalTodayPo} order ({$totalTodayPcs} pcs)",
+            "  - PO Normal: " . $normalToday->count() . " order (" . $normalToday->sum('computed_pcs') . " pcs)",
+            "  - PO Harga Reseller: " . $resellerToday->count() . " order (" . $resellerToday->sum('computed_pcs') . " pcs)",
+            "  - PO Spesial Order: " . $specialToday->count() . " order (" . $specialToday->sum('computed_pcs') . " pcs)",
+            "",
+            "📦 *ORDER KESELURUHAN:*",
             "• Masuk: {$masuk} | Proses: {$proses} | Selesai: {$selesai} | Delay: {$delay}",
         ];
 
@@ -1244,13 +1286,6 @@ PROMPT;
 
     private function getOrderPcs(Order $po): int
     {
-        $coreItems = $po->items->filter(fn($i) => empty($i->is_addon));
-        $hasAnyJmlAtasan = $coreItems->contains(fn($i) => $i->jml_atasan !== null && $i->jml_atasan !== '');
-        return (int) $coreItems->sum(function ($i) use ($hasAnyJmlAtasan) {
-            if ($i->jml_atasan !== null && $i->jml_atasan !== '') {
-                return (int)$i->jml_atasan;
-            }
-            return $hasAnyJmlAtasan ? 0 : (int)$i->quantity;
-        });
+        return (int) $po->items->filter(fn($i) => empty($i->is_addon))->sum('quantity');
     }
 }
