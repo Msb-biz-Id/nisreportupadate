@@ -140,8 +140,11 @@ class WebhookController extends Controller
 
         // 3. Jika sudah terhubung, jalankan AI Chatbot!
         $text = trim($message['text'] ?? '');
-        if (strtolower($text) === '/start') {
+        $textLower = strtolower($text);
+        if ($textLower === '/start') {
             $this->sendTelegramMessage($botToken, $chatId, "👋 Halo *{$user->name}*!\n\nAkun Anda telah terhubung. Tanyakan apa saja kepada saya tentang data order, invoice, atau laporan ringkas sesuai hak akses Anda.");
+        } elseif ($textLower === '/grafik' || preg_match('/^(tampilkan|minta|buat|kirim)?\s*(grafik|chart|diagram|visualisasi)/i', $textLower)) {
+            $this->handleChartRequest($user, $chatId, $botToken);
         } else {
             $this->handleAiChatbot($user, $text, $chatId, $botToken);
         }
@@ -158,6 +161,23 @@ class WebhookController extends Controller
         if (! $gemini->isConfigured()) {
             $this->sendTelegramMessage($botToken, $chatId, "⚠️ Layanan AI (Gemini) belum dikonfigurasi oleh Administrator.");
             return;
+        }
+
+        // Load chat history (last 6 messages)
+        $history = \App\Models\ChatMemory::where('telegram_chat_id', $chatId)
+            ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc')
+            ->limit(6)
+            ->get();
+
+        $historyString = '';
+        if ($history->isNotEmpty()) {
+            foreach ($history as $h) {
+                $roleLabel = $h->role === 'user' ? 'User' : 'Asisten';
+                $historyString .= "{$roleLabel}: {$h->content}\n";
+            }
+        } else {
+            $historyString = '(Tidak ada riwayat percakapan sebelumnya)';
         }
 
         // Tentukan brand yang diizinkan sesuai hak akses user
@@ -228,6 +248,9 @@ Breakdown PO Berdasarkan Tipe/Jenis/Kategori/Sumber:
 Informasi Produk Terlaris & Pelanggan Terloyal (30 Hari Terakhir):
 {$topProductsCustomersJson}
 
+RIWAYAT PERCAKAPAN SEBELUMNYA (Gunakan ini sebagai konteks percakapan untuk memahami rujukan kata ganti):
+{$historyString}
+
 PERTANYAAN USER (Dibatasi oleh tag khusus untuk keamanan):
 <USER_INPUT>
 {$text}
@@ -243,6 +266,31 @@ PROMPT;
 
         $response = $gemini->generate($prompt);
         $answer = $response['text'] ?? 'Maaf, saya tidak dapat memproses jawaban saat ini.';
+
+        // Save conversation to memory
+        if ($response['success'] && !empty($answer)) {
+            \App\Models\ChatMemory::create([
+                'telegram_chat_id' => $chatId,
+                'role' => 'user',
+                'content' => $text,
+            ]);
+            \App\Models\ChatMemory::create([
+                'telegram_chat_id' => $chatId,
+                'role' => 'model',
+                'content' => $answer,
+            ]);
+
+            // Keep memory pruned (delete old memories beyond last 10 messages)
+            $totalCount = \App\Models\ChatMemory::where('telegram_chat_id', $chatId)->count();
+            if ($totalCount > 10) {
+                $idsToDelete = \App\Models\ChatMemory::where('telegram_chat_id', $chatId)
+                    ->orderBy('created_at', 'desc')
+                    ->orderBy('id', 'desc')
+                    ->skip(10)
+                    ->pluck('id');
+                \App\Models\ChatMemory::whereIn('id', $idsToDelete)->delete();
+            }
+        }
 
         $this->sendTelegramMessage($botToken, $chatId, $answer);
     }
@@ -488,7 +536,7 @@ PROMPT;
             ])->toArray();
 
         // Top 5 Pelanggan Terloyal (Berdasarkan Belanjaan)
-        $topCustomers = Order::whereIn('brand_id', $brandIds)
+        $topCustomers = Order::whereIn('orders.brand_id', $brandIds)
             ->where('status_po', '!=', 'draft')
             ->join('customers', 'orders.pelanggan_id', '=', 'customers.id')
             ->select('customers.nama', DB::raw('COUNT(*) as total_order'), DB::raw('SUM(orders.total_tagihan) as total_belanja'))
@@ -532,6 +580,45 @@ PROMPT;
                 'one_time_keyboard' => true,
                 'resize_keyboard' => true
             ])
+        ]);
+    }
+
+    private function handleChartRequest(User $user, string $chatId, string $botToken): void
+    {
+        $brandIds = $user->isSuperadmin() 
+            ? Brand::pluck('id')->all()
+            : $user->brands()->pluck('brands.id')->all();
+
+        $brands = Brand::whereIn('id', $brandIds)->get();
+
+        $chartData = [];
+        foreach ($brands as $b) {
+            $omset = (float) Order::where('brand_id', $b->id)->where('status_po', '!=', 'draft')->sum('total_tagihan');
+            $chartData[] = [
+                'label' => $b->kode,
+                'value' => $omset,
+            ];
+        }
+
+        $title = 'GRAFIK OMSET PER BRAND (REALTIME)';
+        $photoPath = \App\Services\Reports\TelegramChartGenerator::generateBarChart($title, $chartData);
+
+        $caption = "📊 *{$title}*\n\nBerikut adalah visualisasi total omset real-time dari masing-masing brand yang ada dalam otoritas akses Anda.";
+        $this->sendTelegramPhoto($botToken, $chatId, $photoPath, $caption);
+
+        if (file_exists($photoPath)) {
+            unlink($photoPath);
+        }
+    }
+
+    private function sendTelegramPhoto(string $botToken, string $chatId, string $photoPath, string $caption = ''): void
+    {
+        \Illuminate\Support\Facades\Http::attach(
+            'photo', file_get_contents($photoPath), basename($photoPath)
+        )->post("https://api.telegram.org/bot{$botToken}/sendPhoto", [
+            'chat_id' => $chatId,
+            'caption' => $caption,
+            'parse_mode' => 'Markdown',
         ]);
     }
 }

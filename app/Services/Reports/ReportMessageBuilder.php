@@ -32,6 +32,15 @@ class ReportMessageBuilder
         $this->ai = $ai ?? GeminiClient::fromSettings();
     }
 
+    private function makeProgressBar(float $current, float $target, int $size = 10): string
+    {
+        if ($target <= 0) return '`[░░░░░░░░░░] 0%`';
+        $percent = min(100.0, max(0.0, ($current / $target) * 100));
+        $filledSize = (int) round(($percent / 100) * $size);
+        $bar = str_repeat('█', $filledSize) . str_repeat('░', $size - $filledSize);
+        return "`[{$bar}] " . round($percent, 1) . "%`";
+    }
+
     /**
      * Generate AI insight singkat (2-3 kalimat) dari data ringkasan laporan.
      * Mengembalikan '' jika Gemini tidak dikonfigurasi atau gagal.
@@ -45,8 +54,15 @@ class ReportMessageBuilder
         $prompt = <<<PROMPT
 Kamu adalah analis bisnis untuk perusahaan apparel/jersey custom di Indonesia.
 Berikan insight singkat (2-3 kalimat, bahasa Indonesia) berdasarkan data laporan berikut.
-Fokus pada hal yang paling perlu diperhatikan atau ditindaklanjuti.
-Jangan mengulang angka, cukup berikan interpretasi dan rekomendasi singkat.
+Setelah memberikan insight, buatlah daftar tindakan konkret (Action Items) prioritas berupa checklist (1-3 item).
+Format output harus rapi dan profesional menggunakan Bahasa Indonesia.
+
+Contoh Format:
+[Tulis analisis/insight singkat di sini]
+
+📌 *ACTION ITEMS PRIORITAS:*
+- `[ ]` [Tindakan 1]
+- `[ ]` [Tindakan 2]
 
 DATA LAPORAN:
 {$context}
@@ -56,13 +72,13 @@ PROMPT;
         return $result['success'] ? trim($result['text']) : '';
     }
 
-    /** Format AI insight untuk disisipkan di pesan WA */
+    /** Format AI insight untuk disisipkan di pesan WA/Telegram */
     private function appendAiInsight(array &$lines, string $context): void
     {
         $insight = $this->aiInsight($context);
         if ($insight !== '') {
             $lines[] = '';
-            $lines[] = '🤖 *AI INSIGHT:*';
+            $lines[] = '🤖 *ANALISIS & REKOMENDASI AI:*';
             $lines[] = $insight;
         }
     }
@@ -105,6 +121,20 @@ PROMPT;
             ->with('brand:id,nama_brand,kode')
             ->orderByDesc('revenue')->limit(3)->get();
 
+        // Hitung persentase penyelesaian order
+        $totalOrders = $masuk + $proses + $selesai + $delay;
+        $completionProgressBar = $this->makeProgressBar($selesai, $totalOrders);
+
+        // Tentukan indikator status warna keseluruhan
+        $statusIndicator = "🟢"; // default aman
+        if ($delay > 0) {
+            $statusIndicator = "🔴"; // ada order delay
+        } elseif ($terlambat->isNotEmpty()) {
+            $statusIndicator = "🔴"; // ada order terlambat
+        } elseif ($deadlines->isNotEmpty()) {
+            $statusIndicator = "🟡"; // ada deadline mendekati
+        }
+
         $lines = [
             "📊 *LAPORAN SUPERADMIN - " . strtoupper($periode) . "*",
             "📅 " . now()->translatedFormat('d M Y, H:i'),
@@ -116,6 +146,12 @@ PROMPT;
             "• Proses: {$proses} order",
             "• Selesai: {$selesai} order",
             "• Delay: {$delay} order",
+            "",
+            "📈 *PROGRES SELESAI PRODUKSI:*",
+            "{$completionProgressBar} ({$selesai} dari {$totalOrders} order)",
+            "",
+            "🚦 *STATUS KESEHATAN SISTEM:*",
+            "{$statusIndicator} " . ($statusIndicator === '🔴' ? 'Perlu Perhatian Khusus / Ada Keterlambatan!' : ($statusIndicator === '🟡' ? 'Mendekati Deadline PO' : 'Semua Berjalan Lancar & Aman!')),
         ];
 
         if ($terlambat->isNotEmpty()) {
@@ -200,16 +236,23 @@ PROMPT;
                 ->where('deadline_customer', '<', today())
                 ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(5)->get();
 
+            $prodProgressBar = $this->makeProgressBar($selesaiMonth, $totalPo);
+            $statusIndicator = ($rijekRate > 5 || $terlambat->isNotEmpty()) ? "🔴" : "🟢";
+
             $lines = [
                 "📊 *LAPORAN BULANAN PRODUKSI - {$brand->nama_brand}*",
                 "📅 Periode: " . now()->translatedFormat('F Y'),
                 "",
                 "📦 *PRODUKTIVITAS PRODUKSI BULAN INI:*",
                 "• PO Baru Masuk: {$totalPo} order ({$totalPcs} pcs)",
-                "• PO Selesai Produksi: {$selesaiMonth} order",
+                "• PO Selesai: {$selesaiMonth} order",
+                "📈 Progres: {$prodProgressBar}",
                 "",
                 "⚠️ *KUALITAS & RIJEK BULAN INI:*",
                 "• Rate Rijek: {$rijekRate}% | Total Rijek: {$totalRijek} pcs dari {$totalPcs} pcs",
+                "",
+                "🚦 *STATUS KESEHATAN PRODUKSI:*",
+                "{$statusIndicator} " . ($statusIndicator === '🔴' ? 'Membutuhkan perhatian pada antrean terlambat/rijek!' : 'Produksi berjalan lancar.'),
                 "",
                 "⚠️ *PO TERLAMBAT:*",
             ];
