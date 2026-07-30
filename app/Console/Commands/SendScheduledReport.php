@@ -66,6 +66,11 @@ class SendScheduledReport extends Command
 
         // ── Per-brand reports
         foreach ($brands as $brand) {
+            if (! $this->brandHasActivityOrOrders($brand, $periode)) {
+                $this->info("── Brand: {$brand->kode} (Dilewati - Tidak ada order aktif atau aktivitas) ──");
+                continue;
+            }
+
             $this->info("── Brand: {$brand->kode} ──");
 
             if (in_array('produksi', $types)) {
@@ -178,5 +183,28 @@ class SendScheduledReport extends Command
         }
 
         return ['whatsapp' => $wa, 'telegram' => $tg];
+    }
+
+    private function brandHasActivityOrOrders(Brand $brand, string $periode): bool
+    {
+        // 1. Cek apakah ada PO yang aktif (bukan draft, selesai, atau sudah dikirim)
+        $hasActive = \App\Models\Order\Order::where('brand_id', $brand->id)
+            ->whereNotIn('status_po', ['draft', 'selesai', 'sudah_dikirim'])
+            ->exists();
+        if ($hasActive) {
+            return true;
+        }
+
+        // 2. Cek apakah ada PO baru atau PO yang selesai/update dalam periode ini
+        $dateRange = match ($periode) {
+            'harian' => [today()->startOfDay(), today()->endOfDay()],
+            'mingguan' => [now()->startOfWeek()->startOfDay(), now()->endOfWeek()->endOfDay()],
+            'bulanan' => [now()->startOfMonth()->startOfDay(), now()->endOfMonth()->endOfDay()],
+            default => [today()->startOfDay(), today()->endOfDay()],
+        };
+
+        return \App\Models\Order\Order::where('brand_id', $brand->id)
+            ->whereBetween('updated_at', $dateRange)
+            ->exists();
     }
 }
