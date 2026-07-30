@@ -301,14 +301,21 @@ PROMPT;
             return [];
         }
 
-        return [
-            'total_tagihan_po_aktif' => 'Rp' . number_format(Order::whereIn('brand_id', $brandIds)->whereIn('status_po', ['published', 'on_progress', 'selesai_produksi'])->sum('total_tagihan'), 0, ',', '.'),
-            'total_lunas_po' => Order::whereIn('brand_id', $brandIds)->where('is_lunas', true)->count(),
-            'total_belum_lunas_po' => Order::whereIn('brand_id', $brandIds)->where('is_lunas', false)->count(),
-            'total_pembayaran_diterima' => 'Rp' . number_format(OrderPayment::whereHas('order', fn($q) => $q->whereIn('brand_id', $brandIds))->where('status', 'verified')->sum('jumlah_bayar'), 0, ',', '.'),
-            'omset_hari_ini' => 'Rp' . number_format(Order::whereIn('brand_id', $brandIds)->whereDate('created_at', today())->sum('total_tagihan'), 0, ',', '.'),
-            'pembayaran_hari_ini' => 'Rp' . number_format(OrderPayment::whereHas('order', fn($q) => $q->whereIn('brand_id', $brandIds))->where('status', 'verified')->whereDate('verified_at', today())->sum('jumlah_bayar'), 0, ',', '.'),
-        ];
+        $brands = Brand::whereIn('id', $brandIds)->get();
+        $context = [];
+
+        foreach ($brands as $b) {
+            $context[$b->nama_brand] = [
+                'total_tagihan_po_aktif' => 'Rp' . number_format(Order::where('brand_id', $b->id)->whereIn('status_po', ['published', 'on_progress', 'selesai_produksi'])->sum('total_tagihan'), 0, ',', '.'),
+                'total_lunas_po' => Order::where('brand_id', $b->id)->where('is_lunas', true)->count(),
+                'total_belum_lunas_po' => Order::where('brand_id', $b->id)->where('is_lunas', false)->count(),
+                'total_pembayaran_diterima' => 'Rp' . number_format(OrderPayment::whereHas('order', fn($q) => $q->where('brand_id', $b->id))->where('status', 'verified')->sum('jumlah_bayar'), 0, ',', '.'),
+                'omset_hari_ini' => 'Rp' . number_format(Order::where('brand_id', $b->id)->whereDate('created_at', today())->sum('total_tagihan'), 0, ',', '.'),
+                'pembayaran_hari_ini' => 'Rp' . number_format(OrderPayment::whereHas('order', fn($q) => $q->where('brand_id', $b->id))->where('status', 'verified')->whereDate('verified_at', today())->sum('jumlah_bayar'), 0, ',', '.'),
+            ];
+        }
+
+        return $context;
     }
 
     private function getProductionContext(array $brandIds, string $textLower): array
@@ -317,26 +324,33 @@ PROMPT;
             return [];
         }
 
-        $productionSummary = [];
-        $statuses = ['draft', 'published', 'on_progress', 'selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'delay', 'hold', 'selesai'];
-        foreach ($statuses as $st) {
-            $productionSummary[$st] = Order::whereIn('brand_id', $brandIds)->where('status_po', $st)->count();
+        $brands = Brand::whereIn('id', $brandIds)->get();
+        $context = [];
+
+        foreach ($brands as $b) {
+            $productionSummary = [];
+            $statuses = ['draft', 'published', 'on_progress', 'selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'delay', 'hold', 'selesai'];
+            foreach ($statuses as $st) {
+                $productionSummary[$st] = Order::where('brand_id', $b->id)->where('status_po', $st)->count();
+            }
+
+            $productionSummary['po_deadline_terdekat'] = Order::where('brand_id', $b->id)
+                ->whereIn('status_po', ['published', 'on_progress'])
+                ->whereNotNull('deadline_customer')
+                ->orderBy('deadline_customer')
+                ->limit(3)
+                ->get()
+                ->map(fn($o) => [
+                    'no_po' => $o->no_po,
+                    'nama_po' => $o->nama_po,
+                    'status' => $o->status_po,
+                    'deadline' => $o->deadline_customer,
+                ])->toArray();
+
+            $context[$b->nama_brand] = $productionSummary;
         }
 
-        $productionSummary['po_deadline_terdekat'] = Order::whereIn('brand_id', $brandIds)
-            ->whereIn('status_po', ['published', 'on_progress'])
-            ->whereNotNull('deadline_customer')
-            ->orderBy('deadline_customer')
-            ->limit(5)
-            ->get()
-            ->map(fn($o) => [
-                'no_po' => $o->no_po,
-                'nama_po' => $o->nama_po,
-                'status' => $o->status_po,
-                'deadline' => $o->deadline_customer,
-            ])->toArray();
-
-        return $productionSummary;
+        return $context;
     }
 
     private function getOverdueContext(array $brandIds, string $textLower): array
@@ -345,37 +359,45 @@ PROMPT;
             return [];
         }
 
-        $overdueOrders = Order::whereIn('brand_id', $brandIds)
-            ->where(function ($q) {
-                $q->where(function ($sub) {
-                    $sub->whereNotNull('deadline_customer')
-                        ->where('deadline_customer', '<', today()->format('Y-m-d'))
-                        ->whereNotIn('status_po', ['sudah_dikirim', 'selesai', 'draft']);
+        $brands = Brand::whereIn('id', $brandIds)->get();
+        $context = [];
+
+        foreach ($brands as $b) {
+            $overdueOrders = Order::where('brand_id', $b->id)
+                ->where(function ($q) {
+                    $q->where(function ($sub) {
+                        $sub->whereNotNull('deadline_customer')
+                            ->where('deadline_customer', '<', today()->format('Y-m-d'))
+                            ->whereNotIn('status_po', ['sudah_dikirim', 'selesai', 'draft']);
+                    })
+                    ->orWhere('status_po', 'delay');
                 })
-                ->orWhere('status_po', 'delay');
-            })
-            ->with(['brand', 'pelanggan'])
-            ->orderBy('deadline_customer')
-            ->get();
+                ->with(['brand', 'pelanggan'])
+                ->orderBy('deadline_customer')
+                ->get();
 
-        return [
-            'total_terlambat' => $overdueOrders->count(),
-            'detail_po_terlambat' => $overdueOrders->map(function ($o) {
-                $daysLate = $o->deadline_customer ? today()->diffInDays(\Carbon\Carbon::parse($o->deadline_customer), false) : null;
-                $lateText = $daysLate !== null && $daysLate < 0 ? abs($daysLate) . ' hari terlambat' : 'Terlambat';
+            if ($overdueOrders->isNotEmpty()) {
+                $context[$b->nama_brand] = [
+                    'total_terlambat' => $overdueOrders->count(),
+                    'detail_po_terlambat' => $overdueOrders->map(function ($o) {
+                        $daysLate = $o->deadline_customer ? today()->diffInDays(\Carbon\Carbon::parse($o->deadline_customer), false) : null;
+                        $lateText = $daysLate !== null && $daysLate < 0 ? abs($daysLate) . ' hari terlambat' : 'Terlambat';
 
-                return [
-                    'no_po' => $o->no_po,
-                    'kode_order' => $o->kode_order,
-                    'nama_po' => $o->nama_po,
-                    'brand' => $o->brand->nama_brand ?? '',
-                    'customer' => $o->pelanggan->nama ?? '',
-                    'status_po' => $o->status_po,
-                    'deadline' => $o->deadline_customer,
-                    'keterangan_telat' => $lateText,
+                        return [
+                            'no_po' => $o->no_po,
+                            'kode_order' => $o->kode_order,
+                            'nama_po' => $o->nama_po,
+                            'customer' => $o->pelanggan->nama ?? '',
+                            'status_po' => $o->status_po,
+                            'deadline' => $o->deadline_customer,
+                            'keterangan_telat' => $lateText,
+                        ];
+                    })->toArray()
                 ];
-            })->toArray()
-        ];
+            }
+        }
+
+        return $context;
     }
 
     private function getMatchedOrdersContext(array $brandIds, string $text): array
@@ -469,50 +491,54 @@ PROMPT;
             return [];
         }
 
-        // Kueri breakdown berdasarkan Jenis Order
-        $jenisOrderStats = Order::whereIn('brand_id', $brandIds)
-            ->whereNotNull('jenis_order_id')
-            ->join('jenis_orders', 'orders.jenis_order_id', '=', 'jenis_orders.id')
-            ->select('jenis_orders.nama', DB::raw('COUNT(*) as total'), DB::raw('SUM(orders.total_tagihan) as omset'))
-            ->groupBy('jenis_orders.nama')
-            ->get()
-            ->map(fn($item) => [
-                'nama' => $item->nama,
-                'total_po' => $item->total,
-                'omset' => 'Rp' . number_format($item->omset, 0, ',', '.'),
-            ])->toArray();
+        $brands = Brand::whereIn('id', $brandIds)->get();
+        $context = [];
 
-        // Kueri breakdown berdasarkan Kategori Order
-        $kategoriOrderStats = Order::whereIn('brand_id', $brandIds)
-            ->whereNotNull('kategori_order_id')
-            ->join('kategori_orders', 'orders.kategori_order_id', '=', 'kategori_orders.id')
-            ->select('kategori_orders.nama', DB::raw('COUNT(*) as total'), DB::raw('SUM(orders.total_tagihan) as omset'))
-            ->groupBy('kategori_orders.nama')
-            ->get()
-            ->map(fn($item) => [
-                'nama' => $item->nama,
-                'total_po' => $item->total,
-                'omset' => 'Rp' . number_format($item->omset, 0, ',', '.'),
-            ])->toArray();
+        foreach ($brands as $b) {
+            $jenisOrderStats = Order::where('orders.brand_id', $b->id)
+                ->whereNotNull('jenis_order_id')
+                ->join('jenis_orders', 'orders.jenis_order_id', '=', 'jenis_orders.id')
+                ->select('jenis_orders.nama', DB::raw('COUNT(*) as total'), DB::raw('SUM(orders.total_tagihan) as omset'))
+                ->groupBy('jenis_orders.nama')
+                ->get()
+                ->map(fn($item) => [
+                    'nama' => $item->nama,
+                    'total_po' => $item->total,
+                    'omset' => 'Rp' . number_format($item->omset, 0, ',', '.'),
+                ])->toArray();
 
-        // Kueri breakdown berdasarkan Sumber Order
-        $sumberOrderStats = Order::whereIn('brand_id', $brandIds)
-            ->whereNotNull('sumber_order_id')
-            ->join('sumber_orders', 'orders.sumber_order_id', '=', 'sumber_orders.id')
-            ->select('sumber_orders.nama', DB::raw('COUNT(*) as total'), DB::raw('SUM(orders.total_tagihan) as omset'))
-            ->groupBy('sumber_orders.nama')
-            ->get()
-            ->map(fn($item) => [
-                'nama' => $item->nama,
-                'total_po' => $item->total,
-                'omset' => 'Rp' . number_format($item->omset, 0, ',', '.'),
-            ])->toArray();
+            $kategoriOrderStats = Order::where('orders.brand_id', $b->id)
+                ->whereNotNull('kategori_order_id')
+                ->join('kategori_orders', 'orders.kategori_order_id', '=', 'kategori_orders.id')
+                ->select('kategori_orders.nama', DB::raw('COUNT(*) as total'), DB::raw('SUM(orders.total_tagihan) as omset'))
+                ->groupBy('kategori_orders.nama')
+                ->get()
+                ->map(fn($item) => [
+                    'nama' => $item->nama,
+                    'total_po' => $item->total,
+                    'omset' => 'Rp' . number_format($item->omset, 0, ',', '.'),
+                ])->toArray();
 
-        return [
-            'berdasarkan_jenis' => $jenisOrderStats,
-            'berdasarkan_kategori' => $kategoriOrderStats,
-            'berdasarkan_sumber' => $sumberOrderStats,
-        ];
+            $sumberOrderStats = Order::where('orders.brand_id', $b->id)
+                ->whereNotNull('sumber_order_id')
+                ->join('sumber_orders', 'orders.sumber_order_id', '=', 'sumber_orders.id')
+                ->select('sumber_orders.nama', DB::raw('COUNT(*) as total'), DB::raw('SUM(orders.total_tagihan) as omset'))
+                ->groupBy('sumber_orders.nama')
+                ->get()
+                ->map(fn($item) => [
+                    'nama' => $item->nama,
+                    'total_po' => $item->total,
+                    'omset' => 'Rp' . number_format($item->omset, 0, ',', '.'),
+                ])->toArray();
+
+            $context[$b->nama_brand] = [
+                'berdasarkan_jenis' => $jenisOrderStats,
+                'berdasarkan_kategori' => $kategoriOrderStats,
+                'berdasarkan_sumber' => $sumberOrderStats,
+            ];
+        }
+
+        return $context;
     }
 
     private function getTopProductsAndCustomersContext(array $brandIds, string $textLower): array
@@ -521,39 +547,44 @@ PROMPT;
             return [];
         }
 
-        // Top 5 Produk Terlaris
-        $topProducts = OrderItem::query()
-            ->where('is_addon', false)
-            ->whereHas('order', fn($q) => $q->whereIn('brand_id', $brandIds)->where('status_po', '!=', 'draft'))
-            ->select('nama_produk', DB::raw('SUM(quantity) as total_qty'))
-            ->groupBy('nama_produk')
-            ->orderByDesc('total_qty')
-            ->limit(5)
-            ->get()
-            ->map(fn($item) => [
-                'nama' => $item->nama_produk,
-                'total_qty' => (int) $item->total_qty,
-            ])->toArray();
+        $brands = Brand::whereIn('id', $brandIds)->get();
+        $context = [];
 
-        // Top 5 Pelanggan Terloyal (Berdasarkan Belanjaan)
-        $topCustomers = Order::whereIn('orders.brand_id', $brandIds)
-            ->where('status_po', '!=', 'draft')
-            ->join('customers', 'orders.pelanggan_id', '=', 'customers.id')
-            ->select('customers.nama', DB::raw('COUNT(*) as total_order'), DB::raw('SUM(orders.total_tagihan) as total_belanja'))
-            ->groupBy('customers.nama')
-            ->orderByDesc('total_belanja')
-            ->limit(5)
-            ->get()
-            ->map(fn($item) => [
-                'nama' => $item->nama,
-                'total_order' => $item->total_order,
-                'total_belanja' => 'Rp' . number_format($item->total_belanja, 0, ',', '.'),
-            ])->toArray();
+        foreach ($brands as $b) {
+            $topProducts = OrderItem::query()
+                ->where('is_addon', false)
+                ->whereHas('order', fn($q) => $q->where('brand_id', $b->id)->where('status_po', '!=', 'draft'))
+                ->select('nama_produk', DB::raw('SUM(quantity) as total_qty'))
+                ->groupBy('nama_produk')
+                ->orderByDesc('total_qty')
+                ->limit(3)
+                ->get()
+                ->map(fn($item) => [
+                    'nama' => $item->nama_produk,
+                    'total_qty' => (int) $item->total_qty,
+                ])->toArray();
 
-        return [
-            'produk_terlaris' => $topProducts,
-            'pelanggan_terloyal' => $topCustomers,
-        ];
+            $topCustomers = Order::where('orders.brand_id', $b->id)
+                ->where('status_po', '!=', 'draft')
+                ->join('customers', 'orders.pelanggan_id', '=', 'customers.id')
+                ->select('customers.nama', DB::raw('COUNT(*) as total_order'), DB::raw('SUM(orders.total_tagihan) as total_belanja'))
+                ->groupBy('customers.nama')
+                ->orderByDesc('total_belanja')
+                ->limit(3)
+                ->get()
+                ->map(fn($item) => [
+                    'nama' => $item->nama,
+                    'total_order' => $item->total_order,
+                    'total_belanja' => 'Rp' . number_format($item->total_belanja, 0, ',', '.'),
+                ])->toArray();
+
+            $context[$b->nama_brand] = [
+                'produk_terlaris' => $topProducts,
+                'pelanggan_terloyal' => $topCustomers,
+            ];
+        }
+
+        return $context;
     }
 
     private function sendTelegramMessage(string $botToken, string $chatId, string $text): void
