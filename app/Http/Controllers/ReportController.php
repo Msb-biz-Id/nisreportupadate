@@ -225,7 +225,7 @@ class ReportController extends Controller
         return BrandContext::effectiveBrandIds($request);
     }
 
-    private function resolveConfig(string $slug, Request $request = null): array
+    private function resolveConfig(string $slug, ?Request $request = null): array
     {
         $config = ReportRegistry::find($slug);
         abort_if(! $config, 404, "Laporan '{$slug}' tidak ditemukan.");
