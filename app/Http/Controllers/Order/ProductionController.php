@@ -33,7 +33,15 @@ class ProductionController extends Controller
             ->forBrand($brandId)
             ->published()
             ->where($statusPoCol, '!=', 'sudah_dikirim')
-            ->with(['pelanggan:id,nama', 'brand:id,kode,nama_brand', 'items:id,order_id,is_addon,quantity,jml_atasan'])
+            ->select([
+                'id', 'no_po', 'nama_po', 'pelanggan_id', 'brand_id', 'status_po',
+                'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date'
+            ])
+            ->with([
+                'pelanggan:id,nama',
+                'brand:id,kode,nama_brand',
+                'items:id,order_id,is_addon,quantity,jml_atasan'
+            ])
             ->orderByRaw('COALESCE(end_production_date, deadline_customer) ASC')
             ->get();
 
@@ -116,12 +124,18 @@ class ProductionController extends Controller
                          ->where('updated_at', '>=', now()->subDays(7));
                   });
             })
+            ->select([
+                'id', 'no_po', 'nama_po', 'pelanggan_id', 'brand_id', 'paket_order_id',
+                'status_po', 'tanggal_masuk', 'deadline_customer', 'start_production_date',
+                'end_production_date', 'is_special_order', 'created_at', 'updated_at'
+            ])
             ->with([
                 'pelanggan:id,nama',
-                'lockStatus',
+                'lockStatus:id,order_id,is_locked',
                 'brand:id,kode,warna_primary',
                 'paketOrder:id,nama,warna,prioritas',
-                'progressDetails.progress',
+                'progressDetails:id,order_id,progress_id,status',
+                'progressDetails.progress:id,nama_progress,warna,urutan',
                 'items:id,order_id,is_addon,quantity,jml_atasan'
             ])
             ->withCount(['rijeks as has_rijek' => fn($q) => $q->where('status', '!=', 'selesai')])
@@ -134,7 +148,6 @@ class ProductionController extends Controller
             'selesai_produksi' => ['label' => 'Selesai Produksi', 'color' => '#22C55E', 'orders' => []],
             'siap_dikirim'     => ['label' => 'Siap Dikirim',     'color' => '#06B6D4', 'orders' => []],
             'sudah_dikirim'    => ['label' => 'Sudah Dikirim',    'color' => '#8B5CF6', 'orders' => []],
-            'delay'            => ['label' => 'Delay',            'color' => '#EF4444', 'orders' => []],
             'hold'             => ['label' => 'Hold',             'color' => '#F97316', 'orders' => []],
         ];
 
