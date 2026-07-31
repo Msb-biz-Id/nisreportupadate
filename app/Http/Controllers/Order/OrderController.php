@@ -158,6 +158,15 @@ class OrderController extends Controller
                 $query->whereRaw('1 = 0');
             } elseif ($tab === 'archive' && ! in_array($status, ['sudah_dikirim', 'selesai'], true)) {
                 $query->whereRaw('1 = 0');
+            } elseif ($status === 'delay') {
+                $today = now()->startOfDay()->format('Y-m-d');
+                $query->where(function ($q) use ($today) {
+                    $q->where('orders.status_po', 'delay')
+                      ->orWhere(function ($q2) use ($today) {
+                          $q2->whereNotIn('orders.status_po', ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai', 'draft'])
+                             ->whereRaw("DATE(COALESCE(orders.end_production_date, orders.deadline_customer)) < ?", [$today]);
+                      });
+                });
             } else {
                 $query->where('orders.status_po', $status);
             }
@@ -179,22 +188,40 @@ class OrderController extends Controller
 
     private function getStatusCounts(Request $request, mixed $effectiveId, string $tab, \App\Models\User $user, bool $canSeeMultiBrand, string $filterBrandId): array
     {
-        return Order::query()
+        $baseQuery = Order::query()
             ->forBrand($effectiveId)
-            ->when($user->hasRole('admin_produksi'), fn ($q) => $q->where('status_po', '!=', 'draft'))
+            ->when($user->hasRole('admin_produksi'), fn ($q) => $q->where('orders.status_po', '!=', 'draft'))
             ->when($canSeeMultiBrand && $filterBrandId && $filterBrandId !== 'all', fn ($q) => $q->where('orders.brand_id', $filterBrandId))
             ->when($request->string('q')->toString(), fn ($q, $v) => $q->where(function ($w) use ($v) {
                 $w->where('no_po', 'like', "%{$v}%")->orWhere('nama_po', 'like', "%{$v}%");
             }))
             ->when($request->string('date_from')->toString(), fn ($q, $v) => $q->where('tanggal_masuk', '>=', $v . ' 00:00:00'))
             ->when($request->string('date_to')->toString(), fn ($q, $v) => $q->where('tanggal_masuk', '<=', $v . ' 23:59:59'))
-            ->when($tab === 'archive', fn ($q) => $q->whereIn('status_po', ['sudah_dikirim', 'selesai']))
-            ->when($tab === 'active', fn ($q) => $q->whereNotIn('status_po', ['sudah_dikirim', 'selesai']))
+            ->when($tab === 'archive', fn ($q) => $q->whereIn('orders.status_po', ['sudah_dikirim', 'selesai']))
+            ->when($tab === 'active', fn ($q) => $q->whereNotIn('orders.status_po', ['sudah_dikirim', 'selesai']));
+
+        $counts = (clone $baseQuery)
             ->selectRaw('status_po, count(*) as total')
             ->groupBy('status_po')
             ->pluck('total', 'status_po')
             ->map(fn ($total) => (int) $total)
             ->toArray();
+
+        if ($tab === 'active') {
+            $today = now()->startOfDay()->format('Y-m-d');
+            $delayCount = (clone $baseQuery)
+                ->where(function ($q) use ($today) {
+                    $q->where('orders.status_po', 'delay')
+                      ->orWhere(function ($q2) use ($today) {
+                          $q2->whereNotIn('orders.status_po', ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai', 'draft'])
+                             ->whereRaw("DATE(COALESCE(orders.end_production_date, orders.deadline_customer)) < ?", [$today]);
+                      });
+                })
+                ->count();
+            $counts['delay'] = $delayCount;
+        }
+
+        return $counts;
     }
 
     private function getBrandsList(\App\Models\User $user, bool $canSeeMultiBrand, Request $request)
