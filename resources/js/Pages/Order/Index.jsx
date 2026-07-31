@@ -426,20 +426,20 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                         </div>
 
                         <StickyTableWrapper maxHeight="calc(100vh - 280px)">
-                            <Table className="min-w-[1300px] border-collapse">
+                            <Table className="min-w-[1050px] border-collapse text-xs">
                                 <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="sticky top-0 left-0 z-30 bg-slate-50 font-bold text-slate-700 min-w-[200px] w-[200px] shadow-[inset_-1px_0_0_0_#e2e8f0]">No. PO</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[180px]">Nama PO</TableHead>
-                                        {can?.filter_by_brand && <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[80px]">Brand</TableHead>}
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[180px]">Pelanggan</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[100px]">Tgl Masuk</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[100px]">Deadline</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[120px]">Total</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[100px]">Paket</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[100px]">Status</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-center min-w-[80px]">Pcs</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[120px]">Aksi</TableHead>
+                                    <TableRow className="bg-slate-50">
+                                        <TableHead className="sticky top-0 left-0 z-30 bg-slate-50 font-bold text-slate-700 min-w-[160px] w-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] py-3">No. PO</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[140px] py-3">Nama PO</TableHead>
+                                        {can?.filter_by_brand && <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[65px] py-3">Brand</TableHead>}
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[130px] py-3">Pelanggan</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[90px] whitespace-nowrap py-3">Tgl Masuk</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[90px] whitespace-nowrap py-3">Deadline</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[110px] py-3">Total</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[90px] py-3">Paket</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[95px] py-3">Status</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-center min-w-[60px] py-3">Pcs</TableHead>
+                                        <TableHead className="sticky top-0 right-0 z-30 bg-slate-50 font-bold text-slate-700 text-right min-w-[100px] shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.08)] py-3">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -453,23 +453,27 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                     {orders.data.map((o) => {
                                         const st = STATUS_LABEL[o.status_po] ?? { label: o.status_po, variant: 'outline' };
                                         return (
-                                            <TableRow key={o.id} className="group hover:bg-slate-50/50">
-                                                <TableCell className="sticky left-0 z-10 bg-white font-mono text-xs font-bold text-slate-800 min-w-[200px] w-[200px] shadow-[inset_-1px_0_0_0_#e2e8f0] group-hover:bg-slate-50 transition-colors">{o.no_po}</TableCell>
-                                                <TableCell className="min-w-[180px]">
-                                                    <div className="font-medium">{o.nama_po}</div>
-                                                    {o.is_repeat_order && <Badge variant="outline" className="mt-1 text-[10px]"><RotateCw className="mr-1 h-3 w-3" />Repeat</Badge>}
+                                            <TableRow key={o.id} className="group hover:bg-slate-50/70 transition-colors">
+                                                <TableCell className="sticky left-0 z-10 bg-white font-mono text-xs font-bold text-slate-800 min-w-[160px] w-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-slate-50 transition-colors py-2.5">
+                                                    <div className="truncate max-w-[155px]" title={o.no_po}>{o.no_po}</div>
+                                                </TableCell>
+                                                <TableCell className="min-w-[140px] py-2.5">
+                                                    <div className="font-semibold text-slate-800 truncate max-w-[150px]" title={o.nama_po}>{o.nama_po}</div>
+                                                    {o.is_repeat_order && <Badge variant="outline" className="mt-0.5 text-[9px] px-1 py-0"><RotateCw className="mr-0.5 h-2.5 w-2.5" />Repeat</Badge>}
                                                 </TableCell>
                                                 {can?.filter_by_brand && (
-                                                    <TableCell className="text-xs text-muted-foreground min-w-[80px]">{o.brand?.kode ?? '-'}</TableCell>
+                                                    <TableCell className="text-xs text-muted-foreground min-w-[65px] py-2.5 font-medium">{o.brand?.kode ?? '-'}</TableCell>
                                                 )}
-                                                <TableCell className="min-w-[180px]">{o.pelanggan?.nama ?? '-'}</TableCell>
-                                                <TableCell className="text-xs min-w-[100px]">{formatDate(o.tanggal_masuk)}</TableCell>
-                                                <TableCell className="text-xs min-w-[100px]">{formatDate(o.deadline_customer)}</TableCell>
-                                                <TableCell className="text-right font-mono text-xs min-w-[120px]">{formatRupiah(o.total_tagihan)}</TableCell>
-                                                <TableCell className="min-w-[100px]">
+                                                <TableCell className="min-w-[130px] py-2.5">
+                                                    <div className="text-slate-700 truncate max-w-[140px]" title={o.pelanggan?.nama ?? '-'}>{o.pelanggan?.nama ?? '-'}</div>
+                                                </TableCell>
+                                                <TableCell className="text-xs min-w-[90px] whitespace-nowrap py-2.5 text-slate-600">{formatDate(o.tanggal_masuk)}</TableCell>
+                                                <TableCell className="text-xs min-w-[90px] whitespace-nowrap py-2.5 text-slate-600">{formatDate(o.deadline_customer)}</TableCell>
+                                                <TableCell className="text-right font-mono text-xs font-bold min-w-[110px] py-2.5 text-slate-800">{formatRupiah(o.total_tagihan)}</TableCell>
+                                                <TableCell className="min-w-[90px] py-2.5">
                                                     {o.paket_order ? (
                                                         <span
-                                                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+                                                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold text-white whitespace-nowrap"
                                                             style={{ background: o.paket_order.warna || '#6B7280' }}
                                                         >
                                                             {o.paket_order.prioritas >= 2 ? '🚨' : o.paket_order.prioritas >= 1 ? '⚡' : ''}
@@ -477,27 +481,27 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                                         </span>
                                                     ) : <span className="text-xs text-muted-foreground">-</span>}
                                                 </TableCell>
-                                                <TableCell className="min-w-[100px]"><Badge variant={st.variant}>{st.label}</Badge></TableCell>
-                                                <TableCell className="text-center min-w-[80px]">
-                                                    <Badge variant="outline">{o.core_items_sum_quantity ?? 0}</Badge>
+                                                <TableCell className="min-w-[95px] py-2.5"><Badge variant={st.variant} className="text-[10px] px-1.5 py-0.5">{st.label}</Badge></TableCell>
+                                                <TableCell className="text-center min-w-[60px] py-2.5">
+                                                    <Badge variant="outline" className="text-xs font-semibold">{o.core_items_sum_quantity ?? 0}</Badge>
                                                 </TableCell>
-                                                <TableCell className="text-right min-w-[120px]">
+                                                <TableCell className="sticky right-0 z-10 bg-white text-right min-w-[100px] shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-slate-50 transition-colors py-2.5">
                                                     <div className="flex justify-end gap-1">
-                                                        <Button asChild size="icon" variant="ghost" title="Preview">
+                                                        <Button asChild size="icon" variant="ghost" className="h-7 w-7" title="Preview">
                                                             <Link href={route('orders.show', o.id)}>
-                                                                <Eye className="h-4 w-4" />
+                                                                <Eye className="h-3.5 w-3.5" />
                                                             </Link>
                                                         </Button>
                                                         {can?.update && o.status_po === 'draft' && (
-                                                            <Button asChild size="icon" variant="ghost" title="Edit">
+                                                            <Button asChild size="icon" variant="ghost" className="h-7 w-7" title="Edit">
                                                                 <Link href={route('orders.edit', o.id)}>
-                                                                    <Pencil className="h-4 w-4" />
+                                                                    <Pencil className="h-3.5 w-3.5" />
                                                                 </Link>
                                                             </Button>
                                                         )}
                                                         {can?.delete && o.status_po === 'draft' && (
-                                                            <Button size="icon" variant="ghost" title="Hapus" className="text-destructive hover:text-destructive" onClick={() => setConfirmDelete(o)}>
-                                                                <Trash2 className="h-4 w-4" />
+                                                            <Button size="icon" variant="ghost" title="Hapus" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setConfirmDelete(o)}>
+                                                                <Trash2 className="h-3.5 w-3.5" />
                                                             </Button>
                                                         )}
                                                     </div>
