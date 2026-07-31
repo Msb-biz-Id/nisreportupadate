@@ -189,6 +189,7 @@ class ProductionController extends Controller
 
             $columns[$columnKey]['orders'][] = [
                 'id'                  => $order->id,
+                'status_po'           => $order->status_po,
                 'no_po'               => $order->no_po,
                 'nama_po'             => $order->nama_po,
                 'pelanggan'           => $order->pelanggan?->nama,
