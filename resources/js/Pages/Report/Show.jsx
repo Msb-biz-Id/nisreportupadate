@@ -9,7 +9,7 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/Components/ui/table';
 import Chart from '@/Components/Chart';
 import { formatDate, formatRupiah } from '@/lib/utils';
 import { MultiSelect } from '@/Components/ui/multi-select';
@@ -548,6 +548,33 @@ export default function ReportShow({ config, filters, rows, summary, heatmapSeri
                                         })
                                     )}
                                 </TableBody>
+                                {rows.length > 0 && (
+                                    <TableFooter className="bg-slate-100 dark:bg-slate-900 font-bold border-t-2 border-slate-300">
+                                        <TableRow>
+                                            {config.columns.map((c, idx) => {
+                                                const isFirstCol = idx === 0;
+                                                const dataRows = rows.filter((r) => !r.is_group_header && !r.is_group_total);
+                                                if (isFirstCol) {
+                                                    return (
+                                                        <TableCell key={c.key} className="font-extrabold text-slate-800 dark:text-slate-100 py-3">
+                                                            TOTAL KESELURUHAN ({dataRows.length} Data)
+                                                        </TableCell>
+                                                    );
+                                                }
+                                                const keysToSum = ['pcs', 'total_qty', 'total_order', 'total_tagihan', 'total_value', 'jumlah', 'nominal', 'nominal_refund', 'amount', 'total_pcs'];
+                                                if (keysToSum.includes(c.key)) {
+                                                    const totalSum = dataRows.reduce((acc, r) => acc + (Number(r[c.key]) || 0), 0);
+                                                    return (
+                                                        <TableCell key={c.key} className="text-right font-extrabold text-slate-800 dark:text-slate-100 py-3">
+                                                            <FormatCell value={totalSum} format={c.format} />
+                                                        </TableCell>
+                                                    );
+                                                }
+                                                return <TableCell key={c.key} className="py-3" />;
+                                            })}
+                                        </TableRow>
+                                    </TableFooter>
+                                )}
                             </Table>
                         </div>
                     </CardContent>

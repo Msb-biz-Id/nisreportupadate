@@ -44,8 +44,16 @@ class UploadController extends Controller
         $file = $data['file'];
         $purpose = $data['purpose'];
         
-        // Output format adalah selalu webp
-        $filename = Str::ulid() . '.webp';
+        // Dapatkan ekstensi aktual (jpg, png, webp) tanpa memaksa webp
+        $clientExt = strtolower($file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'jpg');
+        if ($clientExt === 'jpeg') {
+            $clientExt = 'jpg';
+        }
+        if (!in_array($clientExt, ['jpg', 'png', 'webp'])) {
+            $clientExt = 'jpg';
+        }
+
+        $filename = Str::ulid() . '.' . $clientExt;
 
         // Kelompokkan folder upload orders berdasarkan brand aktif jika ada
         $brand = BrandContext::currentBrand($request);
@@ -66,24 +74,12 @@ class UploadController extends Controller
 
         $path = "{$folderPath}/{$filename}";
 
-        // Tentukan full path tujuan di storage public
-        $targetFullPath = Storage::disk('public')->path($path);
-
-        // Lakukan kompresi ke WebP menggunakan GD Library
-        $compressed = $this->compressToWebp($file->getRealPath(), $targetFullPath);
-
-        if (!$compressed) {
-            // Fallback: simpan apa adanya jika kompresi gagal
-            $extension = $file->guessExtension() ?: $file->getClientOriginalExtension();
-            $filename = Str::ulid() . '.' . $extension;
-            $path = "{$folderPath}/{$filename}";
-            
-            $storedPath = $file->storeAs($folderPath, $filename, 'public');
-            if (!$storedPath) {
-                throw new \RuntimeException("Failed to store uploaded file on storage disk.");
-            }
-            $path = $storedPath;
+        // Simpan file ke public storage disk
+        $storedPath = $file->storeAs($folderPath, $filename, 'public');
+        if (!$storedPath) {
+            throw new \RuntimeException("Failed to store uploaded file on storage disk.");
         }
+        $path = $storedPath;
 
         // Validate physical file persistence on the disk
         if (!Storage::disk('public')->exists($path) || Storage::disk('public')->size($path) === 0) {
@@ -213,9 +209,18 @@ class UploadController extends Controller
             abort(403, 'Tindakan tidak diizinkan.');
         }
 
+        // Periksa apakah file masih digunakan oleh entity/order lain (Reference-Safe Delete)
+        if (\App\Support\FileReferenceChecker::isReferenced($data['path'])) {
+            return response()->json([
+                'success' => true,
+                'deleted_physical' => false,
+                'message' => 'Referensi dihapus, file fisik tetap disimpan karena digunakan oleh data lain.'
+            ]);
+        }
+
         if (Storage::disk('public')->exists($data['path'])) {
             Storage::disk('public')->delete($data['path']);
         }
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'deleted_physical' => true]);
     }
 }

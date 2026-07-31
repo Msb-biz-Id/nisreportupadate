@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { Search, Plus, CheckCircle2, XCircle, Receipt, Copy, Calendar, Paperclip, Link2, FileImage, X as XIcon, ExternalLink } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
+import StickyTableWrapper from '@/Components/StickyTableWrapper';
 import { Card, CardContent, CardHeader } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -617,100 +618,6 @@ function DetailRefundDialog({ refund, open, onOpenChange, can, onPublish, onReje
     );
 }
 
-const StickyScrollbar = ({ targetRef, minWidth = '1000px' }) => {
-    const scrollbarRef = useRef(null);
-    const [show, setShow] = useState(false);
-    const [width, setWidth] = useState(minWidth);
-
-    useEffect(() => {
-        const target = targetRef.current;
-        if (!target) return;
-
-        let frameId = null;
-        const updateSize = () => {
-            if (frameId) cancelAnimationFrame(frameId);
-            frameId = requestAnimationFrame(() => {
-                const scrollWidth = target.scrollWidth;
-                const clientWidth = target.clientWidth;
-                const hasOverflow = scrollWidth > clientWidth;
-                setShow((prev) => (prev !== hasOverflow ? hasOverflow : prev));
-                setWidth((prev) => {
-                    const nextWidth = `${scrollWidth}px`;
-                    return prev !== nextWidth ? nextWidth : prev;
-                });
-            });
-        };
-
-        updateSize();
-        const resizeObserver = new ResizeObserver(updateSize);
-        resizeObserver.observe(target);
-
-        let isSyncingTarget = false;
-        let isSyncingScrollbar = false;
-
-        const handleTargetScroll = () => {
-            if (isSyncingScrollbar) {
-                isSyncingScrollbar = false;
-                return;
-            }
-            if (scrollbarRef.current) {
-                isSyncingTarget = true;
-                scrollbarRef.current.scrollLeft = target.scrollLeft;
-            }
-        };
-
-        const handleScrollbarScroll = () => {
-            if (isSyncingTarget) {
-                isSyncingTarget = false;
-                return;
-            }
-            if (scrollbarRef.current) {
-                isSyncingScrollbar = true;
-                target.scrollLeft = scrollbarRef.current.scrollLeft;
-            }
-        };
-
-        target.addEventListener('scroll', handleTargetScroll);
-        const scrollbarEl = scrollbarRef.current;
-        if (scrollbarEl) {
-            scrollbarEl.addEventListener('scroll', handleScrollbarScroll);
-        }
-
-        return () => {
-            if (frameId) cancelAnimationFrame(frameId);
-            resizeObserver.disconnect();
-            target.removeEventListener('scroll', handleTargetScroll);
-            if (scrollbarEl) {
-                scrollbarEl.removeEventListener('scroll', handleScrollbarScroll);
-            }
-        };
-    }, [targetRef]);
-
-    if (!show) return null;
-
-    return (
-        <>
-            <style>{`
-                .hide-scrollbar-x::-webkit-scrollbar {
-                    height: 0px;
-                    background: transparent;
-                }
-                .hide-scrollbar-x {
-                    scrollbar-width: none;
-                    -ms-overflow-style: none;
-                }
-            `}</style>
-            <div
-                ref={scrollbarRef}
-                className="sticky bottom-0 left-0 right-0 z-40 w-full overflow-x-auto bg-slate-50 border-t border-slate-200"
-                style={{ height: '12px' }}
-            >
-                <div style={{ width, height: '1px' }} />
-            </div>
-        </>
-    );
-};
-
 export default function RefundIndex({ refunds, all_filtered_refunds, brands, bank_accounts: bankAccounts, filters, statuses, jenis_options: jenisOptions, can }) {
     const [search, setSearch] = useState(filters?.q ?? '');
     const [status, setStatus] = useState(filters?.status ?? 'all');
@@ -724,7 +631,6 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, ban
     const [publishing, setPublishing] = useState(null);
     const [selectedRefund, setSelectedRefund] = useState(null);
     const [showDatePanel, setShowDatePanel] = useState(!!(filters?.start_date || filters?.end_date));
-    const tableContainerRef = useRef(null);
 
     function applyFilters(overrides = {}) {
         router.get(route('refunds.index'), {
@@ -1021,7 +927,7 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, ban
                             </div>
                         </div>
 
-                        <div ref={tableContainerRef} className="overflow-auto max-h-[calc(100vh-320px)] rounded-lg border hide-scrollbar-x">
+                        <StickyTableWrapper maxHeight="calc(100vh - 280px)">
                             <Table className="min-w-[1000px] border-collapse">
                                 <TableHeader className="bg-slate-50">
                                     <TableRow>
@@ -1074,7 +980,7 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, ban
                                     ))}
                                 </TableBody>
                             </Table>
-                        </div>
+                        </StickyTableWrapper>
                     </CardContent>
 
                     {/* Pagination bar */}
@@ -1102,7 +1008,6 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, ban
                         </div>
                     </div>
                 </Card>
-                <StickyScrollbar targetRef={tableContainerRef} minWidth="1000px" />
             </div>
 
             <CreateRefundDialog open={createOpen} onOpenChange={setCreateOpen} jenisOptions={jenisOptions} />

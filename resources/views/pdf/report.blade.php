@@ -162,6 +162,36 @@
                 <tr><td colspan="{{ count($config['columns']) }}" style="text-align:center;color:#999;padding:20px">Tidak ada data</td></tr>
             @endforelse
         </tbody>
+        @php
+            $dataRows = array_filter($rows, fn($r) => empty($r['is_group_header']) && empty($r['is_group_total']));
+            $keysToSum = ['pcs', 'total_qty', 'total_order', 'total_tagihan', 'total_value', 'jumlah', 'nominal', 'nominal_refund', 'amount', 'total_pcs'];
+        @endphp
+        @if (!empty($dataRows))
+            <tfoot>
+                <tr {!! 'style="background-color: #F1F5F9; font-weight: bold; border-top: 2px solid ' . $primaryColor . '; border-bottom: 2px double ' . $primaryColor . ';"' !!}>
+                    @foreach ($config['columns'] as $idx => $col)
+                        @php
+                            $fmt = $col['format'] ?? null;
+                            $isSummable = in_array($col['key'], $keysToSum, true);
+                            $sumVal = $isSummable ? array_sum(array_column($dataRows, $col['key'])) : null;
+                        @endphp
+                        <td class="{{ in_array($fmt, ['currency', 'number']) ? 'right' : '' }}" style="padding: 6px; font-size: 8.5pt; font-weight: bold;">
+                            @if ($idx === 0)
+                                TOTAL KESELURUHAN ({{ count($dataRows) }} Data)
+                            @elseif ($isSummable)
+                                @if ($fmt === 'currency')
+                                    Rp {{ number_format((float) $sumVal, 0, ',', '.') }}
+                                @else
+                                    {{ number_format((float) $sumVal, 0, ',', '.') }}
+                                @endif
+                            @else
+                                &nbsp;
+                            @endif
+                        </td>
+                    @endforeach
+                </tr>
+            </tfoot>
+        @endif
     </table>
 
     <div class="footer">{{ \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack')) }} · Multi-Brand Order Management · halaman <span class="pagenum"></span></div>

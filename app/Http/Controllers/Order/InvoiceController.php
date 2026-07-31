@@ -200,51 +200,7 @@ class InvoiceController extends Controller
 
     private function logoDataUri(?string $logoPath): string
     {
-        if (empty($logoPath)) return '';
-        try {
-            // Clean/normalize path
-            $normalizedPath = $logoPath;
-            
-            // If it's a URL, parse and get the path component
-            if (str_starts_with($logoPath, 'http://') || str_starts_with($logoPath, 'https://')) {
-                $parsed = parse_url($logoPath);
-                $normalizedPath = ltrim($parsed['path'] ?? '', '/');
-            }
-            
-            // Strip leading slashes and storage prefix
-            $normalizedPath = ltrim($normalizedPath, '/');
-            if (str_starts_with($normalizedPath, 'storage/')) {
-                $normalizedPath = substr($normalizedPath, 8);
-            }
-
-            // Try candidate paths in order of preference
-            $candidates = [
-                storage_path('app/public/' . $normalizedPath),
-                public_path('storage/' . $normalizedPath),
-                public_path($normalizedPath),
-                $logoPath, // fallback
-            ];
-
-            $fullPath = null;
-            foreach ($candidates as $candidate) {
-                if (!empty($candidate) && file_exists($candidate) && !is_dir($candidate)) {
-                    $fullPath = $candidate;
-                    break;
-                }
-            }
-
-            if ($fullPath) {
-                $type = pathinfo($fullPath, PATHINFO_EXTENSION);
-                if (empty($type)) {
-                    $type = 'png';
-                }
-                $data = file_get_contents($fullPath);
-                return 'data:image/' . $type . ';base64,' . base64_encode($data);
-            }
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error("logoDataUri failed in InvoiceController for {$logoPath}: " . $e->getMessage());
-        }
-        return '';
+        return \App\Support\PdfHelper::resolveImageForPdf($logoPath);
     }
 
     private function qrCodeDataUri(string $url): string

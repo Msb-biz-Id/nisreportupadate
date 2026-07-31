@@ -8,6 +8,7 @@ import {
     MessageCircle, Send, Edit, Trash2, TrendingDown, TrendingUp
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
+import StickyTableWrapper from '@/Components/StickyTableWrapper';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -87,100 +88,6 @@ const DEPOSIT_STATUS_VARIANT = {
     converted: 'success',
     refunded: 'destructive',
     expired: 'secondary'
-};
-
-const StickyScrollbar = ({ targetRef, minWidth = '1200px' }) => {
-    const scrollbarRef = useRef(null);
-    const [show, setShow] = useState(false);
-    const [width, setWidth] = useState(minWidth);
-
-    useEffect(() => {
-        const target = targetRef.current;
-        if (!target) return;
-
-        let frameId = null;
-        const updateSize = () => {
-            if (frameId) cancelAnimationFrame(frameId);
-            frameId = requestAnimationFrame(() => {
-                const scrollWidth = target.scrollWidth;
-                const clientWidth = target.clientWidth;
-                const hasOverflow = scrollWidth > clientWidth;
-                setShow((prev) => (prev !== hasOverflow ? hasOverflow : prev));
-                setWidth((prev) => {
-                    const nextWidth = `${scrollWidth}px`;
-                    return prev !== nextWidth ? nextWidth : prev;
-                });
-            });
-        };
-
-        updateSize();
-        const resizeObserver = new ResizeObserver(updateSize);
-        resizeObserver.observe(target);
-
-        let isSyncingTarget = false;
-        let isSyncingScrollbar = false;
-
-        const handleTargetScroll = () => {
-            if (isSyncingScrollbar) {
-                isSyncingScrollbar = false;
-                return;
-            }
-            if (scrollbarRef.current) {
-                isSyncingTarget = true;
-                scrollbarRef.current.scrollLeft = target.scrollLeft;
-            }
-        };
-
-        const handleScrollbarScroll = () => {
-            if (isSyncingTarget) {
-                isSyncingTarget = false;
-                return;
-            }
-            if (scrollbarRef.current) {
-                isSyncingScrollbar = true;
-                target.scrollLeft = scrollbarRef.current.scrollLeft;
-            }
-        };
-
-        target.addEventListener('scroll', handleTargetScroll);
-        const scrollbarEl = scrollbarRef.current;
-        if (scrollbarEl) {
-            scrollbarEl.addEventListener('scroll', handleScrollbarScroll);
-        }
-
-        return () => {
-            if (frameId) cancelAnimationFrame(frameId);
-            resizeObserver.disconnect();
-            target.removeEventListener('scroll', handleTargetScroll);
-            if (scrollbarEl) {
-                scrollbarEl.removeEventListener('scroll', handleScrollbarScroll);
-            }
-        };
-    }, [targetRef]);
-
-    if (!show) return null;
-
-    return (
-        <>
-            <style>{`
-                .hide-scrollbar-x::-webkit-scrollbar {
-                    height: 0px;
-                    background: transparent;
-                }
-                .hide-scrollbar-x {
-                    scrollbar-width: none;
-                    -ms-overflow-style: none;
-                }
-            `}</style>
-            <div
-                ref={scrollbarRef}
-                className="sticky bottom-0 left-0 right-0 z-40 w-full overflow-x-auto bg-slate-50 border-t border-slate-200"
-                style={{ height: '12px' }}
-            >
-                <div style={{ width, height: '1px' }} />
-            </div>
-        </>
-    );
 };
 
 export default function InvoiceList({
@@ -901,7 +808,7 @@ export default function InvoiceList({
                 {/* Tabs Content */}
                 <Card className="border border-slate-150 shadow-sm overflow-hidden rounded-2xl">
                     <CardContent className="p-6 pt-0">
-                        <div ref={tableContainerRef} className="overflow-auto max-h-[calc(100vh-320px)] rounded-lg border hide-scrollbar-x">
+                        <StickyTableWrapper maxHeight="calc(100vh - 280px)">
                             {activeTab === 'belum_lunas' && (
                                 <Table className="min-w-[1100px] border-collapse">
                                     <TableHeader className="bg-slate-50">
@@ -1212,7 +1119,7 @@ export default function InvoiceList({
                                     </TableBody>
                                 </Table>
                             )}
-                        </div>
+                        </StickyTableWrapper>
 
                         {activeTab !== 'tanda_jadi' && (
                             <div className="mt-4 flex flex-wrap items-center justify-between gap-4 text-sm pt-4 border-t border-slate-100">
@@ -1259,7 +1166,6 @@ export default function InvoiceList({
                         )}
                     </CardContent>
                 </Card>
-                <StickyScrollbar targetRef={tableContainerRef} minWidth="1200px" />
 
                 {/* MODALS & DIALOGS */}
 

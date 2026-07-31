@@ -421,25 +421,35 @@ export default function ProgressPage({ order, can, ekspedisis = [] }) {
                     </CardHeader>
                     <CardContent className="space-y-2">
                         {selectedIds.length > 0 && (
-                            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50/50 p-3.5 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+                            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50/70 p-3.5 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
                                 <div className="flex items-center gap-2">
-                                    <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
-                                    <span className="text-sm font-semibold text-blue-900">
+                                    <span className="h-2.5 w-2.5 rounded-full bg-blue-600 animate-pulse"></span>
+                                    <span className="text-sm font-bold text-blue-950">
                                         {selectedIds.length} tahapan terpilih
                                     </span>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex items-center gap-2">
                                     <Button
                                         size="sm"
-                                        className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-sm"
                                         onClick={() => setOpenBulkUpdate(true)}
                                     >
                                         Update Status Terpilih
                                     </Button>
+                                    {can?.addReject && !isSent && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-medium"
+                                            onClick={() => { setEditingRijek(null); setOpenRijek(true); }}
+                                        >
+                                            <AlertTriangle className="mr-1 h-3.5 w-3.5 text-amber-600" /> Catat Rijek
+                                        </Button>
+                                    )}
                                     <Button
                                         size="sm"
                                         variant="ghost"
-                                        className="text-slate-500 hover:text-slate-700 hover:bg-slate-100/50 font-medium"
+                                        className="text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium text-xs"
                                         onClick={() => setSelectedIds([])}
                                     >
                                         Batal
@@ -580,6 +590,44 @@ export default function ProgressPage({ order, can, ekspedisis = [] }) {
                     </CardContent>
                 </Card>
             </div>
+            {/* Floating Sticky Bulk Action Dock (Pins to bottom center of screen when items are selected) */}
+            {selectedIds.length > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl border border-slate-700/80 bg-slate-900/95 text-white p-2.5 px-4 shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-5 fade-in duration-200 min-w-[320px] max-w-[95vw] justify-between">
+                    <div className="flex items-center gap-2 pr-3 border-r border-slate-700/80 shrink-0">
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span className="text-xs sm:text-sm font-bold text-slate-100 whitespace-nowrap">
+                            {selectedIds.length} Terpilih
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                        <Button
+                            size="sm"
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs h-8 shadow-sm"
+                            onClick={() => setOpenBulkUpdate(true)}
+                        >
+                            Update Status Terpilih
+                        </Button>
+                        {can?.addReject && !isSent && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 hover:text-amber-200 text-xs h-8 font-semibold"
+                                onClick={() => { setEditingRijek(null); setOpenRijek(true); }}
+                            >
+                                <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Catat Rijek
+                            </Button>
+                        )}
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-slate-400 hover:text-white hover:bg-slate-800 text-xs h-8"
+                            onClick={() => setSelectedIds([])}
+                        >
+                            Batal
+                        </Button>
+                    </div>
+                </div>
+            )}
 
             {updating && (
                 <UpdateModal

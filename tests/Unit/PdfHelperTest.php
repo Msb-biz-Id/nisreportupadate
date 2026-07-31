@@ -43,8 +43,7 @@ class PdfHelperTest extends TestCase
         try {
             $resolved = PdfHelper::resolveImageForPdf($fileName);
             $this->assertNotEmpty($resolved);
-            $this->assertStringStartsWith('data:', $resolved);
-            $this->assertStringContainsString('base64,', $resolved);
+            $this->assertStringStartsWith('file:///', $resolved);
         } finally {
             @unlink($fullPath);
         }
@@ -62,8 +61,7 @@ class PdfHelperTest extends TestCase
             $url = 'http://localhost/storage/' . $fileName;
             $resolved = PdfHelper::resolveImageForPdf($url);
             $this->assertNotEmpty($resolved);
-            $this->assertStringStartsWith('data:', $resolved);
-            $this->assertStringContainsString('base64,', $resolved);
+            $this->assertStringStartsWith('file:///', $resolved);
         } finally {
             @unlink($fullPath);
         }
@@ -93,7 +91,7 @@ class PdfHelperTest extends TestCase
             file_put_contents($fullLogoPath, 'logo data');
 
             $result = $method->invoke($controller, $logoPath);
-            $this->assertStringStartsWith('data:image/png;base64,', $result);
+            $this->assertStringStartsWith('file:///', $result);
             @unlink($fullLogoPath);
         } finally {
             @unlink($fullPath);
@@ -120,7 +118,7 @@ class PdfHelperTest extends TestCase
 
         try {
             $result = $method->invoke($controller, $logoPath);
-            $this->assertStringStartsWith('data:image/png;base64,', $result);
+            $this->assertStringStartsWith('file:///', $result);
         } finally {
             @unlink($fullLogoPath);
         }

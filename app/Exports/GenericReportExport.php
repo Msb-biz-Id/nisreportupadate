@@ -22,7 +22,7 @@ class GenericReportExport implements FromArray, WithHeadings, WithTitle, ShouldA
 
     public function array(): array
     {
-        return collect($this->rows)->map(function ($r) {
+        $mapped = collect($this->rows)->map(function ($r) {
             if (!empty($r['is_group_header'])) {
                 $rawDate = $r['deadline_produksi'] ?? $r['deadline'] ?? null;
                 $deadlineVal = !empty($rawDate) 
@@ -79,6 +79,27 @@ class GenericReportExport implements FromArray, WithHeadings, WithTitle, ShouldA
             }
             return $out;
         })->all();
+
+        // Auto Grand Total Row for Excel
+        $dataRows = array_filter($this->rows, fn($r) => empty($r['is_group_header']) && empty($r['is_group_total']));
+        if (!empty($dataRows)) {
+            $totalRow = [];
+            $keysToSum = ['pcs', 'total_qty', 'total_order', 'total_tagihan', 'total_value', 'jumlah', 'nominal', 'nominal_refund', 'amount', 'total_pcs'];
+            
+            foreach ($this->columns as $idx => $col) {
+                if ($idx === 0) {
+                    $totalRow[] = 'TOTAL KESELURUHAN (' . count($dataRows) . ' Data)';
+                } elseif (in_array($col['key'], $keysToSum, true)) {
+                    $sum = array_sum(array_column($dataRows, $col['key']));
+                    $totalRow[] = $sum;
+                } else {
+                    $totalRow[] = '';
+                }
+            }
+            $mapped[] = $totalRow;
+        }
+
+        return $mapped;
     }
 
     public function headings(): array

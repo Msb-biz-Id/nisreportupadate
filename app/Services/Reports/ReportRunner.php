@@ -241,7 +241,21 @@ class ReportRunner
 
         $breakdown = $orders->groupBy('status_po')->map->count();
 
-        return ['rows' => $rows, 'summary' => $breakdown->map(fn ($cnt, $st) => ['label' => $st, 'value' => $cnt])->values()->all()];
+        $totalPo = count($rows);
+        $totalPcs = array_sum(array_column($rows, 'pcs'));
+        $totalTagihan = array_sum(array_column($rows, 'total'));
+
+        $summary = [
+            ['label' => 'Total PO', 'value' => $totalPo],
+            ['label' => 'Total PCS', 'value' => $totalPcs, 'format' => 'number'],
+            ['label' => 'Total Tagihan', 'value' => $totalTagihan, 'format' => 'currency'],
+        ];
+
+        foreach ($breakdown as $st => $cnt) {
+            $summary[] = ['label' => 'Status ' . str_replace('_', ' ', strtoupper($st)), 'value' => $cnt];
+        }
+
+        return ['rows' => $rows, 'summary' => $summary];
     }
 
     private function monitoringDeadline(string|array|null $brandId, array $filters): array
@@ -252,7 +266,7 @@ class ReportRunner
 
         $orders = Order::query()
             ->when($brandId, $this->bf($brandId))
-            ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
+            ->whereNotIn('status_po', ['draft', 'selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'])
             ->when($from && $to, function ($q) use ($from, $to) {
                 $q->whereBetween(DB::raw('COALESCE(end_production_date, deadline_customer)'), [$from, $to]);
             }, function ($q) use ($threshold) {

@@ -129,13 +129,13 @@ class PdfHelper
     /**
      * Resolve image path for DOMPDF.
      *
-     * Converts the image into a base64 Data URI in-memory, completely bypassing
-     * filesystem path limitations and ensuring consistent PDF rendering.
-     * WebP images are converted to PNG in-memory using the GD library,
-     * while other formats are encoded directly.
+     * Returns physical local file path (`file:///...`) for JPEG/PNG to allow Dompdf
+     * to read images directly from disk without Base64 memory overhead.
+     * For legacy WebP images, converts to a persistent disk cache (`storage/app/pdf-cache/`)
+     * once and returns the cached physical path.
      *
      * @param string|null $path Relative path in storage/app/public/
-     * @return string base64 Data URI or empty string if not found
+     * @return string Physical file URI or Base64 Data URI fallback, empty string if not found
      */
     public static function resolveImageForPdf(?string $path): string
     {
@@ -185,38 +185,26 @@ class PdfHelper
         }
 
         // Normalize slashes and resolve drive letters on Windows
-        $realPath = realpath($fullPath);
-        if (!$realPath) {
-            Log::warning("PdfHelper::resolveImageForPdf - Realpath failed for: {$fullPath}");
-            $realPath = $fullPath;
-        }
+        $realPath = realpath($fullPath) ?: $fullPath;
 
         try {
             $extension = strtolower(pathinfo($realPath, PATHINFO_EXTENSION));
             $mime = @mime_content_type($realPath) ?: '';
 
-            // Handle WebP in-memory conversion to PNG
-            if ($extension === 'webp' || $mime === 'image/webp') {
-                Log::debug("PdfHelper::resolveImageForPdf - Attempting WebP conversion for: {$realPath}");
-                if (function_exists('imagecreatefromwebp')) {
-                    $im = @imagecreatefromwebp($realPath);
-                    if ($im) {
-                        ob_start();
-                        imagepng($im);
-                        $pngData = ob_get_clean();
-                        imagedestroy($im);
-                        
-                        Log::info("PdfHelper::resolveImageForPdf - WebP converted successfully to PNG base64 in-memory: {$realPath}");
-                        return 'data:image/png;base64,' . base64_encode($pngData);
-                    } else {
-                        Log::error("PdfHelper::resolveImageForPdf - imagecreatefromwebp failed to read image at: {$realPath}");
-                    }
-                } else {
-                    Log::warning("PdfHelper::resolveImageForPdf - function imagecreatefromwebp does not exist, GD library might be missing WebP support.");
+            // 1. JPEG or PNG: Return physical file URI directly (No Base64 memory overhead)
+            if (in_array($extension, ['jpg', 'jpeg', 'png']) || str_contains($mime, 'jpeg') || str_contains($mime, 'png')) {
+                return 'file:///' . str_replace('\\', '/', $realPath);
+            }
+
+            // 2. Legacy WebP: Convert once to persistent PDF disk cache & return physical path
+            if ($extension === 'webp' || str_contains($mime, 'webp')) {
+                $cachedPath = self::getOrCreateWebpPdfCache($realPath);
+                if ($cachedPath && file_exists($cachedPath)) {
+                    return 'file:///' . str_replace('\\', '/', $cachedPath);
                 }
             }
 
-            // Fallback / default case for non-webp images or failed webp conversion
+            // 3. Fallback to in-memory Base64 for other formats (GIF, SVG) or failed conversions
             if (empty($mime)) {
                 $mimeMap = [
                     'png' => 'image/png',
@@ -234,12 +222,68 @@ class PdfHelper
                 return 'data:' . $mime . ';base64,' . base64_encode($data);
             }
         } catch (\Throwable $e) {
-            Log::error("PdfHelper::resolveImageForPdf - Exception during conversion: " . $e->getMessage(), [
+            Log::error("PdfHelper::resolveImageForPdf - Exception during resolution: " . $e->getMessage(), [
                 'exception' => $e
             ]);
         }
 
         return '';
+    }
+
+    /**
+     * Konversi file WebP legacy ke file cache PDF (JPEG) di storage/app/pdf-cache/
+     */
+    private static function getOrCreateWebpPdfCache(string $realPath): ?string
+    {
+        try {
+            $cacheDir = storage_path('app/pdf-cache');
+            if (!file_exists($cacheDir)) {
+                @mkdir($cacheDir, 0755, true);
+            }
+
+            $mtime = @filemtime($realPath) ?: 0;
+            $hashKey = md5($realPath . '_' . $mtime);
+            $targetCacheFile = $cacheDir . '/' . $hashKey . '.jpg';
+
+            if (file_exists($targetCacheFile) && filesize($targetCacheFile) > 0) {
+                return $targetCacheFile;
+            }
+
+            if (!function_exists('imagecreatefromwebp')) {
+                Log::warning("PdfHelper: imagecreatefromwebp function missing in PHP GD");
+                return null;
+            }
+
+            $im = @imagecreatefromwebp($realPath);
+            if (!$im) {
+                return null;
+            }
+
+            $tempFile = $cacheDir . '/' . $hashKey . '_' . uniqid() . '.tmp';
+            
+            $width = imagesx($im);
+            $height = imagesy($im);
+            $bg = imagecreatetruecolor($width, $height);
+            $white = imagecolorallocate($bg, 255, 255, 255);
+            imagefill($bg, 0, 0, $white);
+            imagecopy($bg, $im, 0, 0, 0, 0, $width, $height);
+            imagedestroy($im);
+
+            $saved = @imagejpeg($bg, $tempFile, 92);
+            imagedestroy($bg);
+
+            if ($saved && file_exists($tempFile) && filesize($tempFile) > 0) {
+                @rename($tempFile, $targetCacheFile);
+                return $targetCacheFile;
+            }
+            if (file_exists($tempFile)) {
+                @unlink($tempFile);
+            }
+        } catch (\Throwable $e) {
+            Log::error("PdfHelper::getOrCreateWebpPdfCache failed: " . $e->getMessage());
+        }
+
+        return null;
     }
 }
 

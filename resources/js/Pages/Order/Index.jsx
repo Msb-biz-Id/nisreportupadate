@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Search, Eye, Package, RotateCw, Copy, Check, X, Calendar, Download } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
+import StickyTableWrapper from '@/Components/StickyTableWrapper';
 import { Card, CardContent, CardHeader } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -24,102 +25,7 @@ const STATUS_LABEL = {
 
 const NONE = '__none__';
 
-const StickyScrollbar = ({ targetRef, minWidth = '1300px' }) => {
-    const scrollbarRef = useRef(null);
-    const [show, setShow] = useState(false);
-    const [width, setWidth] = useState(minWidth);
-
-    useEffect(() => {
-        const target = targetRef.current;
-        if (!target) return;
-
-        let frameId = null;
-        const updateSize = () => {
-            if (frameId) cancelAnimationFrame(frameId);
-            frameId = requestAnimationFrame(() => {
-                const scrollWidth = target.scrollWidth;
-                const clientWidth = target.clientWidth;
-                const hasOverflow = scrollWidth > clientWidth;
-                setShow((prev) => (prev !== hasOverflow ? hasOverflow : prev));
-                setWidth((prev) => {
-                    const nextWidth = `${scrollWidth}px`;
-                    return prev !== nextWidth ? nextWidth : prev;
-                });
-            });
-        };
-
-        updateSize();
-        const resizeObserver = new ResizeObserver(updateSize);
-        resizeObserver.observe(target);
-
-        let isSyncingTarget = false;
-        let isSyncingScrollbar = false;
-
-        const handleTargetScroll = () => {
-            if (isSyncingScrollbar) {
-                isSyncingScrollbar = false;
-                return;
-            }
-            if (scrollbarRef.current) {
-                isSyncingTarget = true;
-                scrollbarRef.current.scrollLeft = target.scrollLeft;
-            }
-        };
-
-        const handleScrollbarScroll = () => {
-            if (isSyncingTarget) {
-                isSyncingTarget = false;
-                return;
-            }
-            if (scrollbarRef.current) {
-                isSyncingScrollbar = true;
-                target.scrollLeft = scrollbarRef.current.scrollLeft;
-            }
-        };
-
-        target.addEventListener('scroll', handleTargetScroll);
-        const scrollbarEl = scrollbarRef.current;
-        if (scrollbarEl) {
-            scrollbarEl.addEventListener('scroll', handleScrollbarScroll);
-        }
-
-        return () => {
-            if (frameId) cancelAnimationFrame(frameId);
-            resizeObserver.disconnect();
-            target.removeEventListener('scroll', handleTargetScroll);
-            if (scrollbarEl) {
-                scrollbarEl.removeEventListener('scroll', handleScrollbarScroll);
-            }
-        };
-    }, [targetRef]);
-
-    if (!show) return null;
-
-    return (
-        <>
-            <style>{`
-                .hide-scrollbar-x::-webkit-scrollbar {
-                    height: 0px;
-                    background: transparent;
-                }
-                .hide-scrollbar-x {
-                    scrollbar-width: none;
-                    -ms-overflow-style: none;
-                }
-            `}</style>
-            <div
-                ref={scrollbarRef}
-                className="sticky bottom-0 left-0 right-0 z-40 w-full overflow-x-auto bg-slate-50 border-t border-slate-200"
-                style={{ height: '12px' }}
-            >
-                <div style={{ width, height: '1px' }} />
-            </div>
-        </>
-    );
-};
-
 export default function OrderIndex({ orders, filters, statuses, statusCounts, brands, can }) {
-    const tableContainerRef = useRef(null);
     const [search, setSearch]     = useState(filters?.q ?? '');
     const [status, setStatus]     = useState(filters?.status ?? 'all');
     const [brandId, setBrandId]   = useState(filters?.brand_id ?? '');
@@ -519,7 +425,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                             </div>
                         </div>
 
-                        <div ref={tableContainerRef} className="overflow-auto max-h-[calc(100vh-320px)] rounded-lg border hide-scrollbar-x">
+                        <StickyTableWrapper maxHeight="calc(100vh - 280px)">
                             <Table className="min-w-[1300px] border-collapse">
                                 <TableHeader>
                                     <TableRow>
@@ -601,8 +507,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                     })}
                                 </TableBody>
                             </Table>
-                        </div>
-                        <StickyScrollbar targetRef={tableContainerRef} minWidth="1300px" />
+                        </StickyTableWrapper>
 
                         <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-muted-foreground">
                             <div className="flex items-center gap-4">

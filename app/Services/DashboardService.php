@@ -932,7 +932,7 @@ class DashboardService
     {
         return Order::query()
             ->when($brandId, $this->bf($brandId))
-            ->whereNotIn('status_po', ['draft', 'sudah_dikirim'])
+            ->whereNotIn('status_po', ['draft', 'selesai_produksi', 'siap_dikirim', 'sudah_dikirim'])
             ->where('deadline_customer', '<', today())
             ->with(['pelanggan:id,nama'])
             ->orderBy('deadline_customer')

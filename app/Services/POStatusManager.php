@@ -113,14 +113,43 @@ class POStatusManager
             $newStatus = 'published';
         }
 
-        // Delay check: deadline_customer terlewati & belum sudah_dikirim
+        // Delay check: deadline_customer terlewati & produksi/packing belum selesai
         if ($order->deadline_customer && \Carbon\Carbon::parse($order->deadline_customer)->isPast()
-            && ! in_array($newStatus, ['sudah_dikirim'], true)) {
+            && ! in_array($newStatus, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim'], true)) {
             $newStatus = 'delay';
         }
 
+        $updateData = [];
         if ($order->status_po !== $newStatus) {
-            $order->update(['status_po' => $newStatus]);
+            $updateData['status_po'] = $newStatus;
+        }
+
+        // Catat data keterlambatan permanen saat PO selesai diproduksi/dipacking
+        if (in_array($newStatus, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim'], true)) {
+            $endProductionDate = $order->end_production_date ?? now();
+            if (!$order->end_production_date) {
+                $updateData['end_production_date'] = $endProductionDate;
+            }
+
+            if ($order->deadline_customer) {
+                $deadlineDate = \Carbon\Carbon::parse($order->deadline_customer)->startOfDay();
+                $completionDate = \Carbon\Carbon::parse($endProductionDate)->startOfDay();
+                $diffDays = (int) $deadlineDate->diffInDays($completionDate, false);
+
+                $wasDelayed = $diffDays > 0;
+                $daysLate = $wasDelayed ? $diffDays : 0;
+
+                if ($order->was_delayed_on_completion !== $wasDelayed) {
+                    $updateData['was_delayed_on_completion'] = $wasDelayed;
+                }
+                if ((int)$order->days_late_on_completion !== $daysLate) {
+                    $updateData['days_late_on_completion'] = $daysLate;
+                }
+            }
+        }
+
+        if (!empty($updateData)) {
+            $order->update($updateData);
         }
     }
 

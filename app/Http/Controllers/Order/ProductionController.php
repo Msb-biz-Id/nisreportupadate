@@ -109,7 +109,13 @@ class ProductionController extends Controller
         $orders = Order::query()
             ->forBrand($brandId)
             ->published()
-            ->whereNotIn($statusPoCol, ['selesai'])
+            ->where(function ($q) use ($statusPoCol) {
+                $q->whereNotIn($statusPoCol, ['selesai', 'sudah_dikirim'])
+                  ->orWhere(function ($q2) use ($statusPoCol) {
+                      $q2->where($statusPoCol, 'sudah_dikirim')
+                         ->where('updated_at', '>=', now()->subDays(7));
+                  });
+            })
             ->with([
                 'pelanggan:id,nama',
                 'lockStatus',
@@ -271,6 +277,7 @@ class ProductionController extends Controller
             ]);
 
             // Sync with Invoice
+            /** @var \App\Models\Order\Invoice|null $invoice */
             $invoice = $order->invoices()->first();
             if ($invoice) {
                 $invoice->update([
@@ -349,6 +356,7 @@ class ProductionController extends Controller
                 ]);
 
                 // Sync with Invoice
+                /** @var \App\Models\Order\Invoice|null $invoice */
                 $invoice = $order->invoices()->first();
                 if ($invoice) {
                     $invoice->update([

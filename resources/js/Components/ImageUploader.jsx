@@ -72,42 +72,36 @@ export default function ImageUploader({
         return () => window.removeEventListener('keydown', handler);
     }, [open, uploading]);
 
-    function pickFile() { inputRef.current?.click(); }
+    const pickFile = () => inputRef.current?.click();
 
     function handleFileChange(e) {
         const file = e.target.files?.[0];
         if (!file) return;
-        if (file.size > 5 * 1024 * 1024) {
-            toast.error('Maksimal 5 MB');
+        if (file.size > 10 * 1024 * 1024) {
+            toast.error('Maksimal 10 MB');
             return;
         }
         const reader = new FileReader();
         reader.onload = () => {
+            const rawSrc = reader.result;
             const img = new Image();
             img.onload = () => {
-                const resizedSrc = resizeImageIfNeeded(img, 1600);
-                
-                // Simpan secara global di window agar bisa digunakan kembali oleh uploader lain tanpa upload ulang
-                window.__lastUploadedImageSrc = resizedSrc;
+                window.__lastUploadedImageSrc = rawSrc;
                 window.__lastUploadedImageName = file.name;
                 window.dispatchEvent(new CustomEvent('last-image-updated'));
 
-                const imgTemp = new Image();
-                imgTemp.onload = () => {
-                    const calculatedAspect = imgTemp.width / imgTemp.height;
-                    setSrc(resizedSrc);
-                    setImageAspect(calculatedAspect);
-                    setCropAspect(aspect); // Mulai dengan aspect prop yang diinginkan
-                    setCroppedPx(null);
-                    setZoom(1);
-                    setOpen(true);
-                };
-                imgTemp.src = resizedSrc;
+                const calculatedAspect = img.width / img.height;
+                setSrc(rawSrc);
+                setImageAspect(calculatedAspect);
+                setCropAspect(aspect);
+                setCroppedPx(null);
+                setZoom(1);
+                setOpen(true);
             };
-            img.src = reader.result;
+            img.src = rawSrc;
         };
         reader.readAsDataURL(file);
-        e.target.value = ''; // izinkan pilih file yang sama lagi
+        e.target.value = ''; // allow selecting same file again
     }
 
     function closeCrop() {
@@ -134,23 +128,20 @@ export default function ImageUploader({
         }
     }, [cropAspect, open]);
 
-    // Putar gambar 90 derajat searah jarum jam secara langsung pada base64 source
+    // Putar gambar 90 derajat searah jarum jam secara lossless (PNG canvas)
     async function handleRotate() {
         if (!src) return;
         try {
-            const rotatedBase64 = await rotateImageBase64(src);
+            const rotatedBase64 = await rotateImageLossless(src);
             setSrc(rotatedBase64);
             
-            // Tukar aspek rasio gambar asli
             const nextImgAspect = 1 / imageAspect;
             setImageAspect(nextImgAspect);
 
-            // Jika ada rasio aktif (selain bebas/null), sesuaikan rasionya
             if (cropAspect) {
                 const nextCropAspect = 1 / cropAspect;
                 setCropAspect(nextCropAspect);
             } else {
-                // Jika bebas, recalculate crop box dengan dimensi baru
                 setTimeout(() => {
                     if (imgRef.current) {
                         const { width, height } = imgRef.current;
@@ -169,9 +160,9 @@ export default function ImageUploader({
         if (!croppedPx || !src) return;
         setUploading(true);
         try {
-            const blob = await getCroppedBlob(src, croppedPx);
+            const { blob, ext } = await getCroppedBlob(src, croppedPx);
             const fd = new FormData();
-            fd.append('file', blob, `crop-${Date.now()}.jpg`);
+            fd.append('file', blob, `crop-${Date.now()}.${ext}`);
             fd.append('purpose', purpose);
             if (namaPo) fd.append('nama_po', namaPo);
 
@@ -514,28 +505,78 @@ function centerFreeCrop(mediaWidth, mediaHeight) {
 }
 
 /**
- * Hasilkan Blob JPEG dari area crop canvas.
+ * Single-pass canvas export: crop & scale (max 2400px longest side, no upscale).
+ * Detects transparency or PNG input to output PNG, otherwise JPEG 0.92.
  */
 async function getCroppedBlob(imageSrc, areaPx) {
     const image = await loadImage(imageSrc);
+    
+    let targetWidth = areaPx.width;
+    let targetHeight = areaPx.height;
+    const maxDim = 2400;
+
+    // Do NOT upscale; only downscale if area exceeds 2400px
+    if (targetWidth > maxDim || targetHeight > maxDim) {
+        if (targetWidth > targetHeight) {
+            targetHeight = Math.round((targetHeight * maxDim) / targetWidth);
+            targetWidth = maxDim;
+        } else {
+            targetWidth = Math.round((targetWidth * maxDim) / targetHeight);
+            targetHeight = maxDim;
+        }
+    }
+
     const cropCanvas = document.createElement('canvas');
-    cropCanvas.width = areaPx.width;
-    cropCanvas.height = areaPx.height;
+    cropCanvas.width = Math.round(targetWidth);
+    cropCanvas.height = Math.round(targetHeight);
     const cropCtx = cropCanvas.getContext('2d');
+
+    // Sample alpha transparency from source area or check data URI mime
+    const isPngInput = typeof imageSrc === 'string' && (imageSrc.startsWith('data:image/png') || imageSrc.includes('type=png'));
+    let hasAlpha = isPngInput;
+
+    if (!hasAlpha) {
+        // Quick sample test of source canvas alpha
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = Math.min(200, Math.round(areaPx.width));
+        tempCanvas.height = Math.min(200, Math.round(areaPx.height));
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(image, areaPx.x, areaPx.y, areaPx.width, areaPx.height, 0, 0, tempCanvas.width, tempCanvas.height);
+        try {
+            const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
+            for (let i = 3; i < imgData.length; i += 16) {
+                if (imgData[i] < 250) {
+                    hasAlpha = true;
+                    break;
+                }
+            }
+        } catch {
+            // fallback safe
+        }
+    }
+
+    const outputMime = hasAlpha ? 'image/png' : 'image/jpeg';
+
+    if (outputMime === 'image/png') {
+        cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+    } else {
+        cropCtx.fillStyle = '#FFFFFF';
+        cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+    }
 
     cropCtx.drawImage(
         image,
-        areaPx.x, areaPx.y, areaPx.width, areaPx.height, // sumber
-        0, 0, areaPx.width, areaPx.height // tujuan
+        areaPx.x, areaPx.y, areaPx.width, areaPx.height, // source
+        0, 0, cropCanvas.width, cropCanvas.height // target
     );
 
-    return new Promise((resolve, reject) =>
+    return new Promise((resolve, reject) => {
         cropCanvas.toBlob(
-            (blob) => blob ? resolve(blob) : reject(new Error('Canvas toBlob gagal')),
-            'image/jpeg',
-            0.92,
-        ),
-    );
+            (blob) => blob ? resolve({ blob, ext: hasAlpha ? 'png' : 'jpg', mime: outputMime }) : reject(new Error('Canvas export failed')),
+            outputMime,
+            outputMime === 'image/jpeg' ? 0.92 : undefined
+        );
+    });
 }
 
 function loadImage(src) {
@@ -548,36 +589,13 @@ function loadImage(src) {
     });
 }
 
-function resizeImageIfNeeded(img, maxDim = 1600) {
-    if (img.width <= maxDim && img.height <= maxDim) {
-        return img.src;
-    }
-    const canvas = document.createElement('canvas');
-    let width = img.width;
-    let height = img.height;
-    if (width > height) {
-        if (width > maxDim) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-        }
-    } else {
-        if (height > maxDim) {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-        }
-    }
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, width, height);
-    return canvas.toDataURL('image/jpeg', 0.92);
-}
-
-async function rotateImageBase64(imageSrc) {
+/**
+ * Lossless PNG rotation in browser memory without lossy re-encoding loops.
+ */
+async function rotateImageLossless(imageSrc) {
     const image = await loadImage(imageSrc);
     const canvas = document.createElement('canvas');
     
-    // Swap width and height for 90 deg rotation
     canvas.width = image.height;
     canvas.height = image.width;
     const ctx = canvas.getContext('2d');
@@ -587,5 +605,5 @@ async function rotateImageBase64(imageSrc) {
     ctx.translate(-image.width / 2, -image.height / 2);
     ctx.drawImage(image, 0, 0);
     
-    return canvas.toDataURL('image/jpeg', 0.92);
+    return canvas.toDataURL('image/png');
 }
