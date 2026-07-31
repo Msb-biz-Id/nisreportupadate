@@ -7,10 +7,11 @@ import { Button } from '@/Components/ui/button';
 import { formatDate } from '@/lib/utils';
 
 function KanbanCard({ order }) {
-    const days      = order.days_remaining;
-    const overdue   = days !== null && days < 0;
-    const urgent    = days !== null && days <= 2 && days >= 0;
-    const nearDeadline = days !== null && days <= 7 && days > 2;
+    const isFinished   = ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim'].includes(order.status_po);
+    const days         = order.days_remaining;
+    const overdue      = !isFinished && (order.status_po === 'delay' || (days !== null && days < 0));
+    const urgent       = !isFinished && !overdue && days !== null && days <= 2 && days >= 0;
+    const nearDeadline = !isFinished && !overdue && !urgent && days !== null && days <= 7 && days > 2;
 
     // Visual border based on priority
     const borderClass = overdue

@@ -117,8 +117,9 @@ function DayPanel({ date, events, onClose }) {
                     ) : (
                         <ul className="divide-y">
                             {dayEvents.map((e) => {
-                                const overdue = e.daysRemaining !== null && e.daysRemaining < 0;
-                                const urgent = e.daysRemaining !== null && e.daysRemaining <= 2 && e.daysRemaining >= 0;
+                                const isFinished = ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim'].includes(e.status);
+                                const overdue = !isFinished && (e.status === 'delay' || (e.daysRemaining !== null && e.daysRemaining < 0));
+                                const urgent = !isFinished && !overdue && e.daysRemaining !== null && e.daysRemaining <= 2 && e.daysRemaining >= 0;
                                 return (
                                     <li key={e.id} className="px-5 py-3.5 hover:bg-slate-50 transition">
                                         <div className="flex items-start justify-between gap-2">
