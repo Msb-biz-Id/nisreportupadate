@@ -718,6 +718,20 @@ class DashboardService
                     ->pluck('cnt', 'status_po')
                     ->toArray();
 
+                $today = now()->startOfDay()->format('Y-m-d');
+                $unifiedDelayCount = Order::query()
+                    ->when($brandId, $this->bf($brandId))
+                    ->where(function ($q) use ($today) {
+                        $q->where('status_po', 'delay')
+                          ->orWhere(function ($q2) use ($today) {
+                              $q2->whereNotIn('status_po', ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai', 'draft'])
+                                 ->whereRaw("DATE(COALESCE(end_production_date, deadline_customer)) < ?", [$today]);
+                          });
+                    })
+                    ->count();
+
+                $rows['delay'] = $unifiedDelayCount;
+
                 $statuses = [
                     'draft'            => ['label' => 'Draft',            'color' => '#9CA3AF'],
                     'published'        => ['label' => 'PO Masuk',         'color' => '#3B82F6'],
@@ -930,23 +944,33 @@ class DashboardService
 
     private function poTerlambat(string|array|null $brandId, int $limit): array
     {
+        $today = now()->startOfDay()->format('Y-m-d');
         return Order::query()
             ->when($brandId, $this->bf($brandId))
-            ->whereNotIn('status_po', ['draft', 'selesai_produksi', 'siap_dikirim', 'sudah_dikirim'])
-            ->where('deadline_customer', '<', today())
+            ->where(function ($q) use ($today) {
+                $q->where('status_po', 'delay')
+                  ->orWhere(function ($q2) use ($today) {
+                      $q2->whereNotIn('status_po', ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai', 'draft'])
+                         ->whereRaw("DATE(COALESCE(end_production_date, deadline_customer)) < ?", [$today]);
+                  });
+            })
             ->with(['pelanggan:id,nama'])
-            ->orderBy('deadline_customer')
+            ->orderByRaw('COALESCE(end_production_date, deadline_customer) ASC')
             ->limit($limit)
             ->get()
-            ->map(fn ($o) => [
-                'id'        => $o->id,
-                'no_po'     => $o->no_po,
-                'nama_po'   => $o->nama_po,
-                'pelanggan' => $o->pelanggan?->nama,
-                'deadline'  => $o->deadline_customer?->toDateString(),
-                'days_late' => abs(now()->startOfDay()->diffInDays($o->deadline_customer, false)),
-                'status'    => $o->status_po,
-            ])
+            ->map(function ($o) {
+                $effectiveDeadline = $o->end_production_date ?? $o->deadline_customer;
+                $deadlineDate = $effectiveDeadline ? \Carbon\Carbon::parse((string) $effectiveDeadline) : null;
+                return [
+                    'id'        => $o->id,
+                    'no_po'     => $o->no_po,
+                    'nama_po'   => $o->nama_po,
+                    'pelanggan' => $o->pelanggan?->nama,
+                    'deadline'  => $deadlineDate?->toDateString(),
+                    'days_late' => $deadlineDate ? abs((int) now()->startOfDay()->diffInDays($deadlineDate, false)) : 0,
+                    'status'    => $o->status_po,
+                ];
+            })
             ->all();
     }
 
