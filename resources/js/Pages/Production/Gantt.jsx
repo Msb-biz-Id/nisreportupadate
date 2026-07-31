@@ -119,31 +119,70 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
         setTimeout(() => setCopied(false), 2500);
     };
 
-    // Fungsi Export CSV File untuk Excel
-    const handleExportCSV = () => {
+    // Fungsi Export Excel File (.xls Spreadsheet dengan Styling & Formatting)
+    const handleExportExcel = () => {
         if (filtered.length === 0) return;
 
-        const headers = ['No PO', 'Nama PO', 'Pelanggan', 'Brand', 'Status', 'Tanggal Mulai', 'Deadline', 'Sisa Hari', 'Total Pcs'];
-        const rows = filtered.map((item) => [
-            `"${item.no_po || ''}"`,
-            `"${(item.nama_po || '').replace(/"/g, '""')}"`,
-            `"${(item.pelanggan || '').replace(/"/g, '""')}"`,
-            `"${item.brand_kode || ''}"`,
-            `"${item.status_label || item.status_po}"`,
-            `"${item.start || ''}"`,
-            `"${item.end_production_date || item.deadline_customer || ''}"`,
-            `"${item.days_remaining ?? ''}"`,
-            `"${item.total_pcs || 0}"`
-        ]);
+        const headers = ['No. PO', 'Nama PO', 'Pelanggan', 'Brand', 'Status', 'Tanggal Mulai', 'Deadline', 'Sisa Hari', 'Jumlah Pcs'];
+        
+        let tableHtml = `
+          <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+          <head>
+            <meta charset="utf-8">
+            <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Laporan Produksi</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+            <style>
+              th { background-color: #1e293b; color: #ffffff; font-weight: bold; border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+              td { border: 1px solid #cbd5e1; padding: 6px; }
+              .num { text-align: right; }
+              .center { text-align: center; }
+            </style>
+          </head>
+          <body>
+            <table>
+              <thead>
+                <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+              </thead>
+              <tbody>
+        `;
 
-        const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-        const encodedUri = encodeURI(csvContent);
+        filtered.forEach(item => {
+            const daysText = item.days_remaining === null 
+                ? '-' 
+                : item.days_remaining < 0 
+                ? `Terlambat ${Math.abs(item.days_remaining)} hari` 
+                : `${item.days_remaining} hari lagi`;
+
+            tableHtml += `
+              <tr>
+                <td>${item.no_po || ''}</td>
+                <td>${item.nama_po || '-'}</td>
+                <td>${item.pelanggan || '-'}</td>
+                <td class="center">${item.brand_kode || '-'}</td>
+                <td>${item.status_label || item.status_po}</td>
+                <td class="center">${item.start ? new Date(item.start).toLocaleDateString('id-ID') : '-'}</td>
+                <td class="center">${(item.end_production_date || item.deadline_customer) ? new Date(item.end_production_date || item.deadline_customer).toLocaleDateString('id-ID') : '-'}</td>
+                <td>${daysText}</td>
+                <td class="num">${item.total_pcs || 0}</td>
+              </tr>
+            `;
+        });
+
+        tableHtml += `
+              </tbody>
+            </table>
+          </body>
+          </html>
+        `;
+
+        const blob = new Blob(['\ufeff' + tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.setAttribute('href', encodedUri);
-        link.setAttribute('download', `Gantt_Produksi_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.href = url;
+        link.download = `Gantt_Produksi_${new Date().toISOString().slice(0, 10)}.xls`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
     // Configuration ApexCharts
@@ -273,16 +312,16 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
                             <span className="font-medium text-xs">{copied ? 'Berhasil Disalin!' : 'Salin ke Excel'}</span>
                         </Button>
 
-                        {/* Tombol Export CSV File */}
+                        {/* Tombol Export Excel File (.xls Spreadsheet) */}
                         <Button 
                             variant="outline" 
                             size="sm" 
-                            onClick={handleExportCSV}
+                            onClick={handleExportExcel}
                             className="h-9 gap-1.5"
-                            title="Unduh file spreadsheet .CSV"
+                            title="Unduh file spreadsheet Excel (.xls)"
                         >
                             <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                            <span className="font-medium text-xs">Export CSV</span>
+                            <span className="font-medium text-xs">Export Excel</span>
                         </Button>
 
                         {/* Swtich ke Kanban */}
