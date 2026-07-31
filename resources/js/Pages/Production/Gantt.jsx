@@ -39,7 +39,13 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
     // Filter berdasarkan status & pencarian query
     const filtered = useMemo(() => {
         return items.filter((item) => {
-            const matchesStatus = filterStatus === 'all' || item.status_po === filterStatus;
+            const isItemDelayed = item.status_po === 'delay' || (item.days_remaining !== null && item.days_remaining < 0 && !['selesai_produksi', 'siap_dikirim', 'sudah_dikirim'].includes(item.status_po));
+            const matchesStatus = filterStatus === 'all'
+                ? true
+                : filterStatus === 'delay'
+                ? isItemDelayed
+                : item.status_po === filterStatus;
+
             const query = searchQuery.toLowerCase().trim();
             const matchesSearch = !query || 
                 (item.no_po && item.no_po.toLowerCase().includes(query)) ||
@@ -59,14 +65,22 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
         let finishedCount = 0;
 
         for (const item of items) {
+            const isItemDelayed = item.status_po === 'delay' || (item.days_remaining !== null && item.days_remaining < 0 && !['selesai_produksi', 'siap_dikirim', 'sudah_dikirim'].includes(item.status_po));
+
             counts[item.status_po] = (counts[item.status_po] ?? 0) + 1;
             totalPcs += Number(item.total_pcs || 0);
-            if (item.days_remaining !== null && item.days_remaining < 0) {
+
+            if (isItemDelayed) {
                 overdueCount++;
             }
             if (['selesai_produksi', 'siap_dikirim', 'sudah_dikirim'].includes(item.status_po)) {
                 finishedCount++;
             }
+        }
+
+        // Unify delay count with overdue count so tab badge matches KPI card
+        if (overdueCount > 0) {
+            counts['delay'] = overdueCount;
         }
 
         return { counts, totalPcs, overdueCount, finishedCount };
@@ -303,12 +317,16 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
                         </div>
                     </div>
 
-                    <div className="bg-card p-3.5 rounded-xl border shadow-sm flex items-center gap-3">
+                    <div 
+                        onClick={() => setFilterStatus(filterStatus === 'delay' ? 'all' : 'delay')}
+                        className={`bg-card p-3.5 rounded-xl border shadow-sm flex items-center gap-3 cursor-pointer transition-all hover:scale-[1.02] ${filterStatus === 'delay' ? 'ring-2 ring-red-500 bg-red-50/20' : ''}`}
+                        title="Klik untuk menyaring semua PO yang terlambat/delay"
+                    >
                         <div className="p-2.5 rounded-lg bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400">
                             <AlertTriangle className="h-5 w-5" />
                         </div>
                         <div>
-                            <p className="text-xs font-medium text-muted-foreground">Terlambat</p>
+                            <p className="text-xs font-medium text-muted-foreground">Terlambat / Delay</p>
                             <p className="text-lg font-bold text-red-600 dark:text-red-400">{summary.overdueCount} <span className="text-xs font-normal text-muted-foreground">PO</span></p>
                         </div>
                     </div>
