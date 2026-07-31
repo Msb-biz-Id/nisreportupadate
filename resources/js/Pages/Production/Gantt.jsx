@@ -459,9 +459,9 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
                                                 <td className="px-4 py-2.5">
                                                     <span
                                                         className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold text-white shadow-xs"
-                                                        style={{ backgroundColor: item.color }}
+                                                        style={{ backgroundColor: item.status_po === 'delay' ? '#F59E0B' : item.color }}
                                                     >
-                                                        {item.status_label}
+                                                        {item.status_po === 'delay' ? 'Sedang Produksi' : item.status_label}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-2.5 text-xs text-muted-foreground">

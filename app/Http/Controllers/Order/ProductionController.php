@@ -140,7 +140,9 @@ class ProductionController extends Controller
 
         foreach ($orders as $order) {
             $status = $order->status_po;
-            if (! isset($columns[$status])) continue;
+            // Delay orders are in production workflow, map them to on_progress column
+            $columnKey = ($status === 'delay') ? 'on_progress' : $status;
+            if (! isset($columns[$columnKey])) continue;
 
             $effectiveDeadline = $order->end_production_date ?? $order->deadline_customer;
             $daysRemaining = $effectiveDeadline
@@ -172,7 +174,7 @@ class ProductionController extends Controller
                 }
             }
 
-            $columns[$status]['orders'][] = [
+            $columns[$columnKey]['orders'][] = [
                 'id'                  => $order->id,
                 'no_po'               => $order->no_po,
                 'nama_po'             => $order->nama_po,
