@@ -276,7 +276,7 @@ class PdfHelper
             imagecopy($bg, $im, 0, 0, 0, 0, $width, $height);
             imagedestroy($im);
 
-            $saved = @imagejpeg($bg, $tempFile, 92);
+            $saved = @imagejpeg($bg, $tempFile, 98);
             imagedestroy($bg);
 
             if ($saved && file_exists($tempFile) && filesize($tempFile) > 0) {
