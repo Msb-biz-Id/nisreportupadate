@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { router, usePage } from '@inertiajs/react';
+import { router, usePage, Link } from '@inertiajs/react';
 import Chart from '@/Components/Chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Button } from '@/Components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Badge } from '@/Components/ui/badge';
 import { StatGrid, StatusBreakdown, TopList, POListWidget, POSiapDikirimWidget } from '@/Components/Widgets';
@@ -70,19 +71,24 @@ export default function Owner({ stats }) {
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                                <Target className="h-4 w-4 text-indigo-650" /> Target Bulanan ({stats.target_progress.month_name})
+                                <Target className="h-4 w-4 text-indigo-600" /> Target Bulanan ({stats.target_progress.month_name})
                             </h3>
                             <p className="text-xs text-muted-foreground">Monitor pencapaian target bulanan Anda.</p>
                         </div>
+                        <Link href={route('brand-targets.index')}>
+                            <Button variant="outline" size="sm" className="h-8 text-xs border-indigo-200 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 font-semibold">
+                                <Target className="h-3.5 w-3.5 mr-1 text-indigo-600" /> Kelola Target Penjualan
+                            </Button>
+                        </Link>
                     </div>
 
                     <div>
-                        <Card className="bg-gradient-to-br from-emerald-50/50 to-white border-l-4 border-emerald-500">
+                        <Card className="bg-gradient-to-br from-emerald-50/60 via-white to-indigo-50/30 border-l-4 border-emerald-500 shadow-sm">
                             <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                                    <Target className="h-4 w-4 text-emerald-500" /> Target Qty (Pcs) Bulan Ini ({stats.target_progress.month_name})
+                                <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                    <Target className="h-4 w-4 text-emerald-600" /> Target Qty (Pcs) Bulan Ini ({stats.target_progress.month_name})
                                 </CardTitle>
-                                <CardDescription>Realisasi quantity produk terjual dibandingkan target.</CardDescription>
+                                <CardDescription className="text-xs">Realisasi quantity produk terjual dibandingkan target.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 <div className="flex items-baseline justify-between">
@@ -90,7 +96,7 @@ export default function Owner({ stats }) {
                                         {stats.target_progress.actual_pcs.toLocaleString('id-ID')} Pcs
                                     </span>
                                     <span className="text-xs text-muted-foreground font-semibold">
-                                        dari target {stats.target_progress.target_pcs.toLocaleString('id-ID')} Pcs
+                                        dari target <strong className="text-slate-700">{stats.target_progress.target_pcs.toLocaleString('id-ID')} Pcs</strong>
                                     </span>
                                 </div>
                                 <div className="space-y-1">
@@ -102,9 +108,9 @@ export default function Owner({ stats }) {
                                                 : 'Belum ada target'}
                                         </span>
                                     </div>
-                                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
+                                    <div className="w-full bg-slate-200/80 rounded-full h-2.5 overflow-hidden shadow-inner">
                                         <div 
-                                            className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+                                            className={`h-full rounded-full transition-all duration-500 ${stats.target_progress.pcs_percentage >= 100 ? 'bg-emerald-500' : 'bg-indigo-600'}`} 
                                             style={{ width: `${stats.target_progress.target_pcs > 0 ? Math.min(100, stats.target_progress.pcs_percentage) : 0}%` }} 
                                         />
                                     </div>
