@@ -274,7 +274,7 @@ class ReportRunner
                     $q->whereRaw('COALESCE(end_production_date, deadline_customer) <= ?', [Carbon::now()->addDays($threshold)->toDateString()]);
                 }
             })
-            ->with(['pelanggan:id,nama', 'brand:id,nama_brand', 'items:id,order_id,is_addon,quantity,jml_atasan'])
+            ->with(['pelanggan:id,nama', 'brand:id,nama_brand', 'paketOrder:id,nama', 'items:id,order_id,is_addon,quantity,jml_atasan'])
             ->orderByRaw('COALESCE(end_production_date, deadline_customer) ASC')
             ->get();
 
@@ -301,6 +301,7 @@ class ReportRunner
                 'nama_po' => $o->nama_po,
                 'brand_nama' => $o->brand?->nama_brand ?? '-',
                 'pelanggan' => $o->pelanggan?->nama ?? '-',
+                'paket_order' => $o->paketOrder?->nama ?? '-',
                 'pcs' => $this->getOrderPcs($o),
                 'jenis_printing' => implode(', ', $orderPrintings) ?: '-',
                 'status' => $o->status_po,
@@ -722,10 +723,10 @@ class ReportRunner
             }
             
             $aoi = count($intervals) > 0 ? (array_sum($intervals) / count($intervals)) : 30; // fallback 30 hari
-            $aoi = max(1, $aoi);
+            $aoi = max(1, round($aoi));
             
             $lastOrderDate = end($dates);
-            $recency = $lastOrderDate->diffInDays(Carbon::now());
+            $recency = (int) round($lastOrderDate->startOfDay()->diffInDays(Carbon::now()->startOfDay()));
             
             // Churn Risk Assessment
             if ($recency <= $aoi * 1.5) {
@@ -743,15 +744,15 @@ class ReportRunner
                 $totalLoss += $monetaryLoss;
             }
             
-            $nextOrderPred = $lastOrderDate->copy()->addDays((int) round($aoi));
+            $nextOrderPred = $lastOrderDate->copy()->addDays((int) $aoi);
             
             $rows[] = [
                 'kode' => $first->kode,
                 'nama' => $first->nama,
                 'nomor_hp' => $first->nomor_hp,
                 'total_order' => $totalOrder,
-                'avg_interval' => $aoi,
-                'avg_interval_text' => round($aoi) . ' hari',
+                'avg_interval' => (int) $aoi,
+                'avg_interval_text' => (int) $aoi . ' hari',
                 'recency_days' => $recency,
                 'next_order_pred' => $nextOrderPred->toDateString(),
                 'risk_level' => $riskLevel,
@@ -760,7 +761,7 @@ class ReportRunner
                     'nama' => $first->nama,
                     'nomor_hp' => $first->nomor_hp,
                     'recency' => $recency,
-                    'aoi' => (int) round($aoi),
+                    'aoi' => (int) $aoi,
                 ]
             ];
         }
@@ -1069,9 +1070,9 @@ class ReportRunner
             // 1. Calculate overall lateness
             $lateness = '-';
             $isCompleted = in_array($o->status_po, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim']);
-            
-            if ($o->deadline_customer) {
-                $deadline = Carbon::parse($o->deadline_customer)->startOfDay();
+            $targetDeadlineDate = $isCompleted ? $o->deadline_customer : ($o->end_production_date ?? $o->deadline_customer);
+            if ($targetDeadlineDate) {
+                $deadline = Carbon::parse($targetDeadlineDate)->startOfDay();
                 
                 $completionDate = null;
                 if ($isCompleted) {
@@ -1131,7 +1132,8 @@ class ReportRunner
                 'brand_nama' => $o->brand?->nama_brand ?? '-',
                 'pelanggan' => $o->pelanggan?->nama ?? '-',
                 'tanggal_masuk' => $o->tanggal_masuk?->toDateString(),
-                'deadline' => $o->deadline_customer?->toDateString(),
+                'deadline_produksi' => $o->end_production_date ? Carbon::parse((string) $o->end_production_date)->toDateString() : ($o->deadline_customer ? Carbon::parse((string) $o->deadline_customer)->toDateString() : null),
+                'deadline_customer' => $o->deadline_customer ? Carbon::parse((string) $o->deadline_customer)->toDateString() : null,
                 'pcs' => $this->getOrderPcs($o),
                 'status' => $o->status_po,
                 'keterlambatan' => $lateness,

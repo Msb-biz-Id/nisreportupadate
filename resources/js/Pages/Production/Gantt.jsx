@@ -11,7 +11,11 @@ import {
     Package, 
     Clock, 
     CheckCircle2, 
-    FileSpreadsheet 
+    FileSpreadsheet,
+    ChevronUp,
+    ChevronDown,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import Chart from '@/Components/Chart';
@@ -35,6 +39,8 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
     const [filterStatus, setFilterStatus] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [copied, setCopied] = useState(false);
+    const [chartLimit, setChartLimit] = useState('20');
+    const [isChartCollapsed, setIsChartCollapsed] = useState(false);
 
     // Filter berdasarkan status & pencarian query
     const filtered = useMemo(() => {
@@ -56,6 +62,12 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
             return matchesStatus && matchesSearch;
         });
     }, [items, filterStatus, searchQuery]);
+
+    // Subset data khusus untuk Visual Gantt Chart agar render super ringan
+    const chartFiltered = useMemo(() => {
+        if (chartLimit === 'all') return filtered;
+        return filtered.slice(0, Number(chartLimit));
+    }, [filtered, chartLimit]);
 
     // Ringkasan KPI & status
     const summary = useMemo(() => {
@@ -188,7 +200,7 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
     // Configuration ApexCharts
     const { series, chartOptions } = useMemo(() => {
         const grouped = {};
-        for (const item of filtered) {
+        for (const item of chartFiltered) {
             if (!grouped[item.status_po]) grouped[item.status_po] = [];
             grouped[item.status_po].push(item);
         }
@@ -209,6 +221,9 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
         const chartOptions = {
             chart: { 
                 type: 'rangeBar', 
+                zoom: {
+                    enabled: false
+                },
                 toolbar: { show: true, tools: { download: true, selection: false, zoom: false, zoomin: false, zoomout: false, pan: false, reset: false } },
                 events: {
                     dataPointSelection: (event, chartContext, config) => {
@@ -278,10 +293,10 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
         };
 
         return { series, chartOptions };
-    }, [filtered, statusColors, statusLabels]);
+    }, [chartFiltered, statusColors, statusLabels]);
 
     const activeStatuses = STATUS_ORDER.filter((s) => summary.counts[s]);
-    const chartHeight = Math.max(340, filtered.length * 38 + 90);
+    const chartHeight = Math.max(320, chartFiltered.length * 38 + 90);
 
     return (
         <AppLayout>
@@ -425,34 +440,82 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
                 </div>
 
                 {/* Visual Gantt Chart */}
-                <Card className="shadow-sm">
-                    <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-primary" />
-                            Timeline Visual Order
-                            <span className="text-xs font-normal text-muted-foreground ml-1 hidden sm:inline">
-                                (Klik bar order untuk membuka detail progress)
-                            </span>
-                        </CardTitle>
-                        <span className="text-xs font-medium text-muted-foreground">
-                            Menampilkan {filtered.length} dari {items.length} Order
-                        </span>
-                    </CardHeader>
-                    <CardContent className="pt-2">
-                        {filtered.length === 0 ? (
-                            <div className="flex h-48 flex-col items-center justify-center text-sm text-muted-foreground gap-2">
-                                <Search className="h-8 w-8 opacity-40" />
-                                Tidak ada order yang sesuai dengan filter atau kata kunci pencarian.
+                <Card className="shadow-sm transition-all duration-200">
+                    <CardHeader className="pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b">
+                        <div className="flex items-center gap-2">
+                            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-primary" />
+                                Timeline Visual Order
+                            </CardTitle>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsChartCollapsed(!isChartCollapsed)}
+                                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 border-dashed"
+                            >
+                                {isChartCollapsed ? (
+                                    <>
+                                        <Eye className="h-3.5 w-3.5 text-primary" />
+                                        <span className="font-medium text-primary">Tampilkan Visual</span>
+                                        <ChevronDown className="h-3.5 w-3.5 ml-0.5 text-primary" />
+                                    </>
+                                ) : (
+                                    <>
+                                        <EyeOff className="h-3.5 w-3.5" />
+                                        <span>Lipat Visual</span>
+                                        <ChevronUp className="h-3.5 w-3.5 ml-0.5" />
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+
+                        {!isChartCollapsed && (
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap">Visual Limit:</span>
+                                    <Select value={chartLimit} onValueChange={setChartLimit}>
+                                        <SelectTrigger className="h-7 text-xs w-[145px] bg-background">
+                                            <SelectValue placeholder="Pilih limit" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="20">20 Order (Cepat)</SelectItem>
+                                            <SelectItem value="50">50 Order</SelectItem>
+                                            <SelectItem value="100">100 Order</SelectItem>
+                                            <SelectItem value="all">Semua Order</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <Badge variant="secondary" className="text-[11px] font-normal">
+                                    Visual: {chartFiltered.length} dari {filtered.length} Order
+                                </Badge>
                             </div>
-                        ) : (
-                            <Chart
-                                type="rangeBar"
-                                series={series}
-                                options={chartOptions}
-                                height={chartHeight}
-                            />
                         )}
-                    </CardContent>
+                    </CardHeader>
+
+                    {!isChartCollapsed && (
+                        <CardContent className="pt-4">
+                            {chartLimit === 'all' && filtered.length > 50 && (
+                                <div className="mb-3 rounded-md bg-amber-50 dark:bg-amber-950/30 p-2.5 text-xs text-amber-700 dark:text-amber-300 flex items-center gap-2 border border-amber-200 dark:border-amber-900">
+                                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                                    <span>Menampilkan seluruh {filtered.length} order sekaligus dapat membuat grafik sedikit lambat. Rekomendasi: gunakan opsi 20 atau 50 order terdekat.</span>
+                                </div>
+                            )}
+                            {chartFiltered.length === 0 ? (
+                                <div className="flex h-48 flex-col items-center justify-center text-sm text-muted-foreground gap-2">
+                                    <Search className="h-8 w-8 opacity-40" />
+                                    Tidak ada order yang sesuai dengan filter atau kata kunci pencarian.
+                                </div>
+                            ) : (
+                                <Chart
+                                    type="rangeBar"
+                                    series={series}
+                                    options={chartOptions}
+                                    height={chartHeight}
+                                />
+                            )}
+                        </CardContent>
+                    )}
                 </Card>
 
                 {/* Tabel Data Order Interaktif */}

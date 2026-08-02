@@ -75,7 +75,9 @@ function FormatCell({ value, format }) {
         if (type === 'seasonal') {
             messageText = `Halo Kak ${nama}, semoga sehat selalu! Kami melihat tahun lalu sekitar tanggal ${formatDate(tanggal_order_lalu)} Kakak pernah memesan dengan No PO ${order_tahun_lalu}. Karena sudah memasuki siklus tahunan project tersebut, apakah tahun ini ada rencana pembuatan jersey atau jaket baru yang bisa kami bantu kembali? 😊`;
         } else {
-            messageText = `Halo Kak ${nama}, semoga sehat selalu! Kami dari brand pilihan Kakak melihat Kak sudah ${recency} hari tidak melakukan pemesanan. Biasanya Kakak memesan setiap ${aoi} hari sekali. Apakah saat ini ada kebutuhan jersey atau project jaket baru yang bisa kami bantu? Dapatkan penawaran promo menarik khusus repeat order hari ini! 😊`;
+            const recencyDays = Math.round(Number(recency || 0));
+            const aoiDays = Math.round(Number(aoi || 0));
+            messageText = `Halo Kak ${nama}, semoga sehat selalu! Kami dari brand pilihan Kakak melihat Kak sudah ${recencyDays} hari tidak melakukan pemesanan. Biasanya Kakak memesan setiap ${aoiDays} hari sekali. Apakah saat ini ada kebutuhan jersey atau project jaket baru yang bisa kami bantu? Dapatkan penawaran promo menarik khusus repeat order hari ini! 😊`;
         }
         
         const message = encodeURIComponent(messageText);
