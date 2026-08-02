@@ -1,12 +1,12 @@
 <div>
     @if (!empty($logoData))
     <div style="margin-bottom: 8px;">
-        <img src="{{ $logoData }}" alt="{{ $brand?->nama_brand ?? 'Brand Logo' }}" style="max-height: 58px; max-width: 180px; object-fit: contain;">
+        <img src="{{ $logoData }}" alt="{{ $brand?->nama_brand ?? 'Brand Logo' }}" style="max-height: 58px; max-width: 180px; height: auto; width: auto; display: inline-block;">
     </div>
     <div class="brand" style="color: #000000; font-weight: 900; font-size: 16pt; letter-spacing: -0.5px; margin-bottom: 4px;">{{ $brand?->nama_brand ?? 'Circle Sportwear' }}</div>
     @elseif ($brand?->logo)
     <div style="margin-bottom: 8px;">
-        <img src="{{ public_path('storage/' . $brand->logo) }}" alt="{{ $brand?->nama_brand ?? 'Brand Logo' }}" style="max-height: 58px; max-width: 180px; object-fit: contain;">
+        <img src="{{ public_path('storage/' . $brand->logo) }}" alt="{{ $brand?->nama_brand ?? 'Brand Logo' }}" style="max-height: 58px; max-width: 180px; height: auto; width: auto; display: inline-block;">
     </div>
     <div class="brand" style="color: #000000; font-weight: 900; font-size: 16pt; letter-spacing: -0.5px; margin-bottom: 4px;">{{ $brand?->nama_brand ?? 'Circle Sportwear' }}</div>
     @else

@@ -153,18 +153,24 @@ class PdfHelper
             $normalizedPath = ltrim($parsed['path'] ?? '', '/');
         }
         
-        // Strip leading slashes and storage prefix
+        // Strip leading slashes
         $normalizedPath = ltrim($normalizedPath, '/');
-        if (str_starts_with($normalizedPath, 'storage/')) {
-            $normalizedPath = substr($normalizedPath, 8);
+        
+        // Strip common storage/public prefixes to obtain pure relative path
+        $prefixesToStrip = ['storage/', 'public/storage/', 'app/public/', 'public/'];
+        foreach ($prefixesToStrip as $prefix) {
+            if (str_starts_with($normalizedPath, $prefix)) {
+                $normalizedPath = substr($normalizedPath, strlen($prefix));
+            }
         }
 
         // Try candidate paths in order of preference
         $candidates = [
+            $path, // Direct input if already an absolute path
             storage_path('app/public/' . $normalizedPath),
             public_path('storage/' . $normalizedPath),
             public_path($normalizedPath),
-            $path, // fallback to original input
+            storage_path('app/' . $normalizedPath),
         ];
 
         $fullPath = null;
@@ -266,6 +272,7 @@ class PdfHelper
             $bg = imagecreatetruecolor($width, $height);
             $white = imagecolorallocate($bg, 255, 255, 255);
             imagefill($bg, 0, 0, $white);
+            imagealphablending($bg, true);
             imagecopy($bg, $im, 0, 0, 0, 0, $width, $height);
             imagedestroy($im);
 

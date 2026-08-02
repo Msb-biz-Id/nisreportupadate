@@ -669,14 +669,14 @@
             @if(!empty($item['gambar_desain']))
             @php $dPath = \App\Support\PdfHelper::resolveImageForPdf($item['gambar_desain']); @endphp
             @if(!empty($dPath))
-            <div class="img-box" style="border-top:none; padding:2px; margin-bottom:6px;">
-                <img src="{{ $dPath }}" style="max-width: 100%; max-height: 520px; display: block; margin: 0 auto;">
+            <div class="img-box" style="border: 1px solid #000; border-top: none; padding: 6px; margin-bottom: 6px; text-align: center; background: #ffffff;">
+                <img src="{{ $dPath }}" style="max-width: 100%; max-height: 380px; height: auto; width: auto; vertical-align: middle; display: inline-block;">
             </div>
             @else
-            <div class="img-box" style="border-top:none; height:60px; line-height:60px; color:#64748b; font-style:italic; font-size:9.5pt;">Gambar desain tidak ditemukan</div>
+            <div class="img-box" style="border: 1px solid #000; border-top: none; height: 50px; line-height: 50px; color: #64748b; font-style: italic; font-size: 9pt; text-align: center; background: #ffffff;">Gambar desain tidak ditemukan</div>
             @endif
             @else
-            <div class="img-box" style="border-top:none; height:60px; line-height:60px; color:#64748b; font-style:italic; font-size:9.5pt;">Gambar desain belum diunggah</div>
+            <div class="img-box" style="border: 1px solid #000; border-top: none; height: 50px; line-height: 50px; color: #64748b; font-style: italic; font-size: 9pt; text-align: center; background: #ffffff;">Gambar desain belum diunggah</div>
             @endif
 
             <table style="width:100%; border-collapse:collapse; border:1px solid #000; font-size:10pt; margin-bottom:0;">
@@ -716,7 +716,7 @@
                             @php $kPath = \App\Support\PdfHelper::resolveImageForPdf($item['gambar_kerah']); @endphp
                             @if(!empty($kPath))
                             <div style="text-align:center;">
-                                <img src="{{ $kPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
+                                <img src="{{ $kPath }}" style="max-width: 100%; max-height: 140px; height: auto; width: auto; vertical-align: middle; display: inline-block;">
                             </div>
                             @else
                             <div style="color:#64748b; font-style:italic; font-size: 8.5pt; padding:15px 0;">Gambar kerah tidak ditemukan</div>
@@ -743,7 +743,7 @@
                             @php $ktPath = \App\Support\PdfHelper::resolveImageForPdf($item['gambar_ket_tambahan']); @endphp
                             @if(!empty($ktPath))
                             <div style="text-align:center;">
-                                <img src="{{ $ktPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
+                                <img src="{{ $ktPath }}" style="max-width: 100%; max-height: 140px; height: auto; width: auto; vertical-align: middle; display: inline-block;">
                             </div>
                             @else
                             <div style="color:#64748b; font-style:italic; font-size: 8.5pt; padding:15px 0;">Gambar tambahan tidak ditemukan</div>
