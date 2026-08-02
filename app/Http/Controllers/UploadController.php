@@ -86,6 +86,10 @@ class UploadController extends Controller
             throw new \RuntimeException("Uploaded file was not successfully persisted on storage disk.");
         }
 
+        // Optimize high-resolution uploaded images to reduce storage size while preserving HD quality
+        $fullRealPath = Storage::disk('public')->path($path);
+        $this->optimizeUploadedImage($fullRealPath, $clientExt);
+
         /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
         $disk = Storage::disk('public');
 
@@ -94,6 +98,90 @@ class UploadController extends Controller
             'path' => $path,
             'url' => $disk->url($path),
         ]);
+    }
+
+    /**
+     * Kompres file gambar di disk tanpa mengorbankan kualitas visual (Lossless/High-Quality Compression).
+     */
+    private function optimizeUploadedImage(string $filePath, string $ext): void
+    {
+        try {
+            if (!file_exists($filePath) || filesize($filePath) === 0) return;
+
+            $info = @getimagesize($filePath);
+            if (!$info) return;
+
+            $width = $info[0];
+            $height = $info[1];
+            $mime = $info['mime'];
+
+            // Hanya optimasi jika file berukuran besar (> 400KB atau lebar/tinggi > 2000px)
+            if (filesize($filePath) < 400 * 1024 && $width <= 2000 && $height <= 2000) {
+                return;
+            }
+
+            switch ($mime) {
+                case 'image/jpeg':
+                    $image = @imagecreatefromjpeg($filePath);
+                    if ($image && function_exists('exif_read_data')) {
+                        $exif = @exif_read_data($filePath);
+                        $orientation = $exif['Orientation'] ?? 1;
+                        switch ($orientation) {
+                            case 3:
+                                $rotated = @imagerotate($image, 180, 0);
+                                if ($rotated) { imagedestroy($image); $image = $rotated; }
+                                break;
+                            case 6:
+                                $rotated = @imagerotate($image, -90, 0);
+                                if ($rotated) { imagedestroy($image); $image = $rotated; }
+                                break;
+                            case 8:
+                                $rotated = @imagerotate($image, 90, 0);
+                                if ($rotated) { imagedestroy($image); $image = $rotated; }
+                                break;
+                        }
+                    }
+                    break;
+                case 'image/png':
+                    $image = @imagecreatefrompng($filePath);
+                    if ($image) {
+                        imagealphablending($image, false);
+                        imagesavealpha($image, true);
+                    }
+                    break;
+                case 'image/webp':
+                    $image = @imagecreatefromwebp($filePath);
+                    break;
+                default:
+                    $image = null;
+            }
+
+            if (!$image) return;
+
+            $maxWidth = 2000;
+            if ($width > $maxWidth) {
+                $newWidth = $maxWidth;
+                $newHeight = (int) (($height / $width) * $maxWidth);
+                $resized = imagescale($image, $newWidth, $newHeight);
+                if ($resized) {
+                    imagedestroy($image);
+                    $image = $resized;
+                }
+            }
+
+            // Simpan kembali dengan kualitas tinggi (90%) tanpa mengorbankan ketajaman visual
+            if ($mime === 'image/jpeg') {
+                @imagejpeg($image, $filePath, 90);
+            } elseif ($mime === 'image/png') {
+                @imagepng($image, $filePath, 8);
+            } elseif ($mime === 'image/webp') {
+                @imagewebp($image, $filePath, 90);
+            }
+
+            imagedestroy($image);
+        } catch (\Throwable) {
+            // Biarkan file asli jika terjadi kendala pada GD
+        }
     }
 
     /**
