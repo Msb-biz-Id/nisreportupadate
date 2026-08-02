@@ -11,7 +11,8 @@ import {
     LayoutGrid, 
     TrendingUp, 
     Filter,
-    FileSpreadsheet
+    FileSpreadsheet,
+    MessageSquare
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
@@ -36,16 +37,15 @@ export default function TargetIndex({ brands = [], year = new Date().getFullYear
     const [selectedBrand, setSelectedBrand] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [copiedToast, setCopiedToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState('Laporan berhasil disalin ke clipboard!');
     const [activeView, setActiveView] = useState('all'); // 'all', 'cards', 'matrix'
     const [matrixMode, setMatrixMode] = useState('both'); // 'both', 'actual', 'target'
+    const [activeMonth, setActiveMonth] = useState(parseInt(month) || 0);
 
     // Dynamic Year List fallback
-    const currentYear = new Date().getFullYear();
     const yearsList = availableYears && availableYears.length > 0 
         ? availableYears 
-        : Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
-
-    const activeMonth = parseInt(month) || 0;
+        : Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 2 + i);
 
     const { data, setData, post, processing, reset } = useForm({
         year: year,
@@ -53,11 +53,12 @@ export default function TargetIndex({ brands = [], year = new Date().getFullYear
     });
 
     function handleYearChange(newYear) {
-        router.get(route('brand-targets.index'), { year: newYear, month: activeMonth }, { preserveScroll: true });
+        router.get(route('brand-targets.index'), { year: newYear, month: activeMonth }, { preserveState: true, preserveScroll: true });
     }
 
     function handleMonthChange(newMonth) {
-        router.get(route('brand-targets.index'), { year: year, month: newMonth }, { preserveScroll: true });
+        setActiveMonth(newMonth);
+        router.get(route('brand-targets.index'), { year: year, month: newMonth }, { preserveState: true, preserveScroll: true });
     }
 
     function openTargetModal(brand) {
@@ -145,8 +146,47 @@ export default function TargetIndex({ brands = [], year = new Date().getFullYear
         }
     }
 
+    // Function to Copy Formatted Report for WhatsApp Sharing
+    function copyReportToWhatsApp() {
+        const monthHeader = activeMonth > 0 ? MONTH_NAMES[activeMonth - 1] : 'Semua Bulan (1-12)';
+        let text = `📊 *LAPORAN TARGET PENJUALAN BRAND*\n`;
+        text += `🗓 *Tahun:* ${year} | *Filter:* ${monthHeader}\n`;
+        text += `─────────────────────────────\n\n`;
+
+        let grandTarget = 0;
+        let grandActual = 0;
+
+        brands.forEach((brand, idx) => {
+            const summary = getBrandSummary(brand.id, activeMonth);
+            grandTarget += summary.targetPcs;
+            grandActual += summary.actualPcs;
+
+            const formatNum = (num) => new Intl.NumberFormat('id-ID').format(num);
+
+            text += `*${idx + 1}. ${brand.nama_brand} (${brand.kode})*\n`;
+            text += `   • Realisasi: *${formatNum(summary.actualPcs)} Pcs*\n`;
+            text += `   • Target: *${formatNum(summary.targetPcs)} Pcs*\n`;
+            text += `   • Capaian: *${summary.pcsPercent}%*\n\n`;
+        });
+
+        const grandPercent = grandTarget > 0 ? Math.round((grandActual / grandTarget) * 100) : 0;
+        const formatNum = (num) => new Intl.NumberFormat('id-ID').format(num);
+
+        text += `─────────────────────────────\n`;
+        text += `📈 *TOTAL KESELURUHAN BRAND (${year}):*\n`;
+        text += `• Total Realisasi: *${formatNum(grandActual)} Pcs*\n`;
+        text += `• Total Target: *${formatNum(grandTarget)} Pcs*\n`;
+        text += `• Total Capaian: *${grandPercent}%*\n`;
+
+        navigator.clipboard.writeText(text).then(() => {
+            setToastMessage('Laporan format WhatsApp berhasil disalin! Siap dipaste ke pesan WhatsApp.');
+            setCopiedToast(true);
+            setTimeout(() => setCopiedToast(false), 3500);
+        });
+    }
+
     // Function to Copy Matrix Report to Clipboard as Excel/TSV text
-    function copyReportToClipboard() {
+    function copyReportToExcel() {
         const monthHeader = activeMonth > 0 ? MONTH_NAMES[activeMonth - 1] : 'Semua Bulan (1-12)';
         let text = `LAPORAN TARGET PENJUALAN BRAND - TAHUN ${year} (${monthHeader})\n\n`;
         
@@ -175,8 +215,9 @@ export default function TargetIndex({ brands = [], year = new Date().getFullYear
         });
 
         navigator.clipboard.writeText(text).then(() => {
+            setToastMessage('Laporan format Excel (Tabel TSV) berhasil disalin ke clipboard!');
             setCopiedToast(true);
-            setTimeout(() => setCopiedToast(false), 3000);
+            setTimeout(() => setCopiedToast(false), 3500);
         });
     }
 
@@ -189,7 +230,7 @@ export default function TargetIndex({ brands = [], year = new Date().getFullYear
                 {copiedToast && (
                     <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2 bg-emerald-700 text-white px-4 py-3 rounded-lg shadow-xl animate-in fade-in slide-in-from-bottom-5">
                         <Check className="h-5 w-5 text-emerald-200" />
-                        <span className="text-sm font-medium">Laporan berhasil disalin ke clipboard! Siap ditempel di Excel atau WhatsApp.</span>
+                        <span className="text-sm font-medium">{toastMessage}</span>
                     </div>
                 )}
 
@@ -247,16 +288,28 @@ export default function TargetIndex({ brands = [], year = new Date().getFullYear
                                 </Select>
                             </div>
 
-                            {/* Salin Laporan Button */}
-                            <Button 
-                                onClick={copyReportToClipboard} 
-                                variant="outline" 
-                                size="sm"
-                                className="h-11 border-indigo-200 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100/70 font-semibold"
-                            >
-                                <Copy className="h-4 w-4 mr-1.5 text-indigo-600" />
-                                Salin Laporan
-                            </Button>
+                            {/* Dual Copy Buttons */}
+                            <div className="flex items-center gap-2">
+                                <Button 
+                                    onClick={copyReportToWhatsApp} 
+                                    variant="default" 
+                                    size="sm"
+                                    className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm"
+                                >
+                                    <MessageSquare className="h-4 w-4 mr-1.5" />
+                                    Salin Format WA
+                                </Button>
+
+                                <Button 
+                                    onClick={copyReportToExcel} 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="h-9 border-slate-300 text-slate-700 bg-white hover:bg-slate-50 font-semibold"
+                                >
+                                    <FileSpreadsheet className="h-4 w-4 mr-1.5 text-emerald-600" />
+                                    Salin ke Excel
+                                </Button>
+                            </div>
                         </div>
                     </CardHeader>
                 </Card>
