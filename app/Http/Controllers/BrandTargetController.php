@@ -18,6 +18,19 @@ class BrandTargetController extends Controller
         abort_unless($user->isSuperadmin() || $user->hasRole(['owner', 'admin_reseller']), 403, 'Akses ditolak.');
 
         $year = $request->integer('year') ?: (int) now()->year;
+        $month = $request->input('month') !== null && $request->input('month') !== '' ? (int) $request->input('month') : 0; // 0 = Semua Bulan
+
+        // Dynamic Available Years from Database & Current Year
+        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+        $yearExpr = $isSqlite ? 'CAST(strftime("%Y", orders.tanggal_masuk) AS INTEGER)' : 'YEAR(orders.tanggal_masuk)';
+
+        $minOrderYear = Order::query()->selectRaw("MIN({$yearExpr}) as min_year")->value('min_year');
+        $minTargetYear = BrandTarget::min('year');
+
+        $currentYear = (int) now()->year;
+        $startYear = min((int) ($minOrderYear ?: $currentYear), (int) ($minTargetYear ?: $currentYear), $currentYear - 2);
+        $endYear = max($currentYear + 2, $year);
+        $availableYears = range($startYear, $endYear);
 
         $brands = $user->isSuperadmin()
             ? Brand::active()->get(['id', 'nama_brand', 'kode', 'warna_primary'])
@@ -31,7 +44,6 @@ class BrandTargetController extends Controller
             ->groupBy('brand_id');
 
         // Calculate actuals
-        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
         $monthExpr = $isSqlite ? 'CAST(strftime("%m", orders.tanggal_masuk) AS INTEGER)' : 'MONTH(orders.tanggal_masuk)';
 
         $actualRows = Order::query()
@@ -52,6 +64,8 @@ class BrandTargetController extends Controller
         return Inertia::render('BrandTarget/Index', [
             'brands' => $brands,
             'year' => $year,
+            'month' => $month,
+            'availableYears' => array_values($availableYears),
             'targets' => $targets,
             'actuals' => $actualRows,
         ]);
