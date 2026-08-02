@@ -42,6 +42,15 @@ class Order extends Model
         'siap_dikirim', 'sudah_dikirim', 'delay', 'hold', 'selesai',
     ];
 
+    protected static function booted(): void
+    {
+        static::updated(function (Order $order) {
+            if ($order->isDirty('status_po') && $order->status_po === 'selesai') {
+                POChangeLog::where('order_id', $order->id)->delete();
+            }
+        });
+    }
+
     protected $fillable = [
         'brand_id', 'reseller_display_brand_id', 'no_po', 'nama_po', 'status_po', 'is_special_order', 'is_free_ongkir', 'tipe_pengiriman', 'is_reseller_price', 'ongkir',
         'voucher_discount_amount',

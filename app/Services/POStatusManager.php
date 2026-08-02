@@ -185,6 +185,10 @@ class POStatusManager
 
     public function logChange(Order $order, User $user, string $reason, string $field, mixed $oldValue, mixed $newValue): void
     {
+        if ($order->status_po === 'selesai') {
+            return;
+        }
+
         POChangeLog::create([
             'order_id' => $order->id,
             'changed_by' => $user->id,
