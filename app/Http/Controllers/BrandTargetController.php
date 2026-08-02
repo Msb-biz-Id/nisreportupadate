@@ -45,7 +45,7 @@ class BrandTargetController extends Controller
 
         // Calculate actuals
         $monthExpr = $isSqlite ? 'CAST(strftime("%m", orders.tanggal_masuk) AS INTEGER)' : 'MONTH(orders.tanggal_masuk)';
-        $castType = $isSqlite ? 'INTEGER' : 'SIGNED';
+        $castType = $isSqlite ? 'INTEGER' : 'UNSIGNED';
 
         $actualRows = Order::query()
             ->leftJoin(DB::raw("(SELECT order_id, SUM(CASE WHEN jml_atasan IS NOT NULL AND jml_atasan != '' THEN CAST(jml_atasan AS {$castType}) ELSE quantity END) as qty FROM order_items WHERE is_addon = 0 GROUP BY order_id) as items_sum"), 'items_sum.order_id', '=', 'orders.id')
