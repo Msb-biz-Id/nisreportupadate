@@ -1151,7 +1151,7 @@ class DashboardService
             ->whereIn('orders.brand_id', $brandIds)
             ->whereBetween('orders.tanggal_masuk', [$startOfMonth, $endOfMonth])
             ->where('orders.status_po', '!=', 'draft')
-            ->sum(DB::raw("CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) WHEN (SELECT COUNT(*) FROM order_items AS oi WHERE oi.order_id = order_items.order_id AND oi.is_addon = 0 AND oi.jml_atasan IS NOT NULL AND oi.jml_atasan != '') > 0 THEN 0 ELSE order_items.quantity END"));
+            ->sum(DB::raw("CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END"));
 
         $targetRevenue = (float) ($monthTarget?->revenue ?? 0);
         $targetPcs = (int) ($monthTarget?->pcs ?? 0);
@@ -1235,9 +1235,9 @@ class DashboardService
             ->where('orders.status_po', '!=', 'draft')
             ->where('order_items.is_addon', false)
             ->select(
-                DB::raw("COALESCE(SUM(CASE WHEN orders.is_special_order = 0 AND orders.is_reseller_price = 0 THEN (CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) WHEN (SELECT COUNT(*) FROM order_items AS oi WHERE oi.order_id = order_items.order_id AND oi.is_addon = 0 AND oi.jml_atasan IS NOT NULL AND oi.jml_atasan != '') > 0 THEN 0 ELSE order_items.quantity END) ELSE 0 END), 0) as normal_pcs"),
-                DB::raw("COALESCE(SUM(CASE WHEN orders.is_special_order = 1 THEN (CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) WHEN (SELECT COUNT(*) FROM order_items AS oi WHERE oi.order_id = order_items.order_id AND oi.is_addon = 0 AND oi.jml_atasan IS NOT NULL AND oi.jml_atasan != '') > 0 THEN 0 ELSE order_items.quantity END) ELSE 0 END), 0) as special_pcs"),
-                DB::raw("COALESCE(SUM(CASE WHEN orders.is_reseller_price = 1 THEN (CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) WHEN (SELECT COUNT(*) FROM order_items AS oi WHERE oi.order_id = order_items.order_id AND oi.is_addon = 0 AND oi.jml_atasan IS NOT NULL AND oi.jml_atasan != '') > 0 THEN 0 ELSE order_items.quantity END) ELSE 0 END), 0) as reseller_pcs")
+                DB::raw("COALESCE(SUM(CASE WHEN orders.is_special_order = 0 AND orders.is_reseller_price = 0 THEN (CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END) ELSE 0 END), 0) as normal_pcs"),
+                DB::raw("COALESCE(SUM(CASE WHEN orders.is_special_order = 1 THEN (CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END) ELSE 0 END), 0) as special_pcs"),
+                DB::raw("COALESCE(SUM(CASE WHEN orders.is_reseller_price = 1 THEN (CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END) ELSE 0 END), 0) as reseller_pcs")
             )
             ->first();
 

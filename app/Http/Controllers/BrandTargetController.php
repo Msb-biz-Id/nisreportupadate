@@ -107,7 +107,7 @@ class BrandTargetController extends Controller
             }
         });
 
-        Cache::flush();
+        \App\Services\CacheService::forgetDashboard();
 
         \App\Services\ActivityLogger::log('update', 'target', null, "Simpan target penjualan tahun {$year}");
 
