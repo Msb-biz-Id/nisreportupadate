@@ -221,6 +221,8 @@ export default function TargetIndex({ brands = [], year = new Date().getFullYear
         });
     }
 
+    const copyReportToClipboard = copyReportToExcel;
+
     return (
         <AppLayout title="Target Penjualan Brand">
             <Head title="Target Penjualan Brand" />
@@ -460,14 +462,24 @@ export default function TargetIndex({ brands = [], year = new Date().getFullYear
                                     </Button>
                                 </div>
 
-                                <Button 
-                                    onClick={copyReportToClipboard}
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 text-xs border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-50"
-                                >
-                                    <Copy className="h-3.5 w-3.5 mr-1" /> Salin Tabel
-                                </Button>
+                                <div className="flex items-center gap-1.5">
+                                    <Button 
+                                        onClick={copyReportToWhatsApp}
+                                        variant="default"
+                                        size="sm"
+                                        className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                                    >
+                                        <MessageSquare className="h-3.5 w-3.5 mr-1" /> Salin WA
+                                    </Button>
+                                    <Button 
+                                        onClick={copyReportToExcel}
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs border-slate-300 text-slate-700 bg-white hover:bg-slate-50 font-medium"
+                                    >
+                                        <FileSpreadsheet className="h-3.5 w-3.5 mr-1 text-emerald-600" /> Salin Excel
+                                    </Button>
+                                </div>
                             </div>
                         </CardHeader>
 
