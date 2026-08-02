@@ -917,6 +917,8 @@ class OrderController extends Controller
                 'status_po' => 'selesai',
             ]);
 
+            \App\Models\Order\POChangeLog::where('order_id', $order->id)->delete();
+
             \App\Services\ActivityLogger::log('complete', 'order', $order, "Selesaikan PO {$order->no_po}");
         });
         \App\Services\Notifications\IdealNotificationService::dispatch('order_completed', [
