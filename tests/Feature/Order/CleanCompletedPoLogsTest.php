@@ -14,7 +14,7 @@ class CleanCompletedPoLogsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_logs_are_automatically_deleted_when_po_status_becomes_selesai(): void
+    public function test_logs_are_retained_when_po_is_completed_and_deleted_only_after_30_days(): void
     {
         $user = User::factory()->create();
         $brand = Brand::factory()->create(['created_by' => $user->id]);
@@ -26,12 +26,13 @@ class CleanCompletedPoLogsTest extends TestCase
             'created_by' => $user->id
         ]);
 
-        $order = Order::create([
-            'no_po' => 'PO-LOG-TEST-01',
-            'nama_po' => 'Jersey Test',
+        // 1. PO Baru Selesai Hari Ini
+        $recentlyCompletedOrder = Order::create([
+            'no_po' => 'PO-LOG-RECENT',
+            'nama_po' => 'Jersey Selesai Baru',
             'brand_id' => $brand->id,
             'pelanggan_id' => $customer->id,
-            'status_po' => 'on_progress',
+            'status_po' => 'selesai',
             'tanggal_masuk' => now()->toDateString(),
             'deadline_customer' => now()->addDays(7)->toDateString(),
             'total_tagihan' => 500000,
@@ -39,7 +40,7 @@ class CleanCompletedPoLogsTest extends TestCase
         ]);
 
         POChangeLog::create([
-            'order_id' => $order->id,
+            'order_id' => $recentlyCompletedOrder->id,
             'changed_by' => $user->id,
             'change_reason' => 'Perubahan jumlah',
             'field_changed' => 'total_pcs',
@@ -47,41 +48,21 @@ class CleanCompletedPoLogsTest extends TestCase
             'new_value' => '12',
         ]);
 
-        $this->assertDatabaseHas('po_change_logs', ['order_id' => $order->id]);
-
-        // Change status to selesai
-        $order->update(['status_po' => 'selesai']);
-
-        // Assert POChangeLog entries for this order are purged
-        $this->assertDatabaseMissing('po_change_logs', ['order_id' => $order->id]);
-    }
-
-    public function test_artisan_command_cleans_completed_po_logs(): void
-    {
-        $user = User::factory()->create();
-        $brand = Brand::factory()->create(['created_by' => $user->id]);
-        $customer = Customer::create([
-            'nama' => 'Test Customer 2',
-            'kode' => 'CUST-002',
-            'nomor_hp' => '08987654321',
-            'brand_id' => $brand->id,
-            'created_by' => $user->id
-        ]);
-
-        $completedOrder = Order::create([
-            'no_po' => 'PO-LOG-TEST-02',
-            'nama_po' => 'Jersey Completed Test',
+        // 2. PO Selesai 35 Hari yang Lalu
+        $oldCompletedOrder = Order::create([
+            'no_po' => 'PO-LOG-OLD',
+            'nama_po' => 'Jersey Selesai Lama',
             'brand_id' => $brand->id,
             'pelanggan_id' => $customer->id,
             'status_po' => 'selesai',
-            'tanggal_masuk' => now()->toDateString(),
-            'deadline_customer' => now()->addDays(7)->toDateString(),
+            'tanggal_masuk' => now()->subDays(40)->toDateString(),
+            'deadline_customer' => now()->subDays(35)->toDateString(),
             'total_tagihan' => 750000,
             'created_by' => $user->id,
         ]);
 
         POChangeLog::create([
-            'order_id' => $completedOrder->id,
+            'order_id' => $oldCompletedOrder->id,
             'changed_by' => $user->id,
             'change_reason' => 'Audit log lama',
             'field_changed' => 'catatan',
@@ -89,10 +70,18 @@ class CleanCompletedPoLogsTest extends TestCase
             'new_value' => 'new',
         ]);
 
-        $this->artisan('po:clean-logs')
+        // Force update timestamp di database ke 35 hari lalu
+        Order::where('id', $oldCompletedOrder->id)->update(['updated_at' => now()->subDays(35)]);
+
+        // Jalankan perintah pembersihan log 30 hari
+        $this->artisan('po:clean-logs --days=30')
             ->expectsOutputToContain('Berhasil menghapus')
             ->assertExitCode(0);
 
-        $this->assertDatabaseMissing('po_change_logs', ['order_id' => $completedOrder->id]);
+        // PO yang baru selesai hari ini: Log MASIH ADA (Retained 30 days)
+        $this->assertDatabaseHas('po_change_logs', ['order_id' => $recentlyCompletedOrder->id]);
+
+        // PO yang selesai 35 hari lalu: Log SUDAH DIHAPUS
+        $this->assertDatabaseMissing('po_change_logs', ['order_id' => $oldCompletedOrder->id]);
     }
 }

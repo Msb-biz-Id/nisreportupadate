@@ -52,4 +52,7 @@ Schedule::command('uploads:prune')->weeklyOn(0, '01:00');
 // Prune old activity logs older than 30 days daily
 Schedule::command('model:prune', ['--model' => [\App\Models\ActivityLog::class]])->daily();
 
+// Hapus log perubahan PO (po_change_logs) yang sudah selesai lebih dari 30 hari
+Schedule::command('po:clean-logs --days=30')->dailyAt('02:30');
+
 
