@@ -660,7 +660,7 @@
                 @endphp
                 @if(!empty($dPath))
                 <div class="img-box" style="border: 1px solid #000; border-top: none; padding: 6px; margin-bottom: 6px; text-align: center; background: #ffffff;">
-                    <img src="{{ $dPath }}" style="max-width: 100%; max-height: 480px; width: auto; height: auto; display: block; margin: 0 auto;">
+                    <img src="{{ $dPath }}" style="width: 98%; max-width: 100%; max-height: 580px; height: auto; display: block; margin: 0 auto;">
                 </div>
                 @else
                 <div class="img-box" style="border: 1px solid #000; border-top: none; height: 50px; line-height: 50px; color: #64748b; font-style: italic; font-size: 9pt; text-align: center; background: #ffffff;">Gambar desain tidak ditemukan</div>
