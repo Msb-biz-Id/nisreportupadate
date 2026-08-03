@@ -156,26 +156,28 @@ class UploadController extends Controller
                     $image = null;
             }
 
-            if (!$image) return;
+            if (function_exists('imagesetinterpolation')) {
+                @imagesetinterpolation($image, IMG_BICUBIC);
+            }
 
             $maxWidth = 2000;
             if ($width > $maxWidth) {
                 $newWidth = $maxWidth;
                 $newHeight = (int) (($height / $width) * $maxWidth);
-                $resized = imagescale($image, $newWidth, $newHeight);
+                $resized = imagescale($image, $newWidth, $newHeight, IMG_BICUBIC);
                 if ($resized) {
                     imagedestroy($image);
                     $image = $resized;
                 }
             }
 
-            // Simpan kembali dengan kualitas tinggi (90%) tanpa mengorbankan ketajaman visual
+            // Simpan kembali dengan kualitas tinggi (95%) tanpa mengorbankan ketajaman visual
             if ($mime === 'image/jpeg') {
-                @imagejpeg($image, $filePath, 90);
+                @imagejpeg($image, $filePath, 95);
             } elseif ($mime === 'image/png') {
-                @imagepng($image, $filePath, 8);
+                @imagepng($image, $filePath, 6);
             } elseif ($mime === 'image/webp') {
-                @imagewebp($image, $filePath, 90);
+                @imagewebp($image, $filePath, 95);
             }
 
             imagedestroy($image);

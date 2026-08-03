@@ -511,11 +511,17 @@ function centerFreeCrop(mediaWidth, mediaHeight) {
 async function getCroppedBlob(imageSrc, areaPx) {
     const image = await loadImage(imageSrc);
     
-    let targetWidth = areaPx.width;
-    let targetHeight = areaPx.height;
+    // High-DPI Supersampling: multiply pixel density for small crop areas to prevent blur in PDF/print
+    const longestSide = Math.max(areaPx.width, areaPx.height);
+    let scale = 1;
+    if (longestSide > 0 && longestSide < 1400) {
+        scale = Math.min(3, 1400 / longestSide);
+    }
+
+    let targetWidth = areaPx.width * scale;
+    let targetHeight = areaPx.height * scale;
     const maxDim = 2400;
 
-    // Do NOT upscale; only downscale if area exceeds 2400px
     if (targetWidth > maxDim || targetHeight > maxDim) {
         if (targetWidth > targetHeight) {
             targetHeight = Math.round((targetHeight * maxDim) / targetWidth);
@@ -531,6 +537,10 @@ async function getCroppedBlob(imageSrc, areaPx) {
     cropCanvas.height = Math.round(targetHeight);
     const cropCtx = cropCanvas.getContext('2d');
 
+    // Enable high-quality bicubic canvas interpolation
+    cropCtx.imageSmoothingEnabled = true;
+    cropCtx.imageSmoothingQuality = 'high';
+
     // Sample alpha transparency from source area or check data URI mime
     const isPngInput = typeof imageSrc === 'string' && (imageSrc.startsWith('data:image/png') || imageSrc.includes('type=png'));
     let hasAlpha = isPngInput;
@@ -541,6 +551,8 @@ async function getCroppedBlob(imageSrc, areaPx) {
         tempCanvas.width = Math.min(200, Math.round(areaPx.width));
         tempCanvas.height = Math.min(200, Math.round(areaPx.height));
         const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.imageSmoothingEnabled = true;
+        tempCtx.imageSmoothingQuality = 'high';
         tempCtx.drawImage(image, areaPx.x, areaPx.y, areaPx.width, areaPx.height, 0, 0, tempCanvas.width, tempCanvas.height);
         try {
             const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
@@ -567,14 +579,14 @@ async function getCroppedBlob(imageSrc, areaPx) {
     cropCtx.drawImage(
         image,
         areaPx.x, areaPx.y, areaPx.width, areaPx.height, // source
-        0, 0, cropCanvas.width, cropCanvas.height // target
+        0, 0, cropCanvas.width, cropCanvas.height // target (supersampled)
     );
 
     return new Promise((resolve, reject) => {
         cropCanvas.toBlob(
             (blob) => blob ? resolve({ blob, ext: hasAlpha ? 'png' : 'jpg', mime: outputMime }) : reject(new Error('Canvas export failed')),
             outputMime,
-            outputMime === 'image/jpeg' ? 0.92 : undefined
+            outputMime === 'image/jpeg' ? 0.95 : undefined
         );
     });
 }
