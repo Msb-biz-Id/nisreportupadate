@@ -216,9 +216,9 @@ export function POSiapDikirimWidget({ title = "📦 PO Siap Dikirim (Perlu Tinda
 
         let message = '';
         if (o.is_lunas) {
-            message = `Halo Kak *${pelanggan}*,\n\nInformasi dari *${brandName}*: Pesanan Kakak dengan No. PO *${noPo}*${namaPo} sudah selesai diproduksi dan *Siap Dikirim*! 📦✨\n\n📌 *Status Pembayaran*: LUNAS (${tagihan})\n\nMohon konfirmasi alamat pengiriman atau ekspedisi ya Kak. Terima kasih! 🙏`;
+            message = `Halo Kak *${pelanggan}*,\n\nInformasi dari *${brandName}*:\nPesanan Kakak dengan No. PO *${noPo}*${namaPo} sudah selesai diproduksi dan *Siap Dikirim*!\n\n*Status Pembayaran*: LUNAS (${tagihan})\n\nMohon konfirmasi alamat pengiriman atau ekspedisi pilihan Kakak. Terima kasih!`;
         } else {
-            message = `Halo Kak *${pelanggan}*,\n\nInformasi dari *${brandName}*: Pesanan Kakak dengan No. PO *${noPo}*${namaPo} sudah selesai diproduksi dan *Siap Dikirim*! 📦✨\n\n📌 *Rincian Pembayaran*:\n• Total Tagihan: ${tagihan}\n• Sudah Dibayar: ${paid}\n• Sisa Pembayaran: *${sisa}*\n\nMohon pelunasan sisa pembayaran sebesar *${sisa}* agar pesanan dapat segera dikirimkan. Terima kasih! 🙏`;
+            message = `Halo Kak *${pelanggan}*,\n\nInformasi dari *${brandName}*:\nPesanan Kakak dengan No. PO *${noPo}*${namaPo} sudah selesai diproduksi dan *Siap Dikirim*!\n\n*Rincian Pembayaran*:\n- Total Tagihan: ${tagihan}\n- Sudah Dibayar: ${paid}\n- Sisa Pembayaran: *${sisa}*\n\nMohon pelunasan sisa pembayaran sebesar *${sisa}* agar pesanan dapat segera dikirimkan. Terima kasih!`;
         }
 
         return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
