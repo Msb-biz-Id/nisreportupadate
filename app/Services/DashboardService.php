@@ -1178,7 +1178,7 @@ class DashboardService
         return Order::query()
             ->when($brandId, $this->bf($brandId))
             ->where('status_po', 'siap_dikirim')
-            ->with(['pelanggan:id,nama,nomor_hp', 'brand:id,nama_brand,kode'])
+            ->with(['pelanggan:id,nama,nomor_hp', 'brand:id,nama_brand,kode', 'items', 'payments.masterJenisPembayaran'])
             ->orderByDesc('updated_at')
             ->limit($limit)
             ->get()
