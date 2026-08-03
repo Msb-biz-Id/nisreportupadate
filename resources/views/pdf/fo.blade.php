@@ -33,10 +33,10 @@
             }
 
             @font-face {
-                font-family: 'Noto Sans Thai';
+                font-family: 'Sarabun';
                 font-style: normal;
                 font-weight: 400;
-                src: url('{{ public_path("fonts/NotoSansThai-Regular.ttf") }}') format('truetype');
+                src: url('{{ public_path("fonts/Sarabun-Regular.ttf") }}') format('truetype');
             }
 
             .cjk-font {
@@ -55,7 +55,7 @@
             }
 
             .thai-font {
-                font-family: 'Noto Sans Thai', sans-serif !important;
+                font-family: 'Sarabun', sans-serif !important;
                 text-transform: none !important;
             }
 
