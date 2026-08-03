@@ -670,7 +670,7 @@
             @php $dPath = \App\Support\PdfHelper::resolveImageForPdf($item['gambar_desain']); @endphp
             @if(!empty($dPath))
             <div class="img-box" style="border: 1px solid #000; border-top: none; padding: 6px; margin-bottom: 6px; text-align: center; background: #ffffff;">
-                <img src="{{ $dPath }}" style="max-width: 100%; max-height: 380px; height: auto; width: auto; vertical-align: middle; display: inline-block;">
+                <img src="{{ $dPath }}" style="width: 100%; max-width: 100%; max-height: 520px; height: auto; display: block; margin: 0 auto; object-fit: contain;">
             </div>
             @else
             <div class="img-box" style="border: 1px solid #000; border-top: none; height: 50px; line-height: 50px; color: #64748b; font-style: italic; font-size: 9pt; text-align: center; background: #ffffff;">Gambar desain tidak ditemukan</div>
@@ -716,7 +716,7 @@
                             @php $kPath = \App\Support\PdfHelper::resolveImageForPdf($item['gambar_kerah']); @endphp
                             @if(!empty($kPath))
                             <div style="text-align:center;">
-                                <img src="{{ $kPath }}" style="max-width: 100%; max-height: 140px; height: auto; width: auto; vertical-align: middle; display: inline-block;">
+                                <img src="{{ $kPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
                             </div>
                             @else
                             <div style="color:#64748b; font-style:italic; font-size: 8.5pt; padding:15px 0;">Gambar kerah tidak ditemukan</div>
@@ -743,7 +743,7 @@
                             @php $ktPath = \App\Support\PdfHelper::resolveImageForPdf($item['gambar_ket_tambahan']); @endphp
                             @if(!empty($ktPath))
                             <div style="text-align:center;">
-                                <img src="{{ $ktPath }}" style="max-width: 100%; max-height: 140px; height: auto; width: auto; vertical-align: middle; display: inline-block;">
+                                <img src="{{ $ktPath }}" style="max-width: 100%; max-height: 160px; display: block; margin: 0 auto;">
                             </div>
                             @else
                             <div style="color:#64748b; font-style:italic; font-size: 8.5pt; padding:15px 0;">Gambar tambahan tidak ditemukan</div>

@@ -625,7 +625,7 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
 
                                             <div className="border border-black border-t-0 p-1 mb-2 bg-white flex justify-center items-center min-h-[200px]">
                                                 {item.gambar_desain ? (
-                                                    <SafeImage src={`/storage/${item.gambar_desain}`} className="max-w-full max-h-[500px] object-contain block mx-auto" alt="Desain" fallbackText="Gambar desain tidak ditemukan" />
+                                                    <SafeImage src={`/storage/${item.gambar_desain}`} className="w-full max-w-full max-h-[520px] object-contain block mx-auto" alt="Desain" fallbackText="Gambar desain tidak ditemukan" />
                                                 ) : (
                                                     <div className="text-slate-500 italic text-[13px] text-center py-4">Gambar desain belum diunggah</div>
                                                 )}
