@@ -47,6 +47,11 @@
                 text-transform: none !important;
             }
 
+            .thai-font {
+                font-family: 'DejaVu Sans', sans-serif !important;
+                text-transform: none !important;
+            }
+
             /* === CSS TEMPLATE DASAR PDF A4 (Polished) === */
             * {
                 box-sizing: border-box;
@@ -86,7 +91,7 @@
             }
 
             body {
-                font-family: 'DejaVu Sans', 'Helvetica', sans-serif;
+                font-family: 'Helvetica', 'Arial', 'DejaVu Sans', sans-serif;
                 font-size: 10pt;
                 color: #000;
                 line-height: 1.35;
@@ -270,7 +275,7 @@
 
             .img-box img {
                 max-width: 100%;
-                object-fit: contain;
+                height: auto;
             }
 
             /* Misc */
@@ -648,7 +653,7 @@
                 @endphp
                 @if(!empty($dPath))
                 <div class="img-box" style="border: 1px solid #000; border-top: none; padding: 6px; margin-bottom: 6px; text-align: center; background: #ffffff;">
-                    <img src="{{ $dPath }}" style="width: 100%; max-width: 100%; max-height: 520px; height: auto; display: block; margin: 0 auto; object-fit: contain;">
+                    <img src="{{ $dPath }}" style="max-width: 100%; max-height: 480px; width: auto; height: auto; display: block; margin: 0 auto;">
                 </div>
                 @else
                 <div class="img-box" style="border: 1px solid #000; border-top: none; height: 50px; line-height: 50px; color: #64748b; font-style: italic; font-size: 9pt; text-align: center; background: #ffffff;">Gambar desain tidak ditemukan</div>
