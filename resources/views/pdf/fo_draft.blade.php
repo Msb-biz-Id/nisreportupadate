@@ -26,6 +26,13 @@
             src: url('{{ public_path("fonts/NotoSansJavanese-Regular.ttf") }}') format('truetype');
         }
 
+        @font-face {
+            font-family: 'Noto Sans Thai';
+            font-style: normal;
+            font-weight: 400;
+            src: url('{{ public_path("fonts/NotoSansThai-Regular.ttf") }}') format('truetype');
+        }
+
         .cjk-font {
             font-family: 'Noto Sans JP', sans-serif !important;
             text-transform: none !important;
@@ -42,7 +49,7 @@
         }
 
         .thai-font {
-            font-family: 'DejaVu Sans', sans-serif !important;
+            font-family: 'Noto Sans Thai', sans-serif !important;
             text-transform: none !important;
         }
 
