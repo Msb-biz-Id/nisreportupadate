@@ -1195,6 +1195,7 @@ class DashboardService
                     'pelanggan'     => $o->pelanggan?->nama,
                     'pelanggan_hp'  => $o->pelanggan?->nomor_hp,
                     'brand'         => $o->brand?->kode,
+                    'nama_brand'    => $o->brand?->nama_brand,
                     'total_tagihan' => $totalTagihan,
                     'total_paid'    => $totalPaid,
                     'sisa_tagihan'  => $sisa,

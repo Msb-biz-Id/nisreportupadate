@@ -197,6 +197,33 @@ export function TopList({ title, description, items, link, valueLabel = 'Order',
 }
 
 export function POSiapDikirimWidget({ title = "📦 PO Siap Dikirim (Perlu Tindak Lanjut)", items }) {
+    const getWaLink = (o) => {
+        if (!o.pelanggan_hp) return '#';
+        let phone = o.pelanggan_hp.replace(/\D/g, '');
+        if (phone.startsWith('0')) {
+            phone = '62' + phone.substring(1);
+        } else if (phone.startsWith('8')) {
+            phone = '62' + phone;
+        }
+
+        const pelanggan = o.pelanggan || 'Pelanggan';
+        const noPo = o.no_po || '';
+        const namaPo = o.nama_po ? ` (${o.nama_po})` : '';
+        const brandName = o.nama_brand || o.brand || 'Kami';
+        const tagihan = formatRupiah(o.total_tagihan || 0);
+        const paid = formatRupiah(o.total_paid || 0);
+        const sisa = formatRupiah(o.sisa_tagihan || 0);
+
+        let message = '';
+        if (o.is_lunas) {
+            message = `Halo Kak *${pelanggan}*,\n\nInformasi dari *${brandName}*: Pesanan Kakak dengan No. PO *${noPo}*${namaPo} sudah selesai diproduksi dan *Siap Dikirim*! 📦✨\n\n📌 *Status Pembayaran*: LUNAS (${tagihan})\n\nMohon konfirmasi alamat pengiriman atau ekspedisi ya Kak. Terima kasih! 🙏`;
+        } else {
+            message = `Halo Kak *${pelanggan}*,\n\nInformasi dari *${brandName}*: Pesanan Kakak dengan No. PO *${noPo}*${namaPo} sudah selesai diproduksi dan *Siap Dikirim*! 📦✨\n\n📌 *Rincian Pembayaran*:\n• Total Tagihan: ${tagihan}\n• Sudah Dibayar: ${paid}\n• Sisa Pembayaran: *${sisa}*\n\nMohon pelunasan sisa pembayaran sebesar *${sisa}* agar pesanan dapat segera dikirimkan. Terima kasih! 🙏`;
+        }
+
+        return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    };
+
     return (
         <Card className="border-t-4 border-t-emerald-500 shadow-md">
             <CardHeader className="pb-2">
@@ -238,7 +265,7 @@ export function POSiapDikirimWidget({ title = "📦 PO Siap Dikirim (Perlu Tinda
                                                 <>
                                                     <span className="hidden sm:inline text-slate-300">•</span>
                                                     <a
-                                                        href={`https://wa.me/${o.pelanggan_hp.replace(/\D/g, '')}`}
+                                                        href={getWaLink(o)}
                                                         onClick={(e) => e.stopPropagation()}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
