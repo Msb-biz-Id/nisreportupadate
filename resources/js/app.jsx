@@ -14,11 +14,18 @@ router.on('invalid', (event) => {
 
     const status = response?.status;
     const bodyText = (typeof response?.data === 'string') ? response.data : '';
+    const jsonMessage = (typeof response?.data === 'object' && response?.data !== null) ? (response.data.message || response.data.error) : null;
 
-    if (status === 500) {
+    if (status === 419 || status === 401) {
+        toast.error('Sesi Anda telah berakhir. Silakan muat ulang halaman (F5) dan login kembali.');
+    } else if (jsonMessage) {
+        toast.error(jsonMessage);
+    } else if (status === 406 || bodyText.includes('Imunify') || bodyText.includes('ModSecurity') || bodyText.includes('verifikasi') || bodyText.includes('shield') || bodyText.includes('Turnstile')) {
+        toast.error('Keamanan server (WAF/ModSecurity/Imunify360) di cPanel memblokir data. Silakan matikan ModSecurity di cPanel.');
+    } else if (status === 403) {
+        toast.error('Akses ditolak (Error 403) atau sesi habis. Silakan muat ulang halaman (F5) dan periksa akses Anda.');
+    } else if (status === 500) {
         toast.error('Terjadi kesalahan internal pada server (Error 500). Silakan hubungi Developer.');
-    } else if (status === 403 || status === 406 || bodyText.includes('verifikasi') || bodyText.includes('Imunify') || bodyText.includes('shield') || bodyText.includes('Turnstile')) {
-        toast.error('Keamanan server (WAF/Imunify360) mendeteksi payload tidak biasa. Data Anda aman di layar, silakan coba klik Simpan kembali.');
     } else {
         toast.error('Koneksi terputus atau respon server tidak valid. Silakan coba kembali.');
     }
