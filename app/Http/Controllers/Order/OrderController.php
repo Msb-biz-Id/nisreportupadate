@@ -596,7 +596,13 @@ class OrderController extends Controller
             $noPoMismatch = !empty($cleanSlug) && !str_starts_with($order->no_po, $expectedPrefix);
 
             if ($namaPoChanged || $noPoMismatch) {
-                $newNoPo = $this->numbers->generateOrderNumber($order->brand, $data['nama_po']);
+                $parts = explode('-', $order->no_po);
+                $lastPart = end($parts);
+                if (is_numeric($lastPart)) {
+                    $newNoPo = "PO-{$order->brand->kode}-{$cleanSlug}-{$lastPart}";
+                } else {
+                    $newNoPo = $this->numbers->generateOrderNumber($order->brand, $data['nama_po']);
+                }
                 $updateData['no_po'] = $newNoPo;
             }
 
