@@ -956,20 +956,24 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                                                     <table key={chunkIdx} className="border-collapse mx-auto border-2 border-black text-center mb-4 table-fixed" style={{ width: `${chunk.length * 110}px` }}>
                                                         <tbody>
                                                             <tr className="border-b-2 border-black font-bold">
-                                                                {chunk.map((cell, idx) => (
-                                                                    <td key={idx} className="border-r border-black p-3 align-middle font-bold text-center" style={{ width: '110px' }}>
-                                                                        <div className="text-[48px] leading-tight font-black">{cell.size}</div>
-                                                                        {cell.keterangan && (
-                                                                            <div className="text-[9px] font-bold mt-1 uppercase text-slate-700 whitespace-normal break-words leading-tight max-w-[100px] mx-auto">
-                                                                                {cell.keterangan}
-                                                                            </div>
-                                                                        )}
-                                                                    </td>
-                                                                ))}
+                                                                {chunk.map((cell, idx) => {
+                                                                    const sStr = (cell.size || '').toString().trim();
+                                                                    const szFontSize = sStr.length <= 3 ? 'text-[40px]' : (sStr.length <= 7 || sStr.includes(' ') ? 'text-[24px]' : 'text-[18px]');
+                                                                    return (
+                                                                        <td key={idx} className="border-r border-black p-2 align-middle font-bold text-center" style={{ width: '110px' }}>
+                                                                            <div className={`${szFontSize} leading-tight font-black break-words`}>{cell.size}</div>
+                                                                            {cell.keterangan && (
+                                                                                <div className="text-[9px] font-bold mt-1 uppercase text-slate-700 whitespace-normal break-words leading-tight max-w-[100px] mx-auto">
+                                                                                    {cell.keterangan}
+                                                                                </div>
+                                                                            )}
+                                                                        </td>
+                                                                    );
+                                                                })}
                                                             </tr>
                                                             <tr className="font-bold text-center">
                                                                 {chunk.map((cell, idx) => (
-                                                                    <td key={idx} className="border-r border-black p-3 align-middle text-[48px] font-black leading-tight text-center" style={{ width: '110px' }}>
+                                                                    <td key={idx} className="border-r border-black p-2 align-middle text-[40px] font-black leading-tight text-center" style={{ width: '110px' }}>
                                                                         {cell.count}
                                                                     </td>
                                                                 ))}

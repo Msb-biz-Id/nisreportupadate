@@ -318,6 +318,10 @@
         .ns-name {
             text-transform: none !important;
         }
+
+        .sz-lg { font-size: 40px; line-height: 1.1; word-wrap: break-word; }
+        .sz-md { font-size: 24px; line-height: 1.1; word-wrap: break-word; }
+        .sz-sm { font-size: 18px; line-height: 1.1; word-wrap: break-word; }
     </style>
 </head>
 
@@ -1160,8 +1164,20 @@
                 <table class="rekap-table rekap-table-{{ count($chunk) }}">
                     <tr>
                         @foreach($chunk as $cell)
-                        <td style="border: 2px solid #000; padding: 12px 10px; font-weight: bold; vertical-align: middle; width: 110px;">
-                            <div style="font-size: 48px; line-height: 1.1;">{{ $cell['size'] }}</div>
+                        @php
+                            $szStr = trim($cell['size']);
+                            $szLen = strlen($szStr);
+                            $hasSpace = strpos($szStr, ' ') !== false;
+                            if ($szLen <= 3) {
+                                $szClass = 'sz-lg';
+                            } elseif ($szLen <= 7 || $hasSpace) {
+                                $szClass = 'sz-md';
+                            } else {
+                                $szClass = 'sz-sm';
+                            }
+                        @endphp
+                        <td style="border: 2px solid #000; padding: 10px 6px; font-weight: bold; vertical-align: middle; width: 110px;">
+                            <div class="{{ $szClass }}">{{ $cell['size'] }}</div>
                             @if(!empty($cell['keterangan']))
                             <div style="font-size: 8px; font-weight: bold; margin-top: 4px; text-transform: uppercase; color: #333; word-wrap: break-word; white-space: normal;">{{ $cell['keterangan'] }}</div>
                             @endif
@@ -1170,7 +1186,7 @@
                     </tr>
                     <tr>
                         @foreach($chunk as $cell)
-                        <td style="border: 2px solid #000; padding: 12px 10px; font-size: 48px; font-weight: bold; vertical-align: middle; width: 110px;">
+                        <td style="border: 2px solid #000; padding: 10px 6px; font-size: 40px; font-weight: bold; vertical-align: middle; width: 110px;">
                             {{ $cell['count'] }}
                         </td>
                         @endforeach
