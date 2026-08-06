@@ -587,15 +587,22 @@ class OrderController extends Controller
             ];
 
 
+            $cleanSlug = (string) str($data['nama_po'])->slug('-')->upper();
+            $cleanSlug = substr($cleanSlug, 0, 30);
+            $cleanSlug = rtrim($cleanSlug, '-');
+            $expectedPrefix = "PO-{$order->brand->kode}-{$cleanSlug}";
+
             $namaPoChanged = (trim((string)$data['nama_po']) !== trim((string)$order->nama_po));
-            if ($namaPoChanged) {
+            $noPoMismatch = !empty($cleanSlug) && !str_starts_with($order->no_po, $expectedPrefix);
+
+            if ($namaPoChanged || $noPoMismatch) {
                 $newNoPo = $this->numbers->generateOrderNumber($order->brand, $data['nama_po']);
                 $updateData['no_po'] = $newNoPo;
             }
 
             $order->update($updateData);
 
-            if ($namaPoChanged && isset($newNoPo)) {
+            if (($namaPoChanged || $noPoMismatch) && isset($newNoPo)) {
                 $newInvNum = str_starts_with($newNoPo, 'PO-') ? ('INV-' . substr($newNoPo, 3)) : ('INV-' . $newNoPo);
                 $order->invoices()->update(['invoice_number' => $newInvNum]);
             }
