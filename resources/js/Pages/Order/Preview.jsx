@@ -800,8 +800,14 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
         router.post(route('orders.publish', order.id), {}, { preserveScroll: true });
     }
     function repeatOrder() {
-        if (!confirm('Buat PO baru dari template PO ini?')) return;
-        router.post(route('orders.repeat', order.id));
+        const inputNama = window.prompt('Masukkan Nama Order untuk Repeat PO ini:', order.nama_po || '');
+        if (inputNama === null) return;
+        const newNamaPo = inputNama.trim();
+        if (!newNamaPo) {
+            alert('Nama PO tidak boleh kosong.');
+            return;
+        }
+        router.post(route('orders.repeat', order.id), { nama_po: newNamaPo });
     }
     function doDelete() {
         router.delete(route('orders.destroy', order.id));

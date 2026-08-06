@@ -587,7 +587,18 @@ class OrderController extends Controller
             ];
 
 
+            $namaPoChanged = (trim((string)$data['nama_po']) !== trim((string)$order->nama_po));
+            if ($namaPoChanged) {
+                $newNoPo = $this->numbers->generateOrderNumber($order->brand, $data['nama_po']);
+                $updateData['no_po'] = $newNoPo;
+            }
+
             $order->update($updateData);
+
+            if ($namaPoChanged && isset($newNoPo)) {
+                $newInvNum = str_starts_with($newNoPo, 'PO-') ? ('INV-' . substr($newNoPo, 3)) : ('INV-' . $newNoPo);
+                $order->invoices()->update(['invoice_number' => $newInvNum]);
+            }
 
             $this->syncItems($order, $data['items'] ?? []);
             $order->load('items');
@@ -939,12 +950,18 @@ class OrderController extends Controller
         $user = $request->user();
         $brand = $order->brand;
 
-        $newOrder = DB::transaction(function () use ($order, $user, $brand) {
+        $newNamaPo = trim((string) $request->input('nama_po', ''));
+        if (empty($newNamaPo)) {
+            $newNamaPo = $order->nama_po;
+        }
+
+        $newOrder = DB::transaction(function () use ($order, $user, $brand, $newNamaPo) {
             $clone = $order->replicate([
-                'no_po', 'status_po', 'is_repeat_order', 'repeat_from_po_id',
+                'no_po', 'nama_po', 'status_po', 'is_repeat_order', 'repeat_from_po_id',
                 'published_at', 'published_by', 'created_at', 'updated_at',
             ]);
-            $clone->no_po = $this->numbers->generateOrderNumber($brand, $order->nama_po);
+            $clone->nama_po = $newNamaPo;
+            $clone->no_po = $this->numbers->generateOrderNumber($brand, $newNamaPo);
             $clone->status_po = 'draft';
             $clone->is_repeat_order = true;
             $clone->repeat_from_po_id = $order->id;
