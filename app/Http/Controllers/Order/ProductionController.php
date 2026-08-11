@@ -67,12 +67,12 @@ class ProductionController extends Controller
 
         $items = $orders->map(function (Order $order) use ($statusColors, $statusLabels) {
             $start = $order->start_production_date ?? $order->tanggal_masuk;
-            $end   = $order->deadline_customer ?? $order->end_production_date;
+            $end   = $order->end_production_date ?? $order->deadline_customer;
 
             // Pastikan end >= start supaya bar minimal 1 hari
             if ($end < $start) $end = $start;
 
-            $effectiveDeadline = $order->deadline_customer ?? $order->end_production_date;
+            $effectiveDeadline = $order->end_production_date ?? $order->deadline_customer;
             $today = now()->startOfDay();
             $daysRemaining = null;
             if ($effectiveDeadline) {

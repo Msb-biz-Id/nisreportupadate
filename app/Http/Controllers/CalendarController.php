@@ -56,9 +56,9 @@ class CalendarController extends Controller
             $deadlineCustomer = $o->deadline_customer ? \Illuminate\Support\Carbon::parse((string) $o->deadline_customer)->toDateString() : null;
             $deadlineProduksi = $o->end_production_date ? \Illuminate\Support\Carbon::parse((string) $o->end_production_date)->toDateString() : null;
 
-            // Hitung deadline efektif & sisa hari persis seperti POStatusManager & Gantt Chart
+            // Hitung deadline efektif & sisa hari persis seperti Gantt Chart Produksi
             $today = now()->startOfDay();
-            $effectiveDeadline = $o->deadline_customer ?? $o->end_production_date;
+            $effectiveDeadline = $o->end_production_date ?? $o->deadline_customer;
             $deadlineCarbon = $effectiveDeadline ? \Illuminate\Support\Carbon::parse((string) $effectiveDeadline)->startOfDay() : null;
 
             $daysRemaining = null;
