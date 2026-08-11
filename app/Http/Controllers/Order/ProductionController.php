@@ -67,12 +67,21 @@ class ProductionController extends Controller
 
         $items = $orders->map(function (Order $order) use ($statusColors, $statusLabels) {
             $start = $order->start_production_date ?? $order->tanggal_masuk;
-            $end   = $order->end_production_date ?? $order->deadline_customer;
+            $end   = $order->deadline_customer ?? $order->end_production_date;
 
             // Pastikan end >= start supaya bar minimal 1 hari
             if ($end < $start) $end = $start;
 
-            $effectiveDeadline = $order->end_production_date ?? $order->deadline_customer;
+            $effectiveDeadline = $order->deadline_customer ?? $order->end_production_date;
+            $today = now()->startOfDay();
+            $daysRemaining = null;
+            if ($effectiveDeadline) {
+                $deadlineCarbon = \Carbon\Carbon::parse((string) $effectiveDeadline)->startOfDay();
+                $daysRemaining = (int) $today->diffInDays($deadlineCarbon, false);
+                if ($deadlineCarbon < $today && $daysRemaining > 0) {
+                    $daysRemaining = -$daysRemaining;
+                }
+            }
 
             return [
                 'id'                  => $order->id,
@@ -89,9 +98,7 @@ class ProductionController extends Controller
                 'end_production_date' => $order->end_production_date ? \Carbon\Carbon::parse((string) $order->end_production_date)->format('Y-m-d') : null,
                 'start'               => $start ? \Carbon\Carbon::parse((string) $start)->format('Y-m-d') : null,
                 'end'                 => $end ? \Carbon\Carbon::parse((string) $end)->format('Y-m-d') : null,
-                'days_remaining'      => $effectiveDeadline
-                    ? now()->startOfDay()->diffInDays(\Carbon\Carbon::parse((string) $effectiveDeadline), false)
-                    : null,
+                'days_remaining'      => $daysRemaining,
                 'detail_url'          => route('produksi.progress', $order->id),
             ];
         });
