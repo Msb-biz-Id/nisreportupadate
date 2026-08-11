@@ -58,9 +58,15 @@ class CalendarController extends Controller
 
             // Hitung deadline efektif & sisa hari persis seperti Gantt Chart
             $effectiveDeadline = $o->end_production_date ?? $o->deadline_customer;
-            $daysRemaining = $effectiveDeadline
-                ? now()->startOfDay()->diffInDays(\Illuminate\Support\Carbon::parse((string) $effectiveDeadline), false)
-                : null;
+            $daysRemaining = null;
+            if ($effectiveDeadline) {
+                $deadlineCarbon = \Illuminate\Support\Carbon::parse((string) $effectiveDeadline)->startOfDay();
+                $today = now()->startOfDay();
+                $daysRemaining = (int) $today->diffInDays($deadlineCarbon, false);
+                if ($deadlineCarbon < $today && $daysRemaining > 0) {
+                    $daysRemaining = -$daysRemaining;
+                }
+            }
 
             $isFinished = in_array($o->status_po, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim']);
             $isDelayed = $o->status_po === 'delay' || ($daysRemaining !== null && $daysRemaining < 0 && !$isFinished);

@@ -229,7 +229,11 @@ function CustomAgenda({ events, statusColors, statusLabels, filterStatus, curren
 
     const filteredEvents = useMemo(() => {
         return events
-            .filter((e) => filterStatus === 'all' || e.status === filterStatus)
+            .filter((e) => {
+                if (filterStatus === 'all') return true;
+                if (filterStatus === 'delay') return e.isDelayed;
+                return e.status === filterStatus || e.rawStatus === filterStatus;
+            })
             .filter((e) => isEventInInterval(e, filterStart, filterEnd));
     }, [events, filterStatus, filterStart, filterEnd]);
 
@@ -549,7 +553,11 @@ export default function CalendarIndex({ events, statusColors, statusLabels, filt
 
     const rbcEvents = useMemo(() =>
         events
-            .filter((e) => filterStatus === 'all' || e.status === filterStatus)
+            .filter((e) => {
+                if (filterStatus === 'all') return true;
+                if (filterStatus === 'delay') return e.isDelayed;
+                return e.status === filterStatus || e.rawStatus === filterStatus;
+            })
             .map((e) => ({
                 ...e,
                 start: e.start ? new Date(e.start) : new Date(),
@@ -575,7 +583,20 @@ export default function CalendarIndex({ events, statusColors, statusLabels, filt
 
     const statusSummary = useMemo(() => {
         const counts = {};
-        for (const e of events) counts[e.status] = (counts[e.status] ?? 0) + 1;
+        let overdueCount = 0;
+
+        for (const e of events) {
+            const rawStatus = e.rawStatus || e.status;
+            counts[rawStatus] = (counts[rawStatus] ?? 0) + 1;
+            if (e.isDelayed) {
+                overdueCount++;
+            }
+        }
+
+        if (overdueCount > 0) {
+            counts['delay'] = overdueCount;
+        }
+
         return counts;
     }, [events]);
 
