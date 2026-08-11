@@ -88,7 +88,7 @@ class SettingsController extends Controller
                 'enable_auto_report'    => (bool)  SystemSetting::get('reports', 'enable_auto_report', false),
                 'daily_report_time'     => SystemSetting::get('reports', 'daily_report_time', '08:00'),
                 'weekly_report_day'     => SystemSetting::get('reports', 'weekly_report_day', 'monday'),
-                'monthly_report_date'   => SystemSetting::get('reports', 'monthly_report_date', '1'),
+                'monthly_report_date'   => SystemSetting::get('reports', 'monthly_report_date', 'last_day'),
                 'report_types'          => SystemSetting::get('reports', 'report_types', 'brand,produksi'),
                 'superadmin_recipients' => SystemSetting::get('reports', 'superadmin_recipients', ''),
                 'produksi_recipients'   => SystemSetting::get('reports', 'produksi_recipients', ''),

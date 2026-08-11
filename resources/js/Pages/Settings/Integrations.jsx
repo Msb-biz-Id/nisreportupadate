@@ -577,7 +577,7 @@ function ScheduledReportsSection({ reports }) {
         enable_auto_report:    reports.enable_auto_report,
         daily_report_time:     reports.daily_report_time    || '08:00',
         weekly_report_day:     reports.weekly_report_day    || 'monday',
-        monthly_report_date:   String(reports.monthly_report_date || '1'),
+        monthly_report_date:   String(reports.monthly_report_date || 'last_day'),
         report_types:          reports.report_types         || 'brand,produksi',
         superadmin_recipients: reports.superadmin_recipients || '',
         produksi_recipients:   reports.produksi_recipients  || '',
@@ -670,12 +670,17 @@ function ScheduledReportsSection({ reports }) {
                                         <SelectItem value="last_day">🗓️ Akhir Bulan (Dinamis: 28/29/30/31)</SelectItem>
                                         {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                                             <SelectItem key={day} value={String(day)}>
-                                                Tanggal {day} {day > 28 ? '(Dinamis jika hari < ' + day + ')' : ''}
+                                                Tanggal {day} {day > 28 ? '(Dinamis jika bulan < ' + day + ' hari)' : ''}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <p className="text-[10px] text-muted-foreground">Dikirim pada tanggal ini jam <span className="font-mono font-bold text-indigo-600">{data.daily_report_time}</span></p>
+                                <p className="text-[10px] text-muted-foreground">
+                                    {data.monthly_report_date === 'last_day'
+                                        ? 'Dikirim otomatis pada hari terakhir tiap bulan (28/29/30/31) jam '
+                                        : 'Dikirim pada tanggal ini jam '}
+                                    <span className="font-mono font-bold text-indigo-600">{data.daily_report_time}</span>
+                                </p>
                             </div>
                         </div>
                     </div>
