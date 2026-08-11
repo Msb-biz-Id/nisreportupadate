@@ -23,8 +23,11 @@ class NotificationDispatcher
         $channel = SystemSetting::get('system', 'notification_channel', 'whatsapp');
         $results = [];
 
-        $waActive = in_array($channel, ['whatsapp', 'both'], true);
-        $tgActive = in_array($channel, ['telegram', 'both'], true);
+        $waEnabled = (bool) SystemSetting::get('system', 'whatsapp_enabled', true);
+        $tgEnabled = (bool) SystemSetting::get('system', 'telegram_enabled', true);
+
+        $waActive = $waEnabled && in_array($channel, ['whatsapp', 'both'], true);
+        $tgActive = $tgEnabled && in_array($channel, ['telegram', 'both'], true);
 
         if ($waActive && ! empty($recipients['whatsapp'])) {
             foreach ($recipients['whatsapp'] as $to) {

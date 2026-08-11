@@ -8,7 +8,7 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Phase 6: Scheduled Reports (BRD 17.2.1)
+// Phase 6: Scheduled Reports (BRD 17.2.1 & 17.2.2)
 try {
     if (Illuminate\Support\Facades\Schema::hasTable('system_settings')) {
         $dailyTime = App\Models\Settings\SystemSetting::get('reports', 'daily_report_time', '08:00');
@@ -19,11 +19,30 @@ try {
             'thursday' => 4, 'friday' => 5, 'saturday' => 6
         ][strtolower($weeklyDayStr)] ?? 1;
 
-        $monthlyDate = (int) App\Models\Settings\SystemSetting::get('reports', 'monthly_report_date', 1);
+        $monthlyDateRaw = App\Models\Settings\SystemSetting::get('reports', 'monthly_report_date', '1');
 
         Schedule::command('reports:send harian')->dailyAt($dailyTime);
         Schedule::command('reports:send mingguan')->weeklyOn($weeklyDay, $dailyTime);
-        Schedule::command('reports:send bulanan')->monthlyOn($monthlyDate, $dailyTime);
+
+        // Penjadwalan bulanan dinamis (mendukung 'last_day' / tanggal 28-31)
+        if ($monthlyDateRaw === 'last_day') {
+            Schedule::command('reports:send bulanan')
+                ->dailyAt($dailyTime)
+                ->when(fn () => now()->isLastOfMonth());
+        } else {
+            $targetDay = (int) $monthlyDateRaw;
+            if ($targetDay >= 1 && $targetDay <= 28) {
+                Schedule::command('reports:send bulanan')->monthlyOn($targetDay, $dailyTime);
+            } else {
+                Schedule::command('reports:send bulanan')
+                    ->dailyAt($dailyTime)
+                    ->when(function () use ($targetDay) {
+                        $daysInMonth = now()->daysInMonth;
+                        $effectiveDay = min($targetDay, $daysInMonth);
+                        return (int) now()->format('j') === $effectiveDay;
+                    });
+            }
+        }
     } else {
         Schedule::command('reports:send harian')->dailyAt('08:00');
         Schedule::command('reports:send mingguan')->weeklyOn(1, '08:00');

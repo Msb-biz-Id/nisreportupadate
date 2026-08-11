@@ -56,6 +56,16 @@ class CalendarController extends Controller
             $deadlineCustomer = $o->deadline_customer ? \Illuminate\Support\Carbon::parse((string) $o->deadline_customer)->toDateString() : null;
             $deadlineProduksi = $o->end_production_date ? \Illuminate\Support\Carbon::parse((string) $o->end_production_date)->toDateString() : null;
 
+            // Hitung deadline efektif & sisa hari persis seperti Gantt Chart
+            $effectiveDeadline = $o->end_production_date ?? $o->deadline_customer;
+            $daysRemaining = $effectiveDeadline
+                ? now()->startOfDay()->diffInDays(\Illuminate\Support\Carbon::parse((string) $effectiveDeadline), false)
+                : null;
+
+            $isFinished = in_array($o->status_po, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim']);
+            $isDelayed = $o->status_po === 'delay' || ($daysRemaining !== null && $daysRemaining < 0 && !$isFinished);
+
+            $effectiveStatus = $isDelayed ? 'delay' : $o->status_po;
             $brandPrefix = $o->brand?->nama_brand ? "({$o->brand->nama_brand}) " : "";
 
             return [
@@ -65,17 +75,17 @@ class CalendarController extends Controller
                 'end'              => $end,
                 'deadlineCustomer' => $deadlineCustomer,
                 'deadlineProduksi' => $deadlineProduksi,
-                'status'           => $o->status_po,
-                'statusLabel'      => self::STATUS_LABELS[$o->status_po] ?? $o->status_po,
-                'color'            => self::STATUS_COLORS[$o->status_po] ?? '#94A3B8',
+                'status'           => $effectiveStatus,
+                'rawStatus'        => $o->status_po,
+                'isDelayed'        => $isDelayed,
+                'statusLabel'      => self::STATUS_LABELS[$effectiveStatus] ?? $o->status_po,
+                'color'            => self::STATUS_COLORS[$effectiveStatus] ?? '#94A3B8',
                 'pelanggan'        => $o->pelanggan?->nama,
                 'noPo'             => $o->no_po,
                 'namaPo'           => $o->nama_po,
                 'brandName'        => $o->brand?->nama_brand,
                 'brandKode'        => $o->brand?->kode,
-                'daysRemaining'    => $o->deadline_customer
-                    ? now()->startOfDay()->diffInDays(\Illuminate\Support\Carbon::parse((string) $o->deadline_customer), false)
-                    : null,
+                'daysRemaining'    => $daysRemaining,
                 'totalPcs'         => (int) ($o->total_pcs ?? 0),
                 'detailUrl'        => route('orders.show', $o->id),
                 'progressUrl'      => route('produksi.progress', $o->id),

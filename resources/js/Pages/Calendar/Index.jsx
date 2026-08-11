@@ -571,13 +571,17 @@ export default function CalendarIndex({ events, statusColors, statusLabels, filt
         },
     }), []);
 
+    const STATUS_ORDER = ['published', 'on_progress', 'delay', 'hold', 'selesai_produksi', 'siap_dikirim', 'sudah_dikirim'];
+
     const statusSummary = useMemo(() => {
         const counts = {};
         for (const e of events) counts[e.status] = (counts[e.status] ?? 0) + 1;
         return counts;
     }, [events]);
 
-    const activeStatuses = Object.keys(statusLabels).filter((s) => statusSummary[s]);
+    const activeStatuses = useMemo(() => {
+        return STATUS_ORDER.filter((s) => statusSummary[s]);
+    }, [statusSummary]);
 
     // Klik tanggal di view Bulan → buka DayPanel
     const handleSelectSlot = useCallback(({ start }) => {

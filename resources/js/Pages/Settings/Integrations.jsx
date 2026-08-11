@@ -572,11 +572,12 @@ function NotificationMatrixSection({ matrix, availableRoles }) {
 }
 
 function ScheduledReportsSection({ reports }) {
+    const [showManualOverride, setShowManualOverride] = useState(false);
     const { data, setData, put, processing } = useForm({
         enable_auto_report:    reports.enable_auto_report,
         daily_report_time:     reports.daily_report_time    || '08:00',
         weekly_report_day:     reports.weekly_report_day    || 'monday',
-        monthly_report_date:   reports.monthly_report_date  || 1,
+        monthly_report_date:   String(reports.monthly_report_date || '1'),
         report_types:          reports.report_types         || 'brand,produksi',
         superadmin_recipients: reports.superadmin_recipients || '',
         produksi_recipients:   reports.produksi_recipients  || '',
@@ -604,6 +605,10 @@ function ScheduledReportsSection({ reports }) {
     function submit(e) {
         e.preventDefault();
         put(route('settings.integrasi.reports'), { preserveScroll: true });
+    }
+
+    function testReport(periode) {
+        router.post(route('settings.integrasi.test.reports'), { periode }, { preserveScroll: true });
     }
 
     const dayOptions = [
@@ -643,23 +648,34 @@ function ScheduledReportsSection({ reports }) {
                         <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Jadwal Pengiriman</p>
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                             <div className="space-y-1">
-                                <Label className="text-xs">Waktu Harian</Label>
-                                <Input type="time" value={data.daily_report_time} onChange={(e) => setData('daily_report_time', e.target.value)} className="h-9 text-xs" />
-                                <p className="text-[10px] text-muted-foreground">Jam kirim laporan harian</p>
+                                <Label className="text-xs font-bold text-slate-700">Waktu Pengiriman (Jam)</Label>
+                                <Input type="time" value={data.daily_report_time} onChange={(e) => setData('daily_report_time', e.target.value)} className="h-9 text-xs font-mono" />
+                                <p className="text-[10px] text-muted-foreground">Jam pengiriman utama (berlaku untuk harian, mingguan, & bulanan)</p>
                             </div>
                             <div className="space-y-1">
-                                <Label className="text-xs">Hari Mingguan</Label>
+                                <Label className="text-xs font-bold text-slate-700">Hari Mingguan</Label>
                                 <Select value={data.weekly_report_day} onValueChange={(v) => setData('weekly_report_day', v)}>
                                     <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         {dayOptions.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
+                                <p className="text-[10px] text-muted-foreground">Dikirim pada hari ini jam <span className="font-mono font-bold text-indigo-600">{data.daily_report_time}</span></p>
                             </div>
                             <div className="space-y-1">
-                                <Label className="text-xs">Tanggal Bulanan</Label>
-                                <Input type="number" min={1} max={28} value={data.monthly_report_date} onChange={(e) => setData('monthly_report_date', parseInt(e.target.value) || 1)} className="h-9 text-xs" />
-                                <p className="text-[10px] text-muted-foreground">Tanggal 1–28 setiap bulan</p>
+                                <Label className="text-xs font-bold text-slate-700">Tanggal Bulanan</Label>
+                                <Select value={String(data.monthly_report_date)} onValueChange={(v) => setData('monthly_report_date', v)}>
+                                    <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                                    <SelectContent className="max-h-60">
+                                        <SelectItem value="last_day">🗓️ Akhir Bulan (Dinamis: 28/29/30/31)</SelectItem>
+                                        {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                            <SelectItem key={day} value={String(day)}>
+                                                Tanggal {day} {day > 28 ? '(Dinamis jika hari < ' + day + ')' : ''}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-[10px] text-muted-foreground">Dikirim pada tanggal ini jam <span className="font-mono font-bold text-indigo-600">{data.daily_report_time}</span></p>
                             </div>
                         </div>
                     </div>
@@ -692,48 +708,78 @@ function ScheduledReportsSection({ reports }) {
 
                     <Separator />
 
-                    {/* Recipients per role */}
-                    <div className="space-y-3">
-                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Penerima Laporan per Role (nomor WA, pisah koma)</p>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            {[
-                                { key: 'superadmin_recipients', label: '🌐 Superadmin', placeholder: '6281234,6285678' },
-                                { key: 'produksi_recipients',   label: '🏭 Admin Produksi', placeholder: '6281234,6285678' },
-                                { key: 'brand_recipients',      label: '🏷️ Admin Brand',   placeholder: '6281234,6285678' },
-                                { key: 'owner_recipients',      label: '👑 Owner',          placeholder: '6281234,6285678' },
-                                { key: 'keuangan_recipients',   label: '💰 Admin Keuangan', placeholder: '6281234,6285678' },
-                            ].map(f => (
-                                <div key={f.key} className="space-y-1">
-                                    <Label className="text-xs">{f.label}</Label>
-                                    <Input
-                                        value={data[f.key]}
-                                        onChange={(e) => setData(f.key, e.target.value)}
-                                        placeholder={f.placeholder}
-                                        className="h-9 text-xs font-mono"
-                                    />
+                    {/* Recipients per role - Dynamic Auto Badge + Advanced Override Accordion */}
+                    <div className="rounded-lg border bg-slate-50 p-4 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="space-y-0.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Penerima Laporan Otomatis</span>
+                                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] font-semibold">
+                                        <CheckCircle2 className="h-3 w-3 mr-1" /> Otomatis By Akun User Terverifikasi
+                                    </Badge>
                                 </div>
-                            ))}
+                                <p className="text-[11px] text-muted-foreground">
+                                    Secara default, laporan otomatis dikirimkan ke akun User aktif yang telah terverifikasi sesuai Role & Hak Akses Brand masing-masing.
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="xs"
+                                className="text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50 font-medium shrink-0 self-start sm:self-auto"
+                                onClick={() => setShowManualOverride(!showManualOverride)}
+                            >
+                                {showManualOverride ? 'Sembunyikan Override' : 'Pengaturan Lanjutan (Group WA/Telegram) ⚙️'}
+                            </Button>
                         </div>
-                        <p className="text-[10px] text-muted-foreground">Kosongkan = pakai default WA/Telegram dari pengaturan di atas. Format: <code>628xxxxxxx</code> atau Group ID.</p>
+
+                        {showManualOverride && (
+                            <div className="pt-3 border-t border-slate-200 space-y-3">
+                                <div className="rounded bg-amber-50 border border-amber-200 p-2.5 text-[11px] text-amber-900 leading-normal">
+                                    💡 <b>Pengaturan Override Khusus:</b> Isi kolom di bawah ini <u>hanya jika</u> Anda ingin mengalihkan pengiriman ke <b>Group WhatsApp/Telegram</b> (misal Group ID Telegram: <code>-100xxxxxxx</code>) atau ke kontak eksternal khusus. Kosongkan untuk tetap menggunakan pengiriman otomatis ke akun terverifikasi.
+                                </div>
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    {[
+                                        { key: 'superadmin_recipients', label: '🌐 Superadmin Override', placeholder: 'Kosongkan = Akun Superadmin terverifikasi' },
+                                        { key: 'produksi_recipients',   label: '🏭 Admin Produksi Override', placeholder: 'Contoh: -100123456789 atau 6281234' },
+                                        { key: 'brand_recipients',      label: '🏷️ Admin Brand Override',   placeholder: 'Contoh: -100123456789 atau 6281234' },
+                                        { key: 'owner_recipients',      label: '👑 Owner Override',          placeholder: 'Contoh: -100123456789 atau 6281234' },
+                                        { key: 'keuangan_recipients',   label: '💰 Admin Keuangan Override', placeholder: 'Contoh: -100123456789 atau 6281234' },
+                                    ].map(f => (
+                                        <div key={f.key} className="space-y-1">
+                                            <Label className="text-xs">{f.label}</Label>
+                                            <Input
+                                                value={data[f.key]}
+                                                onChange={(e) => setData(f.key, e.target.value)}
+                                                placeholder={f.placeholder}
+                                                className="h-9 text-xs font-mono bg-white"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <Separator />
 
-                    {/* Cron info */}
-                    <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs leading-relaxed space-y-2">
-                        <p className="font-bold text-blue-900 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Panduan Cron Job Server</p>
+                    {/* Cron info & Test Action */}
+                    <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-xs leading-relaxed space-y-3">
+                        <p className="font-bold text-blue-900 flex items-center gap-1.5"><Clock className="h-4 w-4 text-blue-700" /> Panduan Cron Job & Uji Pengiriman Laporan</p>
                         <code className="block rounded bg-blue-100 border border-blue-200 px-2 py-1 font-mono text-[11px] text-blue-900">
                             {"* * * * * php /path/to/artisan schedule:run >> /dev/null 2>&1"}
                         </code>
-                        <p className="text-blue-700">Atau jalankan manual:</p>
-                        <div className="flex gap-2 flex-wrap">
-                            {['harian', 'mingguan', 'bulanan'].map(p => (
-                                <code key={p} className="rounded bg-blue-100 border border-blue-200 px-2 py-0.5 font-mono text-[11px] text-blue-900">
-                                    php artisan reports:send {p}
-                                </code>
-                            ))}
+
+                        <div className="pt-1 border-t border-blue-200 flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-xs font-bold text-blue-900">Uji Pengiriman Laporan Langsung (Test Run):</span>
+                            <div className="flex gap-2 flex-wrap">
+                                {['harian', 'mingguan', 'bulanan'].map(p => (
+                                    <Button key={p} type="button" size="xs" variant="outline" className="bg-white hover:bg-blue-100 text-blue-900 border-blue-300 font-medium capitalize text-xs shadow-xs" onClick={() => testReport(p)}>
+                                        <Send className="h-3 w-3 mr-1 text-blue-600" /> Test {p}
+                                    </Button>
+                                ))}
+                            </div>
                         </div>
-                        <p className="text-blue-700">Paksa kirim (abaikan enable toggle): tambahkan <code className="bg-blue-100 px-1 rounded">--force</code></p>
                     </div>
 
                     <div className="flex justify-end">

@@ -234,6 +234,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/integrasi/test/ai', [SettingsController::class, 'testAi'])->name('integrasi.test.ai');
         Route::post('/integrasi/test/whatsapp', [SettingsController::class, 'testWhatsapp'])->name('integrasi.test.whatsapp');
         Route::post('/integrasi/test/telegram', [SettingsController::class, 'testTelegram'])->name('integrasi.test.telegram');
+        Route::post('/integrasi/test/reports', [SettingsController::class, 'testReports'])->name('integrasi.test.reports');
         Route::put('/integrasi/reports', [SettingsController::class, 'updateReports'])->name('integrasi.reports');
     });
 

@@ -201,4 +201,70 @@ class TelegramWebhookTest extends TestCase
                 && str_contains($request->body(), 'GRAFIK OMSET PER BRAND');
         });
     }
+
+    public function test_telegram_webhook_contact_verification_removes_keyboard(): void
+    {
+        $user = User::factory()->create([
+            'phone' => '08123456789',
+            'telegram_chat_id' => null,
+        ]);
+
+        Http::fake([
+            'https://api.telegram.org/bot123456:FAKE_BOT_TOKEN/sendMessage' => Http::response(['ok' => true]),
+        ]);
+
+        $payload = [
+            'update_id' => 123459,
+            'message' => [
+                'message_id' => 780,
+                'chat' => ['id' => 887766, 'type' => 'private'],
+                'contact' => [
+                    'phone_number' => '+628123456789',
+                    'first_name' => 'John',
+                ],
+            ],
+        ];
+
+        $response = $this->postJson(route('webhooks.telegram'), $payload);
+        $response->assertOk();
+
+        // Assert user telegram_chat_id was saved
+        $user->refresh();
+        $this->assertEquals('887766', $user->telegram_chat_id);
+
+        // Assert sendMessage was called with remove_keyboard in reply_markup
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://api.telegram.org/bot123456:FAKE_BOT_TOKEN/sendMessage'
+                && $request['chat_id'] === '887766'
+                && isset($request['reply_markup'])
+                && str_contains($request['reply_markup'], '"remove_keyboard":true');
+        });
+    }
+
+    public function test_telegram_webhook_unlink_command(): void
+    {
+        $user = User::factory()->create([
+            'phone' => '08123456789',
+            'telegram_chat_id' => '887766',
+        ]);
+
+        Http::fake([
+            'https://api.telegram.org/bot123456:FAKE_BOT_TOKEN/sendMessage' => Http::response(['ok' => true]),
+        ]);
+
+        $payload = [
+            'update_id' => 123460,
+            'message' => [
+                'message_id' => 781,
+                'chat' => ['id' => 887766, 'type' => 'private'],
+                'text' => '/unlink',
+            ],
+        ];
+
+        $response = $this->postJson(route('webhooks.telegram'), $payload);
+        $response->assertOk();
+
+        $user->refresh();
+        $this->assertNull($user->telegram_chat_id);
+    }
 }

@@ -85,71 +85,111 @@ class WebhookController extends Controller
      */
     public function telegram(Request $request): \Illuminate\Http\JsonResponse
     {
-        $payload = $request->all();
-        Log::info('Telegram webhook received', ['payload' => $payload]);
+        try {
+            $payload = $request->all();
+            Log::info('Telegram webhook received', ['payload' => $payload]);
 
-        $botToken = SystemSetting::get('telegram', 'bot_token');
-        if (empty($botToken)) {
-            return response()->json(['ok' => false, 'reason' => 'bot_token_not_configured']);
-        }
-
-        $message = $payload['message'] ?? null;
-        if (! $message) {
-            return response()->json(['ok' => true]);
-        }
-
-        $chatId = $message['chat']['id'] ?? null;
-        if (! $chatId) {
-            return response()->json(['ok' => true]);
-        }
-
-        // 1. Jika ada data Contact (User menekan tombol "Hubungkan Kontak")
-        if (isset($message['contact'])) {
-            $phone = $message['contact']['phone_number'] ?? '';
-            if ($phone) {
-                // Normalisasi nomor telepon dari Telegram (bisa berawalan '+' atau '0')
-                $normalizedPhone = SidobeClient::normalizePhone($phone);
-
-                // Cari user berdasarkan nomor HP yang terdaftar
-                $user = User::all()->first(function ($u) use ($normalizedPhone) {
-                    if (empty($u->phone)) return false;
-                    return SidobeClient::normalizePhone($u->phone) === $normalizedPhone;
-                });
-
-                if ($user) {
-                    $user->telegram_chat_id = (string) $chatId;
-                    $user->save();
-
-                    // Kirim konfirmasi berhasil
-                    $this->sendTelegramMessage($botToken, $chatId, "✅ *Sukses!* Akun Telegram Anda telah terhubung dengan user *{$user->name}* ({$user->email}).\n\nAnda sekarang akan menerima laporan berkala dan notifikasi transaksi pribadi di sini secara otomatis.");
-                } else {
-                    // Kirim pesan gagal karena nomor HP tidak terdaftar
-                    $this->sendTelegramMessage($botToken, $chatId, "⚠️ Nomor HP *{$phone}* tidak ditemukan di sistem database kami.\n\nSilakan pastikan nomor HP Anda di profil sistem sudah terdaftar dengan benar.");
-                }
+            $botToken = SystemSetting::get('telegram', 'bot_token');
+            if (empty($botToken)) {
+                return response()->json(['ok' => false, 'reason' => 'bot_token_not_configured']);
             }
+
+            $message = $payload['message'] ?? null;
+            if (! $message) {
+                return response()->json(['ok' => true]);
+            }
+
+            $chatId = $message['chat']['id'] ?? null;
+            if (! $chatId) {
+                return response()->json(['ok' => true]);
+            }
+
+            $removeKeyboardMarkup = ['remove_keyboard' => true];
+
+            // 1. Jika ada data Contact (User menekan tombol "Hubungkan Kontak")
+            if (isset($message['contact'])) {
+                $phone = $message['contact']['phone_number'] ?? '';
+                if ($phone) {
+                    // Normalisasi nomor telepon dari Telegram (bisa berawalan '+' atau '0')
+                    $normalizedPhone = SidobeClient::normalizePhone($phone);
+
+                    // Cari user berdasarkan nomor HP yang terdaftar
+                    $user = User::all()->first(function ($u) use ($normalizedPhone) {
+                        if (empty($u->phone)) return false;
+                        return SidobeClient::normalizePhone($u->phone) === $normalizedPhone;
+                    });
+
+                    if ($user) {
+                        $user->telegram_chat_id = (string) $chatId;
+                        $user->save();
+
+                        // Kirim konfirmasi berhasil DENGAN REMOVE KEYBOARD
+                        $this->sendTelegramMessage(
+                            $botToken,
+                            (string) $chatId,
+                            "✅ *Sukses!* Akun Telegram Anda telah terhubung dengan user *{$user->name}* ({$user->email}).\n\nAnda sekarang akan menerima laporan berkala dan notifikasi transaksi pribadi di sini secara otomatis.",
+                            $removeKeyboardMarkup
+                        );
+                    } else {
+                        // Kirim pesan gagal karena nomor HP tidak terdaftar DENGAN REMOVE KEYBOARD
+                        $this->sendTelegramMessage(
+                            $botToken,
+                            (string) $chatId,
+                            "⚠️ Nomor HP *{$phone}* tidak ditemukan di sistem database kami.\n\nSilakan pastikan nomor HP Anda di profil sistem sudah terdaftar dengan benar.",
+                            $removeKeyboardMarkup
+                        );
+                    }
+                }
+                return response()->json(['ok' => true]);
+            }
+
+            // 2. Cek apakah user sudah terhubung sebelumnya
+            $user = User::where('telegram_chat_id', (string) $chatId)->first();
+            if (! $user) {
+                // Jika belum terhubung, minta bagikan kontak
+                $this->requestTelegramContact($botToken, (string) $chatId);
+                return response()->json(['ok' => true]);
+            }
+
+            // 3. Jika sudah terhubung, jalankan AI Chatbot atau Command!
+            $text = trim($message['text'] ?? '');
+            $textLower = strtolower($text);
+
+            if ($textLower === '/start') {
+                $this->sendTelegramMessage(
+                    $botToken,
+                    (string) $chatId,
+                    "👋 Halo *{$user->name}*!\n\nAkun Anda telah terhubung. Tanyakan apa saja kepada saya tentang data order, invoice, atau laporan ringkas sesuai hak akses Anda.",
+                    $removeKeyboardMarkup
+                );
+            } elseif ($textLower === '/unlink' || $textLower === 'unlink') {
+                $user->telegram_chat_id = null;
+                $user->save();
+                $this->sendTelegramMessage(
+                    $botToken,
+                    (string) $chatId,
+                    "🔒 Koneksi akun Telegram Anda dengan sistem ProTrack telah diputus.\n\nJika ingin menghubungkan kembali, silakan kirim ulang kontak Anda.",
+                    $removeKeyboardMarkup
+                );
+            } elseif ($textLower === '/grafik' || preg_match('/^(tampilkan|minta|buat|kirim)?\s*(grafik|chart|diagram|visualisasi)/i', $textLower)) {
+                $this->handleChartRequest($user, (string) $chatId, $botToken);
+            } else {
+                $this->handleAiChatbot($user, $text, (string) $chatId, $botToken);
+            }
+
+            return response()->json(['ok' => true]);
+        } catch (\Throwable $e) {
+            Log::error('Telegram webhook error: ' . $e->getMessage(), [
+                'exception' => $e,
+                'payload' => $request->all(),
+            ]);
+
+            if (isset($botToken) && isset($chatId)) {
+                $this->sendTelegramMessage($botToken, (string) $chatId, "⚠️ Terjadi kesalahan internal saat memproses pesan Anda. Silakan coba lagi.");
+            }
+
             return response()->json(['ok' => true]);
         }
-
-        // 2. Cek apakah user sudah terhubung sebelumnya
-        $user = User::where('telegram_chat_id', (string) $chatId)->first();
-        if (! $user) {
-            // Jika belum terhubung, minta bagikan kontak
-            $this->requestTelegramContact($botToken, $chatId);
-            return response()->json(['ok' => true]);
-        }
-
-        // 3. Jika sudah terhubung, jalankan AI Chatbot!
-        $text = trim($message['text'] ?? '');
-        $textLower = strtolower($text);
-        if ($textLower === '/start') {
-            $this->sendTelegramMessage($botToken, $chatId, "👋 Halo *{$user->name}*!\n\nAkun Anda telah terhubung. Tanyakan apa saja kepada saya tentang data order, invoice, atau laporan ringkas sesuai hak akses Anda.");
-        } elseif ($textLower === '/grafik' || preg_match('/^(tampilkan|minta|buat|kirim)?\s*(grafik|chart|diagram|visualisasi)/i', $textLower)) {
-            $this->handleChartRequest($user, $chatId, $botToken);
-        } else {
-            $this->handleAiChatbot($user, $text, $chatId, $botToken);
-        }
-
-        return response()->json(['ok' => true]);
     }
 
     /**
@@ -265,7 +305,7 @@ ATURAN JAWABAN KETAT:
 PROMPT;
 
         $response = $gemini->generate($prompt);
-        $answer = $response['text'] ?? 'Maaf, saya tidak dapat memproses jawaban saat ini.';
+        $answer = ! empty($response['text']) ? $response['text'] : ($response['error'] ?? 'Maaf, saya tidak dapat memproses jawaban saat ini.');
 
         // Save conversation to memory
         if ($response['success'] && !empty($answer)) {
@@ -587,31 +627,64 @@ PROMPT;
         return $context;
     }
 
-    private function sendTelegramMessage(string $botToken, string $chatId, string $text): void
+    private function sendTelegramMessage(string $botToken, string $chatId, string $text, ?array $replyMarkup = null): bool
     {
-        \Illuminate\Support\Facades\Http::post("https://api.telegram.org/bot{$botToken}/sendMessage", [
+        if (trim($text) === '') {
+            $text = '⚠️ Maaf, terjadi kendala saat memproses respons.';
+        }
+
+        $params = [
             'chat_id' => $chatId,
             'text' => $text,
             'parse_mode' => 'Markdown',
-        ]);
+        ];
+
+        if ($replyMarkup !== null) {
+            $params['reply_markup'] = json_encode($replyMarkup);
+        }
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::post("https://api.telegram.org/bot{$botToken}/sendMessage", $params);
+
+            if ($response->successful()) {
+                return true;
+            }
+
+            Log::warning('Telegram Markdown send failed, retrying plain text', [
+                'chat_id' => $chatId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            // Fallback: hapus parse_mode jika Markdown gagal (misal 400 Bad Request karena unescaped entities)
+            unset($params['parse_mode']);
+            $retryResponse = \Illuminate\Support\Facades\Http::post("https://api.telegram.org/bot{$botToken}/sendMessage", $params);
+
+            return $retryResponse->successful();
+        } catch (\Throwable $e) {
+            Log::error('Exception in sendTelegramMessage: ' . $e->getMessage(), ['chat_id' => $chatId]);
+            return false;
+        }
     }
 
     private function requestTelegramContact(string $botToken, string $chatId): void
     {
-        \Illuminate\Support\Facades\Http::post("https://api.telegram.org/bot{$botToken}/sendMessage", [
-            'chat_id' => $chatId,
-            'text' => "Halo! Silakan klik tombol di bawah ini untuk menghubungkan nomor WhatsApp/HP Anda dengan Telegram agar dapat menerima notifikasi laporan pribadi otomatis.",
-            'parse_mode' => 'Markdown',
-            'reply_markup' => json_encode([
-                'keyboard' => [
-                    [
-                        ['text' => 'Hubungkan Kontak / Nomor HP 📱', 'request_contact' => true]
-                    ]
-                ],
-                'one_time_keyboard' => true,
-                'resize_keyboard' => true
-            ])
-        ]);
+        $replyMarkup = [
+            'keyboard' => [
+                [
+                    ['text' => 'Hubungkan Kontak / Nomor HP 📱', 'request_contact' => true]
+                ]
+            ],
+            'one_time_keyboard' => true,
+            'resize_keyboard' => true
+        ];
+
+        $this->sendTelegramMessage(
+            $botToken,
+            $chatId,
+            "Halo! Silakan klik tombol di bawah ini untuk menghubungkan nomor WhatsApp/HP Anda dengan Telegram agar dapat menerima notifikasi laporan pribadi otomatis.",
+            $replyMarkup
+        );
     }
 
     private function handleChartRequest(User $user, string $chatId, string $botToken): void

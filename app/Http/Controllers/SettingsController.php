@@ -88,7 +88,7 @@ class SettingsController extends Controller
                 'enable_auto_report'    => (bool)  SystemSetting::get('reports', 'enable_auto_report', false),
                 'daily_report_time'     => SystemSetting::get('reports', 'daily_report_time', '08:00'),
                 'weekly_report_day'     => SystemSetting::get('reports', 'weekly_report_day', 'monday'),
-                'monthly_report_date'   => (int)   SystemSetting::get('reports', 'monthly_report_date', 1),
+                'monthly_report_date'   => SystemSetting::get('reports', 'monthly_report_date', '1'),
                 'report_types'          => SystemSetting::get('reports', 'report_types', 'brand,produksi'),
                 'superadmin_recipients' => SystemSetting::get('reports', 'superadmin_recipients', ''),
                 'produksi_recipients'   => SystemSetting::get('reports', 'produksi_recipients', ''),
@@ -106,8 +106,8 @@ class SettingsController extends Controller
              'enable_auto_report'    => ['boolean'],
              'daily_report_time'     => ['string', 'regex:/^\d{2}:\d{2}$/'],
              'weekly_report_day'     => ['string', 'in:monday,tuesday,wednesday,thursday,friday,saturday,sunday'],
-             'monthly_report_date'   => ['integer', 'min:1', 'max:28'],
-             'report_types'          => ['string'],
+             'monthly_report_date'   => ['required', 'string', 'max:10'],
+             'report_types'          => ['nullable', 'string'],
              'superadmin_recipients' => ['nullable', 'string'],
              'produksi_recipients'   => ['nullable', 'string'],
              'brand_recipients'      => ['nullable', 'string'],
@@ -116,7 +116,7 @@ class SettingsController extends Controller
          ]);
 
          foreach ($data as $key => $value) {
-             SystemSetting::set('reports', $key, $value);
+             SystemSetting::set('reports', $key, $value ?? '');
          }
 
          return back()->with('success', 'Pengaturan laporan otomatis berhasil disimpan.');
@@ -337,6 +337,29 @@ class SettingsController extends Controller
                 ? ($result['mock'] ? 'Mock mode (bot token belum dikonfigurasi).' : 'Telegram terkirim.')
                 : 'Gagal: ' . ($result['error'] ?? 'unknown')
         );
+    }
+
+    public function testReports(Request $request)
+    {
+        Gate::authorize('settings.system');
+
+        $periode = $request->input('periode', 'harian');
+        if (! in_array($periode, ['harian', 'mingguan', 'bulanan'])) {
+            $periode = 'harian';
+        }
+
+        try {
+            \Illuminate\Support\Facades\Artisan::call('reports:send', [
+                'periode' => $periode,
+                '--force' => true,
+            ]);
+
+            $output = \Illuminate\Support\Facades\Artisan::output();
+
+            return back()->with('success', "Pengujian pengiriman laporan {$periode} selesai diproses:\n\n" . trim($output));
+        } catch (\Throwable $e) {
+            return back()->with('error', "Gagal menguji laporan: " . $e->getMessage());
+        }
     }
 
     public function notifications(Request $request)
