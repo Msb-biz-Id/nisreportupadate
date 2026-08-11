@@ -51,7 +51,10 @@ class ReportMessageBuilder
             return '';
         }
 
-        $prompt = <<<PROMPT
+        $cacheKey = 'report_ai_insight_' . md5($context);
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(60), function () use ($context) {
+            $prompt = <<<PROMPT
 Kamu adalah analis bisnis untuk perusahaan apparel/jersey custom di Indonesia.
 Berikan insight singkat (2-3 kalimat, bahasa Indonesia) berdasarkan data laporan berikut.
 Setelah memberikan insight, buatlah daftar tindakan konkret (Action Items) prioritas berupa checklist (1-3 item).
@@ -68,8 +71,9 @@ DATA LAPORAN:
 {$context}
 PROMPT;
 
-        $result = $this->ai->generate($prompt);
-        return $result['success'] ? trim($result['text']) : '';
+            $result = $this->ai->generate($prompt);
+            return $result['success'] ? trim($result['text']) : '';
+        });
     }
 
     /** Format AI insight untuk disisipkan di pesan WA/Telegram */

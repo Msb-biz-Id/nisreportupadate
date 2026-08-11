@@ -13,7 +13,7 @@ class GeminiClient
 
     public function __construct(
         private readonly array $apiKeys = [],
-        private readonly string $model = 'gemini-2.5-flash',
+        private readonly string $model = 'gemini-1.5-flash',
         private readonly float $temperature = 0.7,
         private readonly int $maxOutputTokens = 2048,
     ) {}
@@ -22,7 +22,7 @@ class GeminiClient
     {
         $rawKeys = SystemSetting::get('ai', 'gemini_api_keys') ?: env('GEMINI_API_KEYS', '');
         $keys = array_filter(array_map('trim', preg_split('/[\r\n,]+/', $rawKeys)));
-        $model = SystemSetting::get('ai', 'model', 'gemini-2.5-flash');
+        $model = SystemSetting::get('ai', 'model', 'gemini-1.5-flash');
         $temp = (float) SystemSetting::get('ai', 'temperature', 0.7);
         $maxTokens = (int) SystemSetting::get('ai', 'max_tokens', 2048);
 
