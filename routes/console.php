@@ -65,8 +65,8 @@ Schedule::command('backup:r2 --type=monthly')->monthlyOn(1, '03:00');
 // Yearly backup — retained 5 tahun (1 Jan tiap tahun)
 Schedule::command('backup:r2 --type=yearly')->yearlyOn(1, 1, '04:00');
 
-// Safe media pruning (run weekly to clean unused image uploads)
-Schedule::command('uploads:prune')->weeklyOn(0, '01:00');
+// Safe media pruning (disabled automatic deletion to protect uploaded PO design images)
+// Schedule::command('uploads:prune')->weeklyOn(0, '01:00');
 
 // Prune old activity logs older than 30 days daily
 Schedule::command('model:prune', ['--model' => [\App\Models\ActivityLog::class]])->daily();

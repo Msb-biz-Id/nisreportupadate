@@ -5,6 +5,9 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Order\OrderItem;
+use App\Models\Order\Order;
+use App\Models\Order\OrderPayment;
+use App\Models\Brand;
 
 class PruneOrphanedUploads extends Command
 {
@@ -20,7 +23,7 @@ class PruneOrphanedUploads extends Command
      *
      * @var string
      */
-    protected $description = 'Prune orphaned uploaded files that are no longer referenced in the database';
+    protected $description = 'Safely prune orphaned uploaded files that are no longer referenced in the database';
 
     /**
      * Execute the console command.
@@ -39,13 +42,28 @@ class PruneOrphanedUploads extends Command
         $deletedCount = 0;
 
         foreach ($files as $file) {
-            // Check if file path is referenced in order_items table
-            $referenced = OrderItem::where('gambar_desain', 'like', "%{$file}%")
-                ->orWhere('gambar_kerah', 'like', "%{$file}%")
-                ->orWhere('gambar_ket_tambahan', 'like', "%{$file}%")
+            // Safe grace period: abaikan file yang diupload dalam 7 hari terakhir
+            $lastModified = Storage::disk('public')->lastModified($file);
+            if ((time() - $lastModified) < (7 * 86400)) {
+                continue;
+            }
+
+            $filename = basename($file);
+
+            // Cek di seluruh tabel terkait yang menyimpan gambar
+            $inItems = OrderItem::where('gambar_desain', 'like', "%{$filename}%")
+                ->orWhere('gambar_kerah', 'like', "%{$filename}%")
+                ->orWhere('gambar_ket_tambahan', 'like', "%{$filename}%")
                 ->exists();
 
-            if (!$referenced) {
+            $inOrders = Order::where('desain_pola', 'like', "%{$filename}%")
+                ->orWhere('file_attachment', 'like', "%{$filename}%")
+                ->exists();
+
+            $inPayments = OrderPayment::where('bukti_transfer', 'like', "%{$filename}%")->exists();
+            $inBrands = Brand::where('logo', 'like', "%{$filename}%")->exists();
+
+            if (!$inItems && !$inOrders && !$inPayments && !$inBrands) {
                 Storage::disk('public')->delete($file);
                 $deletedCount++;
                 $this->line("Deleted orphaned file: {$file}");
