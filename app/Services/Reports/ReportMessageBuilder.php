@@ -1115,13 +1115,11 @@ PROMPT;
         $lines[] = "• Produk Terlaris: " . ($topProduk?->nama_produk ?? '-') . " (" . ($topProduk?->total_qty ?? 0) . " pcs)";
         $lines[] = "• Customer Terbesar: " . ($topCustomer?->pelanggan?->nama ?? '-');
 
-        if (auth()->user()->hasRole(['owner', 'superadmin'])) {
-            $aiCtx = "Brand {$brand->nama_brand}. Order masuk: {$masuk}, proses: {$proses}, selesai: {$selesai}, delay: {$delay}. "
-                . "Revenue bulan ini: Rp " . number_format($revMonth, 0) . ". Pertumbuhan vs bulan lalu: {$growth}%. "
-                . "PO baru hari ini: {$poHariIni->count()}, sedang produksi: {$poProduksi->count()}, selesai hari ini: {$poSelesai->count()}. "
-                . "PO terlambat: {$terlambat->count()}, deadline < 3 hari: {$deadlines->count()}.";
-            $this->appendAiInsight($lines, $aiCtx);
-        }
+        $aiCtx = "Brand {$brand->nama_brand}. Order masuk: {$masuk}, proses: {$proses}, selesai: {$selesai}, delay: {$delay}. "
+            . "Revenue bulan ini: Rp " . number_format($revMonth, 0) . ". Pertumbuhan vs bulan lalu: {$growth}%. "
+            . "PO baru hari ini: {$poHariIni->count()}, sedang produksi: {$poProduksi->count()}, selesai hari ini: {$poSelesai->count()}. "
+            . "PO terlambat: {$terlambat->count()}, deadline < 3 hari: {$deadlines->count()}.";
+        $this->appendAiInsight($lines, $aiCtx);
 
         $lines[] = "";
         $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
