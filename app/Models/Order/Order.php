@@ -81,10 +81,10 @@ class Order extends Model
     }
 
     protected $casts = [
-        'tanggal_masuk' => 'date',
-        'deadline_customer' => 'date',
-        'start_production_date' => 'date',
-        'end_production_date' => 'date',
+        'tanggal_masuk' => 'date:Y-m-d',
+        'deadline_customer' => 'date:Y-m-d',
+        'start_production_date' => 'date:Y-m-d',
+        'end_production_date' => 'date:Y-m-d',
         'was_delayed_on_completion' => 'boolean',
         'days_late_on_completion' => 'integer',
         'published_at' => 'datetime',

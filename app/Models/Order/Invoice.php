@@ -36,8 +36,8 @@ class Invoice extends Model
     ];
 
     protected $casts = [
-        'tanggal_terbit' => 'date',
-        'jatuh_tempo' => 'date',
+        'tanggal_terbit' => 'date:Y-m-d',
+        'jatuh_tempo' => 'date:Y-m-d',
         'sent_at' => 'datetime',
         'faq' => 'array',
         'total_tagihan' => 'decimal:2',
