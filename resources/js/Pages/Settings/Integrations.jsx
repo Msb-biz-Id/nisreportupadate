@@ -1196,7 +1196,25 @@ function ResellerBrandingSection({ reseller_branding }) {
 
 export default function Integrations({ ai, whatsapp, telegram, system, notification_matrix, available_roles, seo, reseller_branding, mail, reports }) {
     const roles = available_roles || ['superadmin', 'owner', 'admin_brand', 'reseller', 'admin_produksi', 'admin_keuangan'];
-    const [activeTab, setActiveTab] = useState('seo');
+    const [activeTab, setActiveTabState] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const urlTab = new URLSearchParams(window.location.search).get('tab');
+            if (urlTab) return urlTab;
+            const savedTab = sessionStorage.getItem('integrations_tab');
+            if (savedTab) return savedTab;
+        }
+        return 'seo';
+    });
+
+    const setActiveTab = (tabId) => {
+        setActiveTabState(tabId);
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem('integrations_tab', tabId);
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', tabId);
+            window.history.replaceState(null, '', url.toString());
+        }
+    };
 
     const tabs = [
         { id: 'seo', name: 'SEO & Branding', icon: Settings, badge: 'App' },
