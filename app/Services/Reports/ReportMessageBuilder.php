@@ -177,6 +177,21 @@ PROMPT;
             }
         }
 
+        $siapDikirimBelumLunas = Order::query()
+            ->whereIn('status_po', ['siap_dikirim', 'selesai_produksi'])
+            ->with(['pelanggan:id,nama', 'brand:id,kode', 'items', 'payments.masterJenisPembayaran'])
+            ->get()
+            ->filter(fn($o) => $o->sisaTagihan() > 0.99)
+            ->take(15);
+
+        if ($siapDikirimBelumLunas->isNotEmpty()) {
+            $lines[] = "";
+            $lines[] = "🛑 *PO SIAP DIKIRIM (BELUM LUNAS):*";
+            foreach ($siapDikirimBelumLunas as $po) {
+                $lines[] = "• [{$po->brand?->kode}] {$po->no_po} - {$po->pelanggan?->nama} (Sisa: Rp " . number_format($po->sisaTagihan(), 0, ',', '.') . ")";
+            }
+        }
+
         $lines[] = "";
         $lines[] = "💰 *REVENUE TOTAL:*";
         $lines[] = "• Hari ini: Rp " . number_format($revToday, 0, ',', '.');
@@ -1100,6 +1115,21 @@ PROMPT;
             foreach ($terlambat as $po) {
                 $hari = abs((int) now()->startOfDay()->diffInDays($po->deadline_customer, false));
                 $lines[] = "• {$po->no_po} - {$po->pelanggan?->nama} ({$hari} hari)";
+            }
+        }
+
+        $siapDikirimBelumLunas = Order::where('brand_id', $bid)
+            ->whereIn('status_po', ['siap_dikirim', 'selesai_produksi'])
+            ->with(['pelanggan:id,nama', 'items', 'payments.masterJenisPembayaran'])
+            ->get()
+            ->filter(fn($o) => $o->sisaTagihan() > 0.99)
+            ->take(15);
+
+        if ($siapDikirimBelumLunas->isNotEmpty()) {
+            $lines[] = "";
+            $lines[] = "🛑 *PO SIAP DIKIRIM (BELUM LUNAS):*";
+            foreach ($siapDikirimBelumLunas as $i => $po) {
+                $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} (Sisa: Rp " . number_format($po->sisaTagihan(), 0, ',', '.') . ")";
             }
         }
 
