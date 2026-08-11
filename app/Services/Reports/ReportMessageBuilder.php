@@ -181,13 +181,14 @@ PROMPT;
             ->whereIn('status_po', ['siap_dikirim', 'selesai_produksi'])
             ->with(['pelanggan:id,nama', 'brand:id,kode', 'items', 'payments.masterJenisPembayaran'])
             ->get()
-            ->filter(fn($o) => $o->sisaTagihan() > 0.99)
+            ->filter(fn(Order $o) => $o->sisaTagihan() > 0.99)
             ->take(15);
 
         if ($siapDikirimBelumLunas->isNotEmpty()) {
             $lines[] = "";
             $lines[] = "🛑 *PO SIAP DIKIRIM (BELUM LUNAS):*";
             foreach ($siapDikirimBelumLunas as $po) {
+                /** @var Order $po */
                 $lines[] = "• [{$po->brand?->kode}] {$po->no_po} - {$po->pelanggan?->nama} (Sisa: Rp " . number_format($po->sisaTagihan(), 0, ',', '.') . ")";
             }
         }
@@ -1122,13 +1123,14 @@ PROMPT;
             ->whereIn('status_po', ['siap_dikirim', 'selesai_produksi'])
             ->with(['pelanggan:id,nama', 'items', 'payments.masterJenisPembayaran'])
             ->get()
-            ->filter(fn($o) => $o->sisaTagihan() > 0.99)
+            ->filter(fn(Order $o) => $o->sisaTagihan() > 0.99)
             ->take(15);
 
         if ($siapDikirimBelumLunas->isNotEmpty()) {
             $lines[] = "";
             $lines[] = "🛑 *PO SIAP DIKIRIM (BELUM LUNAS):*";
             foreach ($siapDikirimBelumLunas as $i => $po) {
+                /** @var Order $po */
                 $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} (Sisa: Rp " . number_format($po->sisaTagihan(), 0, ',', '.') . ")";
             }
         }
