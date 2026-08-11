@@ -222,6 +222,9 @@ function CustomAgenda({ events, statusColors, statusLabels, filterStatus, curren
     }, [filterType, agendaDate, customStart, customEnd]);
 
     const isEventInInterval = (event, startInterval, endInterval) => {
+        if (filterStatus === 'delay' && event.isDelayed) {
+            return true;
+        }
         const eventStart = startOfDay(new Date(event.start));
         const eventEnd = endOfDay(new Date(event.end));
         return eventStart <= endInterval && eventEnd >= startInterval;

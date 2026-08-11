@@ -56,12 +56,13 @@ class CalendarController extends Controller
             $deadlineCustomer = $o->deadline_customer ? \Illuminate\Support\Carbon::parse((string) $o->deadline_customer)->toDateString() : null;
             $deadlineProduksi = $o->end_production_date ? \Illuminate\Support\Carbon::parse((string) $o->end_production_date)->toDateString() : null;
 
-            // Hitung deadline efektif & sisa hari persis seperti Gantt Chart
-            $effectiveDeadline = $o->end_production_date ?? $o->deadline_customer;
+            // Hitung deadline efektif & sisa hari persis seperti POStatusManager & Gantt Chart
+            $today = now()->startOfDay();
+            $effectiveDeadline = $o->deadline_customer ?? $o->end_production_date;
+            $deadlineCarbon = $effectiveDeadline ? \Illuminate\Support\Carbon::parse((string) $effectiveDeadline)->startOfDay() : null;
+
             $daysRemaining = null;
-            if ($effectiveDeadline) {
-                $deadlineCarbon = \Illuminate\Support\Carbon::parse((string) $effectiveDeadline)->startOfDay();
-                $today = now()->startOfDay();
+            if ($deadlineCarbon) {
                 $daysRemaining = (int) $today->diffInDays($deadlineCarbon, false);
                 if ($deadlineCarbon < $today && $daysRemaining > 0) {
                     $daysRemaining = -$daysRemaining;
@@ -69,7 +70,8 @@ class CalendarController extends Controller
             }
 
             $isFinished = in_array($o->status_po, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim']);
-            $isDelayed = $o->status_po === 'delay' || ($daysRemaining !== null && $daysRemaining < 0 && !$isFinished);
+            $isOverdue = $deadlineCarbon !== null && $deadlineCarbon < $today && !$isFinished;
+            $isDelayed = $o->status_po === 'delay' || $isOverdue;
 
             $effectiveStatus = $isDelayed ? 'delay' : $o->status_po;
             $brandPrefix = $o->brand?->nama_brand ? "({$o->brand->nama_brand}) " : "";
