@@ -99,9 +99,9 @@ PROMPT;
 
         $terlambat = Order::query()
             ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
-            ->where('deadline_customer', '<', today())
+            ->whereRaw('COALESCE(end_production_date, deadline_customer) < ?', [today()->toDateString()])
             ->with(['pelanggan:id,nama', 'brand:id,kode'])
-            ->orderBy('deadline_customer')->limit(5)->get();
+            ->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(5)->get();
 
         $deadlines = Order::query()
             ->whereIn('status_po', ['published', 'on_progress'])
@@ -158,7 +158,8 @@ PROMPT;
             $lines[] = "";
             $lines[] = "⚠️ *PO TERLAMBAT:*";
             foreach ($terlambat as $po) {
-                $hari = abs((int) now()->startOfDay()->diffInDays($po->deadline_customer, false));
+                $effDeadline = $po->end_production_date ?? $po->deadline_customer;
+                $hari = abs((int) now()->startOfDay()->diffInDays($effDeadline, false));
                 $lines[] = "• [{$po->brand?->kode}] {$po->no_po} - {$po->pelanggan?->nama} ({$hari} hari)";
             }
         }
@@ -233,8 +234,8 @@ PROMPT;
 
             $terlambat = Order::where('brand_id', $bid)
                 ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
-                ->where('deadline_customer', '<', today())
-                ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(5)->get();
+                ->whereRaw('COALESCE(end_production_date, deadline_customer) < ?', [today()->toDateString()])
+                ->with('pelanggan:id,nama')->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(5)->get();
 
             $prodProgressBar = $this->makeProgressBar($selesaiMonth, $totalPo);
             $statusIndicator = ($rijekRate > 5 || $terlambat->isNotEmpty()) ? "🔴" : "🟢";
@@ -261,7 +262,8 @@ PROMPT;
                 $lines[] = "• Tidak ada PO terlambat";
             } else {
                 foreach ($terlambat as $po) {
-                    $hari = abs((int) now()->startOfDay()->diffInDays($po->deadline_customer, false));
+                    $effDeadline = $po->end_production_date ?? $po->deadline_customer;
+                    $hari = abs((int) now()->startOfDay()->diffInDays($effDeadline, false));
                     $lines[] = "• {$po->no_po} - {$po->pelanggan?->nama} ({$hari} hari)";
                 }
             }
@@ -308,8 +310,8 @@ PROMPT;
 
             $terlambat = Order::where('brand_id', $bid)
                 ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
-                ->where('deadline_customer', '<', today())
-                ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(5)->get();
+                ->whereRaw('COALESCE(end_production_date, deadline_customer) < ?', [today()->toDateString()])
+                ->with('pelanggan:id,nama')->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(5)->get();
 
             $lines = [
                 "📊 *LAPORAN MINGGUAN PRODUKSI - {$brand->nama_brand}*",
@@ -367,8 +369,8 @@ PROMPT;
 
         $terlambat = Order::where('brand_id', $bid)
             ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
-            ->where('deadline_customer', '<', today())
-            ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(5)->get();
+            ->whereRaw('COALESCE(end_production_date, deadline_customer) < ?', [today()->toDateString()])
+            ->with('pelanggan:id,nama')->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(5)->get();
 
         $totalRijek = Rijek::query()
             ->join('orders', 'orders.id', '=', 'rijeks.order_id')
@@ -416,7 +418,8 @@ PROMPT;
             $lines[] = "";
             $lines[] = "⚠️ *PO TERLAMBAT:*";
             foreach ($terlambat as $po) {
-                $hari = abs((int) now()->startOfDay()->diffInDays($po->deadline_customer, false));
+                $effDeadline = $po->end_production_date ?? $po->deadline_customer;
+                $hari = abs((int) now()->startOfDay()->diffInDays($effDeadline, false));
                 $lines[] = "• {$po->no_po} - {$po->pelanggan?->nama} ({$hari} hari)";
             }
         }
