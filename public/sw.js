@@ -1,4 +1,4 @@
-const CACHE_NAME = 'protrack-v1';
+const CACHE_NAME = 'protrack-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/favicon.ico',
@@ -7,8 +7,9 @@ const ASSETS_TO_CACHE = [
   '/pwa-icon-512.png'
 ];
 
-// Install Event: pre-cache critical assets (soft caching to prevent aborting on redirects/errors)
+// Install Event: pre-cache critical assets
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return Promise.all(
@@ -18,17 +19,18 @@ self.addEventListener('install', (event) => {
           });
         })
       );
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
-// Activate Event: clean up old caches
+// Activate Event: clean up old caches immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cache) => {
           if (cache !== CACHE_NAME) {
+            console.log('Deleting old PWA cache:', cache);
             return caches.delete(cache);
           }
         })
@@ -37,7 +39,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event: network-first for pages, cache-first for static assets
+// Fetch Event: network-first for pages & build assets, fallback to cache
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
@@ -47,83 +49,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Check if it's a static asset (CSS, JS, images, fonts)
-  const isStaticAsset = 
-    url.pathname.includes('/build/') || 
-    url.pathname.endsWith('.js') || 
-    url.pathname.endsWith('.css') || 
-    url.pathname.endsWith('.png') || 
-    url.pathname.endsWith('.jpg') || 
-    url.pathname.endsWith('.svg') || 
-    url.pathname.endsWith('.woff2') || 
-    url.pathname.endsWith('.ico');
-
-  if (isStaticAsset) {
-    // Cache-First Strategy
-    event.respondWith(
-      caches.match(request).then((cachedResponse) => {
-        if (cachedResponse) {
-          // Fetch new version in the background to update the cache (Stale-While-Revalidate)
-          fetch(request).then((networkResponse) => {
-            if (networkResponse.status === 200) {
-              caches.open(CACHE_NAME).then((cache) => {
-                if (request.url.startsWith('http')) {
-                  cache.put(request, networkResponse);
-                }
-              });
+  // Network-First Strategy for build assets & pages so updates are served instantly
+  event.respondWith(
+    fetch(request)
+      .then((networkResponse) => {
+        if (networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            if (request.url.startsWith('http')) {
+              cache.put(request, responseToCache);
             }
-          }).catch(() => {/* Ignore network errors during background fetch */});
-          return cachedResponse;
+          });
         }
-
-        return fetch(request).then((networkResponse) => {
-          if (networkResponse.status === 200) {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              if (request.url.startsWith('http')) {
-                cache.put(request, responseToCache);
-              }
-            });
-          }
-          return networkResponse;
-        });
+        return networkResponse;
       })
-    );
-  } else {
-    // Network-First Strategy for dynamic pages/Inertia responses
-    event.respondWith(
-      fetch(request)
-        .then((networkResponse) => {
-          if (networkResponse.status === 200) {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              if (request.url.startsWith('http')) {
-                cache.put(request, responseToCache);
-              }
-            });
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          return caches.match(request).then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
-            // If completely offline and not in cache, fallback to '/'
-            return caches.match('/');
-          });
-        })
-        .catch(() => {
-          return caches.match(request).then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
-            // If completely offline and not in cache, fallback to '/'
-            return caches.match('/');
-          });
-        })
-    );
-  }
+      .catch(() => {
+        return caches.match(request);
+      })
+  );
 });
 
 // Safe Message Listener to prevent message channel closed errors
