@@ -26,6 +26,13 @@ class NotificationDispatcher
         $waEnabled = (bool) SystemSetting::get('system', 'whatsapp_enabled', true);
         $tgEnabled = (bool) SystemSetting::get('system', 'telegram_enabled', true);
 
+        // Auto-fallback: Jika channel diset 'whatsapp' tapi WhatsApp dimatikan dan Telegram aktif, alihkan ke Telegram
+        if (! $waEnabled && $tgEnabled && $channel === 'whatsapp') {
+            $channel = 'telegram';
+        } elseif ($waEnabled && ! $tgEnabled && $channel === 'telegram') {
+            $channel = 'whatsapp';
+        }
+
         $waActive = $waEnabled && in_array($channel, ['whatsapp', 'both'], true);
         $tgActive = $tgEnabled && in_array($channel, ['telegram', 'both'], true);
 
