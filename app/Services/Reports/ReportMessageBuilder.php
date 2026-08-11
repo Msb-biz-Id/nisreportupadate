@@ -105,13 +105,13 @@ PROMPT;
             ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
             ->whereRaw('COALESCE(end_production_date, deadline_customer) < ?', [today()->toDateString()])
             ->with(['pelanggan:id,nama', 'brand:id,kode'])
-            ->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(5)->get();
+            ->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(15)->get();
 
         $deadlines = Order::query()
             ->whereIn('status_po', ['published', 'on_progress'])
             ->whereBetween('deadline_customer', [now(), now()->addDays(3)])
             ->with(['pelanggan:id,nama', 'brand:id,kode'])
-            ->orderBy('deadline_customer')->limit(5)->get();
+            ->orderBy('deadline_customer')->limit(15)->get();
 
         $revToday = Order::where('status_po', '!=', 'draft')->where('tanggal_masuk', today()->toDateString())->sum('total_tagihan');
         $revWeek  = Order::where('status_po', '!=', 'draft')->whereBetween('tanggal_masuk', [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()])->sum('total_tagihan');
@@ -239,7 +239,7 @@ PROMPT;
             $terlambat = Order::where('brand_id', $bid)
                 ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
                 ->whereRaw('COALESCE(end_production_date, deadline_customer) < ?', [today()->toDateString()])
-                ->with('pelanggan:id,nama')->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(5)->get();
+                ->with('pelanggan:id,nama')->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(15)->get();
 
             $prodProgressBar = $this->makeProgressBar($selesaiMonth, $totalPo);
             $statusIndicator = ($rijekRate > 5 || $terlambat->isNotEmpty()) ? "🔴" : "🟢";
@@ -307,12 +307,12 @@ PROMPT;
             $deadlines = Order::where('brand_id', $bid)
                 ->whereIn('status_po', ['published', 'on_progress'])
                 ->whereBetween('deadline_customer', [now(), now()->addDays(7)])
-                ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(5)->get();
+                ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(15)->get();
 
             $terlambat = Order::where('brand_id', $bid)
                 ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
                 ->whereRaw('COALESCE(end_production_date, deadline_customer) < ?', [today()->toDateString()])
-                ->with('pelanggan:id,nama')->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(5)->get();
+                ->with('pelanggan:id,nama')->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(15)->get();
 
             $lines = [
                 "📊 *LAPORAN MINGGUAN PRODUKSI - {$brand->nama_brand}*",
@@ -363,12 +363,12 @@ PROMPT;
         $deadlines = Order::where('brand_id', $bid)
             ->whereIn('status_po', ['published', 'on_progress'])
             ->whereBetween('deadline_customer', [now(), now()->addDays(7)])
-            ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(5)->get();
+            ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(15)->get();
 
         $terlambat = Order::where('brand_id', $bid)
             ->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
             ->whereRaw('COALESCE(end_production_date, deadline_customer) < ?', [today()->toDateString()])
-            ->with('pelanggan:id,nama')->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(5)->get();
+            ->with('pelanggan:id,nama')->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(15)->get();
 
         $totalRijek = Rijek::query()
             ->join('orders', 'orders.id', '=', 'rijeks.order_id')
@@ -658,15 +658,15 @@ PROMPT;
 
         $poTerbaru = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
             ->with(['pelanggan:id,nama', 'items:id,order_id,is_addon,nama_produk,quantity,jml_atasan'])
-            ->orderByDesc('tanggal_masuk')->limit(3)->get();
+            ->orderByDesc('tanggal_masuk')->limit(15)->get();
 
         $deadlines = Order::where('brand_id', $bid)->whereIn('status_po', ['published', 'on_progress'])
             ->whereBetween('deadline_customer', [now(), now()->addDays(7)])
-            ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(3)->get();
+            ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(15)->get();
 
         $terlambat = Order::where('brand_id', $bid)->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
-            ->where('deadline_customer', '<', today())
-            ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(3)->get();
+            ->whereRaw('COALESCE(end_production_date, deadline_customer) < ?', [today()->toDateString()])
+            ->with('pelanggan:id,nama')->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(15)->get();
 
         $revToday = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->where('tanggal_masuk', today()->toDateString())->sum('total_tagihan');
         $revWeek  = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereBetween('tanggal_masuk', [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()])->sum('total_tagihan');
@@ -1006,22 +1006,22 @@ PROMPT;
         $resellerToday = $poHariIniAll->filter(fn($o) => $o->is_reseller_price);
         $specialToday = $poHariIniAll->filter(fn($o) => $o->is_special_order);
 
-        $poHariIni = $poHariIniAll->take(3);
+        $poHariIni = $poHariIniAll->take(15);
 
         $poProduksi = Order::where('brand_id', $bid)->where('status_po', 'on_progress')
-            ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(3)->get();
+            ->with('pelanggan:id,nama')->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(15)->get();
 
         $poSelesai = Order::where('brand_id', $bid)->where('status_po', 'selesai_produksi')
             ->whereBetween('updated_at', [today()->startOfDay(), today()->endOfDay()])
-            ->with(['pelanggan:id,nama', 'items:order_id,quantity'])->limit(3)->get();
+            ->with(['pelanggan:id,nama', 'items:order_id,quantity'])->limit(15)->get();
 
         $deadlines = Order::where('brand_id', $bid)->whereIn('status_po', ['published', 'on_progress'])
             ->whereBetween('deadline_customer', [now(), now()->addDays(3)])
-            ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(3)->get();
+            ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(15)->get();
 
         $terlambat = Order::where('brand_id', $bid)->whereNotIn('status_po', ['draft', 'sudah_dikirim', 'selesai'])
-            ->where('deadline_customer', '<', today())
-            ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(3)->get();
+            ->whereRaw('COALESCE(end_production_date, deadline_customer) < ?', [today()->toDateString()])
+            ->with('pelanggan:id,nama')->orderByRaw('COALESCE(end_production_date, deadline_customer)')->limit(15)->get();
 
         $revToday     = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->where('tanggal_masuk', today()->toDateString())->sum('total_tagihan');
         $revWeek      = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')->whereBetween('tanggal_masuk', [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()])->sum('total_tagihan');
