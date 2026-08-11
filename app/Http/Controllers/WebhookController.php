@@ -452,7 +452,6 @@ PROMPT;
 
                         return [
                             'no_po' => $o->no_po,
-                            'kode_order' => $o->kode_order,
                             'nama_po' => $o->nama_po,
                             'customer' => $o->pelanggan->nama ?? '',
                             'status_po' => $o->status_po,
@@ -477,7 +476,6 @@ PROMPT;
                     ->where(function ($q) use ($word) {
                         $q->where('no_po', 'like', "%{$word}%")
                           ->orWhere('nama_po', 'like', "%{$word}%")
-                          ->orWhere('kode_order', 'like', "%{$word}%")
                           ->orWhereHas('pelanggan', fn($c) => $c->where('nama', 'like', "%{$word}%"));
                     })
                     ->with(['brand', 'pelanggan', 'items', 'payments'])
@@ -490,7 +488,6 @@ PROMPT;
 
                     $matchedOrders[$f->no_po] = [
                         'no_po' => $f->no_po,
-                        'kode_order' => $f->kode_order,
                         'nama_po' => $f->nama_po,
                         'brand' => $f->brand->nama_brand ?? '',
                         'customer' => $f->pelanggan->nama ?? '',
