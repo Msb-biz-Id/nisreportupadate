@@ -272,9 +272,6 @@ PROMPT;
                 }
             }
 
-            $aiCtx = "Brand {$brand->nama_brand}. Produksi bulanan — PO baru: {$totalPo} ({$totalPcs} pcs), selesai: {$selesaiMonth}, rijek rate: {$rijekRate}%. PO terlambat: " . $terlambat->count() . ".";
-            $this->appendAiInsight($lines, $aiCtx);
-
             $lines[] = "";
             $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · BULANAN · " . now()->format('d/m/Y H:i') . "_";
             return implode("\n", $lines);
@@ -348,9 +345,6 @@ PROMPT;
                     $lines[] = "• {$po->no_po} - {$po->pelanggan?->nama} ({$hari} hari)";
                 }
             }
-
-            $aiCtx = "Brand {$brand->nama_brand}. Produksi mingguan — PO baru: {$totalPo} ({$totalPcs} pcs), selesai: {$selesaiWeek}, rijek rate: {$rijekRate}%. PO terlambat: " . $terlambat->count() . ".";
-            $this->appendAiInsight($lines, $aiCtx);
 
             $lines[] = "";
             $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · MINGGUAN · " . now()->format('d/m/Y H:i') . "_";
@@ -431,11 +425,6 @@ PROMPT;
         $lines[] = "";
         $lines[] = "⚠️ *RIJEK (30 HARI):*";
         $lines[] = "• Rate: {$rijekRate}% | Total: {$totalRijek} pcs dari {$totalPcs} pcs produksi";
-
-        // AI Insight
-        $aiCtx = "Brand {$brand->nama_brand}. Dalam proses: {$dalamProses}, masuk hari ini: {$masukHariIni}, selesai hari ini: {$selesaiHariIni}. "
-            . "PO terlambat: {$terlambat->count()}, deadline < 7 hari: {$deadlines->count()}. Rijek rate 30 hari: {$rijekRate}% ({$totalRijek} pcs).";
-        $this->appendAiInsight($lines, $aiCtx);
 
         $lines[] = "";
         $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
@@ -766,13 +755,6 @@ PROMPT;
         $lines[] = "📊 *TOPS BULAN INI:*";
         $lines[] = "• Produk Terlaris: " . ($topProduk?->nama_produk ?? '-') . " (" . ($topProduk?->total_qty ?? 0) . " pcs)";
         $lines[] = "• Pelanggan Baru: {$newPelanggan} customer";
-
-        // AI Insight
-        $aiCtx = "Brand {$brand->nama_brand}. Order masuk: {$masuk}, proses: {$proses}, selesai: {$selesai}, delay: {$delay}. "
-            . "Revenue hari ini: Rp " . number_format($revToday, 0) . ", bulan ini: Rp " . number_format($revMonth, 0) . ". "
-            . "Produk terlaris bulan ini: " . ($topProduk?->nama_produk ?? '-') . " ({$topProduk?->total_qty} pcs). "
-            . "PO terlambat: {$terlambat->count()}, deadline mendekat: {$deadlines->count()}.";
-        $this->appendAiInsight($lines, $aiCtx);
 
         $lines[] = "";
         $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
@@ -1133,12 +1115,13 @@ PROMPT;
         $lines[] = "• Produk Terlaris: " . ($topProduk?->nama_produk ?? '-') . " (" . ($topProduk?->total_qty ?? 0) . " pcs)";
         $lines[] = "• Customer Terbesar: " . ($topCustomer?->pelanggan?->nama ?? '-');
 
-        // AI Insight
-        $aiCtx = "Brand {$brand->nama_brand}. Order masuk: {$masuk}, proses: {$proses}, selesai: {$selesai}, delay: {$delay}. "
-            . "Revenue bulan ini: Rp " . number_format($revMonth, 0) . ". Pertumbuhan vs bulan lalu: {$growth}%. "
-            . "PO baru hari ini: {$poHariIni->count()}, sedang produksi: {$poProduksi->count()}, selesai hari ini: {$poSelesai->count()}. "
-            . "PO terlambat: {$terlambat->count()}, deadline < 3 hari: {$deadlines->count()}.";
-        $this->appendAiInsight($lines, $aiCtx);
+        if (auth()->user()->hasRole(['owner', 'superadmin'])) {
+            $aiCtx = "Brand {$brand->nama_brand}. Order masuk: {$masuk}, proses: {$proses}, selesai: {$selesai}, delay: {$delay}. "
+                . "Revenue bulan ini: Rp " . number_format($revMonth, 0) . ". Pertumbuhan vs bulan lalu: {$growth}%. "
+                . "PO baru hari ini: {$poHariIni->count()}, sedang produksi: {$poProduksi->count()}, selesai hari ini: {$poSelesai->count()}. "
+                . "PO terlambat: {$terlambat->count()}, deadline < 3 hari: {$deadlines->count()}.";
+            $this->appendAiInsight($lines, $aiCtx);
+        }
 
         $lines[] = "";
         $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
