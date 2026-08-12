@@ -98,12 +98,17 @@
         <meta name="app-name" content="{{ $appName }}">
         <title inertia>{{ isset($title) ? "$title - $appName" : $appName }}</title>
 
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
+        <!-- Fonts Preloading & Web Vitals LCP Optimization -->
+        <link rel="dns-prefetch" href="https://fonts.bunny.net">
+        <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
         <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|figtree:400,500,600&display=swap" rel="stylesheet" />
+        <link rel="dns-prefetch" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;700&family=Noto+Sans+JP:wght@400;750&family=Noto+Sans+Javanese:wght@400;700&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;700&family=Noto+Sans+JP:wght@400;750&family=Noto+Sans+Javanese:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+        <noscript>
+            <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;700&family=Noto+Sans+JP:wght@400;750&family=Noto+Sans+Javanese:wght@400;700&display=swap" rel="stylesheet">
+        </noscript>
 
         <!-- Scripts -->
         @routes
