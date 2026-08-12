@@ -256,6 +256,7 @@ function SystemSection({ sys }) {
         notification_channel: sys.notification_channel,
         whatsapp_enabled: !!sys.whatsapp_enabled,
         telegram_enabled: !!sys.telegram_enabled,
+        email_enabled: !!sys.email_enabled,
         customer_import_enabled: !!sys.customer_import_enabled,
         theme_color: sys.theme_color || '#a8001c',
     });
@@ -301,7 +302,9 @@ function SystemSection({ sys }) {
                             <SelectContent>
                                 <SelectItem value="whatsapp">WhatsApp saja</SelectItem>
                                 <SelectItem value="telegram">Telegram saja</SelectItem>
+                                <SelectItem value="email">Email saja</SelectItem>
                                 <SelectItem value="both">Keduanya (WhatsApp + Telegram)</SelectItem>
+                                <SelectItem value="all">Semua Channel (WhatsApp + Telegram + Email)</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -318,6 +321,13 @@ function SystemSection({ sys }) {
                             <p className="text-[11px] text-muted-foreground mt-0.5">Aktifkan untuk mengizinkan notifikasi keluar via Telegram.</p>
                         </div>
                         <Switch checked={data.telegram_enabled} onCheckedChange={(v) => setData('telegram_enabled', v)} />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-4 bg-muted/20">
+                        <div>
+                            <Label className="text-xs font-semibold text-gray-800">Email Master Switch</Label>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">Aktifkan untuk mengizinkan notifikasi & laporan keluar via Email.</p>
+                        </div>
+                        <Switch checked={data.email_enabled} onCheckedChange={(v) => setData('email_enabled', v)} />
                     </div>
                     <div className="flex items-center justify-between rounded-lg border p-4 bg-muted/20">
                         <div>
@@ -906,7 +916,7 @@ function SeoSection({ seo }) {
 }
 
 function MailSection({ mail }) {
-    const { data, setData, put, processing, errors } = useForm({
+    const { data, setData, put, post, processing, errors } = useForm({
         mail_host: mail.mail_host || '',
         mail_port: mail.mail_port || '2525',
         mail_username: mail.mail_username || '',
@@ -919,6 +929,10 @@ function MailSection({ mail }) {
     function submit(e) {
         e.preventDefault();
         put(route('settings.integrasi.mail'), { preserveScroll: true });
+    }
+
+    function handleTestEmail() {
+        post(route('settings.integrasi.test.mail'), { preserveScroll: true });
     }
 
     return (
@@ -1024,7 +1038,16 @@ function MailSection({ mail }) {
                         </div>
                     </div>
 
-                    <div className="pt-4 border-t flex justify-end">
+                    <div className="pt-4 border-t flex items-center justify-between">
+                        <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={handleTestEmail}
+                            disabled={processing} 
+                            className="flex items-center gap-2 border-amber-500 text-amber-700 hover:bg-amber-50"
+                        >
+                            <Send className="h-4 w-4" /> Tes Send Email
+                        </Button>
                         <Button type="submit" disabled={processing} className="px-6 flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white">
                             <CheckCircle2 className="h-4 w-4" /> Simpan Mail Server
                         </Button>

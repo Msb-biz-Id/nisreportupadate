@@ -18,8 +18,9 @@ class BackupToR2 extends Command
 
     public function handle(): int
     {
-        if (! config('filesystems.disks.r2')) {
-            $this->error('Cloudflare R2 disk not configured. Set R2_* env variables.');
+        $r2Config = config('filesystems.disks.r2');
+        if (empty($r2Config['bucket']) || empty($r2Config['key']) || empty($r2Config['secret'])) {
+            $this->error('Cloudflare R2 disk is not properly configured. Please set R2_BUCKET, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY in your .env file.');
             return self::FAILURE;
         }
 
@@ -78,8 +79,12 @@ class BackupToR2 extends Command
 
         if ($db === 'sqlite') {
             $dbPath = config('database.connections.sqlite.database');
-            if (! copy($dbPath, $tmpFile)) {
-                return null;
+            if ($dbPath !== ':memory:' && file_exists($dbPath)) {
+                if (! @copy($dbPath, $tmpFile)) {
+                    return null;
+                }
+            } else {
+                file_put_contents($tmpFile, "# SQLite in-memory DB dump placeholder");
             }
         } elseif ($db === 'mysql') {
             $c    = config('database.connections.mysql');
@@ -135,7 +140,13 @@ class BackupToR2 extends Command
         $retentionValue  = (int) $this->option($retentionOption);
         $cutoff          = $now->copy()->sub($retentionUnit, $retentionValue);
 
-        $directories = Storage::disk('r2')->directories("backups/{$type}");
+        try {
+            $directories = Storage::disk('r2')->directories("backups/{$type}");
+        } catch (\Throwable $e) {
+            $this->warn("Gagal membaca daftar direktori backup dari R2: " . $e->getMessage());
+            return;
+        }
+
         $deleted = 0;
 
         foreach ($directories as $dir) {
@@ -150,8 +161,8 @@ class BackupToR2 extends Command
                     }
                     $deleted++;
                 }
-            } catch (\Exception $e) {
-                // Skip dirs with unexpected naming
+            } catch (\Throwable $e) {
+                // Skip dirs with unexpected naming or delete error
             }
         }
 

@@ -36,18 +36,53 @@ class SystemEventNotification extends Notification implements ShouldQueue
 
         if ($this->settings['in_app'] ?? true) {
             $channels[] = 'database';
-            $channels[] = 'broadcast';
+            $broadcastDriver = config('broadcasting.default');
+            if ($broadcastDriver && $broadcastDriver !== 'null') {
+                $channels[] = 'broadcast';
+            }
         }
 
         if ($this->settings['whatsapp'] ?? false) {
-            $channels[] = WhatsappChannel::class;
+            if ((bool) \App\Models\Settings\SystemSetting::get('system', 'whatsapp_enabled', true)) {
+                $channels[] = WhatsappChannel::class;
+            }
         }
 
         if ($this->settings['telegram'] ?? false) {
-            $channels[] = TelegramChannel::class;
+            if ((bool) \App\Models\Settings\SystemSetting::get('system', 'telegram_enabled', false)) {
+                $channels[] = TelegramChannel::class;
+            }
+        }
+
+        if ($this->settings['email'] ?? false) {
+            if ((bool) \App\Models\Settings\SystemSetting::get('system', 'email_enabled', true)) {
+                $channels[] = 'mail';
+            }
         }
 
         return $channels;
+    }
+
+    /**
+     * Get Mail representation of the notification.
+     */
+    public function toMail(mixed $notifiable): \Illuminate\Notifications\Messages\MailMessage
+    {
+        $title = $this->getTitle();
+        $body = $this->getBody();
+        $actionUrl = $this->payload['action_url'] ?? null;
+        $appName = \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack'));
+
+        $mailMessage = (new \Illuminate\Notifications\Messages\MailMessage)
+            ->subject("[{$appName}] {$title}")
+            ->greeting("Halo " . ($notifiable->name ?? 'User') . ",")
+            ->line($body);
+
+        if ($actionUrl) {
+            $mailMessage->action('Buka Halaman PO', url($actionUrl));
+        }
+
+        return $mailMessage;
     }
 
     /**

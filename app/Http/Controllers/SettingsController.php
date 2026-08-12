@@ -48,6 +48,7 @@ class SettingsController extends Controller
                 'notification_channel' => SystemSetting::get('system', 'notification_channel', 'whatsapp'),
                 'whatsapp_enabled' => (bool) SystemSetting::get('system', 'whatsapp_enabled', true),
                 'telegram_enabled' => (bool) SystemSetting::get('system', 'telegram_enabled', false),
+                'email_enabled' => (bool) SystemSetting::get('system', 'email_enabled', true),
                 'customer_import_enabled' => (bool) SystemSetting::get('system', 'customer_import_enabled', false),
                 'theme_color' => SystemSetting::get('system', 'theme_color', '#a8001c'),
                 'target_view' => SystemSetting::get('system', 'target_view', 'both'),
@@ -275,9 +276,10 @@ class SettingsController extends Controller
         Gate::authorize('settings.system');
 
         $data = $request->validate([
-            'notification_channel' => ['required', 'in:whatsapp,telegram,both'],
+            'notification_channel' => ['required', 'in:whatsapp,telegram,email,both,all'],
             'whatsapp_enabled' => ['boolean'],
             'telegram_enabled' => ['boolean'],
+            'email_enabled' => ['boolean'],
             'customer_import_enabled' => ['boolean'],
             'theme_color' => ['required', 'string', 'regex:/^#[a-fA-F0-9]{6}$/'],
             'target_view' => ['nullable', 'in:both,revenue,pcs'],
@@ -286,6 +288,7 @@ class SettingsController extends Controller
         SystemSetting::set('system', 'notification_channel', $data['notification_channel']);
         SystemSetting::set('system', 'whatsapp_enabled', $data['whatsapp_enabled'] ? '1' : '0');
         SystemSetting::set('system', 'telegram_enabled', $data['telegram_enabled'] ? '1' : '0');
+        SystemSetting::set('system', 'email_enabled', $data['email_enabled'] ? '1' : '0');
         SystemSetting::set('system', 'customer_import_enabled', $data['customer_import_enabled'] ? '1' : '0');
         SystemSetting::set('system', 'theme_color', $data['theme_color']);
         SystemSetting::set('system', 'target_view', $data['target_view'] ?? 'pcs');
@@ -337,6 +340,48 @@ class SettingsController extends Controller
                 ? ($result['mock'] ? 'Mock mode (bot token belum dikonfigurasi).' : 'Telegram terkirim.')
                 : 'Gagal: ' . ($result['error'] ?? 'unknown')
         );
+    }
+
+    public function testMail(Request $request)
+    {
+        Gate::authorize('settings.system');
+
+        $to = $request->string('to')->toString() ?: SystemSetting::get('mail', 'mail_from_address', config('mail.from.address'));
+        if (empty($to)) {
+            $to = $request->user()?->email;
+        }
+
+        if (empty($to)) {
+            return back()->with('error', 'Alamat email tujuan belum diisi.');
+        }
+
+        // Configure mail server dynamically from SystemSetting
+        $host = SystemSetting::get('mail', 'mail_host', config('mail.mailers.smtp.host'));
+        $port = SystemSetting::get('mail', 'mail_port', config('mail.mailers.smtp.port'));
+        $username = SystemSetting::get('mail', 'mail_username', config('mail.mailers.smtp.username'));
+        $password = SystemSetting::get('mail', 'mail_password', config('mail.mailers.smtp.password'));
+        $encryption = SystemSetting::get('mail', 'mail_encryption', config('mail.mailers.smtp.encryption'));
+        $fromAddress = SystemSetting::get('mail', 'mail_from_address', config('mail.from.address'));
+        $fromName = SystemSetting::get('mail', 'mail_from_name', config('mail.from.name'));
+
+        if ($host) config(['mail.mailers.smtp.host' => $host]);
+        if ($port) config(['mail.mailers.smtp.port' => (int) $port]);
+        if ($username) config(['mail.mailers.smtp.username' => $username]);
+        if ($password) config(['mail.mailers.smtp.password' => $password]);
+        if ($encryption) config(['mail.mailers.smtp.encryption' => $encryption]);
+        if ($fromAddress) config(['mail.from.address' => $fromAddress]);
+        if ($fromName) config(['mail.from.name' => $fromName]);
+
+        try {
+            $appName = SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack'));
+            \Illuminate\Support\Facades\Mail::raw("Halo,\n\nIni adalah email uji coba dari {$appName}.\nJika Anda menerima email ini, integrasi Mail Server (SMTP) telah berhasil tersambung.", function ($message) use ($to, $appName) {
+                $message->to($to)->subject("[{$appName}] Uji Coba Mail Server SMTP");
+            });
+
+            return back()->with('success', "Email uji coba berhasil dikirim ke {$to}.");
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal mengirim email: ' . $e->getMessage());
+        }
     }
 
     public function testReports(Request $request)
@@ -523,6 +568,7 @@ class SettingsController extends Controller
             'matrix.*.in_app' => ['required', 'boolean'],
             'matrix.*.whatsapp' => ['required', 'boolean'],
             'matrix.*.telegram' => ['required', 'boolean'],
+            'matrix.*.email' => ['nullable', 'boolean'],
             'matrix.*.os_desktop' => ['required', 'boolean'],
             'matrix.*.roles' => ['nullable', 'array'],
             'matrix.*.roles.*' => ['string', \Illuminate\Validation\Rule::in(Role::pluck('name')->toArray())],

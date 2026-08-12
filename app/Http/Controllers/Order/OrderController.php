@@ -945,12 +945,19 @@ class OrderController extends Controller
 
             \App\Services\ActivityLogger::log('complete', 'order', $order, "Selesaikan PO {$order->no_po}");
         });
-        \App\Services\Notifications\IdealNotificationService::dispatch('order_completed', [
-            'no_po' => $order->no_po,
-            'brand_id' => $order->brand_id,
-            'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
-            'action_url' => route('orders.show', $order->id)
-        ]);
+        try {
+            \App\Services\Notifications\IdealNotificationService::dispatch('order_completed', [
+                'no_po' => $order->no_po,
+                'brand_id' => $order->brand_id,
+                'brand_nama' => $order->brand?->nama_brand ?? $order->brand_id,
+                'action_url' => route('orders.show', $order->id)
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to dispatch order_completed notification: {$e->getMessage()}", [
+                'order_id' => $order->id,
+                'exception' => $e
+            ]);
+        }
 
         return back()->with('success', 'PO berhasil diselesaikan.');
     }

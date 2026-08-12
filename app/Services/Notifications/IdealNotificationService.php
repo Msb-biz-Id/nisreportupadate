@@ -195,7 +195,14 @@ class IdealNotificationService
 
         // 5. Send Notification
         if ($users->isNotEmpty()) {
-            Notification::send($users, new SystemEventNotification($eventKey, $payload, $settings));
+            try {
+                Notification::send($users, new SystemEventNotification($eventKey, $payload, $settings));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("Failed to send notification for event {$eventKey}: " . $e->getMessage(), [
+                    'payload' => $payload,
+                    'exception' => $e
+                ]);
+            }
         }
 
         return $users->pluck('id')->toArray();

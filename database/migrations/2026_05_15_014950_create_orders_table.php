@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('nama_po', 255);
             $table->enum('status_po', [
                 'draft', 'published', 'on_progress', 'selesai_produksi',
-                'siap_dikirim', 'sudah_dikirim', 'delay', 'hold',
+                'siap_dikirim', 'sudah_dikirim', 'delay', 'hold', 'selesai',
             ])->default('draft');
             $table->boolean('is_special_order')->default(false);
 

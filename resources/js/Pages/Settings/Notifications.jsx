@@ -251,6 +251,13 @@ export default function Notifications({ notification_matrix, available_roles, av
                                                                 />
                                                             </div>
                                                             <div className="flex items-center justify-between gap-4 p-1.5 rounded-md hover:bg-slate-50">
+                                                                <span className="text-xs font-medium text-gray-600">📧 Email</span>
+                                                                <Switch 
+                                                                    checked={!!eventConfig.email} 
+                                                                    onCheckedChange={(checked) => toggleChannel(eventKey, 'email', checked)}
+                                                                />
+                                                            </div>
+                                                            <div className="flex items-center justify-between gap-4 p-1.5 rounded-md hover:bg-slate-50">
                                                                 <span className="text-xs font-medium text-gray-600">💻 OS Desktop</span>
                                                                 <Switch 
                                                                     checked={!!eventConfig.os_desktop} 

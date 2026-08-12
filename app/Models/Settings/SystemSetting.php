@@ -50,7 +50,7 @@ class SystemSetting extends Model
     public static function getGroup(string $group): array
     {
         try {
-            return self::where('group', $group)->get()->mapWithKeys(function ($s) {
+            return self::query()->where('group', $group)->get()->mapWithKeys(function ($s) {
                 $val = $s->is_encrypted && $s->value
                     ? rescue(fn () => Crypt::decryptString($s->value), null, false)
                     : $s->value;

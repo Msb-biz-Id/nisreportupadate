@@ -53,9 +53,10 @@ class SendScheduledReport extends Command
         // ── Superadmin report (satu pesan global, bukan per-brand)
         if (in_array('superadmin', $types)) {
             $recipients = $this->parseRecipients('superadmin_recipients', 'superadmin');
-            if (! empty($recipients['whatsapp']) || ! empty($recipients['telegram'])) {
+            if (! empty($recipients['whatsapp']) || ! empty($recipients['telegram']) || ! empty($recipients['email'])) {
                 $message = $builder->superadmin($periode);
-                $results = $dispatcher->send($message, $recipients);
+                $subject = "Laporan {$periode} Superadmin";
+                $results = $dispatcher->send($message, $recipients, $subject);
                 $sent    = collect($results)->where('success', true)->count();
                 $totalSent += $sent;
                 $this->info("[SUPERADMIN] Terkirim: {$sent}/" . count($results));
@@ -75,9 +76,10 @@ class SendScheduledReport extends Command
 
             if (in_array('produksi', $types)) {
                 $r = $this->parseRecipients('produksi_recipients', 'admin_produksi', $brand->id);
-                if (! empty($r['whatsapp']) || ! empty($r['telegram'])) {
+                if (! empty($r['whatsapp']) || ! empty($r['telegram']) || ! empty($r['email'])) {
                     $msg     = $builder->adminProduksi($brand, $periode);
-                    $results = $dispatcher->send($msg, $r);
+                    $subject = "Laporan Produksi {$periode} — {$brand->kode}";
+                    $results = $dispatcher->send($msg, $r, $subject);
                     $sent    = collect($results)->where('success', true)->count();
                     $totalSent += $sent;
                     $this->info("  [PRODUKSI] {$brand->kode}: {$sent}/" . count($results));
@@ -86,9 +88,10 @@ class SendScheduledReport extends Command
 
             if (in_array('brand', $types)) {
                 $r = $this->parseRecipients('brand_recipients', 'admin_brand', $brand->id);
-                if (! empty($r['whatsapp']) || ! empty($r['telegram'])) {
+                if (! empty($r['whatsapp']) || ! empty($r['telegram']) || ! empty($r['email'])) {
                     $msg     = $builder->adminBrand($brand, $periode);
-                    $results = $dispatcher->send($msg, $r);
+                    $subject = "Laporan Brand {$periode} — {$brand->kode}";
+                    $results = $dispatcher->send($msg, $r, $subject);
                     $sent    = collect($results)->where('success', true)->count();
                     $totalSent += $sent;
                     $this->info("  [BRAND] {$brand->kode}: {$sent}/" . count($results));
@@ -97,9 +100,10 @@ class SendScheduledReport extends Command
 
             if (in_array('owner', $types)) {
                 $r = $this->parseRecipients('owner_recipients', 'owner', $brand->id);
-                if (! empty($r['whatsapp']) || ! empty($r['telegram'])) {
+                if (! empty($r['whatsapp']) || ! empty($r['telegram']) || ! empty($r['email'])) {
                     $msg     = $builder->owner($brand, $periode);
-                    $results = $dispatcher->send($msg, $r);
+                    $subject = "Laporan Ringkasan Executive {$periode} — {$brand->kode}";
+                    $results = $dispatcher->send($msg, $r, $subject);
                     $sent    = collect($results)->where('success', true)->count();
                     $totalSent += $sent;
                     $this->info("  [OWNER] {$brand->kode}: {$sent}/" . count($results));
@@ -108,9 +112,10 @@ class SendScheduledReport extends Command
 
             if (in_array('keuangan', $types)) {
                 $r = $this->parseRecipients('keuangan_recipients', 'admin_keuangan', $brand->id);
-                if (! empty($r['whatsapp']) || ! empty($r['telegram'])) {
+                if (! empty($r['whatsapp']) || ! empty($r['telegram']) || ! empty($r['email'])) {
                     $msg     = $builder->keuangan($brand, $periode);
-                    $results = $dispatcher->send($msg, $r);
+                    $subject = "Laporan Keuangan {$periode} — {$brand->kode}";
+                    $results = $dispatcher->send($msg, $r, $subject);
                     $sent    = collect($results)->where('success', true)->count();
                     $totalSent += $sent;
                     $this->info("  [KEUANGAN] {$brand->kode}: {$sent}/" . count($results));
@@ -133,10 +138,12 @@ class SendScheduledReport extends Command
 
         $wa = [];
         $tg = [];
+        $email = [];
 
         foreach ($items as $item) {
-            // Klasifikasikan sebagai Telegram jika berupa ID grup (diawali '-') atau ID user/chat numerik pendek yang bukan berawalan 62/08
-            if (str_starts_with($item, '-') || (!str_starts_with($item, '62') && !str_starts_with($item, '08') && is_numeric($item) && strlen($item) < 11)) {
+            if (filter_var($item, FILTER_VALIDATE_EMAIL)) {
+                $email[] = $item;
+            } elseif (str_starts_with($item, '-') || (!str_starts_with($item, '62') && !str_starts_with($item, '08') && is_numeric($item) && strlen($item) < 11)) {
                 $tg[] = $item;
             } else {
                 $wa[] = $item;
@@ -144,7 +151,7 @@ class SendScheduledReport extends Command
         }
 
         // Jika kolom pengaturan kosong/tidak diisi manual, cari dinamis berdasarkan User & Role & Brand Access
-        if (empty($wa) && empty($tg) && $roleName) {
+        if (empty($wa) && empty($tg) && empty($email) && $roleName) {
             $roleExists = \Spatie\Permission\Models\Role::where('name', $roleName)->exists();
             if ($roleExists) {
                 $usersQuery = \App\Models\User::role($roleName)->where('is_active', true);
@@ -166,6 +173,9 @@ class SendScheduledReport extends Command
                     if ($u->telegram_chat_id) {
                         $tg[] = $u->telegram_chat_id;
                     }
+                    if ($u->email) {
+                        $email[] = $u->email;
+                    }
                 }
             }
         }
@@ -182,7 +192,13 @@ class SendScheduledReport extends Command
             if ($defaultTg) $tg = [$defaultTg];
         }
 
-        return ['whatsapp' => $wa, 'telegram' => $tg];
+        if (empty($email)) {
+            // Fallback ke default global
+            $defaultMail = SystemSetting::get('mail', 'mail_from_address', config('mail.from.address'));
+            if ($defaultMail) $email = [$defaultMail];
+        }
+
+        return ['whatsapp' => $wa, 'telegram' => $tg, 'email' => $email];
     }
 
     private function brandHasActivityOrOrders(Brand $brand, string $periode): bool
