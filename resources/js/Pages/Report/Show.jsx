@@ -95,9 +95,13 @@ function FormatCell({ value, format }) {
 
 function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders = [], brands = [], products = [], bankAccounts = [] }) {
     const [local, setLocal] = useState(filters);
+    const [loading, setLoading] = useState(false);
 
     function patch(k, v) { setLocal({ ...local, [k]: v }); }
-    function apply() { onApply(local); }
+    function apply() { 
+        setLoading(true);
+        onApply(local); 
+    }
 
     const handleBrandChange = (v) => {
         const nextBrandId = v === '__all__' ? '' : v;
@@ -315,7 +319,9 @@ function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders 
                     </div>
                 )}
                 <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
-                    <Button size="sm" onClick={apply}><Filter className="h-4 w-4" /> Terapkan Filter</Button>
+                    <Button size="sm" onClick={apply} disabled={loading}>
+                        {loading ? <Icons.Loader2 className="h-4 w-4 animate-spin" /> : <Filter className="h-4 w-4" />} Terapkan Filter
+                    </Button>
                 </div>
             </CardContent>
         </Card>
