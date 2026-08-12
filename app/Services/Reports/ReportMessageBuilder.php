@@ -672,10 +672,6 @@ PROMPT;
         $selesai = (int)(($statusRows['selesai_produksi'] ?? 0) + ($statusRows['siap_dikirim'] ?? 0) + ($statusRows['sudah_dikirim'] ?? 0) + ($statusRows['selesai'] ?? 0));
         $delay   = (int)($statusRows['delay'] ?? 0);
 
-        $poTerbaru = Order::where('brand_id', $bid)->where('status_po', '!=', 'draft')
-            ->with(['pelanggan:id,nama', 'items:id,order_id,is_addon,nama_produk,quantity,jml_atasan'])
-            ->orderByDesc('tanggal_masuk')->limit(15)->get();
-
         $deadlines = Order::where('brand_id', $bid)->whereIn('status_po', ['published', 'on_progress'])
             ->whereBetween('deadline_customer', [now(), now()->addDays(7)])
             ->with('pelanggan:id,nama')->orderBy('deadline_customer')->limit(15)->get();
@@ -732,15 +728,20 @@ PROMPT;
             "• Delay: {$delay} order",
         ];
 
-        if ($poTerbaru->isNotEmpty()) {
+        if ($poHariIniAll->isNotEmpty()) {
             $lines[] = "";
-            $lines[] = "📋 *DETAIL PO TERBARU:*";
-            foreach ($poTerbaru as $i => $po) {
+            $lines[] = "📋 *DETAIL PO BARU HARI INI:*";
+            foreach ($poHariIniAll as $i => $po) {
                 /** @var Order $po */
+                $tipeLabel = $po->is_special_order ? ' [Spesial Order]' : ($po->is_reseller_price ? ' [Harga Reseller]' : ' [Normal]');
                 $produk = $po->items->first()?->nama_produk ?? '-';
                 $qty    = $this->getOrderPcs($po);
-                $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} - {$produk} x{$qty}";
+                $lines[] = ($i + 1) . ". {$po->no_po}{$tipeLabel} - {$po->pelanggan?->nama} - {$produk} x{$qty}";
             }
+        } else {
+            $lines[] = "";
+            $lines[] = "📋 *DETAIL PO BARU HARI INI:*";
+            $lines[] = "• Belum ada PO baru masuk hari ini";
         }
 
         if ($deadlines->isNotEmpty()) {
