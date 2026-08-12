@@ -21,10 +21,14 @@ function StatusBadge({ ok }) {
 
 function AiSection({ ai }) {
     const { data, setData, put, processing } = useForm({
+        provider: ai.provider || 'auto_failover',
+        openai_base_url: ai.openai_base_url || 'https://api.groq.com/openai/v1',
+        openai_api_keys: '',
+        openai_model: ai.openai_model || 'llama-3.3-70b-versatile',
         gemini_api_keys: '',
-        model: ai.model,
-        temperature: ai.temperature,
-        max_tokens: ai.max_tokens,
+        model: ai.model || 'gemini-2.0-flash',
+        temperature: ai.temperature || 0.7,
+        max_tokens: ai.max_tokens || 2048,
     });
 
     function submit(e) {
@@ -36,61 +40,171 @@ function AiSection({ ai }) {
         router.post(route('settings.integrasi.test.ai'), {}, { preserveScroll: true });
     }
 
+    const applyPreset = (preset) => {
+        if (preset === 'groq') {
+            setData((d) => ({
+                ...d,
+                provider: 'auto_failover',
+                openai_base_url: 'https://api.groq.com/openai/v1',
+                openai_model: 'llama-3.3-70b-versatile'
+            }));
+        } else if (preset === 'deepseek') {
+            setData((d) => ({
+                ...d,
+                provider: 'openai_compatible',
+                openai_base_url: 'https://api.deepseek.com/v1',
+                openai_model: 'deepseek-chat'
+            }));
+        } else if (preset === 'openrouter') {
+            setData((d) => ({
+                ...d,
+                provider: 'openai_compatible',
+                openai_base_url: 'https://openrouter.ai/api/v1',
+                openai_model: 'deepseek/deepseek-r1'
+            }));
+        } else if (preset === 'ollama') {
+            setData((d) => ({
+                ...d,
+                provider: 'openai_compatible',
+                openai_base_url: 'http://localhost:11434/v1',
+                openai_model: 'llama3.1:8b'
+            }));
+        }
+    };
+
     return (
         <Card className="shadow-md border-t-4 border-t-primary">
             <CardHeader className="flex flex-row items-start justify-between gap-2 border-b pb-4">
                 <div>
-                    <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4.5 w-4.5 text-primary" /> Gemini AI</CardTitle>
-                    <CardDescription>API key untuk fitur AI Tools (load-balanced, multi-key).</CardDescription>
+                    <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4.5 w-4.5 text-primary" /> Multi-Provider AI Engine (Anti-Limit & High Speed)</CardTitle>
+                    <CardDescription>Mendukung Groq, DeepSeek, OpenRouter, OpenAI, Local LLM (Ollama), dan Google Gemini dengan Auto-Failover.</CardDescription>
                 </div>
                 <StatusBadge ok={ai.is_configured} />
             </CardHeader>
             <CardContent className="pt-6">
-                <form onSubmit={submit} className="space-y-4">
+                <form onSubmit={submit} className="space-y-5">
                     <div>
-                        <Label className="text-xs font-semibold text-gray-700">API Keys (comma-separated, satu atau banyak)</Label>
-                        {ai.has_keys && (
-                            <div className="mt-1.5 mb-2 flex flex-wrap gap-1.5">
-                                {ai.gemini_api_keys_masked.map((k, i) => (
-                                    <Badge key={i} variant="outline" className="font-mono text-[10px] bg-muted/40">{k}</Badge>
-                                ))}
-                            </div>
-                        )}
-                        <Textarea
-                            value={data.gemini_api_keys}
-                            onChange={(e) => setData('gemini_api_keys', e.target.value)}
-                            rows={3}
-                            placeholder={ai.has_keys ? "Isi untuk mengganti, kosongkan untuk mempertahankan yang ada" : "AIzaSy... (paste API key dari Google AI Studio)"}
-                            className="font-mono text-xs mt-1.5"
-                        />
-                        <p className="mt-1 text-xs text-muted-foreground">Dapatkan free API key di <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="underline font-medium text-primary hover:text-primary-hover">aistudio.google.com/apikey</a></p>
+                        <Label className="text-xs font-semibold text-gray-700">Mode Penyedia AI (Provider Mode)</Label>
+                        <Select value={data.provider} onValueChange={(v) => setData('provider', v)}>
+                            <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="auto_failover">⛓️ Auto-Failover Smart Chain (Groq/DeepSeek → Gemini) — [Rekomendasi Bebas Limit]</SelectItem>
+                                <SelectItem value="openai_compatible">⚡ Groq / DeepSeek / OpenRouter / Custom OpenAI API</SelectItem>
+                                <SelectItem value="gemini">🔮 Google Gemini API (Warisan Multi-Key)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                            <strong>Auto-Failover</strong>: Jika Provider A mengalami limit (429), sistem otomatis pindah ke Provider B tanpa membuat aplikasi error.
+                        </p>
                     </div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                        <div>
-                            <Label className="text-xs font-semibold text-gray-700">Model</Label>
-                            <Select value={data.model} onValueChange={(v) => setData('model', v)}>
-                                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash (Terbaru & Cepat)</SelectItem>
-                                    <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro (Presisi Tinggi)</SelectItem>
-                                    <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash (Warisan - Cepat)</SelectItem>
-                                    <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro (Warisan - Presisi)</SelectItem>
-                                </SelectContent>
-                            </Select>
+
+                    {(data.provider === 'auto_failover' || data.provider === 'openai_compatible') && (
+                        <div className="rounded-lg border bg-slate-50/50 p-4 space-y-4 dark:bg-slate-900/50">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">⚡ Konfigurasi OpenAI / Groq / DeepSeek / OpenRouter API</h4>
+                                <div className="flex gap-1">
+                                    <Button type="button" variant="outline" size="xs" onClick={() => applyPreset('groq')} className="text-[10px] h-6 px-2">Preset Groq</Button>
+                                    <Button type="button" variant="outline" size="xs" onClick={() => applyPreset('deepseek')} className="text-[10px] h-6 px-2">Preset DeepSeek</Button>
+                                    <Button type="button" variant="outline" size="xs" onClick={() => applyPreset('openrouter')} className="text-[10px] h-6 px-2">OpenRouter</Button>
+                                    <Button type="button" variant="outline" size="xs" onClick={() => applyPreset('ollama')} className="text-[10px] h-6 px-2">Ollama Local</Button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div>
+                                    <Label className="text-xs font-semibold text-gray-700">API Base URL</Label>
+                                    <Input
+                                        value={data.openai_base_url}
+                                        onChange={(e) => setData('openai_base_url', e.target.value)}
+                                        placeholder="https://api.groq.com/openai/v1"
+                                        className="font-mono text-xs mt-1"
+                                    />
+                                    <span className="text-[10px] text-muted-foreground">Contoh Groq: <code>https://api.groq.com/openai/v1</code></span>
+                                </div>
+                                <div>
+                                    <Label className="text-xs font-semibold text-gray-700">Model Name</Label>
+                                    <Input
+                                        value={data.openai_model}
+                                        onChange={(e) => setData('openai_model', e.target.value)}
+                                        placeholder="llama-3.3-70b-versatile"
+                                        className="font-mono text-xs mt-1"
+                                    />
+                                    <span className="text-[10px] text-muted-foreground">Contoh: <code>llama-3.3-70b-versatile</code> / <code>deepseek-chat</code></span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <Label className="text-xs font-semibold text-gray-700">OpenAI / Groq / DeepSeek API Keys (Load-Balanced, koma-dipisah)</Label>
+                                {ai.has_openai_keys && (
+                                    <div className="mt-1 mb-1.5 flex flex-wrap gap-1">
+                                        {ai.openai_api_keys_masked?.map((k, i) => (
+                                            <Badge key={i} variant="outline" className="font-mono text-[10px] bg-white">{k}</Badge>
+                                        ))}
+                                    </div>
+                                )}
+                                <Textarea
+                                    value={data.openai_api_keys}
+                                    onChange={(e) => setData('openai_api_keys', e.target.value)}
+                                    rows={2}
+                                    placeholder={ai.has_openai_keys ? "Isi untuk mengganti API key yang ada" : "gsk_... (Paste API key Groq, DeepSeek, atau OpenRouter)"}
+                                    className="font-mono text-xs mt-1"
+                                />
+                                <p className="mt-1 text-[11px] text-muted-foreground">
+                                    💡 Groq API Key gratis 100% tanpa bayar di <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="underline font-bold text-primary">console.groq.com/keys</a> (Kecepatan 500+ tokens/s).
+                                </p>
+                            </div>
                         </div>
+                    )}
+
+                    {(data.provider === 'auto_failover' || data.provider === 'gemini') && (
+                        <div className="rounded-lg border bg-amber-50/30 p-4 space-y-3 dark:bg-amber-950/20">
+                            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">🔮 Konfigurasi Google Gemini API</h4>
+                            <div>
+                                <Label className="text-xs font-semibold text-gray-700">Gemini API Keys (Multi-Key Load Balancing)</Label>
+                                {ai.has_keys && (
+                                    <div className="mt-1 mb-1.5 flex flex-wrap gap-1">
+                                        {ai.gemini_api_keys_masked.map((k, i) => (
+                                            <Badge key={i} variant="outline" className="font-mono text-[10px] bg-white">{k}</Badge>
+                                        ))}
+                                    </div>
+                                )}
+                                <Textarea
+                                    value={data.gemini_api_keys}
+                                    onChange={(e) => setData('gemini_api_keys', e.target.value)}
+                                    rows={2}
+                                    placeholder={ai.has_keys ? "Isi untuk mengganti Gemini key yang ada" : "AIzaSy... (Paste API key dari Google AI Studio)"}
+                                    className="font-mono text-xs mt-1"
+                                />
+                            </div>
+                            <div>
+                                <Label className="text-xs font-semibold text-gray-700">Gemini Model</Label>
+                                <Select value={data.model} onValueChange={(v) => setData('model', v)}>
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash (Terbaru & Cepat)</SelectItem>
+                                        <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash (Standard)</SelectItem>
+                                        <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro (Presisi Tinggi)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
-                            <Label className="text-xs font-semibold text-gray-700">Temperature (0-2)</Label>
-                            <Input type="number" step="0.1" min="0" max="2" value={data.temperature} onChange={(e) => setData('temperature', Number(e.target.value))} className="mt-1.5" />
+                            <Label className="text-xs font-semibold text-gray-700">Temperature (0 - 2)</Label>
+                            <Input type="number" step="0.1" min="0" max="2" value={data.temperature} onChange={(e) => setData('temperature', Number(e.target.value))} className="mt-1" />
                         </div>
                         <div>
                             <Label className="text-xs font-semibold text-gray-700">Max Tokens</Label>
-                            <Input type="number" min="128" max="8192" value={data.max_tokens} onChange={(e) => setData('max_tokens', Number(e.target.value))} className="mt-1.5" />
+                            <Input type="number" min="128" max="8192" value={data.max_tokens} onChange={(e) => setData('max_tokens', Number(e.target.value))} className="mt-1" />
                         </div>
                     </div>
-                    <div className="flex gap-2 pt-2 border-t">
-                        <Button type="submit" disabled={processing} className="px-5">Simpan</Button>
+
+                    <div className="flex gap-2 pt-3 border-t">
+                        <Button type="submit" disabled={processing} className="px-5">Simpan Konfigurasi AI</Button>
                         <Button type="button" variant="outline" onClick={testConnection}>
-                            <FlaskConical className="h-4 w-4 mr-1.5" /> Test Koneksi
+                            <FlaskConical className="h-4 w-4 mr-1.5" /> Test Koneksi AI
                         </Button>
                     </div>
                 </form>
