@@ -1067,40 +1067,55 @@ class ReportRunner
         $progresses = \App\Models\Master\Progress::active()->ordered()->get();
 
         $rows = $orders->map(function ($o) use ($progresses) {
-            // 1. Calculate overall lateness
-            $lateness = '-';
-            $isCompleted = in_array($o->status_po, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim']);
-            $targetDeadlineDate = $isCompleted ? $o->deadline_customer : ($o->end_production_date ?? $o->deadline_customer);
-            if ($targetDeadlineDate) {
-                $deadline = Carbon::parse($targetDeadlineDate)->startOfDay();
+            // 1. Calculate dual lateness (Produksi vs Deadline Produksi, Admin PO vs Deadline Customer)
+            $isCompleted = $o->isCompleted();
+
+            // A. Keterlambatan Produksi (vs end_production_date / deadline_produksi)
+            $latenessProd = '-';
+            $targetProdDeadline = $o->end_production_date ?? $o->deadline_customer;
+            if ($targetProdDeadline) {
+                $deadlineProd = Carbon::parse($targetProdDeadline)->startOfDay();
+                $isPackingFinished = $o->packing_completed_at || in_array($o->status_po, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'], true);
                 
-                $completionDate = null;
-                if ($isCompleted) {
-                    if ($o->end_production_date) {
-                        $completionDate = Carbon::parse($o->end_production_date)->startOfDay();
-                    } else {
-                        $lastCompleted = $o->progressDetails
-                            ->where('status', 'selesai')
-                            ->sortByDesc('completed_at')
-                            ->first();
-                        $completionDate = $lastCompleted && $lastCompleted->completed_at 
-                            ? Carbon::parse($lastCompleted->completed_at)->startOfDay()
-                            : Carbon::now()->startOfDay();
-                    }
+                $finishProd = null;
+                if ($isPackingFinished) {
+                    $finishProd = $o->packing_completed_at 
+                        ? Carbon::parse($o->packing_completed_at)->startOfDay()
+                        : ($o->progressDetails->where('status', 'selesai')->sortByDesc('completed_at')->first()?->completed_at 
+                            ? Carbon::parse($o->progressDetails->where('status', 'selesai')->sortByDesc('completed_at')->first()->completed_at)->startOfDay()
+                            : Carbon::now()->startOfDay());
                 } else {
-                    $completionDate = Carbon::now()->startOfDay();
+                    $finishProd = Carbon::now()->startOfDay();
                 }
 
-                $diffDays = $deadline->diffInDays($completionDate, false);
-                
-                if ($diffDays > 0) {
-                    $lateness = 'Telat ' . $diffDays . ' hari';
+                $diffProdDays = $deadlineProd->diffInDays($finishProd, false);
+                if ($diffProdDays > 0) {
+                    $latenessProd = 'Telat ' . $diffProdDays . ' hari' . ($isPackingFinished ? '' : ' (Berjalan)');
                 } else {
-                    if ($isCompleted) {
-                        $lateness = 'Tepat Waktu';
-                    } else {
-                        $lateness = 'Sisa ' . abs($diffDays) . ' hari';
-                    }
+                    $latenessProd = $isPackingFinished ? 'Tepat Waktu' : 'Sisa ' . abs($diffProdDays) . ' hari';
+                }
+            }
+
+            // B. Keterlambatan Customer (vs deadline_customer)
+            $latenessCust = '-';
+            if ($o->deadline_customer) {
+                $deadlineCust = Carbon::parse($o->deadline_customer)->startOfDay();
+                $isPoCompleted = in_array($o->status_po, ['sudah_dikirim', 'selesai'], true);
+                
+                $finishCust = null;
+                if ($isPoCompleted) {
+                    $finishCust = $o->completed_at 
+                        ? Carbon::parse($o->completed_at)->startOfDay()
+                        : Carbon::now()->startOfDay();
+                } else {
+                    $finishCust = Carbon::now()->startOfDay();
+                }
+
+                $diffCustDays = $deadlineCust->diffInDays($finishCust, false);
+                if ($diffCustDays > 0) {
+                    $latenessCust = 'Telat ' . $diffCustDays . ' hari' . ($isPoCompleted ? '' : ' (Berjalan)');
+                } else {
+                    $latenessCust = $isPoCompleted ? 'Tepat Waktu' : 'Sisa ' . abs($diffCustDays) . ' hari';
                 }
             }
 
@@ -1136,7 +1151,9 @@ class ReportRunner
                 'deadline_customer' => $o->deadline_customer ? Carbon::parse((string) $o->deadline_customer)->toDateString() : null,
                 'pcs' => $this->getOrderPcs($o),
                 'status' => $o->status_po,
-                'keterlambatan' => $lateness,
+                'keterlambatan' => $latenessCust !== '-' ? $latenessCust : $latenessProd,
+                'keterlambatan_produksi' => $latenessProd,
+                'keterlambatan_customer' => $latenessCust,
                 'durasi_total' => $durasiTotal,
             ];
 

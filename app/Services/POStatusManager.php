@@ -115,7 +115,7 @@ class POStatusManager
 
         // Delay check: deadline_customer terlewati & produksi/packing belum selesai
         if ($order->deadline_customer && \Carbon\Carbon::parse($order->deadline_customer)->isPast()
-            && ! in_array($newStatus, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim'], true)) {
+            && ! in_array($newStatus, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'], true)) {
             $newStatus = 'delay';
         }
 
@@ -124,27 +124,43 @@ class POStatusManager
             $updateData['status_po'] = $newStatus;
         }
 
-        // Catat data keterlambatan permanen saat PO selesai diproduksi/dipacking
-        if (in_array($newStatus, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim'], true)) {
-            $endProductionDate = $order->end_production_date ?? now();
+        // Catat data keterlambatan produksi & packing saat tahapan packing / produksi selesai
+        if (in_array($newStatus, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'], true)) {
+            $packingCompletedAt = $order->packing_completed_at 
+                ?? ($packing?->completed_at 
+                    ?? ($details->where('status', 'selesai')->sortByDesc('completed_at')->first()?->completed_at ?? now()));
+
+            if (!$order->packing_completed_at) {
+                $updateData['packing_completed_at'] = $packingCompletedAt;
+            }
+
+            $endProductionDate = $order->end_production_date ?? $packingCompletedAt;
             if (!$order->end_production_date) {
                 $updateData['end_production_date'] = $endProductionDate;
             }
 
+            // Hitung Keterlambatan Produksi vs Deadline Produksi (end_production_date / deadline_customer)
+            $targetProdDeadline = $order->end_production_date ?? $order->deadline_customer;
+            if ($targetProdDeadline) {
+                $prodDeadlineDate = \Carbon\Carbon::parse($targetProdDeadline)->startOfDay();
+                $prodFinishDate = \Carbon\Carbon::parse($packingCompletedAt)->startOfDay();
+                $diffProdDays = (int) $prodDeadlineDate->diffInDays($prodFinishDate, false);
+
+                $updateData['production_days_late'] = $diffProdDays > 0 ? $diffProdDays : 0;
+            }
+
+            // Hitung Keterlambatan Customer jika PO sudah di status terminal
             if ($order->deadline_customer) {
                 $deadlineDate = \Carbon\Carbon::parse($order->deadline_customer)->startOfDay();
-                $completionDate = \Carbon\Carbon::parse($endProductionDate)->startOfDay();
+                $completionDate = \Carbon\Carbon::parse($order->completed_at ?? $packingCompletedAt)->startOfDay();
                 $diffDays = (int) $deadlineDate->diffInDays($completionDate, false);
 
                 $wasDelayed = $diffDays > 0;
                 $daysLate = $wasDelayed ? $diffDays : 0;
 
-                if ($order->was_delayed_on_completion !== $wasDelayed) {
-                    $updateData['was_delayed_on_completion'] = $wasDelayed;
-                }
-                if ((int)$order->days_late_on_completion !== $daysLate) {
-                    $updateData['days_late_on_completion'] = $daysLate;
-                }
+                $updateData['customer_days_late'] = $daysLate;
+                $updateData['was_delayed_on_completion'] = $wasDelayed;
+                $updateData['days_late_on_completion'] = $daysLate;
             }
         }
 

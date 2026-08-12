@@ -46,6 +46,7 @@ class Order extends Model
         'brand_id', 'reseller_display_brand_id', 'no_po', 'nama_po', 'status_po', 'is_special_order', 'is_free_ongkir', 'tipe_pengiriman', 'is_reseller_price', 'ongkir',
         'voucher_discount_amount',
         'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date',
+        'packing_completed_at', 'completed_at', 'production_days_late', 'customer_days_late',
         'was_delayed_on_completion', 'days_late_on_completion',
         'kategori_order_id', 'jenis_order_id', 'sumber_order_id', 'paket_order_id',
         'jenis_setelan_id', 'model_produksi_id',
@@ -58,6 +59,11 @@ class Order extends Model
         'is_dp_bypassed', 'dp_bypassed_by', 'dp_bypassed_at',
         'created_by', 'updated_by',
     ];
+
+    public function isCompleted(): bool
+    {
+        return in_array($this->status_po, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'], true);
+    }
 
     public function getTipePengirimanAttribute(?string $value): string
     {
@@ -85,6 +91,10 @@ class Order extends Model
         'deadline_customer' => 'date:Y-m-d',
         'start_production_date' => 'date:Y-m-d',
         'end_production_date' => 'date:Y-m-d',
+        'packing_completed_at' => 'datetime',
+        'completed_at' => 'datetime',
+        'production_days_late' => 'integer',
+        'customer_days_late' => 'integer',
         'was_delayed_on_completion' => 'boolean',
         'days_late_on_completion' => 'integer',
         'published_at' => 'datetime',
@@ -98,7 +108,7 @@ class Order extends Model
         'is_dp_bypassed' => 'boolean',
         'lunas_at' => 'datetime',
         'dp_bypassed_at' => 'datetime',
-        'total_tagihan' => 'decimal:2',
+     'total_tagihan' => 'decimal:2',
         'printing_ids' => 'array',
     ];
 

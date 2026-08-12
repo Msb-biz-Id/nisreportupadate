@@ -937,8 +937,21 @@ class OrderController extends Controller
         }
 
         DB::transaction(function () use ($order, $user) {
+            $completedAt = now();
+            $customerDaysLate = 0;
+            if ($order->deadline_customer) {
+                $deadlineDate = \Carbon\Carbon::parse($order->deadline_customer)->startOfDay();
+                $finishDate = \Carbon\Carbon::parse($completedAt)->startOfDay();
+                $diffDays = (int) $deadlineDate->diffInDays($finishDate, false);
+                $customerDaysLate = $diffDays > 0 ? $diffDays : 0;
+            }
+
             $order->update([
                 'status_po' => 'selesai',
+                'completed_at' => $completedAt,
+                'customer_days_late' => $customerDaysLate,
+                'days_late_on_completion' => $customerDaysLate,
+                'was_delayed_on_completion' => $customerDaysLate > 0,
             ]);
 
             \App\Models\Order\POChangeLog::where('order_id', $order->id)->delete();
