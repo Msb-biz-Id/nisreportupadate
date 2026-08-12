@@ -1019,13 +1019,31 @@ class ReportRunner
         return $sortedGroups->sortByDesc('sort_key')->values();
     }
 
-    private function formatDuration(mixed $started, mixed $completed, bool $isActive = false): string
+    private function safeCarbonParse(mixed $val): ?Carbon
     {
-        if (!$started) {
+        if (empty($val) || $val === '0000-00-00' || $val === '0000-00-00 00:00:00') {
+            return null;
+        }
+        if ($val instanceof Carbon) {
+            return $val;
+        }
+        try {
+            return Carbon::parse((string) $val);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function formatDuration(mixed $started, mixed $completed = null, bool $isActive = false): string
+    {
+        if (! $started) {
             return '-';
         }
-        $start = Carbon::parse($started);
-        $end = $completed ? Carbon::parse($completed) : Carbon::now();
+        $start = $this->safeCarbonParse($started);
+        if (! $start) {
+            return '-';
+        }
+        $end = $completed ? ($this->safeCarbonParse($completed) ?? Carbon::now()) : Carbon::now();
         
         $totalMinutes = (int) round(abs($start->diffInMinutes($end)));
         
@@ -1073,18 +1091,19 @@ class ReportRunner
             // A. Keterlambatan Produksi (vs end_production_date / deadline_produksi)
             $latenessProd = '-';
             $targetProdDeadline = $o->end_production_date ?? $o->deadline_customer;
-            if ($targetProdDeadline) {
-                $deadlineProd = Carbon::parse($targetProdDeadline)->startOfDay();
+            $deadlineProd = $this->safeCarbonParse($targetProdDeadline)?->startOfDay();
+            if ($deadlineProd) {
                 $isPackingFinished = $o->packing_completed_at || in_array($o->status_po, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'], true);
                 
                 $finishProd = null;
                 if ($isPackingFinished) {
                     $finishProd = $o->packing_completed_at 
-                        ? Carbon::parse($o->packing_completed_at)->startOfDay()
+                        ? $this->safeCarbonParse($o->packing_completed_at)?->startOfDay()
                         : ($o->progressDetails->where('status', 'selesai')->sortByDesc('completed_at')->first()?->completed_at 
-                            ? Carbon::parse($o->progressDetails->where('status', 'selesai')->sortByDesc('completed_at')->first()->completed_at)->startOfDay()
+                            ? $this->safeCarbonParse($o->progressDetails->where('status', 'selesai')->sortByDesc('completed_at')->first()->completed_at)?->startOfDay()
                             : Carbon::now()->startOfDay());
-                } else {
+                }
+                if (!$finishProd) {
                     $finishProd = Carbon::now()->startOfDay();
                 }
 
@@ -1098,16 +1117,17 @@ class ReportRunner
 
             // B. Keterlambatan Customer (vs deadline_customer)
             $latenessCust = '-';
-            if ($o->deadline_customer) {
-                $deadlineCust = Carbon::parse($o->deadline_customer)->startOfDay();
+            $deadlineCust = $this->safeCarbonParse($o->deadline_customer)?->startOfDay();
+            if ($deadlineCust) {
                 $isPoCompleted = in_array($o->status_po, ['sudah_dikirim', 'selesai'], true);
                 
                 $finishCust = null;
                 if ($isPoCompleted) {
                     $finishCust = $o->completed_at 
-                        ? Carbon::parse($o->completed_at)->startOfDay()
+                        ? $this->safeCarbonParse($o->completed_at)?->startOfDay()
                         : Carbon::now()->startOfDay();
-                } else {
+                }
+                if (!$finishCust) {
                     $finishCust = Carbon::now()->startOfDay();
                 }
 
@@ -1123,18 +1143,19 @@ class ReportRunner
             $durasiTotal = '-';
             $firstStage = $o->progressDetails->sortBy(fn($d) => $d->progress?->urutan ?? 0)->first();
             $productionStart = $o->start_production_date 
-                ? Carbon::parse($o->start_production_date) 
-                : ($firstStage && $firstStage->started_at ? Carbon::parse($firstStage->started_at) : null);
+                ? $this->safeCarbonParse($o->start_production_date) 
+                : ($firstStage && $firstStage->started_at ? $this->safeCarbonParse($firstStage->started_at) : null);
 
             if ($productionStart) {
                 $productionEnd = null;
                 if ($isCompleted) {
                     $productionEnd = $o->end_production_date 
-                        ? Carbon::parse($o->end_production_date) 
+                        ? $this->safeCarbonParse($o->end_production_date) 
                         : ($o->progressDetails->where('status', 'selesai')->sortByDesc('completed_at')->first()?->completed_at 
-                            ? Carbon::parse($o->progressDetails->where('status', 'selesai')->sortByDesc('completed_at')->first()->completed_at)
+                            ? $this->safeCarbonParse($o->progressDetails->where('status', 'selesai')->sortByDesc('completed_at')->first()->completed_at)
                             : Carbon::now());
-                } else {
+                }
+                if (!$productionEnd) {
                     $productionEnd = Carbon::now();
                 }
                 
@@ -1146,9 +1167,9 @@ class ReportRunner
                 'nama_po' => $o->nama_po,
                 'brand_nama' => $o->brand?->nama_brand ?? '-',
                 'pelanggan' => $o->pelanggan?->nama ?? '-',
-                'tanggal_masuk' => $o->tanggal_masuk?->toDateString(),
-                'deadline_produksi' => $o->end_production_date ? Carbon::parse((string) $o->end_production_date)->toDateString() : ($o->deadline_customer ? Carbon::parse((string) $o->deadline_customer)->toDateString() : null),
-                'deadline_customer' => $o->deadline_customer ? Carbon::parse((string) $o->deadline_customer)->toDateString() : null,
+                'tanggal_masuk' => $this->safeCarbonParse($o->tanggal_masuk)?->toDateString(),
+                'deadline_produksi' => $o->end_production_date ? $this->safeCarbonParse($o->end_production_date)?->toDateString() : ($o->deadline_customer ? $this->safeCarbonParse($o->deadline_customer)?->toDateString() : null),
+                'deadline_customer' => $o->deadline_customer ? $this->safeCarbonParse($o->deadline_customer)?->toDateString() : null,
                 'pcs' => $this->getOrderPcs($o),
                 'status' => $o->status_po,
                 'keterlambatan' => $latenessCust !== '-' ? $latenessCust : $latenessProd,
