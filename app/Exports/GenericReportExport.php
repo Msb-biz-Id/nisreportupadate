@@ -60,6 +60,7 @@ class GenericReportExport implements FromArray, WithHeadings, WithTitle, ShouldA
                         'selesai_produksi' => 'Selesai Produksi',
                         'siap_dikirim' => 'Siap Dikirim',
                         'sudah_dikirim' => 'Sudah Dikirim',
+                        'selesai' => 'Selesai',
                         'delay' => 'Tertunda (Delay)',
                         'hold' => 'Ditahan (Hold)',
                         'cancel' => 'Dibatalkan',

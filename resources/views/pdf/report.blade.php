@@ -4,25 +4,26 @@
     <meta charset="utf-8">
     <title>{{ $config['label'] }} - {{ \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack')) }}</title>
     <style>
+        @page { size: A4 landscape; margin: 8mm 10mm 10mm 10mm; }
         * { box-sizing: border-box; }
-        body { font-family: 'DejaVu Sans', sans-serif; font-size: 9pt; color: #111; margin: 0; }
-        .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 8px; border-bottom: 2px solid #1E40AF; margin-bottom: 14px; }
-        .brand { color: #1E40AF; font-weight: 700; font-size: 14pt; }
-        .meta { font-size: 8pt; color: #666; text-align: right; }
-        h1 { font-size: 13pt; margin: 0 0 4px 0; color: #111; }
-        .filters { font-size: 8pt; color: #666; margin-bottom: 12px; }
-        .summary { margin-bottom: 12px; }
-        .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-        .summary-card { border: 1px solid #E2E8F0; border-radius: 4px; padding: 6px 8px; background: #F8FAFC; }
-        .summary-card .label { font-size: 7pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; }
-        .summary-card .value { font-size: 10pt; font-weight: 700; margin-top: 2px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-        th { background: #1E40AF; color: white; text-align: left; padding: 5px 6px; font-size: 8.5pt; font-weight: 600; }
-        td { border-bottom: 1px solid #E2E8F0; padding: 4px 6px; font-size: 8pt; vertical-align: top; }
+        body { font-family: 'DejaVu Sans', sans-serif; font-size: 8pt; color: #111; margin: 0; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 6px; border-bottom: 2px solid #1E40AF; margin-bottom: 10px; }
+        .brand { color: #1E40AF; font-weight: 700; font-size: 13pt; }
+        .meta { font-size: 7.5pt; color: #666; text-align: right; }
+        h1 { font-size: 12pt; margin: 0 0 3px 0; color: #111; }
+        .filters { font-size: 7.5pt; color: #666; margin-bottom: 10px; }
+        .summary { margin-bottom: 10px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+        .summary-card { border: 1px solid #E2E8F0; border-radius: 4px; padding: 5px 7px; background: #F8FAFC; }
+        .summary-card .label { font-size: 6.5pt; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; }
+        .summary-card .value { font-size: 9.5pt; font-weight: 700; margin-top: 2px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 7.5pt; table-layout: auto; }
+        th { background: #1E40AF; color: white; text-align: left; padding: 4px 5px; font-size: 7.5pt; font-weight: 600; white-space: nowrap; }
+        td { border-bottom: 1px solid #E2E8F0; padding: 3px 5px; font-size: 7.5pt; vertical-align: top; }
         tr:nth-child(even) td { background: #F8FAFC; }
         .right { text-align: right; }
-        .footer { position: fixed; bottom: 8px; left: 0; right: 0; text-align: center; font-size: 7pt; color: #999; }
-        .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; background: #F1F5F9; color: #1E40AF; font-size: 7pt; font-weight: 600; }
+        .footer { position: fixed; bottom: 6px; left: 0; right: 0; text-align: center; font-size: 6.5pt; color: #999; }
+        .badge { display: inline-block; padding: 1px 5px; border-radius: 3px; background: #F1F5F9; color: #1E40AF; font-size: 6.5pt; font-weight: 600; }
     </style>
     {!! '<' . 'style>' .
         '.header { border-bottom-color: ' . $primaryColor . '; }' .
@@ -141,6 +142,7 @@
                                                 'selesai_produksi' => 'Selesai Produksi',
                                                 'siap_dikirim' => 'Siap Dikirim',
                                                 'sudah_dikirim' => 'Sudah Dikirim',
+                                                'selesai' => 'Selesai',
                                                 'delay' => 'Tertunda (Delay)',
                                                 'hold' => 'Ditahan (Hold)',
                                                 'cancel' => 'Dibatalkan',
