@@ -702,7 +702,7 @@ function ScheduledReportsSection({ reports }) {
         daily_report_time:     reports.daily_report_time    || '08:00',
         weekly_report_day:     reports.weekly_report_day    || 'monday',
         monthly_report_date:   String(reports.monthly_report_date || 'last_day'),
-        report_types:          reports.report_types         || 'brand,produksi',
+        report_types:          reports.report_types         || 'superadmin,brand,produksi,owner,keuangan',
         superadmin_recipients: reports.superadmin_recipients || '',
         produksi_recipients:   reports.produksi_recipients  || '',
         brand_recipients:      reports.brand_recipients     || '',

@@ -37,8 +37,8 @@ class SendScheduledReport extends Command
             $this->info('Gemini terkonfigurasi — AI Insight akan disertakan dalam laporan.');
         }
 
-        // Jenis laporan yang diaktifkan
-        $typesRaw = SystemSetting::get('reports', 'report_types', 'brand,produksi');
+        // Jenis laporan yang diaktifkan (default: semua jenis)
+        $typesRaw = SystemSetting::get('reports', 'report_types', 'superadmin,brand,produksi,owner,keuangan');
         $types    = array_filter(array_map('trim', explode(',', $typesRaw)));
 
         // Semua brand aktif diproses — hub, branch, dan regular diperlakukan sama.
@@ -67,7 +67,7 @@ class SendScheduledReport extends Command
 
         // ── Per-brand reports
         foreach ($brands as $brand) {
-            if (! $this->brandHasActivityOrOrders($brand, $periode)) {
+            if (! $force && ! $this->brandHasActivityOrOrders($brand, $periode)) {
                 $this->info("── Brand: {$brand->kode} (Dilewati - Tidak ada order aktif atau aktivitas) ──");
                 continue;
             }
@@ -129,7 +129,7 @@ class SendScheduledReport extends Command
 
     /**
      * Parse recipients dari settings ke format dispatcher.
-     * Fallback ke database User dengan matching Role & Brand, lalu ke default global.
+     * Fallback ke database User dengan matching Role & Brand Access secara presisi.
      */
     private function parseRecipients(string $settingKey, ?string $roleName = null, ?string $brandId = null): array
     {
@@ -150,50 +150,60 @@ class SendScheduledReport extends Command
             }
         }
 
-        // Jika kolom pengaturan kosong/tidak diisi manual, cari dinamis berdasarkan User & Role & Brand Access
+        // Jika kolom pengaturan kosong/tidak diisi manual override, cari dinamis berdasarkan User & Role & Brand Access
         if (empty($wa) && empty($tg) && empty($email) && $roleName) {
-            $roleExists = \Spatie\Permission\Models\Role::where('name', $roleName)->exists();
-            if ($roleExists) {
-                $usersQuery = \App\Models\User::role($roleName)->where('is_active', true);
-                $users = $usersQuery->get();
+            // Tentukan list role yang relevan
+            $matchingRoles = match ($roleName) {
+                'admin_brand'    => ['admin_brand', 'admin_reseller'],
+                'admin_produksi' => ['admin_produksi', 'supervisor'],
+                'owner'          => ['owner'],
+                default          => [$roleName],
+            };
 
-                // Filter brand access jika laporan ini bersifat per-brand
-                if ($brandId) {
-                    $users = $users->filter(function ($u) use ($brandId) {
-                        return $u->isSuperadmin() || 
-                               $u->hasRole(['owner', 'admin_keuangan', 'admin_produksi']) || 
-                               $u->hasAccessToBrand($brandId);
-                    });
+            $usersQuery = \App\Models\User::where('is_active', true)
+                ->whereHas('roles', function ($q) use ($matchingRoles) {
+                    $q->whereIn('name', $matchingRoles);
+                });
+
+            $users = $usersQuery->get();
+
+            // Filter brand access jika laporan ini bersifat per-brand
+            if ($brandId) {
+                $users = $users->filter(function ($u) use ($brandId) {
+                    // Jika user memiliki brand assignment eksplisit di pivot user_brand_access,
+                    // utamakan pivot tersebut agar tidak tertukar/salah kamar antar brand!
+                    if ($u->brands()->exists()) {
+                        return $u->brands()->where('brands.id', $brandId)->exists();
+                    }
+                    return $u->hasAccessToBrand($brandId);
+                });
+            }
+
+            foreach ($users as $u) {
+                if ($u->phone) {
+                    $wa[] = trim($u->phone);
                 }
-
-                foreach ($users as $u) {
-                    if ($u->phone) {
-                        $wa[] = $u->phone;
-                    }
-                    if ($u->telegram_chat_id) {
-                        $tg[] = $u->telegram_chat_id;
-                    }
-                    if ($u->email) {
-                        $email[] = $u->email;
-                    }
+                if ($u->telegram_chat_id) {
+                    $tg[] = trim($u->telegram_chat_id);
+                }
+                if ($u->email) {
+                    $email[] = trim($u->email);
                 }
             }
         }
 
-        if (empty($wa)) {
-            // Fallback ke default global
+        $wa = array_values(array_unique($wa));
+        $tg = array_values(array_unique($tg));
+        $email = array_values(array_unique($email));
+
+        // Global fallback HANYA jika TIDAK ADA SAMA SEKALI recipient yang teridentifikasi dari channel apapun
+        if (empty($wa) && empty($tg) && empty($email)) {
             $defaultWa = SystemSetting::get('whatsapp', 'default_recipient');
             if ($defaultWa) $wa = [$defaultWa];
-        }
 
-        if (empty($tg)) {
-            // Fallback ke default global
             $defaultTg = SystemSetting::get('telegram', 'default_chat_id');
             if ($defaultTg) $tg = [$defaultTg];
-        }
 
-        if (empty($email)) {
-            // Fallback ke default global
             $defaultMail = SystemSetting::get('mail', 'mail_from_address', config('mail.from.address'));
             if ($defaultMail) $email = [$defaultMail];
         }
@@ -203,6 +213,11 @@ class SendScheduledReport extends Command
 
     private function brandHasActivityOrOrders(Brand $brand, string $periode): bool
     {
+        // Laporan mingguan dan bulanan selalu dikirim untuk semua brand aktif
+        if (in_array($periode, ['mingguan', 'bulanan'])) {
+            return true;
+        }
+
         // 1. Cek apakah ada PO yang aktif (bukan draft, selesai, atau sudah dikirim)
         $hasActive = \App\Models\Order\Order::where('brand_id', $brand->id)
             ->whereNotIn('status_po', ['draft', 'selesai', 'sudah_dikirim'])
@@ -211,16 +226,9 @@ class SendScheduledReport extends Command
             return true;
         }
 
-        // 2. Cek apakah ada PO baru atau PO yang selesai/update dalam periode ini
-        $dateRange = match ($periode) {
-            'harian' => [today()->startOfDay(), today()->endOfDay()],
-            'mingguan' => [now()->startOfWeek()->startOfDay(), now()->endOfWeek()->endOfDay()],
-            'bulanan' => [now()->startOfMonth()->startOfDay(), now()->endOfMonth()->endOfDay()],
-            default => [today()->startOfDay(), today()->endOfDay()],
-        };
-
+        // 2. Cek apakah ada PO baru atau PO yang selesai/update dalam periode harian ini
         return \App\Models\Order\Order::where('brand_id', $brand->id)
-            ->whereBetween('updated_at', $dateRange)
+            ->whereBetween('updated_at', [today()->startOfDay(), today()->endOfDay()])
             ->exists();
     }
 }

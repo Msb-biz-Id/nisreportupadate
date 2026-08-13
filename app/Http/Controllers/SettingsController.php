@@ -95,7 +95,7 @@ class SettingsController extends Controller
                 'daily_report_time'     => SystemSetting::get('reports', 'daily_report_time', '08:00'),
                 'weekly_report_day'     => SystemSetting::get('reports', 'weekly_report_day', 'monday'),
                 'monthly_report_date'   => SystemSetting::get('reports', 'monthly_report_date', 'last_day'),
-                'report_types'          => SystemSetting::get('reports', 'report_types', 'brand,produksi'),
+                'report_types'          => SystemSetting::get('reports', 'report_types', 'superadmin,brand,produksi,owner,keuangan'),
                 'superadmin_recipients' => SystemSetting::get('reports', 'superadmin_recipients', ''),
                 'produksi_recipients'   => SystemSetting::get('reports', 'produksi_recipients', ''),
                 'brand_recipients'      => SystemSetting::get('reports', 'brand_recipients', ''),
