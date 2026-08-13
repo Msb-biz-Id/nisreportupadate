@@ -4,9 +4,21 @@
     <meta charset="utf-8">
     <title>{{ $config['label'] }} - {{ \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack')) }}</title>
     <style>
+        @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 400;
+            src: url('{{ public_path("fonts/Inter-Regular.ttf") }}') format('truetype');
+        }
+        @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 700;
+            src: url('{{ public_path("fonts/Inter-Bold.ttf") }}') format('truetype');
+        }
         @page { size: A4 landscape; margin: 8mm 10mm 10mm 10mm; }
         * { box-sizing: border-box; }
-        body { font-family: 'DejaVu Sans', sans-serif; font-size: 8pt; color: #111; margin: 0; }
+        body { font-family: 'Inter', 'Helvetica', 'Arial', 'DejaVu Sans', sans-serif; font-size: 8pt; color: #111; margin: 0; }
         .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 6px; border-bottom: 2px solid #1E40AF; margin-bottom: 10px; }
         .brand { color: #1E40AF; font-weight: 700; font-size: 13pt; }
         .meta { font-size: 7.5pt; color: #666; text-align: right; }

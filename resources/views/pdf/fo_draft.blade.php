@@ -6,6 +6,20 @@
     <title>FO DRAFT - {{ (isset($resellerDisplayBrand) && $resellerDisplayBrand) ? $resellerDisplayBrand->nama_brand : $brand->nama_brand }}</title>
     <style>
         @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 400;
+            src: url('{{ public_path("fonts/Inter-Regular.ttf") }}') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 700;
+            src: url('{{ public_path("fonts/Inter-Bold.ttf") }}') format('truetype');
+        }
+
+        @font-face {
             font-family: 'Noto Sans JP';
             font-style: normal;
             font-weight: 400;
@@ -94,7 +108,7 @@
         }
 
         body {
-            font-family: 'Helvetica', 'Arial', 'DejaVu Sans', sans-serif;
+            font-family: 'Inter', 'Helvetica', 'Arial', 'DejaVu Sans', sans-serif;
             font-size: 10pt;
             color: #000;
             line-height: 1.35;

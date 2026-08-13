@@ -18,8 +18,20 @@
     <meta charset="utf-8">
     <title>Laporan Perbandingan & Kinerja - {{ \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack')) }}</title>
     <style>
+        @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 400;
+            src: url('{{ public_path("fonts/Inter-Regular.ttf") }}') format('truetype');
+        }
+        @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 700;
+            src: url('{{ public_path("fonts/Inter-Bold.ttf") }}') format('truetype');
+        }
         * { box-sizing: border-box; }
-        body { font-family: 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #111; margin: 0; }
+        body { font-family: 'Inter', 'Helvetica', 'Arial', 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #111; margin: 0; }
         .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 8px; border-bottom: 2px solid #4F46E5; margin-bottom: 14px; }
         .brand { color: #4F46E5; font-weight: 700; font-size: 14pt; }
         .meta { font-size: 8pt; color: #666; text-align: right; float: right; }
