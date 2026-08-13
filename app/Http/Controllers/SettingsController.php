@@ -222,7 +222,7 @@ class SettingsController extends Controller
         Gate::authorize('settings.ai');
 
         $data = $request->validate([
-            'provider' => ['required', 'string', 'in:auto_failover,openai_compatible,gemini'],
+            'provider' => ['nullable', 'string', 'in:auto_failover,openai_compatible,gemini'],
             'openai_base_url' => ['nullable', 'string', 'max:500'],
             'openai_api_keys' => ['nullable', 'string', 'max:5000'],
             'openai_model' => ['nullable', 'string', 'max:100'],
@@ -232,7 +232,7 @@ class SettingsController extends Controller
             'max_tokens' => ['required', 'integer', 'between:128,8192'],
         ]);
 
-        SystemSetting::set('ai', 'provider', $data['provider']);
+        SystemSetting::set('ai', 'provider', $data['provider'] ?? 'auto_failover');
         if (! empty($data['openai_base_url'])) {
             SystemSetting::set('ai', 'openai_base_url', $data['openai_base_url']);
         }
@@ -296,19 +296,19 @@ class SettingsController extends Controller
 
         $data = $request->validate([
             'notification_channel' => ['required', 'in:whatsapp,telegram,email,both,all'],
-            'whatsapp_enabled' => ['boolean'],
-            'telegram_enabled' => ['boolean'],
-            'email_enabled' => ['boolean'],
-            'customer_import_enabled' => ['boolean'],
+            'whatsapp_enabled' => ['nullable', 'boolean'],
+            'telegram_enabled' => ['nullable', 'boolean'],
+            'email_enabled' => ['nullable', 'boolean'],
+            'customer_import_enabled' => ['nullable', 'boolean'],
             'theme_color' => ['required', 'string', 'regex:/^#[a-fA-F0-9]{6}$/'],
             'target_view' => ['nullable', 'in:both,revenue,pcs'],
         ]);
 
         SystemSetting::set('system', 'notification_channel', $data['notification_channel']);
-        SystemSetting::set('system', 'whatsapp_enabled', $data['whatsapp_enabled'] ? '1' : '0');
-        SystemSetting::set('system', 'telegram_enabled', $data['telegram_enabled'] ? '1' : '0');
-        SystemSetting::set('system', 'email_enabled', $data['email_enabled'] ? '1' : '0');
-        SystemSetting::set('system', 'customer_import_enabled', $data['customer_import_enabled'] ? '1' : '0');
+        SystemSetting::set('system', 'whatsapp_enabled', $request->boolean('whatsapp_enabled') ? '1' : '0');
+        SystemSetting::set('system', 'telegram_enabled', $request->boolean('telegram_enabled') ? '1' : '0');
+        SystemSetting::set('system', 'email_enabled', $request->boolean('email_enabled') ? '1' : '0');
+        SystemSetting::set('system', 'customer_import_enabled', $request->boolean('customer_import_enabled') ? '1' : '0');
         SystemSetting::set('system', 'theme_color', $data['theme_color']);
         SystemSetting::set('system', 'target_view', $data['target_view'] ?? 'pcs');
 
