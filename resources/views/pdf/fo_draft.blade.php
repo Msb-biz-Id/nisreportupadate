@@ -112,7 +112,6 @@
             font-size: 10pt;
             color: #000;
             line-height: 1.35;
-            text-transform: uppercase;
             margin: 0;
             padding: 0;
         }
