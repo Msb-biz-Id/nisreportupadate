@@ -30,6 +30,26 @@ class PdfHelper
     }
 
     /**
+     * Normalize Quranic and extended Unicode Arabic characters (e.g. Alif Wasla ٱ U+0671,
+     * Dagger Alef ٰ U+0670, Quranic Sukun ۡ U+06E1) into standard Arabic glyphs supported
+     * by ArPHP and DomPDF ligature shaping engine.
+     */
+    private static function normalizeArabicForDompdf(string $string): string
+    {
+        $map = [
+            "\u{0671}" => 'ا',        // Alif Wasla (ٱ) -> Standard Alif (ا)
+            "\u{0670}" => '',         // Dagger Alef / Superscript Alef (ٰ) -> Strip for proper Allah ligature forming
+            "\u{06E1}" => "\u{0652}", // Quranic Sukun (ۡ) -> Standard Sukun (ْ)
+            "\u{06E5}" => '',         // Small Waw
+            "\u{06E6}" => '',         // Small Ya
+            "\u{06E7}" => '',         // Small High Yeh
+            "\u{06E8}" => '',         // Small High Noon
+        ];
+
+        return strtr($string, $map);
+    }
+
+    /**
      * Format text for **PDF** output (DOMPDF).
      *
      * - Escapes HTML entities to prevent XSS.
@@ -82,7 +102,8 @@ class PdfHelper
         $processed = preg_replace_callback($arabicPattern, function ($matches) {
             try {
                 $preProcessed = self::arabicToLatinDigits($matches[0]);
-                $reshaped = self::arPhp()->utf8Glyphs($preProcessed);
+                $normalized   = self::normalizeArabicForDompdf($preProcessed);
+                $reshaped     = self::arPhp()->utf8Glyphs($normalized);
                 return '<span class="arabic-font">' . $reshaped . '</span>';
             } catch (\Throwable) {
                 // Fallback: render un-shaped (still readable with Noto Sans Arabic font)

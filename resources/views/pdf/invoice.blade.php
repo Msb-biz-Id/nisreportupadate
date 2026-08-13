@@ -43,6 +43,8 @@ $primaryColor = $invoice->brand?->warna_primary
         .arabic-font {
             font-family: 'Noto Sans Arabic', sans-serif !important;
             text-transform: none !important;
+            line-height: 1.4 !important;
+            display: inline-block;
         }
 
         * {

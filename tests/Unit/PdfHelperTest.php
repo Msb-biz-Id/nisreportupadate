@@ -149,4 +149,16 @@ class PdfHelperTest extends TestCase
         $this->assertStringContainsString('٢٧', $formattedMixed);
         $this->assertStringNotContainsString('٧٢', $formattedMixed);
     }
+
+    public function test_quranic_arabic_text_is_normalized_and_reshaped_for_pdf(): void
+    {
+        // Quranic script with Alif Wasla (U+0671) and Dagger Alef (U+0670): فِي سَبِيلِ ٱللَّٰهِ
+        $quranicText = "فِي سَبِيلِ ٱللَّٰهِ";
+        $formatted = PdfHelper::formatText($quranicText);
+
+        $this->assertStringContainsString('class="arabic-font"', $formatted);
+        // Ensure Alif Wasla (ٱ) is normalized to standard Alif (ا) so Allah ligature (ﳲ) forms properly without isolated unjoined letters
+        $this->assertStringNotContainsString('ٱ', $formatted);
+        $this->assertStringContainsString('ﳲ', $formatted);
+    }
 }
