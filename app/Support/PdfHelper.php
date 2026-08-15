@@ -60,12 +60,15 @@ class PdfHelper
             return '';
         }
 
-        // 1. Compatibility decomposition to map fancy alphanumeric characters (e.g. 𝘼 -> A, ① -> 1)
+        // 1. Manual Normalization (guarantees environment-independent mapping of fancy text)
+        $text = self::normalizeFancyTextManual($text);
+
+        // 2. Compatibility decomposition if available (extra cleanup)
         if (class_exists('Normalizer')) {
             $text = \Normalizer::normalize($text, \Normalizer::FORM_KC) ?: $text;
         }
 
-        // 2. Map specific common symbols to standard equivalents
+        // 3. Map specific common symbols to standard equivalents
         $symbolMap = [
             '✅' => '[v]',
             '✔' => '[v]',
@@ -76,7 +79,7 @@ class PdfHelper
         ];
         $text = strtr($text, $symbolMap);
 
-        // 3. Remove other decorative Unicode symbols, shapes, emojis, dingbats that render as boxes in PDF
+        // 4. Remove other decorative Unicode symbols, shapes, emojis, dingbats that render as boxes in PDF
         $patterns = [
             '/[\x{2190}-\x{21FF}]/u', // Arrows
             '/[\x{2200}-\x{22FF}]/u', // Math Operators
@@ -87,6 +90,8 @@ class PdfHelper
             '/[\x{2700}-\x{27BF}]/u', // Dingbats (includes ✧ U+2727)
             '/[\x{27C0}-\x{2BFF}]/u', // Misc Math/Arrows
             '/[\x{1F000}-\x{1FFFF}]/u', // Emojis / Pictographs
+            '/[\x{FE00}-\x{FE0F}]/u', // Variation Selectors
+            '/[\x{200B}-\x{200D}\x{2060}\x{FEFF}]/u', // Zero-width spaces & format characters
         ];
 
         $cleaned = preg_replace($patterns, '', $text);
@@ -94,6 +99,157 @@ class PdfHelper
         // Normalize spaces: replace multiple spaces with a single space, and trim
         $cleaned = preg_replace('/\s+/u', ' ', $cleaned);
         return trim($cleaned);
+    }
+
+    /**
+     * Fallback manual normalization for mathematical alphanumeric symbols and letterlike/circled symbols.
+     * Guaranteed to work on cPanel even without PHP's 'intl' extension.
+     */
+    private static function normalizeFancyTextManual(string $text): string
+    {
+        $len = mb_strlen($text, 'UTF-8');
+        $normalized = '';
+
+        for ($i = 0; $i < $len; $i++) {
+            $char = mb_substr($text, $i, 1, 'UTF-8');
+            $ord = mb_ord($char, 'UTF-8');
+
+            $mapped = null;
+
+            // Mathematical Alphanumeric Symbols: U+1D400 - U+1D7FF
+            if ($ord >= 0x1D400 && $ord <= 0x1D7FF) {
+                $mapped = self::mapMathAlphanumeric($ord);
+            }
+            // Letterlike symbols: U+2100 - U+214F
+            elseif ($ord >= 0x2100 && $ord <= 0x214F) {
+                $mapped = self::mapLetterlike($ord);
+            }
+            // Enclosed Alphanumerics: U+2460 - U+24FF
+            elseif ($ord >= 0x2460 && $ord <= 0x24FF) {
+                $mapped = self::mapEnclosedAlphanumerics($ord);
+            }
+
+            if ($mapped !== null) {
+                $normalized .= $mapped;
+            } else {
+                $normalized .= $char;
+            }
+        }
+
+        return $normalized;
+    }
+
+    private static function mapMathAlphanumeric(int $ord): ?string
+    {
+        // Bold
+        if ($ord >= 0x1D400 && $ord <= 0x1D419) return chr($ord - 0x1D400 + 65);
+        if ($ord >= 0x1D41A && $ord <= 0x1D433) return chr($ord - 0x1D41A + 97);
+
+        // Italic
+        if ($ord >= 0x1D434 && $ord <= 0x1D44D) return chr($ord - 0x1D434 + 65);
+        if ($ord >= 0x1D44E && $ord <= 0x1D454) return chr($ord - 0x1D44E + 97);
+        if ($ord >= 0x1D456 && $ord <= 0x1D467) return chr($ord - 0x1D456 + 105);
+
+        // Bold Italic
+        if ($ord >= 0x1D468 && $ord <= 0x1D481) return chr($ord - 0x1D468 + 65);
+        if ($ord >= 0x1D482 && $ord <= 0x1D49B) return chr($ord - 0x1D482 + 97);
+
+        // Sans-serif Bold Italic
+        if ($ord >= 0x1D63C && $ord <= 0x1D655) return chr($ord - 0x1D63C + 65);
+        if ($ord >= 0x1D656 && $ord <= 0x1D66F) return chr($ord - 0x1D656 + 97);
+
+        // Standard alphanumeric styles that are contiguous blocks of 26 uppercase, 26 lowercase
+        $blocks = [
+            // Bold Script
+            ['U' => 0x1D4D0, 'L' => 0x1D4EA],
+            // Fraktur
+            ['U' => 0x1D504, 'L' => 0x1D51E],
+            // Double-struck
+            ['U' => 0x1D538, 'L' => 0x1D552],
+            // Bold Fraktur
+            ['U' => 0x1D56C, 'L' => 0x1D586],
+            // Sans-serif
+            ['U' => 0x1D5A0, 'L' => 0x1D5BA],
+            // Sans-serif Bold
+            ['U' => 0x1D5D4, 'L' => 0x1D5EE],
+            // Sans-serif Italic
+            ['U' => 0x1D608, 'L' => 0x1D622],
+            // Monospace
+            ['U' => 0x1D670, 'L' => 0x1D68A],
+            // Script
+            ['U' => 0x1D49C, 'L' => 0x1D4B6],
+        ];
+
+        foreach ($blocks as $block) {
+            if ($ord >= $block['U'] && $ord < $block['U'] + 26) {
+                return chr($ord - $block['U'] + 65);
+            }
+            if ($ord >= $block['L'] && $ord < $block['L'] + 26) {
+                return chr($ord - $block['L'] + 97);
+            }
+        }
+
+        // Digits: Bold, Double-struck, Sans-serif, Sans-serif Bold, Monospace
+        $digitStarts = [0x1D7CE, 0x1D7D8, 0x1D7E2, 0x1D7EC, 0x1D7F6];
+        foreach ($digitStarts as $start) {
+            if ($ord >= $start && $ord < $start + 10) {
+                return chr($ord - $start + 48);
+            }
+        }
+
+        return null;
+    }
+
+    private static function mapLetterlike(int $ord): ?string
+    {
+        $map = [
+            0x2102 => 'C', // Double-struck C
+            0x210B => 'H', // Script H
+            0x210C => 'H', // Fraktur H
+            0x210D => 'H', // Double-struck H
+            0x210E => 'h', // Italic h
+            0x2110 => 'I', // Script I
+            0x2111 => 'I', // Fraktur I
+            0x2112 => 'L', // Script L
+            0x2115 => 'N', // Double-struck N
+            0x2119 => 'P', // Double-struck P
+            0x211A => 'Q', // Double-struck Q
+            0x211B => 'R', // Script R
+            0x211C => 'R', // Fraktur R
+            0x211D => 'R', // Double-struck R
+            0x2124 => 'Z', // Double-struck Z
+            0x2128 => 'Z', // Fraktur Z
+            0x212C => 'B', // Script B
+            0x212D => 'C', // Fraktur C
+            0x212F => 'e', // Script e
+            0x2130 => 'E', // Script E
+            0x2131 => 'F', // Script F
+            0x2133 => 'M', // Script M
+            0x2134 => 'o', // Script o
+        ];
+
+        return isset($map[$ord]) ? $map[$ord] : null;
+    }
+
+    private static function mapEnclosedAlphanumerics(int $ord): ?string
+    {
+        // Circled numbers 1-20 (① - ⑳)
+        if ($ord >= 0x2460 && $ord <= 0x2473) {
+            return (string)($ord - 0x2460 + 1);
+        }
+        // Circled uppercase letters A-Z (Ⓐ - Ⓩ)
+        if ($ord >= 0x24B6 && $ord <= 0x24CF) {
+            return chr($ord - 0x24B6 + 65);
+        }
+        // Circled lowercase letters a-z (ⓐ - ⓩ)
+        if ($ord >= 0x24D0 && $ord <= 0x24E9) {
+            return chr($ord - 0x24D0 + 97);
+        }
+        // Circled number 0 (⓪)
+        if ($ord === 0x24EA) {
+            return '0';
+        }
+        return null;
     }
 
     /**
