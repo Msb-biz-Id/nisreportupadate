@@ -81,15 +81,7 @@ class PdfHelper
 
         // 4. Remove other decorative Unicode symbols, shapes, emojis, dingbats that render as boxes in PDF
         $patterns = [
-            '/[\x{2190}-\x{21FF}]/u', // Arrows
-            '/[\x{2200}-\x{22FF}]/u', // Math Operators
-            '/[\x{2300}-\x{23FF}]/u', // Misc Technical
-            '/[\x{2400}-\x{243F}]/u', // Control Pictures
-            '/[\x{25A0}-\x{25FF}]/u', // Geometric Shapes
-            '/[\x{2600}-\x{26FF}]/u', // Misc Symbols (includes black/white stars, hearts)
-            '/[\x{2700}-\x{27BF}]/u', // Dingbats (includes ✧ U+2727)
-            '/[\x{27C0}-\x{2BFF}]/u', // Misc Math/Arrows
-            '/[\x{1F000}-\x{1FFFF}]/u', // Emojis / Pictographs
+            '/[\x{1F000}-\x{1FFFF}]/u', // Emojis / Pictographs in high plane
             '/[\x{FE00}-\x{FE0F}]/u', // Variation Selectors
             '/[\x{200B}-\x{200D}\x{2060}\x{FEFF}]/u', // Zero-width spaces & format characters
         ];
