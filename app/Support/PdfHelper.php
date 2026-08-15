@@ -50,6 +50,53 @@ class PdfHelper
     }
 
     /**
+     * Clean and normalize text for PDF rendering.
+     * Maps fancy fonts (mathematical alphanumeric symbols, circled chars) to standard ASCII
+     * and strips/maps decorative symbols that render as boxes in standard PDF fonts.
+     */
+    private static function cleanPdfText(?string $text): string
+    {
+        if ($text === null || $text === '') {
+            return '';
+        }
+
+        // 1. Compatibility decomposition to map fancy alphanumeric characters (e.g. 𝘼 -> A, ① -> 1)
+        if (class_exists('Normalizer')) {
+            $text = \Normalizer::normalize($text, \Normalizer::FORM_KC) ?: $text;
+        }
+
+        // 2. Map specific common symbols to standard equivalents
+        $symbolMap = [
+            '✅' => '[v]',
+            '✔' => '[v]',
+            '✓' => '[v]',
+            '❤' => '<3',
+            '♥' => '<3',
+            '♡' => '<3',
+        ];
+        $text = strtr($text, $symbolMap);
+
+        // 3. Remove other decorative Unicode symbols, shapes, emojis, dingbats that render as boxes in PDF
+        $patterns = [
+            '/[\x{2190}-\x{21FF}]/u', // Arrows
+            '/[\x{2200}-\x{22FF}]/u', // Math Operators
+            '/[\x{2300}-\x{23FF}]/u', // Misc Technical
+            '/[\x{2400}-\x{243F}]/u', // Control Pictures
+            '/[\x{25A0}-\x{25FF}]/u', // Geometric Shapes
+            '/[\x{2600}-\x{26FF}]/u', // Misc Symbols (includes black/white stars, hearts)
+            '/[\x{2700}-\x{27BF}]/u', // Dingbats (includes ✧ U+2727)
+            '/[\x{27C0}-\x{2BFF}]/u', // Misc Math/Arrows
+            '/[\x{1F000}-\x{1FFFF}]/u', // Emojis / Pictographs
+        ];
+
+        $cleaned = preg_replace($patterns, '', $text);
+
+        // Normalize spaces: replace multiple spaces with a single space, and trim
+        $cleaned = preg_replace('/\s+/u', ' ', $cleaned);
+        return trim($cleaned);
+    }
+
+    /**
      * Format text for **PDF** output (DOMPDF).
      *
      * - Escapes HTML entities to prevent XSS.
@@ -69,6 +116,8 @@ class PdfHelper
         if ($text === null || $text === '') {
             return '';
         }
+
+        $text = self::cleanPdfText($text);
 
         // Escape HTML entities first (prevent XSS / broken HTML structure)
         $escaped = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
