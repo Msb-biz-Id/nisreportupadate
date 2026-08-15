@@ -60,15 +60,7 @@ class PdfHelper
             return '';
         }
 
-        // 1. Manual Normalization (guarantees environment-independent mapping of fancy text)
-        $text = self::normalizeFancyTextManual($text);
-
-        // 2. Compatibility decomposition if available (extra cleanup)
-        if (class_exists('Normalizer')) {
-            $text = \Normalizer::normalize($text, \Normalizer::FORM_KC) ?: $text;
-        }
-
-        // 3. Map specific common symbols to standard equivalents
+        // 1. Map specific common symbols to standard equivalents
         $symbolMap = [
             '✅' => '[v]',
             '✔' => '[v]',
@@ -79,7 +71,7 @@ class PdfHelper
         ];
         $text = strtr($text, $symbolMap);
 
-        // 4. Remove other decorative Unicode symbols, shapes, emojis, dingbats that render as boxes in PDF
+        // 2. Remove only high-plane emojis, variation selectors, and zero-width/control characters
         $patterns = [
             '/[\x{1F000}-\x{1FFFF}]/u', // Emojis / Pictographs in high plane
             '/[\x{FE00}-\x{FE0F}]/u', // Variation Selectors
@@ -94,41 +86,90 @@ class PdfHelper
     }
 
     /**
-     * Fallback manual normalization for mathematical alphanumeric symbols and letterlike/circled symbols.
+     * Normalizes fancy fonts (mathematical alphanumeric symbols) and wraps them
+     * in equivalent HTML tags (strong, em) to preserve style in PDF.
      * Guaranteed to work on cPanel even without PHP's 'intl' extension.
      */
-    private static function normalizeFancyTextManual(string $text): string
+    private static function normalizeFancyTextManualAndStyle(string $text): string
     {
         $len = mb_strlen($text, 'UTF-8');
-        $normalized = '';
+        $runs = [];
+        $currentStyle = 'plain';
+        $currentText = '';
 
         for ($i = 0; $i < $len; $i++) {
             $char = mb_substr($text, $i, 1, 'UTF-8');
             $ord = mb_ord($char, 'UTF-8');
 
             $mapped = null;
+            $style = 'plain';
 
-            // Mathematical Alphanumeric Symbols: U+1D400 - U+1D7FF
-            if ($ord >= 0x1D400 && $ord <= 0x1D7FF) {
+            // Detect math bold
+            if (($ord >= 0x1D400 && $ord <= 0x1D433) || ($ord >= 0x1D5D4 && $ord <= 0x1D607) || ($ord >= 0x1D538 && $ord <= 0x1D56B)) {
+                $style = 'bold';
                 $mapped = self::mapMathAlphanumeric($ord);
             }
-            // Letterlike symbols: U+2100 - U+214F
+            // Detect math italic
+            elseif (($ord >= 0x1D434 && $ord <= 0x1D467) || ($ord >= 0x1D608 && $ord <= 0x1D63B) || $ord === 0x210E) {
+                $style = 'italic';
+                $mapped = self::mapMathAlphanumeric($ord) ?: self::mapLetterlike($ord);
+            }
+            // Detect math bold italic
+            elseif (($ord >= 0x1D468 && $ord <= 0x1D49B) || ($ord >= 0x1D63C && $ord <= 0x1D66F) || ($ord >= 0x1D4D0 && $ord <= 0x1D503)) {
+                $style = 'bold_italic';
+                $mapped = self::mapMathAlphanumeric($ord);
+            }
+            // Other math symbols
+            elseif ($ord >= 0x1D400 && $ord <= 0x1D7FF) {
+                $mapped = self::mapMathAlphanumeric($ord);
+            }
+            // Letterlike symbols
             elseif ($ord >= 0x2100 && $ord <= 0x214F) {
                 $mapped = self::mapLetterlike($ord);
             }
-            // Enclosed Alphanumerics: U+2460 - U+24FF
+            // Enclosed
             elseif ($ord >= 0x2460 && $ord <= 0x24FF) {
                 $mapped = self::mapEnclosedAlphanumerics($ord);
             }
 
-            if ($mapped !== null) {
-                $normalized .= $mapped;
+            $charToUse = ($mapped !== null) ? $mapped : $char;
+
+            if ($style === $currentStyle) {
+                $currentText .= $charToUse;
             } else {
-                $normalized .= $char;
+                if ($currentText !== '') {
+                    $runs[] = ['text' => $currentText, 'style' => $currentStyle];
+                }
+                $currentStyle = $style;
+                $currentText = $charToUse;
             }
         }
 
-        return $normalized;
+        if ($currentText !== '') {
+            $runs[] = ['text' => $currentText, 'style' => $currentStyle];
+        }
+
+        // Format runs with HTML tags
+        $html = '';
+        foreach ($runs as $run) {
+            $t = $run['text'];
+            switch ($run['style']) {
+                case 'bold':
+                    $html .= "<strong>{$t}</strong>";
+                    break;
+                case 'italic':
+                    $html .= "<em>{$t}</em>";
+                    break;
+                case 'bold_italic':
+                    $html .= "<strong><em>{$t}</em></strong>";
+                    break;
+                default:
+                    $html .= $t;
+                    break;
+            }
+        }
+
+        return $html;
     }
 
     private static function mapMathAlphanumeric(int $ord): ?string
@@ -265,10 +306,14 @@ class PdfHelper
             return '';
         }
 
+        // 1. Clean symbols, hidden chars, and normalize spaces
         $text = self::cleanPdfText($text);
 
-        // Escape HTML entities first (prevent XSS / broken HTML structure)
+        // 2. Escape HTML entities first (prevent XSS / broken HTML structure)
         $escaped = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+
+        // 3. Normalize fancy fonts and translate them to HTML tags (strong/em)
+        $escaped = self::normalizeFancyTextManualAndStyle($escaped);
 
         // Regex patterns
         $cjkPattern      = '/[\x{3000}-\x{303F}\x{3040}-\x{309F}\x{30A0}-\x{30FF}\x{FF00}-\x{FFEF}\x{4E00}-\x{9FAF}\x{3400}-\x{4DBF}]+/u';

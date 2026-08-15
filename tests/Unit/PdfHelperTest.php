@@ -164,10 +164,10 @@ class PdfHelperTest extends TestCase
 
     public function test_format_text_normalizes_fancy_fonts_and_removes_unsupported_symbols(): void
     {
-        // 1. Fancy font: ✧  𝘼𝙮𝙪𝙙 ✧ -> should map mathematical bold italic to plain text, and keep star symbols
+        // 1. Fancy font: ✧  𝘼𝙮𝙪𝙙 ✧ -> should map mathematical bold italic to plain text with HTML bold/italic tags, and keep star symbols
         $inputText = "✧  𝘼𝙮𝙪𝙙 ✧";
         $formatted = PdfHelper::formatText($inputText);
-        $this->assertEquals("✧ Ayud ✧", $formatted);
+        $this->assertEquals("✧ <strong><em>Ayud</em></strong> ✧", $formatted);
 
         // 2. Hearts and other symbols: ♥ John Doe ♥ -> should map ♥ to <3
         $inputText2 = "♥ John Doe ♥";
@@ -175,10 +175,10 @@ class PdfHelperTest extends TestCase
         // Note: < is escaped to &lt; by htmlspecialchars in PdfHelper::formatText()
         $this->assertEquals("&lt;3 John Doe &lt;3", $formatted2);
 
-        // 3. Emojis and other shapes: ★ Admin ✅ ⚡ -> should map ✅ to [v] and retain ★ and ⚡
-        $inputText3 = "★ Admin ✅ ⚡";
-        $formatted3 = PdfHelper::formatText($inputText3);
-        $this->assertEquals("★ Admin [v] ⚡", $formatted3);
+        // 3. Emojis and other shapes: ★ Admin ✅ ⚡ -> should map ✅ to [v] and retain ★ and ⚡, and wrap bold Admin in strong tags
+        $inputText3_styled = "★ 𝗔𝗱𝗺𝗶𝗻 ✅ ⚡";
+        $formatted3 = PdfHelper::formatText($inputText3_styled);
+        $this->assertEquals("★ <strong>Admin</strong> [v] ⚡", $formatted3);
 
         // 4. Ensure Javanese and Arabic scripts are preserved during normalization
         $javaneseText = "ꦲꦤꦕꦼꦫꦏꦴ";
