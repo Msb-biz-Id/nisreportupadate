@@ -41,10 +41,11 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
     const [copied, setCopied] = useState(false);
     const [chartLimit, setChartLimit] = useState('20');
     const [isChartCollapsed, setIsChartCollapsed] = useState(false);
+    const [sortOrder, setSortOrder] = useState('newest');
 
-    // Filter berdasarkan status & pencarian query
+    // Filter berdasarkan status & pencarian query & diurutkan
     const filtered = useMemo(() => {
-        return items.filter((item) => {
+        const res = items.filter((item) => {
             const isItemDelayed = item.status_po === 'delay' || (item.days_remaining !== null && item.days_remaining < 0 && !['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'].includes(item.status_po));
             const matchesStatus = filterStatus === 'all'
                 ? true
@@ -61,7 +62,13 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
             
             return matchesStatus && matchesSearch;
         });
-    }, [items, filterStatus, searchQuery]);
+
+        return [...res].sort((a, b) => {
+            const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+        });
+    }, [items, filterStatus, searchQuery, sortOrder]);
 
     // Subset data khusus untuk Visual Gantt Chart agar render super ringan
     const chartFiltered = useMemo(() => {
@@ -520,10 +527,22 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
 
                 {/* Tabel Data Order Interaktif */}
                 <Card className="shadow-sm">
-                    <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                    <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div>
                             <CardTitle className="text-sm font-bold">Daftar Order Produksi</CardTitle>
                             <p className="text-xs text-muted-foreground mt-0.5">Tabel ini dapat langsung disalin ke Excel dengan klik tombol &quot;Salin ke Excel&quot;</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">Urutkan:</span>
+                            <Select value={sortOrder} onValueChange={setSortOrder}>
+                                <SelectTrigger className="h-7 text-xs w-[145px] bg-background">
+                                    <SelectValue placeholder="Pilih urutan" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="newest">Terbaru Pertama</SelectItem>
+                                    <SelectItem value="oldest">Terlama Pertama</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </CardHeader>
                     <CardContent className="p-0">

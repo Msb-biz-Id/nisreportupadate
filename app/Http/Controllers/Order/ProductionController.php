@@ -103,6 +103,7 @@ class ProductionController extends Controller
                 'end'                 => $end ? \Carbon\Carbon::parse((string) $end)->format('Y-m-d') : null,
                 'days_remaining'      => $daysRemaining,
                 'detail_url'          => route('produksi.progress', $order->id),
+                'created_at'          => $order->created_at ? $order->created_at->toIso8601String() : null,
             ];
         });
 
