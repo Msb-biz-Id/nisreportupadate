@@ -1,16 +1,18 @@
 <?php
-
+ 
 namespace Tests\Feature\Production;
-
+ 
 use App\Models\Master\Customer;
 use App\Models\Master\Progress;
 use App\Models\Order\Order;
+use App\Models\Order\OrderItem;
+use App\Models\Order\OrderPayment;
 use App\Models\Order\OrderProgressDetail;
 use App\Services\NumberGenerator;
 use App\Services\POStatusManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
-
+ 
 class ProductionTest extends TestCase
 {
     use RefreshDatabase;
@@ -40,6 +42,14 @@ class ProductionTest extends TestCase
             'pelanggan_id' => Customer::first()->id,
             'total_tagihan' => 100000,
             'created_by' => $user->id,
+        ]);
+
+        OrderItem::create([
+            'order_id' => $order->id,
+            'nama_produk' => 'Jersey Test',
+            'quantity' => 1,
+            'harga_satuan' => 100000,
+            'subtotal' => 100000,
         ]);
 
         app(POStatusManager::class)->publish($order, $user);
@@ -175,6 +185,101 @@ class ProductionTest extends TestCase
         $this->assertDatabaseMissing('rijeks', [
             'id' => $rijek->id,
         ]);
+    }
+
+    public function test_sending_stage_is_locked_when_unpaid_and_unlocked_when_paid(): void
+    {
+        [$brand, $user, $order] = $this->setupPublishedOrder();
+        $produksi = $this->makeUser('admin_produksi', [$brand]);
+        
+        // Cari detail progres 'Sending'
+        $sendingDetail = $order->progressDetails->first(fn($d) => strtoupper($d->progress->nama_progress) === 'SENDING');
+        $this->assertNotNull($sendingDetail, 'Sending stage must exist');
+
+        // Awalnya order total_tagihan = 100.000 dan totalPaid = 0, sehingga is_lunas = false.
+        $this->assertFalse($order->is_lunas);
+
+        // Mencoba memperbarui tahap Sending harus gagal dengan pesan error lunas
+        $this->actingAsWithBrand($produksi, $brand)
+            ->put(route('produksi.progress.update', ['order' => $order->id, 'detail' => $sendingDetail->id]), [
+                'status' => 'selesai',
+                'catatan' => 'Kirim',
+            ])
+            ->assertSessionHas('error', 'Tahap Sending belum bisa diupdate. Konfirmasi LUNAS dari Keuangan diperlukan terlebih dahulu.');
+
+        // Buat jenis pembayaran Pelunasan agar pemasukan mengurangi sisa tagihan
+        $paymentType = \App\Models\Finance\MasterJenisPembayaran::firstOrCreate(
+            ['brand_id' => $brand->id, 'nama' => 'Pelunasan'],
+            ['tipe_keuangan' => 'pemasukan', 'efek_tagihan' => 'pengurangan', 'is_active' => true]
+        );
+
+        // Tambah pembayaran lunas yang terverifikasi (nominal = 100.000)
+        $payment = OrderPayment::create([
+            'order_id' => $order->id,
+            'master_jenis_pembayaran_id' => $paymentType->id,
+            'amount' => 100000,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $user->id,
+            'verified_by' => $user->id,
+            'verified_at' => now(),
+        ]);
+
+        // Setelah pembayaran diverifikasi, order harus otomatis diset is_lunas = true oleh observer
+        $order = $order->fresh();
+        $this->assertTrue($order->is_lunas, 'Order should be automatically marked as lunas when remaining balance is 0');
+
+        // Memperbarui tahap Sending sekarang harus berhasil
+        $this->actingAsWithBrand($produksi, $brand)
+            ->put(route('produksi.progress.update', ['order' => $order->id, 'detail' => $sendingDetail->id]), [
+                'status' => 'selesai',
+                'catatan' => 'Kirim',
+                'nama_ekspedisi' => 'JNE',
+                'no_resi' => '1234567890',
+            ])
+            ->assertRedirect();
+            
+        $this->assertEquals('selesai', $sendingDetail->fresh()->status);
+    }
+
+    public function test_sending_stage_unlocked_by_manual_override_even_if_unpaid(): void
+    {
+        [$brand, $user, $order] = $this->setupPublishedOrder();
+        $produksi = $this->makeUser('admin_produksi', [$brand]);
+        $finance = $this->makeUser('admin_keuangan', [$brand]);
+        
+        // Cari detail progres 'Sending'
+        $sendingDetail = $order->progressDetails->first(fn($d) => strtoupper($d->progress->nama_progress) === 'SENDING');
+        $this->assertNotNull($sendingDetail, 'Sending stage must exist');
+
+        // Awalnya belum lunas
+        $this->assertFalse($order->is_lunas);
+
+        // Tandai lunas secara manual oleh admin keuangan meskipun sisa tagihan masih 100.000
+        $this->actingAsWithBrand($finance, $brand)
+            ->post(route('orders.mark-lunas', $order->id))
+            ->assertRedirect();
+
+        $order = $order->fresh();
+        $this->assertTrue($order->is_lunas, 'Order should be marked as lunas manually');
+        $this->assertEquals(100000, (float) $order->sisaTagihan(), 'Remaining balance should still be 100,000');
+
+        // Pemicu update order (misal perbarui total tagihan) - status lunas tidak boleh tertimpa/hilang
+        $order->update(['total_tagihan' => $order->totalTagihan()]);
+        
+        $order = $order->fresh();
+        $this->assertTrue($order->is_lunas, 'Order should remain lunas to preserve manual override');
+
+        // Memperbarui tahap Sending harus berhasil karena toleransi manual override
+        $this->actingAsWithBrand($produksi, $brand)
+            ->put(route('produksi.progress.update', ['order' => $order->id, 'detail' => $sendingDetail->id]), [
+                'status' => 'selesai',
+                'catatan' => 'Kirim',
+                'nama_ekspedisi' => 'JNE',
+                'no_resi' => '1234567890',
+            ])
+            ->assertRedirect();
+            
+        $this->assertEquals('selesai', $sendingDetail->fresh()->status);
     }
 }
 

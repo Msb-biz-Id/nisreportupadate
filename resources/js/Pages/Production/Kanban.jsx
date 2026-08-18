@@ -7,7 +7,7 @@ import { Button } from '@/Components/ui/button';
 import { formatDate } from '@/lib/utils';
 
 function KanbanCard({ order }) {
-    const isFinished   = ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim'].includes(order.status_po);
+    const isFinished   = ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'].includes(order.status_po);
     const days         = order.days_remaining;
     const overdue      = !isFinished && (order.status_po === 'delay' || (days !== null && days < 0));
     const urgent       = !isFinished && !overdue && days !== null && days <= 2 && days >= 0;

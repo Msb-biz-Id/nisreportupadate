@@ -42,6 +42,7 @@ class CalendarController extends Controller
         $orders = Order::query()
             ->forBrand($brandId)
             ->published()
+            ->whereNotIn('status_po', ['selesai', 'sudah_dikirim'])
             ->with(['pelanggan:id,nama', 'brand:id,nama_brand,kode'])
             ->withCount(['items as total_pcs' => fn ($q) => $q->selectRaw('SUM(quantity)')])
             ->orderBy('deadline_customer')
@@ -69,7 +70,7 @@ class CalendarController extends Controller
                 }
             }
 
-            $isFinished = in_array($o->status_po, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim']);
+            $isFinished = in_array($o->status_po, ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai']);
             $isOverdue = $deadlineCarbon !== null && $deadlineCarbon < $today && !$isFinished;
             $isDelayed = $o->status_po === 'delay' || $isOverdue;
 

@@ -35,14 +35,15 @@ class ProductionController extends Controller
             ->where($statusPoCol, '!=', 'sudah_dikirim')
             ->select([
                 'id', 'no_po', 'nama_po', 'pelanggan_id', 'brand_id', 'status_po',
-                'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date'
+                'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date',
+                'created_at'
             ])
             ->with([
                 'pelanggan:id,nama',
                 'brand:id,kode,nama_brand',
                 'items:id,order_id,is_addon,quantity,jml_atasan'
             ])
-            ->orderByRaw('COALESCE(end_production_date, deadline_customer) ASC')
+            ->orderByDesc('created_at')
             ->get();
 
         $statusColors = [
@@ -53,6 +54,7 @@ class ProductionController extends Controller
             'sudah_dikirim'    => '#8B5CF6',
             'delay'            => '#EF4444',
             'hold'             => '#F97316',
+            'selesai'          => '#10B981',
         ];
 
         $statusLabels = [
@@ -63,6 +65,7 @@ class ProductionController extends Controller
             'sudah_dikirim'    => 'Sudah Dikirim',
             'delay'            => 'Delay',
             'hold'             => 'Hold',
+            'selesai'          => 'Selesai',
         ];
 
         $items = $orders->map(function (Order $order) use ($statusColors, $statusLabels) {
@@ -124,13 +127,7 @@ class ProductionController extends Controller
         $orders = Order::query()
             ->forBrand($brandId)
             ->published()
-            ->where(function ($q) use ($statusPoCol) {
-                $q->whereNotIn($statusPoCol, ['selesai', 'sudah_dikirim'])
-                  ->orWhere(function ($q2) use ($statusPoCol) {
-                      $q2->where($statusPoCol, 'sudah_dikirim')
-                         ->where('updated_at', '>=', now()->subDays(7));
-                  });
-            })
+            ->whereNotIn($statusPoCol, ['selesai', 'sudah_dikirim'])
             ->select([
                 'id', 'no_po', 'nama_po', 'pelanggan_id', 'brand_id', 'paket_order_id',
                 'status_po', 'tanggal_masuk', 'deadline_customer', 'start_production_date',

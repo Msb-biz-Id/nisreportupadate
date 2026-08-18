@@ -213,11 +213,6 @@ class SendScheduledReport extends Command
 
     private function brandHasActivityOrOrders(Brand $brand, string $periode): bool
     {
-        // Laporan mingguan dan bulanan selalu dikirim untuk semua brand aktif
-        if (in_array($periode, ['mingguan', 'bulanan'])) {
-            return true;
-        }
-
         // 1. Cek apakah ada PO yang aktif (bukan draft, selesai, atau sudah dikirim)
         $hasActive = \App\Models\Order\Order::where('brand_id', $brand->id)
             ->whereNotIn('status_po', ['draft', 'selesai', 'sudah_dikirim'])
@@ -226,9 +221,51 @@ class SendScheduledReport extends Command
             return true;
         }
 
-        // 2. Cek apakah ada PO baru atau PO yang selesai/update dalam periode harian ini
-        return \App\Models\Order\Order::where('brand_id', $brand->id)
-            ->whereBetween('updated_at', [today()->startOfDay(), today()->endOfDay()])
+        // Tentukan rentang waktu berdasarkan periode laporan
+        $range = match ($periode) {
+            'mingguan' => [now()->startOfWeek()->startOfDay(), now()->endOfWeek()->endOfDay()],
+            'bulanan'  => [now()->startOfMonth()->startOfDay(), now()->endOfMonth()->endOfDay()],
+            default    => [today()->startOfDay(), today()->endOfDay()], // harian
+        };
+
+        // 2. Cek apakah ada PO baru atau PO yang diupdate dalam periode terkait
+        $hasOrderActivity = \App\Models\Order\Order::where('brand_id', $brand->id)
+            ->whereBetween('updated_at', $range)
             ->exists();
+        if ($hasOrderActivity) {
+            return true;
+        }
+
+        // 3. Cek apakah ada pembayaran (DP/pelunasan/cashback) terverifikasi dalam periode terkait
+        $hasPaymentActivity = \App\Models\Order\OrderPayment::whereHas('order', function ($q) use ($brand) {
+                $q->where('brand_id', $brand->id);
+            })
+            ->whereNotNull('verified_at')
+            ->whereBetween('payment_date', $range)
+            ->exists();
+        if ($hasPaymentActivity) {
+            return true;
+        }
+
+        // 4. Cek apakah ada refund yang di-publish dalam periode terkait
+        $hasRefundActivity = \App\Models\Order\Refund::where('brand_id', $brand->id)
+            ->where('status', 'published')
+            ->whereBetween('published_at', $range)
+            ->exists();
+        if ($hasRefundActivity) {
+            return true;
+        }
+
+        // 5. Cek apakah ada insiden produk rijek dalam periode terkait
+        $hasRijekActivity = \App\Models\Order\Rijek::whereHas('order', function ($q) use ($brand) {
+                $q->where('brand_id', $brand->id);
+            })
+            ->whereBetween('created_at', $range)
+            ->exists();
+        if ($hasRijekActivity) {
+            return true;
+        }
+
+        return false;
     }
 }

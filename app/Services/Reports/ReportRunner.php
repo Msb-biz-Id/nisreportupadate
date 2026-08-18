@@ -1241,7 +1241,7 @@ class ReportRunner
         $avgLateness = $latePoCount > 0 ? round($totalLateDays / $latePoCount, 1) . ' hari' : '0 hari';
 
         $completedWithDuration = collect($rows)->filter(function($r) {
-            $isCompleted = in_array($r['status'], ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim']);
+            $isCompleted = in_array($r['status'], ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai']);
             return $isCompleted && (str_contains($r['durasi_total'], 'hari') || str_contains($r['durasi_total'], 'hr'));
         });
         

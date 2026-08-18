@@ -45,6 +45,33 @@ class OrderObserver
         }
     }
 
+    public function saving(Order $order): void
+    {
+        // Jangan setel lunas otomatis untuk pesanan yang masih draft
+        if ($order->isDraft()) {
+            return;
+        }
+
+        // Paksa reload relasi agar mendapatkan data item dan pembayaran paling mutakhir
+        $order->load(['items', 'payments.masterJenisPembayaran']);
+
+        // Hitung sisa tagihan secara dinamis
+        $totalTagihan = $order->totalTagihan();
+        $totalPaid = $order->totalPaid();
+        $sisa = max(0.0, $totalTagihan - $totalPaid);
+
+        // Jika sisa tagihan <= 0, otomatis tandai Lunas
+        if ($sisa <= 0) {
+            if (!$order->is_lunas) {
+                $order->is_lunas = true;
+                $order->lunas_at = now();
+                $order->lunas_by = \Illuminate\Support\Facades\Auth::id() ?? $order->published_by ?? $order->created_by;
+            }
+        }
+        // Jika sisa tagihan > 0, kami TIDAK mencabut status is_lunas secara otomatis
+        // untuk mengamankan tindakan "Tandai Lunas" manual oleh admin keuangan (toleransi manual).
+    }
+
     public function updated(Order $order): void
     {
         // Auto-record pemasukan saat status berubah dari draft → published

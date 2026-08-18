@@ -25,7 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 
-const STATUS_ORDER = ['published', 'on_progress', 'delay', 'hold', 'selesai_produksi', 'siap_dikirim', 'sudah_dikirim'];
+const STATUS_ORDER = ['published', 'on_progress', 'delay', 'hold', 'selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'];
 
 function DaysRemaining({ days }) {
     if (days === null) return null;
@@ -45,7 +45,7 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
     // Filter berdasarkan status & pencarian query
     const filtered = useMemo(() => {
         return items.filter((item) => {
-            const isItemDelayed = item.status_po === 'delay' || (item.days_remaining !== null && item.days_remaining < 0 && !['selesai_produksi', 'siap_dikirim', 'sudah_dikirim'].includes(item.status_po));
+            const isItemDelayed = item.status_po === 'delay' || (item.days_remaining !== null && item.days_remaining < 0 && !['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'].includes(item.status_po));
             const matchesStatus = filterStatus === 'all'
                 ? true
                 : filterStatus === 'delay'
@@ -77,7 +77,7 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
         let finishedCount = 0;
 
         for (const item of items) {
-            const isItemDelayed = item.status_po === 'delay' || (item.days_remaining !== null && item.days_remaining < 0 && !['selesai_produksi', 'siap_dikirim', 'sudah_dikirim'].includes(item.status_po));
+            const isItemDelayed = item.status_po === 'delay' || (item.days_remaining !== null && item.days_remaining < 0 && !['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'].includes(item.status_po));
 
             counts[item.status_po] = (counts[item.status_po] ?? 0) + 1;
             totalPcs += Number(item.total_pcs || 0);
@@ -85,7 +85,7 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
             if (isItemDelayed) {
                 overdueCount++;
             }
-            if (['selesai_produksi', 'siap_dikirim', 'sudah_dikirim'].includes(item.status_po)) {
+            if (['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'].includes(item.status_po)) {
                 finishedCount++;
             }
         }
