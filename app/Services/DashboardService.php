@@ -1186,7 +1186,7 @@ class DashboardService
                 $totalTagihan = $o->totalTagihan();
                 $totalPaid = $o->totalPaid();
                 $sisa = max(0, $totalTagihan - $totalPaid);
-                $isLunas = $sisa <= 0 && $totalTagihan > 0;
+                $isLunas = $o->is_lunas || ($sisa <= 0);
                 
                 return [
                     'id'            => $o->id,
