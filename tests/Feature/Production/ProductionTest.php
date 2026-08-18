@@ -281,5 +281,45 @@ class ProductionTest extends TestCase
             
         $this->assertEquals('selesai', $sendingDetail->fresh()->status);
     }
+
+    public function test_sync_po_lunas_command(): void
+    {
+        [$brand, $user, $order] = $this->setupPublishedOrder();
+        
+        // Awalnya belum lunas
+        $order->update(['is_lunas' => false]);
+        $this->assertFalse($order->fresh()->is_lunas);
+
+        // Buat jenis pembayaran Pelunasan agar pemasukan mengurangi sisa tagihan
+        $paymentType = \App\Models\Finance\MasterJenisPembayaran::firstOrCreate(
+            ['brand_id' => $brand->id, 'nama' => 'Pelunasan'],
+            ['tipe_keuangan' => 'pemasukan', 'efek_tagihan' => 'pengurangan', 'is_active' => true]
+        );
+
+        // Buat pembayaran untuk melunasi PO
+        $totalTagihan = $order->totalTagihan();
+        \App\Models\Order\OrderPayment::create([
+            'order_id' => $order->id,
+            'master_jenis_pembayaran_id' => $paymentType->id,
+            'amount' => $totalTagihan,
+            'payment_date' => now()->toDateString(),
+            'recorded_by' => $user->id,
+            'verified_by' => $user->id,
+            'verified_at' => now(),
+            'payment_type' => 'transfer',
+        ]);
+
+        // Simulasikan PO lama yang di database is_lunas masih false
+        \Illuminate\Support\Facades\DB::table('orders')->where('id', $order->id)->update(['is_lunas' => false]);
+        $this->assertFalse($order->fresh()->is_lunas);
+
+        // Jalankan perintah artisan sync
+        $this->artisan('po:sync-lunas')
+            ->expectsOutputToContain('Berhasil menandai 1 PO sebagai Lunas.')
+            ->assertExitCode(0);
+
+        // Pastikan sekarang PO sudah ditandai lunas
+        $this->assertTrue($order->fresh()->is_lunas, 'Order should be marked as lunas after command sync');
+    }
 }
 
