@@ -1609,18 +1609,18 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     {/* Status Lunas */}
                                     <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
                                         <div className="flex items-center gap-2">
-                                            {(order.is_lunas || order.is_special_order)
+                                                                          {(order.is_lunas || order.is_special_order || sisaTagihan <= 0)
                                                 ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                                                 : <XCircle className="h-4 w-4 text-rose-400" />
                                             }
                                             <span className="text-sm font-semibold">
-                                                {(order.is_lunas || order.is_special_order) ? 'Lunas' : 'Belum Lunas'}
+                                                {(order.is_lunas || order.is_special_order || sisaTagihan <= 0) ? 'Lunas' : 'Belum Lunas'}
                                             </span>
-                                            {order.is_lunas && order.lunas_at && (
+                                            {(order.is_lunas || sisaTagihan <= 0) && order.lunas_at && (
                                                 <span className="text-[10px] text-muted-foreground">{formatDate(order.lunas_at)}</span>
                                             )}
                                         </div>
-                                        {can?.mark_lunas && !order.is_special_order && order.status_po !== 'selesai' && (
+                                        {can?.mark_lunas && !order.is_special_order && order.status_po !== 'selesai' && sisaTagihan > 0 && (
                                             <Button
                                                 size="xs"
                                                 variant={order.is_lunas ? 'outline' : 'default'}
