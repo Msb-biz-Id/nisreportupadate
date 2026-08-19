@@ -27,6 +27,13 @@
         }
 
         @font-face {
+            font-family: 'Noto Sans SC';
+            font-style: normal;
+            font-weight: 400;
+            src: url('{{ public_path("fonts/NotoSansSC-Regular.ttf") }}') format('truetype');
+        }
+
+        @font-face {
             font-family: 'Noto Sans Arabic';
             font-style: normal;
             font-weight: 400;
@@ -48,7 +55,7 @@
         }
 
         .cjk-font {
-            font-family: 'Noto Sans JP', sans-serif !important;
+            font-family: 'Noto Sans SC', 'Noto Sans JP', sans-serif !important;
             text-transform: none !important;
         }
 
