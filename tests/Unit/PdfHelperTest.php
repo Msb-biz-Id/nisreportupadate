@@ -188,5 +188,10 @@ class PdfHelperTest extends TestCase
         $arabicText = "محمد علي";
         $formattedArabic = PdfHelper::formatText($arabicText);
         $this->assertStringContainsString('class="arabic-font"', $formattedArabic);
+
+        // 5. CJK character block with spaces and emojis
+        $cjkWithSpaces = "中 發 白 🀄︎ 南 西 北";
+        $formattedCjk = PdfHelper::formatText($cjkWithSpaces);
+        $this->assertEquals('<span class="cjk-font">中 發 白 南 西 北</span>', $formattedCjk);
     }
 }

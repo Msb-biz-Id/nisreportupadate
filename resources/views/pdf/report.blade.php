@@ -16,6 +16,48 @@
             font-weight: 700;
             src: url('{{ public_path("fonts/Inter-Bold.ttf") }}') format('truetype');
         }
+        @font-face {
+            font-family: 'Noto Sans JP';
+            font-style: normal;
+            font-weight: 400;
+            src: url('{{ public_path("fonts/NotoSansJP-Regular.ttf") }}') format('truetype');
+        }
+        @font-face {
+            font-family: 'Noto Sans Arabic';
+            font-style: normal;
+            font-weight: 400;
+            src: url('{{ public_path("fonts/NotoSansArabic-Regular.ttf") }}') format('truetype');
+        }
+        @font-face {
+            font-family: 'Noto Sans Javanese';
+            font-style: normal;
+            font-weight: 400;
+            src: url('{{ public_path("fonts/NotoSansJavanese-Regular.ttf") }}') format('truetype');
+        }
+        @font-face {
+            font-family: 'Sarabun';
+            font-style: normal;
+            font-weight: 400;
+            src: url('{{ public_path("fonts/Sarabun-Regular.ttf") }}') format('truetype');
+        }
+        .cjk-font {
+            font-family: 'Noto Sans JP', sans-serif !important;
+            text-transform: none !important;
+        }
+        .javanese-font {
+            font-family: 'Noto Sans Javanese', sans-serif !important;
+            text-transform: none !important;
+        }
+        .arabic-font {
+            font-family: 'Noto Sans Arabic', sans-serif !important;
+            text-transform: none !important;
+            line-height: 1.4 !important;
+            display: inline-block;
+        }
+        .thai-font {
+            font-family: 'Sarabun', sans-serif !important;
+            text-transform: none !important;
+        }
         @page { size: A4 landscape; margin: 8mm 10mm 10mm 10mm; }
         * { box-sizing: border-box; }
         body { font-family: 'Inter', 'Helvetica', 'Arial', 'DejaVu Sans', sans-serif; font-size: 8pt; color: #111; margin: 0; }
@@ -165,7 +207,7 @@
                                             echo $statusLabels[$val] ?? str_replace('_', ' ', $val);
                                         @endphp
                                     @else
-                                        {{ $val }}
+                                        {!! \App\Support\PdfHelper::formatText($val) !!}
                                     @endif
                                 @endif
                             </td>
