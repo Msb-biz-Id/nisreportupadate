@@ -1275,6 +1275,7 @@
                 $tableClass = count($cols) > 7 ? 'ns-table ns-table-dense' : 'ns-table';
 
                 // Group by size key directly
+                /** @var \Illuminate\Support\Collection $groupedBySize */
                 $groupedBySize = $lampFilled->groupBy(function($ns) use ($hasLampSizeAtasan, $hasLampSizeBawahan) {
                 if ($hasLampSizeAtasan) {
                 $parts = explode('-', $ns['_size_label'] ?? $ns['size_label'] ?? '');
@@ -1298,6 +1299,7 @@
 
                 @foreach ($sortedSizeKeys as $sizeKey)
                 @php
+                /** @var \Illuminate\Support\Collection $namesetsInSize */
                 $namesetsInSize = $groupedBySize->get($sizeKey);
                 @endphp
                 <table class="{{ $tableClass }}" style="margin-bottom:12px; table-layout: fixed; width: 100%;">
