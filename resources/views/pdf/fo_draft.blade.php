@@ -1299,8 +1299,7 @@
 
                 @foreach ($sortedSizeKeys as $sizeKey)
                 @php
-                /** @var \Illuminate\Support\Collection $namesetsInSize */
-                $namesetsInSize = $groupedBySize->get($sizeKey);
+                $namesetsInSize = collect($groupedBySize[$sizeKey] ?? []);
                 @endphp
                 <table class="{{ $tableClass }}" style="margin-bottom:12px; table-layout: fixed; width: 100%;">
                     <colgroup>
