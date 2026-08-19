@@ -34,6 +34,13 @@
         }
 
         @font-face {
+            font-family: 'Noto Sans SC';
+            font-style: normal;
+            font-weight: 700;
+            src: url('{{ public_path("fonts/NotoSansSC-Bold.ttf") }}') format('truetype');
+        }
+
+        @font-face {
             font-family: 'Noto Sans Arabic';
             font-style: normal;
             font-weight: 400;
