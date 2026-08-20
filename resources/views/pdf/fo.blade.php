@@ -482,156 +482,159 @@
 
             {{-- ===== KETERANGAN MATERIAL & JAHITAN (CONSOLIDATED ON ONE PAGE) ===== --}}
             @if($nonAddonItems->isNotEmpty())
-            <div style="page-break-inside: avoid;">
-                {{-- ===== KETERANGAN MATERIAL (SIDE-BY-SIDE SPEC TABLE) ===== --}}
-                <div style="color: #000; font-weight: bold; font-size: 11pt; margin-bottom: 5px; text-transform: uppercase;">KETERANGAN MATERIAL</div>
-                <table class="spec-table" style="margin-top:0;">
-                    <thead>
-                        <tr>
-                            <th style="width: 25%; text-align: left;">JENIS PESANAN</th>
-                            @foreach($nonAddonItems as $item)
-                            <th>{{ $item->varian_label ?: $item->nama_produk }}</th>
-                            @endforeach
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="spec-row-head">JENIS SETELAN</td>
-                            @foreach($nonAddonItems as $item)
-                            <td>{{ strtoupper($item->jenisSetelan->nama ?? $item->jenis_setelan ?? '') ?: '' }}</td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">MODEL</td>
-                            @foreach($nonAddonItems as $item)
-                            <td>{{ strtoupper($item->modelProduksi->nama ?? $item->model ?? '') ?: '' }}</td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">BAHAN ATASAN</td>
-                            @foreach($nonAddonItems as $item)
-                            @php
-                            $bahanAtasanStr = $item->bahan_kains_names ?: ($item->bahanKain->nama ?? '');
-                            @endphp
-                            <td>{{ strtoupper($bahanAtasanStr) }}</td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">BAHAN BAWAHAN</td>
-                            @foreach($nonAddonItems as $item)
-                            @php
-                            $bahanBawahanStr = $item->bahan_kain_bawahan_names ?: ($item->bahanKainBawahan->nama ?? '');
-                            @endphp
-                            <td>{{ strtoupper($bahanBawahanStr) }}</td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">JUMLAH ATASAN</td>
-                            @foreach($nonAddonItems as $item)
-                            <td>{{ ($item->jml_atasan !== null && $item->jml_atasan !== '') ? $item->jml_atasan : '' }}</td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">JUMLAH BAWAHAN</td>
-                            @foreach($nonAddonItems as $item)
-                            <td>{{ $item->jml_bawahan ?: '' }}</td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">WARNA</td>
-                            @foreach($nonAddonItems as $item)
-                            <td>{{ strtoupper($item->warna ?? '') ?: '' }}</td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">JENIS LOGO</td>
-                            @foreach($nonAddonItems as $item)
-                            @php
-                            $logoStr = !empty($item->logo_names) ? implode(', ', $item->logo_names) : ($item->logo?->nama ?? '');
-                            @endphp
-                            <td>{{ strtoupper($logoStr) }}</td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">JENIS RIB</td>
-                            @foreach($nonAddonItems as $item)
-                            <td>{{ strtoupper($item->jenis_rib ?? '') ?: '' }}</td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">LIST KERAH</td>
-                            @foreach($nonAddonItems as $item)
-                            <td>{{ strtoupper($item->list_kerah ?? '') ?: '' }}</td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">LIST LENGAN</td>
-                            @foreach($nonAddonItems as $item)
-                            <td>{{ strtoupper($item->list_lengan ?? '') ?: '' }}</td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">LIST SAMPING CELANA</td>
-                            @foreach($nonAddonItems as $item)
-                            <td>{{ strtoupper($item->list_samping_celana ?? '') ?: '' }}</td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">LIST BAWAH CELANA</td>
-                            @foreach($nonAddonItems as $item)
-                            <td>{{ strtoupper($item->list_bawah_celana ?? '') ?: '' }}</td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">TUTUP KERAH</td>
-                            @foreach($nonAddonItems as $item)
-                            <td>{{ strtoupper($item->tutup_kerah ?? '') ?: '' }}</td>
-                            @endforeach
-                        </tr>
-                    </tbody>
-                </table>
+                @foreach($nonAddonItems->chunk(8) as $chunkIndex => $chunkItems)
+                @php
+                $firstLabel = $chunkItems->first()->varian_label ?: $chunkItems->first()->nama_produk;
+                $lastLabel = $chunkItems->last()->varian_label ?: $chunkItems->last()->nama_produk;
+                $hasMultipleChunks = $nonAddonItems->count() > 8;
+                @endphp
+                <div style="page-break-inside: avoid; margin-bottom: 20px;">
+                    {{-- ===== KETERANGAN MATERIAL (SIDE-BY-SIDE SPEC TABLE) ===== --}}
+                    <div style="color: #000; font-weight: bold; font-size: 11pt; margin-bottom: 5px; text-transform: uppercase;">
+                        KETERANGAN MATERIAL @if($hasMultipleChunks) (BAGIAN {{ $chunkIndex + 1 }}: {{ strtoupper($firstLabel) }} - {{ strtoupper($lastLabel) }}) @endif
+                    </div>
+                    <table class="spec-table" style="margin-top:0;">
+                        <thead>
+                            <tr>
+                                <th style="width: 25%; text-align: left;">JENIS PESANAN</th>
+                                @foreach($chunkItems as $item)
+                                <th>{{ $item->varian_label ?: $item->nama_produk }}</th>
+                                @endforeach
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="spec-row-head">JENIS SETELAN</td>
+                                @foreach($chunkItems as $item)
+                                <td>{{ strtoupper($item->jenisSetelan->nama ?? $item->jenis_setelan ?? '') ?: '' }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">MODEL</td>
+                                @foreach($chunkItems as $item)
+                                <td>{{ strtoupper($item->modelProduksi->nama ?? $item->model ?? '') ?: '' }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">BAHAN ATASAN</td>
+                                @foreach($chunkItems as $item)
+                                @php
+                                $bahanAtasanStr = $item->bahan_kains_names ?: ($item->bahanKain->nama ?? '');
+                                @endphp
+                                <td>{{ strtoupper($bahanAtasanStr) }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">BAHAN BAWAHAN</td>
+                                @foreach($chunkItems as $item)
+                                @php
+                                $bahanBawahanStr = $item->bahan_kain_bawahan_names ?: ($item->bahanKainBawahan->nama ?? '');
+                                @endphp
+                                <td>{{ strtoupper($bahanBawahanStr) }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">JUMLAH ATASAN</td>
+                                @foreach($chunkItems as $item)
+                                <td>{{ ($item->jml_atasan !== null && $item->jml_atasan !== '') ? $item->jml_atasan : '' }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">JUMLAH BAWAHAN</td>
+                                @foreach($chunkItems as $item)
+                                <td>{{ $item->jml_bawahan ?: '' }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">WARNA</td>
+                                @foreach($chunkItems as $item)
+                                <td>{{ strtoupper($item->warna ?? '') ?: '' }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">JENIS LOGO</td>
+                                @foreach($chunkItems as $item)
+                                @php
+                                $logoStr = !empty($item->logo_names) ? implode(', ', $item->logo_names) : ($item->logo?->nama ?? '');
+                                @endphp
+                                <td>{{ strtoupper($logoStr) }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">JENIS RIB</td>
+                                @foreach($chunkItems as $item)
+                                <td>{{ strtoupper($item->jenis_rib ?? '') ?: '' }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">LIST KERAH</td>
+                                @foreach($chunkItems as $item)
+                                <td>{{ strtoupper($item->list_kerah ?? '') ?: '' }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">LIST LENGAN</td>
+                                @foreach($chunkItems as $item)
+                                <td>{{ strtoupper($item->list_lengan ?? '') ?: '' }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">LIST SAMPING CELANA</td>
+                                @foreach($chunkItems as $item)
+                                <td>{{ strtoupper($item->list_samping_celana ?? '') ?: '' }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">LIST BAWAH CELANA</td>
+                                @foreach($chunkItems as $item)
+                                <td>{{ strtoupper($item->list_bawah_celana ?? '') ?: '' }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">TUTUP KERAH</td>
+                                @foreach($chunkItems as $item)
+                                <td>{{ strtoupper($item->tutup_kerah ?? '') ?: '' }}</td>
+                                @endforeach
+                            </tr>
+                        </tbody>
+                    </table>
 
-                {{-- ===== KETERANGAN JAHITAN ===== --}}
-                <div style="color: #000; font-weight: bold; font-size: 11pt; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase;">KETERANGAN JAHITAN</div>
-                <table class="spec-table" style="margin-bottom:15px;">
-                    <thead>
-                        <tr>
-                            <th style="text-align:left; width:25%;">JAHITAN / DETAIL</th>
-                            @foreach($nonAddonItems as $item)
-                            <th>
-                                {{ $item->varian_label ?: $item->nama_produk }}
-                            </th>
-                            @endforeach
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="spec-row-head">POLA JAHITAN</td>
-                            @foreach($nonAddonItems as $item)
-                            <td>
-                                {{ $item->polaJahitan ? strtoupper($item->polaJahitan->nama) : '' }}
-                            </td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">JAHITAN LIST LENGAN</td>
-                            @foreach($nonAddonItems as $item)
-                            <td>
-                                {{ $item->polaJahitanLengan ? strtoupper($item->polaJahitanLengan->nama) : strtoupper($item->jahitan_list_lengan ?? '') }}
-                            </td>
-                            @endforeach
-                        </tr>
-                        <tr>
-                            <td class="spec-row-head">JENIS RESLETING</td>
-                            @foreach($nonAddonItems as $item)
-                            <td>
-                                {{ strtoupper($item->resleting->nama ?? '') }}
-                            </td>
-                            @endforeach
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+                    {{-- ===== KETERANGAN JAHITAN ===== --}}
+                    <div style="color: #000; font-weight: bold; font-size: 11pt; margin-top: 15px; margin-bottom: 5px; text-transform: uppercase;">
+                        KETERANGAN JAHITAN @if($hasMultipleChunks) (BAGIAN {{ $chunkIndex + 1 }}: {{ strtoupper($firstLabel) }} - {{ strtoupper($lastLabel) }}) @endif
+                    </div>
+                    <table class="spec-table" style="margin-bottom:15px;">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left; width:25%;">JAHITAN / DETAIL</th>
+                                @foreach($chunkItems as $item)
+                                <th>{{ $item->varian_label ?: $item->nama_produk }}</th>
+                                @endforeach
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="spec-row-head">POLA JAHITAN</td>
+                                @foreach($chunkItems as $item)
+                                <td>{{ $item->polaJahitan ? strtoupper($item->polaJahitan->nama) : '' }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">JAHITAN LIST LENGAN</td>
+                                @foreach($chunkItems as $item)
+                                <td>{{ $item->polaJahitanLengan ? strtoupper($item->polaJahitanLengan->nama) : strtoupper($item->jahitan_list_lengan ?? '') }}</td>
+                                @endforeach
+                            </tr>
+                            <tr>
+                                <td class="spec-row-head">JENIS RESLETING</td>
+                                @foreach($chunkItems as $item)
+                                <td>{{ strtoupper($item->resleting->nama ?? '') }}</td>
+                                @endforeach
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                @endforeach
             @endif
 
             @php
