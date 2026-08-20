@@ -60,8 +60,8 @@ class OrderObserver
         $totalPaid = $order->totalPaid();
         $sisa = max(0.0, $totalTagihan - $totalPaid);
 
-        // Jika sisa tagihan <= 0, otomatis tandai Lunas
-        if ($sisa <= 0) {
+        // Jika sisa tagihan <= 0 (dan order memiliki item agar tidak melunasi order kosong dalam test/draft), otomatis tandai Lunas
+        if ($order->items->isNotEmpty() && $sisa <= 0) {
             if (!$order->is_lunas) {
                 $order->is_lunas = true;
                 $order->lunas_at = now();
@@ -70,6 +70,10 @@ class OrderObserver
         }
         // Jika sisa tagihan > 0, kami TIDAK mencabut status is_lunas secara otomatis
         // untuk mengamankan tindakan "Tandai Lunas" manual oleh admin keuangan (toleransi manual).
+
+        // Bersihkan cache relasi agar tidak menahan data kosong dalam memori
+        $order->unsetRelation('items');
+        $order->unsetRelation('payments');
     }
 
     public function updated(Order $order): void

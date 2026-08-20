@@ -170,7 +170,8 @@ class Order extends Model
                 if ($p->verified_at === null || $p->masterJenisPembayaran?->efek_tagihan !== 'penambahan') {
                     return false;
                 }
-                if ($this->is_free_ongkir && strtolower($p->masterJenisPembayaran?->nama ?? '') === 'ongkir') {
+                // Exclude Ongkir payments from general penambahan since they are handled by $ongkirCharge
+                if (strtolower($p->masterJenisPembayaran?->nama ?? '') === 'ongkir') {
                     return false;
                 }
                 return true;
@@ -181,11 +182,15 @@ class Order extends Model
             ->filter(fn($p) => $p->verified_at !== null && $p->masterJenisPembayaran?->efek_tagihan === 'pengurangan')
             ->sum('amount');
         
-        // Fallback for old data without master_jenis_pembayaran_id
         $ongkir_payment = 0.0;
         if (!$this->is_free_ongkir) {
             $ongkir_payment = (float) $this->payments
-                ->filter(fn($p) => $p->verified_at !== null && $p->master_jenis_pembayaran_id === null && $p->payment_type === 'ongkir')
+                ->filter(function ($p) {
+                    if ($p->verified_at === null) {
+                        return false;
+                    }
+                    return $p->payment_type === 'ongkir' || strtolower($p->masterJenisPembayaran?->nama ?? '') === 'ongkir';
+                })
                 ->sum('amount');
         }
             
