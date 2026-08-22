@@ -312,8 +312,8 @@ class PdfHelper
         // 2. Escape HTML entities first (prevent XSS / broken HTML structure)
         $escaped = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
 
-        // Translate unicode superscripts to HTML tags first
-        $escaped = self::convertUnicodeSuperscriptToHtml($escaped);
+        // Translate unicode superscripts to caret notation first
+        $escaped = self::convertUnicodeSuperscriptToCaret($escaped);
 
         // 3. Normalize fancy fonts and translate them to HTML tags (strong/em)
         $escaped = self::normalizeFancyTextManualAndStyle($escaped);
@@ -381,8 +381,8 @@ class PdfHelper
 
         $escaped = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
 
-        // Translate unicode superscripts to HTML tags first
-        $escaped = self::convertUnicodeSuperscriptToHtml($escaped);
+        // Translate unicode superscripts to caret notation first
+        $escaped = self::convertUnicodeSuperscriptToCaret($escaped);
 
         // Convert caret notation (e.g. WAA^LBK or WAA^12) to HTML sup tags
         $escaped = preg_replace('/(?:\s*)\^([^\s^]+)/u', '<sup>$1</sup>', $escaped);
@@ -574,7 +574,7 @@ class PdfHelper
         return null;
     }
 
-    public static function convertUnicodeSuperscriptToHtml(?string $str): string {
+    public static function convertUnicodeSuperscriptToCaret(?string $str): string {
         if ($str === null || $str === '') {
             return '';
         }
@@ -598,7 +598,7 @@ class PdfHelper
             foreach ($chars as $char) {
                 $normal .= $map[$char] ?? $char;
             }
-            return '<sup>' . $normal . '</sup>';
+            return '^' . $normal;
         }, $str);
     }
 }
