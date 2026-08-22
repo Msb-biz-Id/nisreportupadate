@@ -750,8 +750,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
     }
     function patchNameset(i, field, value) {
         const next = [...item.namesets];
-        const val = field === 'keterangan' ? value : formatSuperscriptTrailing(value);
-        next[i] = { ...next[i], [field]: val };
+        next[i] = { ...next[i], [field]: value };
         if (field === 'size_id') {
             const s = masters.sizes.find((x) => x.id === value);
             next[i].size_label = s ? s.ukuran : '';
@@ -761,6 +760,13 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
             next[i].size_celana_label = s ? s.ukuran : '';
         }
         onChange(index, { ...item, namesets: next });
+    }
+    function blurNameset(i, field, value) {
+        if (field === 'keterangan') return;
+        const val = formatSuperscriptTrailing(value);
+        if (val !== value) {
+            patchNameset(i, field, val);
+        }
     }
 
     const subtotal = getCalculatedSubtotal(item);
@@ -1271,28 +1277,28 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                                             <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
                                                 <td className="p-1.5 text-center text-xs font-bold text-slate-500">{i + 1}</td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nama_punggung || ''} onChange={(e) => patchNameset(i, 'nama_punggung', e.target.value)} className="h-7 text-xs font-medium" />
+                                                    <Input value={ns.nama_punggung || ''} onChange={(e) => patchNameset(i, 'nama_punggung', e.target.value)} onBlur={(e) => blurNameset(i, 'nama_punggung', e.target.value)} className="h-7 text-xs font-medium" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nomor_punggung || ''} onChange={(e) => patchNameset(i, 'nomor_punggung', e.target.value)} className="h-7 text-xs font-black text-center" />
+                                                    <Input value={ns.nomor_punggung || ''} onChange={(e) => patchNameset(i, 'nomor_punggung', e.target.value)} onBlur={(e) => blurNameset(i, 'nomor_punggung', e.target.value)} className="h-7 text-xs font-black text-center" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nama_dada || ''} onChange={(e) => patchNameset(i, 'nama_dada', e.target.value)} className="h-7 text-xs font-medium" />
+                                                    <Input value={ns.nama_dada || ''} onChange={(e) => patchNameset(i, 'nama_dada', e.target.value)} onBlur={(e) => blurNameset(i, 'nama_dada', e.target.value)} className="h-7 text-xs font-medium" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nomor_dada || ''} onChange={(e) => patchNameset(i, 'nomor_dada', e.target.value)} className="h-7 text-xs font-black text-center" />
+                                                    <Input value={ns.nomor_dada || ''} onChange={(e) => patchNameset(i, 'nomor_dada', e.target.value)} onBlur={(e) => blurNameset(i, 'nomor_dada', e.target.value)} className="h-7 text-xs font-black text-center" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nama_lengan || ''} onChange={(e) => patchNameset(i, 'nama_lengan', e.target.value)} className="h-7 text-xs font-medium" />
+                                                    <Input value={ns.nama_lengan || ''} onChange={(e) => patchNameset(i, 'nama_lengan', e.target.value)} onBlur={(e) => blurNameset(i, 'nama_lengan', e.target.value)} className="h-7 text-xs font-medium" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nomor_lengan || ''} onChange={(e) => patchNameset(i, 'nomor_lengan', e.target.value)} className="h-7 text-xs font-black text-center" />
+                                                    <Input value={ns.nomor_lengan || ''} onChange={(e) => patchNameset(i, 'nomor_lengan', e.target.value)} onBlur={(e) => blurNameset(i, 'nomor_lengan', e.target.value)} className="h-7 text-xs font-black text-center" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nomor_punggung_2 || ''} onChange={(e) => patchNameset(i, 'nomor_punggung_2', e.target.value)} className="h-7 text-xs font-black text-center" />
+                                                    <Input value={ns.nomor_punggung_2 || ''} onChange={(e) => patchNameset(i, 'nomor_punggung_2', e.target.value)} onBlur={(e) => blurNameset(i, 'nomor_punggung_2', e.target.value)} className="h-7 text-xs font-black text-center" />
                                                 </td>
                                                 <td className="p-1.5">
-                                                    <Input value={ns.nama_punggung_2 || ''} onChange={(e) => patchNameset(i, 'nama_punggung_2', e.target.value)} className="h-7 text-xs font-medium" />
+                                                    <Input value={ns.nama_punggung_2 || ''} onChange={(e) => patchNameset(i, 'nama_punggung_2', e.target.value)} onBlur={(e) => blurNameset(i, 'nama_punggung_2', e.target.value)} className="h-7 text-xs font-medium" />
                                                 </td>
                                                 <td className="p-1.5">
                                                     <Select value={ns.size_id || NONE} onValueChange={(v) => patchNameset(i, 'size_id', v === NONE ? '' : v)}>

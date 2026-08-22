@@ -85,7 +85,11 @@ export function renderFormattedText(text) {
                 // Character superscript: format language recursively then wrap in sup element
                 return React.createElement(
                     'sup',
-                    { key: index, className: 'text-[0.75em] leading-[0] vertical-align-super font-bold' },
+                    { 
+                        key: index, 
+                        className: 'font-bold',
+                        style: { fontSize: '0.7em', verticalAlign: 'super', lineHeight: 0 }
+                    },
                     renderFormattedText(part)
                 );
             }
