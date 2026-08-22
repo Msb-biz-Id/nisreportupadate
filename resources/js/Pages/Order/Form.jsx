@@ -94,6 +94,13 @@ function convertHtmlToCaretText(html, plainText) {
                 const tds = tr.querySelectorAll('td, th');
                 tds.forEach((td) => {
                     const clone = td.cloneNode(true);
+                    
+                    // Replace <br> tags with a space
+                    const brs = clone.querySelectorAll('br');
+                    brs.forEach((br) => {
+                        br.parentNode.replaceChild(document.createTextNode(' '), br);
+                    });
+
                     // Find all superscript nodes (sup tag, or elements with vertical-align: super)
                     const sups = clone.querySelectorAll('sup, sub, font, span, p');
                     sups.forEach((el) => {
@@ -106,7 +113,10 @@ function convertHtmlToCaretText(html, plainText) {
                             el.parentNode.replaceChild(caretText, el);
                         }
                     });
-                    cells.push(clone.textContent.trim());
+                    
+                    // Clean up internal carriage returns/newlines inside the cell content to keep it on a single line
+                    const cleanText = clone.textContent.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+                    cells.push(cleanText);
                 });
                 if (cells.length > 0) {
                     rows.push(cells.join('\t'));
@@ -121,6 +131,13 @@ function convertHtmlToCaretText(html, plainText) {
         const body = doc.body;
         if (body) {
             const clone = body.cloneNode(true);
+            
+            // Replace <br> tags with a space
+            const brs = clone.querySelectorAll('br');
+            brs.forEach((br) => {
+                br.parentNode.replaceChild(document.createTextNode(' '), br);
+            });
+
             const sups = clone.querySelectorAll('sup, span, font, p');
             sups.forEach((el) => {
                 const style = el.getAttribute('style') || '';
@@ -132,7 +149,7 @@ function convertHtmlToCaretText(html, plainText) {
                     el.parentNode.replaceChild(caretText, el);
                 }
             });
-            return clone.textContent.trim();
+            return clone.textContent.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
         }
     } catch (e) {
         console.error('Failed to parse HTML from clipboard:', e);
