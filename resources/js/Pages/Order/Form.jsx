@@ -756,7 +756,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                                                         
                                                         return (
                                                             <TableCell key={cIdx} className="p-2 text-xs font-medium text-slate-800 border-l border-slate-100">
-                                                                {val || '—'}
+                                                                {field === 'keterangan' ? val : (formatSuperscriptTrailing(val) || '—')}
                                                             </TableCell>
                                                         );
                                                     })}
