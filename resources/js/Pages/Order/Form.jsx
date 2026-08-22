@@ -81,9 +81,33 @@ function getCalculatedSubtotal(item) {
 function formatSuperscriptTrailing(str) {
     if (typeof str !== 'string') return str;
     
-    // Automatically convert trailing space + Latin/Arabic digits to caret notation.
-    // e.g. "WAA 12" -> "WAA^12", "محمد ١٢" -> "محمد^١٢"
-    return str.replace(/\s+([0-9\u0660-\u0669\u06F0-\u06F9]+)$/, '^$1');
+    const map = {
+        // Numbers
+        '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+        '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+        // Uppercase Letters
+        'A': 'ᴬ', 'B': 'ᴮ', 'C': 'ᶜ', 'D': 'ᴰ', 'E': 'ᴱ', 'F': 'ᶠ', 'G': 'ᴳ', 'H': 'ᴴ', 'I': 'ᴵ', 'J': 'ᴶ', 'K': 'ᴷ', 'L': 'ᴸ', 'M': 'ᴹ', 'N': 'ᴺ', 'O': 'ᴼ', 'P': 'ᴾ', 'Q': '𐞳', 'R': 'ᴿ', 'S': 'ˢ', 'T': 'ᵀ', 'U': 'ᵁ', 'V': 'ⱽ', 'W': 'ᵂ', 'X': 'ˣ', 'Y': 'ʸ', 'Z': 'ᶻ',
+        // Lowercase Letters
+        'a': 'ᵃ', 'b': 'ᵇ', 'c': 'ᶜ', 'd': 'ᵈ', 'e': 'ᵉ', 'f': 'ᶠ', 'g': 'ᵍ', 'h': 'ʰ', 'i': 'ⁱ', 'j': 'ʲ', 'k': 'ᵏ', 'l': 'ˡ', 'm': 'ᵐ', 'n': 'ⁿ', 'o': 'ᵒ', 'p': 'ᵖ', 'q': '𐞳', 'r': 'ʳ', 's': 'ˢ', 't': 'ᵗ', 'u': 'ᵘ', 'v': 'ᵛ', 'w': 'ʷ', 'x': 'ˣ', 'y': 'ʸ', 'z': 'ᶻ'
+    };
+
+    // 1. If there's a caret followed by Latin letters or digits, convert them to Unicode superscript characters!
+    // e.g. "WAA^LBK" -> "WAAᴸᴮᴷ", "WAA^12" -> "WAA¹²"
+    let result = str.replace(/\s*\^([A-Za-z0-9]+)/g, (match, p1) => {
+        return p1.split('').map(char => map[char] ?? char).join('');
+    });
+
+    // 2. Automatically convert trailing space + Latin digits to Unicode superscript digits for compatibility
+    // e.g. "WAA 12" -> "WAA¹²"
+    result = result.replace(/\s+([0-9]+)$/, (match, p1) => {
+        return p1.split('').map(char => map[char] ?? char).join('');
+    });
+
+    // 3. For Arabic digits or other scripts, if they type space + Arabic digits, convert to caret notation so fallback sup handles it
+    // e.g. "محمد ١٢" -> "محمد^١٢"
+    result = result.replace(/\s+([\u0660-\u0669\u06F0-\u06F9]+)$/, '^$1');
+
+    return result;
 }
 
 function newNameset() {
