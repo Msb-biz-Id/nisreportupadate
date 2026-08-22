@@ -109,7 +109,8 @@ function convertHtmlToCaretText(html, plainText) {
                                         style.includes('vertical-align:super') || 
                                         style.includes('vertical-align: super');
                         if (isSuper) {
-                            const caretText = document.createTextNode('^' + el.textContent.trim());
+                            const tokens = el.textContent.split(/\s+/).filter(Boolean);
+                            const caretText = document.createTextNode(tokens.map(t => '^' + t).join(' '));
                             el.parentNode.replaceChild(caretText, el);
                         }
                     });
@@ -145,7 +146,8 @@ function convertHtmlToCaretText(html, plainText) {
                                 style.includes('vertical-align:super') || 
                                 style.includes('vertical-align: super');
                 if (isSuper) {
-                    const caretText = document.createTextNode('^' + el.textContent.trim());
+                    const tokens = el.textContent.split(/\s+/).filter(Boolean);
+                    const caretText = document.createTextNode(tokens.map(t => '^' + t).join(' '));
                     el.parentNode.replaceChild(caretText, el);
                 }
             });
