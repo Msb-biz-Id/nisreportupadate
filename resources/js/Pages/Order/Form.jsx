@@ -78,6 +78,68 @@ function getCalculatedSubtotal(item) {
     }
     return Math.max(0, raw - amount);
 }
+
+function convertHtmlToCaretText(html, plainText) {
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // 1. Check for Excel table
+        const table = doc.querySelector('table');
+        if (table) {
+            const rows = [];
+            const trs = table.querySelectorAll('tr');
+            trs.forEach((tr) => {
+                const cells = [];
+                const tds = tr.querySelectorAll('td, th');
+                tds.forEach((td) => {
+                    const clone = td.cloneNode(true);
+                    // Find all superscript nodes (sup tag, or elements with vertical-align: super)
+                    const sups = clone.querySelectorAll('sup, sub, font, span, p');
+                    sups.forEach((el) => {
+                        const style = el.getAttribute('style') || '';
+                        const isSuper = el.tagName.toLowerCase() === 'sup' || 
+                                        style.includes('vertical-align:super') || 
+                                        style.includes('vertical-align: super');
+                        if (isSuper) {
+                            const caretText = document.createTextNode('^' + el.textContent.trim());
+                            el.parentNode.replaceChild(caretText, el);
+                        }
+                    });
+                    cells.push(clone.textContent.trim());
+                });
+                if (cells.length > 0) {
+                    rows.push(cells.join('\t'));
+                }
+            });
+            if (rows.length > 0) {
+                return rows.join('\n');
+            }
+        }
+        
+        // 2. Fallback for generic HTML (Word, text editors)
+        const body = doc.body;
+        if (body) {
+            const clone = body.cloneNode(true);
+            const sups = clone.querySelectorAll('sup, span, font, p');
+            sups.forEach((el) => {
+                const style = el.getAttribute('style') || '';
+                const isSuper = el.tagName.toLowerCase() === 'sup' || 
+                                style.includes('vertical-align:super') || 
+                                style.includes('vertical-align: super');
+                if (isSuper) {
+                    const caretText = document.createTextNode('^' + el.textContent.trim());
+                    el.parentNode.replaceChild(caretText, el);
+                }
+            });
+            return clone.textContent.trim();
+        }
+    } catch (e) {
+        console.error('Failed to parse HTML from clipboard:', e);
+    }
+    return plainText;
+}
+
 function formatSuperscriptTrailing(str) {
     if (typeof str !== 'string') return str;
     
@@ -544,6 +606,16 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                         onChange={(e) => {
                             setText(e.target.value);
                             setSizeOverrides({});
+                        }}
+                        onPaste={(e) => {
+                            const html = e.clipboardData.getData('text/html');
+                            const plainText = e.clipboardData.getData('text/plain');
+                            if (html) {
+                                e.preventDefault();
+                                const caretText = convertHtmlToCaretText(html, plainText);
+                                setText(caretText);
+                                setSizeOverrides({});
+                            }
                         }}
                         autoFocus
                     />
