@@ -22,14 +22,11 @@ class SettingsController extends Controller
 
         return Inertia::render('Settings/Integrations', [
             'ai' => [
-                'provider' => SystemSetting::get('ai', 'provider', 'auto_failover'),
+                'provider' => 'openai_compatible',
                 'openai_base_url' => SystemSetting::get('ai', 'openai_base_url', 'https://api.groq.com/openai/v1'),
                 'openai_api_keys_masked' => $this->maskCsv(SystemSetting::get('ai', 'openai_api_keys')),
                 'has_openai_keys' => ! empty(SystemSetting::get('ai', 'openai_api_keys')),
                 'openai_model' => SystemSetting::get('ai', 'openai_model', 'llama-3.3-70b-versatile'),
-                'gemini_api_keys_masked' => $this->maskCsv(SystemSetting::get('ai', 'gemini_api_keys')),
-                'has_keys' => ! empty(SystemSetting::get('ai', 'gemini_api_keys')),
-                'model' => SystemSetting::get('ai', 'model', 'gemini-2.0-flash'),
                 'temperature' => (float) SystemSetting::get('ai', 'temperature', 0.7),
                 'max_tokens' => (int) SystemSetting::get('ai', 'max_tokens', 2048),
                 'is_configured' => GeminiClient::fromSettings()->isConfigured(),
@@ -222,17 +219,14 @@ class SettingsController extends Controller
         Gate::authorize('settings.ai');
 
         $data = $request->validate([
-            'provider' => ['nullable', 'string', 'in:auto_failover,openai_compatible,gemini'],
             'openai_base_url' => ['nullable', 'string', 'max:500'],
             'openai_api_keys' => ['nullable', 'string', 'max:5000'],
             'openai_model' => ['nullable', 'string', 'max:100'],
-            'gemini_api_keys' => ['nullable', 'string', 'max:5000'],
-            'model' => ['required', 'string', 'max:50'],
             'temperature' => ['required', 'numeric', 'between:0,2'],
             'max_tokens' => ['required', 'integer', 'between:128,8192'],
         ]);
 
-        SystemSetting::set('ai', 'provider', $data['provider'] ?? 'auto_failover');
+        SystemSetting::set('ai', 'provider', 'openai_compatible');
         if (! empty($data['openai_base_url'])) {
             SystemSetting::set('ai', 'openai_base_url', $data['openai_base_url']);
         }
@@ -242,10 +236,6 @@ class SettingsController extends Controller
         if (! empty($data['openai_model'])) {
             SystemSetting::set('ai', 'openai_model', $data['openai_model']);
         }
-        if (! empty($data['gemini_api_keys'])) {
-            SystemSetting::set('ai', 'gemini_api_keys', $data['gemini_api_keys'], encrypted: true);
-        }
-        SystemSetting::set('ai', 'model', $data['model']);
         SystemSetting::set('ai', 'temperature', (string) $data['temperature']);
         SystemSetting::set('ai', 'max_tokens', (string) $data['max_tokens']);
 
