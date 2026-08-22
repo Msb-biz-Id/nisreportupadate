@@ -22,8 +22,6 @@ function StatusBadge({ ok }) {
 function AiSection({ ai }) {
     const { data, setData, put, processing } = useForm({
         providers: ai.providers || [],
-        temperature: ai.temperature || 0.7,
-        max_tokens: ai.max_tokens || 2048,
     });
 
     function submit(e) {
@@ -181,14 +179,14 @@ function AiSection({ ai }) {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <Label className="text-[10px] font-semibold text-gray-500">Model Name</Label>
-                                                    <Input
-                                                        value={p.model}
-                                                        onChange={(e) => updateProviderField(p.id, 'model', e.target.value)}
-                                                        placeholder="llama-3.3-70b-versatile"
-                                                        className="font-mono text-xs mt-1 h-8 bg-white"
-                                                        required
-                                                    />
+                                                     <Label className="text-[10px] font-semibold text-gray-500">Model IDs (Koma atau baris baru dipisah)</Label>
+                                                     <Input
+                                                         value={p.model}
+                                                         onChange={(e) => updateProviderField(p.id, 'model', e.target.value)}
+                                                         placeholder="llama-3.3-70b-versatile, llama-3.1-8b-instant"
+                                                         className="font-mono text-xs mt-1 h-8 bg-white"
+                                                         required
+                                                     />
                                                 </div>
                                             </div>
 
@@ -218,16 +216,7 @@ function AiSection({ ai }) {
                         )}
                     </div>
 
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 border-t pt-4">
-                        <div>
-                            <Label className="text-xs font-semibold text-gray-700">Temperature (0 - 2)</Label>
-                            <Input type="number" step="0.1" min="0" max="2" value={data.temperature} onChange={(e) => setData('temperature', Number(e.target.value))} className="mt-1 bg-white" />
-                        </div>
-                        <div>
-                            <Label className="text-xs font-semibold text-gray-700">Max Tokens</Label>
-                            <Input type="number" min="128" max="8192" value={data.max_tokens} onChange={(e) => setData('max_tokens', Number(e.target.value))} className="mt-1 bg-white" />
-                        </div>
-                    </div>
+
 
                     <div className="flex gap-2 pt-3 border-t">
                         <Button type="submit" disabled={processing} className="px-5">Simpan Konfigurasi AI</Button>

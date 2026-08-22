@@ -37,8 +37,6 @@ class SettingsController extends Controller
         return Inertia::render('Settings/Integrations', [
             'ai' => [
                 'providers' => $maskedProviders,
-                'temperature' => (float) SystemSetting::get('ai', 'temperature', 0.7),
-                'max_tokens' => (int) SystemSetting::get('ai', 'max_tokens', 2048),
                 'is_configured' => GeminiClient::fromSettings()->isConfigured(),
             ],
             'whatsapp' => [
@@ -233,11 +231,9 @@ class SettingsController extends Controller
             'providers.*.id' => ['required', 'string'],
             'providers.*.name' => ['required', 'string', 'max:100'],
             'providers.*.base_url' => ['required', 'string', 'max:500'],
-            'providers.*.model' => ['required', 'string', 'max:100'],
+            'providers.*.model' => ['required', 'string', 'max:500'],
             'providers.*.api_keys' => ['nullable', 'string', 'max:5000'],
             'providers.*.is_active' => ['required', 'boolean'],
-            'temperature' => ['required', 'numeric', 'between:0,2'],
-            'max_tokens' => ['required', 'integer', 'between:128,8192'],
         ]);
 
         $existingProviders = json_decode(SystemSetting::get('ai', 'providers', '[]'), true) ?: [];
@@ -274,8 +270,6 @@ class SettingsController extends Controller
 
         SystemSetting::set('ai', 'provider', 'openai_compatible');
         SystemSetting::set('ai', 'providers', json_encode($savedProviders), encrypted: true);
-        SystemSetting::set('ai', 'temperature', (string) $data['temperature']);
-        SystemSetting::set('ai', 'max_tokens', (string) $data['max_tokens']);
 
         return back()->with('success', 'Pengaturan AI tersimpan.');
     }

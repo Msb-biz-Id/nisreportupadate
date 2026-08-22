@@ -57,16 +57,35 @@ class GeminiClient
             $keys = $provider['api_keys'] ?? [];
             if (empty($keys)) {
                 $keys = ['local-or-keyless'];
-            } else {
-                shuffle($keys);
             }
 
+            $models = array_filter(array_map('trim', preg_split('/[\r\n,]+/', $provider['model'] ?? '')));
+            if (empty($models)) {
+                $models = ['llama-3.3-70b-versatile']; // default fallback
+            }
+
+            // Create combinations of key and model for maximum failover and load balancing flexibility
+            $combinations = [];
+            foreach ($keys as $key) {
+                foreach ($models as $model) {
+                    $combinations[] = [
+                        'key' => $key,
+                        'model' => $model,
+                    ];
+                }
+            }
+
+            // Shuffle combinations so we distribute calls across models and keys evenly
+            shuffle($combinations);
+
             $baseUrl = rtrim($provider['base_url'] ?? '', '/');
-            $model = $provider['model'] ?? '';
             $url = $baseUrl . '/chat/completions';
             $providerName = $provider['name'] ?? 'Custom AI';
 
-            foreach ($keys as $index => $key) {
+            foreach ($combinations as $index => $comb) {
+                $key = $comb['key'];
+                $model = $comb['model'];
+
                 try {
                     $headers = ['Content-Type' => 'application/json'];
                     if ($key !== 'local-or-keyless') {
@@ -89,7 +108,7 @@ class GeminiClient
                         $text = $data['choices'][0]['message']['content'] ?? '';
 
                         if (trim($text) === '') {
-                            Log::warning("Provider {$providerName} key #{$index} merespons kosong.");
+                            Log::warning("Provider {$providerName} model {$model} merespons kosong.");
                             continue;
                         }
 
@@ -104,21 +123,21 @@ class GeminiClient
 
                     $status = $response->status();
                     if ($status === 429) {
-                        Log::info("Provider {$providerName} key #{$index} rate-limited (429), mencoba key/provider berikutnya.");
-                        $lastError = "Rate limit {$providerName} tercapai.";
+                        Log::info("Provider {$providerName} model {$model} rate-limited (429), mencoba kombinasi berikutnya.");
+                        $lastError = "Rate limit {$providerName} ({$model}) tercapai.";
                         continue;
                     }
 
                     $errMsg = $response->json('error.message') ?? $response->body();
-                    Log::warning("Provider {$providerName} error {$status}", ['error' => $errMsg]);
-                    $lastError = "{$providerName} HTTP {$status}: " . mb_strimwidth((string)$errMsg, 0, 200, '…');
+                    Log::warning("Provider {$providerName} model {$model} error {$status}", ['error' => $errMsg]);
+                    $lastError = "{$providerName} ({$model}) HTTP {$status}: " . mb_strimwidth((string)$errMsg, 0, 200, '…');
 
                 } catch (ConnectionException $e) {
-                    Log::warning("Provider {$providerName} key #{$index} timeout", ['error' => $e->getMessage()]);
-                    $lastError = "{$providerName} Connection timeout.";
+                    Log::warning("Provider {$providerName} model {$model} timeout", ['error' => $e->getMessage()]);
+                    $lastError = "{$providerName} ({$model}) Connection timeout.";
                 } catch (\Throwable $e) {
-                    Log::warning("Provider {$providerName} key #{$index} exception", ['error' => $e->getMessage()]);
-                    $lastError = "{$providerName}: " . $e->getMessage();
+                    Log::warning("Provider {$providerName} model {$model} exception", ['error' => $e->getMessage()]);
+                    $lastError = "{$providerName} ({$model}): " . $e->getMessage();
                 }
             }
         }
