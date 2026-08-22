@@ -574,14 +574,15 @@ class PdfHelper
         return null;
     }
 
-    public static function convertUnicodeSuperscriptToHtml($str) {
+    public static function convertUnicodeSuperscriptToHtml(?string $str): string {
         if ($str === null || $str === '') {
             return '';
         }
         $map = [
             '⁰'=>'0', '¹'=>'1', '²'=>'2', '³'=>'3', '⁴'=>'4', '⁵'=>'5', '⁶'=>'6', '⁷'=>'7', '⁸'=>'8', '⁹'=>'9',
             'ᴬ'=>'A', 'ᴮ'=>'B', 'ᶜ'=>'C', 'ᴰ'=>'D', 'ᴱ'=>'E', 'ᶠ'=>'F', 'ᴳ'=>'G', 'ᴴ'=>'H', 'ᴵ'=>'I', 'ᴶ'=>'J', 'ᴷ'=>'K', 'ᴸ'=>'L', 'ᴹ'=>'M', 'ᴺ'=>'N', 'ᴼ'=>'O', 'ᴾ'=>'P', '𐞳'=>'Q', 'ᴿ'=>'R', 'ˢ'=>'S', 'ᵀ'=>'T', 'ᵁ'=>'U', 'ⱽ'=>'V', 'ᵂ'=>'W', 'ˣ'=>'X', 'ʸ'=>'Y', 'ᶻ'=>'Z',
-            'ᵃ'=>'a', 'ᵇ'=>'b', 'ᶜ'=>'c', 'ᵈ'=>'d', 'ᵉ'=>'e', 'ᶠ'=>'f', 'ᵍ'=>'g', 'ʰ'=>'h', 'ⁱ'=>'i', 'ʲ'=>'j', 'ᵏ'=>'k', 'ˡ'=>'l', 'ᵐ'=>'m', 'ⁿ'=>'n', 'ᵒ'=>'o', 'ᵖ'=>'p', '𐞳'=>'q', 'ʳ'=>'r', 'ˢ'=>'s', 'ᵗ'=>'t', 'ᵘ'=>'u', 'ᵛ'=>'v', 'ʷ'=>'w', 'ˣ'=>'x', 'ʸ'=>'y', 'ᶻ'=>'z'
+            // Lowercase superscript characters that have distinct Unicode codepoints from uppercase
+            'ᵃ'=>'a', 'ᵇ'=>'b', 'ᵈ'=>'d', 'ᵉ'=>'e', 'ᵍ'=>'g', 'ʰ'=>'h', 'ⁱ'=>'i', 'ʲ'=>'j', 'ᵏ'=>'k', 'ˡ'=>'l', 'ᵐ'=>'m', 'ⁿ'=>'n', 'ᵒ'=>'o', 'ᵖ'=>'p', 'ʳ'=>'r', 'ᵗ'=>'t', 'ᵘ'=>'u', 'ᵛ'=>'v', 'ʷ'=>'w'
         ];
         
         $keys = array_keys($map);
