@@ -274,6 +274,10 @@
                 word-wrap: normal !important;
             }
 
+            .ns-table .arabic-font {
+                display: inline !important;
+            }
+
             /* Rekap size */
             .rekap-container {
                 margin-top: 12px;
