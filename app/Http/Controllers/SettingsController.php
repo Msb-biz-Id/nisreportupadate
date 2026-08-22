@@ -20,13 +20,23 @@ class SettingsController extends Controller
         /** @var \Illuminate\Filesystem\FilesystemAdapter $publicDisk */
         $publicDisk = \Illuminate\Support\Facades\Storage::disk('public');
 
+        $providersJson = SystemSetting::get('ai', 'providers', '[]');
+        $providers = json_decode($providersJson, true) ?: [];
+
+        $maskedProviders = array_map(function($p) {
+            $keys = $p['api_keys'] ?? [];
+            $p['api_keys_masked'] = array_map(function($k) {
+                if ($k === 'local-or-keyless') return $k;
+                return SystemSetting::maskedValue($k);
+            }, $keys);
+            $p['has_keys'] = count($keys) > 0;
+            $p['api_keys'] = ''; // Kept empty to prevent original keys exposure to frontend
+            return $p;
+        }, $providers);
+
         return Inertia::render('Settings/Integrations', [
             'ai' => [
-                'provider' => 'openai_compatible',
-                'openai_base_url' => SystemSetting::get('ai', 'openai_base_url', 'https://api.groq.com/openai/v1'),
-                'openai_api_keys_masked' => $this->maskCsv(SystemSetting::get('ai', 'openai_api_keys')),
-                'has_openai_keys' => ! empty(SystemSetting::get('ai', 'openai_api_keys')),
-                'openai_model' => SystemSetting::get('ai', 'openai_model', 'llama-3.3-70b-versatile'),
+                'providers' => $maskedProviders,
                 'temperature' => (float) SystemSetting::get('ai', 'temperature', 0.7),
                 'max_tokens' => (int) SystemSetting::get('ai', 'max_tokens', 2048),
                 'is_configured' => GeminiClient::fromSettings()->isConfigured(),
@@ -219,23 +229,51 @@ class SettingsController extends Controller
         Gate::authorize('settings.ai');
 
         $data = $request->validate([
-            'openai_base_url' => ['nullable', 'string', 'max:500'],
-            'openai_api_keys' => ['nullable', 'string', 'max:5000'],
-            'openai_model' => ['nullable', 'string', 'max:100'],
+            'providers' => ['nullable', 'array'],
+            'providers.*.id' => ['required', 'string'],
+            'providers.*.name' => ['required', 'string', 'max:100'],
+            'providers.*.base_url' => ['required', 'string', 'max:500'],
+            'providers.*.model' => ['required', 'string', 'max:100'],
+            'providers.*.api_keys' => ['nullable', 'string', 'max:5000'],
+            'providers.*.is_active' => ['required', 'boolean'],
             'temperature' => ['required', 'numeric', 'between:0,2'],
             'max_tokens' => ['required', 'integer', 'between:128,8192'],
         ]);
 
+        $existingProviders = json_decode(SystemSetting::get('ai', 'providers', '[]'), true) ?: [];
+        $existingMap = collect($existingProviders)->keyBy('id')->toArray();
+
+        $savedProviders = [];
+        $submittedProviders = $data['providers'] ?? [];
+
+        foreach ($submittedProviders as $p) {
+            $id = $p['id'];
+            $name = $p['name'];
+            $baseUrl = rtrim($p['base_url'], '/');
+            $model = $p['model'];
+            $isActive = (bool) $p['is_active'];
+
+            // Parse API keys
+            $rawKeys = $p['api_keys'] ?? '';
+            $keys = array_filter(array_map('trim', preg_split('/[\r\n,]+/', $rawKeys)));
+
+            // If keys input is empty/masked, try to reuse existing keys
+            if (empty($keys) && isset($existingMap[$id])) {
+                $keys = $existingMap[$id]['api_keys'] ?? [];
+            }
+
+            $savedProviders[] = [
+                'id' => $id,
+                'name' => $name,
+                'base_url' => $baseUrl,
+                'model' => $model,
+                'api_keys' => $keys,
+                'is_active' => $isActive,
+            ];
+        }
+
         SystemSetting::set('ai', 'provider', 'openai_compatible');
-        if (! empty($data['openai_base_url'])) {
-            SystemSetting::set('ai', 'openai_base_url', $data['openai_base_url']);
-        }
-        if (! empty($data['openai_api_keys'])) {
-            SystemSetting::set('ai', 'openai_api_keys', $data['openai_api_keys'], encrypted: true);
-        }
-        if (! empty($data['openai_model'])) {
-            SystemSetting::set('ai', 'openai_model', $data['openai_model']);
-        }
+        SystemSetting::set('ai', 'providers', json_encode($savedProviders), encrypted: true);
         SystemSetting::set('ai', 'temperature', (string) $data['temperature']);
         SystemSetting::set('ai', 'max_tokens', (string) $data['max_tokens']);
 

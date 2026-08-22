@@ -12,33 +12,30 @@ class GeminiClient
     public function __construct(
         private readonly float $temperature = 0.7,
         private readonly int $maxOutputTokens = 2048,
-        private readonly string $openAiBaseUrl = 'https://api.groq.com/openai/v1',
-        private readonly array $openAiApiKeys = [],
-        private readonly string $openAiModel = 'llama-3.3-70b-versatile',
+        private readonly array $providers = [],
     ) {}
 
     public static function fromSettings(): self
     {
         $temp = (float) SystemSetting::get('ai', 'temperature', 0.7);
         $maxTokens = (int) SystemSetting::get('ai', 'max_tokens', 2048);
-        $openAiBaseUrl = rtrim(SystemSetting::get('ai', 'openai_base_url', 'https://api.groq.com/openai/v1'), '/');
         
-        $rawOpenAiKeys = SystemSetting::get('ai', 'openai_api_keys') ?: env('OPENAI_API_KEYS', '');
-        $openAiKeys = array_filter(array_map('trim', preg_split('/[\r\n,]+/', $rawOpenAiKeys)));
-        $openAiModel = SystemSetting::get('ai', 'openai_model', 'llama-3.3-70b-versatile');
+        $providersJson = SystemSetting::get('ai', 'providers', '[]');
+        $providers = json_decode($providersJson, true) ?: [];
 
         return new self(
             $temp,
             $maxTokens,
-            $openAiBaseUrl,
-            $openAiKeys,
-            $openAiModel
+            $providers
         );
     }
 
     public function isConfigured(): bool
     {
-        return count($this->openAiApiKeys) > 0;
+        $activeProviders = array_filter($this->providers, function ($p) {
+            return ($p['is_active'] ?? false) === true;
+        });
+        return count($activeProviders) > 0;
     }
 
     public function generate(string $prompt): array
@@ -47,83 +44,89 @@ class GeminiClient
             return $this->mockResponse($prompt);
         }
 
-        return $this->generateOpenAiCompatible($prompt);
-    }
+        $activeProviders = array_filter($this->providers, function ($p) {
+            return ($p['is_active'] ?? false) === true;
+        });
 
-    /** Multi-key load-balanced & fallback driver for OpenAI-compatible APIs (Groq, DeepSeek, OpenRouter, Together AI, Ollama, OpenAI) */
-    public function generateOpenAiCompatible(string $prompt): array
-    {
-        $keys = $this->openAiApiKeys;
-        if (empty($keys)) {
-            // Ollama / local LLM might not require API keys
-            $keys = ['local-or-keyless'];
-        } else {
-            shuffle($keys);
-        }
+        // Shuffle providers to load-balance across different AI platforms
+        shuffle($activeProviders);
 
-        $lastError = 'Semua OpenAI/Groq API key gagal merespons.';
-        $url = $this->openAiBaseUrl . '/chat/completions';
+        $lastError = 'Semua provider AI gagal merespons.';
 
-        foreach ($keys as $index => $key) {
-            try {
-                $headers = ['Content-Type' => 'application/json'];
-                if ($key !== 'local-or-keyless') {
-                    $headers['Authorization'] = "Bearer {$key}";
-                }
+        foreach ($activeProviders as $provider) {
+            $keys = $provider['api_keys'] ?? [];
+            if (empty($keys)) {
+                $keys = ['local-or-keyless'];
+            } else {
+                shuffle($keys);
+            }
 
-                $response = Http::timeout(30)
-                    ->withHeaders($headers)
-                    ->post($url, [
-                        'model' => $this->openAiModel,
-                        'messages' => [
-                            ['role' => 'user', 'content' => $prompt]
-                        ],
-                        'temperature' => $this->temperature,
-                        'max_tokens' => $this->maxOutputTokens,
-                    ]);
+            $baseUrl = rtrim($provider['base_url'] ?? '', '/');
+            $model = $provider['model'] ?? '';
+            $url = $baseUrl . '/chat/completions';
+            $providerName = $provider['name'] ?? 'Custom AI';
 
-                if ($response->successful()) {
-                    $data = $response->json();
-                    $text = $data['choices'][0]['message']['content'] ?? '';
+            foreach ($keys as $index => $key) {
+                try {
+                    $headers = ['Content-Type' => 'application/json'];
+                    if ($key !== 'local-or-keyless') {
+                        $headers['Authorization'] = "Bearer {$key}";
+                    }
 
-                    if (trim($text) === '') {
-                        $lastError = 'Respons kosong dari provider OpenAI/Groq.';
+                    $response = Http::timeout(30)
+                        ->withHeaders($headers)
+                        ->post($url, [
+                            'model' => $model,
+                            'messages' => [
+                                ['role' => 'user', 'content' => $prompt]
+                            ],
+                            'temperature' => $this->temperature,
+                            'max_tokens' => $this->maxOutputTokens,
+                        ]);
+
+                    if ($response->successful()) {
+                        $data = $response->json();
+                        $text = $data['choices'][0]['message']['content'] ?? '';
+
+                        if (trim($text) === '') {
+                            Log::warning("Provider {$providerName} key #{$index} merespons kosong.");
+                            continue;
+                        }
+
+                        return [
+                            'success' => true,
+                            'text'    => trim($text),
+                            'model'   => $model . ' (' . parse_url($baseUrl, PHP_URL_HOST) . ')',
+                            'tokens'  => $data['usage']['total_tokens'] ?? null,
+                            'mock'    => false,
+                        ];
+                    }
+
+                    $status = $response->status();
+                    if ($status === 429) {
+                        Log::info("Provider {$providerName} key #{$index} rate-limited (429), mencoba key/provider berikutnya.");
+                        $lastError = "Rate limit {$providerName} tercapai.";
                         continue;
                     }
 
-                    return [
-                        'success' => true,
-                        'text'    => trim($text),
-                        'model'   => $this->openAiModel . ' (' . parse_url($this->openAiBaseUrl, PHP_URL_HOST) . ')',
-                        'tokens'  => $data['usage']['total_tokens'] ?? null,
-                        'mock'    => false,
-                    ];
+                    $errMsg = $response->json('error.message') ?? $response->body();
+                    Log::warning("Provider {$providerName} error {$status}", ['error' => $errMsg]);
+                    $lastError = "{$providerName} HTTP {$status}: " . mb_strimwidth((string)$errMsg, 0, 200, '…');
+
+                } catch (ConnectionException $e) {
+                    Log::warning("Provider {$providerName} key #{$index} timeout", ['error' => $e->getMessage()]);
+                    $lastError = "{$providerName} Connection timeout.";
+                } catch (\Throwable $e) {
+                    Log::warning("Provider {$providerName} key #{$index} exception", ['error' => $e->getMessage()]);
+                    $lastError = "{$providerName}: " . $e->getMessage();
                 }
-
-                $status = $response->status();
-                if ($status === 429) {
-                    Log::info("OpenAI/Groq key #{$index} rate-limited (429), mencoba key/provider berikutnya.");
-                    $lastError = 'Rate limit OpenAI/Groq tercapai.';
-                    continue;
-                }
-
-                $errMsg = $response->json('error.message') ?? $response->body();
-                Log::warning("OpenAI/Groq provider error {$status}", ['error' => $errMsg]);
-                $lastError = "HTTP {$status}: " . mb_strimwidth((string)$errMsg, 0, 200, '…');
-
-            } catch (ConnectionException $e) {
-                Log::warning("OpenAI/Groq key #{$index} timeout", ['error' => $e->getMessage()]);
-                $lastError = 'Connection timeout.';
-            } catch (\Throwable $e) {
-                Log::warning("OpenAI/Groq key #{$index} exception", ['error' => $e->getMessage()]);
-                $lastError = $e->getMessage();
             }
         }
 
         return [
             'success' => false,
             'text'    => '',
-            'error'   => "Provider OpenAI/Groq gagal: {$lastError}",
+            'error'   => "Semua provider AI gagal: {$lastError}",
             'mock'    => false,
         ];
     }

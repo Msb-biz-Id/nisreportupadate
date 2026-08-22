@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Sparkles, MessageCircle, Send, Settings, CheckCircle2, AlertTriangle, FlaskConical, Bell, Volume2, ShieldAlert, CheckSquare, Clock, Calendar, Mail, Copy, Building2 } from 'lucide-react';
+import { Sparkles, MessageCircle, Send, Settings, CheckCircle2, AlertTriangle, FlaskConical, Bell, Volume2, ShieldAlert, CheckSquare, Clock, Calendar, Mail, Copy, Building2, Trash2, Plus } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -21,10 +21,7 @@ function StatusBadge({ ok }) {
 
 function AiSection({ ai }) {
     const { data, setData, put, processing } = useForm({
-        provider: 'openai_compatible',
-        openai_base_url: ai.openai_base_url || 'https://api.groq.com/openai/v1',
-        openai_api_keys: '',
-        openai_model: ai.openai_model || 'llama-3.3-70b-versatile',
+        providers: ai.providers || [],
         temperature: ai.temperature || 0.7,
         max_tokens: ai.max_tokens || 2048,
     });
@@ -38,32 +35,77 @@ function AiSection({ ai }) {
         router.post(route('settings.integrasi.test.ai'), {}, { preserveScroll: true });
     }
 
-    const applyPreset = (preset) => {
-        if (preset === 'groq') {
-            setData((d) => ({
-                ...d,
-                openai_base_url: 'https://api.groq.com/openai/v1',
-                openai_model: 'llama-3.3-70b-versatile'
-            }));
-        } else if (preset === 'deepseek') {
-            setData((d) => ({
-                ...d,
-                openai_base_url: 'https://api.deepseek.com/v1',
-                openai_model: 'deepseek-chat'
-            }));
-        } else if (preset === 'openrouter') {
-            setData((d) => ({
-                ...d,
-                openai_base_url: 'https://openrouter.ai/api/v1',
-                openai_model: 'deepseek/deepseek-r1'
-            }));
-        } else if (preset === 'ollama') {
-            setData((d) => ({
-                ...d,
-                openai_base_url: 'http://localhost:11434/v1',
-                openai_model: 'llama3.1:8b'
-            }));
-        }
+    const addProvider = () => {
+        const newProvider = {
+            id: 'prov_' + Date.now(),
+            name: '',
+            base_url: 'https://api.groq.com/openai/v1',
+            model: 'llama-3.3-70b-versatile',
+            api_keys: '',
+            api_keys_masked: [],
+            has_keys: false,
+            is_active: true,
+        };
+        setData('providers', [...data.providers, newProvider]);
+    };
+
+    const deleteProvider = (id) => {
+        setData('providers', data.providers.filter(p => p.id !== id));
+    };
+
+    const toggleProviderActive = (id, checked) => {
+        setData('providers', data.providers.map(p => {
+            if (p.id === id) {
+                return { ...p, is_active: checked };
+            }
+            return p;
+        }));
+    };
+
+    const updateProviderField = (id, field, value) => {
+        setData('providers', data.providers.map(p => {
+            if (p.id === id) {
+                return { ...p, [field]: value };
+            }
+            return p;
+        }));
+    };
+
+    const applyPreset = (id, preset) => {
+        setData('providers', data.providers.map(p => {
+            if (p.id === id) {
+                if (preset === 'groq') {
+                    return {
+                        ...p,
+                        name: p.name || 'Groq Cloud',
+                        base_url: 'https://api.groq.com/openai/v1',
+                        model: 'llama-3.3-70b-versatile'
+                    };
+                } else if (preset === 'deepseek') {
+                    return {
+                        ...p,
+                        name: p.name || 'DeepSeek API',
+                        base_url: 'https://api.deepseek.com/v1',
+                        model: 'deepseek-chat'
+                    };
+                } else if (preset === 'openrouter') {
+                    return {
+                        ...p,
+                        name: p.name || 'OpenRouter',
+                        base_url: 'https://openrouter.ai/api/v1',
+                        model: 'deepseek/deepseek-r1'
+                    };
+                } else if (preset === 'ollama') {
+                    return {
+                        ...p,
+                        name: p.name || 'Ollama Local',
+                        base_url: 'http://localhost:11434/v1',
+                        model: 'llama3.1:8b'
+                    };
+                }
+            }
+            return p;
+        }));
     };
 
     return (
@@ -71,76 +113,119 @@ function AiSection({ ai }) {
             <CardHeader className="flex flex-row items-start justify-between gap-2 border-b pb-4">
                 <div>
                     <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4.5 w-4.5 text-primary" /> OpenAI Compatible AI Engine (Load-Balanced)</CardTitle>
-                    <CardDescription>Mendukung Groq, DeepSeek, OpenRouter, OpenAI, dan Local LLM (Ollama) dengan Load Balancing Multi-Key.</CardDescription>
+                    <CardDescription>Daftarkan beberapa platform kecerdasan buatan sekaligus untuk load balancing dan failover bebas limit.</CardDescription>
                 </div>
                 <StatusBadge ok={ai.is_configured} />
             </CardHeader>
             <CardContent className="pt-6">
-                <form onSubmit={submit} className="space-y-5">
-                    <div className="rounded-lg border bg-slate-50/50 p-4 space-y-4 dark:bg-slate-900/50">
-                        <div className="flex items-center justify-between">
-                            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">⚡ Konfigurasi OpenAI / Groq / DeepSeek / OpenRouter API</h4>
-                            <div className="flex gap-1">
-                                <Button type="button" variant="outline" size="xs" onClick={() => applyPreset('groq')} className="text-[10px] h-6 px-2">Preset Groq</Button>
-                                <Button type="button" variant="outline" size="xs" onClick={() => applyPreset('deepseek')} className="text-[10px] h-6 px-2">Preset DeepSeek</Button>
-                                <Button type="button" variant="outline" size="xs" onClick={() => applyPreset('openrouter')} className="text-[10px] h-6 px-2">OpenRouter</Button>
-                                <Button type="button" variant="outline" size="xs" onClick={() => applyPreset('ollama')} className="text-[10px] h-6 px-2">Ollama Local</Button>
-                            </div>
+                <form onSubmit={submit} className="space-y-6">
+                    
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between border-b pb-2">
+                            <Label className="text-sm font-bold text-slate-800">Daftar Provider AI Terkonfigurasi</Label>
+                            <Button type="button" size="sm" onClick={addProvider} className="px-3 text-xs bg-primary hover:bg-primary/95 text-white flex items-center gap-1.5 rounded-lg h-8">
+                                <Plus className="h-3.5 w-3.5" /> Tambah Provider
+                            </Button>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <div>
-                                <Label className="text-xs font-semibold text-gray-700">API Base URL</Label>
-                                <Input
-                                    value={data.openai_base_url}
-                                    onChange={(e) => setData('openai_base_url', e.target.value)}
-                                    placeholder="https://api.groq.com/openai/v1"
-                                    className="font-mono text-xs mt-1"
-                                />
-                                <span className="text-[10px] text-muted-foreground">Contoh Groq: <code>https://api.groq.com/openai/v1</code></span>
+                        {data.providers.length === 0 ? (
+                            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/20 p-8 text-center text-muted-foreground text-xs leading-normal">
+                                Belum ada provider AI yang didaftarkan. Silakan klik <strong>Tambah Provider</strong> di atas untuk mengonfigurasi.
                             </div>
-                            <div>
-                                <Label className="text-xs font-semibold text-gray-700">Model Name</Label>
-                                <Input
-                                    value={data.openai_model}
-                                    onChange={(e) => setData('openai_model', e.target.value)}
-                                    placeholder="llama-3.3-70b-versatile"
-                                    className="font-mono text-xs mt-1"
-                                />
-                                <span className="text-[10px] text-muted-foreground">Contoh: <code>llama-3.3-70b-versatile</code> / <code>deepseek-chat</code></span>
-                            </div>
-                        </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {data.providers.map((p) => (
+                                    <div key={p.id} className={cn("rounded-xl border p-4.5 space-y-4 shadow-sm transition-all duration-200 bg-slate-50/30", p.is_active ? "border-slate-200" : "border-slate-100 opacity-60")}>
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                                            <div className="flex items-center gap-2 flex-1">
+                                                <Building2 className="h-4 w-4 text-slate-400 shrink-0" />
+                                                <Input
+                                                    value={p.name}
+                                                    onChange={(e) => updateProviderField(p.id, 'name', e.target.value)}
+                                                    placeholder="Nama Provider (contoh: Groq Cloud, DeepSeek, OpenRouter)"
+                                                    className="font-bold text-sm h-8 bg-white max-w-sm"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-3 self-end sm:self-auto">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-[10px] font-semibold text-slate-500">Status</span>
+                                                    <Switch
+                                                        checked={p.is_active}
+                                                        onCheckedChange={(checked) => toggleProviderActive(p.id, checked)}
+                                                    />
+                                                </div>
+                                                <Button type="button" variant="ghost" size="icon" onClick={() => deleteProvider(p.id)} className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
 
-                        <div>
-                            <Label className="text-xs font-semibold text-gray-700">OpenAI / Groq / DeepSeek API Keys (Load-Balanced, koma-dipisah)</Label>
-                            {ai.has_openai_keys && (
-                                <div className="mt-1 mb-1.5 flex flex-wrap gap-1">
-                                    {ai.openai_api_keys_masked?.map((k, i) => (
-                                        <Badge key={i} variant="outline" className="font-mono text-[10px] bg-white">{k}</Badge>
-                                    ))}
-                                </div>
-                            )}
-                            <Textarea
-                                value={data.openai_api_keys}
-                                onChange={(e) => setData('openai_api_keys', e.target.value)}
-                                rows={2}
-                                placeholder={ai.has_openai_keys ? "Isi untuk mengganti API key yang ada" : "gsk_... (Paste API key Groq, DeepSeek, atau OpenRouter)"}
-                                className="font-mono text-xs mt-1"
-                            />
-                            <p className="mt-1 text-[11px] text-muted-foreground">
-                                💡 Groq API Key gratis 100% tanpa bayar di <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="underline font-bold text-primary">console.groq.com/keys</a> (Kecepatan 500+ tokens/s).
-                            </p>
-                        </div>
+                                        <div className="space-y-3">
+                                            <div className="flex gap-1.5 flex-wrap">
+                                                <Button type="button" variant="outline" size="xs" onClick={() => applyPreset(p.id, 'groq')} className="text-[9px] h-5.5 px-2 bg-white">Groq Preset</Button>
+                                                <Button type="button" variant="outline" size="xs" onClick={() => applyPreset(p.id, 'deepseek')} className="text-[9px] h-5.5 px-2 bg-white">DeepSeek Preset</Button>
+                                                <Button type="button" variant="outline" size="xs" onClick={() => applyPreset(p.id, 'openrouter')} className="text-[9px] h-5.5 px-2 bg-white">OpenRouter</Button>
+                                                <Button type="button" variant="outline" size="xs" onClick={() => applyPreset(p.id, 'ollama')} className="text-[9px] h-5.5 px-2 bg-white">Ollama Local</Button>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                <div>
+                                                    <Label className="text-[10px] font-semibold text-gray-500">API Base URL</Label>
+                                                    <Input
+                                                        value={p.base_url}
+                                                        onChange={(e) => updateProviderField(p.id, 'base_url', e.target.value)}
+                                                        placeholder="https://api.groq.com/openai/v1"
+                                                        className="font-mono text-xs mt-1 h-8 bg-white"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Label className="text-[10px] font-semibold text-gray-500">Model Name</Label>
+                                                    <Input
+                                                        value={p.model}
+                                                        onChange={(e) => updateProviderField(p.id, 'model', e.target.value)}
+                                                        placeholder="llama-3.3-70b-versatile"
+                                                        className="font-mono text-xs mt-1 h-8 bg-white"
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <Label className="text-[10px] font-semibold text-gray-500">
+                                                    API Keys (Koma atau baris baru dipisah untuk load-balancing)
+                                                </Label>
+                                                {p.has_keys && (
+                                                    <div className="mt-1 mb-1.5 flex flex-wrap gap-1">
+                                                        {p.api_keys_masked?.map((k, i) => (
+                                                            <Badge key={i} variant="outline" className="font-mono text-[9px] bg-white px-1 py-0 border-slate-200">{k}</Badge>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                <Textarea
+                                                    value={p.api_keys}
+                                                    onChange={(e) => updateProviderField(p.id, 'api_keys', e.target.value)}
+                                                    rows={2}
+                                                    placeholder={p.has_keys ? "Isi untuk mengganti/menambah API key" : "Paste API key di sini"}
+                                                    className="font-mono text-xs mt-1 leading-normal bg-white"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 border-t pt-4">
                         <div>
                             <Label className="text-xs font-semibold text-gray-700">Temperature (0 - 2)</Label>
-                            <Input type="number" step="0.1" min="0" max="2" value={data.temperature} onChange={(e) => setData('temperature', Number(e.target.value))} className="mt-1" />
+                            <Input type="number" step="0.1" min="0" max="2" value={data.temperature} onChange={(e) => setData('temperature', Number(e.target.value))} className="mt-1 bg-white" />
                         </div>
                         <div>
                             <Label className="text-xs font-semibold text-gray-700">Max Tokens</Label>
-                            <Input type="number" min="128" max="8192" value={data.max_tokens} onChange={(e) => setData('max_tokens', Number(e.target.value))} className="mt-1" />
+                            <Input type="number" min="128" max="8192" value={data.max_tokens} onChange={(e) => setData('max_tokens', Number(e.target.value))} className="mt-1 bg-white" />
                         </div>
                     </div>
 
