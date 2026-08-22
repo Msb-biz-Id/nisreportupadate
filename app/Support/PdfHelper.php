@@ -312,6 +312,9 @@ class PdfHelper
         // 2. Escape HTML entities first (prevent XSS / broken HTML structure)
         $escaped = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
 
+        // Translate unicode superscripts to HTML tags first
+        $escaped = self::convertUnicodeSuperscriptToHtml($escaped);
+
         // 3. Normalize fancy fonts and translate them to HTML tags (strong/em)
         $escaped = self::normalizeFancyTextManualAndStyle($escaped);
 
@@ -377,6 +380,9 @@ class PdfHelper
         }
 
         $escaped = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+
+        // Translate unicode superscripts to HTML tags first
+        $escaped = self::convertUnicodeSuperscriptToHtml($escaped);
 
         // Convert caret notation (e.g. WAA^LBK or WAA^12) to HTML sup tags
         $escaped = preg_replace('/(?:\s*)\^([^\s^]+)/u', '<sup>$1</sup>', $escaped);
@@ -566,6 +572,35 @@ class PdfHelper
         }
 
         return null;
+    }
+
+    public static function convertUnicodeSuperscriptToHtml($str) {
+        if ($str === null || $str === '') {
+            return '';
+        }
+        $map = [
+            '⁰'=>'0', '¹'=>'1', '²'=>'2', '³'=>'3', '⁴'=>'4', '⁵'=>'5', '⁶'=>'6', '⁷'=>'7', '⁸'=>'8', '⁹'=>'9',
+            'ᴬ'=>'A', 'ᴮ'=>'B', 'ᶜ'=>'C', 'ᴰ'=>'D', 'ᴱ'=>'E', 'ᶠ'=>'F', 'ᴳ'=>'G', 'ᴴ'=>'H', 'ᴵ'=>'I', 'ᴶ'=>'J', 'ᴷ'=>'K', 'ᴸ'=>'L', 'ᴹ'=>'M', 'ᴺ'=>'N', 'ᴼ'=>'O', 'ᴾ'=>'P', '𐞳'=>'Q', 'ᴿ'=>'R', 'ˢ'=>'S', 'ᵀ'=>'T', 'ᵁ'=>'U', 'ⱽ'=>'V', 'ᵂ'=>'W', 'ˣ'=>'X', 'ʸ'=>'Y', 'ᶻ'=>'Z',
+            'ᵃ'=>'a', 'ᵇ'=>'b', 'ᶜ'=>'c', 'ᵈ'=>'d', 'ᵉ'=>'e', 'ᶠ'=>'f', 'ᵍ'=>'g', 'ʰ'=>'h', 'ⁱ'=>'i', 'ʲ'=>'j', 'ᵏ'=>'k', 'ˡ'=>'l', 'ᵐ'=>'m', 'ⁿ'=>'n', 'ᵒ'=>'o', 'ᵖ'=>'p', '𐞳'=>'q', 'ʳ'=>'r', 'ˢ'=>'s', 'ᵗ'=>'t', 'ᵘ'=>'u', 'ᵛ'=>'v', 'ʷ'=>'w', 'ˣ'=>'x', 'ʸ'=>'y', 'ᶻ'=>'z'
+        ];
+        
+        // Find contiguous blocks of unicode superscript characters
+        // Escape special regex chars if necessary. Since these are all simple unicode chars, we can create a character class safely.
+        // We will match sequence of any of the keys of the map
+        $keys = array_keys($map);
+        $escapedKeys = array_map(function($k) {
+            return preg_quote($k, '/');
+        }, $keys);
+        
+        $pattern = '/([' . implode('', $escapedKeys) . ']+)/u';
+        return preg_replace_callback($pattern, function($matches) use ($map) {
+            $normal = '';
+            $chars = preg_split('//u', $matches[1], -1, PREG_SPLIT_NO_EMPTY);
+            foreach ($chars as $char) {
+                $normal .= $map[$char] ?? $char;
+            }
+            return '<sup>' . $normal . '</sup>';
+        }, $str);
     }
 }
 
