@@ -1399,7 +1399,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
         return matchingHub ? matchingHub.id : '';
     }, [current_brand_id, reseller_hubs]);
 
-    const { data, setData, post, put, processing, errors } = useForm({
+    const { data, setData, post, put, transform, processing, errors } = useForm({
         nama_po: order?.nama_po ?? '',
         is_special_order: order?.is_special_order ?? false,
         is_free_ongkir: order?.is_free_ongkir ?? false,
@@ -1560,6 +1560,29 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
     function submit(e) {
         e.preventDefault();
 
+        // Format all namesets before submitting to ensure superscripts are applied
+        transform((currentData) => {
+            return {
+                ...currentData,
+                items: currentData.items.map((item) => {
+                    if (!item.namesets) return item;
+                    return {
+                        ...item,
+                        namesets: item.namesets.map((ns) => {
+                            const formatted = { ...ns };
+                            const fields = ['nama_punggung', 'nomor_punggung', 'nama_dada', 'nomor_dada', 'nama_lengan', 'nomor_lengan', 'nomor_punggung_2', 'nama_punggung_2'];
+                            fields.forEach((field) => {
+                                if (formatted[field]) {
+                                    formatted[field] = formatSuperscriptTrailing(formatted[field]);
+                                }
+                            });
+                            return formatted;
+                        })
+                    };
+                })
+            };
+        });
+
         if (!navigator.onLine) {
             const offlineDrafts = JSON.parse(localStorage.getItem('offline_order_drafts') || '[]');
             const newDraft = {
@@ -1614,11 +1637,31 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
 
         setPdfLoading(true);
         try {
+            const formattedData = {
+                ...data,
+                items: data.items.map((item) => {
+                    if (!item.namesets) return item;
+                    return {
+                        ...item,
+                        namesets: item.namesets.map((ns) => {
+                            const formatted = { ...ns };
+                            const fields = ['nama_punggung', 'nomor_punggung', 'nama_dada', 'nomor_dada', 'nama_lengan', 'nomor_lengan', 'nomor_punggung_2', 'nama_punggung_2'];
+                            fields.forEach((field) => {
+                                if (formatted[field]) {
+                                    formatted[field] = formatSuperscriptTrailing(formatted[field]);
+                                }
+                            });
+                            return formatted;
+                        })
+                    };
+                })
+            };
+
             const xsrf = document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='))?.split('=')[1] ?? '';
             const res = await fetch(route('orders.pdf-draft'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(xsrf) },
-                body: JSON.stringify(data),
+                body: JSON.stringify(formattedData),
             });
             if (!res.ok) { alert('Gagal generate PDF'); return; }
             const blob = await res.blob();
