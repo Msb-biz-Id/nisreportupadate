@@ -584,18 +584,16 @@ class PdfHelper
             'ᵃ'=>'a', 'ᵇ'=>'b', 'ᶜ'=>'c', 'ᵈ'=>'d', 'ᵉ'=>'e', 'ᶠ'=>'f', 'ᵍ'=>'g', 'ʰ'=>'h', 'ⁱ'=>'i', 'ʲ'=>'j', 'ᵏ'=>'k', 'ˡ'=>'l', 'ᵐ'=>'m', 'ⁿ'=>'n', 'ᵒ'=>'o', 'ᵖ'=>'p', '𐞳'=>'q', 'ʳ'=>'r', 'ˢ'=>'s', 'ᵗ'=>'t', 'ᵘ'=>'u', 'ᵛ'=>'v', 'ʷ'=>'w', 'ˣ'=>'x', 'ʸ'=>'y', 'ᶻ'=>'z'
         ];
         
-        // Find contiguous blocks of unicode superscript characters
-        // Escape special regex chars if necessary. Since these are all simple unicode chars, we can create a character class safely.
-        // We will match sequence of any of the keys of the map
         $keys = array_keys($map);
         $escapedKeys = array_map(function($k) {
             return preg_quote($k, '/');
         }, $keys);
         
-        $pattern = '/([' . implode('', $escapedKeys) . ']+)/u';
+        // Use alternation instead of character class to ensure multi-byte compatibility on all servers
+        $pattern = '/(?:' . implode('|', $escapedKeys) . ')+/u';
         return preg_replace_callback($pattern, function($matches) use ($map) {
             $normal = '';
-            $chars = preg_split('//u', $matches[1], -1, PREG_SPLIT_NO_EMPTY);
+            $chars = preg_split('//u', $matches[0], -1, PREG_SPLIT_NO_EMPTY);
             foreach ($chars as $char) {
                 $normal .= $map[$char] ?? $char;
             }

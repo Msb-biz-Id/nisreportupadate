@@ -264,6 +264,12 @@
             padding-left: 6px !important;
         }
 
+        .ns-name {
+            white-space: nowrap !important;
+            word-break: keep-all !important;
+            word-wrap: normal !important;
+        }
+
         /* Rekap size */
         .rekap-container {
             margin-top: 12px;
@@ -965,7 +971,7 @@
                         @endphp
                         <td>{!! \App\Support\PdfHelper::formatText($svc) !!}</td>
                         @elseif($col['type'] === 'keterangan')
-                        <td class="t-left ns-name">{!! \App\Support\PdfHelper::formatText($ns['keterangan'] ?? '') !!}</td>
+                        <td class="t-left">{!! \App\Support\PdfHelper::formatText($ns['keterangan'] ?? '') !!}</td>
                         @endif
                         @endforeach
                     </tr>
