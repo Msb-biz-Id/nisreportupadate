@@ -89,6 +89,12 @@
                 text-transform: none !important;
             }
 
+            sup {
+                font-size: 0.65em;
+                vertical-align: super;
+                line-height: 0;
+            }
+
             /* === CSS TEMPLATE DASAR PDF A4 (Polished) === */
             * {
                 box-sizing: border-box;

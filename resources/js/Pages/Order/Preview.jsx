@@ -16,7 +16,7 @@ import { Label } from '@/Components/ui/label';
 import { Textarea } from '@/Components/ui/textarea';
 import { Input } from '@/Components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
-import { formatDate, formatDateTime, formatRupiah } from '@/lib/utils';
+import { formatDate, formatDateTime, formatRupiah, renderFormattedText } from '@/lib/utils';
 
 const STATUS_LABEL = {
     draft: { label: 'Draft', variant: 'outline' },
@@ -1934,14 +1934,14 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                                 {nss.map((ns, ni) => (
                                                                     <tr key={ns.id || ni} className="border-b hover:bg-slate-50">
                                                                         <td className="px-2 py-1 border text-center font-bold text-slate-500">{ni + 1}</td>
-                                                                        {hasNamaPunggung && <td className="px-2 py-1 border font-medium">{ns.nama_punggung || '—'}</td>}
-                                                                        {hasNoPunggung && <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung || '—'}</td>}
-                                                                        {hasNamaDada && <td className="px-2 py-1 border font-medium">{ns.nama_dada || '—'}</td>}
-                                                                        {hasNoDada && <td className="px-2 py-1 border text-center font-mono">{ns.nomor_dada || '—'}</td>}
-                                                                        {hasNamaLengan && <td className="px-2 py-1 border font-medium">{ns.nama_lengan || '—'}</td>}
-                                                                        {hasNoLengan && <td className="px-2 py-1 border text-center font-mono">{ns.nomor_lengan || '—'}</td>}
-                                                                        {hasNoPunggung2 && <td className="px-2 py-1 border text-center font-mono">{ns.nomor_punggung_2 || '—'}</td>}
-                                                                        {hasNamaPunggung2 && <td className="px-2 py-1 border font-medium">{ns.nama_punggung_2 || '—'}</td>}
+                                                                        {hasNamaPunggung && <td className="px-2 py-1 border font-medium">{renderFormattedText(ns.nama_punggung) || '—'}</td>}
+                                                                        {hasNoPunggung && <td className="px-2 py-1 border text-center font-mono">{renderFormattedText(ns.nomor_punggung) || '—'}</td>}
+                                                                        {hasNamaDada && <td className="px-2 py-1 border font-medium">{renderFormattedText(ns.nama_dada) || '—'}</td>}
+                                                                        {hasNoDada && <td className="px-2 py-1 border text-center font-mono">{renderFormattedText(ns.nomor_dada) || '—'}</td>}
+                                                                        {hasNamaLengan && <td className="px-2 py-1 border font-medium">{renderFormattedText(ns.nama_lengan) || '—'}</td>}
+                                                                        {hasNoLengan && <td className="px-2 py-1 border text-center font-mono">{renderFormattedText(ns.nomor_lengan) || '—'}</td>}
+                                                                        {hasNoPunggung2 && <td className="px-2 py-1 border text-center font-mono">{renderFormattedText(ns.nomor_punggung_2) || '—'}</td>}
+                                                                        {hasNamaPunggung2 && <td className="px-2 py-1 border font-medium">{renderFormattedText(ns.nama_punggung_2) || '—'}</td>}
                                                                         {hasSA && <td className="px-2 py-1 border text-center">{ns.size ? ns.size.ukuran : (ns.size_label || '—')}</td>}
                                                                         {hasSB && <td className="px-2 py-1 border text-center">{ns.size_celana ? ns.size_celana.ukuran : (ns.size_celana_label || '—')}</td>}
                                                                         {hasKet && <td className="px-2 py-1 border text-muted-foreground">{ns.keterangan || '—'}</td>}

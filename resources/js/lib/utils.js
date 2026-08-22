@@ -77,6 +77,24 @@ export function renderFormattedText(text) {
     if (text === null || text === undefined || text === '') return '';
     const textStr = String(text);
 
+    // 1. Detect and split caret notation (e.g. WAA^LBK or محمد^١٢)
+    const supParts = textStr.split(/(?:\s*)\^([^\s^]+)/g);
+    if (supParts.length > 1) {
+        return supParts.map((part, index) => {
+            if (index % 2 === 1) {
+                // Character superscript: format language recursively then wrap in sup element
+                return React.createElement(
+                    'sup',
+                    { key: index, className: 'text-[0.75em] leading-[0] vertical-align-super font-bold' },
+                    renderFormattedText(part)
+                );
+            }
+            // Regular character
+            return renderFormattedText(part);
+        });
+    }
+
+    // 2. Standard formatting logic for CJK, Arabic, Javanese
     const cjkPattern = /[\u3000-\u303F\u3040-\u309F\u30A0-\u30FF\uFF00-\uFFEF\u4E00-\u9FAF\u3400-\u4DBF]+/;
     const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+(?:\s+[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9]+)*/;
     const javanesePattern = /[\uA980-\uA9DF]+/;

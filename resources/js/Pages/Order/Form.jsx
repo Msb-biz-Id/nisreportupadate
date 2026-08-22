@@ -80,13 +80,10 @@ function getCalculatedSubtotal(item) {
 }
 function formatSuperscriptTrailing(str) {
     if (typeof str !== 'string') return str;
-    const map = {
-        '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
-        '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'
-    };
-    return str.replace(/\s+(\d+)$/, (match, p1) => {
-        return p1.split('').map(char => map[char] ?? char).join('');
-    });
+    
+    // Automatically convert trailing space + Latin/Arabic digits to caret notation.
+    // e.g. "WAA 12" -> "WAA^12", "محمد ١٢" -> "محمد^١٢"
+    return str.replace(/\s+([0-9\u0660-\u0669\u06F0-\u06F9]+)$/, '^$1');
 }
 
 function newNameset() {
