@@ -81,7 +81,12 @@ class NotificationDispatcher
         $fromAddress = SystemSetting::get('mail', 'mail_from_address', config('mail.from.address'));
         $fromName = SystemSetting::get('mail', 'mail_from_name', config('mail.from.name'));
 
-        if ($host) config(['mail.mailers.smtp.host' => $host]);
+        if ($host) {
+            config([
+                'mail.default' => 'smtp',
+                'mail.mailers.smtp.host' => $host,
+            ]);
+        }
         if ($port) config(['mail.mailers.smtp.port' => (int) $port]);
         if ($username) config(['mail.mailers.smtp.username' => $username]);
         if ($password) config(['mail.mailers.smtp.password' => $password]);
