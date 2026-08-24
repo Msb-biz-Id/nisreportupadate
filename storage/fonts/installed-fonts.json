@@ -12,6 +12,11 @@
         "normal": "sarabun_normal_74af2b57c47eb3c74d9f6ea3c9ed8076"
     },
     "inter": {
-        "normal": "inter_normal_a461faff0e467572ed934e911be20fd5"
+        "normal": "D:\\AI\\Nisreport\\nisreportupadate\\storage\\fonts\/inter_normal_a461faff0e467572ed934e911be20fd5",
+        "bold": "inter_bold_3021c08ac039f5e4374817a28774a5d2"
+    },
+    "noto sans sc": {
+        "normal": "D:\\AI\\Nisreport\\nisreportupadate\\storage\\fonts\/noto_sans_sc_normal_b44c7c869ea3f88a2adf9d078baa3d47",
+        "bold": "noto_sans_sc_bold_a4921097cc9cfb2df37a31faffd3c580"
     }
 }

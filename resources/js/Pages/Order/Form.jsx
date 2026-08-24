@@ -184,12 +184,6 @@ function formatSuperscriptTrailing(str) {
         return p1.split('').map(char => map[char] ?? char).join('');
     });
 
-    // 3. Whitelist check for letters: if the last word is a common nameset abbreviation (e.g. LBK, FC, JR), convert to superscript!
-    const whitelist = ['LBK', 'FC', 'JR', 'SR', 'ST', 'SE', 'SH'];
-    const wordsPattern = new RegExp(`\\s+(${whitelist.join('|')})$`, 'i');
-    result = result.replace(wordsPattern, (match, p1) => {
-        return p1.toUpperCase().split('').map(char => map[char] ?? char).join('');
-    });
 
     // 4. For Arabic digits or other scripts, if they type space + Arabic digits, convert to caret notation so fallback sup handles it
     // e.g. "محمد ١٢" -> "محمد^١٢"
