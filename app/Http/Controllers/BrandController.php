@@ -151,6 +151,7 @@ class BrandController extends Controller
             ]);
         }
 
+        \Illuminate\Support\Facades\Cache::forget('global_available_brands');
         \App\Services\ActivityLogger::log('create', 'brand', $brand, "Tambah brand / reseller: {$brand->nama_brand} ({$brand->kode})");
 
         return redirect()->route('brands.index')->with('success', "Reseller {$brand->nama_brand} berhasil ditambahkan.");
@@ -225,6 +226,7 @@ class BrandController extends Controller
 
         $brand->update($data);
 
+        \Illuminate\Support\Facades\Cache::forget('global_available_brands');
         \App\Services\ActivityLogger::log('update', 'brand', $brand, "Perbarui brand: {$brand->nama_brand} ({$brand->kode})");
 
         return redirect()->route('brands.index')->with('success', 'Brand berhasil diperbarui.');
@@ -252,6 +254,7 @@ class BrandController extends Controller
         $brandCode = $brand->kode;
         $brand->delete();
 
+        \Illuminate\Support\Facades\Cache::forget('global_available_brands');
         \App\Services\ActivityLogger::log('delete', 'brand', null, "Hapus brand: {$brandName} ({$brandCode})");
 
         return redirect()->route('brands.index')->with('success', 'Brand Reseller berhasil dihapus.');
@@ -262,6 +265,7 @@ class BrandController extends Controller
         Gate::authorize('brand.update');
 
         $brand->update(['is_active' => ! $brand->is_active]);
+        \Illuminate\Support\Facades\Cache::forget('global_available_brands');
 
         $statusStr = $brand->is_active ? 'aktifkan' : 'nonaktifkan';
         \App\Services\ActivityLogger::log('toggle', 'brand', $brand, "Ubah status brand {$brand->nama_brand}: {$statusStr}");

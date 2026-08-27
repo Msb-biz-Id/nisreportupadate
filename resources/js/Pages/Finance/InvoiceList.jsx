@@ -92,7 +92,6 @@ const DEPOSIT_STATUS_VARIANT = {
 
 export default function InvoiceList({
     invoices,
-    all_filtered_invoices = [],
     brands = [],
     design_deposits = [],
     available_orders = [],
@@ -195,6 +194,7 @@ export default function InvoiceList({
     const [endDate, setEndDate] = useState(filters?.end_date ?? '');
     const [paymentTypeFilter, setPaymentTypeFilter] = useState(filters?.payment_type_filter ?? 'all');
     const [copied, setCopied] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
     const [showDatePanel, setShowDatePanel] = useState(!!(filters?.start_date || filters?.end_date));
 
     // Helper for finance calculation of invoices
@@ -354,46 +354,71 @@ export default function InvoiceList({
         return `${startDate ? formatDate(startDate) : ''} - ${endDate ? formatDate(endDate) : ''}`;
     };
 
-    const copyToClipboard = () => {
-        const headers = [
-            'No Invoice',
-            'No PO',
-            'Pelanggan',
-            'Tanggal Terbit',
-            'Terbayar',
-            'Total Tagihan',
-            'Cashback',
-            'Refund',
-            'Neto',
-            'Sisa/Selisih',
-            'Status'
-        ];
-        const rows = (all_filtered_invoices || []).map(inv => {
-            const cashbackVal = Number(inv.cashback) || 0;
-            const refundVal = Number(inv.refund) || 0;
-            const grossVal = Number(inv.gross_terbayar) || 0;
-            const netoVal = Number(inv.neto_terbayar) || 0;
-            const sisaVal = Number(inv.sisa_selisih) || 0;
-            return [
-                inv.invoice_number || '',
-                inv.no_po || '',
-                inv.pelanggan || '',
-                inv.tanggal_terbit || '',
-                grossVal,
-                inv.total_tagihan || '0',
-                cashbackVal > 0 ? `-${cashbackVal}` : '0',
-                refundVal > 0 ? `-${refundVal}` : '0',
-                netoVal,
-                sisaVal,
-                STATUS_LABELS[inv.status] || (inv.status || '')
-            ].join('\t');
-        });
+    const copyToClipboard = async () => {
+        setIsExporting(true);
+        try {
+            const params = {
+                q: search,
+                brand_id: brandId,
+                status: status !== 'all' ? status : '',
+                start_date: startDate,
+                end_date: endDate,
+                payment_type_filter: paymentTypeFilter !== 'all' ? paymentTypeFilter : '',
+                tab: activeTab,
+            };
+            const response = await window.axios.get(route('invoices.export-tsv'), { params });
+            const list = response.data?.invoices || [];
 
-        const tsvContent = [headers.join('\t'), ...rows].join('\n');
-        navigator.clipboard.writeText(tsvContent).then(() => {
+            if (list.length === 0) {
+                toast.info('Tidak ada data invoice untuk disalin.');
+                setIsExporting(false);
+                return;
+            }
+
+            const headers = [
+                'No Invoice',
+                'No PO',
+                'Pelanggan',
+                'Tanggal Terbit',
+                'Terbayar',
+                'Total Tagihan',
+                'Cashback',
+                'Refund',
+                'Neto',
+                'Sisa/Selisih',
+                'Status'
+            ];
+            const rows = list.map(inv => {
+                const cashbackVal = Number(inv.cashback) || 0;
+                const refundVal = Number(inv.refund) || 0;
+                const grossVal = Number(inv.gross_terbayar) || 0;
+                const netoVal = Number(inv.neto_terbayar) || 0;
+                const sisaVal = Number(inv.sisa_selisih) || 0;
+                return [
+                    inv.invoice_number || '',
+                    inv.no_po || '',
+                    inv.pelanggan || '',
+                    inv.tanggal_terbit || '',
+                    grossVal,
+                    inv.total_tagihan || '0',
+                    cashbackVal > 0 ? `-${cashbackVal}` : '0',
+                    refundVal > 0 ? `-${refundVal}` : '0',
+                    netoVal,
+                    sisaVal,
+                    STATUS_LABELS[inv.status] || (inv.status || '')
+                ].join('\t');
+            });
+
+            const tsvContent = [headers.join('\t'), ...rows].join('\n');
+            await navigator.clipboard.writeText(tsvContent);
             setCopied(true);
+            toast.success(`Berhasil menyalin ${list.length} data invoice ke clipboard.`);
             setTimeout(() => setCopied(false), 2000);
-        });
+        } catch (error) {
+            toast.error('Gagal mengambil data untuk ekspor Excel.');
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     // Design Deposit Actions
@@ -661,11 +686,12 @@ export default function InvoiceList({
                         <div className="flex items-center gap-2 self-end lg:self-auto">
                             <Button
                                 onClick={copyToClipboard}
+                                disabled={isExporting}
                                 variant="outline"
                                 className="border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5"
                             >
                                 <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                                {copied ? 'Tersalin!' : 'Copy ke Excel'}
+                                {isExporting ? 'Mengunduh Data...' : copied ? 'Tersalin!' : 'Copy ke Excel'}
                             </Button>
 
                             {activeTab === 'tanda_jadi' && (

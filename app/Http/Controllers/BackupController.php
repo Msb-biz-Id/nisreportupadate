@@ -59,10 +59,6 @@ class BackupController extends Controller
             }
         }
 
-        $r2Configured = !empty(config('filesystems.disks.r2.key')) && !empty(config('filesystems.disks.r2.secret'));
-        $r2Bucket = config('filesystems.disks.r2.bucket', '');
-        $r2Endpoint = config('filesystems.disks.r2.endpoint', '');
-
         return Inertia::render('Settings/Backup', [
             'stats' => [
                 'total_size_human' => $this->formatBytes($totalSize),
@@ -73,35 +69,7 @@ class BackupController extends Controller
                 'cleanup_file_count' => $cleanupFileCount,
                 'threshold_days' => 30,
             ],
-            'r2' => [
-                'is_configured' => $r2Configured,
-                'bucket' => $r2Bucket,
-                'endpoint' => $r2Endpoint,
-            ]
         ]);
-    }
-
-    public function runBackup(Request $request)
-    {
-        Gate::authorize('settings.system');
-
-        $r2Configured = !empty(config('filesystems.disks.r2.key')) && !empty(config('filesystems.disks.r2.secret'));
-        if (!$r2Configured) {
-            return back()->with('error', 'Integrasi Cloudflare R2 belum dikonfigurasi di file .env.');
-        }
-
-        try {
-            $exitCode = Artisan::call('backup:r2');
-            $output = Artisan::output();
-
-            if ($exitCode === 0) {
-                return back()->with('success', 'Proses backup ke Cloudflare R2 berhasil diselesaikan.');
-            } else {
-                return back()->with('error', 'Gagal melakukan backup ke R2. Info: ' . trim($output));
-            }
-        } catch (\Throwable $e) {
-            return back()->with('error', 'Error backup: ' . $e->getMessage());
-        }
     }
 
     public function download(Request $request)

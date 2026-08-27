@@ -154,9 +154,17 @@ function KanbanCard({ order }) {
 
 export default function Kanban({ columns: initialColumns }) {
     const [columns] = useState(initialColumns);
+    const [visibleCounts, setVisibleCounts] = useState({});
 
     // Count indicators for column header
     const totalOrders = Object.values(columns).reduce((s, c) => s + c.orders.length, 0);
+
+    const handleLoadMore = (key, total) => {
+        setVisibleCounts(prev => ({
+            ...prev,
+            [key]: (prev[key] || 30) + 30
+        }));
+    };
 
     return (
         <AppLayout title="Kanban Produksi">
@@ -193,6 +201,9 @@ export default function Kanban({ columns: initialColumns }) {
                     {Object.entries(columns).map(([key, col]) => {
                         const overdueCount = col.orders.filter(o => o.days_remaining !== null && o.days_remaining < 0).length;
                         const totalPcs = col.orders.reduce((sum, o) => sum + (o.total_items || 0), 0);
+                        const limit = visibleCounts[key] || 30;
+                        const displayedOrders = col.orders.slice(0, limit);
+                        const hasMore = col.orders.length > limit;
 
                         return (
                             <div key={key} className="flex w-72 shrink-0 flex-col rounded-xl border bg-slate-50/50 p-2 h-full max-h-full">
@@ -227,9 +238,19 @@ export default function Kanban({ columns: initialColumns }) {
                                             Kosong
                                         </div>
                                     )}
-                                    {col.orders.map((o) => (
+                                    {displayedOrders.map((o) => (
                                         <KanbanCard key={o.id} order={o} />
                                     ))}
+                                    {hasMore && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleLoadMore(key, col.orders.length)}
+                                            className="w-full text-xs text-muted-foreground hover:text-foreground py-2 h-auto"
+                                        >
+                                            + Tampilkan {col.orders.length - limit} PO lainnya
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
                         );

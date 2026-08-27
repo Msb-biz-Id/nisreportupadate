@@ -8,9 +8,9 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 /**
- * ImageUploader — upload + crop gambar untuk Order Form.
+ * ImageUploader — upload + crop gambar untuk Order Form & Master.
  * Menggunakan react-image-crop untuk memungkinkan crop dinamis & seret sudut/sisi.
- * Dilengkapi fitur "Gunakan Gambar Terakhir" dan fitur zoom slider interaktif.
+ * Dilengkapi optimasi instant ObjectURL, zero-lag single-pass rotation, dan kompresi visual HD.
  */
 export default function ImageUploader({
     value,
@@ -23,7 +23,10 @@ export default function ImageUploader({
 }) {
     const inputRef = useRef(null);
     const imgRef = useRef(null);
-    const [src, setSrc] = useState(null); // base64 sumber untuk di-crop
+    const activeUrlRef = useRef(null);
+
+    const [src, setSrc] = useState(null); // Object URL sumber untuk di-crop
+    const [fileType, setFileType] = useState('jpg'); // 'png' atau 'jpg'
     const [open, setOpen] = useState(false); // modal crop terbuka?
     const [crop, setCrop] = useState(null); // react-image-crop state
     const [croppedPx, setCroppedPx] = useState(null);
@@ -34,6 +37,17 @@ export default function ImageUploader({
 
     // State untuk memantau gambar terakhir yang diunggah di sesi ini secara reaktif
     const [lastImage, setLastImage] = useState(window.__lastUploadedImageSrc || null);
+
+    function cleanupUrl() {
+        if (activeUrlRef.current && activeUrlRef.current.startsWith('blob:')) {
+            URL.revokeObjectURL(activeUrlRef.current);
+            activeUrlRef.current = null;
+        }
+    }
+
+    useEffect(() => {
+        return () => cleanupUrl();
+    }, []);
 
     useEffect(() => {
         const handleUpdate = () => {
@@ -52,7 +66,7 @@ export default function ImageUploader({
                 x: pixelCrop.x * scaleX,
                 y: pixelCrop.y * scaleY,
                 width: pixelCrop.width * scaleX,
-                height: pixelCrop.height * scaleY
+                height: pixelCrop.height * scaleY,
             });
         }
     }, []);
@@ -78,29 +92,39 @@ export default function ImageUploader({
         const file = e.target.files?.[0];
         if (!file) return;
         if (file.size > 10 * 1024 * 1024) {
-            toast.error('Maksimal 10 MB');
+            toast.error('Maksimal ukuran file adalah 10 MB');
             return;
         }
-        const reader = new FileReader();
-        reader.onload = () => {
-            const rawSrc = reader.result;
-            const img = new Image();
-            img.onload = () => {
-                window.__lastUploadedImageSrc = rawSrc;
-                window.__lastUploadedImageName = file.name;
-                window.dispatchEvent(new CustomEvent('last-image-updated'));
 
-                const calculatedAspect = img.width / img.height;
-                setSrc(rawSrc);
-                setImageAspect(calculatedAspect);
-                setCropAspect(aspect);
-                setCroppedPx(null);
-                setZoom(1);
-                setOpen(true);
-            };
-            img.src = rawSrc;
+        cleanupUrl();
+
+        const isPng = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
+        setFileType(isPng ? 'png' : 'jpg');
+
+        // Gunakan ObjectURL untuk pemuatan instan (0 ms) tanpa freeze memori
+        const objectUrl = URL.createObjectURL(file);
+        activeUrlRef.current = objectUrl;
+
+        const img = new Image();
+        img.onload = () => {
+            window.__lastUploadedImageSrc = objectUrl;
+            window.__lastUploadedImageName = file.name;
+            window.__lastUploadedIsPng = isPng;
+            window.dispatchEvent(new CustomEvent('last-image-updated'));
+
+            const calculatedAspect = img.width / img.height;
+            setSrc(objectUrl);
+            setImageAspect(calculatedAspect);
+            setCropAspect(aspect);
+            setCroppedPx(null);
+            setZoom(1);
+            setOpen(true);
         };
-        reader.readAsDataURL(file);
+        img.onerror = () => {
+            toast.error('Gagal membaca gambar yang dipilih');
+            cleanupUrl();
+        };
+        img.src = objectUrl;
         e.target.value = ''; // allow selecting same file again
     }
 
@@ -110,6 +134,7 @@ export default function ImageUploader({
         setCrop(null);
         setCroppedPx(null);
         setZoom(1);
+        cleanupUrl();
     }
 
     // Mengubah aspek rasio crop secara dinamis
@@ -128,13 +153,15 @@ export default function ImageUploader({
         }
     }, [cropAspect, open]);
 
-    // Putar gambar 90 derajat searah jarum jam secara lossless (PNG canvas)
+    // Putar gambar 90 derajat searah jarum jam secara instan tanpa freeze
     async function handleRotate() {
         if (!src) return;
         try {
-            const rotatedBase64 = await rotateImageLossless(src);
-            setSrc(rotatedBase64);
-            
+            const rotatedBlobUrl = await rotateImageFast(src, fileType);
+            cleanupUrl();
+            activeUrlRef.current = rotatedBlobUrl;
+            setSrc(rotatedBlobUrl);
+
             const nextImgAspect = 1 / imageAspect;
             setImageAspect(nextImgAspect);
 
@@ -160,7 +187,7 @@ export default function ImageUploader({
         if (!croppedPx || !src) return;
         setUploading(true);
         try {
-            const { blob, ext } = await getCroppedBlob(src, croppedPx);
+            const { blob, ext } = await getCroppedBlob(src, croppedPx, fileType === 'png');
             const fd = new FormData();
             fd.append('file', blob, `crop-${Date.now()}.${ext}`);
             fd.append('purpose', purpose);
@@ -232,10 +259,12 @@ export default function ImageUploader({
                                 const img = new Image();
                                 img.onload = () => {
                                     const calculatedAspect = img.width / img.height;
+                                    setFileType(window.__lastUploadedIsPng ? 'png' : 'jpg');
                                     setSrc(lastImage);
                                     setImageAspect(calculatedAspect);
                                     setCropAspect(aspect);
                                     setCroppedPx(null);
+                                    setZoom(1);
                                     setOpen(true);
                                 };
                                 img.src = lastImage;
@@ -506,22 +535,23 @@ function centerFreeCrop(mediaWidth, mediaHeight) {
 
 /**
  * Single-pass canvas export: crop & scale (max 2400px longest side, no upscale).
- * Detects transparency or PNG input to output PNG, otherwise JPEG 0.92.
+ * Preserves PNG format for PNG files, JPEG 0.92 for photos/opaque graphics.
  */
-async function getCroppedBlob(imageSrc, areaPx) {
+async function getCroppedBlob(imageSrc, areaPx, isPng = false) {
     const image = await loadImage(imageSrc);
-    
-    // High-DPI Supersampling: multiply pixel density for small crop areas to prevent blur in PDF/print
-    const longestSide = Math.max(areaPx.width, areaPx.height);
-    let scale = 1;
-    if (longestSide > 0 && longestSide < 1400) {
-        scale = Math.min(3, 1400 / longestSide);
+
+    const origWidth = Math.round(areaPx.width);
+    const origHeight = Math.round(areaPx.height);
+
+    if (origWidth <= 0 || origHeight <= 0) {
+        throw new Error('Area potong gambar tidak valid');
     }
 
-    let targetWidth = areaPx.width * scale;
-    let targetHeight = areaPx.height * scale;
     const maxDim = 2400;
+    let targetWidth = origWidth;
+    let targetHeight = origHeight;
 
+    // Scale DOWN only if exceeds maxDim (No Upscaling to prevent blur & slow rendering)
     if (targetWidth > maxDim || targetHeight > maxDim) {
         if (targetWidth > targetHeight) {
             targetHeight = Math.round((targetHeight * maxDim) / targetWidth);
@@ -533,41 +563,15 @@ async function getCroppedBlob(imageSrc, areaPx) {
     }
 
     const cropCanvas = document.createElement('canvas');
-    cropCanvas.width = Math.round(targetWidth);
-    cropCanvas.height = Math.round(targetHeight);
+    cropCanvas.width = targetWidth;
+    cropCanvas.height = targetHeight;
     const cropCtx = cropCanvas.getContext('2d');
 
-    // Enable high-quality bicubic canvas interpolation
+    // High quality bicubic interpolation
     cropCtx.imageSmoothingEnabled = true;
     cropCtx.imageSmoothingQuality = 'high';
 
-    // Sample alpha transparency from source area or check data URI mime
-    const isPngInput = typeof imageSrc === 'string' && (imageSrc.startsWith('data:image/png') || imageSrc.includes('type=png'));
-    let hasAlpha = isPngInput;
-
-    if (!hasAlpha) {
-        // Quick sample test of source canvas alpha
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = Math.min(200, Math.round(areaPx.width));
-        tempCanvas.height = Math.min(200, Math.round(areaPx.height));
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.imageSmoothingEnabled = true;
-        tempCtx.imageSmoothingQuality = 'high';
-        tempCtx.drawImage(image, areaPx.x, areaPx.y, areaPx.width, areaPx.height, 0, 0, tempCanvas.width, tempCanvas.height);
-        try {
-            const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
-            for (let i = 3; i < imgData.length; i += 16) {
-                if (imgData[i] < 250) {
-                    hasAlpha = true;
-                    break;
-                }
-            }
-        } catch {
-            // fallback safe
-        }
-    }
-
-    const outputMime = hasAlpha ? 'image/png' : 'image/jpeg';
+    const outputMime = isPng ? 'image/png' : 'image/jpeg';
 
     if (outputMime === 'image/png') {
         cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
@@ -579,14 +583,14 @@ async function getCroppedBlob(imageSrc, areaPx) {
     cropCtx.drawImage(
         image,
         areaPx.x, areaPx.y, areaPx.width, areaPx.height, // source
-        0, 0, cropCanvas.width, cropCanvas.height // target (supersampled)
+        0, 0, cropCanvas.width, cropCanvas.height // target
     );
 
     return new Promise((resolve, reject) => {
         cropCanvas.toBlob(
-            (blob) => blob ? resolve({ blob, ext: hasAlpha ? 'png' : 'jpg', mime: outputMime }) : reject(new Error('Canvas export failed')),
+            (blob) => blob ? resolve({ blob, ext: isPng ? 'png' : 'jpg', mime: outputMime }) : reject(new Error('Gagal memproses canvas gambar')),
             outputMime,
-            outputMime === 'image/jpeg' ? 0.95 : undefined
+            outputMime === 'image/jpeg' ? 0.92 : undefined
         );
     });
 }
@@ -602,20 +606,38 @@ function loadImage(src) {
 }
 
 /**
- * Lossless PNG rotation in browser memory without lossy re-encoding loops.
+ * Instant in-memory 90° rotation via canvas + Blob ObjectURL.
+ * Keeps memory low and avoids freezing the JS thread with giant base64 strings.
  */
-async function rotateImageLossless(imageSrc) {
+async function rotateImageFast(imageSrc, fileType) {
     const image = await loadImage(imageSrc);
     const canvas = document.createElement('canvas');
-    
+
     canvas.width = image.height;
     canvas.height = image.width;
     const ctx = canvas.getContext('2d');
-    
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.rotate((90 * Math.PI) / 180);
-    ctx.translate(-image.width / 2, -image.height / 2);
-    ctx.drawImage(image, 0, 0);
-    
-    return canvas.toDataURL('image/png');
+    ctx.drawImage(image, -image.width / 2, -image.height / 2);
+
+    const isPng = fileType === 'png';
+    const mime = isPng ? 'image/png' : 'image/jpeg';
+
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(
+            (blob) => {
+                if (blob) {
+                    resolve(URL.createObjectURL(blob));
+                } else {
+                    reject(new Error('Gagal memutar gambar'));
+                }
+            },
+            mime,
+            mime === 'image/jpeg' ? 0.92 : undefined
+        );
+    });
 }

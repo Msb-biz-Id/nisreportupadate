@@ -35,19 +35,18 @@ class HandleInertiaRequests extends Middleware
             $canSeeAllGlobalBrands = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']);
             $nameCol = 'nama_brand';
 
-            if ($canSeeAllGlobalBrands) {
-                $availableBrands = Brand::orderBy($nameCol)->get([
-                    'id', 'nama_brand', 'kode', 'warna_primary', 'is_active',
-                ]);
-            } elseif ($user->hasRole('admin_reseller')) {
-                $availableBrands = $user->brands()
+            $cacheKey = $canSeeAllGlobalBrands ? 'global_available_brands' : "user_available_brands:{$user->id}";
+            $rawBrands = Cache::remember($cacheKey, 300, function () use ($user, $canSeeAllGlobalBrands, $nameCol) {
+                if ($canSeeAllGlobalBrands) {
+                    return Brand::orderBy($nameCol)->get([
+                        'id', 'nama_brand', 'kode', 'warna_primary', 'is_active',
+                    ]);
+                }
+                return $user->brands()
                     ->orderBy($nameCol)
                     ->get(['brands.id', 'nama_brand', 'kode', 'warna_primary', 'is_active']);
-            } else {
-                $availableBrands = $user->brands()
-                    ->orderBy($nameCol)
-                    ->get(['brands.id', 'nama_brand', 'kode', 'warna_primary', 'is_active']);
-            }
+            });
+            $availableBrands = collect($rawBrands);
 
             if ($canSeeAllGlobalBrands || $availableBrands->count() > 1) {
                 $allBrand = new Brand();

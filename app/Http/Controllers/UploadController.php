@@ -101,7 +101,7 @@ class UploadController extends Controller
     }
 
     /**
-     * Kompres file gambar di disk tanpa mengorbankan kualitas visual (Lossless/High-Quality Compression).
+     * Kompres dan batasi resolusi file gambar jika melebihi batas maksimum 2400px.
      */
     private function optimizeUploadedImage(string $filePath, string $ext): void
     {
@@ -115,32 +115,40 @@ class UploadController extends Controller
             $height = $info[1];
             $mime = $info['mime'];
 
-            // Hanya optimasi jika file berukuran besar (> 400KB atau lebar/tinggi > 2000px)
-            if (filesize($filePath) < 400 * 1024 && $width <= 2000 && $height <= 2000) {
+            // Jika dimensi sudah di dalam batas wajar (<= 2400px), tidak perlu proses ulang GD
+            $maxDim = 2400;
+            if ($width <= $maxDim && $height <= $maxDim) {
+                // Hanya perbaiki orientasi EXIF untuk JPEG jika ada tag orientasi kamera
+                if ($mime === 'image/jpeg' && function_exists('exif_read_data')) {
+                    $exif = @exif_read_data($filePath);
+                    $orientation = $exif['Orientation'] ?? 1;
+                    if (in_array($orientation, [3, 6, 8])) {
+                        $image = @imagecreatefromjpeg($filePath);
+                        if ($image) {
+                            $angle = match ($orientation) {
+                                3 => 180,
+                                6 => -90,
+                                8 => 90,
+                                default => 0,
+                            };
+                            $rotated = @imagerotate($image, $angle, 0);
+                            if ($rotated) {
+                                imagedestroy($image);
+                                @imagejpeg($rotated, $filePath, 92);
+                                imagedestroy($rotated);
+                            } else {
+                                imagedestroy($image);
+                            }
+                        }
+                    }
+                }
                 return;
             }
 
+            // Jika melebihi 2400px (misal upload langsung tanpa crop), resize secara proporsional
             switch ($mime) {
                 case 'image/jpeg':
                     $image = @imagecreatefromjpeg($filePath);
-                    if ($image && function_exists('exif_read_data')) {
-                        $exif = @exif_read_data($filePath);
-                        $orientation = $exif['Orientation'] ?? 1;
-                        switch ($orientation) {
-                            case 3:
-                                $rotated = @imagerotate($image, 180, 0);
-                                if ($rotated) { imagedestroy($image); $image = $rotated; }
-                                break;
-                            case 6:
-                                $rotated = @imagerotate($image, -90, 0);
-                                if ($rotated) { imagedestroy($image); $image = $rotated; }
-                                break;
-                            case 8:
-                                $rotated = @imagerotate($image, 90, 0);
-                                if ($rotated) { imagedestroy($image); $image = $rotated; }
-                                break;
-                        }
-                    }
                     break;
                 case 'image/png':
                     $image = @imagecreatefrompng($filePath);
@@ -156,28 +164,28 @@ class UploadController extends Controller
                     $image = null;
             }
 
-            if (function_exists('imagesetinterpolation')) {
-                @imagesetinterpolation($image, IMG_BICUBIC);
+            if (!$image) return;
+
+            if ($width > $height) {
+                $newWidth = $maxDim;
+                $newHeight = (int) (($height / $width) * $maxDim);
+            } else {
+                $newHeight = $maxDim;
+                $newWidth = (int) (($width / $height) * $maxDim);
             }
 
-            $maxWidth = 2000;
-            if ($width > $maxWidth) {
-                $newWidth = $maxWidth;
-                $newHeight = (int) (($height / $width) * $maxWidth);
-                $resized = imagescale($image, $newWidth, $newHeight, IMG_BICUBIC);
-                if ($resized) {
-                    imagedestroy($image);
-                    $image = $resized;
-                }
+            $resized = imagescale($image, $newWidth, $newHeight, IMG_BICUBIC);
+            if ($resized) {
+                imagedestroy($image);
+                $image = $resized;
             }
 
-            // Simpan kembali dengan kualitas tinggi (95%) tanpa mengorbankan ketajaman visual
             if ($mime === 'image/jpeg') {
-                @imagejpeg($image, $filePath, 95);
+                @imagejpeg($image, $filePath, 92);
             } elseif ($mime === 'image/png') {
-                @imagepng($image, $filePath, 6);
+                @imagepng($image, $filePath, 4);
             } elseif ($mime === 'image/webp') {
-                @imagewebp($image, $filePath, 95);
+                @imagewebp($image, $filePath, 90);
             }
 
             imagedestroy($image);

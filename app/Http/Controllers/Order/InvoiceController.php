@@ -379,15 +379,6 @@ class InvoiceController extends Controller
             'order.items:id,order_id,quantity,harga_satuan,discount_amount'
         ]);
 
-        $allFiltered = (clone $tabQuery)->with([
-                'order:id,no_po,pelanggan_id,total_tagihan', 
-                'order.pelanggan:id,nama',
-                'order.payments.masterJenisPembayaran'
-            ])
-            ->orderByDesc('created_at')
-            ->get(['id', 'invoice_number', 'order_id', 'tanggal_terbit', 'total_tagihan', 'sisa_pembayaran', 'status'])
-            ->map(fn ($inv) => $this->formatInvoiceForList($inv));
-
         $perPage = $request->integer('per_page', 15);
         if (!in_array($perPage, [10, 25, 50, 100, 250])) {
             $perPage = 15;
@@ -403,7 +394,6 @@ class InvoiceController extends Controller
 
         return Inertia::render('Finance/InvoiceList', [
             'invoices' => $invoices,
-            'all_filtered_invoices' => $allFiltered,
             'brands' => $brands,
             'design_deposits' => $designDeposits,
             'available_orders' => $availableOrders,
@@ -431,7 +421,51 @@ class InvoiceController extends Controller
         ]);
     }
 
-    private function formatInvoiceForList(Invoice $inv): array
+    public function exportTsv(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || (!$user->can('finance.view') && !$user->isSuperadmin() && !$user->hasRole('admin_keuangan'))) {
+            abort(403);
+        }
+
+        $selectedBrandId = $request->input('brand_id');
+        if (is_null($selectedBrandId) || $selectedBrandId === '' || $selectedBrandId === 'all') {
+            $selectedBrandId = 'all';
+        }
+
+        $userBrandIds = $user->brands()->pluck('brands.id')->toArray();
+        $isAllBrandsRole = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']);
+
+        $tab = $request->string('tab', 'belum_lunas')->toString();
+        if (!in_array($tab, ['belum_lunas', 'sudah_lunas', 'tanda_jadi'])) {
+            $tab = 'belum_lunas';
+        }
+
+        $paymentTypeFilter = $request->string('payment_type_filter')->toString();
+        $baseQuery = $this->buildBaseInvoiceQuery($request, $selectedBrandId, $userBrandIds, $isAllBrandsRole, $paymentTypeFilter);
+
+        $tabQuery = clone $baseQuery;
+        if ($tab === 'belum_lunas') {
+            $tabQuery->where('status', '!=', 'paid')->where('sisa_pembayaran', '>', 0);
+        } elseif ($tab === 'sudah_lunas') {
+            $tabQuery->where(fn($q) => $q->where('status', 'paid')->orWhere('sisa_pembayaran', '<=', 0));
+        } elseif ($tab === 'tanda_jadi') {
+            $tabQuery->whereRaw('1 = 0');
+        }
+
+        $invoices = $tabQuery->with([
+                'order:id,no_po,pelanggan_id,total_tagihan', 
+                'order.pelanggan:id,nama',
+                'order.payments.masterJenisPembayaran'
+            ])
+            ->orderByDesc('created_at')
+            ->get(['id', 'invoice_number', 'order_id', 'tanggal_terbit', 'total_tagihan', 'sisa_pembayaran', 'status'])
+            ->map(fn ($inv) => $this->formatInvoiceForList($inv));
+
+        return response()->json(['invoices' => $invoices]);
+    }
+
+    private function formatInvoiceForList(mixed $inv): array
     {
         $payments = $inv->order?->payments ?? collect();
         
@@ -544,7 +578,7 @@ class InvoiceController extends Controller
             });
         }
 
-        return $depositsQuery->get();
+        return $depositsQuery->limit(100)->get();
     }
 
     private function getAvailableOrders(mixed $selectedBrandId, array $userBrandIds, bool $isAllBrandsRole)
@@ -554,6 +588,7 @@ class InvoiceController extends Controller
             ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn ($q) => $q->whereIn('brand_id', $userBrandIds))
             ->whereDoesntHave('invoices')
             ->orderByDesc('created_at')
+            ->limit(100)
             ->get(['id', 'no_po', 'nama_po', 'total_tagihan']);
     }
 
@@ -587,6 +622,7 @@ class InvoiceController extends Controller
         return \App\Models\Master\Customer::where('is_active', true)
             ->whereIn('brand_id', $userBrandIds)
             ->orderBy('nama')
+            ->limit(300)
             ->get(['id', 'nama', 'brand_id']);
     }
 

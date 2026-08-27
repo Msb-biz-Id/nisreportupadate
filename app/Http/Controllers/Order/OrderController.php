@@ -1957,21 +1957,27 @@ class OrderController extends Controller
         $prioritasCol = 'prioritas';
         $jenisPolaCol = 'jenis_pola';
         $urutanCol = 'urutan';
-        return [
-            'jenis_setelan'  => JenisSetelan::active()->orderBy($namaCol)->get(['id', 'nama', 'deskripsi']),
-            'model_produksi'  => ModelProduksi::active()->orderBy($namaCol)->get(['id', 'nama', 'deskripsi']),
-            'jenis_produk'  => JenisProduk::active()->orderBy($namaCol)->get(['id', 'nama']),
-            'paket_orders'  => PaketOrder::active()->orderBy($prioritasCol)->orderBy($namaCol)->get(['id', 'nama', 'warna', 'prioritas']),
+
+        $staticMasters = \Illuminate\Support\Facades\Cache::remember('master_production_static', 300, function () use ($namaCol, $prioritasCol, $jenisPolaCol, $urutanCol) {
+            return [
+                'jenis_setelan'  => JenisSetelan::active()->orderBy($namaCol)->get(['id', 'nama', 'deskripsi']),
+                'model_produksi'  => ModelProduksi::active()->orderBy($namaCol)->get(['id', 'nama', 'deskripsi']),
+                'jenis_produk'  => JenisProduk::active()->orderBy($namaCol)->get(['id', 'nama']),
+                'paket_orders'  => PaketOrder::active()->orderBy($prioritasCol)->orderBy($namaCol)->get(['id', 'nama', 'warna', 'prioritas']),
+                'bahan_kains' => BahanKain::active()->orderBy($namaCol)->get(['id', 'nama']),
+                'logos' => Logo::active()->orderBy($namaCol)->get(['id', 'nama']),
+                'printings' => Printing::active()->orderBy($namaCol)->get(['id', 'nama']),
+                'resletings' => Resleting::active()->orderBy($namaCol)->get(['id', 'nama']),
+                'pola_jahitans' => PolaJahitan::active()->orderBy($jenisPolaCol)->orderBy($namaCol)->get(['id', 'jenis_pola', 'nama']),
+                'pola_jahitans_lengan' => PolaJahitan::active()->where($jenisPolaCol, 'like', '%Lengan%')->orderBy($namaCol)->get(['id', 'jenis_pola', 'nama']),
+                'sizes' => Size::active()->orderBy($urutanCol)->get(['id', 'ukuran']),
+                'ekspedisis' => \App\Models\Master\Ekspedisi::active()->orderBy($namaCol)->get(['id', 'nama', 'deskripsi']),
+            ];
+        });
+
+        return array_merge($staticMasters, [
             'produk' => Product::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama', 'harga']),
-            'bahan_kains' => BahanKain::active()->orderBy($namaCol)->get(['id', 'nama']),
-            'logos' => Logo::active()->orderBy($namaCol)->get(['id', 'nama']),
-            'printings' => Printing::active()->orderBy($namaCol)->get(['id', 'nama']),
-            'resletings' => Resleting::active()->orderBy($namaCol)->get(['id', 'nama']),
-            'pola_jahitans' => PolaJahitan::active()->orderBy($jenisPolaCol)->orderBy($namaCol)->get(['id', 'jenis_pola', 'nama']),
-            'pola_jahitans_lengan' => PolaJahitan::active()->where($jenisPolaCol, 'like', '%Lengan%')->orderBy($namaCol)->get(['id', 'jenis_pola', 'nama']),
-            'sizes' => Size::active()->orderBy($urutanCol)->get(['id', 'ukuran']),
-            'ekspedisis' => \App\Models\Master\Ekspedisi::active()->orderBy($namaCol)->get(['id', 'nama', 'deskripsi']),
-        ];
+        ]);
     }
 
     /**
@@ -2200,11 +2206,20 @@ class OrderController extends Controller
 
             $created = OrderItem::create($item);
 
+            $batchNamesets = [];
+            $now = now();
             foreach ($namesets as $idx => $ns) {
                 unset($ns['_original_index']);
+                $ns['id'] = (string) \Illuminate\Support\Str::uuid();
                 $ns['order_item_id'] = $created->id;
                 $ns['urutan'] = $idx;
-                OrderNameset::create($ns);
+                $ns['created_at'] = $now;
+                $ns['updated_at'] = $now;
+                $batchNamesets[] = $ns;
+            }
+
+            if (!empty($batchNamesets)) {
+                OrderNameset::insert($batchNamesets);
             }
         }
     }

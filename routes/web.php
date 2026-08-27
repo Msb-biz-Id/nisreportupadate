@@ -171,6 +171,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('invoices')->name('invoices.')->group(function () {
         Route::get('/', [InvoiceController::class, 'index'])->name('index');
         Route::get('/list', [InvoiceController::class, 'list'])->name('list');
+        Route::get('/export-tsv', [InvoiceController::class, 'exportTsv'])->name('export-tsv');
         Route::get('/payments/pending', [InvoiceController::class, 'paymentsPending'])->name('payments.pending');
         Route::post('/payments/{payment}/verify', [InvoiceController::class, 'verifyPayment'])->name('payments.verify');
         Route::put('/payments/{payment}', [InvoiceController::class, 'updatePayment'])->name('payments.update');
@@ -219,7 +220,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/backup', [\App\Http\Controllers\BackupController::class, 'index'])->name('backup');
         Route::get('/backup/download', [\App\Http\Controllers\BackupController::class, 'download'])->name('backup.download');
         Route::post('/backup/cleanup', [\App\Http\Controllers\BackupController::class, 'cleanUp'])->name('backup.cleanup');
-        Route::post('/backup/run', [\App\Http\Controllers\BackupController::class, 'runBackup'])->name('backup.run');
         Route::get('/notifikasi', [SettingsController::class, 'notifications'])->name('notifikasi');
 
         Route::put('/integrasi/ai', [SettingsController::class, 'updateAi'])->name('integrasi.ai');
