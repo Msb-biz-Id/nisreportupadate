@@ -161,6 +161,7 @@ class ProductionController extends Controller
                 'hold'             => ['label' => 'Hold',             'color' => '#F97316', 'orders' => []],
             ];
 
+            /** @var \App\Models\Order\Order $order */
             foreach ($orders as $order) {
                 $status = $order->status_po;
                 // Delay orders are in production workflow, map them to on_progress column

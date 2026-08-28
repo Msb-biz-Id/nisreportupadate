@@ -183,7 +183,10 @@ class OrderController extends Controller
             $query->where('tanggal_masuk', '<=', $dateTo . ' 23:59:59');
         }
 
-        return $query->orderByDesc('created_at');
+        /** @var \Illuminate\Database\Eloquent\Builder $query */
+        $query = $query->orderByDesc('created_at');
+
+        return $query;
     }
 
     private function getStatusCounts(Request $request, mixed $effectiveId, string $tab, \App\Models\User $user, bool $canSeeMultiBrand, string $filterBrandId): array
@@ -2209,13 +2212,26 @@ class OrderController extends Controller
             $batchNamesets = [];
             $now = now();
             foreach ($namesets as $idx => $ns) {
-                unset($ns['_original_index']);
-                $ns['id'] = (string) \Illuminate\Support\Str::uuid();
-                $ns['order_item_id'] = $created->id;
-                $ns['urutan'] = $idx;
-                $ns['created_at'] = $now;
-                $ns['updated_at'] = $now;
-                $batchNamesets[] = $ns;
+                $batchNamesets[] = [
+                    'id' => (string) \Illuminate\Support\Str::uuid(),
+                    'order_item_id' => $created->id,
+                    'nama_punggung' => $ns['nama_punggung'] ?? null,
+                    'nomor_punggung' => $ns['nomor_punggung'] ?? null,
+                    'nama_dada' => $ns['nama_dada'] ?? null,
+                    'nomor_dada' => $ns['nomor_dada'] ?? null,
+                    'nama_lengan' => $ns['nama_lengan'] ?? null,
+                    'nomor_lengan' => $ns['nomor_lengan'] ?? null,
+                    'nomor_punggung_2' => $ns['nomor_punggung_2'] ?? null,
+                    'nama_punggung_2' => $ns['nama_punggung_2'] ?? null,
+                    'size_id' => !empty($ns['size_id']) ? $ns['size_id'] : null,
+                    'size_label' => $ns['size_label'] ?? null,
+                    'size_celana_id' => !empty($ns['size_celana_id']) ? $ns['size_celana_id'] : null,
+                    'size_celana_label' => $ns['size_celana_label'] ?? null,
+                    'keterangan' => $ns['keterangan'] ?? null,
+                    'urutan' => $idx,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
             }
 
             if (!empty($batchNamesets)) {
