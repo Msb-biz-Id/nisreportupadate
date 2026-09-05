@@ -277,209 +277,220 @@ export default function FoPreview({ order, printings, printingStr: propPrintingS
                         </div>
                     )}
 
-                    {/* Keterangan Material */}
-                    {nonAddonItems.length > 0 && (
-                        <div className="mb-4">
-                            <div className="font-black text-[14px] mb-1">KETERANGAN MATERIAL</div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full border-collapse border border-black">
-                                    <thead>
-                                        <tr className="bg-slate-300 font-bold">
-                                            <th className="border border-black p-1.5 text-left w-1/4">JENIS PESANAN</th>
-                                            {nonAddonItems.map(item => (
-                                                <th key={item.id} className="border border-black p-1.5 text-center normal-case">
-                                                    {item.varian_label || item.nama_produk}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {/* JENIS SETELAN */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">JENIS SETELAN</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.jenis_setelan?.nama || item.jenis_setelan || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        {/* POLA */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">MODEL</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.model_produksi?.nama || item.model || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        {/* BAHAN ATASAN */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">BAHAN ATASAN</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.bahan_kains_names || item.bahan_kain?.nama || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        {/* BAHAN BAWAHAN */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">BAHAN BAWAHAN</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.bahan_kain_bawahan_names || item.bahan_kain_bawahan?.nama || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        {/* JUMLAH ATASAN */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">JUMLAH ATASAN</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.jml_atasan !== null && item.jml_atasan !== undefined && item.jml_atasan !== '' ? item.jml_atasan : ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        {/* JUMLAH BAWAHAN */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">JUMLAH BAWAHAN</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.jml_bawahan || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        {/* WARNA */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">WARNA</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.warna || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        {/* JENIS LOGO */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">JENIS LOGO</td>
-                                            {nonAddonItems.map(item => {
-                                                const logoStr = item.logo_names && item.logo_names.length > 0
-                                                    ? item.logo_names.join(', ')
-                                                    : (item.logo?.nama || '');
-                                                return (
-                                                    <td key={item.id} className="border border-black p-1.5 text-center">
-                                                        {logoStr}
-                                                    </td>
-                                                );
-                                            })}
-                                        </tr>
-                                        {/* JENIS RIB */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">JENIS RIB</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.jenis_rib || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        {/* LIST KERAH */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">LIST KERAH</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.list_kerah || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        {/* LIST LENGAN */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">LIST LENGAN</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.list_lengan || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        {/* LIST SAMPING CELANA */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">LIST SAMPING CELANA</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.list_samping_celana || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        {/* LIST BAWAH CELANA */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">LIST BAWAH CELANA</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.list_bawah_celana || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        {/* TUTUP KERAH */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold bg-slate-100">TUTUP KERAH</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.tutup_kerah || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
+                    {/* Keterangan Material & Jahitan (Chunked max 4 variants per table) */}
+                    {nonAddonItems.length > 0 && (() => {
+                        const itemChunks = chunkArray(nonAddonItems, 4);
+                        const hasMultipleChunks = nonAddonItems.length > 4;
 
-                    {/* Keterangan Jahitan */}
-                    {nonAddonItems.length > 0 && (
-                        <div className="mb-4">
-                            <div className="font-black text-[14px] mb-1">KETERANGAN JAHITAN</div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full border-collapse border border-black">
-                                    <thead>
-                                        <tr className="bg-slate-300 font-bold">
-                                            <th className="border border-black p-1.5 text-left w-1/4">JAHITAN / DETAIL</th>
-                                            {nonAddonItems.map(item => (
-                                                <th key={item.id} className="border border-black p-1.5 text-center normal-case">
-                                                    {item.varian_label || item.nama_produk}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {/* POLA JAHITAN */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold text-left bg-slate-100">POLA JAHITAN</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.pola_jahitan?.nama || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        {/* JAHITAN LIST LENGAN */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold text-left bg-slate-100">JAHITAN LIST LENGAN</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.pola_jahitan_lengan?.nama || item.jahitan_list_lengan || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        {/* JENIS RESLETING */}
-                                        <tr>
-                                            <td className="border border-black p-1.5 font-bold text-left bg-slate-100">JENIS RESLETING</td>
-                                            {nonAddonItems.map(item => (
-                                                <td key={item.id} className="border border-black p-1.5 text-center">
-                                                    {item.resleting?.nama || ''}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
+                        return itemChunks.map((chunkItems, chunkIndex) => {
+                            const firstLabel = chunkItems[0]?.varian_label || chunkItems[0]?.nama_produk || '';
+                            const lastLabel = chunkItems[chunkItems.length - 1]?.varian_label || chunkItems[chunkItems.length - 1]?.nama_produk || '';
+
+                            return (
+                                <div key={`spec-chunk-${chunkIndex}`} className="mb-4">
+                                    {/* Keterangan Material */}
+                                    <div className="font-black text-[14px] mb-1">
+                                        KETERANGAN MATERIAL {hasMultipleChunks ? `(BAGIAN ${chunkIndex + 1}: ${firstLabel.toUpperCase()} - ${lastLabel.toUpperCase()})` : ''}
+                                    </div>
+                                    <div className="overflow-x-auto mb-4">
+                                        <table className="w-full table-fixed border-collapse border border-black text-[11px] leading-tight">
+                                            <thead>
+                                                <tr className="bg-slate-300 font-bold">
+                                                    <th className="border border-black p-1.5 text-left w-1/4">JENIS PESANAN</th>
+                                                    {chunkItems.map(item => (
+                                                        <th key={item.id} className="border border-black p-1.5 text-center normal-case break-words">
+                                                            {item.varian_label || item.nama_produk}
+                                                        </th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {/* JENIS SETELAN */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold bg-slate-100">JENIS SETELAN</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.jenis_setelan?.nama || item.jenis_setelan || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                                {/* POLA */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold bg-slate-100">MODEL</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.model_produksi?.nama || item.model || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                                {/* BAHAN ATASAN */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold bg-slate-100">BAHAN ATASAN</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.bahan_kains_names || item.bahan_kain?.nama || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                                {/* BAHAN BAWAHAN */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold bg-slate-100">BAHAN BAWAHAN</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.bahan_kain_bawahan_names || item.bahan_kain_bawahan?.nama || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                                {/* JUMLAH ATASAN */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold bg-slate-100">JUMLAH ATASAN</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.jml_atasan !== null && item.jml_atasan !== undefined && item.jml_atasan !== '' ? item.jml_atasan : ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                                {/* JUMLAH BAWAHAN */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold bg-slate-100">JUMLAH BAWAHAN</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.jml_bawahan || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                                {/* WARNA */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold bg-slate-100">WARNA</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.warna || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                                {/* JENIS LOGO */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold bg-slate-100">JENIS LOGO</td>
+                                                    {chunkItems.map(item => {
+                                                        const logoStr = item.logo_names && item.logo_names.length > 0
+                                                            ? item.logo_names.join(', ')
+                                                            : (item.logo?.nama || '');
+                                                        return (
+                                                            <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                                {logoStr}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+                                                {/* JENIS RIB */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold bg-slate-100">JENIS RIB</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.jenis_rib || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                                {/* LIST KERAH */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold bg-slate-100">LIST KERAH</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.list_kerah || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                                {/* LIST LENGAN */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold bg-slate-100">LIST LENGAN</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.list_lengan || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                                {/* LIST SAMPING CELANA */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold bg-slate-100">LIST SAMPING CELANA</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.list_samping_celana || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                                {/* LIST BAWAH CELANA */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold bg-slate-100">LIST BAWAH CELANA</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.list_bawah_celana || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                                {/* TUTUP KERAH */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold bg-slate-100">TUTUP KERAH</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.tutup_kerah || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Keterangan Jahitan */}
+                                    <div className="font-black text-[14px] mb-1">
+                                        KETERANGAN JAHITAN {hasMultipleChunks ? `(BAGIAN ${chunkIndex + 1}: ${firstLabel.toUpperCase()} - ${lastLabel.toUpperCase()})` : ''}
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full table-fixed border-collapse border border-black text-[11px] leading-tight">
+                                            <thead>
+                                                <tr className="bg-slate-300 font-bold">
+                                                    <th className="border border-black p-1.5 text-left w-1/4">JAHITAN / DETAIL</th>
+                                                    {chunkItems.map(item => (
+                                                        <th key={item.id} className="border border-black p-1.5 text-center normal-case break-words">
+                                                            {item.varian_label || item.nama_produk}
+                                                        </th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {/* POLA JAHITAN */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold text-left bg-slate-100">POLA JAHITAN</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.pola_jahitan?.nama || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                                {/* JAHITAN LIST LENGAN */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold text-left bg-slate-100">JAHITAN LIST LENGAN</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.pola_jahitan_lengan?.nama || item.jahitan_list_lengan || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                                {/* JENIS RESLETING */}
+                                                <tr>
+                                                    <td className="border border-black p-1.5 font-bold text-left bg-slate-100">JENIS RESLETING</td>
+                                                    {chunkItems.map(item => (
+                                                        <td key={item.id} className="border border-black p-1.5 text-center break-words">
+                                                            {item.resleting?.nama || ''}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            );
+                        });
+                    })()}
 
                     {/* Referensi Desain & Nameset List per item */}
                     {/* Referensi Desain (Semua Item) */}

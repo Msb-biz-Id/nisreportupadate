@@ -205,16 +205,20 @@
             border: 1px solid #000;
             margin-bottom: 5px;
             width: 100%;
+            table-layout: fixed;
+            word-wrap: break-word;
             page-break-inside: avoid;
         }
 
         .spec-table th,
         .spec-table td {
             border: 1px solid #000;
-            padding: 3px 5px;
+            padding: 3px 4px;
             font-size: 8pt;
             text-align: center;
             font-weight: normal;
+            word-wrap: break-word;
+            overflow: hidden;
         }
 
         .spec-table th {
@@ -519,23 +523,24 @@
 
         {{-- ===== KETERANGAN MATERIAL & JAHITAN (CONSOLIDATED ON ONE PAGE) ===== --}}
         @if($nonAddonItems->isNotEmpty())
-            @foreach($nonAddonItems->chunk(8) as $chunkIndex => $chunkItems)
+            @foreach($nonAddonItems->chunk(4) as $chunkIndex => $chunkItems)
             @php
             $firstLabel = ($chunkItems->first()['varian_label'] ?? '') ?: ($chunkItems->first()['nama_produk'] ?? '');
             $lastLabel = ($chunkItems->last()['varian_label'] ?? '') ?: ($chunkItems->last()['nama_produk'] ?? '');
-            $hasMultipleChunks = $nonAddonItems->count() > 8;
+            $hasMultipleChunks = $nonAddonItems->count() > 4;
             @endphp
             <div style="page-break-inside: avoid; margin-bottom: 20px;">
                 {{-- ===== KETERANGAN MATERIAL (SIDE-BY-SIDE SPEC TABLE) ===== --}}
                 <div style="color: #000; font-weight: bold; font-size: 11pt; margin-bottom: 5px; text-transform: uppercase;">
                     KETERANGAN MATERIAL @if($hasMultipleChunks) (BAGIAN {{ $chunkIndex + 1 }}: {{ strtoupper($firstLabel) }} - {{ strtoupper($lastLabel) }}) @endif
                 </div>
+                @php $colWidth = round(75 / max(1, $chunkItems->count()), 2); @endphp
                 <table class="spec-table" style="margin-top:0;">
                     <thead>
                         <tr>
-                            <th style="width: 25%; text-align: left;">JENIS PESANAN</th>
+                            <th width="25%" style="text-align: left;">JENIS PESANAN</th>
                             @foreach($chunkItems as $item)
-                            <th>{{ ($item['varian_label'] ?? '') ?: ($item['nama_produk'] ?? '') }}</th>
+                            <th width="{{ $colWidth }}%">{{ ($item['varian_label'] ?? '') ?: ($item['nama_produk'] ?? '') }}</th>
                             @endforeach
                         </tr>
                     </thead>
@@ -638,9 +643,9 @@
                 <table class="spec-table" style="margin-bottom:15px;">
                     <thead>
                         <tr>
-                            <th style="text-align:left; width:25%;">JAHITAN / DETAIL</th>
+                            <th width="25%" style="text-align: left;">JAHITAN / DETAIL</th>
                             @foreach($chunkItems as $item)
-                            <th>{{ ($item['varian_label'] ?? '') ?: ($item['nama_produk'] ?? '') }}</th>
+                            <th width="{{ $colWidth }}%">{{ ($item['varian_label'] ?? '') ?: ($item['nama_produk'] ?? '') }}</th>
                             @endforeach
                         </tr>
                     </thead>

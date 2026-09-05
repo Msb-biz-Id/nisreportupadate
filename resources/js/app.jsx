@@ -20,14 +20,16 @@ router.on('invalid', (event) => {
         toast.error('Sesi Anda telah berakhir. Silakan muat ulang halaman (F5) dan login kembali.');
     } else if (jsonMessage) {
         toast.error(jsonMessage);
-    } else if (status === 406 || bodyText.includes('Imunify') || bodyText.includes('ModSecurity') || bodyText.includes('verifikasi') || bodyText.includes('shield') || bodyText.includes('Turnstile')) {
-        toast.error('Keamanan server (WAF/ModSecurity/Imunify360) di cPanel memblokir data. Silakan matikan ModSecurity di cPanel.');
+    } else if (status === 406 || bodyText.includes('Imunify360') || bodyText.includes('ModSecurity') || bodyText.includes('cf-turnstile') || bodyText.includes('cf-browser-verification')) {
+        toast.error('Keamanan server (WAF/ModSecurity/Imunify360) di cPanel memblokir data.');
     } else if (status === 403) {
-        toast.error('Akses ditolak (Error 403) atau sesi habis. Silakan muat ulang halaman (F5) dan periksa akses Anda.');
+        toast.error('Akses ditolak (Error 403) atau Anda tidak memiliki izin.');
+    } else if (status === 404) {
+        toast.error('Halaman atau data tidak ditemukan (Error 404).');
     } else if (status === 500) {
-        toast.error('Terjadi kesalahan internal pada server (Error 500). Silakan hubungi Developer.');
+        toast.error('Terjadi kesalahan internal pada server (Error 500). Silakan periksa log server.');
     } else {
-        toast.error('Koneksi terputus atau respon server tidak valid. Silakan coba kembali.');
+        toast.error(`Respon server tidak valid (${status || 'Koneksi terputus'}). Silakan muat ulang halaman (F5).`);
     }
 });
 

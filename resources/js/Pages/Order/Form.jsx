@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useMemo, useState, useEffect } from 'react';
-import { Save, Plus, Trash2, ChevronDown, ChevronUp, Settings2, Users, CreditCard, ClipboardPaste, Package2, FileDown, Copy, ArrowUp, ArrowDown } from 'lucide-react';
+import { Save, Plus, Trash2, ChevronDown, ChevronUp, Settings2, Users, CreditCard, ClipboardPaste, Package2, FileDown, Copy, ArrowUp, ArrowDown, History, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -1572,6 +1573,78 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
         })),
     });
 
+    // Auto-Save & Draft Recovery state
+    const draftStorageKey = isEdit ? `order_draft_edit_${order?.id}` : 'order_draft_create';
+    const [lastSavedTime, setLastSavedTime] = useState(null);
+    const [hasRecoverableDraft, setHasRecoverableDraft] = useState(false);
+    const [draftDataToRecover, setDraftDataToRecover] = useState(null);
+
+    // 1. Check for recoverable draft on initial mount
+    useEffect(() => {
+        try {
+            const rawDraft = localStorage.getItem(draftStorageKey);
+            if (rawDraft) {
+                const parsed = JSON.parse(rawDraft);
+                if (parsed && parsed.data) {
+                    const hasMeaningfulData = parsed.data.nama_po ||
+                        parsed.data.pelanggan_id ||
+                        (parsed.data.items && parsed.data.items.some(i => i.nama_produk || (i.namesets && i.namesets.length > 0)));
+                    
+                    if (hasMeaningfulData) {
+                        setDraftDataToRecover(parsed);
+                        setHasRecoverableDraft(true);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Failed to check draft from localStorage', e);
+        }
+    }, [draftStorageKey]);
+
+    // 2. Debounced auto-save to localStorage
+    useEffect(() => {
+        const hasData = data.nama_po ||
+            data.pelanggan_id ||
+            (data.items && data.items.some(i => i.nama_produk || (i.namesets && i.namesets.length > 0)));
+
+        if (!hasData) return;
+
+        const timer = setTimeout(() => {
+            try {
+                const payload = {
+                    data,
+                    timestamp: new Date().toISOString(),
+                };
+                localStorage.setItem(draftStorageKey, JSON.stringify(payload));
+                const now = new Date();
+                setLastSavedTime(now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+            } catch (e) {
+                console.error('Failed to auto-save draft', e);
+            }
+        }, 1500);
+
+        return () => clearTimeout(timer);
+    }, [data, draftStorageKey]);
+
+    function handleRestoreDraft() {
+        if (!draftDataToRecover || !draftDataToRecover.data) return;
+        setData((prev) => ({
+            ...prev,
+            ...draftDataToRecover.data,
+        }));
+        setHasRecoverableDraft(false);
+        toast.success('Draf berhasil dipulihkan!');
+    }
+
+    function handleDiscardDraft() {
+        try {
+            localStorage.removeItem(draftStorageKey);
+        } catch (e) {}
+        setHasRecoverableDraft(false);
+        setDraftDataToRecover(null);
+        toast.info('Draf lokal dibuang.');
+    }
+
     const filteredBanks = useMemo(() => {
         if (!masters.banks) return [];
         const activeId = data.branch_brand_id || current_brand_id;
@@ -1698,9 +1771,21 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
         }
 
         if (isEdit) {
-            put(route('orders.update', order.id));
+            put(route('orders.update', order.id), {
+                onSuccess: () => {
+                    try {
+                        localStorage.removeItem(draftStorageKey);
+                    } catch (err) {}
+                }
+            });
         } else {
-            post(route('orders.store'));
+            post(route('orders.store'), {
+                onSuccess: () => {
+                    try {
+                        localStorage.removeItem(draftStorageKey);
+                    } catch (err) {}
+                }
+            });
         }
     }
 
@@ -2009,6 +2094,12 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                         </div>
 
                         <div className="flex flex-wrap gap-2 items-center">
+                            {lastSavedTime && (
+                                <div className="hidden md:flex items-center gap-1.5 text-[11px] text-emerald-400 bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-xl font-medium shadow-inner" title="Perubahan otomatis tersimpan di penyimpanan lokal browser">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                                    <span>Draf tersimpan ({lastSavedTime})</span>
+                                </div>
+                            )}
                             <button
                                 type="button"
                                 onClick={downloadDraftPdf}
@@ -2038,6 +2129,46 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
 
                 {/* ===== MAIN LAYOUT: FULL WIDTH ===== */}
                 <div className="w-full space-y-5">
+
+                        {/* Banner: Pulihkan Draf Lokal jika ditemukan */}
+                        {hasRecoverableDraft && (
+                            <div className="rounded-2xl border-2 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 p-4 sm:p-5 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in duration-300">
+                                <div className="flex items-start sm:items-center gap-3.5">
+                                    <div className="rounded-xl bg-amber-500 p-2.5 text-white shadow-sm shrink-0">
+                                        <History className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-black text-amber-900 uppercase tracking-wide flex items-center gap-2">
+                                            Draf PO Belum Tersimpan Ditemukan
+                                            {draftDataToRecover?.timestamp && (
+                                                <span className="text-[10px] bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded-full">
+                                                    {new Date(draftDataToRecover.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            )}
+                                        </h4>
+                                        <p className="text-xs text-amber-800 font-medium mt-0.5">
+                                            Ditemukan draf otomatis dari pengisian sebelumnya ({draftDataToRecover?.data?.nama_po ? `PO: "${draftDataToRecover.data.nama_po}"` : 'Ada data isian'}). Pulihkan sekarang agar tidak perlu input ulang?
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 w-full md:w-auto justify-end shrink-0">
+                                    <button
+                                        type="button"
+                                        onClick={handleRestoreDraft}
+                                        className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl text-xs font-black transition shadow-sm uppercase tracking-wider"
+                                    >
+                                        <RotateCcw className="h-3.5 w-3.5" /> Pulihkan Draf
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleDiscardDraft}
+                                        className="px-3.5 py-2 bg-white hover:bg-amber-100/80 text-amber-900 border border-amber-300 text-xs font-bold rounded-xl transition uppercase tracking-wider"
+                                    >
+                                        Buang
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Section: Informasi PO */}
                         <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-sm">
