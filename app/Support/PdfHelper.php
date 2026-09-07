@@ -322,12 +322,12 @@ class PdfHelper
         $escaped = preg_replace('/(?:\s*)\^([^\s^]+)/u', '<sup>$1</sup>', $escaped);
 
         // Regex patterns
-        $cjkPattern      = '/[\x{3000}-\x{303F}\x{3040}-\x{309F}\x{30A0}-\x{30FF}\x{FF00}-\x{FFEF}\x{4E00}-\x{9FAF}\x{3400}-\x{4DBF}]+(?:\s+[\x{3000}-\x{303F}\x{3040}-\x{309F}\x{30A0}-\x{30FF}\x{FF00}-\x{FFEF}\x{4E00}-\x{9FAF}\x{3400}-\x{4DBF}]+)*/u';
+        $cjkPattern      = '/[\x{3000}-\x{303F}\x{3040}-\x{309F}\x{30A0}-\x{30FF}\x{FF00}-\x{FFEF}\x{4E00}-\x{9FAF}\x{3400}-\x{4DBF}\x{AC00}-\x{D7AF}\x{1100}-\x{11FF}\x{3130}-\x{318F}\x{A960}-\x{A97F}\x{D7B0}-\x{D7FF}]+(?:\s+[\x{3000}-\x{303F}\x{3040}-\x{309F}\x{30A0}-\x{30FF}\x{FF00}-\x{FFEF}\x{4E00}-\x{9FAF}\x{3400}-\x{4DBF}\x{AC00}-\x{D7AF}\x{1100}-\x{11FF}\x{3130}-\x{318F}\x{A960}-\x{A97F}\x{D7B0}-\x{D7FF}]+)*/u';
         $arabicPattern   = '/[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}\x{FB50}-\x{FDFF}\x{FE70}-\x{FEFF}]+(?:\s+[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}\x{FB50}-\x{FDFF}\x{FE70}-\x{FEFF}0-9]+)*/u';
         $javanesePattern = '/[\x{A980}-\x{A9DF}]+/u';
         $thaiPattern     = '/[\x{0E00}-\x{0E7F}]+/u';
 
-        // Wrap CJK (Hiragana / Katakana / Kanji / Han) — browser & DOMPDF both handle
+        // Wrap CJK (Chinese / Japanese / Korean) — browser & DOMPDF both handle
         // CJK glyph rendering correctly once the proper @font-face is embedded.
         $processed = preg_replace_callback($cjkPattern, function ($matches) {
             return '<span class="cjk-font">' . $matches[0] . '</span>';
@@ -387,7 +387,7 @@ class PdfHelper
         // Convert caret notation (e.g. WAA^LBK or WAA^12) to HTML sup tags
         $escaped = preg_replace('/(?:\s*)\^([^\s^]+)/u', '<sup>$1</sup>', $escaped);
 
-        $cjkPattern      = '/[\x{3000}-\x{303F}\x{3040}-\x{309F}\x{30A0}-\x{30FF}\x{FF00}-\x{FFEF}\x{4E00}-\x{9FAF}\x{3400}-\x{4DBF}]+(?:\s+[\x{3000}-\x{303F}\x{3040}-\x{309F}\x{30A0}-\x{30FF}\x{FF00}-\x{FFEF}\x{4E00}-\x{9FAF}\x{3400}-\x{4DBF}]+)*/u';
+        $cjkPattern      = '/[\x{3000}-\x{303F}\x{3040}-\x{309F}\x{30A0}-\x{30FF}\x{FF00}-\x{FFEF}\x{4E00}-\x{9FAF}\x{3400}-\x{4DBF}\x{AC00}-\x{D7AF}\x{1100}-\x{11FF}\x{3130}-\x{318F}\x{A960}-\x{A97F}\x{D7B0}-\x{D7FF}]+(?:\s+[\x{3000}-\x{303F}\x{3040}-\x{309F}\x{30A0}-\x{30FF}\x{FF00}-\x{FFEF}\x{4E00}-\x{9FAF}\x{3400}-\x{4DBF}\x{AC00}-\x{D7AF}\x{1100}-\x{11FF}\x{3130}-\x{318F}\x{A960}-\x{A97F}\x{D7B0}-\x{D7FF}]+)*/u';
         $arabicPattern   = '/[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}\x{FB50}-\x{FDFF}\x{FE70}-\x{FEFF}]+(?:\s+[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}\x{FB50}-\x{FDFF}\x{FE70}-\x{FEFF}0-9]+)*/u';
         $javanesePattern = '/[\x{A980}-\x{A9DF}]+/u';
 

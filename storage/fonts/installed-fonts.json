@@ -18,5 +18,8 @@
     "noto sans sc": {
         "normal": "D:\\AI\\Nisreport\\nisreportupadate\\storage\\fonts\/noto_sans_sc_normal_b44c7c869ea3f88a2adf9d078baa3d47",
         "bold": "noto_sans_sc_bold_a4921097cc9cfb2df37a31faffd3c580"
+    },
+    "noto sans kr": {
+        "normal": "noto_sans_kr_normal_f4d8c549cb39a96247f3816b7e653697"
     }
 }

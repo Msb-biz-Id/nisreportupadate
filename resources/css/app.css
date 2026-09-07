@@ -92,7 +92,7 @@
     }
 
     .cjk-font {
-        font-family: 'Noto Sans JP', sans-serif !important;
+        font-family: 'Noto Sans KR', 'Noto Sans SC', 'Noto Sans JP', sans-serif !important;
         text-transform: none !important;
     }
 
