@@ -78,9 +78,9 @@ export function renderFormattedText(text) {
     let textStr = String(text);
 
     const unicodeSupMap = {
-        '⁰':'0', '¹':'1', '²':'2', '³':'3', '⁴':'4', '⁵':'5', '⁶':'6', '⁷':'7', '⁸':'8', '⁹':'9',
-        'ᴬ':'A', 'ᴮ':'B', 'ᶜ':'C', 'ᴰ':'D', 'ᴱ':'E', 'ᶠ':'F', 'ᴳ':'G', 'ᴴ':'H', 'ᴵ':'I', 'ᴶ':'J', 'ᴷ':'K', 'ᴸ':'L', 'ᴹ':'M', 'ᴺ':'N', 'ᴼ':'O', 'ᴾ':'P', '𐞳':'Q', 'ᴿ':'R', 'ˢ':'S', 'ᵀ':'T', 'ᵁ':'U', 'ⱽ':'V', 'ᵂ':'W', 'ˣ':'X', 'ʸ':'Y', 'ᶻ':'Z',
-        'ᵃ':'a', 'ᵇ':'b', 'ᶜ':'c', 'ᵈ':'d', 'ᵉ':'e', 'ᶠ':'f', 'ᵍ':'g', 'ʰ':'h', 'ⁱ':'i', 'ʲ':'j', 'ᵏ':'k', 'ˡ':'l', 'ᵐ':'m', 'ⁿ':'n', 'ᵒ':'o', 'ᵖ':'p', '𐞳':'q', 'ʳ':'r', 'ˢ':'s', 'ᵗ':'t', 'ᵘ':'u', 'ᵛ':'v', 'ʷ':'w', 'ˣ':'x', 'ʸ':'y', 'ᶻ':'z'
+        '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
+        'ᴬ': 'A', 'ᴮ': 'B', 'ᶜ': 'C', 'ᴰ': 'D', 'ᴱ': 'E', 'ᶠ': 'F', 'ᴳ': 'G', 'ᴴ': 'H', 'ᴵ': 'I', 'ᴶ': 'J', 'ᴷ': 'K', 'ᴸ': 'L', 'ᴹ': 'M', 'ᴺ': 'N', 'ᴼ': 'O', 'ᴾ': 'P', '𐞳': 'Q', 'ᴿ': 'R', 'ˢ': 'S', 'ᵀ': 'T', 'ᵁ': 'U', 'ⱽ': 'V', 'ᵂ': 'W', 'ˣ': 'X', 'ʸ': 'Y', 'ᶻ': 'Z',
+        'ᵃ': 'a', 'ᵇ': 'b', 'ᶜ': 'c', 'ᵈ': 'd', 'ᵉ': 'e', 'ᶠ': 'f', 'ᵍ': 'g', 'ʰ': 'h', 'ⁱ': 'i', 'ʲ': 'j', 'ᵏ': 'k', 'ˡ': 'l', 'ᵐ': 'm', 'ⁿ': 'n', 'ᵒ': 'o', 'ᵖ': 'p', '𐞳': 'q', 'ʳ': 'r', 'ˢ': 's', 'ᵗ': 't', 'ᵘ': 'u', 'ᵛ': 'v', 'ʷ': 'w', 'ˣ': 'x', 'ʸ': 'y', 'ᶻ': 'z'
     };
 
     const superscriptChars = Object.keys(unicodeSupMap).join('');
@@ -98,8 +98,8 @@ export function renderFormattedText(text) {
                 // Character superscript: format language recursively then wrap in sup element
                 return React.createElement(
                     'sup',
-                    { 
-                        key: index, 
+                    {
+                        key: index,
                         className: 'font-bold',
                         style: { fontSize: '0.7em', verticalAlign: 'super', lineHeight: 0 }
                     },
