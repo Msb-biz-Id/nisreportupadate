@@ -73,45 +73,8 @@ export function roleLabel(slug) {
  * @param {string|null|undefined} text
  * @returns {React.ReactNode[]|string}
  */
-export function renderFormattedText(text) {
-    if (text === null || text === undefined || text === '') return '';
-    let textStr = String(text);
-
-    const unicodeSupMap = {
-        '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
-        'ᴬ': 'A', 'ᴮ': 'B', 'ᶜ': 'C', 'ᴰ': 'D', 'ᴱ': 'E', 'ᶠ': 'F', 'ᴳ': 'G', 'ᴴ': 'H', 'ᴵ': 'I', 'ᴶ': 'J', 'ᴷ': 'K', 'ᴸ': 'L', 'ᴹ': 'M', 'ᴺ': 'N', 'ᴼ': 'O', 'ᴾ': 'P', '𐞳': 'Q', 'ᴿ': 'R', 'ˢ': 'S', 'ᵀ': 'T', 'ᵁ': 'U', 'ⱽ': 'V', 'ᵂ': 'W', 'ˣ': 'X', 'ʸ': 'Y', 'ᶻ': 'Z',
-        'ᵃ': 'a', 'ᵇ': 'b', 'ᶜ': 'c', 'ᵈ': 'd', 'ᵉ': 'e', 'ᶠ': 'f', 'ᵍ': 'g', 'ʰ': 'h', 'ⁱ': 'i', 'ʲ': 'j', 'ᵏ': 'k', 'ˡ': 'l', 'ᵐ': 'm', 'ⁿ': 'n', 'ᵒ': 'o', 'ᵖ': 'p', '𐞳': 'q', 'ʳ': 'r', 'ˢ': 's', 'ᵗ': 't', 'ᵘ': 'u', 'ᵛ': 'v', 'ʷ': 'w', 'ˣ': 'x', 'ʸ': 'y', 'ᶻ': 'z'
-    };
-
-    const superscriptChars = Object.keys(unicodeSupMap).join('');
-    const regexSup = new RegExp(`([${superscriptChars}]+)`, 'g');
-    textStr = textStr.replace(regexSup, (match) => {
-        const normal = match.split('').map(c => unicodeSupMap[c] ?? c).join('');
-        return `^${normal}`;
-    });
-
-    // 1. Detect and split caret notation (e.g. WAA^LBK or helim^12)
-    const supParts = textStr.split(/(?:\s*)\^([^\s^]+)/g);
-    if (supParts.length > 1) {
-        return supParts.map((part, index) => {
-            if (index % 2 === 1) {
-                // Character superscript: format language recursively then wrap in sup element
-                return React.createElement(
-                    'sup',
-                    {
-                        key: index,
-                        className: 'font-bold',
-                        style: { fontSize: '0.7em', verticalAlign: 'super', lineHeight: 0 }
-                    },
-                    renderFormattedText(part)
-                );
-            }
-            // Regular character
-            return renderFormattedText(part);
-        });
-    }
-
-    // 2. Standard formatting logic for CJK, Arabic, Javanese
+function formatLanguage(str) {
+    if (!str) return '';
     const cjkPattern = /[\u3000-\u303F\u3040-\u309F\u30A0-\u30FF\uFF00-\uFFEF\u4E00-\u9FAF\u3400-\u4DBF\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F\uA960-\uA97F\uD7B0-\uD7FF]+/;
     const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+(?:\s+[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9]+)*/;
     const javanesePattern = /[\uA980-\uA9DF]+/;
@@ -122,14 +85,12 @@ export function renderFormattedText(text) {
     let lastIndex = 0;
     let match;
 
-    regex.lastIndex = 0;
-
-    while ((match = regex.exec(textStr)) !== null) {
+    while ((match = regex.exec(str)) !== null) {
         const index = match.index;
         const matchedStr = match[0];
 
         if (index > lastIndex) {
-            parts.push(textStr.substring(lastIndex, index));
+            parts.push(str.substring(lastIndex, index));
         }
 
         if (match[1]) {
@@ -161,9 +122,48 @@ export function renderFormattedText(text) {
         lastIndex = regex.lastIndex;
     }
 
-    if (lastIndex < textStr.length) {
-        parts.push(textStr.substring(lastIndex));
+    if (lastIndex < str.length) {
+        parts.push(str.substring(lastIndex));
     }
 
-    return parts.length > 0 ? parts : textStr;
+    return parts.length > 0 ? parts : str;
+}
+
+export function renderFormattedText(text) {
+    if (text === null || text === undefined || text === '') return '';
+    let textStr = String(text);
+
+    const unicodeSupMap = {
+        '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
+        'ᴬ': 'A', 'ᴮ': 'B', 'ᶜ': 'C', 'ᴰ': 'D', 'ᴱ': 'E', 'ᶠ': 'F', 'ᴳ': 'G', 'ᴴ': 'H', 'ᴵ': 'I', 'ᴶ': 'J', 'ᴷ': 'K', 'ᴸ': 'L', 'ᴹ': 'M', 'ᴺ': 'N', 'ᴼ': 'O', 'ᴾ': 'P', 'ᴿ': 'R', 'ˢ': 'S', 'ᵀ': 'T', 'ᵁ': 'U', 'ⱽ': 'V', 'ᵂ': 'W', 'ˣ': 'X', 'ʸ': 'Y', 'ᶻ': 'Z',
+        'ᵃ': 'a', 'ᵇ': 'b', 'ᶜ': 'c', 'ᵈ': 'd', 'ᵉ': 'e', 'ᶠ': 'f', 'ᵍ': 'g', 'ʰ': 'h', 'ⁱ': 'i', 'ʲ': 'j', 'ᵏ': 'k', 'ˡ': 'l', 'ᵐ': 'm', 'ⁿ': 'n', 'ᵒ': 'o', 'ᵖ': 'p', 'ʳ': 'r', 'ˢ': 's', 'ᵗ': 't', 'ᵘ': 'u', 'ᵛ': 'v', 'ʷ': 'w', 'ˣ': 'x', 'ʸ': 'y', 'ᶻ': 'z'
+    };
+
+    const superscriptChars = Object.keys(unicodeSupMap).join('');
+    const regexSup = new RegExp(`([${superscriptChars}]+)`, 'gu');
+    textStr = textStr.replace(regexSup, (match) => {
+        const normal = match.split('').map(c => unicodeSupMap[c] ?? c).join('');
+        return `^${normal}`;
+    });
+
+    // 1. Detect and split caret notation (e.g. WAA^LBK or helim^12)
+    const supParts = textStr.split(/(?:\s*)\^([^\s^]+)/g);
+    if (supParts.length > 1) {
+        return supParts.map((part, index) => {
+            if (index % 2 === 1) {
+                return React.createElement(
+                    'sup',
+                    {
+                        key: index,
+                        className: 'font-bold',
+                        style: { fontSize: '0.7em', verticalAlign: 'super', lineHeight: 0 }
+                    },
+                    formatLanguage(part)
+                );
+            }
+            return formatLanguage(part);
+        });
+    }
+
+    return formatLanguage(textStr);
 }
