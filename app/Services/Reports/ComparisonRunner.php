@@ -5,6 +5,7 @@ namespace App\Services\Reports;
 use App\Models\Brand;
 use App\Models\Order\Order;
 use App\Models\Order\OrderItem;
+use App\Models\Order\OrderPayment;
 use App\Models\Order\Refund;
 use App\Models\Order\Rijek;
 use Illuminate\Support\Carbon;
@@ -158,6 +159,7 @@ class ComparisonRunner
         foreach ($brands as $brand) {
             $metrics = $this->getMonthlyMetricsForBrandAndYear($brand->id, $year);
             $data[$brand->id] = [
+                'brand_id' => $brand->id,
                 'brand_name' => $brand->nama_brand,
                 'kode' => $brand->kode,
                 'warna' => $brand->warna_primary,
@@ -180,14 +182,21 @@ class ComparisonRunner
         $monthExpr = $isSqlite ? 'CAST(strftime("%m", tanggal_masuk) AS INTEGER)' : 'MONTH(tanggal_masuk)';
         $orderMonthExpr = $isSqlite ? 'CAST(strftime("%m", orders.tanggal_masuk) AS INTEGER)' : 'MONTH(orders.tanggal_masuk)';
 
+        $bEntity = Brand::select('id', 'brand_type')->find($brandId);
+        $targetBrandIds = ($bEntity && $bEntity->brand_type === Brand::TYPE_RESELLER_HUB)
+            ? Brand::where('parent_brand_id', $brandId)->pluck('id')->push($brandId)->all()
+            : [$brandId];
+
         $orders = Order::query()
-            ->where('brand_id', $brandId)
+            ->whereIn('brand_id', $targetBrandIds)
             ->whereBetween('tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])
             ->where('status_po', '!=', 'draft')
             ->select(
                 DB::raw("$monthExpr as bulan"),
                 DB::raw('COUNT(*) as total_po'),
-                DB::raw('SUM(total_tagihan) as total_omset')
+                DB::raw('SUM(total_tagihan) as total_omset'),
+                DB::raw('SUM(CASE WHEN is_lunas = 1 THEN 1 ELSE 0 END) as lunas_po_count'),
+                DB::raw('SUM(CASE WHEN is_lunas = 0 OR is_lunas IS NULL THEN 1 ELSE 0 END) as belum_lunas_po_count')
             )
             ->groupBy('bulan')
             ->get()
@@ -195,8 +204,8 @@ class ComparisonRunner
 
         $items = OrderItem::query()
             ->where('order_items.is_addon', false)
-            ->whereHas('order', function ($q) use ($brandId, $year) {
-                $q->where('brand_id', $brandId)
+            ->whereHas('order', function ($q) use ($targetBrandIds, $year) {
+                $q->whereIn('brand_id', $targetBrandIds)
                   ->whereBetween('tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])
                   ->where('status_po', '!=', 'draft');
             })
@@ -205,6 +214,22 @@ class ComparisonRunner
                 DB::raw("SUM(CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) WHEN (SELECT COUNT(*) FROM order_items AS oi WHERE oi.order_id = order_items.order_id AND oi.is_addon = 0 AND oi.jml_atasan IS NOT NULL AND oi.jml_atasan != '') > 0 THEN 0 ELSE order_items.quantity END) as total_pcs")
             )
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->whereNull('orders.deleted_at')
+            ->groupBy('idx')
+            ->get()
+            ->keyBy('idx');
+
+        $payments = OrderPayment::query()
+            ->join('orders', 'orders.id', '=', 'order_payments.order_id')
+            ->whereIn('orders.brand_id', $targetBrandIds)
+            ->whereBetween('orders.tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])
+            ->where('orders.status_po', '!=', 'draft')
+            ->whereNull('orders.deleted_at')
+            ->whereNotNull('order_payments.verified_at')
+            ->select(
+                DB::raw("$orderMonthExpr as idx"),
+                DB::raw('SUM(CASE WHEN order_payments.is_debit = 1 THEN -order_payments.amount ELSE order_payments.amount END) as total_paid')
+            )
             ->groupBy('idx')
             ->get()
             ->keyBy('idx');
@@ -219,24 +244,46 @@ class ComparisonRunner
         $totalPoYear = 0;
         $totalOmsetYear = 0;
         $totalPcsYear = 0;
+        $totalPaidYear = 0;
+        $totalUnpaidYear = 0;
+        $totalLunasPoYear = 0;
+        $totalBelumLunasPoYear = 0;
 
         foreach ($months as $num => $name) {
             $o = $orders->get($num);
             $item = $items->get($num);
+            $pay = $payments->get($num);
             
             $poVal = (int) ($o ? $o->total_po : 0);
             $omsetVal = (float) ($o ? $o->total_omset : 0);
             $pcsVal = (int) ($item ? $item->total_pcs : 0);
+            $paidVal = (float) ($pay ? max(0, $pay->total_paid) : 0);
+            $lunasPo = (int) ($o ? $o->lunas_po_count : 0);
+            $belumLunasPo = (int) ($o ? $o->belum_lunas_po_count : 0);
+
+            if ($poVal > 0 && $lunasPo === $poVal && $paidVal == 0) {
+                $paidVal = $omsetVal;
+            }
+
+            $unpaidVal = max(0, $omsetVal - $paidVal);
 
             $totalPoYear += $poVal;
             $totalOmsetYear += $omsetVal;
             $totalPcsYear += $pcsVal;
+            $totalPaidYear += $paidVal;
+            $totalUnpaidYear += $unpaidVal;
+            $totalLunasPoYear += $lunasPo;
+            $totalBelumLunasPoYear += $belumLunasPo;
 
             $out[$num] = [
                 'bulan' => $name,
                 'total_po' => $poVal,
                 'total_omset' => $omsetVal,
                 'total_pcs' => $pcsVal,
+                'total_paid' => $paidVal,
+                'total_unpaid' => $unpaidVal,
+                'lunas_po_count' => $lunasPo,
+                'belum_lunas_po_count' => $belumLunasPo,
             ];
         }
 
@@ -246,6 +293,10 @@ class ComparisonRunner
                 'total_po' => $totalPoYear,
                 'total_omset' => $totalOmsetYear,
                 'total_pcs' => $totalPcsYear,
+                'total_paid' => $totalPaidYear,
+                'total_unpaid' => $totalUnpaidYear,
+                'lunas_po_count' => $totalLunasPoYear,
+                'belum_lunas_po_count' => $totalBelumLunasPoYear,
             ]
         ];
     }

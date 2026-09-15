@@ -4,6 +4,7 @@ namespace App\Support;
 
 use ArPHP\I18N\Arabic;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class PdfHelper
 {
@@ -448,9 +449,14 @@ class PdfHelper
         // Try candidate paths in order of preference
         $candidates = [
             $path, // Direct input if already an absolute path
+            Storage::disk('public')->path($normalizedPath),
             storage_path('app/public/' . $normalizedPath),
+            base_path('storage/app/public/' . $normalizedPath),
             public_path('storage/' . $normalizedPath),
+            base_path('public/storage/' . $normalizedPath),
             public_path($normalizedPath),
+            base_path('public/' . $normalizedPath),
+            base_path('storage/' . $normalizedPath),
             storage_path('app/' . $normalizedPath),
         ];
 
@@ -459,6 +465,69 @@ class PdfHelper
             if (!empty($candidate) && file_exists($candidate) && !is_dir($candidate)) {
                 $fullPath = $candidate;
                 break;
+            }
+        }
+
+        // Case-insensitive fallback (terutama untuk ekstensi .JPG / .jpg / .PNG di Linux)
+        if (!$fullPath) {
+            $ext = pathinfo($normalizedPath, PATHINFO_EXTENSION);
+            $filenameWithoutExt = pathinfo($normalizedPath, PATHINFO_FILENAME);
+            $dirName = pathinfo($normalizedPath, PATHINFO_DIRNAME);
+            $altExtensions = match (strtolower($ext)) {
+                'jpg', 'jpeg' => ['jpg', 'JPG', 'jpeg', 'JPEG'],
+                'png' => ['png', 'PNG'],
+                'webp' => ['webp', 'WEBP'],
+                default => [strtolower($ext), strtoupper($ext)],
+            };
+
+            $baseDirs = [
+                storage_path('app/public'),
+                public_path('storage'),
+                public_path(),
+                base_path('storage/app/public'),
+                base_path('storage'),
+            ];
+
+            foreach ($baseDirs as $baseDir) {
+                $targetDir = ($dirName && $dirName !== '.') ? $baseDir . '/' . $dirName : $baseDir;
+                if (is_dir($targetDir)) {
+                    foreach ($altExtensions as $altExt) {
+                        $tryPath = $targetDir . '/' . $filenameWithoutExt . '.' . $altExt;
+                        if (file_exists($tryPath) && !is_dir($tryPath)) {
+                            $fullPath = $tryPath;
+                            break 2;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fallback langsung ke Storage disk 'public' via stream jika file_exists gagal karena permission/driver
+        if (!$fullPath && Storage::disk('public')->exists($normalizedPath)) {
+            try {
+                $data = Storage::disk('public')->get($normalizedPath);
+                if (!empty($data)) {
+                    $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                    $mime = $finfo->buffer($data) ?: 'image/jpeg';
+                    return 'data:' . $mime . ';base64,' . base64_encode($data);
+                }
+            } catch (\Throwable $e) {
+                // Abaikan dan lanjut ke remote URL fallback
+            }
+        }
+
+        // Fallback untuk HTTP / HTTPS remote URL jika gambar berada di CDN/S3
+        if (!$fullPath && (str_starts_with($path, 'http://') || str_starts_with($path, 'https://'))) {
+            try {
+                $ctx = stream_context_create(['http' => ['timeout' => 3, 'ignore_errors' => true]]);
+                $remoteData = @file_get_contents($path, false, $ctx);
+                if ($remoteData !== false && strlen($remoteData) > 0) {
+                    $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                    $remoteMime = $finfo->buffer($remoteData) ?: 'image/jpeg';
+                    return 'data:' . $remoteMime . ';base64,' . base64_encode($remoteData);
+                }
+            } catch (\Throwable $e) {
+                // Lanjut ke log not found
             }
         }
 

@@ -134,7 +134,7 @@ class UploadController extends Controller
                             $rotated = @imagerotate($image, $angle, 0);
                             if ($rotated) {
                                 imagedestroy($image);
-                                @imagejpeg($rotated, $filePath, 92);
+                                @imagejpeg($rotated, $filePath, 98);
                                 imagedestroy($rotated);
                             } else {
                                 imagedestroy($image);
@@ -181,7 +181,7 @@ class UploadController extends Controller
             }
 
             if ($mime === 'image/jpeg') {
-                @imagejpeg($image, $filePath, 92);
+                @imagejpeg($image, $filePath, 98);
             } elseif ($mime === 'image/png') {
                 @imagepng($image, $filePath, 4);
             } elseif ($mime === 'image/webp') {

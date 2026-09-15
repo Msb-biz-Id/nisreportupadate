@@ -326,7 +326,7 @@ export default function ImageUploader({
                         <div className="flex items-center justify-between bg-slate-800 px-5 py-4 text-white">
                             <div>
                                 <h3 className="font-black uppercase tracking-wider text-[14px]">Potong Gambar</h3>
-                                <p className="text-[11px] text-slate-400 mt-0.5">Tarik garis putus-putus atau sudut kotak untuk menentukan area potong secara bebas</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">Tarik garis putus-putus atau sudut kotak untuk menentukan area potong · Gunakan PNG/sRGB agar warna tidak berubah</p>
                             </div>
                             <button
                                 type="button"
@@ -590,7 +590,7 @@ async function getCroppedBlob(imageSrc, areaPx, isPng = false) {
         cropCanvas.toBlob(
             (blob) => blob ? resolve({ blob, ext: isPng ? 'png' : 'jpg', mime: outputMime }) : reject(new Error('Gagal memproses canvas gambar')),
             outputMime,
-            outputMime === 'image/jpeg' ? 0.92 : undefined
+            outputMime === 'image/jpeg' ? 0.98 : undefined
         );
     });
 }
@@ -637,7 +637,7 @@ async function rotateImageFast(imageSrc, fileType) {
                 }
             },
             mime,
-            mime === 'image/jpeg' ? 0.92 : undefined
+            mime === 'image/jpeg' ? 0.98 : undefined
         );
     });
 }

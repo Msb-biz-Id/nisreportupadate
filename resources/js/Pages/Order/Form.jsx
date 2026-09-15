@@ -1,5 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { Save, Plus, Trash2, ChevronDown, ChevronUp, Settings2, Users, CreditCard, ClipboardPaste, Package2, FileDown, Copy, ArrowUp, ArrowDown, History, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import AppLayout from '@/Layouts/AppLayout';
@@ -21,6 +21,7 @@ const ACCENT_COLORS = ['red', 'blue', 'emerald', 'amber', 'purple', 'pink', 'tea
 
 function newItem() {
     return {
+        _key: Math.random().toString(36).slice(2), // Stable React key, tidak dikirim ke DB
         product_id: '',
         jenis_produk_id: '',
         nama_produk: '',
@@ -809,11 +810,121 @@ function SectionHeader({ children }) {
     );
 }
 
+/**
+ * NamesetRow — komponen dengan LOCAL STATE per baris.
+ * Mengetik di field HANYA me-render baris ini, bukan seluruh form.
+ * Sync ke parent (ItemCard) HANYA saat onBlur (user pindah field).
+ */
+const NamesetRow = React.memo(function NamesetRow({ ns, rowIndex, displayIndex, sizes, onUpdate, onRemove }) {
+    const [local, setLocal] = useState({
+        nama_punggung: ns.nama_punggung || '',
+        nomor_punggung: ns.nomor_punggung || '',
+        nama_dada: ns.nama_dada || '',
+        nomor_dada: ns.nomor_dada || '',
+        nama_lengan: ns.nama_lengan || '',
+        nomor_lengan: ns.nomor_lengan || '',
+        nomor_punggung_2: ns.nomor_punggung_2 || '',
+        nama_punggung_2: ns.nama_punggung_2 || '',
+        keterangan: ns.keterangan || '',
+    });
+
+    // Sync dari parent jika row diganti (paste/replace all)
+    const prevNsRef = useRef(ns);
+    useEffect(() => {
+        // Hanya sync jika data dari parent BENAR-BENAR berbeda (misalnya paste)
+        if (prevNsRef.current !== ns) {
+            prevNsRef.current = ns;
+            setLocal({
+                nama_punggung: ns.nama_punggung || '',
+                nomor_punggung: ns.nomor_punggung || '',
+                nama_dada: ns.nama_dada || '',
+                nomor_dada: ns.nomor_dada || '',
+                nama_lengan: ns.nama_lengan || '',
+                nomor_lengan: ns.nomor_lengan || '',
+                nomor_punggung_2: ns.nomor_punggung_2 || '',
+                nama_punggung_2: ns.nama_punggung_2 || '',
+                keterangan: ns.keterangan || '',
+            });
+        }
+    }, [ns]);
+
+    function handleChange(field, value) {
+        setLocal(prev => ({ ...prev, [field]: value }));
+    }
+
+    function handleBlur(field, value) {
+        // Apply superscript formatting pada blur (sama seperti blurNameset lama)
+        const formatted = field !== 'keterangan' ? formatSuperscriptTrailing(value) : value;
+        const updatedLocal = { ...local, [field]: formatted };
+        setLocal(updatedLocal);
+        // Sync ke parent hanya saat blur
+        onUpdate(rowIndex, { ...ns, ...updatedLocal });
+    }
+
+    function handleSelectChange(field, value) {
+        // Select langsung sync ke parent karena bukan keyboard input
+        const updated = { ...ns, ...local, [field]: value };
+        if (field === 'size_id') {
+            const s = sizes.find(x => x.id === value);
+            updated.size_label = s ? s.ukuran : '';
+        }
+        if (field === 'size_celana_id') {
+            const s = sizes.find(x => x.id === value);
+            updated.size_celana_label = s ? s.ukuran : '';
+        }
+        onUpdate(rowIndex, updated);
+    }
+
+    const inputCls = 'h-7 text-xs font-medium border border-slate-200 rounded px-1.5 w-full focus:outline-none focus:border-blue-400 bg-white';
+    const numberCls = 'h-7 text-xs font-black text-center border border-slate-200 rounded px-1.5 w-full focus:outline-none focus:border-blue-400 bg-white';
+
+    return (
+        <tr className="border-b border-gray-100 hover:bg-gray-50">
+            <td className="p-1.5 text-center text-xs font-bold text-slate-500">{displayIndex}</td>
+            <td className="p-1.5"><input className={inputCls} value={local.nama_punggung} onChange={e => handleChange('nama_punggung', e.target.value)} onBlur={e => handleBlur('nama_punggung', e.target.value)} /></td>
+            <td className="p-1.5"><input className={numberCls} value={local.nomor_punggung} onChange={e => handleChange('nomor_punggung', e.target.value)} onBlur={e => handleBlur('nomor_punggung', e.target.value)} /></td>
+            <td className="p-1.5"><input className={inputCls} value={local.nama_dada} onChange={e => handleChange('nama_dada', e.target.value)} onBlur={e => handleBlur('nama_dada', e.target.value)} /></td>
+            <td className="p-1.5"><input className={numberCls} value={local.nomor_dada} onChange={e => handleChange('nomor_dada', e.target.value)} onBlur={e => handleBlur('nomor_dada', e.target.value)} /></td>
+            <td className="p-1.5"><input className={inputCls} value={local.nama_lengan} onChange={e => handleChange('nama_lengan', e.target.value)} onBlur={e => handleBlur('nama_lengan', e.target.value)} /></td>
+            <td className="p-1.5"><input className={numberCls} value={local.nomor_lengan} onChange={e => handleChange('nomor_lengan', e.target.value)} onBlur={e => handleBlur('nomor_lengan', e.target.value)} /></td>
+            <td className="p-1.5"><input className={numberCls} value={local.nomor_punggung_2} onChange={e => handleChange('nomor_punggung_2', e.target.value)} onBlur={e => handleBlur('nomor_punggung_2', e.target.value)} /></td>
+            <td className="p-1.5"><input className={inputCls} value={local.nama_punggung_2} onChange={e => handleChange('nama_punggung_2', e.target.value)} onBlur={e => handleBlur('nama_punggung_2', e.target.value)} /></td>
+            <td className="p-1.5">
+                <Select value={ns.size_id || NONE} onValueChange={v => handleSelectChange('size_id', v === NONE ? '' : v)}>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Pilih" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value={NONE}>— —</SelectItem>
+                        {sizes.map(s => <SelectItem key={s.id} value={s.id}>{s.ukuran}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </td>
+            <td className="p-1.5">
+                <Select value={ns.size_celana_id || NONE} onValueChange={v => handleSelectChange('size_celana_id', v === NONE ? '' : v)}>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Pilih" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value={NONE}>— —</SelectItem>
+                        {sizes.map(s => <SelectItem key={s.id} value={s.id}>{s.ukuran}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </td>
+            <td className="p-1.5"><input className={inputCls} value={local.keterangan} onChange={e => handleChange('keterangan', e.target.value)} onBlur={e => handleBlur('keterangan', e.target.value)} /></td>
+            <td className="p-1.5 text-center">
+                <button type="button" onClick={() => onRemove(rowIndex)} className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded p-1 transition">
+                    <Trash2 className="h-3.5 w-3.5" />
+                </button>
+            </td>
+        </tr>
+    );
+});
+
+const NAMESET_PAGE_SIZE = 30; // Render max 30 baris sekaligus
+
 function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMoveUp, onMoveDown, isFirst, isLast, namaPo = '' }) {
     const [cardOpen, setCardOpen] = useState(true);
     const [specOpen, setSpecOpen] = useState(false);
     const [namesetOpen, setNamesetOpen] = useState(true);
     const [pasteOpen, setPasteOpen] = useState(false);
+    const [namesetPage, setNamesetPage] = useState(0); // windowing: halaman nameset aktif
     const color = ACCENT_COLORS[index % ACCENT_COLORS.length];
 
     function patch(field, value) {
@@ -830,6 +941,8 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
 
     function addNameset() {
         const nextNamesets = [...item.namesets, newNameset()];
+        // Saat tambah baris, pindah ke halaman terakhir
+        setNamesetPage(Math.floor(nextNamesets.length / NAMESET_PAGE_SIZE));
         onChange(index, { ...item, namesets: nextNamesets, quantity: nextNamesets.length });
     }
     function removeNameset(i) {
@@ -838,9 +951,11 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
     }
     function clearNameset() {
         if (window.confirm("Apakah Anda yakin ingin menghapus semua data nameset untuk produk ini?")) {
+            setNamesetPage(0);
             onChange(index, { ...item, namesets: [], quantity: 0 });
         }
     }
+    // patchNameset: hanya dipakai untuk Select (size) — keyboard input pakai NamesetRow local state
     function patchNameset(i, field, value) {
         const next = [...item.namesets];
         next[i] = { ...next[i], [field]: value };
@@ -854,13 +969,12 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
         }
         onChange(index, { ...item, namesets: next });
     }
-    function blurNameset(i, field, value) {
-        if (field === 'keterangan') return;
-        const val = formatSuperscriptTrailing(value);
-        if (val !== value) {
-            patchNameset(i, field, val);
-        }
-    }
+    // Dipanggil oleh NamesetRow saat onBlur — update satu baris saja
+    const updateNamesetRow = useCallback((rowIndex, updatedNs) => {
+        const next = [...item.namesets];
+        next[rowIndex] = updatedNs;
+        onChange(index, { ...item, namesets: next });
+    }, [index, item, onChange]);
 
     const subtotal = getCalculatedSubtotal(item);
     const totalPcs = item.is_addon ? (Number(item.quantity) || 0) : item.namesets.length;
@@ -1339,6 +1453,31 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
 
                     {namesetOpen && (
                         <div>
+                            {/* Windowing info bar — hanya tampil jika > NAMESET_PAGE_SIZE */}
+                            {item.namesets.length > NAMESET_PAGE_SIZE && (
+                                <div className="flex items-center justify-between bg-blue-50 border-b border-blue-100 px-3 py-1.5">
+                                    <span className="text-xs font-bold text-blue-700">
+                                        Menampilkan baris {namesetPage * NAMESET_PAGE_SIZE + 1}–{Math.min((namesetPage + 1) * NAMESET_PAGE_SIZE, item.namesets.length)} dari {item.namesets.length} pcs
+                                    </span>
+                                    <div className="flex gap-1">
+                                        <button
+                                            type="button"
+                                            disabled={namesetPage === 0}
+                                            onClick={() => setNamesetPage(p => p - 1)}
+                                            className="px-2 py-0.5 text-xs font-bold rounded bg-blue-100 text-blue-700 disabled:opacity-40 hover:bg-blue-200 transition"
+                                        >← Prev</button>
+                                        <span className="px-2 py-0.5 text-xs text-slate-500">
+                                            Hal {namesetPage + 1}/{Math.ceil(item.namesets.length / NAMESET_PAGE_SIZE)}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            disabled={(namesetPage + 1) * NAMESET_PAGE_SIZE >= item.namesets.length}
+                                            onClick={() => setNamesetPage(p => p + 1)}
+                                            className="px-2 py-0.5 text-xs font-bold rounded bg-blue-100 text-blue-700 disabled:opacity-40 hover:bg-blue-200 transition"
+                                        >Next →</button>
+                                    </div>
+                                </div>
+                            )}
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
@@ -1366,69 +1505,22 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                                                 </td>
                                             </tr>
                                         )}
-                                        {item.namesets.map((ns, i) => (
-                                            <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                                                <td className="p-1.5 text-center text-xs font-bold text-slate-500">{i + 1}</td>
-                                                <td className="p-1.5">
-                                                    <Input value={ns.nama_punggung || ''} onChange={(e) => patchNameset(i, 'nama_punggung', e.target.value)} onBlur={(e) => blurNameset(i, 'nama_punggung', e.target.value)} className="h-7 text-xs font-medium" />
-                                                </td>
-                                                <td className="p-1.5">
-                                                    <Input value={ns.nomor_punggung || ''} onChange={(e) => patchNameset(i, 'nomor_punggung', e.target.value)} onBlur={(e) => blurNameset(i, 'nomor_punggung', e.target.value)} className="h-7 text-xs font-black text-center" />
-                                                </td>
-                                                <td className="p-1.5">
-                                                    <Input value={ns.nama_dada || ''} onChange={(e) => patchNameset(i, 'nama_dada', e.target.value)} onBlur={(e) => blurNameset(i, 'nama_dada', e.target.value)} className="h-7 text-xs font-medium" />
-                                                </td>
-                                                <td className="p-1.5">
-                                                    <Input value={ns.nomor_dada || ''} onChange={(e) => patchNameset(i, 'nomor_dada', e.target.value)} onBlur={(e) => blurNameset(i, 'nomor_dada', e.target.value)} className="h-7 text-xs font-black text-center" />
-                                                </td>
-                                                <td className="p-1.5">
-                                                    <Input value={ns.nama_lengan || ''} onChange={(e) => patchNameset(i, 'nama_lengan', e.target.value)} onBlur={(e) => blurNameset(i, 'nama_lengan', e.target.value)} className="h-7 text-xs font-medium" />
-                                                </td>
-                                                <td className="p-1.5">
-                                                    <Input value={ns.nomor_lengan || ''} onChange={(e) => patchNameset(i, 'nomor_lengan', e.target.value)} onBlur={(e) => blurNameset(i, 'nomor_lengan', e.target.value)} className="h-7 text-xs font-black text-center" />
-                                                </td>
-                                                <td className="p-1.5">
-                                                    <Input value={ns.nomor_punggung_2 || ''} onChange={(e) => patchNameset(i, 'nomor_punggung_2', e.target.value)} onBlur={(e) => blurNameset(i, 'nomor_punggung_2', e.target.value)} className="h-7 text-xs font-black text-center" />
-                                                </td>
-                                                <td className="p-1.5">
-                                                    <Input value={ns.nama_punggung_2 || ''} onChange={(e) => patchNameset(i, 'nama_punggung_2', e.target.value)} onBlur={(e) => blurNameset(i, 'nama_punggung_2', e.target.value)} className="h-7 text-xs font-medium" />
-                                                </td>
-                                                <td className="p-1.5">
-                                                    <Select value={ns.size_id || NONE} onValueChange={(v) => patchNameset(i, 'size_id', v === NONE ? '' : v)}>
-                                                        <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Pilih" /></SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value={NONE}>— —</SelectItem>
-                                                            {masters.sizes.map((s) => (
-                                                                <SelectItem key={s.id} value={s.id}>{s.ukuran}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </td>
-                                                <td className="p-1.5">
-                                                    <Select value={ns.size_celana_id || NONE} onValueChange={(v) => patchNameset(i, 'size_celana_id', v === NONE ? '' : v)}>
-                                                        <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Pilih" /></SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value={NONE}>— —</SelectItem>
-                                                            {masters.sizes.map((s) => (
-                                                                <SelectItem key={s.id} value={s.id}>{s.ukuran}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </td>
-                                                <td className="p-1.5">
-                                                    <Input value={ns.keterangan || ''} onChange={(e) => patchNameset(i, 'keterangan', e.target.value)} className="h-7 text-xs" />
-                                                </td>
-                                                <td className="p-1.5 text-center">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeNameset(i)}
-                                                        className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded p-1 transition"
-                                                    >
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {item.namesets
+                                            .slice(namesetPage * NAMESET_PAGE_SIZE, (namesetPage + 1) * NAMESET_PAGE_SIZE)
+                                            .map((ns, pageI) => {
+                                                const realIndex = namesetPage * NAMESET_PAGE_SIZE + pageI;
+                                                return (
+                                                    <NamesetRow
+                                                        key={realIndex}
+                                                        ns={ns}
+                                                        rowIndex={realIndex}
+                                                        displayIndex={realIndex + 1}
+                                                        sizes={masters.sizes}
+                                                        onUpdate={updateNamesetRow}
+                                                        onRemove={removeNameset}
+                                                    />
+                                                );
+                                            })}
                                     </tbody>
                                 </table>
                             </div>
@@ -1442,6 +1534,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                         </div>
                     )}
                 </div>
+
                     </>
                 )}
             </div>
@@ -1601,7 +1694,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
         }
     }, [draftStorageKey]);
 
-    // 2. Debounced auto-save to localStorage
+    // 2. Debounced auto-save to localStorage (non-blocking dengan requestIdleCallback)
     useEffect(() => {
         const hasData = data.nama_po ||
             data.pelanggan_id ||
@@ -1610,18 +1703,26 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
         if (!hasData) return;
 
         const timer = setTimeout(() => {
-            try {
-                const payload = {
-                    data,
-                    timestamp: new Date().toISOString(),
-                };
-                localStorage.setItem(draftStorageKey, JSON.stringify(payload));
-                const now = new Date();
-                setLastSavedTime(now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-            } catch (e) {
-                console.error('Failed to auto-save draft', e);
+            const doSave = () => {
+                try {
+                    const payload = {
+                        data,
+                        timestamp: new Date().toISOString(),
+                    };
+                    localStorage.setItem(draftStorageKey, JSON.stringify(payload));
+                    const now = new Date();
+                    setLastSavedTime(now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+                } catch (e) {
+                    console.error('Failed to auto-save draft', e);
+                }
+            };
+            // Jalankan saat browser idle agar tidak memblokir UI (terutama untuk 200+ pcs)
+            if (typeof requestIdleCallback !== 'undefined') {
+                requestIdleCallback(doSave, { timeout: 3000 });
+            } else {
+                doSave();
             }
-        }, 1500);
+        }, 3000); // Naikkan dari 1500ms → 3000ms untuk kurangi frekuensi
 
         return () => clearTimeout(timer);
     }, [data, draftStorageKey]);
@@ -1664,11 +1765,14 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
         }
     }, [filteredBanks]);
 
-    function patchItem(index, next) {
-        const items = [...data.items];
-        items[index] = next;
-        setData('items', items);
-    }
+    // useCallback agar referensi fungsi stabil → mencegah ItemCard re-render saat parent update
+    const patchItem = useCallback((index, next) => {
+        setData(prev => {
+            const items = [...prev.items];
+            items[index] = next;
+            return { ...prev, items };
+        });
+    }, [setData]);
 
     // Toggle jenis produk — centang = tambah modul produksi, uncentang = hapus modul
     function toggleProduct(jenisProduk) {
@@ -2367,7 +2471,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                 )}
                                 {data.items.map((item, idx) => (
                                     <ItemCard
-                                        key={idx}
+                                        key={item._key || `item-${idx}`}
                                         index={idx}
                                         item={item}
                                         masters={masters}

@@ -1,0 +1,560 @@
+================================================================================
+RENCANA PENGEMBANGAN SISTEM HRIS / HCM (HUMAN CAPITAL MANAGEMENT) NISGROUP
+Platform: NISReport Web Application (Laravel 12 + Inertia React + Tailwind CSS)
+Sumber Analisis: Blueprint Website HCM NIS.xlsx
+================================================================================
+
+1. RINGKASAN EKSEKUTIF & ARSITEKTUR TATA KELOLA
+--------------------------------------------------------------------------------
+Sistem HCM NISGroup adalah sistem tata kelola sumber daya manusia dari hulu
+ke hilir (hire-to-retire) untuk industri manufaktur garmen dan operasional
+kantor pusat. Sistem ini mencakup 4 tipe tenaga kerja:
+- Managerial
+- Kontrak (PKWT)
+- Borongan (Produksi/Jahit/Potong)
+- Peserta Magang (SMK)
+di bawah naungan entitas legal NISGroup: CV Bawang Merah dan CV Bawang Putih.
+
+A. PRINSIP DOUBLE SIGN-OFF GOVERNANCE
+Semua transaksi keuangan kepegawaian (Lembur Mingguan & Uang Makan Bulanan)
+menganut prinsip pemisahan tugas (Segregation of Duties):
+
+[Operasional / Lapangan] -> Catatan Jam Lembur & Kehadiran Riil
+                                      |
+                                      v
+[HCM Admin / Gatekeeper Data] -> Audit Absensi & Jam Riil
+                                      |
+                                      v [Klik Tombol: "Approve & Sign HCM"]
+                                Status: APPROVED_BY_HCM (Data Terkunci untuk HCM)
+                                      |
+                                      v
+[Finance / Gatekeeper Dana]   -> Audit Nominal Kas/Bank & Pencairan
+                                      |
+                                      v [Klik Tombol: "Sign & Paid"]
+                                Status: PAID_COMPLETED (Terkunci Total / Read-Only)
+
+KETENTUAN MUTLAK:
+Data pembayaran lembur dan uang makan TIDAK DIANGGAP SELESAI (CLOSED) sebelum
+Tim Keuangan mencairkan dana dan menekan tombol [Sign & Paid] di sistem.
+
+
+B. INTEGRASI MENU SIDEBAR "HCM GROUP" DI NAVIGASI UTAMA
+Sistem HCM diintegrasikan ke dalam navigasi utama sistem (SidebarContent.jsx)
+sebagai kelompok menu tersendiri ("HCM / Kepegawaian"):
+
+[ SIDEBAR UTAMA NISREPORT ]
+|-- Utama (Dashboard)
+|-- Administrasi (Brand, Target, User, Role)
+|-- Master Data (Produk, Pelanggan, Kategori)
+|-- Produksi (Order, Kanban, Tracking)
+|-- Keuangan (Arus Kas, Tagihan, Piutang)
+|
+`-- [GROUP] HCM / KEPEGAWAIAN
+    |-- Dashboard HCM             (route: 'hcm.dashboard')
+    |-- Master Karyawan & Magang  (route: 'hcm.employees.index')
+    |-- Presensi & Lembur         (route: 'hcm.attendance.index')
+    |   |-- Matrix Editor Absensi Harian (Bulk Logger)
+    |   `-- Lembur Mingguan & Payout
+    |-- Uang Makan Bulanan        (route: 'hcm.meal-allowance.index')
+    |-- Loker & Rekrutmen         (route: 'hcm.recruitment.index')
+    |   |-- Master Lowongan Kerja (Loker)
+    |   |-- Pipeline Pelamar & Blacklist
+    |   `-- Laporan Performa Rekrutmen
+    |-- Dokumen & Persuratan      (route: 'hcm.documents.index')
+    |   |-- Dokumen Internal (RAB & Realisasi)
+    |   |-- Korespondensi Eksternal (BPJS/Disnaker)
+    |   `-- Buku Agenda Penomoran Surat
+    `-- Kalender & Event Sosial   (route: 'hcm.calendar.index')
+
+
+C. SINKRONISASI RBAC & SISTEM NOTIFIKASI EXISTING
+1. Integrasi Spatie Laravel Permission:
+   Menyambung langsung dengan arsitektur role dan permission pada model User:
+   - Role Baru:
+     * hcm_manager: Akses penuh modul HCM, approval cuti/izin, buka loker,
+       dan penandatanganan [Approve & Sign HCM].
+     * hcm_staff: Input absensi harian (bulk matrix), entri data pelamar,
+       input lembur lapangan, pengarsipan surat & dokumen.
+     * finance_payroll: Mengakses antrean verifikasi lembur & uang makan pasca
+       disahkan HCM, dan berwenang mengeksekusi [Sign & Paid].
+     * production_lead: Memantau presensi dan mengajukan jam lembur regu.
+   - Daftar Izin Granular (permissions):
+     hcm.view-dashboard, hcm.manage-employees, hcm.manage-contracts,
+     hcm.manage-compensation, hcm.manage-attendance, hcm.sign-overtime,
+     hcm.sign-meal-allowance, finance.sign-paid, hcm.manage-recruitment,
+     hcm.manage-documents, hcm.export-reports.
+
+2. Sinkronisasi Lonceng Notifikasi (In-App Database Notification):
+   Terhubung dengan tabel notifications dan rute /notifications existing:
+   - Ke User HCM: Notifikasi training selesai H-7, kontrak habis H-30,
+     karyawan mangkir (unexcused absence) pukul 08:30 WIB, dan validasi lembur
+     Sabtu pagi.
+   - Ke User Finance: Notifikasi saat HCM menekan Sign: "Rekap Lembur Minggu
+     W36 telah disetujui HCM & siap dicairkan".
+   - Ke Direksi: Rekap pencairan kas yang telah berstatus PAID_COMPLETED.
+
+
+================================================================================
+2. KAMUS DATA & SPESIFIKASI DETAIL FIELD (100% BLUEPRINT EXCEL)
+================================================================================
+
+MODUL 1: MASTER KARYAWAN (Tabel: hcm_employees)
+--------------------------------------------------------------------------------
+- category               : enum ('managerial', 'kontrak', 'borongan', 'magang')
+- full_name              : varchar(150), Nama lengkap sesuai KTP
+- nickname               : varchar(50), Nama panggilan akrab
+- position               : varchar(100), Posisi/Jabatan (Sewing, Potong, QC, PIC)
+- job_level              : varchar(50), Level (Managerial, Staff, Operator)
+- phone_number           : varchar(25), Nomor HP / WhatsApp
+- gender                 : enum ('L', 'P'), Jenis Kelamin
+- religion               : varchar(30), Agama (Islam, Kristen, Katolik, dll)
+- education              : varchar(50), Pendidikan Terakhir (SMA/SMK, D3, S1)
+- marital_status         : varchar(30), Status Pernikahan (Belum Menikah, Menikah)
+- birth_place            : varchar(100), Tempat Lahir
+- birth_date             : date, Tanggal Lahir (Pemicu alert ulang tahun H-3)
+- nik_ktp                : varchar(20), Nomor KTP 16 digit (Unique)
+- bpjs_kesehatan_no      : varchar(30), Nomor BPJS Kesehatan (Nullable)
+- bpjs_ketenagakerjaan_no: varchar(30), Nomor KPJ BPJS-TK (Nullable)
+- shirt_size             : varchar(10), Ukuran Baju Seragam (S, M, L, XL, XXL, 3XL)
+- address                : text, Alamat domisili lengkap
+- bank_account_no        : varchar(50), Nomor Rekening (Default Bank: BRI)
+- email                  : varchar(100), Email pribadi (Nullable)
+- is_active              : boolean, Status aktif bekerja (Default: true)
+
+
+MODUL 2: PESERTA MAGANG SMK (Tabel: hcm_employees / atribut magang)
+--------------------------------------------------------------------------------
+- intern_school_name     : varchar(150), Nama Sekolah Asal SMK
+- intern_class           : varchar(20), Kelas (e.g. X, XI, XII)
+- intern_major           : varchar(100), Jurusan (Tata Busana, Multimedia, dll)
+- intern_nis             : varchar(50), Nomor Induk Siswa di sekolah
+- intern_start_date      : date, Tanggal awal mulai magang
+- intern_end_date        : date, Tanggal penarikan magang oleh sekolah
+- intern_duration_months : integer, Durasi magang dalam bulan (3, 4, 6 Bulan)
+- intern_mentor_teacher  : varchar(100), Nama guru pembimbing sekolah
+- intern_mentor_phone    : varchar(25), Nomor kontak guru pembimbing
+
+
+MODUL 3: KONTRAK & LEGALITAS PKWT (Tabel: hcm_contracts)
+--------------------------------------------------------------------------------
+- employee_id            : foreignId -> hcm_employees.id
+- employment_status      : enum ('Trainee', 'PKWT', 'PKWT Lanjutan', 'Karyawan Tetap')
+- contract_sequence      : integer, Kontrak Ke- (1, 2, 3, dst)
+- contract_number        : varchar(100), Nomor Kontrak (Format: XXX/OWR/PKWT/X/XXXX)
+- legal_entity           : enum ('Bawang Merah', 'Bawang Putih'), Badan usaha penerbit
+- duration_text          : varchar(50), Masa Kontrak (e.g. 1 Tahun, 2 Tahun, Tetap)
+- trainee_start_month    : date/varchar, Bulan Mulai Trainee
+- trainee_end_month      : date/varchar, Bulan Berakhir Trainee (Alert Probation H-7)
+- start_date             : date, Tanggal Mulai Kontrak
+- end_date               : date, Tanggal Berakhir Kontrak (Alert H-30 & H-7)
+- days_remaining         : virtual/calc, Sisa masa kontrak dalam hari
+- review_status          : enum ('Aman', 'Evaluasi H-30', 'Evaluasi H-7', 'Expired',
+                                 'Diperpanjang', 'Diputus')
+- gdrive_contract_url    : varchar(255), Tautan scan naskah kontrak di Google Drive
+
+
+MODUL 4: KOMPENSASI & RIWAYAT HONOR (Tabel: hcm_compensations & histories)
+--------------------------------------------------------------------------------
+- employee_id            : foreignId -> hcm_employees.id
+- evaluation_cycle_months: integer, Siklus Evaluasi Berkala (Default: 6 Bulan)
+- initial_salary         : decimal(15,2), Honor Awal Kontrak (Rp)
+- current_salary         : decimal(15,2), Honor Saat Ini (Rp)
+- salary_increment_count : integer, Total Kenaikan Gaji (Berapa kali naik)
+- history_json           : json, Riwayat kenaikan 1, 2, 3 (Nominal, tanggal, SK)
+- salary_status          : enum ('Telah berlaku', 'Sedang Diajukan', 'Pending')
+
+
+MODUL 5: PRESENSI & KETIDAKHADIRAN (Tabel: hcm_attendances & hcm_leave_requests)
+--------------------------------------------------------------------------------
+Tabel hcm_attendances (Log Absensi Harian):
+- attendance_date        : date, Tanggal Absensi
+- employee_id            : foreignId -> hcm_employees.id
+- status                 : enum ('Hadir', 'Terlambat', 'Izin', 'Sakit', 'Mangkir')
+- clock_in               : time, Jam Masuk (Default shift: 08:00)
+- clock_out              : time, Jam Keluar (Default shift: 17:00)
+- notes                  : text, Catatan/Alasan (e.g. Ban Bocor, Sakit Gigi)
+- attachment_status      : enum ('Terlampir', 'Tidak Terlampir')
+- gdrive_attachment_url  : varchar(255), Link surat dokter/izin di Google Drive
+
+Tabel hcm_leave_requests (Pengajuan Cuti/Izin):
+- leave_type             : Cuti Tahunan, Izin Keluarga, Cuti Sakit, Cuti Darurat
+- start_date, end_date   : Rentang tanggal izin
+- status                 : PENDING_REVIEW -> APPROVED / REJECTED
+- rejection_reason       : Wajib diisi jika permohonan ditolak HCM
+
+
+MODUL 6: REKAP LEMBUR MINGGUAN (Tabel: hcm_overtimes & batches)
+--------------------------------------------------------------------------------
+Tabel hcm_overtimes:
+- overtime_date          : date, Tanggal lembur
+- employee_id            : foreignId -> hcm_employees.id
+- start_time, end_time   : Jam mulai dan jam selesai lembur
+- total_hours            : decimal(4,2), Jam lembur riil (auto-calculate)
+- day_type               : enum ('Weekdays', 'Weekend')
+- hourly_rate            : decimal(15,2), Tarif per jam (e.g. Rp10.000 / Rp15.000)
+- total_amount           : decimal(15,2), Total bayar lembur (Jam x Tarif)
+- batch_id               : foreignId -> hcm_overtime_batches.id
+
+Tabel hcm_overtime_batches (Pencairan Sabtu):
+- batch_code             : Kode batch mingguan (e.g. OT-2026-W36)
+- period_start, end      : Periode lembur 1 minggu
+- grand_total_hours      : Total jam lembur seluruh regu
+- grand_total_amount     : Total nominal dana lembur yang harus dibayar
+- status                 : DRAFT_OVERTIME -> APPROVED_BY_HCM ->
+                           PENDING_FINANCE_SIGN -> PAID_COMPLETED
+- hcm_signed_by, at      : Tanda tangan HCM (Data Lock)
+- finance_signed_by, at  : Tanda tangan Keuangan (Pencairan & Final Lock)
+
+
+MODUL 7: UANG MAKAN BULANAN (Tabel: hcm_meal_allowance_batches & items)
+--------------------------------------------------------------------------------
+- Menghitung akumulasi hari hadir karyawan selama 1 bulan periode cut-off.
+- Hari hadir otomatis berkurang jika ada catatan Mangkir (Alpha) atau Izin.
+- Formula: Nominal Uang Makan = Total Hari Hadir Riil x Tarif Uang Makan Harian.
+- Alur Double Sign-Off identik: Draft -> HCM Sign -> Finance Sign & Paid.
+
+
+MODUL 8: ARSIP DOKUMEN INTERNAL PERUSAHAAN (Tabel: hcm_internal_documents)
+--------------------------------------------------------------------------------
+- registration_no        : varchar(50), No. Registrasi (e.g. DOC-INT-001)
+- document_code          : varchar(100), Nomor Dokumen (e.g. RAB_Produksi_Juni26_v1)
+- document_stage         : enum ('Pengajuan', 'Realisasi')
+- category               : varchar(50), Kategori (RAB, Proposal, Realisasi Asset, LPJ)
+- department             : varchar(100), Departemen Pembuat (Produksi, Marketing, dll)
+- submission_date        : date, Tanggal Diajukan
+- approval_date          : date, Tanggal Disetujui
+- status                 : enum ('Berlaku', 'Selesai', 'Revisi', 'Ditolak')
+- proposed_budget        : decimal(15,2), Anggaran Diajukan (Rp)
+- actual_budget          : decimal(15,2), Realisasi Anggaran (Rp)
+- gdrive_file_id         : varchar(100), ID Berkas di Google Drive
+- gdrive_url             : varchar(255), Tautan Google Drive (In-App Preview)
+
+
+MODUL 9: KORESPONDENSI EKSTERNAL (Tabel: hcm_external_letters)
+--------------------------------------------------------------------------------
+- registration_no        : varchar(50), No. Registrasi (e.g. DOC-EXT-001)
+- letter_date            : date, Tanggal Dokumen
+- direction              : enum ('Surat Masuk', 'Surat Keluar')
+- external_letter_no     : varchar(100), Nomor Dokumen Eksternal (e.g. 055/BPJS-TK/IX/2024)
+- sender                 : varchar(150), Pengirim / Instansi (BPJS-TK, Disnaker)
+- recipient              : varchar(150), Penerima Internal / Tujuan (HCM Dept, Direksi)
+- subject                : text, Perihal Dokumen (e.g. Undangan Sosialisasi JKP)
+- gdrive_file_id         : varchar(100), ID Berkas di Google Drive
+- gdrive_url             : varchar(255), Tautan Google Drive (In-App Preview)
+
+
+MODUL 10: BUKU AGENDA PENOMORAN SURAT RESMI (Tabel: hcm_agenda_letters)
+--------------------------------------------------------------------------------
+- agenda_no              : varchar(50), No. Agenda Buku (e.g. AGD-2024-001)
+- official_letter_no     : varchar(100), Nomor Surat Resmi (e.g. 001/HCM-MEMO/I/2024)
+- letter_scope           : enum ('Surat Masuk', 'Surat Keluar (Internal)', 'Surat Keluar (Eksternal)')
+- letter_category        : varchar(50), Kategori (Paklaring, Surat Jalan, Memo, Undangan)
+- letter_date            : date, Tanggal Surat
+- summary                : text, Perihal / Ringkasan Isi Surat
+- target_party           : varchar(150), Tujuan / Dari (e.g. Karyawan, Bank Jatim)
+- disposition_status     : varchar(100), Status Disposisi (Selesai, Diteruskan ke Manager)
+- gdrive_file_id         : varchar(100), ID Berkas di Google Drive
+- gdrive_url             : varchar(255), Tautan Google Drive naskah fisik surat
+
+
+MODUL 11: REKRUTMEN BERBASIS LOKER & LAPORAN PERFORMA (Tabel: hcm_job_postings, applicants, interviews)
+--------------------------------------------------------------------------------
+Tabel hcm_job_postings (Master Lowongan Kerja):
+- job_code               : varchar(50), Kode Loker (e.g. LKR-2026-001)
+- job_title              : varchar(150), Judul Posisi Loker (e.g. Operator Sewing Batch 4)
+- department             : varchar(100), Departemen (Produksi, Gudang, QC, Office)
+- legal_entity           : enum ('Bawang Merah', 'Bawang Putih')
+- target_quota           : integer, Target kuota personil (e.g. Butuh 10 Orang)
+- fulfilled_count        : integer, Realisasi pelamar lolos (Hired)
+- salary_range_min/max   : decimal(15,2), Standar rentang penawaran gaji
+- start_date, end_date   : Periode tayang lowongan kerja
+- recruitment_channel    : Saluran publikasi (Instagram, WhatsApp, Brosur, SMK)
+- recruiter_id           : foreignId -> users.id (PIC HCM)
+- status                 : enum ('Draft', 'Aktif / Buka', 'Ditutup', 'Terpenuhi')
+
+Tabel hcm_job_applicants (Pelamar Terikat ke Loker):
+- job_posting_id         : foreignId -> hcm_job_postings.id (Kunci Laporan Performa)
+- apply_date             : date, Tanggal dokumen lamaran masuk
+- applicant_name         : varchar(150), Nama Lengkap Pelamar
+- phone_number           : varchar(25), Nomor HP / WhatsApp
+- pipeline_status        : enum ('Screening', 'Dipanggil Interview',
+                                 'Rejected at Screening', 'Keep for Next Batch',
+                                 'Offered', 'Hired')
+- invitation_status      : enum ('Belum Diundang', 'Diundang', 'Hadir Interview', 'Tidak Diundang')
+- interview_result       : enum ('Disarankan Diterima', 'Dipertimbangkan', 'Ditolak', '-')
+- onboarding_attendance  : enum ('Hadir', 'Tidak Hadir', '-')
+- is_blacklisted         : boolean, Status Masuk Daftar Hitam
+- hcm_notes              : text, Catatan evaluasi (e.g. Dipanggil kerja tapi mangkir)
+
+Tabel hcm_applicant_interviews (Asesmen Wawancara):
+- applicant_id           : foreignId -> hcm_job_applicants.id
+- age, marital_status, education, last_experience, daily_activity, core_skills
+- salary_expectation     : decimal(15,2), Ekspektasi gaji kandidat
+- offering_status        : enum ('Diterima (Join)', 'Dipertimbangkan Kembali',
+                                 'Ditolak Pelamar', 'Pending')
+- final_decision         : enum ('Diterima', 'Pending', 'Ditolak')
+- offering_notes         : Catatan kesepakatan tanggal masuk kerja / negosiasi
+
+
+MODUL 12: TRANSISI KEPEGAWAIAN (Tabel: hcm_onboardings & offboardings)
+--------------------------------------------------------------------------------
+Tabel hcm_onboardings:
+- Karyawan baru diterima, posisi, tanggal join, kelengkapan berkas KTP/BPJS,
+  penyerahan seragam & fasilitas, tanggal pengesahan HCM.
+
+Tabel hcm_offboardings:
+- employee_id            : foreignId -> hcm_employees.id
+- exit_date              : date, Hari terakhir bekerja
+- exit_reason            : varchar(150), Alasan (Menikah, Kerja Baru, Habis Kontrak)
+- notice_compliance      : enum ('Sesuai (One Month Notice)', 'Nol Notice (Mendadak)')
+- rights_status          : enum ('Hak Lunas (Penuh)', 'Tahan Sisa')
+- asset_clearance        : varchar(100), Status Pengembalian Alat Kerja
+- clearance_status       : enum ('Pending', 'Selesai (Clear)')
+- offboarding_notes      : Catatan penyelesaian inventaris & hak karyawan
+
+
+MODUL 13: COMPANY EVENTS, SOCIAL CALENDAR & MILESTONE (Tabel: hcm_company_events)
+--------------------------------------------------------------------------------
+- event_title            : varchar(150), Nama Acara (e.g. Makan Bersama All Team Garment)
+- event_type             : enum ('Internal Perusahaan', 'Undangan Karyawan',
+                                 'Agenda Tahunan', 'Libur Nasional')
+- organizer_name         : varchar(100), Penyelenggara (Manajemen / Sdr. Rian Sewing)
+- start_datetime         : datetime, Waktu Mulai Acara (WIB)
+- end_datetime           : datetime, Waktu Selesai Acara (WIB)
+- location               : varchar(150), Lokasi Penyelenggaraan
+- target_audience        : varchar(100), Target (Semua Tim, Sewing, Office)
+- reminder_days          : integer, Pengingat aktif (Hari H, H-1, H-3, H-7)
+- is_annual_recurring    : boolean, Berulang tahunan (True untuk HUT RI 17 Agustus)
+- gdrive_invitation_url  : varchar(255), Scan undangan fisik / flyer di Google Drive
+
+
+================================================================================
+3. ARSITEKTUR GOOGLE DRIVE & IN-APP PDF VIEWER (0 MB BEBAN SERVER)
+================================================================================
+
+A. ALUR KERJA SINKRONISASI OTOMATIS:
+1. Admin HCM mengunggah file PDF (Surat, Proposal, Kontrak, Lampiran) di web.
+2. Backend Laravel langsung mengalirkan (stream) berkas ke Google Drive API
+   (Google Service Account) ke subfolder yang terstruktur:
+   - Folder: NISGroup HCM / 01_Dokumen_Internal
+   - Folder: NISGroup HCM / 02_Surat_Masuk_Keluar
+   - Folder: NISGroup HCM / 03_Kontrak_PKWT
+   - Folder: NISGroup HCM / 04_Surat_Dokter_Presensi
+3. Google Drive mengembalikan gdrive_file_id dan web_view_link.
+4. Berkas temporer di server lokal SEGERA DIHAPUS OTOMATIS (unlink).
+   Hasil: Storage server web tetap bersih 0 MB sampah berkas dokumen.
+5. Database sistem hanya mencatat ID berkas dan URL publik Google Drive.
+
+B. FITUR IN-APP EMBEDDED PDF VIEWER (LIHAT LANGSUNG TANPA DOWNLOAD):
+Di setiap baris data dokumen pada tabel CRUD disediakan dua tombol aksi:
+1. Tombol [ Lihat Dokumen ]:
+   Membuka modal dialog interaktif langsung di dalam aplikasi web.
+   Merender Google Drive PDF Preview iframe:
+   <iframe src="https://drive.google.com/file/d/{gdrive_file_id}/preview" width="100%" height="650px"></iframe>
+   Pengguna dapat membaca dokumen multi-halaman, zoom in/out, dan mereview
+   isi surat tanpa harus mengunduh file ke perangkat.
+2. Tombol [ Buka di Google Drive ]:
+   Membuka berkas di tab browser baru resmi Google Drive jika ingin membagikan
+   link atau memeriksa histori revisi.
+
+
+================================================================================
+4. FITUR OPERASIONAL PABRIK: BULK MATRIX & TIME SAVING TOOLS
+================================================================================
+
+A. BULK DAILY ATTENDANCE MATRIX (EDITOR ABSENSI HARIAN MASSAL)
+Didesain untuk mencatatkan presensi 50+ pekerja pabrik dalam 1 menit:
+1. Filter Header: Pilihan Tanggal & Pilihan Bagian/Divisi (Sewing, Potong, dll).
+2. Tombol Aksi 1-Klik: [Set Semua Hadir (Default 08:00 - 17:00)].
+3. Tombol Cepat Status Per Baris Karyawan:
+   - [H] Hadir (Hijau)
+   - [T] Terlambat (Kuning) -> Membuka input cepat jam masuk
+   - [I] Izin (Biru) -> Membuka catatan alasan izin
+   - [S] Sakit (Kuning Tua) -> Opsi unggah surat dokter
+   - [A] Alpha / Mangkir (Merah) -> Memicu status Unexcused Absence
+4. Tombol Utama: [Simpan Rekapitulasi Presensi (Ctrl + S)].
+
+B. BULK OVERTIME DISPATCHER (EDITOR LEMBUR MASSAL REGU)
+1. Multi-select regu kerja (Pilih seluruh anggota Sewing / Potong sekaligus).
+2. Batch time setter: Jam Mulai, Jam Selesai, dan Jenis Hari (Weekday/Weekend).
+3. Auto-calculate tarif dan estimasi total pengeluaran lembur sebelum diajukan.
+
+C. MONTHLY ATTENDANCE GRID (KALENDER ABSENSI BULANAN 1-31)
+Matriks horizontal 1-31 hari untuk mengaudit tren kehadiran dan memvalidasi
+kalkulasi uang makan bulanan sebelum dikirim ke Divisi Keuangan.
+
+
+================================================================================
+5. LAPORAN SPESIFIK: PROFIL KARYAWAN 360 DERAJAT BERBASIS 6 TAB & EKSPOR PDF
+================================================================================
+
+Ketika membuka rincian profil seorang karyawan (/hcm/employees/{id}),
+antarmuka menyajikan Buku Induk Karyawan 360 Derajat dalam 6 Tab Navigasi:
+
+TAB 1: BIODATA & IDENTITAS LENGKAP
+- Identitas Pribadi: NIK KTP 16 digit, Tempat/Tgl Lahir, Agama, Jenis Kelamin,
+  Pendidikan, Alamat Domisili, No HP WhatsApp, Email.
+- Atribut Kerja: Ukuran Baju Seragam (S, M, L, XL, XXL), No Rekening BRI,
+  Nomor BPJS Kesehatan, dan Nomor BPJS Ketenagakerjaan.
+- Atribut Magang (jika siswa SMK): Asal SMK, Jurusan, NIS, Guru Pendamping.
+
+TAB 2: STATUS & RIWAYAT KONTRAK PKWT
+- Timeline Hubungan Kerja: Trainee -> PKWT 1 -> PKWT 2 -> Karyawan Tetap.
+- Nomor Kontrak Resmi, Entitas Hukum (CV Bawang Merah / CV Bawang Putih).
+- Hitung Mundur Sisa Masa Kontrak (Hari), Status Review (Aman / Evaluasi H-30).
+- Tombol akses berkas naskah kontrak di Google Drive.
+
+TAB 3: REKAM KOMPENSASI & HISTORI GAJI
+- Honor Awal vs Honor Saat Ini & Siklus Peninjauan Berkala (per 6 bulan).
+- Log Kenaikan: Kenaikan 1, Kenaikan 2, Kenaikan 3 (Nominal, tanggal SK).
+- Tombol: [Cetak Riwayat Kompensasi (PDF)].
+
+TAB 4: REKAP KEHADIRAN & ABSENSI BULANAN
+- Matriks kalender presensi harian 1-31 bulan berjalan dan arsip bulan lalu.
+- Total Hadir Riil, Total Menit Keterlambatan, Izin, Sakit, dan Mangkir.
+- Tombol: [Cetak Rekap Presensi & Uang Makan (PDF)].
+
+TAB 5: REKAM LEMBUR (OVERTIME RECORD)
+- Tabel log lembur: Tanggal, jam mulai, jam selesai, total jam riil,
+  Weekday vs Weekend, tarif per jam, dan total bayar lembur.
+- Riwayat batch pencairan hari Sabtu yang telah PAID_COMPLETED Keuangan.
+- Tombol: [Cetak Slip Lembur (PDF)].
+
+TAB 6: TRANSISI & OFFBOARDING (JIKA NON-AKTIF)
+- Berkas onboarding awal.
+- Data Offboarding: Tanggal keluar, alasan terminasi, kepatuhan One Month Notice.
+- Clearance Sheet: Serah terima seragam, ID Card, aset kantor, sisa hak gaji.
+- Tombol: [Cetak Surat Pengalaman Kerja / Paklaring (PDF)].
+
+KEMAMPUAN CETAK DOKUMEN RESMI PDF (LARAVEL-DOMPDF):
+- Cetak Buku Profil Karyawan Lengkap (Employee Dossier PDF 360 Derajat).
+- Cetak Slip Kompensasi & Slip Lembur Mingguan.
+- Cetak Rekapitulasi Presensi & Perhitungan Uang Makan.
+- Cetak Otomatis Surat Paklaring Resmi dengan penomoran buku agenda surat.
+
+
+================================================================================
+6. REKRUTMEN: MASTER LOKER, PIPELINE, BLACKLIST & LAPORAN PERFORMA
+================================================================================
+
+A. ALUR KERJA REKRUTMEN BERBASIS LOKER:
+1. HCM membuat tiket Master Lowongan Kerja (Loker) dengan kuota target.
+2. Pelamar mendaftar dan otomatis terikat ke ID Loker tersebut.
+3. HCM mengelola pelamar melalui Kanban Board per loker (Screening ->
+   Interview -> Offering -> Hired).
+4. Kandidat yang berstatus Hired otomatis menambah jumlah fulfilled_count.
+   Jika kuota terpenuhi, status loker otomatis Terpenuhi / Ditutup.
+
+B. LOGIKA BLACKLIST ENGINE (ANTI-GHOSTING PABRIK):
+- Jika kandidat telah menerima tawaran kerja namun mangkir / tidak hadir
+  pada hari pertama onboarding (seperti kasus Andi Pratama di blueprint),
+  HCM langsung menandai Status Blacklist = YA.
+- Sistem mengunci NIK dan Nomor HP kandidat. Jika di masa depan orang tersebut
+  melamar kembali di loker mana pun, sistem langsung memunculkan peringatan
+  merah bahwa pelamar pernah di-blacklist karena mangkir.
+
+C. LAPORAN PERFORMA REKRUTMEN PER LOKER:
+- Fulfillment Rate: (Jumlah Hired / Target Kuota Loker) x 100%.
+- Funnel Conversion Rate: Pelamar Masuk -> Screening -> Hadir Interview -> Join.
+- Time-to-Hire: Durasi waktu sejak loker dibuka hingga kuota terpenuhi (hari).
+- Channel ROI: Efektivitas saluran (Instagram, WhatsApp, Brosur) dalam
+  menghasilkan kandidat berkualitas.
+
+
+================================================================================
+7. STANDAR INDIKATOR WARNA UX DASHBOARD (COLOR-CODING SYSTEM)
+================================================================================
+
+1. MERAH (Red System / #DC2626) - Kritis / Tindakan Langsung Hari H:
+   - Lembur mingguan hari Sabtu belum divalidasi padahal batas pencairan kas.
+   - Cut-off payroll bulanan pada Hari H.
+   - Karyawan mangkir / unexcused absence (tidak hadir tanpa kabar).
+   - Masa training/probation atau kontrak habis dalam rentang <= 3 hari.
+   - Pengajuan izin darurat yang belum direspons.
+
+2. KUNING / ORANYE (Amber System / #D97706) - Warning / Upcoming Deadline:
+   - Pengingat H-3 sebelum Cut-Off bulanan atau H-1 validasi lembur.
+   - Trainee lulus butuh draf PKWT, jadwal TTD kontrak, & registrasi BPJS-TK.
+   - Kontrak habis dalam rentang 7 s.d 30 hari lagi (evaluasi perpanjang/putus).
+   - Pengajuan cuti/izin biasa status Pending Review.
+
+3. BIRU (Blue System / #2563EB) - Informasi Operasional & Agenda Sosial:
+   - Rekap daftar karyawan izin/cuti resmi hari ini (Scheduled Leave).
+   - Agenda internal perusahaan (makan bersama, rapat, gathering, HUT RI).
+   - Undangan sosial karyawan (pernikahan, khitanan, syukuran).
+
+4. HIJAU (Green System / #16A34A) - Sukses & Milestone Positif:
+   - Status validasi lembur/absensi berhasil dikunci & terkirim ke Keuangan.
+   - Kontrak baru ditandatangani & BPJS aktif.
+   - Status pencairan dana PAID_COMPLETED.
+   - Ulang tahun karyawan (H-3 s.d Hari H) dan Work Anniversary (masa kerja).
+
+5. ABU-ABU (Grey System / #6B7280) - Netral / Arsip / Riwayat:
+   - Notifikasi yang sudah dibaca/diselesaikan (Marked as Read).
+   - Agenda/event yang sudah berlalu.
+   - Karyawan status Resign / Kontrak Selesai.
+
+
+================================================================================
+8. ROADMAP TAHAPAN PELAKSANAAN (5 MINGGU)
+================================================================================
+
+TAHAP 1: PONDASI DATABASE, MASTER DATA, RBAC & MENU SIDEBAR (MINGGU 1)
+[ ] Migrasi tabel: hcm_employees, hcm_contracts, hcm_compensations.
+[ ] Seeder data faktual dari blueprint (Bambang Sadewo, Puji Astuti, Danang, dll).
+[ ] Setup Role & Permission Spatie: hcm_manager, hcm_staff, finance_payroll.
+[ ] Tambah kelompok menu baru "HCM / Kepegawaian" di SidebarContent.jsx.
+[ ] Bangun Master Karyawan: Tabel interaktif & Form input lengkap.
+[ ] Bangun Halaman Profil Karyawan 360 Derajat Berbasis 6 Tab (Show.jsx).
+
+TAHAP 2: ABSENSI HARIAN, BULK EDITOR & KALKULASI LEMBUR (MINGGU 2)
+[ ] Migrasi tabel: hcm_attendances, hcm_leave_requests, hcm_overtimes, batches.
+[ ] Komponen Bulk Attendance Matrix Editor (Quick Logger H/T/I/S/A).
+[ ] Modul Pengajuan & Review Cuti/Izin/Sakit dengan validasi penolakan.
+[ ] Komponen Bulk Overtime Dispatcher (Input lembur regu, auto-calculate).
+[ ] Tombol [Approve & Sign HCM] untuk mengunci batch lembur mingguan.
+
+TAHAP 3: DOUBLE SIGN-OFF, UANG MAKAN, EVENTS & KALENDER (MINGGU 3)
+[ ] Antarmuka Finance: Review lembur mingguan & eksekusi [Sign & Paid].
+[ ] Modul Uang Makan Bulanan: Auto-calculate (Hadir Riil x Rate - Mangkir).
+[ ] Migrasi tabel hcm_company_events.
+[ ] Dynamic Birthday & Work Anniversary Engine (Otomatis agregasi tanggal lahir).
+[ ] Interactive Calendar Component di Dashboard (Monthly Grid & Popover).
+[ ] 4 Blok Widget Dashboard Utama dengan UX Color-Coding System.
+
+TAHAP 4: ARSIP GDRIVE, PERSURATAN & REKRUTMEN BERBASIS LOKER (MINGGU 4)
+[ ] Modul Arsip Dokumen Internal (RAB/Proposal/LPJ) & Korespondensi Eksternal.
+[ ] Integrasi Google Drive API: Auto-upload PDF & In-App Embedded PDF Viewer.
+[ ] Modul Buku Agenda Penomoran Surat Resmi (AGD-YYYY-XXX).
+[ ] Modul Master Lowongan Kerja (Loker) & Pipeline Pelamar terikat ID Loker.
+[ ] Blacklist Engine & Dashboard Laporan Performa Rekrutmen Per Loker.
+[ ] Modul Transisi: Onboarding checklist & Offboarding Clearance Sheet.
+
+TAHAP 5: EKSPOR LAPORAN PDF, AUDIT TRAIL & VERIFIKASI (MINGGU 5)
+[ ] Integrasi ActivityLog untuk mencatat audit mutasi kontrak, gaji, dan payout.
+[ ] Template Dokumen Resmi PDF via Laravel-DomPDF:
+    - Buku Profil Karyawan Lengkap (Dossier PDF)
+    - Slip Kompensasi & Slip Lembur Mingguan
+    - Rekapitulasi Presensi Bulanan & Uang Makan
+    - Cetak Otomatis Surat Paklaring Resmi
+[ ] Export Excel via Maatwebsite/Excel.
+[ ] Pengujian menyeluruh (Unit & Feature Testing pada alur validasi dan RBAC).
+
+
+================================================================================
+9. DEFINITION OF DONE & STANDAR KUALITAS
+================================================================================
+1. Kelengkapan Kolom 100%: Seluruh field dari Blueprint Excel terpetakan lengkap.
+2. Harmoni Sistem & RBAC: Tampil rapi di Sidebar navigasi, terikat otorisasi Spatie
+   dan lonceng notifikasi existing.
+3. Efisiensi Operasional Pabrik: HCM dapat mencatatkan presensi 50+ pekerja
+   dalam waktu kurang dari 1 menit melalui Bulk Attendance Matrix Editor.
+4. Profil 360 Derajat & Dokumen PDF: Profil karyawan tersaji rapi dalam 6 tab
+   dan dapat dicetak menjadi dokumen PDF resmi lengkap dengan kop surat perusahaan.
+5. Zero Server Load (Google Drive Sync): Berkas PDF langsung tersinkronisasi
+   ke Google Drive perusahaan dan dapat di-view langsung di web tanpa download.
+6. Integritas Finansial: Pembayaran lembur dan uang makan terkunci permanen
+   (immutable) pasca penandatanganan ganda HCM dan Keuangan.
+7. Notifikasi Otomatis Tepat Waktu: Dashboard menyajikan alarm proaktif setiap
+   hari tanpa perlu pembaruan manual.
+================================================================================

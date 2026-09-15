@@ -9,13 +9,14 @@ use Illuminate\Support\Facades\Storage;
 
 class OrderObserver
 {
-    public function deleting(Order $order): void
+    public function forceDeleting(Order $order): void
     {
-        // Delete order item images
-        foreach ($order->items as $item) {
+        // Hanya hapus file fisik jika pesanan dihapus permanen dari DB
+        // dan file tidak lagi digunakan oleh Repeat Order atau data lain
+        foreach ($order->items()->withTrashed()->get() as $item) {
             foreach (['gambar_desain', 'gambar_kerah', 'gambar_ket_tambahan'] as $field) {
                 if ($item->$field) {
-                    $this->deleteFile($item->$field);
+                    $this->deleteFileIfUnreferenced($item->$field);
                 }
             }
         }
@@ -23,12 +24,12 @@ class OrderObserver
         // Delete order payment proof files
         foreach ($order->payments as $payment) {
             if ($payment->proof_file) {
-                $this->deleteFile($payment->proof_file);
+                $this->deleteFileIfUnreferenced($payment->proof_file);
             }
         }
     }
 
-    private function deleteFile(string $path): void
+    private function deleteFileIfUnreferenced(string $path): void
     {
         $normalizedPath = $path;
         if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
@@ -38,6 +39,11 @@ class OrderObserver
 
         if (str_starts_with($normalizedPath, 'storage/')) {
             $normalizedPath = substr($normalizedPath, 8);
+        }
+
+        // Lindungi file jika masih dipakai oleh data lain (misal: Repeat Order)
+        if (\App\Support\FileReferenceChecker::isReferenced($normalizedPath)) {
+            return;
         }
 
         if (Storage::disk('public')->exists($normalizedPath)) {

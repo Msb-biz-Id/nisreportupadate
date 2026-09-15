@@ -391,6 +391,29 @@ class DashboardService
                 )->whereNotNull('verified_at')->sum('amount');
                 $rejectRate = $this->calculateRejectRate($opBrandIds);
 
+                $currentYear  = (int) now()->year;
+                $currentMonth = (int) now()->month;
+
+                $trendBulanan = $this->trendBulanan($opBrandIds, $currentYear);
+                $currMonthData = collect($trendBulanan)->firstWhere('bulan_num', $currentMonth) ?? [
+                    'bulan_num'            => $currentMonth,
+                    'bulan'                => now()->translatedFormat('F'),
+                    'total_po'             => 0,
+                    'total_omset'          => 0,
+                    'total_pcs'            => 0,
+                    'total_paid'           => 0,
+                    'total_unpaid'         => 0,
+                    'lunas_po_count'       => 0,
+                    'belum_lunas_po_count' => 0,
+                    'collection_rate'      => 0,
+                ];
+
+                $comparisonRunner = app(\App\Services\Reports\ComparisonRunner::class);
+                $brandMonthlyComparison = $comparisonRunner->runAdvanced('brands', $ownedBrandIds, [], null, $currentYear);
+
+                $jenisPoYearly  = $this->jenisPoBreakdown($opBrandIds, $currentYear, null);
+                $jenisPoMonthly = $this->jenisPoBreakdown($opBrandIds, $currentYear, $currentMonth);
+
                 return [
                     'cards' => [
                         ['label' => 'Total PO',             'value' => $totalPo,                  'icon' => 'Package',       'accent' => 'blue'],
@@ -399,6 +422,12 @@ class DashboardService
                         ['label' => 'Rijek Rate',            'value' => $rejectRate.'%',           'icon' => 'AlertTriangle', 'accent' => 'red'],
                     ],
                     'owned_brands' => Brand::whereIn('id', $ownedBrandIds)->get(['id', 'nama_brand', 'kode', 'warna_primary']),
+            'current_month_summary'         => $currMonthData,
+            'brand_monthly_comparison'      => $brandMonthlyComparison,
+            'jenis_po_breakdown'            => [
+                'yearly'        => $jenisPoYearly,
+                'current_month' => $jenisPoMonthly,
+            ],
             'brand_performance' => (function() use ($opBrandIds) {
                 $ordersSummary = Order::query()
                     ->whereIn('orders.brand_id', $opBrandIds)
@@ -437,7 +466,7 @@ class DashboardService
             'kategori_pelanggan_distribusi' => $this->kategoriPelangganDistribusi($opBrandIds),
             'wilayah_top'                   => $this->wilayahTop($opBrandIds, 8),
             'top_pelanggan'                 => $this->topPelanggan($opBrandIds, 5),
-            'trend_bulanan'                 => $this->trendBulanan($opBrandIds),
+            'trend_bulanan'                 => $trendBulanan,
             'po_terbaru'                    => $this->poTerbaru($opBrandIds, 10),
             'deadline_mendekat'             => $this->deadlineMendekat($opBrandIds, 5),
             'po_terlambat'                  => $this->poTerlambat($opBrandIds, 5),
@@ -1049,7 +1078,9 @@ class DashboardService
             ->select(
                 DB::raw("$monthExpr as bulan"),
                 DB::raw('COUNT(*) as total_po'),
-                DB::raw('SUM(total_tagihan) as total_omset')
+                DB::raw('SUM(total_tagihan) as total_omset'),
+                DB::raw('SUM(CASE WHEN is_lunas = 1 THEN 1 ELSE 0 END) as lunas_po_count'),
+                DB::raw('SUM(CASE WHEN is_lunas = 0 OR is_lunas IS NULL THEN 1 ELSE 0 END) as belum_lunas_po_count')
             )
             ->groupBy('bulan')
             ->get()->keyBy('bulan');
@@ -1066,6 +1097,20 @@ class DashboardService
                 DB::raw("SUM(CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) WHEN (SELECT COUNT(*) FROM order_items AS oi WHERE oi.order_id = order_items.order_id AND oi.is_addon = 0 AND oi.jml_atasan IS NOT NULL AND oi.jml_atasan != '') > 0 THEN 0 ELSE order_items.quantity END) as total_pcs")
             )
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->groupBy('bulan')
+            ->get()->keyBy('bulan');
+
+        $payments = OrderPayment::query()
+            ->join('orders', 'orders.id', '=', 'order_payments.order_id')
+            ->when($brandId, $this->obf($brandId))
+            ->whereBetween('orders.tanggal_masuk', ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"])
+            ->where('orders.status_po', '!=', 'draft')
+            ->whereNull('orders.deleted_at')
+            ->whereNotNull('order_payments.verified_at')
+            ->select(
+                DB::raw("$orderMonthExpr as bulan"),
+                DB::raw('SUM(CASE WHEN order_payments.is_debit = 1 THEN -order_payments.amount ELSE order_payments.amount END) as total_paid')
+            )
             ->groupBy('bulan')
             ->get()->keyBy('bulan');
 
@@ -1088,20 +1133,117 @@ class DashboardService
 
         $out = [];
         foreach ($months as $num => $name) {
-            $o     = $orders->get($num);
-            $item  = $items->get($num);
-            $tgt   = $targets->get($num);
+            $o            = $orders->get($num);
+            $item         = $items->get($num);
+            $tgt          = $targets->get($num);
+            $pay          = $payments->get($num);
+
+            $poVal        = (int)   ($o    ? $o->total_po    : 0);
+            $omsetVal     = (float) ($o    ? $o->total_omset : 0);
+            $pcsVal       = (int)   ($item ? $item->total_pcs : 0);
+            $paidVal      = (float) ($pay  ? max(0, $pay->total_paid) : 0);
+            $lunasPo      = (int)   ($o    ? $o->lunas_po_count : 0);
+            $belumLunasPo = (int)   ($o    ? $o->belum_lunas_po_count : 0);
+
+            if ($poVal > 0 && $lunasPo === $poVal && $paidVal == 0) {
+                $paidVal = $omsetVal;
+            }
+
+            $unpaidVal    = max(0, $omsetVal - $paidVal);
+
             $out[] = [
-                'bulan_num'  => $num,
-                'bulan'      => $name,
-                'total_po'   => (int)   ($o    ? $o->total_po    : 0),
-                'total_omset' => (float) ($o    ? $o->total_omset : 0),
-                'total_pcs'  => (int)   ($item ? $item->total_pcs : 0),
-                'target_revenue' => (float) ($tgt ? $tgt->target_revenue : 0),
-                'target_pcs'  => (int)   ($tgt ? $tgt->target_pcs : 0),
+                'bulan_num'            => $num,
+                'bulan'                => $name,
+                'total_po'             => $poVal,
+                'total_omset'          => $omsetVal,
+                'total_pcs'            => $pcsVal,
+                'total_paid'           => $paidVal,
+                'total_unpaid'         => $unpaidVal,
+                'lunas_po_count'       => $lunasPo,
+                'belum_lunas_po_count' => $belumLunasPo,
+                'collection_rate'      => $omsetVal > 0 ? round(($paidVal / $omsetVal) * 100, 1) : 0,
+                'target_revenue'       => (float) ($tgt ? $tgt->target_revenue : 0),
+                'target_pcs'           => (int)   ($tgt ? $tgt->target_pcs : 0),
             ];
         }
         return $out;
+    }
+
+    public function jenisPoBreakdown(string|array|null $brandId, ?int $year = null, ?int $month = null): array
+    {
+        $year = $year ?: (int) now()->year;
+
+        $baseQ = Order::query()
+            ->when($brandId, $this->bf($brandId))
+            ->whereYear('tanggal_masuk', $year)
+            ->when($month, fn ($q) => $q->whereMonth('tanggal_masuk', $month))
+            ->where('status_po', '!=', 'draft');
+
+        $ordersStats = (clone $baseQ)
+            ->select(
+                DB::raw("SUM(CASE WHEN is_special_order = 1 THEN 1 ELSE 0 END) as special_po"),
+                DB::raw("SUM(CASE WHEN is_special_order = 0 AND is_reseller_price = 1 THEN 1 ELSE 0 END) as reseller_po"),
+                DB::raw("SUM(CASE WHEN is_special_order = 0 AND is_reseller_price = 0 AND is_repeat_order = 1 THEN 1 ELSE 0 END) as repeat_po"),
+                DB::raw("SUM(CASE WHEN is_special_order = 0 AND is_reseller_price = 0 AND is_repeat_order = 0 THEN 1 ELSE 0 END) as normal_po"),
+
+                DB::raw("SUM(CASE WHEN is_special_order = 1 THEN total_tagihan ELSE 0 END) as special_val"),
+                DB::raw("SUM(CASE WHEN is_special_order = 0 AND is_reseller_price = 1 THEN total_tagihan ELSE 0 END) as reseller_val"),
+                DB::raw("SUM(CASE WHEN is_special_order = 0 AND is_reseller_price = 0 AND is_repeat_order = 1 THEN total_tagihan ELSE 0 END) as repeat_val"),
+                DB::raw("SUM(CASE WHEN is_special_order = 0 AND is_reseller_price = 0 AND is_repeat_order = 0 THEN total_tagihan ELSE 0 END) as normal_val"),
+
+                DB::raw("COUNT(*) as total_po"),
+                DB::raw("SUM(total_tagihan) as total_val")
+            )
+            ->first();
+
+        $itemQ = OrderItem::query()
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->when($brandId, $this->obf($brandId))
+            ->whereYear('orders.tanggal_masuk', $year)
+            ->when($month, fn ($q) => $q->whereMonth('orders.tanggal_masuk', $month))
+            ->where('orders.status_po', '!=', 'draft')
+            ->whereNull('orders.deleted_at')
+            ->where('order_items.is_addon', false);
+
+        $pcsExpr = "CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) WHEN (SELECT COUNT(*) FROM order_items AS oi WHERE oi.order_id = order_items.order_id AND oi.is_addon = 0 AND oi.jml_atasan IS NOT NULL AND oi.jml_atasan != '') > 0 THEN 0 ELSE order_items.quantity END";
+
+        $pcsStats = $itemQ->select(
+            DB::raw("SUM(CASE WHEN orders.is_special_order = 1 THEN ($pcsExpr) ELSE 0 END) as special_pcs"),
+            DB::raw("SUM(CASE WHEN orders.is_special_order = 0 AND orders.is_reseller_price = 1 THEN ($pcsExpr) ELSE 0 END) as reseller_pcs"),
+            DB::raw("SUM(CASE WHEN orders.is_special_order = 0 AND orders.is_reseller_price = 0 AND orders.is_repeat_order = 1 THEN ($pcsExpr) ELSE 0 END) as repeat_pcs"),
+            DB::raw("SUM(CASE WHEN orders.is_special_order = 0 AND orders.is_reseller_price = 0 AND orders.is_repeat_order = 0 THEN ($pcsExpr) ELSE 0 END) as normal_pcs"),
+            DB::raw("SUM($pcsExpr) as total_pcs")
+        )->first();
+
+        $totPo  = (int)   ($ordersStats?->total_po ?? 0);
+        $totVal = (float) ($ordersStats?->total_val ?? 0);
+        $totPcs = (int)   ($pcsStats?->total_pcs ?? 0);
+
+        $makeItem = function (string $key, string $label, string $color, int $po, int $pcs, float $val) use ($totPo, $totPcs, $totVal) {
+            return [
+                'key'              => $key,
+                'label'            => $label,
+                'color'            => $color,
+                'total_po'         => $po,
+                'total_pcs'        => $pcs,
+                'total_omset'      => $val,
+                'percentage_po'    => $totPo > 0 ? round(($po / $totPo) * 100, 1) : 0,
+                'percentage_pcs'   => $totPcs > 0 ? round(($pcs / $totPcs) * 100, 1) : 0,
+                'percentage_omset' => $totVal > 0 ? round(($val / $totVal) * 100, 1) : 0,
+            ];
+        };
+
+        return [
+            'total_po'    => $totPo,
+            'total_pcs'   => $totPcs,
+            'total_omset' => $totVal,
+            'items'       => [
+                $makeItem('normal', 'Normal', '#3B82F6', (int) ($ordersStats?->normal_po ?? 0), (int) ($pcsStats?->normal_pcs ?? 0), (float) ($ordersStats?->normal_val ?? 0)),
+                $makeItem('special_order', 'Special Order', '#8B5CF6', (int) ($ordersStats?->special_po ?? 0), (int) ($pcsStats?->special_pcs ?? 0), (float) ($ordersStats?->special_val ?? 0)),
+                $makeItem('reseller_price', 'Harga Reseller', '#10B981', (int) ($ordersStats?->reseller_po ?? 0), (int) ($pcsStats?->reseller_pcs ?? 0), (float) ($ordersStats?->reseller_val ?? 0)),
+                $makeItem('repeat_order', 'Repeat Order', '#F59E0B', (int) ($ordersStats?->repeat_po ?? 0), (int) ($pcsStats?->repeat_pcs ?? 0), (float) ($ordersStats?->repeat_val ?? 0)),
+            ],
+        ];
     }
 
     private function calculateRejectRate(array $brandIds): float

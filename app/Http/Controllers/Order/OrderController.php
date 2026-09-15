@@ -2148,14 +2148,23 @@ class OrderController extends Controller
 
     private function syncItems(Order $order, array $items): void
     {
-        $order->items()->each(function (OrderItem $i) {
-            $i->namesets()->delete();
-            $i->delete();
-        });
+        // ✅ BULK DELETE — 2 query saja, bukan N×2 query
+        $itemIds = $order->items()->pluck('id');
+        if ($itemIds->isNotEmpty()) {
+            OrderNameset::whereIn('order_item_id', $itemIds)->delete();
+            $order->items()->delete();
+        }
+
+        $orderItemsToInsert = [];
+        $allNamesets = [];
+        $now = now();
 
         foreach ($items as $item) {
             $namesets = $item['namesets'] ?? [];
             unset($item['namesets']);
+
+            // Hapus field _key dari frontend (React key, bukan kolom DB)
+            unset($item['_key']);
 
             // Sanitize and filter out empty nameset records
             $filteredNamesets = [];
@@ -2186,7 +2195,6 @@ class OrderController extends Controller
                     $filteredNamesets[] = $sanitizedNs;
                 }
             }
-            $namesets = $filteredNamesets;
 
             $item['order_id'] = $order->id;
 
@@ -2207,35 +2215,48 @@ class OrderController extends Controller
             $item['discount_amount'] = $discountAmount;
             $item['subtotal'] = max(0, $raw - $discountAmount);
 
-            $created = OrderItem::create($item);
+            // ✅ Generate UUID di PHP, bukan dari Eloquent create()
+            $itemId = (string) \Illuminate\Support\Str::uuid();
+            $item['id'] = $itemId;
+            $item['created_at'] = $now;
+            $item['updated_at'] = $now;
 
-            $batchNamesets = [];
-            $now = now();
-            foreach ($namesets as $idx => $ns) {
-                $batchNamesets[] = [
-                    'id' => (string) \Illuminate\Support\Str::uuid(),
-                    'order_item_id' => $created->id,
-                    'nama_punggung' => $ns['nama_punggung'] ?? null,
-                    'nomor_punggung' => $ns['nomor_punggung'] ?? null,
-                    'nama_dada' => $ns['nama_dada'] ?? null,
-                    'nomor_dada' => $ns['nomor_dada'] ?? null,
-                    'nama_lengan' => $ns['nama_lengan'] ?? null,
-                    'nomor_lengan' => $ns['nomor_lengan'] ?? null,
-                    'nomor_punggung_2' => $ns['nomor_punggung_2'] ?? null,
+            $orderItemsToInsert[] = $item;
+
+            foreach ($filteredNamesets as $idx => $ns) {
+                $allNamesets[] = [
+                    'id'              => (string) \Illuminate\Support\Str::uuid(),
+                    'order_item_id'   => $itemId,
+                    'nama_punggung'   => $ns['nama_punggung'] ?? null,
+                    'nomor_punggung'  => $ns['nomor_punggung'] ?? null,
+                    'nama_dada'       => $ns['nama_dada'] ?? null,
+                    'nomor_dada'      => $ns['nomor_dada'] ?? null,
+                    'nama_lengan'     => $ns['nama_lengan'] ?? null,
+                    'nomor_lengan'    => $ns['nomor_lengan'] ?? null,
+                    'nomor_punggung_2'=> $ns['nomor_punggung_2'] ?? null,
                     'nama_punggung_2' => $ns['nama_punggung_2'] ?? null,
-                    'size_id' => !empty($ns['size_id']) ? $ns['size_id'] : null,
-                    'size_label' => $ns['size_label'] ?? null,
-                    'size_celana_id' => !empty($ns['size_celana_id']) ? $ns['size_celana_id'] : null,
+                    'size_id'         => !empty($ns['size_id']) ? $ns['size_id'] : null,
+                    'size_label'      => $ns['size_label'] ?? null,
+                    'size_celana_id'  => !empty($ns['size_celana_id']) ? $ns['size_celana_id'] : null,
                     'size_celana_label' => $ns['size_celana_label'] ?? null,
-                    'keterangan' => $ns['keterangan'] ?? null,
-                    'urutan' => $idx,
-                    'created_at' => $now,
-                    'updated_at' => $now,
+                    'keterangan'      => $ns['keterangan'] ?? null,
+                    'urutan'          => $idx,
+                    'created_at'      => $now,
+                    'updated_at'      => $now,
                 ];
             }
+        }
 
-            if (!empty($batchNamesets)) {
-                OrderNameset::insert($batchNamesets);
+        // ✅ BULK INSERT — 2 query saja untuk semua items + semua namesets
+        if (!empty($orderItemsToInsert)) {
+            // Insert dalam chunk 500 untuk cegah packet terlalu besar
+            foreach (array_chunk($orderItemsToInsert, 500) as $chunk) {
+                OrderItem::insert($chunk);
+            }
+        }
+        if (!empty($allNamesets)) {
+            foreach (array_chunk($allNamesets, 500) as $chunk) {
+                OrderNameset::insert($chunk);
             }
         }
     }

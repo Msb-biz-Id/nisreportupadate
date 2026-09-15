@@ -271,3 +271,17 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__ . '/auth.php';
+
+// Fallback route untuk melayani file dari disk public jika symlink cPanel rusak atau tidak tersedia
+Route::get('/storage/{path}', function (string $path) {
+    $cleanPath = str_replace(['..', "\0"], '', $path);
+    $cleanPath = ltrim($cleanPath, '/');
+
+    /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+    $disk = \Illuminate\Support\Facades\Storage::disk('public');
+    if ($disk->exists($cleanPath)) {
+        return response()->file($disk->path($cleanPath));
+    }
+
+    abort(404);
+})->where('path', '.*')->name('storage.fallback');
