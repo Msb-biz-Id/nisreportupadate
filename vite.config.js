@@ -24,9 +24,9 @@ export default defineConfig({
         },
     },
     build: {
-        emptyOutDir: false,
+        emptyOutDir: true,
         chunkSizeWarningLimit: 1600,
-        rolldownOptions: {
+        rollupOptions: {
             output: {
                 manualChunks(id) {
                     if (id.includes('node_modules')) {
