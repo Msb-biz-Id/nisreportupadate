@@ -69,8 +69,6 @@ class AppServiceProvider extends ServiceProvider
             // Prevent boot failures during migration or setup
         }
 
-        Vite::prefetch(concurrency: 3);
-
         // Register Cache::forgetPattern macro to prevent BadMethodCallException
         \Illuminate\Support\Facades\Cache::macro('forgetPattern', function (string $pattern) {
             $driver = config('cache.default');
