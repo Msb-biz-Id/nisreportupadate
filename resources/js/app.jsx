@@ -33,6 +33,12 @@ router.on('invalid', (event) => {
     }
 });
 
+// Automatically reload page when Vite dynamic chunks encounter version mismatches after deployment
+window.addEventListener('vite:preloadError', (event) => {
+    console.warn('Vite preload error encountered, reloading to fetch latest assets...', event);
+    window.location.reload();
+});
+
 const appName = import.meta.env.VITE_APP_NAME || 'ProTrack';
 
 createInertiaApp({

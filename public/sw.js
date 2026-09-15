@@ -1,13 +1,12 @@
-const CACHE_NAME = 'protrack-v4';
+const CACHE_NAME = 'protrack-v5';
 const ASSETS_TO_CACHE = [
-  '/',
   '/favicon.ico',
   '/manifest.json',
   '/pwa-icon-192.png',
   '/pwa-icon-512.png'
 ];
 
-// Install Event: pre-cache critical assets
+// Install Event: pre-cache static assets only (never cache dynamic HTML root '/')
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
@@ -23,14 +22,14 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate Event: clean up old caches immediately
+// Activate Event: immediately purge all old PWA caches and claim clients
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cache) => {
           if (cache !== CACHE_NAME) {
-            console.log('Deleting old PWA cache:', cache);
+            console.log('Purging old PWA cache:', cache);
             return caches.delete(cache);
           }
         })
@@ -39,21 +38,29 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event: network-first for pages & build assets, fallback to cache
+// Fetch Event: strictly bypass navigation & inertia requests to allow dynamic Laravel & Vite updates
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
 
-  // Exclude non-HTTP/HTTPS requests, non-GET requests, hot reload, and external/api paths
-  if (!request.url.startsWith('http') || request.method !== 'GET' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/sanctum/')) {
+  // Exclude non-GET, non-HTTP, API, auth/sanctum, and Inertia requests
+  if (
+    !request.url.startsWith('http') ||
+    request.method !== 'GET' ||
+    request.mode === 'navigate' ||
+    request.headers.get('X-Inertia') ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/sanctum/')
+  ) {
+    // Let the browser handle network directly without service worker interference
     return;
   }
 
-  // Network-First Strategy for build assets & pages so updates are served instantly
+  // Network-First strategy for static assets
   event.respondWith(
     fetch(request)
       .then((networkResponse) => {
-        if (networkResponse.status === 200) {
+        if (networkResponse && networkResponse.status === 200) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             if (request.url.startsWith('http')) {
@@ -69,7 +76,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Safe Message Listener to prevent message channel closed errors
+// Message Listener for explicit skipWaiting
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
