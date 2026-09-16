@@ -925,6 +925,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
     const [namesetOpen, setNamesetOpen] = useState(true);
     const [pasteOpen, setPasteOpen] = useState(false);
     const [namesetPage, setNamesetPage] = useState(0); // windowing: halaman nameset aktif
+    const namesetTableRef = useRef(null); // ref untuk scroll-ke-tabel saat ganti halaman
     const color = ACCENT_COLORS[index % ACCENT_COLORS.length];
 
     function patch(field, value) {
@@ -954,6 +955,23 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
             setNamesetPage(0);
             onChange(index, { ...item, namesets: [], quantity: 0 });
         }
+    }
+    // Flush local state NamesetRow aktif ke parent, BARU pindah halaman
+    // Ini mencegah data hilang jika user klik Next/Prev saat masih di dalam field input
+    function flushAndChangePage(newPage) {
+        if (document.activeElement && document.activeElement.blur) {
+            document.activeElement.blur();
+        }
+        // Gunakan setTimeout agar onBlur dari NamesetRow sempat dieksekusi dulu
+        setTimeout(() => {
+            setNamesetPage(newPage);
+            // Setelah render, scroll ke container tabel agar tidak loncat ke atas halaman
+            requestAnimationFrame(() => {
+                if (namesetTableRef.current) {
+                    namesetTableRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            });
+        }, 0);
     }
     // patchNameset: hanya dipakai untuk Select (size) — keyboard input pakai NamesetRow local state
     function patchNameset(i, field, value) {
@@ -1463,7 +1481,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                                         <button
                                             type="button"
                                             disabled={namesetPage === 0}
-                                            onClick={() => setNamesetPage(p => p - 1)}
+                                            onClick={() => flushAndChangePage(namesetPage - 1)}
                                             className="px-2 py-0.5 text-xs font-bold rounded bg-blue-100 text-blue-700 disabled:opacity-40 hover:bg-blue-200 transition"
                                         >← Prev</button>
                                         <span className="px-2 py-0.5 text-xs text-slate-500">
@@ -1472,13 +1490,13 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                                         <button
                                             type="button"
                                             disabled={(namesetPage + 1) * NAMESET_PAGE_SIZE >= item.namesets.length}
-                                            onClick={() => setNamesetPage(p => p + 1)}
+                                            onClick={() => flushAndChangePage(namesetPage + 1)}
                                             className="px-2 py-0.5 text-xs font-bold rounded bg-blue-100 text-blue-700 disabled:opacity-40 hover:bg-blue-200 transition"
                                         >Next →</button>
                                     </div>
                                 </div>
                             )}
-                            <div className="overflow-x-auto">
+                            <div ref={namesetTableRef} className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider">
@@ -1524,6 +1542,31 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                                     </tbody>
                                 </table>
                             </div>
+                            {/* Pagination bar bawah - muncul jika > PAGE_SIZE */}
+                            {item.namesets.length > NAMESET_PAGE_SIZE && (
+                                <div className="flex items-center justify-between bg-blue-50 border-t border-blue-100 px-3 py-1.5">
+                                    <span className="text-xs font-bold text-blue-700">
+                                        Menampilkan baris {namesetPage * NAMESET_PAGE_SIZE + 1}–{Math.min((namesetPage + 1) * NAMESET_PAGE_SIZE, item.namesets.length)} dari {item.namesets.length} pcs
+                                    </span>
+                                    <div className="flex gap-1">
+                                        <button
+                                            type="button"
+                                            disabled={namesetPage === 0}
+                                            onClick={() => flushAndChangePage(namesetPage - 1)}
+                                            className="px-2 py-0.5 text-xs font-bold rounded bg-blue-100 text-blue-700 disabled:opacity-40 hover:bg-blue-200 transition"
+                                        >← Prev</button>
+                                        <span className="px-2 py-0.5 text-xs text-slate-500">
+                                            Hal {namesetPage + 1}/{Math.ceil(item.namesets.length / NAMESET_PAGE_SIZE)}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            disabled={(namesetPage + 1) * NAMESET_PAGE_SIZE >= item.namesets.length}
+                                            onClick={() => flushAndChangePage(namesetPage + 1)}
+                                            className="px-2 py-0.5 text-xs font-bold rounded bg-blue-100 text-blue-700 disabled:opacity-40 hover:bg-blue-200 transition"
+                                        >Next →</button>
+                                    </div>
+                                </div>
+                            )}
                             {item.namesets.length > 0 && (
                                 <div className="bg-slate-50 p-3 border-t border-gray-200 flex flex-wrap gap-2 justify-center items-center">
                                     <span className="text-xs font-black text-slate-700 uppercase">
