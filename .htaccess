@@ -5,6 +5,15 @@
 
     RewriteEngine On
 
+    # ─── Auto redirect: domain.com → www.domain.com ───────────────────────────
+    RewriteCond %{HTTP_HOST} !^www\. [NC]
+    RewriteCond %{HTTP_HOST} !^localhost [NC]
+    RewriteCond %{HTTP_HOST} !\d+\.\d+\.\d+\.\d+ [NC]
+    RewriteRule ^ https://www.%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+    # ─── Redirect root "/" ke "/login" ─────────────────────────────────────────
+    RewriteRule ^$ public/index.php [L,QSA]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
