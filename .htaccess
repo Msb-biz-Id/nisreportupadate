@@ -1,23 +1,39 @@
 <IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
     RewriteEngine On
 
-    # Keamanan: Blokir akses langsung ke file sensitif dan folder sistem
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Blokir akses ke file sensitif dan folder sistem
     RewriteRule ^(\.env|\.git|composer\.(json|lock)|package(-lock)?\.json|artisan|phpunit\.xml) - [F,L,NC]
     RewriteRule ^(app|bootstrap|config|database|resources|routes|tests)/ - [F,L,NC]
     RewriteRule ^storage/(logs|framework)/ - [F,L,NC]
 
-    # Akses langsung ke storage publik jika file fisik ada di storage/app/public/ (fallback cPanel)
-    RewriteCond %{REQUEST_URI} ^/storage/(.*)$
-    RewriteCond %{DOCUMENT_ROOT}/storage/app/public/%1 -f
-    RewriteRule ^storage/(.*)$ storage/app/public/$1 [L]
+    # Teruskan /storage/* ke public/storage/* agar gambar tampil
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} ^/storage/
+    RewriteRule ^storage/(.*)$ public/storage/$1 [L,QSA]
 
-    # Arahkan semua request ke folder public/ dan pertahankan Query String (QSA)
+    # Redirect trailing slash
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Arahkan semua request ke public/
     RewriteCond %{REQUEST_URI} !^/public/
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^(.*)$ public/$1 [L,QSA]
 </IfModule>
 
 <IfModule mod_headers.c>
-    # Service worker & manifest MUST NOT be cached so browser receives immediate updates
+    # Service worker & manifest tidak boleh dicache
     <FilesMatch "(sw\.js|manifest\.json)$">
         Header set Cache-Control "no-cache, no-store, must-revalidate"
         Header set Pragma "no-cache"
