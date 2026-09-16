@@ -2155,7 +2155,6 @@ class OrderController extends Controller
             $order->items()->delete();
         }
 
-        $orderItemsToInsert = [];
         $allNamesets = [];
         $now = now();
 
@@ -2164,7 +2163,7 @@ class OrderController extends Controller
             unset($item['namesets']);
 
             // Hapus field _key dari frontend (React key, bukan kolom DB)
-            unset($item['_key']);
+            unset($item['_key'], $item['id']);
 
             // Sanitize and filter out empty nameset records
             $filteredNamesets = [];
@@ -2215,18 +2214,14 @@ class OrderController extends Controller
             $item['discount_amount'] = $discountAmount;
             $item['subtotal'] = max(0, $raw - $discountAmount);
 
-            // ✅ Generate UUID di PHP, bukan dari Eloquent create()
-            $itemId = (string) \Illuminate\Support\Str::uuid();
-            $item['id'] = $itemId;
-            $item['created_at'] = $now;
-            $item['updated_at'] = $now;
-
-            $orderItemsToInsert[] = $item;
+            // Gunakan Eloquent create agar casts (array -> json untuk logo_ids, bahan_kain_ids, dll)
+            // dan fillable diterapkan dengan benar tanpa error "Array to string conversion"
+            $created = OrderItem::create($item);
 
             foreach ($filteredNamesets as $idx => $ns) {
                 $allNamesets[] = [
                     'id'              => (string) \Illuminate\Support\Str::uuid(),
-                    'order_item_id'   => $itemId,
+                    'order_item_id'   => $created->id,
                     'nama_punggung'   => $ns['nama_punggung'] ?? null,
                     'nomor_punggung'  => $ns['nomor_punggung'] ?? null,
                     'nama_dada'       => $ns['nama_dada'] ?? null,
@@ -2247,13 +2242,7 @@ class OrderController extends Controller
             }
         }
 
-        // ✅ BULK INSERT — 2 query saja untuk semua items + semua namesets
-        if (!empty($orderItemsToInsert)) {
-            // Insert dalam chunk 500 untuk cegah packet terlalu besar
-            foreach (array_chunk($orderItemsToInsert, 500) as $chunk) {
-                OrderItem::insert($chunk);
-            }
-        }
+        // Bulk insert semua namesets sekaligus (sangat efisien untuk puluhan/ratusan record pemain)
         if (!empty($allNamesets)) {
             foreach (array_chunk($allNamesets, 500) as $chunk) {
                 OrderNameset::insert($chunk);

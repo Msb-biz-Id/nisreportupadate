@@ -1,17 +1,19 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Keamanan: Blokir akses langsung ke file sensitif
+    # Keamanan: Blokir akses langsung ke file sensitif dan folder sistem
     RewriteRule ^(\.env|\.git|composer\.(json|lock)|package(-lock)?\.json|artisan|phpunit\.xml) - [F,L,NC]
+    RewriteRule ^(app|bootstrap|config|database|resources|routes|tests)/ - [F,L,NC]
+    RewriteRule ^storage/(logs|framework)/ - [F,L,NC]
 
-    # Akses langsung ke storage publik jika file fisik ada di storage/app/public/
+    # Akses langsung ke storage publik jika file fisik ada di storage/app/public/ (fallback cPanel)
     RewriteCond %{REQUEST_URI} ^/storage/(.*)$
     RewriteCond %{DOCUMENT_ROOT}/storage/app/public/%1 -f
     RewriteRule ^storage/(.*)$ storage/app/public/$1 [L]
 
-    # Arahkan semua request ke folder public/
+    # Arahkan semua request ke folder public/ dan pertahankan Query String (QSA)
     RewriteCond %{REQUEST_URI} !^/public/
-    RewriteRule ^(.*)$ public/$1 [L]
+    RewriteRule ^(.*)$ public/$1 [L,QSA]
 </IfModule>
 
 <IfModule mod_headers.c>
