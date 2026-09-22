@@ -2143,6 +2143,14 @@ class OrderController extends Controller
             'items.*.namesets.*.size_celana_label' => ['nullable', 'string', 'max:50'],
             'items.*.namesets.*.keterangan' => ['nullable', 'string'],
             'bank_id' => ['required', 'uuid', 'exists:bank_accounts,id'],
+        ], [
+            'nama_po.required' => 'Nama PO wajib diisi.',
+            'pelanggan_id.required' => 'Customer / Pelanggan wajib dipilih.',
+            'bank_id.required' => 'Rekening Bank wajib dipilih.',
+            'items.*.nama_produk.required' => 'Nama produk pada setiap modul produk wajib diisi.',
+            'items.*.quantity.min' => 'Jumlah (quantity) pada setiap modul produk minimal 1 pcs.',
+            'items.*.quantity.required' => 'Jumlah (quantity) pada setiap modul produk wajib diisi.',
+            'deadline_customer.after_or_equal' => 'Deadline customer tidak boleh sebelum tanggal masuk.',
         ]);
     }
 
@@ -2164,6 +2172,13 @@ class OrderController extends Controller
 
             // Hapus field _key dari frontend (React key, bukan kolom DB)
             unset($item['_key'], $item['id']);
+
+            // Sanitize string fields: convert empty trimmed strings to null (WYSIWYG: empty remains empty/null)
+            foreach ($item as $key => $val) {
+                if (is_string($val) && trim($val) === '') {
+                    $item[$key] = null;
+                }
+            }
 
             // Sanitize and filter out empty nameset records
             $filteredNamesets = [];

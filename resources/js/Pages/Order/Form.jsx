@@ -1,6 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { Save, Plus, Trash2, ChevronDown, ChevronUp, Settings2, Users, CreditCard, ClipboardPaste, Package2, FileDown, Copy, ArrowUp, ArrowDown, History, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { Save, Plus, Trash2, ChevronDown, ChevronUp, Settings2, Users, CreditCard, ClipboardPaste, Package2, FileDown, Copy, ArrowUp, ArrowDown, History, RotateCcw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/Components/ui/button';
@@ -1715,9 +1715,27 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
     const [hasRecoverableDraft, setHasRecoverableDraft] = useState(false);
     const [draftDataToRecover, setDraftDataToRecover] = useState(null);
 
-    // 1. Check for recoverable draft on initial mount
+    // 1. Check for recoverable draft on initial mount & clean up stale drafts (> 24 hours)
     useEffect(() => {
         try {
+            // Bersihkan draf-draf usang (> 24 jam) agar tidak menumpuk di storage browser
+            const maxAgeMs = 24 * 60 * 60 * 1000;
+            const now = Date.now();
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('order_draft_')) {
+                    try {
+                        const item = JSON.parse(localStorage.getItem(key));
+                        if (item && item.timestamp) {
+                            const age = now - new Date(item.timestamp).getTime();
+                            if (age > maxAgeMs) {
+                                localStorage.removeItem(key);
+                            }
+                        }
+                    } catch {}
+                }
+            }
+
             const rawDraft = localStorage.getItem(draftStorageKey);
             if (rawDraft) {
                 const parsed = JSON.parse(rawDraft);
@@ -1872,6 +1890,39 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
     function submit(e) {
         e.preventDefault();
 
+        // 1. Validasi pre-submit: Pastikan minimal ada 1 modul produk
+        if (!data.items || data.items.length === 0) {
+            toast.error('PO harus memiliki minimal 1 modul produk.', {
+                description: 'Silakan pilih produk dari daftar atau klik "Tambah Manual".',
+                duration: 6000,
+            });
+            return;
+        }
+
+        // 2. Validasi pre-submit: Cek modul produk inti yang tidak memiliki nameset (0 pcs)
+        const emptyModule = data.items.find((it, idx) => !it.is_addon && (!it.namesets || it.namesets.length === 0));
+        if (emptyModule) {
+            const moduleIdx = data.items.indexOf(emptyModule) + 1;
+            const moduleName = emptyModule.nama_produk || `Produk #${moduleIdx}`;
+            toast.error(`Modul "${moduleName}" belum memiliki data nameset (0 PCS).`, {
+                description: 'Silakan klik "+ Tambah Baris" pada tabel nameset, atau hapus modul ini (ikon tong sampah merah) jika tidak dipesan.',
+                duration: 8000,
+            });
+            return;
+        }
+
+        // 3. Validasi pre-submit: Cek modul add-on dengan Qty <= 0
+        const emptyAddon = data.items.find((it) => it.is_addon && (Number(it.quantity) || 0) <= 0);
+        if (emptyAddon) {
+            const moduleIdx = data.items.indexOf(emptyAddon) + 1;
+            const moduleName = emptyAddon.nama_produk || `Add-on #${moduleIdx}`;
+            toast.error(`Modul Add-on "${moduleName}" memiliki Qty 0 PCS.`, {
+                description: 'Silakan isi jumlah Qty minimal 1, atau hapus modul add-on ini (ikon tong sampah merah) jika tidak dipesan.',
+                duration: 8000,
+            });
+            return;
+        }
+
         // Format all namesets before submitting to ensure superscripts are applied
         transform((currentData) => {
             return {
@@ -1917,13 +1968,25 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
             return;
         }
 
+        const handleSaveError = (errs) => {
+            console.error('Validation errors:', errs);
+            const errList = Object.values(errs || {});
+            const firstMsg = errList.length > 0 ? errList[0] : 'Periksa kembali data yang belum lengkap pada form.';
+            toast.error('Gagal Menyimpan PO ke Database!', {
+                description: firstMsg,
+                duration: 8000,
+            });
+        };
+
         if (isEdit) {
             put(route('orders.update', order.id), {
                 onSuccess: () => {
                     try {
                         localStorage.removeItem(draftStorageKey);
                     } catch (err) {}
-                }
+                    toast.success('Perubahan PO berhasil disimpan ke database!');
+                },
+                onError: handleSaveError,
             });
         } else {
             post(route('orders.store'), {
@@ -1931,7 +1994,9 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                     try {
                         localStorage.removeItem(draftStorageKey);
                     } catch (err) {}
-                }
+                    toast.success('PO berhasil dibuat dan disimpan ke database!');
+                },
+                onError: handleSaveError,
             });
         }
     }
@@ -2242,9 +2307,9 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
 
                         <div className="flex flex-wrap gap-2 items-center">
                             {lastSavedTime && (
-                                <div className="hidden md:flex items-center gap-1.5 text-[11px] text-emerald-400 bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-xl font-medium shadow-inner" title="Perubahan otomatis tersimpan di penyimpanan lokal browser">
-                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                                    <span>Draf tersimpan ({lastSavedTime})</span>
+                                <div className="hidden md:flex items-center gap-1.5 text-[11px] text-amber-300 bg-amber-950/40 border border-amber-500/30 px-3 py-1.5 rounded-xl font-medium shadow-inner" title="Perubahan sementara tercatat di browser lokal Anda. Klik tombol Simpan agar data tersimpan permanen di database server.">
+                                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                                    <span>Draf di browser ({lastSavedTime})</span>
                                 </div>
                             )}
                             <button
@@ -2258,6 +2323,11 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                             </button>
                             <Link
                                 href={isEdit ? route('orders.show', order.id) : route('orders.index')}
+                                onClick={() => {
+                                    try {
+                                        localStorage.removeItem(draftStorageKey);
+                                    } catch (e) {}
+                                }}
                                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition uppercase tracking-wide shadow-md border border-slate-700"
                             >
                                 Batal
@@ -2276,6 +2346,32 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
 
                 {/* ===== MAIN LAYOUT: FULL WIDTH ===== */}
                 <div className="w-full space-y-5">
+
+                        {/* Banner Ringkasan Error Validasi */}
+                        {errors && Object.keys(errors).length > 0 && (
+                            <div className="rounded-2xl border-2 border-red-500 bg-red-50 p-4 sm:p-5 shadow-md flex items-start gap-3.5 animate-in fade-in duration-200">
+                                <div className="rounded-xl bg-red-600 p-2 text-white shadow-sm shrink-0">
+                                    <AlertCircle className="h-5 w-5" />
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="text-sm font-black text-red-900 uppercase tracking-wide">
+                                        Gagal Menyimpan: Terdapat Kesalahan Input ({Object.keys(errors).length})
+                                    </h4>
+                                    <ul className="mt-1.5 list-disc list-inside text-xs text-red-700 space-y-0.5">
+                                        {Object.entries(errors).slice(0, 5).map(([field, msg]) => (
+                                            <li key={field}>
+                                                <span className="font-semibold">{field}:</span> {msg}
+                                            </li>
+                                        ))}
+                                        {Object.keys(errors).length > 5 && (
+                                            <li className="font-semibold text-red-800">
+                                                ...dan {Object.keys(errors).length - 5} kesalahan lainnya. Periksa kembali form isian modul produk.
+                                            </li>
+                                        )}
+                                    </ul>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Banner: Pulihkan Draf Lokal jika ditemukan */}
                         {hasRecoverableDraft && (

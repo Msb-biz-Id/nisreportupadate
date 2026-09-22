@@ -12,10 +12,7 @@ class PoGroupHelper
         $nonAddon = $items->filter(fn($item) => is_array($item) ? !($item['is_addon'] ?? false) : !($item->is_addon ?? false));
         $addon = $items->filter(fn($item) => is_array($item) ? ($item['is_addon'] ?? false) : ($item->is_addon ?? false));
 
-        // Apply free item specification inheritance from core items
-        $nonAddon = self::applyFreeInheritance($nonAddon);
-
-        // 2. Group non-addon items by specs hash
+        // 2. Group non-addon items by specs hash (strictly respects user input without phantom overwrites)
         $groups = $nonAddon->groupBy(function ($item) {
             return self::getSpecsHash($item);
         });
@@ -28,132 +25,6 @@ class PoGroupHelper
 
         // 4. Return combined collection (grouped non-addons + addons)
         return $groupedNonAddon->concat($addon);
-    }
-
-    public static function applyFreeInheritance(Collection $nonAddon): Collection
-    {
-        // Separate core (non-free) items
-        $coreItems = $nonAddon->filter(function ($item) {
-            $harga = is_array($item) ? ($item['harga_satuan'] ?? 0.0) : ($item->harga_satuan ?? 0.0);
-            return (float)$harga > 0.0;
-        });
-
-        if ($coreItems->isEmpty()) {
-            return $nonAddon;
-        }
-
-        $fields = [
-            'jenis_setelan_id' => 'jenisSetelan',
-            'model_produksi_id' => 'modelProduksi',
-            'bahan_kain_id' => 'bahanKain',
-            'bahan_kain_ids' => null,
-            'bahan_kains_names' => null,
-            'bahan_kain_bawahan_id' => 'bahanKainBawahan',
-            'bahan_kain_bawahan_ids' => null,
-            'bahan_kain_bawahan_names' => null,
-            'warna' => null,
-            'logo_id' => 'logo',
-            'logo_ids' => null,
-            'logo_names' => null,
-            'jenis_rib' => null,
-            'list_kerah' => null,
-            'list_lengan' => null,
-            'list_samping_celana' => null,
-            'list_bawah_celana' => null,
-            'tutup_kerah' => null,
-            'jenis_kerah' => null,
-            'pola_jahitan_id' => 'polaJahitan',
-            'pola_jahitan_lengan_id' => 'polaJahitanLengan',
-            'pola_jahitan_kerah_id' => null,
-            'pola_jahitan_bawah_id' => null,
-            'pola_jahitan_pundak_id' => null,
-            'resleting_id' => 'resleting',
-            'jahitan_list_lengan' => null,
-            'gambar_desain' => null,
-            'gambar_kerah' => null,
-            'gambar_ket_tambahan' => null,
-            'ket_atasan' => null,
-            'ket_bawahan' => null,
-        ];
-
-        return $nonAddon->map(function ($item) use ($coreItems, $fields) {
-            $harga = is_array($item) ? ($item['harga_satuan'] ?? 0.0) : ($item->harga_satuan ?? 0.0);
-            if ((float)$harga != 0.0) {
-                return $item;
-            }
-
-            // Find matching core item
-            $freeName = strtolower(trim(is_array($item) ? ($item['nama_produk'] ?? '') : ($item->nama_produk ?? '')));
-            $freeVarian = strtolower(trim(is_array($item) ? ($item['varian_label'] ?? '') : ($item->varian_label ?? '')));
-
-            $coreItem = null;
-            if ($freeName !== '') {
-                // 1. Exact match by name
-                $coreItem = $coreItems->first(function ($c) use ($freeName) {
-                    $cName = strtolower(trim(is_array($c) ? ($c['nama_produk'] ?? '') : ($c->nama_produk ?? '')));
-                    return $cName === $freeName;
-                });
-
-                // 2. Fuzzy match by name (contains)
-                if (!$coreItem) {
-                    $coreItem = $coreItems->first(function ($c) use ($freeName) {
-                        $cName = strtolower(trim(is_array($c) ? ($c['nama_produk'] ?? '') : ($c->nama_produk ?? '')));
-                        return $cName !== '' && (str_contains($freeName, $cName) || str_contains($cName, $freeName));
-                    });
-                }
-            }
-
-            if (!$coreItem && $freeVarian !== '') {
-                // 3. Exact match by variant
-                $coreItem = $coreItems->first(function ($c) use ($freeVarian) {
-                    $cVarian = strtolower(trim(is_array($c) ? ($c['varian_label'] ?? '') : ($c->varian_label ?? '')));
-                    return $cVarian === $freeVarian;
-                });
-
-                // 4. Fuzzy match by variant (contains)
-                if (!$coreItem) {
-                    $coreItem = $coreItems->first(function ($c) use ($freeVarian) {
-                        $cVarian = strtolower(trim(is_array($c) ? ($c['varian_label'] ?? '') : ($c->varian_label ?? '')));
-                        return $cVarian !== '' && (str_contains($freeVarian, $cVarian) || str_contains($cVarian, $freeVarian));
-                    });
-                }
-            }
-
-            if (!$coreItem) {
-                $coreItem = $coreItems->first();
-            }
-
-            if ($coreItem) {
-                if (is_array($item)) {
-                    foreach ($fields as $field => $relation) {
-                        $itemVal = $item[$field] ?? null;
-                        if (self::isFieldEmpty($itemVal)) {
-                            $coreVal = $coreItem[$field] ?? null;
-                            if (!self::isFieldEmpty($coreVal)) {
-                                $item[$field] = $coreVal;
-                            }
-                        }
-                    }
-                } else {
-                    foreach ($fields as $field => $relation) {
-                        $itemVal = $item->getAttribute($field);
-                        if (self::isFieldEmpty($itemVal)) {
-                            $coreVal = $coreItem->getAttribute($field);
-                            if (!self::isFieldEmpty($coreVal)) {
-                                $item->setAttribute($field, $coreVal);
-                                
-                                // Set relation if loaded
-                                if ($relation && $coreItem->relationLoaded($relation)) {
-                                    $item->setRelation($relation, $coreItem->getRelation($relation));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            return $item;
-        });
     }
 
     /**

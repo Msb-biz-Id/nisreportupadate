@@ -32,4 +32,4 @@ Thumbs.db
 /storage/fonts/*.ufm
 /storage/fonts/*.ufm.json
 /scratch
-
+*.zip
