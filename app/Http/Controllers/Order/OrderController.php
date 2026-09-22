@@ -66,6 +66,7 @@ class OrderController extends Controller
 
         $query            = $this->getIndexQuery($request, $effectiveId, $tab, $user, $canSeeMultiBrand, $filterBrandId);
         $statusCounts     = $this->getStatusCounts($request, $effectiveId, $tab, $user, $canSeeMultiBrand, $filterBrandId);
+        $archiveCounts    = $tab === 'archive' ? $this->getArchiveCounts($request, $effectiveId, $user, $canSeeMultiBrand, $filterBrandId) : null;
 
         $perPage = $request->integer('per_page', 25);
         if (!in_array($perPage, [10, 25, 50, 100, 250], true)) {
@@ -96,8 +97,10 @@ class OrderController extends Controller
                 'date_from' => $request->string('date_from')->toString(),
                 'date_to'   => $request->string('date_to')->toString(),
                 'tab'       => $tab,
+                'per_page'  => $perPage,
             ],
             'statuses'     => $visibleStatuses,
+            'archiveCounts' => $archiveCounts,
             'statusCounts' => $statusCounts,
             'brands'       => $brands,
             'can' => [
@@ -147,28 +150,33 @@ class OrderController extends Controller
         }
 
         if ($tab === 'archive') {
-            $query->whereIn('orders.status_po', ['sudah_dikirim', 'selesai']);
+            // Default: show all archive (sudah_dikirim + selesai)
+            // If a specific status filter is requested within archive, apply it
+            $status = $request->string('status')->toString();
+            if ($status && $status !== 'all' && in_array($status, ['sudah_dikirim', 'selesai'], true)) {
+                $query->where('orders.status_po', $status);
+            } else {
+                $query->whereIn('orders.status_po', ['sudah_dikirim', 'selesai']);
+            }
         } else {
             $query->whereNotIn('orders.status_po', ['sudah_dikirim', 'selesai']);
-        }
 
-        $status = $request->string('status')->toString();
-        if ($status && $status !== 'all') {
-            if ($tab === 'active' && in_array($status, ['sudah_dikirim', 'selesai'], true)) {
-                $query->whereRaw('1 = 0');
-            } elseif ($tab === 'archive' && ! in_array($status, ['sudah_dikirim', 'selesai'], true)) {
-                $query->whereRaw('1 = 0');
-            } elseif ($status === 'delay') {
-                $today = now()->startOfDay()->format('Y-m-d');
-                $query->where(function ($q) use ($today) {
-                    $q->where('orders.status_po', 'delay')
-                      ->orWhere(function ($q2) use ($today) {
-                          $q2->whereNotIn('orders.status_po', ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai', 'draft'])
-                             ->whereRaw("DATE(COALESCE(orders.end_production_date, orders.deadline_customer)) < ?", [$today]);
-                      });
-                });
-            } else {
-                $query->where('orders.status_po', $status);
+            $status = $request->string('status')->toString();
+            if ($status && $status !== 'all') {
+                if (in_array($status, ['sudah_dikirim', 'selesai'], true)) {
+                    $query->whereRaw('1 = 0');
+                } elseif ($status === 'delay') {
+                    $today = now()->startOfDay()->format('Y-m-d');
+                    $query->where(function ($q) use ($today) {
+                        $q->where('orders.status_po', 'delay')
+                          ->orWhere(function ($q2) use ($today) {
+                              $q2->whereNotIn('orders.status_po', ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai', 'draft'])
+                                 ->whereRaw("DATE(COALESCE(orders.end_production_date, orders.deadline_customer)) < ?", [$today]);
+                          });
+                    });
+                } else {
+                    $query->where('orders.status_po', $status);
+                }
             }
         }
 
@@ -254,6 +262,33 @@ class OrderController extends Controller
         } else {
             return ['sudah_dikirim', 'selesai'];
         }
+    }
+
+    private function getArchiveCounts(Request $request, mixed $effectiveId, \App\Models\User $user, bool $canSeeMultiBrand, string $filterBrandId): array
+    {
+        $baseQuery = Order::query()
+            ->forBrand($effectiveId)
+            ->when($user->hasRole('admin_produksi'), fn ($q) => $q->where('orders.status_po', '!=', 'draft'))
+            ->when($canSeeMultiBrand && $filterBrandId && $filterBrandId !== 'all', fn ($q) => $q->where('orders.brand_id', $filterBrandId))
+            ->when($request->string('q')->toString(), fn ($q, $v) => $q->where(function ($w) use ($v) {
+                $w->where('no_po', 'like', "%{$v}%")->orWhere('nama_po', 'like', "%{$v}%");
+            }))
+            ->when($request->string('date_from')->toString(), fn ($q, $v) => $q->where('tanggal_masuk', '>=', $v . ' 00:00:00'))
+            ->when($request->string('date_to')->toString(), fn ($q, $v) => $q->where('tanggal_masuk', '<=', $v . ' 23:59:59'))
+            ->whereIn('orders.status_po', ['sudah_dikirim', 'selesai']);
+
+        $counts = (clone $baseQuery)
+            ->selectRaw('status_po, count(*) as total')
+            ->groupBy('status_po')
+            ->pluck('total', 'status_po')
+            ->map(fn ($total) => (int) $total)
+            ->toArray();
+
+        return [
+            'sudah_dikirim' => (int) ($counts['sudah_dikirim'] ?? 0),
+            'selesai'       => (int) ($counts['selesai'] ?? 0),
+            'total'         => (int) (($counts['sudah_dikirim'] ?? 0) + ($counts['selesai'] ?? 0)),
+        ];
     }
 
     public function exportComprehensive(Request $request)

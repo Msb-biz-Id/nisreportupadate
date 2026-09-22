@@ -6,16 +6,13 @@
         <meta name="robots" content="noindex, nofollow">
         @php
             $appData = $page['props']['app'] ?? [];
-            
-            $themeColor = $appData['theme_color'] ?? \App\Models\Settings\SystemSetting::get('system', 'theme_color', '#a8001c');
-            $faviconUrl = $appData['favicon_url'] ?? null;
-            if (!$faviconUrl) {
-                $faviconPath = \App\Models\Settings\SystemSetting::get('seo', 'favicon');
-                $faviconUrl = $faviconPath ? \Illuminate\Support\Facades\Storage::url($faviconPath) : asset('favicon.ico');
-            }
-            
-            $appName = $appData['name'] ?? \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'Circle Sportwear - Tracking PO'));
-            $metaDescription = $appData['description'] ?? \App\Models\Settings\SystemSetting::get('seo', 'site_description', 'Sistem tracking PO dan invoice secara aman dan privat.');
+
+            // All values are already resolved by HandleInertiaRequests middleware via Inertia props.
+            // We only fall back to defaults here — no SystemSetting::get() calls needed.
+            $themeColor      = $appData['theme_color'] ?? '#a8001c';
+            $faviconUrl      = $appData['favicon_url'] ?? asset('favicon.ico');
+            $appName         = $appData['name'] ?? config('app.name', 'ProTrack');
+            $metaDescription = $appData['description'] ?? 'Sistem tracking PO dan invoice secara aman dan privat.';
 
             // Convert hex to HSL
             $hex = ltrim($themeColor, '#');

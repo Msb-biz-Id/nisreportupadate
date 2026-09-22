@@ -1,5 +1,5 @@
 import { Link, router, usePage, Head } from '@inertiajs/react';
-import { useEffect, useState, useRef, createContext } from 'react';
+import { useEffect, useState, useRef, createContext, lazy, Suspense } from 'react';
 import { Toaster, toast } from 'sonner';
 
 export const NotificationContext = createContext(null);
@@ -16,9 +16,14 @@ import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { playNotificationSound } from '@/Services/audio';
 
-import SidebarContent from './Partials/SidebarContent';
-import NotificationDropdown from './Partials/NotificationDropdown';
-import UserMenu from './Partials/UserMenu';
+// Lazy-load heavy layout partials — they are not needed for first paint
+const SidebarContent      = lazy(() => import('./Partials/SidebarContent'));
+const NotificationDropdown = lazy(() => import('./Partials/NotificationDropdown'));
+const UserMenu             = lazy(() => import('./Partials/UserMenu'));
+
+// Lightweight skeleton shown while lazy components initialize
+const PartialSkeleton = () => <div className="h-full w-full animate-pulse bg-slate-100 rounded" />;
+
 
 export default function AppLayout({ title, header, children }) {
     const { auth, brandContext, flash, app } = usePage().props;
@@ -187,21 +192,58 @@ export default function AppLayout({ title, header, children }) {
         triggerNotificationAlert(notif);
     };
 
-    // WebSocket broadcaster listener + Fast Polling Fallback Sync (5 seconds interval when tab is focused)
+    // WebSocket broadcaster listener + Polling Fallback with Exponential Backoff
     const notificationsRef = useRef(notifications);
     notificationsRef.current = notifications;
     const unreadCountRef = useRef(unreadCount);
     unreadCountRef.current = unreadCount;
     const mountTime = useRef(new Date(Date.now() - 30000)); // 30 seconds buffer for clock drift
 
+    // Circuit-breaker state for polling backoff
+    const pollFailCount   = useRef(0);   // consecutive failure counter
+    const pollIntervalRef = useRef(null); // current interval reference
+    const isEchoConnectedRef = useRef(false);
+
+    /**
+     * Calculates the next polling delay using exponential backoff.
+     * Resets to BASE on success, backs off on consecutive failures.
+     *   0 failures → 5s, 1 → 10s, 2 → 20s, 3+ → 60s (max)
+     */
+    const POLL_BASE_MS = 5_000;
+    const POLL_MAX_MS  = 60_000;
+
+    const getBackoffDelay = (failCount) => {
+        if (failCount === 0) return POLL_BASE_MS;
+        return Math.min(POLL_BASE_MS * Math.pow(2, failCount), POLL_MAX_MS);
+    };
+
+    const scheduleNextPoll = (failCount) => {
+        if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
+        const delay = getBackoffDelay(failCount);
+        pollIntervalRef.current = setTimeout(() => {
+            if (isEchoConnectedRef.current) {
+                scheduleNextPoll(0); // Echo is connected, keep checking at base interval
+                return;
+            }
+            if (typeof document !== 'undefined' && document.hidden) {
+                scheduleNextPoll(failCount); // Tab hidden — skip this tick, retry same delay
+                return;
+            }
+            refreshNotifications();
+        }, delay);
+    };
+
     const refreshNotifications = () => {
         if (!user) return;
         axios.get(route('notifications.index'))
             .then((res) => {
+                // Success — reset failure counter, go back to base polling speed
+                pollFailCount.current = 0;
+
                 const latest = res.data.notifications?.data || [];
                 const serverUnread = res.data.unread_count ?? 0;
                 const currentNotifs = notificationsRef.current;
-                
+
                 if (latest.length > 0 && latest[0].id !== currentNotifs[0]?.id) {
                     const newNotifs = latest.filter(n => {
                         const isNew = !currentNotifs.some(existing => existing.id === n.id);
@@ -214,31 +256,39 @@ export default function AppLayout({ title, header, children }) {
                         });
                     }
                 }
-                
-                // Only update state if the values have actually changed to prevent unnecessary re-renders
-                setUnreadCount((prev) => {
-                    return serverUnread !== prev ? serverUnread : prev;
-                });
-                
-                // Smart merge to maintain all history (read/unread) and update properties (e.g. is_read)
+
+                // Only update state if values actually changed (prevent unnecessary re-renders)
+                setUnreadCount((prev) => serverUnread !== prev ? serverUnread : prev);
+
+                // Smart merge: maintain full history, update read-state from server
                 setNotifications((prev) => {
                     const mergedMap = new Map();
-                    // 1. Load existing notifications in local state
                     prev.forEach(n => mergedMap.set(n.id, n));
-                    // 2. Put/overwrite with latest from server
                     latest.forEach(n => mergedMap.set(n.id, n));
-                    
                     const mergedList = Array.from(mergedMap.values());
                     mergedList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-                    // Compare mergedList with prev to see if we actually need to change state
                     const isDifferent = mergedList.length !== prev.length ||
                         mergedList.some((n, index) => n.id !== prev[index]?.id || n.is_read !== prev[index]?.is_read);
-
                     return isDifferent ? mergedList : prev;
                 });
+
+                scheduleNextPoll(0); // reschedule at base speed
             })
-            .catch((err) => console.debug('Polling notifications skipped or offline:', err));
+            .catch((err) => {
+                // Failure — increment counter and back off
+                const isServerError = err?.response?.status >= 500 || err?.response?.status === 525;
+                if (isServerError) {
+                    pollFailCount.current = Math.min(pollFailCount.current + 1, 3);
+                    console.debug(
+                        `[Notifications] Server error (${err?.response?.status}), backing off. ` +
+                        `Retry #${pollFailCount.current} in ${getBackoffDelay(pollFailCount.current) / 1000}s`
+                    );
+                } else {
+                    // Network offline or other transient error — don't escalate backoff aggressively
+                    console.debug('[Notifications] Polling skipped (offline or transient):', err?.message);
+                }
+                scheduleNextPoll(pollFailCount.current);
+            });
     };
 
     // Sync initial state if it changes in Inertia
@@ -253,12 +303,11 @@ export default function AppLayout({ title, header, children }) {
         if (!user) return;
 
         let channel = null;
-        let isEchoConnected = false;
 
         if (window.Echo) {
             channel = window.Echo.private(`App.Models.User.${user.id}`)
                 .notification((notification) => {
-                    isEchoConnected = true;
+                    isEchoConnectedRef.current = true;
                     handleNewNotification({
                         id: notification.id,
                         type: notification.event_key || notification.type || '',
@@ -273,19 +322,14 @@ export default function AppLayout({ title, header, children }) {
                 });
         }
 
-        // Fast Polling Fallback Sync (every 5 seconds when active/focused; pauses when backgrounded to save resources)
-        const interval = setInterval(() => {
-            if (isEchoConnected) return;
-            if (typeof document !== 'undefined' && document.hidden) return; // Skip polling when tab is inactive
-
-            refreshNotifications();
-        }, 5000);
+        // Start polling with backoff (used when Echo/WebSocket is not available)
+        scheduleNextPoll(0);
 
         return () => {
             if (channel && window.Echo) {
                 window.Echo.leave(`App.Models.User.${user.id}`);
             }
-            clearInterval(interval);
+            if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
         };
     }, [user?.id]);
 
@@ -557,14 +601,16 @@ export default function AppLayout({ title, header, children }) {
                 "fixed inset-y-0 left-0 z-30 hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:block transition-all duration-300",
                 isCollapsed ? "w-20" : "w-64"
             )}>
-                <SidebarContent 
-                    user={user} 
-                    brandContext={brandContext} 
-                    installPrompt={isInstallable}
-                    handleInstall={handleInstallClick}
-                    isCollapsed={isCollapsed}
-                    app={app}
-                />
+                <Suspense fallback={<PartialSkeleton />}>
+                    <SidebarContent 
+                        user={user} 
+                        brandContext={brandContext} 
+                        installPrompt={isInstallable}
+                        handleInstall={handleInstallClick}
+                        isCollapsed={isCollapsed}
+                        app={app}
+                    />
+                </Suspense>
             </aside>
 
             {/* Mobile sidebar */}
@@ -572,15 +618,17 @@ export default function AppLayout({ title, header, children }) {
                 <SheetContent side="left" className="w-72 border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground">
                     <SheetTitle className="sr-only">Navigasi</SheetTitle>
                     <SheetDescription className="sr-only">Menu navigasi utama</SheetDescription>
-                    <SidebarContent 
-                        user={user} 
-                        brandContext={brandContext} 
-                        onNavigate={() => setMobileOpen(false)} 
-                        installPrompt={isInstallable}
-                        handleInstall={handleInstallClick}
-                        isCollapsed={false}
-                        app={app}
-                    />
+                    <Suspense fallback={<PartialSkeleton />}>
+                        <SidebarContent 
+                            user={user} 
+                            brandContext={brandContext} 
+                            onNavigate={() => setMobileOpen(false)} 
+                            installPrompt={isInstallable}
+                            handleInstall={handleInstallClick}
+                            isCollapsed={false}
+                            app={app}
+                        />
+                    </Suspense>
                 </SheetContent>
             </Sheet>
 
@@ -634,16 +682,20 @@ export default function AppLayout({ title, header, children }) {
 
                     <div className="flex items-center gap-1.5">
                         {user && (
-                            <NotificationDropdown 
-                                notifications={notifications}
-                                unreadCount={unreadCount}
-                                onMarkAsRead={markAsRead}
-                                onMarkAllAsRead={markAllAsRead}
-                                onDelete={deleteNotification}
-                                onDropdownOpen={refreshNotifications}
-                            />
+                            <Suspense fallback={<div className="h-8 w-8 rounded-full bg-slate-100 animate-pulse" />}>
+                                <NotificationDropdown 
+                                    notifications={notifications}
+                                    unreadCount={unreadCount}
+                                    onMarkAsRead={markAsRead}
+                                    onMarkAllAsRead={markAllAsRead}
+                                    onDelete={deleteNotification}
+                                    onDropdownOpen={refreshNotifications}
+                                />
+                            </Suspense>
                         )}
-                        <UserMenu user={user} />
+                        <Suspense fallback={<div className="h-8 w-8 rounded-full bg-slate-100 animate-pulse" />}>
+                            <UserMenu user={user} />
+                        </Suspense>
                     </div>
                 </header>
 

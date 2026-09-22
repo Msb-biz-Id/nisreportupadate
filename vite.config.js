@@ -25,15 +25,35 @@ export default defineConfig({
     },
     build: {
         emptyOutDir: true,
-        chunkSizeWarningLimit: 1600,
+        chunkSizeWarningLimit: 1000,
         rollupOptions: {
             output: {
+                /**
+                 * Chunk strategy:
+                 *  - chunk-charts : Recharts + D3 helpers (only needed on dashboard/report pages)
+                 *  - vendor       : all other node_modules (React, Radix, Lucide, Inertia, Axios, etc.)
+                 *
+                 * Note: finer splitting (per-framework, per-ui-lib) causes circular chunk warnings
+                 * because React, Radix UI, and Lucide have cross-package internal imports.
+                 * Per-page code splitting (the real perf win) is handled by { eager: false } in app.jsx.
+                 */
                 manualChunks(id) {
-                    if (id.includes('node_modules')) {
-                        return 'vendor';
+                    if (!id.includes('node_modules')) return;
+
+                    // Heavy visualisation libs — only needed on dashboard/report pages
+                    if (
+                        id.includes('recharts') ||
+                        id.includes('/d3-') ||
+                        id.includes('d3/') ||
+                        id.includes('victory')
+                    ) {
+                        return 'chunk-charts';
                     }
-                }
-            }
-        }
-    }
+
+                    // Everything else: stable vendor chunk (React, Radix, Lucide, Inertia…)
+                    return 'vendor';
+                },
+            },
+        },
+    },
 });

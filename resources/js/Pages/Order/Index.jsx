@@ -1,6 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Search, Eye, Package, RotateCw, Copy, Check, X, Calendar, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Eye, Package, RotateCw, Copy, Check, X, Calendar, Download, CheckCircle2, Archive, Clock } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import StickyTableWrapper from '@/Components/StickyTableWrapper';
 import { Card, CardContent, CardHeader } from '@/Components/ui/card';
@@ -13,34 +13,36 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { formatDate, formatRupiah } from '@/lib/utils';
 
 const STATUS_LABEL = {
-    draft:            { label: 'Draft',           variant: 'outline',     color: '#94A3B8' },
-    published:        { label: 'Baru Masuk',       variant: 'info',        color: '#3B82F6' },
-    on_progress:      { label: 'On Progress',      variant: 'warning',     color: '#F59E0B' },
-    selesai_produksi: { label: 'Selesai Produksi', variant: 'success',     color: '#22C55E' },
-    siap_dikirim:     { label: 'Siap Dikirim',     variant: 'info',        color: '#06B6D4' },
-    sudah_dikirim:    { label: 'Sudah Dikirim',    variant: 'secondary',   color: '#8B5CF6' },
-    delay:            { label: 'Delay',            variant: 'destructive', color: '#EF4444' },
-    hold:             { label: 'Hold',             variant: 'warning',     color: '#F97316' },
+    draft:            { label: 'Draft',                    variant: 'outline',     color: '#94A3B8' },
+    published:        { label: 'Baru Masuk',                variant: 'info',        color: '#3B82F6' },
+    on_progress:      { label: 'On Progress',              variant: 'warning',     color: '#F59E0B' },
+    selesai_produksi: { label: 'Selesai Produksi',         variant: 'success',     color: '#22C55E' },
+    siap_dikirim:     { label: 'Siap Dikirim',             variant: 'info',        color: '#06B6D4' },
+    sudah_dikirim:    { label: 'Sudah Dikirim',            variant: 'secondary',   color: '#8B5CF6' },
+    delay:            { label: 'Delay',                    variant: 'destructive', color: '#EF4444' },
+    hold:             { label: 'Hold',                     variant: 'warning',     color: '#F97316' },
+    selesai:          { label: 'Selesai',                  variant: 'success',     color: '#10B981' },
 };
 
 const NONE = '__none__';
 
-export default function OrderIndex({ orders, filters, statuses, statusCounts, brands, can }) {
+export default function OrderIndex({ orders, filters, statuses, statusCounts, archiveCounts, brands, can }) {
     const [search, setSearch]     = useState(filters?.q ?? '');
     const [status, setStatus]     = useState(filters?.status ?? 'all');
     const [brandId, setBrandId]   = useState(filters?.brand_id ?? '');
     const [dateFrom, setDateFrom] = useState(filters?.date_from ?? '');
     const [dateTo, setDateTo]     = useState(filters?.date_to ?? '');
     const [confirmDelete, setConfirmDelete] = useState(null);
+    const [confirmComplete, setConfirmComplete] = useState(null);
     const [copied, setCopied]     = useState(false);
     const [showDatePanel, setShowDatePanel] = useState(!!(filters?.date_from || filters?.date_to));
+    const isArchiveTab = (filters?.tab ?? 'active') === 'archive';
 
     function applyFilters(overrides = {}) {
         const activeTab = overrides.hasOwnProperty('tab') ? overrides.tab : (filters?.tab ?? 'active');
-        const isArchive = activeTab === 'archive';
         router.get(route('orders.index'), {
             q:         overrides.hasOwnProperty('q') ? overrides.q : search,
-            status:    isArchive ? '' : ((overrides.hasOwnProperty('status') ? overrides.status : status) === 'all' ? '' : (overrides.hasOwnProperty('status') ? overrides.status : status)),
+            status:    (overrides.hasOwnProperty('status') ? overrides.status : status) === 'all' ? '' : (overrides.hasOwnProperty('status') ? overrides.status : status),
             brand_id:  (overrides.hasOwnProperty('brand_id') ? overrides.brand_id : brandId) === NONE ? '' : (overrides.hasOwnProperty('brand_id') ? overrides.brand_id : brandId),
             date_from: overrides.hasOwnProperty('date_from') ? overrides.date_from : dateFrom,
             date_to:   overrides.hasOwnProperty('date_to') ? overrides.date_to : dateTo,
@@ -145,12 +147,19 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
         });
     }
 
+    function doComplete() {
+        if (!confirmComplete) return;
+        router.post(route('orders.complete', confirmComplete.id), {}, {
+            preserveScroll: true,
+            onSuccess: () => setConfirmComplete(null),
+        });
+    }
+
     const hasActiveFilter = search || (status && status !== 'all') || brandId || dateFrom || dateTo;
     const totalPo = Object.values(statusCounts ?? {}).reduce((s, v) => Number(s) + Number(v), 0);
     const summaryItems = statuses.filter((s) => Number(statusCounts?.[s] ?? 0) > 0).map((s) => ({ key: s, ...STATUS_LABEL[s], count: Number(statusCounts[s]) }));
-    const isArchiveTab = (filters?.tab ?? 'active') === 'archive';
     const colsCount = isArchiveTab
-        ? (can?.filter_by_brand && brands?.length > 0 ? 4 : 3)
+        ? (can?.filter_by_brand && brands?.length > 0 ? 3 : 2)
         : (can?.filter_by_brand && brands?.length > 0 ? 5 : 4);
 
     function copyToClipboard() {
@@ -179,8 +188,8 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
             <Head title="Order" />
 
             <div className="space-y-4">
-                {/* Summary Cards */}
-                {(filters?.tab ?? 'active') !== 'archive' && (
+                {/* Summary Cards — Active Tab Only */}
+                {!isArchiveTab && (
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
                         <button
                             onClick={() => { setStatus('all'); applyFilters({ status: 'all' }); }}
@@ -207,6 +216,77 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                 </p>
                             </button>
                         ))}
+                    </div>
+                )}
+
+                {/* Archive Summary Cards */}
+                {isArchiveTab && archiveCounts && (
+                    <div className="grid grid-cols-3 gap-3">
+                        {/* Total Arsip */}
+                        <button
+                            onClick={() => { setStatus('all'); applyFilters({ status: 'all' }); }}
+                            className={`rounded-xl border p-4 text-left transition hover:shadow-md ${
+                                !status || status === 'all'
+                                    ? 'border-slate-700 bg-slate-800 text-white'
+                                    : 'bg-white border-slate-200 hover:border-slate-400'
+                            }`}
+                        >
+                            <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                                !status || status === 'all' ? 'text-slate-300' : 'text-slate-500'
+                            }`}>
+                                <Archive className="h-3.5 w-3.5" />
+                                Total Arsip
+                            </div>
+                            <p className="text-2xl font-black tabular-nums">{archiveCounts.total}</p>
+                        </button>
+
+                        {/* Menunggu Diselesaikan Admin Brand */}
+                        <button
+                            onClick={() => { setStatus('sudah_dikirim'); applyFilters({ status: 'sudah_dikirim' }); }}
+                            className={`rounded-xl border p-4 text-left transition hover:shadow-md relative overflow-hidden ${
+                                status === 'sudah_dikirim'
+                                    ? 'border-violet-600 bg-violet-600 text-white shadow-lg shadow-violet-200'
+                                    : 'bg-violet-50 border-violet-200 hover:border-violet-400 hover:shadow-violet-100'
+                            }`}
+                        >
+                            {archiveCounts.sudah_dikirim > 0 && status !== 'sudah_dikirim' && (
+                                <span className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-[9px] font-black text-white animate-pulse">
+                                    !
+                                </span>
+                            )}
+                            <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                                status === 'sudah_dikirim' ? 'text-violet-100' : 'text-violet-500'
+                            }`}>
+                                <Clock className="h-3.5 w-3.5" />
+                                Menunggu Diselesaikan
+                            </div>
+                            <p className={`text-2xl font-black tabular-nums ${
+                                status === 'sudah_dikirim' ? 'text-white' : 'text-violet-700'
+                            }`}>{archiveCounts.sudah_dikirim}</p>
+                            {status !== 'sudah_dikirim' && archiveCounts.sudah_dikirim > 0 && (
+                                <p className="text-[10px] text-violet-500 mt-0.5 font-medium">Perlu tindakan Admin Brand</p>
+                            )}
+                        </button>
+
+                        {/* Sudah Selesai */}
+                        <button
+                            onClick={() => { setStatus('selesai'); applyFilters({ status: 'selesai' }); }}
+                            className={`rounded-xl border p-4 text-left transition hover:shadow-md ${
+                                status === 'selesai'
+                                    ? 'border-emerald-600 bg-emerald-600 text-white shadow-lg shadow-emerald-200'
+                                    : 'bg-emerald-50 border-emerald-200 hover:border-emerald-400'
+                            }`}
+                        >
+                            <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                                status === 'selesai' ? 'text-emerald-100' : 'text-emerald-600'
+                            }`}>
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Sudah Selesai
+                            </div>
+                            <p className={`text-2xl font-black tabular-nums ${
+                                status === 'selesai' ? 'text-white' : 'text-emerald-700'
+                            }`}>{archiveCounts.selesai}</p>
+                        </button>
                     </div>
                 )}
 
@@ -264,9 +344,9 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                         {/* Tab Switcher */}
                         <div className="flex border-b border-slate-200 mb-6">
                             <button
-                                onClick={() => applyFilters({ tab: 'active', status: 'all' })}
+                                onClick={() => { setStatus('all'); applyFilters({ tab: 'active', status: 'all' }); }}
                                 className={`py-3 px-6 font-semibold text-sm border-b-2 transition-all ${
-                                    (filters?.tab ?? 'active') === 'active'
+                                    !isArchiveTab
                                         ? 'border-indigo-600 text-indigo-600'
                                         : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                                 }`}
@@ -274,14 +354,19 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                 PO Aktif
                             </button>
                             <button
-                                onClick={() => applyFilters({ tab: 'archive', status: 'all' })}
-                                className={`py-3 px-6 font-semibold text-sm border-b-2 transition-all ${
-                                    (filters?.tab ?? 'active') === 'archive'
+                                onClick={() => { setStatus('all'); applyFilters({ tab: 'archive', status: 'all' }); }}
+                                className={`py-3 px-6 font-semibold text-sm border-b-2 transition-all relative ${
+                                    isArchiveTab
                                         ? 'border-indigo-600 text-indigo-600'
                                         : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                                 }`}
                             >
                                 Arsip PO
+                                {archiveCounts?.sudah_dikirim > 0 && (
+                                    <span className="ml-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-orange-500 px-1.5 text-[10px] font-bold text-white">
+                                        {archiveCounts.sudah_dikirim}
+                                    </span>
+                                )}
                             </button>
                         </div>
 
@@ -300,7 +385,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                     />
                                 </div>
 
-                                {/* Status Select */}
+                                {/* Status Select — active tab only (archive uses summary cards as filter) */}
                                 {!isArchiveTab && (
                                     <Select value={status} onValueChange={(v) => { setStatus(v); applyFilters({ status: v }); }}>
                                         <SelectTrigger className="bg-white"><SelectValue placeholder="Status" /></SelectTrigger>
@@ -446,14 +531,22 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                     {orders.data.length === 0 && (
                                         <TableRow>
                                             <TableCell colSpan={can?.filter_by_brand ? 11 : 10} className="py-8 text-center text-sm text-muted-foreground">
-                                                Belum ada PO yang cocok dengan filter.
+                                                {isArchiveTab && status === 'sudah_dikirim'
+                                                    ? '🎉 Semua PO sudah diselesaikan! Tidak ada yang menunggu.'
+                                                    : 'Belum ada PO yang cocok dengan filter.'}
                                             </TableCell>
                                         </TableRow>
                                     )}
-                                    {orders.data.map((o) => {
+                                        {orders.data.map((o) => {
                                         const st = STATUS_LABEL[o.status_po] ?? { label: o.status_po, variant: 'outline' };
                                         return (
-                                            <TableRow key={o.id} className="group hover:bg-slate-50/70 transition-colors">
+                                     <TableRow key={o.id} className={`group hover:bg-slate-50/70 transition-colors ${
+                                            isArchiveTab && o.status_po === 'sudah_dikirim'
+                                                ? 'bg-violet-50/30 hover:bg-violet-50/60'
+                                                : isArchiveTab && o.status_po === 'selesai'
+                                                ? 'bg-emerald-50/20 hover:bg-emerald-50/40'
+                                                : ''
+                                        }`}>
                                                 <TableCell className="sticky left-0 z-10 bg-white font-mono text-xs font-bold text-slate-800 min-w-[160px] w-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-slate-50 transition-colors py-2.5">
                                                     <div className="truncate max-w-[155px]" title={o.no_po}>{o.no_po}</div>
                                                 </TableCell>
@@ -487,6 +580,19 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                                                 </TableCell>
                                                 <TableCell className="sticky right-0 z-10 bg-white text-right min-w-[100px] shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-slate-50 transition-colors py-2.5">
                                                     <div className="flex justify-end gap-1">
+                                                        {/* Quick Selesaikan — hanya di Arsip untuk PO sudah_dikirim */}
+                                                        {isArchiveTab && o.status_po === 'sudah_dikirim' && can?.update && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                title="Selesaikan Pesanan"
+                                                                className="h-7 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-semibold text-[10px] flex items-center gap-1"
+                                                                onClick={() => setConfirmComplete(o)}
+                                                            >
+                                                                <CheckCircle2 className="h-3 w-3" />
+                                                                Selesai
+                                                            </Button>
+                                                        )}
                                                         <Button asChild size="icon" variant="ghost" className="h-7 w-7" title="Preview">
                                                             <Link href={route('orders.show', o.id)}>
                                                                 <Eye className="h-3.5 w-3.5" />
@@ -564,6 +670,36 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, br
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setConfirmDelete(null)}>Batal</Button>
                         <Button variant="destructive" onClick={doDelete}>Hapus</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Dialog Konfirmasi Selesaikan PO */}
+            <Dialog open={!!confirmComplete} onOpenChange={(v) => !v && setConfirmComplete(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                            Selesaikan Pesanan?
+                        </DialogTitle>
+                        <DialogDescription>
+                            PO <span className="font-mono font-semibold">{confirmComplete?.no_po}</span> —{' '}
+                            <span className="font-medium">{confirmComplete?.nama_po}</span> akan ditandai{' '}
+                            <span className="font-bold text-emerald-700">Selesai</span>.
+                            <br />
+                            <span className="text-xs text-slate-500 mt-1 block">
+                                Status ini bersifat final dan tidak dapat diubah kembali. Pastikan pesanan sudah diterima pelanggan dan pembayaran lunas.
+                            </span>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setConfirmComplete(null)}>Batal</Button>
+                        <Button
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={doComplete}
+                        >
+                            <CheckCircle2 className="h-4 w-4 mr-1" /> Ya, Selesaikan
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

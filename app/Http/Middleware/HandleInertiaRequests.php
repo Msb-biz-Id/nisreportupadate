@@ -30,7 +30,11 @@ class HandleInertiaRequests extends Middleware
 
         if ($user) {
             $userRoles = $user->getRoleNames()->all();
-            $userPermissions = $user->getAllPermissions()->pluck('name')->all();
+            // Cache permissions per user (5 min TTL) — getAllPermissions() runs multiple
+            // DB queries via Spatie. Invalidate on role/permission change via Cache::forget.
+            $userPermissions = Cache::remember("user_permissions:{$user->id}", 300, fn () =>
+                $user->getAllPermissions()->pluck('name')->all()
+            );
 
             $canSeeAllGlobalBrands = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']);
             $nameCol = 'nama_brand';
