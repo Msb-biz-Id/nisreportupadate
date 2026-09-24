@@ -85,6 +85,34 @@ function convertHtmlToCaretText(html, plainText) {
     try {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
+
+        // Extract CSS classes that specify vertical-align: super (common in Excel clipboard HTML)
+        const superClasses = new Set();
+        const styles = doc.querySelectorAll('style');
+        styles.forEach((styleEl) => {
+            const cssText = styleEl.textContent || '';
+            const ruleRegex = /\.([a-zA-Z0-9_-]+)\s*\{[^}]*(?:vertical-align\s*:\s*super|mso-text-raise)/gi;
+            let match;
+            while ((match = ruleRegex.exec(cssText)) !== null) {
+                superClasses.add(match[1]);
+            }
+        });
+
+        const isSuperElement = (el) => {
+            if (!el || el.nodeType !== 1) return false;
+            const tag = el.tagName.toLowerCase();
+            if (tag === 'sup') return true;
+            const style = (el.getAttribute('style') || '').toLowerCase();
+            if (style.includes('vertical-align:super') || style.includes('vertical-align: super') || style.includes('mso-text-raise')) return true;
+            if (superClasses.size > 0) {
+                const cls = el.getAttribute('class') || '';
+                if (cls) {
+                    const tokens = cls.split(/\s+/);
+                    if (tokens.some((c) => superClasses.has(c))) return true;
+                }
+            }
+            return false;
+        };
         
         // 1. Check for Excel table
         const table = doc.querySelector('table');
@@ -100,17 +128,27 @@ function convertHtmlToCaretText(html, plainText) {
                     // Replace <br> tags with a space
                     const brs = clone.querySelectorAll('br');
                     brs.forEach((br) => {
-                        br.parentNode.replaceChild(document.createTextNode(' '), br);
+                        if (br.parentNode) {
+                            br.parentNode.replaceChild(document.createTextNode(' '), br);
+                        }
                     });
 
+                    // Check if the td cell itself is marked as superscript in Excel
+                    if (isSuperElement(td)) {
+                        const rawText = clone.textContent.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+                        if (rawText) {
+                            const tokens = rawText.split(/\s+/).filter(Boolean);
+                            cells.push(tokens.map(t => '^' + t).join(' '));
+                        } else {
+                            cells.push('');
+                        }
+                        return;
+                    }
+
                     // Find all superscript nodes (sup tag, or elements with vertical-align: super)
-                    const sups = clone.querySelectorAll('sup, sub, font, span, p');
+                    const sups = clone.querySelectorAll('sup, sub, font, span, p, b, strong, em, i');
                     sups.forEach((el) => {
-                        const style = el.getAttribute('style') || '';
-                        const isSuper = el.tagName.toLowerCase() === 'sup' || 
-                                        style.includes('vertical-align:super') || 
-                                        style.includes('vertical-align: super');
-                        if (isSuper) {
+                        if (isSuperElement(el) && el.parentNode) {
                             const tokens = el.textContent.split(/\s+/).filter(Boolean);
                             const caretText = document.createTextNode(tokens.map(t => '^' + t).join(' '));
                             el.parentNode.replaceChild(caretText, el);
@@ -138,16 +176,14 @@ function convertHtmlToCaretText(html, plainText) {
             // Replace <br> tags with a space
             const brs = clone.querySelectorAll('br');
             brs.forEach((br) => {
-                br.parentNode.replaceChild(document.createTextNode(' '), br);
+                if (br.parentNode) {
+                    br.parentNode.replaceChild(document.createTextNode(' '), br);
+                }
             });
 
-            const sups = clone.querySelectorAll('sup, span, font, p');
+            const sups = clone.querySelectorAll('sup, span, font, p, b, strong, em, i');
             sups.forEach((el) => {
-                const style = el.getAttribute('style') || '';
-                const isSuper = el.tagName.toLowerCase() === 'sup' || 
-                                style.includes('vertical-align:super') || 
-                                style.includes('vertical-align: super');
-                if (isSuper) {
+                if (isSuperElement(el) && el.parentNode) {
                     const tokens = el.textContent.split(/\s+/).filter(Boolean);
                     const caretText = document.createTextNode(tokens.map(t => '^' + t).join(' '));
                     el.parentNode.replaceChild(caretText, el);
@@ -174,24 +210,11 @@ function formatSuperscriptTrailing(str) {
         'a': 'ᵃ', 'b': 'ᵇ', 'c': 'ᶜ', 'd': 'ᵈ', 'e': 'ᵉ', 'f': 'ᶠ', 'g': 'ᵍ', 'h': 'ʰ', 'i': 'ⁱ', 'j': 'ʲ', 'k': 'ᵏ', 'l': 'ˡ', 'm': 'ᵐ', 'n': 'ⁿ', 'o': 'ᵒ', 'p': 'ᵖ', 'q': '𐞳', 'r': 'ʳ', 's': 'ˢ', 't': 'ᵗ', 'u': 'ᵘ', 'v': 'ᵛ', 'w': 'ʷ', 'x': 'ˣ', 'y': 'ʸ', 'z': 'ᶻ'
     };
 
-    // 1. If there's a caret followed by Latin letters or digits, convert them to Unicode superscript characters!
-    // e.g. "WAA^LBK" -> "WAAᴸᴮᴷ", "WAA^12" -> "WAA¹²"
-    let result = str.replace(/\s*\^([A-Za-z0-9]+)/g, (match, p1) => {
+    // If there's an explicit caret followed by Latin letters or digits, convert them to Unicode superscript characters!
+    // e.g. "WAA^LBK" -> "WAAᴸᴮᴷ", "LOTUS^011" -> "LOTUS⁰¹¹"
+    return str.replace(/\s*\^([A-Za-z0-9]+)/g, (match, p1) => {
         return p1.split('').map(char => map[char] ?? char).join('');
     });
-
-    // 2. Automatically convert trailing space + Latin digits to Unicode superscript digits for compatibility
-    // e.g. "WAA 12" -> "WAA¹²"
-    result = result.replace(/\s+([0-9]+)$/, (match, p1) => {
-        return p1.split('').map(char => map[char] ?? char).join('');
-    });
-
-
-    // 4. For Arabic digits or other scripts, if they type space + Arabic digits, convert to caret notation so fallback sup handles it
-    // e.g. "محمد ١٢" -> "محمد^١٢"
-    result = result.replace(/\s+([\u0660-\u0669\u06F0-\u06F9]+)$/, '^$1');
-
-    return result;
 }
 
 function newNameset() {
