@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import Chart from '@/Components/Chart';
 import { formatDate, formatRupiah } from '@/lib/utils';
 import { MultiSelect } from '@/Components/ui/multi-select';
+import DateRangeFilter from '@/Components/DateRangeFilter';
 
 const STATUS_BADGE = {
     draft: 'outline', published: 'info', on_progress: 'warning',
@@ -125,16 +126,13 @@ function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders 
         <Card>
             <CardContent className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
                 {config.filters?.includes('date_range') && (
-                    <>
-                        <div>
-                            <Label className="text-xs">Dari Tanggal</Label>
-                            <Input type="date" value={local.from || ''} onChange={(e) => patch('from', e.target.value)} className="mt-1 h-9" />
-                        </div>
-                        <div>
-                            <Label className="text-xs">Sampai Tanggal</Label>
-                            <Input type="date" value={local.to || ''} onChange={(e) => patch('to', e.target.value)} className="mt-1 h-9" />
-                        </div>
-                    </>
+                    <div className="sm:col-span-2">
+                        <DateRangeFilter
+                            from={local.from || ''}
+                            to={local.to || ''}
+                            onChange={(from, to) => setLocal({ ...local, from, to })}
+                        />
+                    </div>
                 )}
                 {config.filters?.includes('jenis_po') && (
                     <div>
@@ -502,7 +500,7 @@ function SummaryTableCard({ summaryTable }) {
     );
 }
 
-export default function ReportShow({ config, filters, rows, summary, summaryTable = null, heatmapSeries, groups, allReports, customerTypes = [], sumberOrders = [], brands = [], products = [], bankAccounts = [] }) {
+export default function ReportShow({ config, filters, rows, summary, summaryTable = null, brandSummaryTable = null, heatmapSeries, groups, allReports, customerTypes = [], sumberOrders = [], brands = [], products = [], bankAccounts = [] }) {
     const Icon = Icons[config.icon] ?? Icons.BarChart3;
 
     function applyFilters(newFilters) {
@@ -525,12 +523,12 @@ export default function ReportShow({ config, filters, rows, summary, summaryTabl
                         <div className="flex gap-2">
                             <Button asChild variant="outline" size="sm">
                                 <a href={route('reports.export.excel', { ...filters, slug: config.slug })}>
-                                    <FileSpreadsheet className="h-4 w-4" /> Excel
+                                     <FileSpreadsheet className="h-4 w-4" /> Excel
                                 </a>
                             </Button>
                             <Button asChild size="sm">
                                 <a href={route('reports.export.pdf', { ...filters, slug: config.slug })}>
-                                    <FileText className="h-4 w-4" /> PDF
+                                     <FileText className="h-4 w-4" /> PDF
                                 </a>
                             </Button>
                         </div>
@@ -548,6 +546,8 @@ export default function ReportShow({ config, filters, rows, summary, summaryTabl
                 <ReportChart config={config} rows={rows} heatmapSeries={heatmapSeries} />
 
                 <SummaryTableCard summaryTable={summaryTable} />
+
+                <SummaryTableCard summaryTable={brandSummaryTable} />
 
                 <Card>
                     <CardHeader>

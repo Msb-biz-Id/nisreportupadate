@@ -1310,10 +1310,12 @@ class ReportRunner
         $poGratisCount = 0;
 
         $totalVal = 0;
+        $brandStats = [];
 
         $rows = $orders->map(function ($o) use (
             &$totalPcsNormal, &$totalPcsDiskon, &$totalPcsGratis,
-            &$poNormalCount, &$poDiskonCount, &$poGratisCount, &$totalVal
+            &$poNormalCount, &$poDiskonCount, &$poGratisCount, &$totalVal,
+            &$brandStats
         ) {
             $isSpecial = (bool) $o->is_special_order;
             $isReseller = (bool) $o->is_reseller_price;
@@ -1357,6 +1359,24 @@ class ReportRunner
             $totalPcsNormal += $poNormalPcs;
             $totalPcsDiskon += $poDiskonPcs;
             $totalPcsGratis += $poGratisPcs;
+
+            // Akumulasi per brand
+            $brandName = $o->brand?->nama_brand ?? 'Tanpa Brand';
+            if (!isset($brandStats[$brandName])) {
+                $brandStats[$brandName] = [
+                    'brand' => $brandName,
+                    'pcs_normal' => 0,
+                    'pcs_diskon' => 0,
+                    'pcs_gratis' => 0,
+                    'total_pcs' => 0,
+                    'total_po' => 0,
+                ];
+            }
+            $brandStats[$brandName]['pcs_normal'] += $poNormalPcs;
+            $brandStats[$brandName]['pcs_diskon'] += $poDiskonPcs;
+            $brandStats[$brandName]['pcs_gratis'] += $poGratisPcs;
+            $brandStats[$brandName]['total_pcs'] += $totalPcsOrder;
+            $brandStats[$brandName]['total_po'] += 1;
 
             // Klasifikasi tingkat PO untuk kolom Jumlah PO di tabel ringkasan
             if ($isSpecial || ($poGratisPcs > 0 && $poNormalPcs === 0 && $poDiskonPcs === 0)) {
@@ -1417,9 +1437,35 @@ class ReportRunner
             ],
         ];
 
+        // Urutkan per brand berdasarkan total_pcs terbanyak
+        uasort($brandStats, fn ($a, $b) => $b['total_pcs'] <=> $a['total_pcs']);
+        $brandRows = array_values($brandStats);
+
+        $brandSummaryTable = [
+            'title' => 'Ringkasan Per Brand (Kuantitas PCS & PO)',
+            'columns' => [
+                ['key' => 'brand', 'label' => 'Nama Brand'],
+                ['key' => 'pcs_normal', 'label' => 'PCS Normal', 'format' => 'number'],
+                ['key' => 'pcs_diskon', 'label' => 'PCS Diskon', 'format' => 'number'],
+                ['key' => 'pcs_gratis', 'label' => 'PCS Gratis', 'format' => 'number'],
+                ['key' => 'total_pcs', 'label' => 'Total PCS', 'format' => 'number'],
+                ['key' => 'total_po', 'label' => 'Total PO', 'format' => 'number'],
+            ],
+            'rows' => $brandRows,
+            'total' => [
+                'brand' => 'JUMLAH TOTAL',
+                'pcs_normal' => $totalPcsNormal,
+                'pcs_diskon' => $totalPcsDiskon,
+                'pcs_gratis' => $totalPcsGratis,
+                'total_pcs' => $totalPcsAll,
+                'total_po' => $totalPoCount,
+            ],
+        ];
+
         return [
             'rows' => $rows,
             'summaryTable' => $summaryTable,
+            'brandSummaryTable' => $brandSummaryTable,
             'summary' => [
                 ['label' => 'Total PO', 'value' => $totalPoCount],
                 ['label' => 'Total PCS', 'value' => $totalPcsAll, 'format' => 'number'],

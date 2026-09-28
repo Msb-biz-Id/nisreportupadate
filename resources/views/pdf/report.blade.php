@@ -199,6 +199,59 @@
         </div>
     @endif
 
+    @if (!empty($brandSummaryTable) && !empty($brandSummaryTable['rows']))
+        <div style="margin-bottom: 12px;">
+            <div class="summary-table-title">
+                {{ $brandSummaryTable['title'] ?? 'Ringkasan Per Brand' }}
+            </div>
+            <table style="width: 100%; max-width: 650px; margin-top: 0; margin-bottom: 8px;">
+                <thead>
+                    <tr>
+                        @foreach ($brandSummaryTable['columns'] as $bCol)
+                            <th class="{{ in_array($bCol['format'] ?? '', ['number', 'currency']) ? 'right' : '' }}">
+                                {{ $bCol['label'] }}
+                            </th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($brandSummaryTable['rows'] as $bRow)
+                        <tr>
+                            @foreach ($brandSummaryTable['columns'] as $bCol)
+                                <td class="{{ in_array($bCol['format'] ?? '', ['number', 'currency']) ? 'right' : '' }}">
+                                    @if (($bCol['format'] ?? '') === 'number')
+                                        {{ number_format((float) ($bRow[$bCol['key']] ?? 0), 0, ',', '.') }}
+                                    @elseif (($bCol['format'] ?? '') === 'currency')
+                                        Rp {{ number_format((float) ($bRow[$bCol['key']] ?? 0), 0, ',', '.') }}
+                                    @else
+                                        <strong>{{ $bRow[$bCol['key']] ?? '-' }}</strong>
+                                    @endif
+                                </td>
+                            @endforeach
+                        </tr>
+                    @endforeach
+                </tbody>
+                @if (!empty($brandSummaryTable['total']))
+                    <tfoot>
+                        <tr style="background-color: #E2E8F0; font-weight: bold;">
+                            @foreach ($brandSummaryTable['columns'] as $bCol)
+                                <td class="{{ in_array($bCol['format'] ?? '', ['number', 'currency']) ? 'right' : '' }}" style="font-weight: bold; border-top: 1px solid #94A3B8; border-bottom: 2px double #475569;">
+                                    @if (($bCol['format'] ?? '') === 'number')
+                                        {{ number_format((float) ($brandSummaryTable['total'][$bCol['key']] ?? 0), 0, ',', '.') }}
+                                    @elseif (($bCol['format'] ?? '') === 'currency')
+                                        Rp {{ number_format((float) ($brandSummaryTable['total'][$bCol['key']] ?? 0), 0, ',', '.') }}
+                                    @else
+                                        <strong>{{ $brandSummaryTable['total'][$bCol['key']] ?? 'TOTAL' }}</strong>
+                                    @endif
+                                </td>
+                            @endforeach
+                        </tr>
+                    </tfoot>
+                @endif
+            </table>
+        </div>
+    @endif
+
     <table>
         <thead>
             <tr>

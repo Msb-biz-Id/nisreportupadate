@@ -48,9 +48,10 @@ class ReportController extends Controller
             'filters'       => $filters,
             'rows'          => $result['rows'],
             'summary'       => $result['summary'],
-            'summaryTable'  => $result['summaryTable'] ?? null,
-            'heatmapSeries' => $result['heatmapSeries'] ?? null,
-            'groups'        => ReportRegistry::groups(),
+            'summaryTable'       => $result['summaryTable'] ?? null,
+            'brandSummaryTable'  => $result['brandSummaryTable'] ?? null,
+            'heatmapSeries'      => $result['heatmapSeries'] ?? null,
+            'groups'             => ReportRegistry::groups(),
         ], $props));
     }
 
@@ -144,8 +145,20 @@ class ReportController extends Controller
 
         \App\Services\ActivityLogger::log('export', 'report', null, "Ekspor Excel laporan {$config['label']}");
 
+        $brandName = $brand?->nama_brand ?? ($activeBrand?->nama_brand ?? 'Semua Brand');
+
         return Excel::download(
-            new GenericReportExport($config['label'], $config['columns'], $result['rows'], $hexColor, $result['summaryTable'] ?? null),
+            new GenericReportExport(
+                title: $config['label'],
+                columns: $config['columns'],
+                rows: $result['rows'],
+                primaryColor: $hexColor,
+                summaryTable: $result['summaryTable'] ?? null,
+                brandSummaryTable: $result['brandSummaryTable'] ?? null,
+                filters: $filters,
+                brandName: $brandName,
+                userName: $user?->name ?? 'User'
+            ),
             $filename
         );
     }
@@ -184,6 +197,7 @@ class ReportController extends Controller
             'rows' => $result['rows'],
             'summary' => $result['summary'],
             'summaryTable' => $result['summaryTable'] ?? null,
+            'brandSummaryTable' => $result['brandSummaryTable'] ?? null,
             'filters' => $filters,
             'generated_at' => now(),
             'user' => $request->user(),

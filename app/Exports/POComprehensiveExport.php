@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Exports\Sheets\ReportDetailSheet;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 class POComprehensiveExport implements WithMultipleSheets
@@ -15,7 +16,7 @@ class POComprehensiveExport implements WithMultipleSheets
     public function sheets(): array
     {
         return [
-            new GenericReportExport('PO Summary', [
+            new ReportDetailSheet('PO Summary', [
                 ['key' => 'no_po', 'label' => 'No PO'],
                 ['key' => 'nama_po', 'label' => 'Nama PO'],
                 ['key' => 'brand', 'label' => 'Brand'],
@@ -25,9 +26,9 @@ class POComprehensiveExport implements WithMultipleSheets
                 ['key' => 'status', 'label' => 'Status'],
                 ['key' => 'total_tagihan', 'label' => 'Total Tagihan'],
                 ['key' => 'is_lunas', 'label' => 'Status Pelunasan'],
-            ], $this->getOrderSummaryRows(), $this->primaryColor),
+            ], $this->getOrderSummaryRows(), $this->primaryColor, sheetTitle: 'PO Summary'),
 
-            new GenericReportExport('Progress Details', [
+            new ReportDetailSheet('Progress Details', [
                 ['key' => 'no_po', 'label' => 'No PO'],
                 ['key' => 'nama_po', 'label' => 'Nama PO'],
                 ['key' => 'tahapan', 'label' => 'Tahapan Progress'],
@@ -36,9 +37,9 @@ class POComprehensiveExport implements WithMultipleSheets
                 ['key' => 'completed_at', 'label' => 'Selesai Pada'],
                 ['key' => 'catatan', 'label' => 'Catatan'],
                 ['key' => 'kendala', 'label' => 'Kendala'],
-            ], $this->getProgressRows(), $this->primaryColor),
+            ], $this->getProgressRows(), $this->primaryColor, sheetTitle: 'Progress Details'),
 
-            new GenericReportExport('Rijek Records', [
+            new ReportDetailSheet('Rijek Records', [
                 ['key' => 'no_po', 'label' => 'No PO'],
                 ['key' => 'nama_po', 'label' => 'Nama PO'],
                 ['key' => 'tahapan', 'label' => 'Tahapan'],
@@ -47,9 +48,9 @@ class POComprehensiveExport implements WithMultipleSheets
                 ['key' => 'jumlah', 'label' => 'Jumlah (pcs)'],
                 ['key' => 'kendala', 'label' => 'Kendala'],
                 ['key' => 'status', 'label' => 'Status Penanganan'],
-            ], $this->getRijekRows(), $this->primaryColor),
+            ], $this->getRijekRows(), $this->primaryColor, sheetTitle: 'Rijek Records'),
 
-            new GenericReportExport('Payment Records', [
+            new ReportDetailSheet('Payment Records', [
                 ['key' => 'no_po', 'label' => 'No PO'],
                 ['key' => 'nama_po', 'label' => 'Nama PO'],
                 ['key' => 'tipe', 'label' => 'Tipe Pembayaran'],
@@ -58,7 +59,7 @@ class POComprehensiveExport implements WithMultipleSheets
                 ['key' => 'bank', 'label' => 'Bank Penerima'],
                 ['key' => 'status', 'label' => 'Status Verifikasi'],
                 ['key' => 'catatan', 'label' => 'Catatan'],
-            ], $this->getPaymentRows(), $this->primaryColor),
+            ], $this->getPaymentRows(), $this->primaryColor, sheetTitle: 'Payment Records'),
         ];
     }
 

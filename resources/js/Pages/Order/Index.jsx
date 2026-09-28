@@ -79,7 +79,18 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
             }
             case 'this_month': {
                 const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-                return { start: formatDateStr(firstDay), end: formatDateStr(today) };
+                const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                return { start: formatDateStr(firstDay), end: formatDateStr(lastDay) };
+            }
+            case 'last_month': {
+                const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
+                return { start: formatDateStr(firstDay), end: formatDateStr(lastDay) };
+            }
+            case 'this_year': {
+                const firstDay = new Date(today.getFullYear(), 0, 1);
+                const lastDay = new Date(today.getFullYear(), 11, 31);
+                return { start: formatDateStr(firstDay), end: formatDateStr(lastDay) };
             }
             default:
                 return { start: '', end: '' };
@@ -89,24 +100,49 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
     const getActivePreset = () => {
         if (!dateFrom && !dateTo) return 'all';
 
-        const todayStr = new Date().toLocaleDateString('sv');
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toLocaleDateString('sv');
+        const today = new Date();
+        const formatDateStr = (d) => {
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        };
+
+        const todayStr = formatDateStr(today);
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        const yesterdayStr = formatDateStr(yesterday);
 
         if (dateFrom === todayStr && dateTo === todayStr) return 'today';
         if (dateFrom === yesterdayStr && dateTo === yesterdayStr) return 'yesterday';
 
-        const last7 = new Date();
-        last7.setDate(last7.getDate() - 6);
-        if (dateFrom === last7.toLocaleDateString('sv') && dateTo === todayStr) return 'last_7';
+        const last7 = new Date(today);
+        last7.setDate(today.getDate() - 6);
+        if (dateFrom === formatDateStr(last7) && dateTo === todayStr) return 'last_7';
 
-        const last30 = new Date();
-        last30.setDate(last30.getDate() - 29);
-        if (dateFrom === last30.toLocaleDateString('sv') && dateTo === todayStr) return 'last_30';
+        const last30 = new Date(today);
+        last30.setDate(today.getDate() - 29);
+        if (dateFrom === formatDateStr(last30) && dateTo === todayStr) return 'last_30';
 
-        const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-        if (dateFrom === firstDay.toLocaleDateString('sv') && dateTo === todayStr) return 'this_month';
+        const thisMonthStart = formatDateStr(new Date(today.getFullYear(), today.getMonth(), 1));
+        const thisMonthEnd = formatDateStr(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+        if (dateFrom === thisMonthStart && (dateTo === thisMonthEnd || dateTo === todayStr)) return 'this_month';
+
+        const lastMonthStart = formatDateStr(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+        const lastMonthEnd = formatDateStr(new Date(today.getFullYear(), today.getMonth(), 0));
+        if (dateFrom === lastMonthStart && dateTo === lastMonthEnd) return 'last_month';
+
+        const thisYearStart = formatDateStr(new Date(today.getFullYear(), 0, 1));
+        const thisYearEnd = formatDateStr(new Date(today.getFullYear(), 11, 31));
+        if (dateFrom === thisYearStart && (dateTo === thisYearEnd || dateTo === todayStr)) return 'this_year';
+
+        // Cek apakah persis mencakup 1 bulan
+        if (dateFrom && dateTo && dateFrom.length === 10 && dateTo.length === 10) {
+            const [y1, m1, d1] = dateFrom.split('-').map(Number);
+            const [y2, m2, d2] = dateTo.split('-').map(Number);
+            if (y1 === y2 && m1 === m2 && d1 === 1) {
+                const endOfMonth = new Date(y1, m1, 0).getDate();
+                if (d2 === endOfMonth) return 'specific_month';
+            }
+        }
 
         return 'custom';
     };
@@ -118,6 +154,18 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
         applyFilters({ date_from: range.start, date_to: range.end });
     };
 
+    const handleSpecificMonthChange = (monthVal) => {
+        if (!monthVal) return;
+        const [year, month] = monthVal.split('-').map(Number);
+        const pad = (n) => String(n).padStart(2, '0');
+        const start = `${year}-${pad(month)}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const end = `${year}-${pad(month)}-${pad(lastDay)}`;
+        setDateFrom(start);
+        setDateTo(end);
+        applyFilters({ date_from: start, date_to: end });
+    };
+
     const getDateFilterLabel = () => {
         if (!dateFrom && !dateTo) return "Filter Tanggal";
         const active = getActivePreset();
@@ -126,6 +174,13 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
         if (active === 'last_7') return "7 Hari Terakhir";
         if (active === 'last_30') return "30 Hari Terakhir";
         if (active === 'this_month') return "Bulan Ini";
+        if (active === 'last_month') return "Bulan Lalu";
+        if (active === 'this_year') return "Tahun Ini";
+        if (active === 'specific_month') {
+            const [y, m] = dateFrom.split('-').map(Number);
+            const monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            return `${monthNames[m]} ${y}`;
+        }
         
         return `${dateFrom ? formatDate(dateFrom) : ''} - ${dateTo ? formatDate(dateTo) : ''}`;
     };
@@ -441,11 +496,13 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
                                             <span className="text-xs font-semibold text-slate-500 block mb-2">Pilih Cepat Rentang Tanggal PO</span>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {[
-                                                    { label: 'Hari Ini', preset: 'today' },
-                                                    { label: 'Kemarin', preset: 'yesterday' },
+                                                    { label: 'Bulan Ini', preset: 'this_month' },
+                                                    { label: 'Bulan Lalu', preset: 'last_month' },
                                                     { label: '7 Hari Terakhir', preset: 'last_7' },
                                                     { label: '30 Hari Terakhir', preset: 'last_30' },
-                                                    { label: 'Bulan Ini', preset: 'this_month' },
+                                                    { label: 'Tahun Ini', preset: 'this_year' },
+                                                    { label: 'Hari Ini', preset: 'today' },
+                                                    { label: 'Kemarin', preset: 'yesterday' },
                                                     { label: 'Semua', preset: 'all' },
                                                 ].map((opt) => (
                                                     <button
@@ -461,6 +518,15 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
                                                         {opt.label}
                                                     </button>
                                                 ))}
+                                            </div>
+
+                                            <div className="mt-3 flex items-center gap-2">
+                                                <span className="text-xs text-slate-500 font-medium">Atau Pilih Bulan Tertentu:</span>
+                                                <input
+                                                    type="month"
+                                                    onChange={(e) => handleSpecificMonthChange(e.target.value)}
+                                                    className="text-xs border rounded-md px-2.5 py-1 text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary shadow-sm font-medium"
+                                                />
                                             </div>
                                         </div>
                                         

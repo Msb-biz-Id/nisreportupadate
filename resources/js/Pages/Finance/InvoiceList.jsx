@@ -304,7 +304,18 @@ export default function InvoiceList({
             }
             case 'this_month': {
                 const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-                return { start: formatDateStr(firstDay), end: formatDateStr(today) };
+                const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                return { start: formatDateStr(firstDay), end: formatDateStr(lastDay) };
+            }
+            case 'last_month': {
+                const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
+                return { start: formatDateStr(firstDay), end: formatDateStr(lastDay) };
+            }
+            case 'this_year': {
+                const firstDay = new Date(today.getFullYear(), 0, 1);
+                const lastDay = new Date(today.getFullYear(), 11, 31);
+                return { start: formatDateStr(firstDay), end: formatDateStr(lastDay) };
             }
             default:
                 return { start: '', end: '' };
@@ -313,24 +324,49 @@ export default function InvoiceList({
 
     const getActivePreset = () => {
         if (!startDate && !endDate) return 'all';
-        const todayStr = new Date().toLocaleDateString('sv');
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toLocaleDateString('sv');
+
+        const today = new Date();
+        const formatDateStr = (d) => {
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        };
+
+        const todayStr = formatDateStr(today);
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        const yesterdayStr = formatDateStr(yesterday);
 
         if (startDate === todayStr && endDate === todayStr) return 'today';
         if (startDate === yesterdayStr && endDate === yesterdayStr) return 'yesterday';
 
-        const last7 = new Date();
-        last7.setDate(last7.getDate() - 6);
-        if (startDate === last7.toLocaleDateString('sv') && endDate === todayStr) return 'last_7';
+        const last7 = new Date(today);
+        last7.setDate(today.getDate() - 6);
+        if (startDate === formatDateStr(last7) && endDate === todayStr) return 'last_7';
 
-        const last30 = new Date();
-        last30.setDate(last30.getDate() - 29);
-        if (startDate === last30.toLocaleDateString('sv') && endDate === todayStr) return 'last_30';
+        const last30 = new Date(today);
+        last30.setDate(today.getDate() - 29);
+        if (startDate === formatDateStr(last30) && endDate === todayStr) return 'last_30';
 
-        const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-        if (startDate === firstDay.toLocaleDateString('sv') && endDate === todayStr) return 'this_month';
+        const thisMonthStart = formatDateStr(new Date(today.getFullYear(), today.getMonth(), 1));
+        const thisMonthEnd = formatDateStr(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+        if (startDate === thisMonthStart && (endDate === thisMonthEnd || endDate === todayStr)) return 'this_month';
+
+        const lastMonthStart = formatDateStr(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+        const lastMonthEnd = formatDateStr(new Date(today.getFullYear(), today.getMonth(), 0));
+        if (startDate === lastMonthStart && endDate === lastMonthEnd) return 'last_month';
+
+        const thisYearStart = formatDateStr(new Date(today.getFullYear(), 0, 1));
+        const thisYearEnd = formatDateStr(new Date(today.getFullYear(), 11, 31));
+        if (startDate === thisYearStart && (endDate === thisYearEnd || endDate === todayStr)) return 'this_year';
+
+        if (startDate && endDate && startDate.length === 10 && endDate.length === 10) {
+            const [y1, m1, d1] = startDate.split('-').map(Number);
+            const [y2, m2, d2] = endDate.split('-').map(Number);
+            if (y1 === y2 && m1 === m2 && d1 === 1) {
+                const endOfMonth = new Date(y1, m1, 0).getDate();
+                if (d2 === endOfMonth) return 'specific_month';
+            }
+        }
 
         return 'custom';
     };
@@ -342,6 +378,18 @@ export default function InvoiceList({
         applyFilters({ start_date: range.start, end_date: range.end });
     };
 
+    const handleSpecificMonthChange = (monthVal) => {
+        if (!monthVal) return;
+        const [year, month] = monthVal.split('-').map(Number);
+        const pad = (n) => String(n).padStart(2, '0');
+        const start = `${year}-${pad(month)}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const end = `${year}-${pad(month)}-${pad(lastDay)}`;
+        setStartDate(start);
+        setEndDate(end);
+        applyFilters({ start_date: start, end_date: end });
+    };
+
     const getDateFilterLabel = () => {
         if (!startDate && !endDate) return "Filter Tanggal";
         const active = getActivePreset();
@@ -350,6 +398,13 @@ export default function InvoiceList({
         if (active === 'last_7') return "7 Hari Terakhir";
         if (active === 'last_30') return "30 Hari Terakhir";
         if (active === 'this_month') return "Bulan Ini";
+        if (active === 'last_month') return "Bulan Lalu";
+        if (active === 'this_year') return "Tahun Ini";
+        if (active === 'specific_month') {
+            const [y, m] = startDate.split('-').map(Number);
+            const monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            return `${monthNames[m]} ${y}`;
+        }
 
         return `${startDate ? formatDate(startDate) : ''} - ${endDate ? formatDate(endDate) : ''}`;
     };
@@ -786,11 +841,13 @@ export default function InvoiceList({
                                     <span className="text-xs font-semibold text-slate-500 block mb-2">Pilih Cepat Rentang Tanggal</span>
                                     <div className="flex flex-wrap gap-1.5">
                                         {[
-                                            { label: 'Hari Ini', preset: 'today' },
-                                            { label: 'Kemarin', preset: 'yesterday' },
+                                            { label: 'Bulan Ini', preset: 'this_month' },
+                                            { label: 'Bulan Lalu', preset: 'last_month' },
                                             { label: '7 Hari Terakhir', preset: 'last_7' },
                                             { label: '30 Hari Terakhir', preset: 'last_30' },
-                                            { label: 'Bulan Ini', preset: 'this_month' },
+                                            { label: 'Tahun Ini', preset: 'this_year' },
+                                            { label: 'Hari Ini', preset: 'today' },
+                                            { label: 'Kemarin', preset: 'yesterday' },
                                             { label: 'Semua', preset: 'all' },
                                         ].map((opt) => (
                                             <button
@@ -805,6 +862,15 @@ export default function InvoiceList({
                                                 {opt.label}
                                             </button>
                                         ))}
+                                    </div>
+
+                                    <div className="mt-3 flex items-center gap-2">
+                                        <span className="text-xs text-slate-500 font-medium">Pilih Bulan Tertentu:</span>
+                                        <input
+                                            type="month"
+                                            onChange={(e) => handleSpecificMonthChange(e.target.value)}
+                                            className="text-xs border rounded-xl px-2.5 py-1 text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary shadow-sm font-medium"
+                                        />
                                     </div>
                                 </div>
 
