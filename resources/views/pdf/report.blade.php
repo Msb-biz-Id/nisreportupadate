@@ -102,6 +102,7 @@
         '.brand { color: ' . $primaryColor . '; }' .
         '.badge { color: ' . $primaryColor . '; }' .
         'th { background-color: ' . $primaryColor . '; }' .
+        '.summary-table-title { color: ' . $primaryColor . '; font-size: 8.5pt; font-weight: bold; margin-bottom: 4px; text-transform: uppercase; }' .
         '</' . 'style>' !!}
 </head>
 <body>
@@ -142,6 +143,59 @@
                     </div>
                 @endforeach
             </div>
+        </div>
+    @endif
+
+    @if (!empty($summaryTable) && !empty($summaryTable['rows']))
+        <div style="margin-bottom: 12px;">
+            <div class="summary-table-title">
+                {{ $summaryTable['title'] ?? 'Ringkasan Data' }}
+            </div>
+            <table style="width: 100%; max-width: 480px; margin-top: 0; margin-bottom: 8px;">
+                <thead>
+                    <tr>
+                        @foreach ($summaryTable['columns'] as $stCol)
+                            <th class="{{ in_array($stCol['format'] ?? '', ['number', 'currency']) ? 'right' : '' }}">
+                                {{ $stCol['label'] }}
+                            </th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($summaryTable['rows'] as $stRow)
+                        <tr>
+                            @foreach ($summaryTable['columns'] as $stCol)
+                                <td class="{{ in_array($stCol['format'] ?? '', ['number', 'currency']) ? 'right' : '' }}">
+                                    @if (($stCol['format'] ?? '') === 'number')
+                                        {{ number_format((float) ($stRow[$stCol['key']] ?? 0), 0, ',', '.') }}
+                                    @elseif (($stCol['format'] ?? '') === 'currency')
+                                        Rp {{ number_format((float) ($stRow[$stCol['key']] ?? 0), 0, ',', '.') }}
+                                    @else
+                                        <strong>{{ $stRow[$stCol['key']] ?? '-' }}</strong>
+                                    @endif
+                                </td>
+                            @endforeach
+                        </tr>
+                    @endforeach
+                </tbody>
+                @if (!empty($summaryTable['total']))
+                    <tfoot>
+                        <tr style="background-color: #E2E8F0; font-weight: bold;">
+                            @foreach ($summaryTable['columns'] as $stCol)
+                                <td class="{{ in_array($stCol['format'] ?? '', ['number', 'currency']) ? 'right' : '' }}" style="font-weight: bold; border-top: 1px solid #94A3B8; border-bottom: 2px double #475569;">
+                                    @if (($stCol['format'] ?? '') === 'number')
+                                        {{ number_format((float) ($summaryTable['total'][$stCol['key']] ?? 0), 0, ',', '.') }}
+                                    @elseif (($stCol['format'] ?? '') === 'currency')
+                                        Rp {{ number_format((float) ($summaryTable['total'][$stCol['key']] ?? 0), 0, ',', '.') }}
+                                    @else
+                                        <strong>{{ $summaryTable['total'][$stCol['key']] ?? 'TOTAL' }}</strong>
+                                    @endif
+                                </td>
+                            @endforeach
+                        </tr>
+                    </tfoot>
+                @endif
+            </table>
         </div>
     @endif
 

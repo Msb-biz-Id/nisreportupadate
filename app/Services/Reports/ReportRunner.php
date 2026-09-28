@@ -1297,19 +1297,78 @@ class ReportRunner
                     $query->where('is_repeat_order', true);
                 }
             })
-            ->with(['brand:id,nama_brand', 'pelanggan:id,nama', 'items:id,order_id,is_addon,quantity,jml_atasan']);
+            ->with(['brand:id,nama_brand', 'pelanggan:id,nama', 'items:id,order_id,is_addon,quantity,jml_atasan,harga_satuan,discount_type,discount_value,discount_amount,subtotal']);
 
         $orders = $q->orderByDesc('tanggal_masuk')->get();
 
-        $rows = $orders->map(function ($o) {
+        $totalPcsNormal = 0;
+        $totalPcsDiskon = 0;
+        $totalPcsGratis = 0;
+
+        $poNormalCount = 0;
+        $poDiskonCount = 0;
+        $poGratisCount = 0;
+
+        $totalVal = 0;
+
+        $rows = $orders->map(function ($o) use (
+            &$totalPcsNormal, &$totalPcsDiskon, &$totalPcsGratis,
+            &$poNormalCount, &$poDiskonCount, &$poGratisCount, &$totalVal
+        ) {
+            $isSpecial = (bool) $o->is_special_order;
+            $isReseller = (bool) $o->is_reseller_price;
+            $hasVoucher = ((float) ($o->voucher_discount_amount ?? 0)) > 0;
+
             $jenisPo = 'Normal';
-            if ($o->is_special_order) {
+            if ($isSpecial) {
                 $jenisPo = 'Special Order';
-            } elseif ($o->is_reseller_price) {
+            } elseif ($isReseller) {
                 $jenisPo = 'Reseller Price';
             } elseif ($o->is_repeat_order) {
                 $jenisPo = 'Repeat Order';
             }
+
+            // Hitung PCS per item non-addon (pakaian/jersey)
+            $poNormalPcs = 0;
+            $poDiskonPcs = 0;
+            $poGratisPcs = 0;
+
+            foreach ($o->items as $item) {
+                if (!empty($item->is_addon)) {
+                    continue; // Skip addon item
+                }
+
+                $qty = (int) $item->quantity;
+                $hargaSatuan = (float) ($item->harga_satuan ?? 0);
+                $discountAmount = (float) ($item->discount_amount ?? 0);
+                $discountValue = (float) ($item->discount_value ?? 0);
+
+                if ($isSpecial || $hargaSatuan <= 0) {
+                    $poGratisPcs += $qty;
+                } elseif ($discountAmount > 0 || $discountValue > 0 || $isReseller || $hasVoucher) {
+                    $poDiskonPcs += $qty;
+                } else {
+                    $poNormalPcs += $qty;
+                }
+            }
+
+            $totalPcsOrder = $poNormalPcs + $poDiskonPcs + $poGratisPcs;
+
+            $totalPcsNormal += $poNormalPcs;
+            $totalPcsDiskon += $poDiskonPcs;
+            $totalPcsGratis += $poGratisPcs;
+
+            // Klasifikasi tingkat PO untuk kolom Jumlah PO di tabel ringkasan
+            if ($isSpecial || ($poGratisPcs > 0 && $poNormalPcs === 0 && $poDiskonPcs === 0)) {
+                $poGratisCount++;
+            } elseif ($isReseller || $hasVoucher || $poDiskonPcs > 0) {
+                $poDiskonCount++;
+            } else {
+                $poNormalCount++;
+            }
+
+            $tagihan = (float) $o->total_tagihan;
+            $totalVal += $tagihan;
 
             return [
                 'no_po' => $o->no_po,
@@ -1318,39 +1377,56 @@ class ReportRunner
                 'pelanggan' => $o->pelanggan?->nama ?? '-',
                 'tanggal_masuk' => $o->tanggal_masuk?->toDateString(),
                 'jenis_po' => $jenisPo,
-                'pcs' => $this->getOrderPcs($o),
-                'total_tagihan' => (float) $o->total_tagihan,
+                'pcs' => $totalPcsOrder,
+                'total_tagihan' => $tagihan,
                 'status' => $o->status_po,
             ];
         })->all();
 
-        $normalCount = 0;
-        $specialCount = 0;
-        $resellerCount = 0;
-        $repeatCount = 0;
-        $totalVal = 0;
+        $totalPcsAll = $totalPcsNormal + $totalPcsDiskon + $totalPcsGratis;
+        $totalPoCount = count($rows);
 
-        foreach ($rows as $r) {
-            if ($r['jenis_po'] === 'Special Order') {
-                $specialCount++;
-            } elseif ($r['jenis_po'] === 'Reseller Price') {
-                $resellerCount++;
-            } elseif ($r['jenis_po'] === 'Repeat Order') {
-                $repeatCount++;
-            } else {
-                $normalCount++;
-            }
-            $totalVal += $r['total_tagihan'];
-        }
+        $summaryTable = [
+            'title' => 'Ringkasan Jenis PO (Berdasarkan Kategori Harga)',
+            'columns' => [
+                ['key' => 'kategori', 'label' => 'Kategori'],
+                ['key' => 'total_po', 'label' => 'Jumlah PO', 'format' => 'number'],
+                ['key' => 'total_pcs', 'label' => 'Jumlah PCS', 'format' => 'number'],
+            ],
+            'rows' => [
+                [
+                    'kategori' => 'Jumlah Harga Normal',
+                    'total_po' => $poNormalCount,
+                    'total_pcs' => $totalPcsNormal,
+                ],
+                [
+                    'kategori' => 'Jumlah Harga Diskon',
+                    'total_po' => $poDiskonCount,
+                    'total_pcs' => $totalPcsDiskon,
+                ],
+                [
+                    'kategori' => 'Jumlah Yang Gratis',
+                    'total_po' => $poGratisCount,
+                    'total_pcs' => $totalPcsGratis,
+                ],
+            ],
+            'total' => [
+                'kategori' => 'JUMLAH TOTAL',
+                'total_po' => $totalPoCount,
+                'total_pcs' => $totalPcsAll,
+            ],
+        ];
 
         return [
             'rows' => $rows,
+            'summaryTable' => $summaryTable,
             'summary' => [
-                ['label' => 'Total PO Normal', 'value' => $normalCount],
-                ['label' => 'Total PO Special Order', 'value' => $specialCount],
-                ['label' => 'Total PO Harga Reseller', 'value' => $resellerCount],
-                ['label' => 'Total PO Repeat Order', 'value' => $repeatCount],
-                ['label' => 'Total Nilai PO', 'value' => $totalVal, 'format' => 'currency'],
+                ['label' => 'Total PO', 'value' => $totalPoCount],
+                ['label' => 'Total PCS', 'value' => $totalPcsAll, 'format' => 'number'],
+                ['label' => 'PCS Harga Normal', 'value' => $totalPcsNormal, 'format' => 'number'],
+                ['label' => 'PCS Harga Diskon', 'value' => $totalPcsDiskon, 'format' => 'number'],
+                ['label' => 'PCS Yang Gratis', 'value' => $totalPcsGratis, 'format' => 'number'],
+                ['label' => 'Total Tagihan', 'value' => $totalVal, 'format' => 'currency'],
             ],
         ];
     }

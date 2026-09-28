@@ -48,6 +48,7 @@ class ReportController extends Controller
             'filters'       => $filters,
             'rows'          => $result['rows'],
             'summary'       => $result['summary'],
+            'summaryTable'  => $result['summaryTable'] ?? null,
             'heatmapSeries' => $result['heatmapSeries'] ?? null,
             'groups'        => ReportRegistry::groups(),
         ], $props));
@@ -144,7 +145,7 @@ class ReportController extends Controller
         \App\Services\ActivityLogger::log('export', 'report', null, "Ekspor Excel laporan {$config['label']}");
 
         return Excel::download(
-            new GenericReportExport($config['label'], $config['columns'], $result['rows'], $hexColor),
+            new GenericReportExport($config['label'], $config['columns'], $result['rows'], $hexColor, $result['summaryTable'] ?? null),
             $filename
         );
     }
@@ -182,6 +183,7 @@ class ReportController extends Controller
             'config' => $config,
             'rows' => $result['rows'],
             'summary' => $result['summary'],
+            'summaryTable' => $result['summaryTable'] ?? null,
             'filters' => $filters,
             'generated_at' => now(),
             'user' => $request->user(),

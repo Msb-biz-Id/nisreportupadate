@@ -442,7 +442,67 @@ function ReportChart({ config, rows, heatmapSeries }) {
     );
 }
 
-export default function ReportShow({ config, filters, rows, summary, heatmapSeries, groups, allReports, customerTypes = [], sumberOrders = [], brands = [], products = [], bankAccounts = [] }) {
+function SummaryTableCard({ summaryTable }) {
+    if (!summaryTable || !summaryTable.rows?.length) return null;
+
+    return (
+        <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+            <CardHeader className="py-3 px-4 border-b bg-slate-50/70 dark:bg-slate-900/60">
+                <CardTitle className="text-sm font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wide">
+                    {summaryTable.title || 'Ringkasan Data'}
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-slate-100/60 dark:bg-slate-800/60">
+                                {summaryTable.columns.map((c) => (
+                                    <TableHead 
+                                        key={c.key} 
+                                        className={`font-bold text-xs uppercase tracking-wider text-slate-600 dark:text-slate-300 ${['currency', 'number'].includes(c.format) ? 'text-right' : ''}`}
+                                    >
+                                        {c.label}
+                                    </TableHead>
+                                ))}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {summaryTable.rows.map((row, i) => (
+                                <TableRow key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                                    {summaryTable.columns.map((c) => (
+                                        <TableCell 
+                                            key={c.key} 
+                                            className={`text-sm py-2.5 ${['currency', 'number'].includes(c.format) ? 'text-right font-mono' : 'font-semibold text-slate-700 dark:text-slate-200'}`}
+                                        >
+                                            <FormatCell value={row[c.key]} format={c.format} />
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                        {summaryTable.total && (
+                            <TableFooter className="bg-slate-100 dark:bg-slate-900 font-bold border-t-2 border-slate-300 dark:border-slate-700">
+                                <TableRow>
+                                    {summaryTable.columns.map((c) => (
+                                        <TableCell 
+                                            key={c.key} 
+                                            className={`py-3 text-slate-900 dark:text-white font-extrabold ${['currency', 'number'].includes(c.format) ? 'text-right font-mono' : ''}`}
+                                        >
+                                            <FormatCell value={summaryTable.total[c.key]} format={c.format} />
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableFooter>
+                        )}
+                    </Table>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+export default function ReportShow({ config, filters, rows, summary, summaryTable = null, heatmapSeries, groups, allReports, customerTypes = [], sumberOrders = [], brands = [], products = [], bankAccounts = [] }) {
     const Icon = Icons[config.icon] ?? Icons.BarChart3;
 
     function applyFilters(newFilters) {
@@ -486,6 +546,8 @@ export default function ReportShow({ config, filters, rows, summary, heatmapSeri
                 />
 
                 <ReportChart config={config} rows={rows} heatmapSeries={heatmapSeries} />
+
+                <SummaryTableCard summaryTable={summaryTable} />
 
                 <Card>
                     <CardHeader>
