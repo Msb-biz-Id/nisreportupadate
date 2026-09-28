@@ -318,7 +318,7 @@ export default function Owner({ stats }) {
                             </CardTitle>
                         </div>
                         <CardDescription className="text-xs mt-0.5">
-                            Klasifikasi jumlah PO, total PCS, dan nilai tagihan berdasarkan jenis PO (Normal, Special Order, Reseller, Repeat Order).
+                            Klasifikasi jumlah PO, total PCS, dan nilai tagihan berdasarkan jenis PO (Normal, PO Support, Reseller, Repeat Order).
                         </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">

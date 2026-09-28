@@ -118,8 +118,8 @@ class ReportSummarySheet implements FromArray, WithTitle, ShouldAutoSize, WithEv
             $st2Cols = $this->brandSummaryTable['columns'] ?? [
                 ['key' => 'brand', 'label' => 'Nama Brand'],
                 ['key' => 'pcs_normal', 'label' => 'PCS Normal'],
-                ['key' => 'pcs_diskon', 'label' => 'PCS Diskon'],
-                ['key' => 'pcs_gratis', 'label' => 'PCS Gratis'],
+                ['key' => 'pcs_reseller', 'label' => 'PCS Reseller'],
+                ['key' => 'pcs_support', 'label' => 'PCS PO Support'],
                 ['key' => 'total_pcs', 'label' => 'Total PCS'],
                 ['key' => 'total_po', 'label' => 'Total PO'],
             ];

@@ -85,10 +85,10 @@ function KanbanCard({ order }) {
                         ❌ Ada Rijek
                     </Badge>
                 )}
-                {/* Special Order */}
+                {/* PO Support */}
                 {order.is_special_order && !order.paket_order && (
-                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-violet-600 text-white">
-                        ⭐ SPECIAL
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-amber-600 text-white font-extrabold">
+                        ⭐ PO SUPPORT
                     </Badge>
                 )}
             </div>

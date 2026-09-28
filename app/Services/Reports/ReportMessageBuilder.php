@@ -512,7 +512,7 @@ PROMPT;
                 "• Total PO: {$totalPo} order ({$totalPcs} pcs)",
                 "  - PO Normal: {$normalCount} order ({$normalPcs} pcs)",
                 "  - PO Harga Reseller: {$resellerCount} order ({$resellerPcs} pcs)",
-                "  - PO Spesial Order: {$specialCount} order ({$specialPcs} pcs)",
+                "  - PO Support: {$specialCount} order ({$specialPcs} pcs)",
                 "",
                 "🔌 *SUMBER ORDER MINGGU INI:*",
             ];
@@ -623,7 +623,7 @@ PROMPT;
                 "• Total PO: {$totalPo} order ({$totalPcs} pcs)",
                 "  - PO Normal: {$normalCount} order ({$normalPcs} pcs)",
                 "  - PO Harga Reseller: {$resellerCount} order ({$resellerPcs} pcs)",
-                "  - PO Spesial Order: {$specialCount} order ({$specialPcs} pcs)",
+                "  - PO Support: {$specialCount} order ({$specialPcs} pcs)",
                 "",
                 "🔌 *SUMBER ORDER BULAN INI:*",
             ];
@@ -733,7 +733,7 @@ PROMPT;
             $lines[] = "📋 *DETAIL PO BARU HARI INI:*";
             foreach ($poHariIniAll as $i => $po) {
                 /** @var Order $po */
-                $tipeLabel = $po->is_special_order ? ' [Spesial Order]' : ($po->is_reseller_price ? ' [Harga Reseller]' : ' [Normal]');
+                $tipeLabel = $po->is_special_order ? ' [PO Support]' : ($po->is_reseller_price ? ' [Harga Reseller]' : ' [Normal]');
                 $produk = $po->items->first()?->nama_produk ?? '-';
                 $qty    = $this->getOrderPcs($po);
                 $lines[] = ($i + 1) . ". {$po->no_po}{$tipeLabel} - {$po->pelanggan?->nama} - {$produk} x{$qty}";
@@ -846,7 +846,7 @@ PROMPT;
                 "• Total PO: {$totalPo} order ({$totalPcs} pcs)",
                 "  - PO Normal: {$normalCount} order ({$normalPcs} pcs)",
                 "  - PO Harga Reseller: {$resellerCount} order ({$resellerPcs} pcs)",
-                "  - PO Spesial Order: {$specialCount} order ({$specialPcs} pcs)",
+                "  - PO Support: {$specialCount} order ({$specialPcs} pcs)",
                 "",
                 "🔌 *SUMBER ORDER MINGGU INI:*",
             ];
@@ -957,7 +957,7 @@ PROMPT;
                 "• Total PO: {$totalPo} order ({$totalPcs} pcs)",
                 "  - PO Normal: {$normalCount} order ({$normalPcs} pcs)",
                 "  - PO Harga Reseller: {$resellerCount} order ({$resellerPcs} pcs)",
-                "  - PO Spesial Order: {$specialCount} order ({$specialPcs} pcs)",
+                "  - PO Support: {$specialCount} order ({$specialPcs} pcs)",
                 "",
                 "🔌 *SUMBER ORDER BULAN INI:*",
             ];

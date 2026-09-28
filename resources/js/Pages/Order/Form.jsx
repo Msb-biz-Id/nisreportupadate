@@ -2034,7 +2034,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
     const totalCoreHarga = useMemo(() => coreItems.reduce((s, i) => s + getCalculatedSubtotal(i), 0), [coreItems]);
     const totalAddonHarga = useMemo(() => addonItems.reduce((s, i) => s + getCalculatedSubtotal(i), 0), [addonItems]);
     const totalHarga = totalCoreHarga + totalAddonHarga;
-    const finalTotal = Math.max(0, totalHarga + (Number(data.ongkir) || 0) - (Number(data.voucher_discount_amount) || 0));
+    const finalTotal = data.is_special_order ? 0 : Math.max(0, totalHarga + (Number(data.ongkir) || 0) - (Number(data.voucher_discount_amount) || 0));
 
     const pageTitle = isEdit ? `Edit PO ${order.no_po}` : 'Buat PO Baru';
 
@@ -2100,9 +2100,18 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                     <div className="flex flex-col lg:flex-row lg:items-center gap-4 w-full xl:w-auto">
                         {/* Interactive Switches directly in the header */}
                         <div className="flex flex-wrap items-center gap-3 py-1 text-xs">
-                            {/* Special Order Switch */}
-                            <div className="flex items-center gap-2 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
-                                <span className="font-extrabold text-[10px] text-slate-300 uppercase tracking-wide">Pesanan Khusus</span>
+                            {/* PO Support Switch */}
+                            <div className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border transition-all ${
+                                data.is_special_order 
+                                    ? 'bg-amber-950/80 border-amber-500/60 text-amber-300 ring-1 ring-amber-500/50' 
+                                    : 'bg-slate-800/80 border-slate-700 text-slate-300'
+                            }`}>
+                                <div className="flex flex-col">
+                                    <span className="font-extrabold text-[10px] uppercase tracking-wide">PO Support</span>
+                                    {data.is_special_order && (
+                                        <span className="text-[8px] font-black text-amber-400 leading-none">FREE / RP 0</span>
+                                    )}
+                                </div>
                                 <Switch 
                                     className="scale-90"
                                     checked={data.is_special_order} 
@@ -2222,8 +2231,12 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                 className="flex items-center gap-3 bg-slate-800 hover:bg-slate-700/80 px-4 py-2 rounded-xl border border-slate-700 transition select-none shadow-inner"
                             >
                                 <div className="text-left">
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Total Tagihan ({totalPcs} Pcs)</p>
-                                    <p className="font-mono font-black text-sm text-emerald-400 mt-1 leading-none">{formatRupiah(finalTotal)}</p>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                                        Total Tagihan ({totalPcs} Pcs) {data.is_special_order ? '• PO SUPPORT' : ''}
+                                    </p>
+                                    <p className="font-mono font-black text-sm text-emerald-400 mt-1 leading-none">
+                                        {formatRupiah(finalTotal)} {data.is_special_order ? '(FREE)' : ''}
+                                    </p>
                                 </div>
                                 <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200 ${showSummaryDropdown ? 'rotate-180' : ''}`} />
                             </button>
@@ -2317,6 +2330,12 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                             <div className="flex justify-between items-center text-rose-600 font-medium">
                                                 <span>Voucher</span>
                                                 <span className="font-mono">- {formatRupiah(Number(data.voucher_discount_amount))}</span>
+                                            </div>
+                                        )}
+                                        {data.is_special_order && (
+                                            <div className="flex justify-between items-center text-amber-600 font-bold bg-amber-50 p-1.5 rounded text-[11px]">
+                                                <span>PO Support (Diskon 100%)</span>
+                                                <span className="font-mono">- {formatRupiah(totalHarga + (Number(data.ongkir) || 0) - (Number(data.voucher_discount_amount) || 0))}</span>
                                             </div>
                                         )}
                                         <div className="flex justify-between items-center font-black pt-1.5 border-t border-dashed border-slate-150">

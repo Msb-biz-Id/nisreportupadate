@@ -849,7 +849,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     ) : (order.is_free_ongkir || order.tipe_pengiriman === 'free_ongkir') ? (
                                         <Badge variant="success" className="bg-emerald-500 hover:bg-emerald-600">Free Ongkir</Badge>
                                     ) : null}
-                                    {order.is_special_order && <Badge variant="warning">Special Order</Badge>}
+                                    {order.is_special_order && <Badge variant="warning" className="bg-amber-100 text-amber-800 border-amber-300 font-extrabold">PO Support</Badge>}
                                     {order.is_reseller_price && <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">Harga Reseller</Badge>}
                                     {order.is_repeat_order && <Badge variant="outline"><RotateCw className="mr-1 h-3 w-3" />Repeat</Badge>}
                                     {order.status_po !== 'draft' && (
@@ -1614,7 +1614,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                 : <XCircle className="h-4 w-4 text-rose-400" />
                                             }
                                             <span className="text-sm font-semibold">
-                                                {(order.is_lunas || order.is_special_order || sisaTagihan <= 0) ? 'Lunas' : 'Belum Lunas'}
+                                                {(order.is_lunas || order.is_special_order || sisaTagihan <= 0) ? (order.is_special_order ? 'Lunas (PO Support)' : 'Lunas') : 'Belum Lunas'}
                                             </span>
                                             {(order.is_lunas || sisaTagihan <= 0) && order.lunas_at && (
                                                 <span className="text-[10px] text-muted-foreground">{formatDate(order.lunas_at)}</span>

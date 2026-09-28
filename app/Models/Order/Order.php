@@ -155,6 +155,11 @@ class Order extends Model
 
     public function totalTagihan(): float
     {
+        // PO Support (is_special_order) bebas biaya / diskon 100% (total tagihan 0)
+        if ((bool) $this->is_special_order) {
+            return 0.0;
+        }
+
         // Ensure relations are loaded to prevent N+1 and minimize queries
         if (!$this->relationLoaded('items')) {
             $this->load('items');

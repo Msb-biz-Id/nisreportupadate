@@ -18,8 +18,8 @@ export default function Notifications({ notification_matrix, available_roles, av
             desc: 'Dipicu ketika PO baru diterbitkan oleh Admin Brand.'
         },
         special_order_created: {
-            title: 'Special Order Baru Dibuat 🎯',
-            desc: 'Dipicu ketika PO baru ditandai sebagai Special Order.'
+            title: 'PO Support Baru Dibuat 🎯',
+            desc: 'Dipicu ketika PO baru ditandai sebagai PO Support.'
         },
         progress_updated: {
             title: 'Progress PO Diperbarui ⚙️',

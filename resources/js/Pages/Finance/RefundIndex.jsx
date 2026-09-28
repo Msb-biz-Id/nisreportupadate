@@ -557,8 +557,8 @@ function DetailRefundDialog({ refund, open, onOpenChange, can, onPublish, onReje
                                     <span className="text-sm font-semibold font-mono text-slate-700">{formatRupiah(refund.order?.total_tagihan)}</span>
                                 </div>
                                 {refund.order?.is_special_order && (
-                                    <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200 text-xs">
-                                        Special Order
+                                    <Badge variant="outline" className="text-amber-700 bg-amber-50 border-amber-300 text-xs font-bold">
+                                        PO Support
                                     </Badge>
                                 )}
                             </div>

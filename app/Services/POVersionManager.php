@@ -142,7 +142,7 @@ class POVersionManager
         // Fields on order level to compare
         $orderFields = [
             'nama_po' => 'Nama PO',
-            'is_special_order' => 'Special Order',
+            'is_special_order' => 'PO Support',
             'is_free_ongkir' => 'Free Ongkir',
             'ongkir' => 'Biaya Ongkir',
             'tanggal_masuk' => 'Tanggal Masuk',

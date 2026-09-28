@@ -142,7 +142,7 @@ function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders 
                             <SelectContent>
                                 <SelectItem value="__all__">Semua Jenis PO</SelectItem>
                                 <SelectItem value="normal">PO Normal</SelectItem>
-                                <SelectItem value="special_order">PO Special Order</SelectItem>
+                                <SelectItem value="special_order">PO Support</SelectItem>
                                 <SelectItem value="reseller_price">PO Harga Reseller</SelectItem>
                                 <SelectItem value="repeat_order">PO Repeat Order</SelectItem>
                             </SelectContent>

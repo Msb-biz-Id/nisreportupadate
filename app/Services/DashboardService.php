@@ -1239,7 +1239,7 @@ class DashboardService
             'total_omset' => $totVal,
             'items'       => [
                 $makeItem('normal', 'Normal', '#3B82F6', (int) ($ordersStats?->normal_po ?? 0), (int) ($pcsStats?->normal_pcs ?? 0), (float) ($ordersStats?->normal_val ?? 0)),
-                $makeItem('special_order', 'Special Order', '#8B5CF6', (int) ($ordersStats?->special_po ?? 0), (int) ($pcsStats?->special_pcs ?? 0), (float) ($ordersStats?->special_val ?? 0)),
+                $makeItem('special_order', 'PO Support', '#8B5CF6', (int) ($ordersStats?->special_po ?? 0), (int) ($pcsStats?->special_pcs ?? 0), (float) ($ordersStats?->special_val ?? 0)),
                 $makeItem('reseller_price', 'Harga Reseller', '#10B981', (int) ($ordersStats?->reseller_po ?? 0), (int) ($pcsStats?->reseller_pcs ?? 0), (float) ($ordersStats?->reseller_val ?? 0)),
                 $makeItem('repeat_order', 'Repeat Order', '#F59E0B', (int) ($ordersStats?->repeat_po ?? 0), (int) ($pcsStats?->repeat_pcs ?? 0), (float) ($ordersStats?->repeat_val ?? 0)),
             ],

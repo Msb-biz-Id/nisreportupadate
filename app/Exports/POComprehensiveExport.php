@@ -74,7 +74,7 @@ class POComprehensiveExport implements WithMultipleSheets
             'deadline' => $o->deadline_customer?->toDateString(),
             'status' => $o->status_po,
             'total_tagihan' => (float)$o->total_tagihan,
-            'is_lunas' => $o->is_lunas ? 'Lunas' : 'Belum Lunas',
+            'is_lunas' => $o->is_special_order ? 'Lunas (PO Support)' : ($o->is_lunas ? 'Lunas' : 'Belum Lunas'),
         ])->all();
     }
 

@@ -171,7 +171,7 @@ export default function NotificationsIndex({ notifications, filters, unread_coun
             return {
                 icon: <Sparkles className="h-4 w-4" />,
                 iconBg: 'bg-purple-50 border-purple-200 text-purple-600 dark:bg-purple-950/30 dark:border-purple-900/50 dark:text-purple-400',
-                badgeText: 'Special Order',
+                badgeText: 'PO Support',
                 badgeVariant: 'secondary'
             };
         }

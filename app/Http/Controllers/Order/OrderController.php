@@ -513,7 +513,7 @@ class OrderController extends Controller
             $biayaPengiriman = $order->is_free_ongkir ? 0.0 : (float) $order->ongkir;
 
             if ($isSpecial) {
-                $invoiceTotalTagihan = $biayaPengiriman;
+                $invoiceTotalTagihan = 0.0;
                 $diskonType = 'persen';
                 $diskonValue = 100.0;
             } else {
