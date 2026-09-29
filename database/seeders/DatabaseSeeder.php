@@ -17,6 +17,9 @@ class DatabaseSeeder extends Seeder
             CustomerSeeder::class,
             EkspedisiSeeder::class,
             OrderSeeder::class,
+            HcmMasterDataSeeder::class,
+            HcmEmployeeSeeder::class,
+            HcmUserSeeder::class,
             // MultiFontTestSeeder::class,
         ]);
     }

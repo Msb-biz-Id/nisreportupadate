@@ -1,0 +1,156 @@
+# Roadmap Eksekusi Terstruktur Modul HRIS / Kepegawaian NISReport
+
+Dokumen roadmap ini dirancang secara sistematis, bertahap, dan bebas dari halusinasi data sebagai panduan teknis implementasi modul **HRIS / Kepegawaian** pada aplikasi NISReport. Seluruh tahapan disinkronkan 100% dengan `plan/HRIS.md`, data faktual `Blueprint Website HCM NIS.xlsx`, serta arsitektur sistem Laravel + Inertia.js React eksisting.
+
+---
+
+## Prinsip Kerja & Disiplin Eksekusi
+1. **Zero Hallucination**: Setiap nama tabel, kolom database, formula kalkulasi upah, dan opsi dropdown merujuk persis pada Blueprint Excel.
+2. **Non-Breaking Architecture**: Tidak ada kode eksisting (Order, Produksi, Keuangan, Brand) yang dirusak atau terganggu.
+3. **Double Sign-Off Guarantee**: Alur otorisasi lembur dan uang makan memisahkan peran **Gatekeeper Data (`admin_hcm`)** dan **Gatekeeper Dana (`admin_keuangan`)**.
+4. **Zero Local Storage Waste**: Seluruh berkas digital (PDF kontrak, berkas pelamar, surat dokter) dialirkan ke Google Drive API dengan viewer interaktif di web.
+5. **Verifikasi Bertahap**: Setiap fase memiliki checklist verifikasi fungsional sebelum melangkah ke fase berikutnya.
+
+---
+
+## Rincian 8 Fase Pengerjaan
+
+### 📌 FASE 1: Pondasi Database, RBAC, Navigasi & Master Data Dinamis (Tab Vertikal)
+> **Tujuan**: Menyiapkan struktur dasar, hak akses Spatie, menu navigasi sidebar, dan modul Master Data untuk 22 kategori dropdown dinamis.
+
+- [ ] **1.1 Database**: Buat migrasi tabel `hcm_master_categories` dan `hcm_master_options`.
+- [ ] **1.2 Seeder Data**: Buat `HcmMasterDataSeeder` berisi 22 kategori dan seluruh opsi bawaan dari lembar kerja *DropDown* Blueprint Excel.
+- [ ] **1.3 Sinkronisasi RBAC**:
+  - Daftarkan role baru `admin_hcm` dan `staff_hcm` di `RolePermissionSeeder.php`.
+  - Daftarkan 16 permissions `hcm.*` dan permission `finance.sign-paid`.
+  - Daftarkan `admin_hcm` ke dalam method `hasAccessToBrand()` pada `app/Models/User.php`.
+- [ ] **1.4 Navigasi Sidebar**: Tambahkan seksi navigasi `👥 KEPEGAWAIAN` pada `resources/js/Layouts/Partials/SidebarContent.jsx` berisi 12 menu terpadu.
+- [ ] **1.5 Modul Master Data (Frontend & Backend)**:
+  - Bangun `HcmMasterDataController.php` dengan fitur CRUD dan toggle switch aktif/nonaktif.
+  - Bangun antarmuka `resources/js/Pages/Hcm/MasterData/Index.jsx` dengan tata letak **Tab Menu Vertikal (Split-Pane)**:
+    - Kiri: Menu vertikal 22 kategori dengan search box & badge counter.
+    - Kanan: Panel data CRUD dengan tabel urutan, nama/label, kode, dan status toggle.
+
+---
+
+### 📌 FASE 2: Master Karyawan, Peserta Magang & Buku Induk 360° (6 Tab)
+> **Tujuan**: Mengelola biodata seluruh kategori tenaga kerja (Managerial, Kontrak, Borongan, Harian, Magang) dan riwayat legalitas/gajinya.
+
+- [ ] **2.1 Database**: Buat migrasi tabel `hcm_employees`, `hcm_interns`, `hcm_contracts`, `hcm_compensations`, dan `hcm_compensation_histories`.
+- [ ] **2.2 Seeder Karyawan Faktual**: Buat seeder dengan data faktual dari Blueprint (*Bambang Sadewo*, *Puji Astuti*, *Danang*, dan data siswa magang *SMK 2 Lamongan*).
+- [ ] **2.3 Controller & Request**: Bangun `HcmEmployeeController.php` lengkap dengan form request validation (NIK 16 digit unik, nomor BRI, BPJS, dll).
+- [ ] **2.4 Antarmuka Index Karyawan**: Tabel karyawan dengan filter kategori (Managerial, Kontrak, Borongan, Magang) dan status aktif.
+- [ ] **2.5 Antarmuka Profil Karyawan 360° (`Employees/Show.jsx`)**:
+  - Tab 1: Biodata & Identitas Lengkap (Identitas diri, NIK, BRI, BPJS, Ukuran Seragam, data institusi magang).
+  - Tab 2: Riwayat Kontrak & Legalitas PKWT (Nomor resmi `XXX/OWR/PKWT/X/XXXX`, sisa hari kontrak, status review).
+  - Tab 3: Rekam Kompensasi & Gaji (Gaji awal vs saat ini, siklus evaluasi 4/6 bulan, histori kenaikan 1, 2, 3).
+  - Tab 4: Rekap Kehadiran Bulanan (Matriks 1-31).
+  - Tab 5: Rekam Lembur & Reward.
+  - Tab 6: Transisi & Offboarding (Jika non-aktif).
+
+---
+
+### 📌 FASE 3: Presensi Harian, Bulk Attendance Matrix & Cuti/Izin
+> **Tujuan**: Memberikan kecepatan input absensi puluhan staf pabrik dalam 1 halaman dan sistem pengajuan izin.
+
+- [ ] **3.1 Database**: Buat migrasi `hcm_attendances` dan `hcm_leave_requests`.
+- [ ] **3.2 Backend Logic**: Controller absensi dengan endpoint batch logger dan filter per tanggal/divisi.
+- [ ] **3.3 Antarmuka Bulk Daily Attendance Matrix (`Attendance/Index.jsx`)**:
+  - Filter tanggal & pilihan divisi kerja.
+  - Tombol 1-klik `[Set Semua Hadir (08:00 - 17:00)]`.
+  - Quick Toggle Buttons per baris karyawan: `[H]` Hadir, `[T]` Terlambat, `[I]` Izin, `[S]` Sakit, `[A]` Alpha.
+  - Shortcut keyboard `Ctrl + S` untuk simpan massal.
+- [ ] **3.4 Modul Pengajuan Cuti / Izin / Sakit**:
+  - Input tiket izin dengan tanggal dan alasan.
+  - Alur persetujuan: `PENDING_REVIEW` $\rightarrow$ `APPROVED` / `REJECTED` (wajib isi alasan penolakan).
+  - Integrasi Hari H Trigger: Tiket approved otomatis tampil di Dashboard *"Izin Hari Ini"*.
+
+---
+
+### 📌 FASE 4: Lembur Mingguan, Bulk Overtime & Double Sign-Off Payout
+> **Tujuan**: Otomatisasi perhitungan lembur pabrik dan penegakan tata kelola keuangan Double Sign-Off.
+
+- [ ] **4.1 Database**: Buat migrasi `hcm_overtimes` dan `hcm_overtime_batches`.
+- [ ] **4.2 Engine Perhitungan Lembur**:
+  - Hari Kerja: Rp 10.000 / jam (30 menit pertama Rp 5.000).
+  - Hari Libur / Weekend: Rp 15.000 / jam (30 menit pertama Rp 10.000).
+  - Siklus cut-off: Sabtu (00:00) s.d. Jumat (23:59). Jadwal pencairan: Hari Sabtu berikutnya.
+- [ ] **4.3 Antarmuka Bulk Overtime Dispatcher**:
+  - Multi-select checkbox untuk memilih seluruh anggota regu kerja yang lembur serentak.
+  - Auto-calculate total jam dan total nominal bayar.
+- [ ] **4.4 Alur Double Sign-Off Finansial**:
+  - `admin_hcm`: Review jam riil $\rightarrow$ Tekan `[Approve & Sign HCM]` (Status: `APPROVED_BY_HCM`).
+  - Notifikasi otomatis terkirim ke `admin_keuangan`.
+  - `admin_keuangan`: Cocokkan nominal kas $\rightarrow$ Tekan `[Sign & Paid]` (Status: `PAID_COMPLETED`, terkunci permanen).
+
+---
+
+### 📌 FASE 5: Uang Makan Bulanan, Delay & Hold Logic, Reward & Apresiasi
+> **Tujuan**: Otomatisasi perhitungan uang makan dengan aturan penangguhan keterlambatan dan modul reward karyawan.
+
+- [ ] **5.1 Database**: Buat migrasi `hcm_meal_allowance_batches`, `hcm_meal_allowance_items`, dan `hcm_employee_rewards`.
+- [ ] **5.2 Engine Kalkulasi Uang Makan**:
+  - Tarif Rp 70.000 / minggu (Standar Rp 280.000 / bulan).
+  - Potongan Alpha & Setengah Hari; Cuti dan Dinas Luar **tetap berhak penuh (tidak dipotong)**.
+  - **Toleransi Keterlambatan**: Maksimal 3 kali terlambat.
+  - **Sanksi Keterlambatan $\ge 4$ Kali**: Uang makan ditangguhkan (*Hold*) dan dicairkan dobel bulan berikutnya. Jika berulang, penangguhan berlanjut.
+  - **Sanksi Izin $> 2\times$**: Otomatis menandai pembatalan bonus bulanan.
+- [ ] **5.3 Alur Double Sign-Off Uang Makan**:
+  - Identik dengan lembur (`DRAFT` $\rightarrow$ `APPROVED_BY_HCM` $\rightarrow$ `PAID_COMPLETED`).
+- [ ] **5.4 Modul Reward & Apresiasi (`hcm.rewards.index`)**:
+  - CRUD pencatatan barang reward (tiket liburan, mesin cuci, dll.) dan status penyaluran (Diterima, Ditransfer, Pending, Dibatalkan).
+
+---
+
+### 📌 FASE 6: Dashboard Kepegawaian, Alerts & Event Social Calendar
+> **Tujuan**: Menyediakan Command Center interaktif dengan deteksi dini dan kalender kegiatan sosial perusahaan.
+
+- [ ] **6.1 Database**: Buat migrasi `hcm_company_events`.
+- [ ] **6.2 Dynamic Engine**:
+  - Mesin Ulang Tahun Dinamis (Alert H-3 berdasarkan `birth_date` karyawan aktif).
+  - Mesin Work Anniversary Dinamis (Peringatan hari genap masa kerja tahunan).
+- [ ] **6.3 Dashboard 4 Blok Widget & Skema Warna**:
+  - Blok Urgent & Action Needed: Probation H-7, Kontrak PKWT H-30, Pending Approvals.
+  - Blok Daily Schedule: Izin Hari Ini, Peringatan Mangkir (Alert Merah 08:30 WIB).
+  - Blok Payroll Reminders: Lembur Sabtu, Cut-Off Bulanan H-3.
+  - Blok Events & Social Calendar: Kalender interaktif bulanan/mingguan, ultah H-3, work anniversary.
+  - Standarisasi 5 palet warna UX (Merah, Kuning, Biru, Hijau, Abu-abu).
+- [ ] **6.4 Sinkronisasi Notifikasi**:
+  - Dispatch event notifikasi via `SystemEventNotification` (In-App database, WhatsApp, Telegram, sound bell).
+
+---
+
+### 📌 FASE 7: Dokumen Internal, Persuratan, Google Drive & Rekrutmen Pipeline (Loker & Public Form)
+> **Tujuan**: Pengelolaan berkas tanpa membebani disk lokal dan pendaftaran online pelamar.
+
+- [ ] **7.1 Database**: Buat migrasi `hcm_internal_documents`, `hcm_external_letters`, `hcm_agenda_letters`, `hcm_job_postings`, `hcm_job_applicants`, `hcm_applicant_interviews`, `hcm_onboardings`, `hcm_offboardings`.
+- [ ] **7.2 Google Drive Stream & In-App PDF Viewer**:
+  - Layanan upload langsung ke subfolder Google Drive.
+  - Modal In-App PDF Preview (baca langsung di web tanpa unduh).
+- [ ] **7.3 Modul Master Loker & Public Shareable Link**:
+  - Generator URL publik unik (`/karir/{slug}`) & QR Code siap cetak.
+- [ ] **7.4 Formulir Pendaftaran Publik Pelamar (`/karir/{slug}`)**:
+  - Form publik mandiri dengan field identitas, pendidikan, skill, pengalaman, ekspektasi gaji, dan upload berkas (KTP & CV).
+  - Pengecualian field internal (rekening, BPJS, kontrak tidak diisi pelamar).
+  - Tombol 1-klik **`[ 🚀 Konversi Jadi Karyawan Baru ]`** saat pelamar disetujui (`Diterima (Join)`).
+- [ ] **7.5 Modul Persuratan**:
+  - Dokumen Internal (Pengajuan RAB vs Realisasi LPJ).
+  - Korespondensi Eksternal (BPJS-TK, Disnaker).
+  - Buku Agenda Penomoran Surat Resmi (`AGD-YYYY-XXX`).
+  - Offboarding Clearance Sheet & Penerbitan Paklaring resmi.
+
+---
+
+### 📌 FASE 8: Ekspor PDF Resmi (Laravel-DomPDF), Audit Trail & QA
+> **Tujuan**: Finalisasi pencetakan dokumen korporat beresolusi tinggi dan pengujian menyeluruh.
+
+- [ ] **8.1 Template PDF Resmi (via `barryvdh/laravel-dompdf`)**:
+  - Buku Profil Karyawan Lengkap (*Employee Dossier PDF*).
+  - Bukti Bayar Lembur Mingguan (*Payment Voucher PDF*).
+  - Rekapitulasi Presensi & Uang Makan Bulanan.
+  - Surat Pengalaman Kerja Resmi (*Paklaring PDF*).
+- [ ] **8.2 Audit Trail**: Integrasi pencatatan log pada perubahan data penting kepegawaian.
+- [ ] **8.3 Pengujian & Verifikasi**:
+  - Feature test pada kalkulasi upah lembur & uang makan hold logic.
+  - Verifikasi hak akses RBAC antar role.
+  - Pemeriksaan responsivitas antarmuka di desktop & tablet produksi.

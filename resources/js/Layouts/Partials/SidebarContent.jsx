@@ -36,6 +36,20 @@ import {
     LayoutList,
     Download,
     AlertTriangle,
+    FolderTree,
+    UserCog,
+    Briefcase,
+    CalendarCheck,
+    CalendarDays,
+    Clock,
+    UtensilsCrossed,
+    Award,
+    Mail,
+    FileText,
+    FolderCheck,
+    UserPlus,
+    SlidersHorizontal,
+    FileCheck,
 } from 'lucide-react';
 import { cn, initials, roleLabel } from '@/lib/utils';
 import { Button } from '@/Components/ui/button';
@@ -245,6 +259,162 @@ function buildMenu(user, reportsList = []) {
         opsItems.push({ name: 'Kalender PO', href: route('kalender.index'), icon: Calendar, active: route().current('kalender.*') });
     }
     if (opsItems.length) sections.push({ title: 'Operasional', items: opsItems });
+
+    // Seksi Kepegawaian (HCM)
+    const canAccessHcm = user?.is_superadmin || hasPermission(user, 'hcm.view') || user?.roles?.includes('admin_hcm') || user?.roles?.includes('staff_hcm');
+    if (canAccessHcm) {
+        const hcmItems = [];
+
+        // Dashboard Kepegawaian (Command Center)
+        hcmItems.push({
+            name: 'Dashboard Kepegawaian',
+            href: route('hcm.dashboard.index'),
+            icon: LayoutDashboard,
+            active: route().current('hcm.dashboard.*'),
+        });
+
+        // Karyawan & Magang
+        if (user?.is_superadmin || hasPermission(user, 'hcm.manage-employees') || user?.roles?.includes('admin_hcm') || user?.roles?.includes('staff_hcm')) {
+            hcmItems.push({
+                name: 'Karyawan & Magang',
+                href: route('hcm.employees.index'),
+                icon: Users,
+                active: route().current('hcm.employees.*'),
+            });
+        }
+
+        // Kontrak & PKWT (Menu Terpisah)
+        if (user?.is_superadmin || hasPermission(user, 'hcm.manage-contracts') || user?.roles?.includes('admin_hcm') || user?.roles?.includes('staff_hcm')) {
+            hcmItems.push({
+                name: 'Kontrak & PKWT',
+                href: route('hcm.contracts.index'),
+                icon: FileCheck,
+                active: route().current('hcm.contracts.*'),
+            });
+        }
+
+        // Presensi Harian (Matriks Absensi)
+        if (user?.is_superadmin || hasPermission(user, 'hcm.manage-attendance') || user?.roles?.includes('admin_hcm') || user?.roles?.includes('staff_hcm')) {
+            hcmItems.push({
+                name: 'Presensi Harian',
+                href: route('hcm.attendance.index'),
+                icon: CalendarCheck,
+                active: route().current('hcm.attendance.*'),
+            });
+            hcmItems.push({
+                name: 'Cuti & Perizinan',
+                href: route('hcm.leaves.index'),
+                icon: CalendarDays,
+                active: route().current('hcm.leaves.*'),
+            });
+            hcmItems.push({
+                name: 'Lembur Mingguan',
+                href: route('hcm.overtime.index'),
+                icon: Clock,
+                active: route().current('hcm.overtime.*'),
+            });
+        }
+
+        // Uang Makan Bulanan & Reward
+        if (user?.is_superadmin || hasPermission(user, 'hcm.manage-meal-allowance') || user?.roles?.includes('admin_hcm') || user?.roles?.includes('admin_keuangan')) {
+            hcmItems.push({
+                name: 'Uang Makan',
+                href: route('hcm.meal-allowance.index'),
+                icon: UtensilsCrossed,
+                active: route().current('hcm.meal-allowance.*'),
+            });
+        }
+        if (user?.is_superadmin || hasPermission(user, 'hcm.manage-rewards') || user?.roles?.includes('admin_hcm') || user?.roles?.includes('staff_hcm')) {
+            hcmItems.push({
+                name: 'Reward & Apresiasi',
+                href: route('hcm.rewards.index'),
+                icon: Award,
+                active: route().current('hcm.rewards.*'),
+            });
+        }
+
+        // Kalender & Event Perusahaan
+        if (user?.is_superadmin || hasPermission(user, 'hcm.manage-events') || user?.roles?.includes('admin_hcm') || user?.roles?.includes('staff_hcm')) {
+            hcmItems.push({
+                name: 'Kalender & Event',
+                href: route('hcm.events.index'),
+                icon: Calendar,
+                active: route().current('hcm.events.*'),
+            });
+        }
+
+        // Modul Rekrutmen & Lowongan Kerja (Dropdown)
+        if (user?.is_superadmin || hasPermission(user, 'hcm.manage-recruitment') || user?.roles?.includes('admin_hcm') || user?.roles?.includes('staff_hcm')) {
+            hcmItems.push({
+                name: 'Rekrutmen & Loker',
+                icon: UserPlus,
+                defaultOpen: route().current('hcm.recruitment.*'),
+                active: route().current('hcm.recruitment.*'),
+                children: [
+                    {
+                        name: 'Master Loker',
+                        href: route('hcm.recruitment.jobs.index'),
+                        icon: Briefcase,
+                        active: route().current('hcm.recruitment.jobs.*'),
+                    },
+                    {
+                        name: 'Pipeline Pelamar',
+                        href: route('hcm.recruitment.applicants.index'),
+                        icon: Users,
+                        active: route().current('hcm.recruitment.applicants.*'),
+                    },
+                ],
+            });
+        }
+
+        // Modul Dokumen & Persuratan Terpadu (Dropdown)
+        if (user?.is_superadmin || hasPermission(user, 'hcm.manage-documents') || hasPermission(user, 'hcm.manage-agenda') || user?.roles?.includes('admin_hcm') || user?.roles?.includes('staff_hcm')) {
+            hcmItems.push({
+                name: 'Dokumen & Persuratan',
+                icon: FolderCheck,
+                defaultOpen: route().current('hcm.documents.*') || route().current('hcm.letters.*'),
+                active: route().current('hcm.documents.*') || route().current('hcm.letters.*'),
+                children: [
+                    {
+                        name: 'Dokumen Internal & SOP',
+                        href: route('hcm.documents.index'),
+                        icon: FileText,
+                        active: route().current('hcm.documents.*'),
+                    },
+                    {
+                        name: 'Buku Agenda Surat',
+                        href: route('hcm.letters.index'),
+                        icon: Mail,
+                        active: route().current('hcm.letters.*'),
+                    },
+                ],
+            });
+        }
+
+        // Master Data (Tab Menu Vertikal)
+        if (user?.is_superadmin || hasPermission(user, 'hcm.manage-master') || user?.roles?.includes('admin_hcm')) {
+            hcmItems.push({
+                name: 'Master Data',
+                href: route('hcm.master-data.index'),
+                icon: FolderTree,
+                active: route().current('hcm.master-data.*'),
+            });
+        }
+
+        // Pengaturan HCM (Profil Instansi, Kop Surat, Lembur & Uang Makan)
+        if (user?.is_superadmin || hasPermission(user, 'hcm.manage-settings') || user?.roles?.includes('admin_hcm')) {
+            hcmItems.push({
+                name: 'Pengaturan HCM',
+                href: route('hcm.settings.index'),
+                icon: SlidersHorizontal,
+                active: route().current('hcm.settings.*'),
+            });
+        }
+
+        if (hcmItems.length) {
+            sections.push({ title: 'Kepegawaian', items: hcmItems });
+        }
+    }
 
     const analyticsItems = [];
     if (hasPermission(user, 'report.view')) {

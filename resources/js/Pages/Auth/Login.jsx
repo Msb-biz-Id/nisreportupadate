@@ -1,6 +1,6 @@
 import InputError from '@/Components/InputError';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { Eye, EyeOff, Lock, Mail, LogIn, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, LogIn, AlertTriangle, ShieldCheck, Sparkles } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { createTimeline, animate } from 'animejs';
 
@@ -249,6 +249,98 @@ export default function Login({ status, canResetPassword, turnstile }) {
                                 </div>
                             </div>
                         )}
+
+                        {/* Bantuan Login Cepat (Quick Fill) */}
+                        <div className="mb-6 p-3.5 rounded-2xl bg-gradient-to-br from-indigo-50/90 via-slate-50 to-sky-50/60 border border-indigo-100 text-xs shadow-xs">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="font-semibold text-indigo-950 flex items-center gap-1.5">
+                                    <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                                    Bantuan Akun Cepat
+                                </span>
+                                <span className="text-[10px] text-indigo-600/70 font-mono">Klik untuk isi otomatis</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setData({
+                                            ...data,
+                                            email: 'hcm@nisgroup.id',
+                                            password: 'password123',
+                                        });
+                                    }}
+                                    className="flex items-center gap-2 p-2 rounded-xl bg-white hover:bg-indigo-50/80 border border-indigo-100 text-left transition shadow-xs group"
+                                >
+                                    <span className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                                        👥
+                                    </span>
+                                    <div className="overflow-hidden">
+                                        <div className="font-bold text-slate-800 text-[11px] group-hover:text-indigo-600 transition truncate">Admin HCM</div>
+                                        <div className="text-[10px] text-slate-400 font-mono truncate">hcm@nisgroup.id</div>
+                                    </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setData({
+                                            ...data,
+                                            email: 'staff.hcm@nisgroup.id',
+                                            password: 'password123',
+                                        });
+                                    }}
+                                    className="flex items-center gap-2 p-2 rounded-xl bg-white hover:bg-sky-50/80 border border-sky-100 text-left transition shadow-xs group"
+                                >
+                                    <span className="w-7 h-7 rounded-lg bg-sky-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                                        📋
+                                    </span>
+                                    <div className="overflow-hidden">
+                                        <div className="font-bold text-slate-800 text-[11px] group-hover:text-sky-600 transition truncate">Staff HCM</div>
+                                        <div className="text-[10px] text-slate-400 font-mono truncate">staff.hcm@nisgroup.id</div>
+                                    </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setData({
+                                            ...data,
+                                            email: 'ITidwarehouse@gmail.com',
+                                            password: 'password123',
+                                        });
+                                    }}
+                                    className="flex items-center gap-2 p-2 rounded-xl bg-white hover:bg-purple-50/80 border border-purple-100 text-left transition shadow-xs group"
+                                >
+                                    <span className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                                        ⚡
+                                    </span>
+                                    <div className="overflow-hidden">
+                                        <div className="font-bold text-slate-800 text-[11px] group-hover:text-purple-600 transition truncate">Superadmin</div>
+                                        <div className="text-[10px] text-slate-400 font-mono truncate">ITidwarehouse@...</div>
+                                    </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setData({
+                                            ...data,
+                                            email: 'finance.nisgroup@gmail.com',
+                                            password: 'password123',
+                                        });
+                                    }}
+                                    className="flex items-center gap-2 p-2 rounded-xl bg-white hover:bg-emerald-50/80 border border-emerald-100 text-left transition shadow-xs group"
+                                >
+                                    <span className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                                        💰
+                                    </span>
+                                    <div className="overflow-hidden">
+                                        <div className="font-bold text-slate-800 text-[11px] group-hover:text-emerald-600 transition truncate">Keuangan / Finance</div>
+                                        <div className="text-[10px] text-slate-400 font-mono truncate">finance.nisgroup@...</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
 
                         <form onSubmit={submit} className="space-y-5">
                             {/* Email */}
