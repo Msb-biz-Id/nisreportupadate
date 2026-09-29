@@ -23,6 +23,7 @@ class HcmAgendaLetter extends Model
         'recipient',
         'subject',
         'category',
+        'disposition_status',
         'file_url',
         'physical_location',
         'notes',

@@ -158,6 +158,39 @@ class IdealNotificationService
                     'roles' => ['admin_brand', 'admin_reseller', 'owner'],
                     'sound' => 'success-tada'
                 ],
+                // ===== Modul Kepegawaian (HCM) =====
+                'hcm_probation_warning' => [
+                    'in_app' => true, 'whatsapp' => true, 'telegram' => true,
+                    'os_desktop' => true, 'roles' => ['admin_hcm'], 'sound' => 'warning-alert',
+                ],
+                'hcm_contract_expired_warning' => [
+                    'in_app' => true, 'whatsapp' => true, 'telegram' => true,
+                    'os_desktop' => true, 'roles' => ['admin_hcm'], 'sound' => 'warning-alert',
+                ],
+                'hcm_unexcused_absence' => [
+                    'in_app' => true, 'whatsapp' => false, 'telegram' => false,
+                    'os_desktop' => true, 'roles' => ['admin_hcm'], 'sound' => 'warning-alert',
+                ],
+                'hcm_overtime_validation_reminder' => [
+                    'in_app' => true, 'whatsapp' => true, 'telegram' => false,
+                    'os_desktop' => true, 'roles' => ['admin_hcm'], 'sound' => 'bell-chime',
+                ],
+                'hcm_overtime_ready_to_pay' => [
+                    'in_app' => true, 'whatsapp' => true, 'telegram' => true,
+                    'os_desktop' => true, 'roles' => ['admin_keuangan'], 'sound' => 'cash-register',
+                ],
+                'hcm_meal_allowance_ready_to_pay' => [
+                    'in_app' => true, 'whatsapp' => true, 'telegram' => true,
+                    'os_desktop' => true, 'roles' => ['admin_keuangan'], 'sound' => 'cash-register',
+                ],
+                'hcm_payout_completed' => [
+                    'in_app' => true, 'whatsapp' => false, 'telegram' => false,
+                    'os_desktop' => true, 'roles' => ['admin_hcm', 'owner'], 'sound' => 'success-tada',
+                ],
+                'hcm_event_reminder' => [
+                    'in_app' => true, 'whatsapp' => true, 'telegram' => false,
+                    'os_desktop' => true, 'roles' => ['admin_hcm', 'staff_hcm'], 'sound' => 'bell-chime',
+                ],
             ];
             $settings = $defaults[$eventKey] ?? [
                 'in_app' => true,

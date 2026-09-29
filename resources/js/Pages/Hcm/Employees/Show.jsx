@@ -26,8 +26,13 @@ import {
     Camera,
     Printer,
     Trash2,
+    Eye,
+    ChevronLeft,
+    ChevronRight,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
+import UniversalDocumentViewer from '@/Components/Hcm/UniversalDocumentViewer';
+import OffboardEmployeeDialog from '@/Components/Hcm/OffboardEmployeeDialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -61,12 +66,14 @@ import { SearchableSelect } from '@/Components/ui/searchable-select';
 
 const toOptions = (arr) => (arr || []).map((v) => (typeof v === 'string' ? { value: v, label: v } : v));
 
-export default function EmployeeShow({ employee, dropdowns }) {
+export default function EmployeeShow({ employee, dropdowns, attendanceMonth = null, attendanceDaysInMonth = null }) {
     const [activeTab, setActiveTab] = useState('biodata');
 
     // State Modals
     const [isContractModalOpen, setIsContractModalOpen] = useState(false);
     const [isCompensationModalOpen, setIsCompensationModalOpen] = useState(false);
+    const [isOffboardModalOpen, setIsOffboardModalOpen] = useState(false);
+    const [pdfPreview, setPdfPreview] = useState(null);
 
     // Form Tambah Kontrak Baru
     const contractForm = useForm({
@@ -112,6 +119,59 @@ export default function EmployeeShow({ employee, dropdowns }) {
         });
     };
 
+    // Form Rekap Onboarding (Modul 12)
+    const onboardingForm = useForm({
+        position: employee.onboarding?.position || employee.position || '',
+        department: employee.onboarding?.department || employee.department || '',
+        join_date: (employee.onboarding?.join_date || employee.join_date || '').slice(0, 10),
+        checklist: {
+            ktp: !!employee.onboarding?.status_checklist?.ktp,
+            bpjs: !!employee.onboarding?.status_checklist?.bpjs,
+            kontrak: !!employee.onboarding?.status_checklist?.kontrak,
+            seragam: !!employee.onboarding?.status_checklist?.seragam,
+        },
+        approve: false,
+    });
+
+    // Form Rekap Offboarding (Modul 12)
+    const offboardingForm = useForm({
+        position: employee.offboarding?.position || employee.position || '',
+        exit_date: (employee.offboarding?.exit_date || new Date().toISOString()).slice(0, 10),
+        exit_reason: employee.offboarding?.exit_reason || '',
+        notice_compliance: employee.offboarding?.notice_compliance || '',
+        rights_status: employee.offboarding?.rights_status || '',
+        asset_clearance: employee.offboarding?.asset_clearance || '',
+        clearance_status: employee.offboarding?.clearance_status || 'Pending',
+        offboarding_notes: employee.offboarding?.offboarding_notes || '',
+    });
+
+    const onboardingChecklistItems = [
+        { key: 'ktp', label: 'KTP / NIK' },
+        { key: 'bpjs', label: 'BPJS Kesehatan / Ketenagakerjaan' },
+        { key: 'kontrak', label: 'Tanda Tangan Kontrak' },
+        { key: 'seragam', label: 'Seragam Kerja' },
+    ];
+
+    const handleOnboardingSubmit = (e) => {
+        e.preventDefault();
+        onboardingForm.put(route('hcm.employees.onboarding.update', employee.id), {
+            preserveScroll: true,
+            onSuccess: () => onboardingForm.setData('approve', false),
+        });
+    };
+
+    const handleOffboardingSubmit = (e) => {
+        e.preventDefault();
+        offboardingForm.put(route('hcm.employees.offboarding.update', employee.id), {
+            preserveScroll: true,
+        });
+    };
+
+    const handleReactivate = () => {
+        if (!confirm(`Aktifkan kembali ${employee.name}? Rekap offboarding akan dibatalkan.`)) return;
+        router.post(route('hcm.employees.toggle', employee.id), {}, { preserveScroll: true });
+    };
+
     // Format Rupiah
     const formatRp = (val) => {
         if (!val) return 'Rp 0';
@@ -122,83 +182,84 @@ export default function EmployeeShow({ employee, dropdowns }) {
         }).format(val);
     };
 
-    const tabs = [
-        { id: 'biodata', label: '1. Biodata & Identitas', icon: User },
-        { id: 'contracts', label: '2. Kontrak & Legal PKWT', icon: FileText, count: employee.contracts?.length || 0 },
-        { id: 'compensation', label: '3. Kompensasi & Gaji', icon: DollarSign },
-        { id: 'attendance', label: '4. Rekap Absensi', icon: CalendarCheck },
-        { id: 'overtime', label: '5. Lembur & Reward', icon: Award },
-        { id: 'offboarding', label: '6. Transisi & Status', icon: LogOut },
-    ];
+    const isIntern = employee.employee_category === 'INTERN' || employee.job_level === 'Magang';
+
+    // Matriks kehadiran bulanan (Tab 4)
+    const attMonth = attendanceMonth || new Date().toISOString().slice(0, 7);
+    const attMonthDate = new Date(attMonth + '-01');
+    const attMonthLabel = attMonthDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+    const attDaysInMonth = attendanceDaysInMonth || new Date(attMonthDate.getFullYear(), attMonthDate.getMonth() + 1, 0).getDate();
+    const attLeadingBlanks = (attMonthDate.getDay() + 6) % 7;
+    const attMap = {};
+    (employee.attendances || []).forEach((a) => { attMap[(a.attendance_date || '').slice(0, 10)] = a; });
+    const attCatClass = (c) =>
+        c === 'Hadir' ? 'bg-emerald-500/12 text-emerald-700' :
+        c === 'Terlambat' ? 'bg-amber-500/12 text-amber-700' :
+        c === 'Alpha/Mangkir' ? 'bg-rose-500/12 text-rose-700' :
+        c === 'Pulang Cepat' ? 'bg-orange-500/12 text-orange-700' :
+        c ? 'bg-sky-500/12 text-sky-700' : 'bg-zinc-50 text-zinc-300 dark:bg-zinc-800/40';
+    const shiftAttMonth = (delta) => {
+        const d = new Date(attMonth + '-01');
+        d.setMonth(d.getMonth() + delta);
+        router.get(route('hcm.employees.show', employee.id), { month: d.toISOString().slice(0, 7) }, { preserveState: true, preserveScroll: true });
+    };
+
+    const tabs = isIntern
+        ? [
+              { id: 'biodata', label: '1. Biodata Siswa', icon: User },
+              { id: 'school', label: '2. Sekolah & Kemitraan PKL', icon: GraduationCap },
+              { id: 'attendance', label: '3. Rekap Kehadiran PKL', icon: CalendarCheck },
+              { id: 'offboarding', label: '4. Transisi & Status', icon: LogOut },
+          ]
+        : [
+              { id: 'biodata', label: '1. Biodata & Identitas', icon: User },
+              { id: 'contracts', label: '2. Kontrak & Legal PKWT', icon: FileText, count: employee.contracts?.length || 0 },
+              { id: 'compensation', label: '3. Kompensasi & Gaji', icon: DollarSign },
+              { id: 'attendance', label: '4. Rekap Absensi', icon: CalendarCheck },
+              { id: 'overtime', label: '5. Lembur & Reward', icon: Award },
+              { id: 'offboarding', label: '6. Transisi & Status', icon: LogOut },
+          ];
 
     return (
         <AppLayout
             header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between gap-3 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
                         <Link
                             href={route('hcm.employees.index')}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 shrink-0"
+                            title="Kembali ke Daftar"
                         >
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
-                        {employee.photo_url ? (
-                            <img
-                                src={employee.photo_url}
-                                alt={employee.name}
-                                className="h-10 w-10 rounded-lg object-cover border border-zinc-200 dark:border-zinc-700 shadow-sm"
-                            />
+                        {isIntern ? (
+                            <GraduationCap className="h-4 w-4 text-emerald-600 shrink-0" />
                         ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-bold text-sm">
-                                {employee.name.charAt(0).toUpperCase()}
-                            </div>
+                            <User className="h-4 w-4 text-indigo-600 shrink-0" />
                         )}
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                                    {employee.name}
-                                </h1>
-                                <Badge variant="outline" className="text-xs font-mono font-normal">
-                                    {employee.employee_code}
-                                </Badge>
-                                <Badge className={employee.is_active ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200' : 'bg-zinc-500/10 text-zinc-500'}>
-                                    {employee.is_active ? 'Aktif' : 'Non-Aktif'}
-                                </Badge>
-                            </div>
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                                {employee.position} • {employee.department} • {employee.legal_entity || 'NISGroup'}
-                            </p>
-                        </div>
+                        <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                            {employee.name}
+                        </span>
+                        <Badge variant="outline" className="text-[10px] font-mono shrink-0 hidden sm:inline-flex">
+                            {employee.employee_code}
+                        </Badge>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                        <a
-                            href={route('hcm.employees.pdf.dossier', employee.id)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 shadow-sm transition"
-                        >
-                            <Printer className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-400" />
-                            <span>Cetak PDF Dossier</span>
-                        </a>
-
+                    <div className="flex items-center gap-1.5 shrink-0">
                         <Button
-                            onClick={() => setIsContractModalOpen(true)}
+                            type="button"
+                            onClick={() =>
+                                setPdfPreview({
+                                    url: route('hcm.employees.pdf.dossier', employee.id) + '?action=stream',
+                                    name: `${isIntern ? 'Buku Riwayat Magang' : 'Buku Riwayat Karyawan'} - ${employee.name}`,
+                                })
+                            }
                             size="sm"
                             variant="outline"
-                            className="text-xs gap-1.5 border-zinc-300 dark:border-zinc-700"
+                            className="h-8 text-xs gap-1.5 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
                         >
-                            <FileCheck className="h-3.5 w-3.5 text-indigo-600" />
-                            <span>Perpanjang Kontrak</span>
-                        </Button>
-
-                        <Button
-                            onClick={() => setIsCompensationModalOpen(true)}
-                            size="sm"
-                            className="text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
-                        >
-                            <TrendingUp className="h-3.5 w-3.5" />
-                            <span>Catat Kenaikan Gaji</span>
+                            <Eye className="h-3.5 w-3.5 text-indigo-600" />
+                            <span className="hidden sm:inline">Buku Riwayat (PDF)</span>
                         </Button>
                     </div>
                 </div>
@@ -207,6 +268,147 @@ export default function EmployeeShow({ employee, dropdowns }) {
             <Head title={`Buku Induk - ${employee.name}`} />
 
             <div className="space-y-6">
+                {/* Profile Canvas Banner */}
+                <div className="flex flex-col gap-4 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                        {employee.photo_url ? (
+                            <img
+                                src={employee.photo_url}
+                                alt={employee.name}
+                                className="h-14 w-14 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700 shadow-xs shrink-0"
+                            />
+                        ) : (
+                            <div className={`flex h-14 w-14 items-center justify-center rounded-xl font-bold text-base shadow-xs shrink-0 ${
+                                isIntern
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                    : 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                            }`}>
+                                {employee.name.charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h1 className="text-base sm:text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100 truncate">
+                                    {employee.name}
+                                </h1>
+                                <Badge variant="outline" className="text-xs font-mono font-normal">
+                                    {employee.employee_code}
+                                </Badge>
+                                {isIntern ? (
+                                    <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 text-[11px] gap-1 inline-flex items-center">
+                                        <GraduationCap className="h-3 w-3" />
+                                        <span>Peserta Magang SMK</span>
+                                    </Badge>
+                                ) : (
+                                    <Badge className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 text-[11px] gap-1 inline-flex items-center">
+                                        <Briefcase className="h-3 w-3" />
+                                        <span>{employee.job_level}</span>
+                                    </Badge>
+                                )}
+                                <Badge className={employee.is_active ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200 text-[11px]' : 'bg-zinc-500/10 text-zinc-500 text-[11px]'}>
+                                    {employee.is_active ? 'Aktif' : 'Non-Aktif'}
+                                </Badge>
+                            </div>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate">
+                                {isIntern && employee.intern?.school_name
+                                    ? `${employee.intern.school_name} • Jurusan ${employee.intern.major || 'Umum'} • Divisi ${employee.department}`
+                                    : `${employee.position} • ${employee.department} • ${employee.legal_entity || 'NISGroup'}`}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <Button
+                            type="button"
+                            onClick={() =>
+                                setPdfPreview({
+                                    url: route('hcm.employees.pdf.dossier', employee.id) + '?action=stream',
+                                    name: `${isIntern ? 'Buku Riwayat Magang' : 'Buku Riwayat Karyawan'} - ${employee.name}`,
+                                })
+                            }
+                            size="sm"
+                            variant="outline"
+                            className="text-xs gap-1.5 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 shadow-xs"
+                        >
+                            <Eye className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                            <span>Lihat Buku Riwayat</span>
+                        </Button>
+
+                        <a
+                            href={route('hcm.employees.pdf.dossier', employee.id)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 shadow-xs transition"
+                        >
+                            <Printer className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-400" />
+                            <span>Unduh PDF</span>
+                        </a>
+
+                        {!isIntern && (
+                            <>
+                                <Button
+                                    type="button"
+                                    onClick={() =>
+                                        setPdfPreview({
+                                            url: route('hcm.employees.pdf.paklaring', employee.id) + '?action=stream',
+                                            name: `Surat Pengalaman Kerja (Paklaring) - ${employee.name}`,
+                                        })
+                                    }
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs gap-1.5 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50 shadow-xs"
+                                >
+                                    <FileText className="h-3.5 w-3.5 text-amber-600" />
+                                    <span>Paklaring</span>
+                                </Button>
+
+                                <Button
+                                    onClick={() => setIsContractModalOpen(true)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs gap-1.5 border-zinc-200 dark:border-zinc-700 shadow-xs"
+                                >
+                                    <FileCheck className="h-3.5 w-3.5 text-indigo-600" />
+                                    <span>Perpanjang Kontrak</span>
+                                </Button>
+
+                                <Button
+                                    onClick={() => setIsCompensationModalOpen(true)}
+                                    size="sm"
+                                    className="text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
+                                >
+                                    <TrendingUp className="h-3.5 w-3.5" />
+                                    <span>Kenaikan Gaji</span>
+                                </Button>
+                            </>
+                        )}
+
+                        {employee.is_active ? (
+                            <Button
+                                type="button"
+                                onClick={() => setIsOffboardModalOpen(true)}
+                                size="sm"
+                                variant="outline"
+                                className="text-xs gap-1.5 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 shadow-xs"
+                            >
+                                <LogOut className="h-3.5 w-3.5" />
+                                <span>Proses Keluar</span>
+                            </Button>
+                        ) : (
+                            <Button
+                                type="button"
+                                onClick={handleReactivate}
+                                size="sm"
+                                variant="outline"
+                                className="text-xs gap-1.5 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 shadow-xs"
+                            >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                <span>Aktifkan Kembali</span>
+                            </Button>
+                        )}
+                    </div>
+                </div>
+
                 {/* Tab Navigation Pill Bar */}
                 <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-200 dark:border-zinc-800 pb-2">
                     {tabs.map((tab) => {
@@ -216,9 +418,9 @@ export default function EmployeeShow({ employee, dropdowns }) {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                                     isActive
-                                        ? 'bg-indigo-600 text-white shadow-sm'
+                                        ? 'bg-indigo-600 text-white shadow-xs'
                                         : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200/70 dark:border-zinc-800/70'
                                 }`}
                             >
@@ -462,6 +664,85 @@ export default function EmployeeShow({ employee, dropdowns }) {
                     </div>
                 )}
 
+                {/* TAB KHUSUS MAGANG: Kemitraan Sekolah & Masa PKL */}
+                {activeTab === 'school' && (
+                    <div className="space-y-4">
+                        <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                                    <GraduationCap className="h-4 w-4 text-emerald-600" />
+                                    Data Asal Institusi & Program Praktek Kerja Lapangan (PKL)
+                                </CardTitle>
+                                <CardDescription className="text-xs">
+                                    Informasi kemitraan sekolah SMK, jurusan vokasi, dan kontak pembimbing lapangan.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4 text-xs">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4 rounded-lg bg-emerald-50/30 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/60">
+                                    <div>
+                                        <span className="text-zinc-500 dark:text-zinc-400 block mb-0.5 font-medium">Asal Sekolah SMK</span>
+                                        <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                                            {employee.intern?.school_name || 'Belum diisi'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-zinc-500 dark:text-zinc-400 block mb-0.5 font-medium">Kelas & Rombel</span>
+                                        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                                            Kelas {employee.intern?.class || '-'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-zinc-500 dark:text-zinc-400 block mb-0.5 font-medium">Jurusan / Kompetensi</span>
+                                        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                                            {employee.intern?.major || 'Semua Jurusan'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-zinc-500 dark:text-zinc-400 block mb-0.5 font-medium">Nomor Induk Siswa (NIS)</span>
+                                        <span className="font-mono text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                                            {employee.intern?.nis || '-'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-zinc-500 dark:text-zinc-400 block mb-0.5 font-medium">Periode Mulai s.d. Selesai</span>
+                                        <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200">
+                                            {employee.intern?.start_date || '-'} s.d. {employee.intern?.end_date || '-'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-zinc-500 dark:text-zinc-400 block mb-0.5 font-medium">Durasi Magang</span>
+                                        <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 text-xs">
+                                            {employee.intern?.duration_text || '3 Bulan'}
+                                        </Badge>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                    <div className="p-3.5 rounded-lg border border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-800/30">
+                                        <span className="text-zinc-500 dark:text-zinc-400 block mb-1 font-medium">Guru Pembimbing Sekolah</span>
+                                        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 block">
+                                            {employee.intern?.mentor_teacher_name || 'Belum Ditentukan'}
+                                        </span>
+                                        <span className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mt-1 block">
+                                            {employee.intern?.mentor_teacher_phone || '-'}
+                                        </span>
+                                    </div>
+
+                                    <div className="p-3.5 rounded-lg border border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-800/30">
+                                        <span className="text-zinc-500 dark:text-zinc-400 block mb-1 font-medium">Penempatan Departemen NISGroup</span>
+                                        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 block">
+                                            {employee.department}
+                                        </span>
+                                        <span className="text-xs text-zinc-500 mt-1 block">
+                                            Status: {employee.job_level} ({employee.employment_status})
+                                        </span>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
                 {/* TAB 2: Riwayat Kontrak & Legalitas PKWT */}
                 {activeTab === 'contracts' && (
                     <div className="space-y-4">
@@ -661,74 +942,63 @@ export default function EmployeeShow({ employee, dropdowns }) {
                 {/* TAB 4: Rekap Kehadiran Bulanan */}
                 {activeTab === 'attendance' && (
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                             <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                                 <CalendarCheck className="h-4 w-4 text-indigo-600" />
-                                Rekam Log Presensi Harian (31 Hari Terakhir)
+                                Matriks Kehadiran {attMonthLabel}
                             </h3>
-                            <Link
-                                href={route('hcm.attendance.index')}
-                                className="text-xs text-indigo-600 hover:underline flex items-center gap-1"
-                            >
-                                <ExternalLink className="h-3 w-3" />
-                                Buka Matriks Presensi Massal
-                            </Link>
+                            <div className="flex items-center gap-1.5">
+                                <Button variant="outline" size="sm" onClick={() => shiftAttMonth(-1)} className="h-8 w-8 p-0">
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => shiftAttMonth(1)} className="h-8 w-8 p-0">
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                                <Link
+                                    href={route('hcm.attendance.index')}
+                                    className="text-xs text-indigo-600 hover:underline flex items-center gap-1 ml-1"
+                                >
+                                    <ExternalLink className="h-3 w-3" />
+                                    Buka Matriks Presensi Massal
+                                </Link>
+                            </div>
                         </div>
 
-                        <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-                            <Table>
-                                <TableHeader className="bg-zinc-50 dark:bg-zinc-800/50">
-                                    <TableRow>
-                                        <TableHead className="min-w-[120px] font-bold">Tanggal</TableHead>
-                                        <TableHead className="min-w-[130px] font-bold">Kategori Kehadiran</TableHead>
-                                        <TableHead className="min-w-[100px] font-bold text-center">Jam Masuk</TableHead>
-                                        <TableHead className="min-w-[100px] font-bold text-center">Jam Keluar</TableHead>
-                                        <TableHead className="min-w-[200px] font-bold">Catatan / Alasan</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {employee.attendances && employee.attendances.length > 0 ? (
-                                        employee.attendances.map((att) => (
-                                            <TableRow key={att.id}>
-                                                <TableCell className="text-xs font-mono font-medium">
-                                                    {att.attendance_date}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge
-                                                        variant="outline"
-                                                        className={`text-xs ${
-                                                            att.attendance_category === 'Hadir'
-                                                                ? 'border-emerald-300 text-emerald-600 bg-emerald-50/50'
-                                                                : att.attendance_category === 'Terlambat'
-                                                                ? 'border-amber-300 text-amber-600 bg-amber-50/50'
-                                                                : att.attendance_category === 'Alpha/Mangkir'
-                                                                ? 'border-rose-300 text-rose-600 bg-rose-50/50'
-                                                                : 'border-blue-300 text-blue-600 bg-blue-50/50'
-                                                        }`}
-                                                    >
-                                                        {att.attendance_category}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-xs text-center font-mono">
-                                                    {att.clock_in ? att.clock_in.substring(0, 5) : '-'}
-                                                </TableCell>
-                                                <TableCell className="text-xs text-center font-mono">
-                                                    {att.clock_out ? att.clock_out.substring(0, 5) : '-'}
-                                                </TableCell>
-                                                <TableCell className="text-xs text-zinc-600 dark:text-zinc-400">
-                                                    {att.notes || '-'}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="h-24 text-center text-xs text-zinc-400">
-                                                Belum ada rekam log presensi yang dicatat untuk karyawan ini.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
+                        <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm">
+                            <CardContent className="p-4">
+                                <div className="grid grid-cols-7 gap-1.5">
+                                    {['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'].map((d) => (
+                                        <div key={d} className="text-[10px] font-semibold uppercase text-zinc-400 text-center py-1">{d}</div>
+                                    ))}
+                                    {Array.from({ length: attLeadingBlanks }).map((_, i) => (
+                                        <div key={`b${i}`} />
+                                    ))}
+                                    {Array.from({ length: attDaysInMonth }).map((_, i) => {
+                                        const day = i + 1;
+                                        const dateStr = `${attMonth}-${String(day).padStart(2, '0')}`;
+                                        const att = attMap[dateStr];
+                                        const cat = att?.attendance_category;
+                                        return (
+                                            <div
+                                                key={day}
+                                                title={cat ? `${dateStr} — ${cat}` : dateStr}
+                                                className={`rounded-md border border-zinc-200/70 dark:border-zinc-800 p-1.5 min-h-[46px] ${attCatClass(cat)}`}
+                                            >
+                                                <div className="text-[11px] font-bold">{day}</div>
+                                                {cat && <div className="text-[9px] font-medium leading-tight mt-0.5">{cat}</div>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="flex flex-wrap gap-3 mt-3 text-[10px] text-zinc-500">
+                                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-emerald-500/40" /> Hadir</span>
+                                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-amber-500/40" /> Terlambat</span>
+                                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-sky-500/40" /> Izin/Cuti/Sakit</span>
+                                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-orange-500/40" /> Pulang Cepat</span>
+                                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-rose-500/40" /> Alpha</span>
+                                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-zinc-200" /> Belum ada data</span>
+                                </div>
+                            </CardContent>
                         </Card>
 
                         {/* Riwayat Pengajuan Cuti / Izin */}
@@ -851,32 +1121,222 @@ export default function EmployeeShow({ employee, dropdowns }) {
                                 </TableBody>
                             </Table>
                         </Card>
+
+                        {/* Riwayat Reward & Penghargaan */}
+                        <div className="space-y-2 pt-2">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Riwayat Reward &amp; Penghargaan</h4>
+                            <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+                                <Table>
+                                    <TableHeader className="bg-zinc-50 dark:bg-zinc-800/50">
+                                        <TableRow>
+                                            <TableHead className="font-bold">Reward / Penghargaan</TableHead>
+                                            <TableHead className="font-bold text-center">Tahun</TableHead>
+                                            <TableHead className="font-bold text-right">Anggaran</TableHead>
+                                            <TableHead className="font-bold text-center">Status Penyaluran</TableHead>
+                                            <TableHead className="font-bold text-center">Tanggal Diterima</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {employee.rewards && employee.rewards.length > 0 ? (
+                                            employee.rewards.map((rw) => (
+                                                <TableRow key={rw.id}>
+                                                    <TableCell className="text-xs font-medium">{rw.reward_name}</TableCell>
+                                                    <TableCell className="text-center text-xs">{rw.reward_year}</TableCell>
+                                                    <TableCell className="text-right text-xs font-mono">{formatRp(rw.budget_amount)}</TableCell>
+                                                    <TableCell className="text-center">
+                                                        <Badge
+                                                            className={`text-[11px] ${
+                                                                rw.distribution_status === 'Dibatalkan'
+                                                                    ? 'bg-rose-500/10 text-rose-600'
+                                                                    : rw.distribution_status === 'Belum Diterima' || rw.distribution_status === 'Tertunda / Pending'
+                                                                    ? 'bg-amber-500/10 text-amber-600'
+                                                                    : 'bg-emerald-500/10 text-emerald-600'
+                                                            }`}
+                                                        >
+                                                            {rw.distribution_status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-center text-xs">{rw.received_date || '-'}</TableCell>
+                                                </TableRow>
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="h-20 text-center text-xs text-zinc-400">
+                                                    Belum ada reward / penghargaan tercatat untuk karyawan ini.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </Card>
+                        </div>
                     </div>
                 )}
 
-                {/* TAB 6: Transisi & Offboarding */}
+                {/* TAB 6: Transisi & Offboarding (Modul 12) */}
                 {activeTab === 'offboarding' && (
-                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm p-6">
-                        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
-                            Status Transisi & Offboarding
-                        </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                            <div>
-                                <span className="text-zinc-400 block mb-0.5">Tanggal Bergabung (Join Date)</span>
-                                <span className="font-medium text-zinc-900 dark:text-zinc-100">{employee.join_date || '-'}</span>
+                    <div className="space-y-4">
+                        {/* Rekap Onboarding Karyawan Baru */}
+                        <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm p-6">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                                <div>
+                                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                        <FileCheck className="h-4 w-4 text-indigo-600" /> Rekap Onboarding Karyawan Baru
+                                    </h3>
+                                    <p className="text-[11px] text-zinc-400 mt-0.5">Kelengkapan berkas & approval masuk kerja.</p>
+                                </div>
+                                <Badge className={employee.onboarding?.approved_date ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}>
+                                    {employee.onboarding?.approved_date ? 'Disetujui' : 'Dalam Proses'}
+                                </Badge>
                             </div>
-                            <div>
-                                <span className="text-zinc-400 block mb-0.5">Status Karyawan Saat Ini</span>
+
+                            <form onSubmit={handleOnboardingSubmit} className="space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs font-medium">Posisi Saat Masuk</Label>
+                                        <Input value={onboardingForm.data.position} onChange={(e) => onboardingForm.setData('position', e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs font-medium">Departemen</Label>
+                                        <Input value={onboardingForm.data.department} onChange={(e) => onboardingForm.setData('department', e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs font-medium">Tanggal Masuk</Label>
+                                        <Input type="date" value={onboardingForm.data.join_date || ''} onChange={(e) => onboardingForm.setData('join_date', e.target.value)} />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Kelengkapan Berkas</span>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                                        {onboardingChecklistItems.map((item) => {
+                                            const checked = !!onboardingForm.data.checklist[item.key];
+                                            return (
+                                                <button
+                                                    key={item.key}
+                                                    type="button"
+                                                    onClick={() => onboardingForm.setData('checklist', { ...onboardingForm.data.checklist, [item.key]: !checked })}
+                                                    className={`flex items-center gap-2 rounded-md border px-3 py-2 text-xs text-left transition ${checked ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10' : 'border-zinc-200 bg-white text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300'}`}
+                                                >
+                                                    <CheckCircle2 className={`h-4 w-4 shrink-0 ${checked ? 'text-emerald-600' : 'text-zinc-300'}`} />
+                                                    {item.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="text-[11px] text-zinc-400">
+                                        {employee.onboarding?.approved_date
+                                            ? `Disetujui pada ${String(employee.onboarding.approved_date).slice(0, 10)}`
+                                            : 'Approval otomatis saat seluruh berkas lengkap.'}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <Button type="button" variant="outline" size="sm" onClick={() => onboardingForm.setData('approve', true)}>
+                                            <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Approve
+                                        </Button>
+                                        <Button type="submit" size="sm" disabled={onboardingForm.processing} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                                            Simpan
+                                        </Button>
+                                    </div>
+                                </div>
+                            </form>
+                        </Card>
+
+                        {/* Rekap Offboarding Karyawan Keluar */}
+                        <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm p-6">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                                <div>
+                                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                        <LogOut className="h-4 w-4 text-rose-600" /> Rekap Offboarding Karyawan Keluar
+                                    </h3>
+                                    <p className="text-[11px] text-zinc-400 mt-0.5">Clearance, sisa hak, dan pengembalian aset.</p>
+                                </div>
                                 <Badge className={employee.is_active ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'}>
                                     {employee.is_active ? 'Aktif Bekerja' : 'Offboarding / Keluar'}
                                 </Badge>
                             </div>
-                            <div className="sm:col-span-2">
-                                <span className="text-zinc-400 block mb-0.5">Catatan Tambahan HCM</span>
-                                <p className="text-zinc-700 dark:text-zinc-300 italic">{employee.notes || 'Tidak ada catatan khusus.'}</p>
-                            </div>
-                        </div>
-                    </Card>
+
+                            {employee.is_active ? (
+                                <div className="rounded-md border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 px-4 py-6 text-center text-xs text-zinc-500">
+                                    Karyawan masih berstatus <strong>AKTIF</strong>. Nonaktifkan karyawan terlebih dahulu (tombol status di header) untuk membuka rekap offboarding.
+                                </div>
+                            ) : (
+                                <form onSubmit={handleOffboardingSubmit} className="space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-medium">Posisi Terakhir</Label>
+                                            <Input value={offboardingForm.data.position} onChange={(e) => offboardingForm.setData('position', e.target.value)} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-medium">Tanggal Keluar *</Label>
+                                            <Input type="date" required value={offboardingForm.data.exit_date || ''} onChange={(e) => offboardingForm.setData('exit_date', e.target.value)} />
+                                            {offboardingForm.errors.exit_date && <p className="text-[11px] text-rose-500">{offboardingForm.errors.exit_date}</p>}
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-medium">Alasan Keluar</Label>
+                                            <Input value={offboardingForm.data.exit_reason} onChange={(e) => offboardingForm.setData('exit_reason', e.target.value)} placeholder="e.g. Habis kontrak, Menikah" />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-medium">Kepatuhan Notice Period</Label>
+                                            <SearchableSelect
+                                                value={offboardingForm.data.notice_compliance}
+                                                onValueChange={(val) => offboardingForm.setData('notice_compliance', val)}
+                                                options={toOptions(dropdowns.notice_compliance)}
+                                                placeholder="Pilih Notice Period..."
+                                                className="text-xs"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-medium">Hak Sisa Karyawan</Label>
+                                            <SearchableSelect
+                                                value={offboardingForm.data.rights_status}
+                                                onValueChange={(val) => offboardingForm.setData('rights_status', val)}
+                                                options={toOptions(dropdowns.rights_status)}
+                                                placeholder="Pilih Status Hak..."
+                                                className="text-xs"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-medium">Pengembalian Aset & Paklaring</Label>
+                                            <SearchableSelect
+                                                value={offboardingForm.data.asset_clearance}
+                                                onValueChange={(val) => offboardingForm.setData('asset_clearance', val)}
+                                                options={toOptions(dropdowns.asset_clearance)}
+                                                placeholder="Pilih Status Aset..."
+                                                className="text-xs"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs font-medium">Status Clearance Sheet</Label>
+                                            <SearchableSelect
+                                                value={offboardingForm.data.clearance_status}
+                                                onValueChange={(val) => offboardingForm.setData('clearance_status', val)}
+                                                options={toOptions(dropdowns.clearance_status?.length ? dropdowns.clearance_status : ['Pending', 'Selesai (Clear)'])}
+                                                placeholder="Pilih Status Clearance..."
+                                                className="text-xs"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <Label className="text-xs font-medium">Catatan / Keterangan</Label>
+                                        <Textarea rows={3} value={offboardingForm.data.offboarding_notes} onChange={(e) => offboardingForm.setData('offboarding_notes', e.target.value)} placeholder="e.g. Paklaring sudah diserahkan" />
+                                    </div>
+
+                                    <div className="flex justify-end">
+                                        <Button type="submit" size="sm" disabled={offboardingForm.processing} className="bg-rose-600 hover:bg-rose-700 text-white">
+                                            Simpan Offboarding
+                                        </Button>
+                                    </div>
+                                </form>
+                            )}
+                        </Card>
+                    </div>
                 )}
             </div>
 
@@ -1120,6 +1580,24 @@ export default function EmployeeShow({ employee, dropdowns }) {
                     </form>
                 </DialogContent>
             </Dialog>
+
+            {/* MODAL IN-APP DOCUMENT VIEWER */}
+            <UniversalDocumentViewer
+                isOpen={!!pdfPreview}
+                onClose={() => setPdfPreview(null)}
+                fileUrl={pdfPreview?.url}
+                fileName={pdfPreview?.name || 'Dokumen Profil Karyawan'}
+            />
+
+            {/* MODAL PROSES KARYAWAN KELUAR (Modul 12) */}
+            {isOffboardModalOpen && (
+                <OffboardEmployeeDialog
+                    isOpen={isOffboardModalOpen}
+                    onClose={() => setIsOffboardModalOpen(false)}
+                    employee={employee}
+                    dropdowns={dropdowns}
+                />
+            )}
         </AppLayout>
     );
 }

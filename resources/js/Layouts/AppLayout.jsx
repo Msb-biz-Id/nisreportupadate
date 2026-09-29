@@ -649,15 +649,15 @@ export default function AppLayout({ title, header, children }) {
                         {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
                     </Button>
 
-                    <div className="flex-1 flex items-center gap-3">
+                    <div className="flex-1 flex items-center gap-3 min-w-0">
                         {header ? (
                             typeof header === 'string' ? (
-                                <h1 className="text-base font-semibold sm:text-lg">{header}</h1>
+                                <h1 className="text-sm sm:text-base font-semibold truncate">{header}</h1>
                             ) : (
                                 header
                             )
                         ) : title ? (
-                            <h1 className="text-base font-semibold sm:text-lg">{title}</h1>
+                            <h1 className="text-sm sm:text-base font-semibold truncate">{title}</h1>
                         ) : null}
 
                         {isOffline && (

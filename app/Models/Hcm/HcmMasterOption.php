@@ -132,6 +132,10 @@ class HcmMasterOption extends Model
             'educations' => $pick('pendidikan_terakhir', 'education', 'educations') ?: ['SD / Sederajat', 'SMP / Sederajat', 'SMA / SMK / Sederajat', 'Diploma 3 (D3)', 'Strata 1 (S1)', 'Strata 2 (S2)'],
             'marital_statuses' => $pick('status_pernikahan', 'marital_status', 'marital_statuses') ?: ['Belum Menikah', 'Menikah', 'Cerai Hidup', 'Cerai Mati'],
             'shirt_sizes' => $pick('ukuran_baju_seragam', 'shirt_size', 'shirt_sizes') ?: ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'],
+            'notice_compliance' => $pick('kepatuhan_notice_period', 'notice_compliance', 'notice_periods'),
+            'rights_status' => $pick('hak_karyawan', 'rights_status', 'employee_rights'),
+            'asset_clearance' => $pick('pengembalian_aset_paklaring', 'asset_clearance'),
+            'clearance_status' => $pick('status_clearance_sheet', 'clearance_status'),
             'banks' => ['Bank BRI', 'Bank Mandiri', 'Bank BCA', 'Bank BNI', 'BSI', 'Bank Jateng', 'Tunai / Kas'],
         ];
     }

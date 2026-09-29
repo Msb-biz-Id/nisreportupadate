@@ -31,6 +31,25 @@ class HcmAttendance extends Model
         'attendance_date' => 'date:Y-m-d',
     ];
 
+    protected $appends = [
+        'late_minutes',
+    ];
+
+    /**
+     * Hitung estimasi keterlambatan (menit) berdasarkan jam masuk vs standar 08:00.
+     */
+    public function getLateMinutesAttribute(): int
+    {
+        if (!$this->clock_in) {
+            return 0;
+        }
+
+        $clockIn = \Carbon\Carbon::parse($this->clock_in);
+        $standard = \Carbon\Carbon::parse('08:00:00');
+
+        return $clockIn->gt($standard) ? $standard->diffInMinutes($clockIn) : 0;
+    }
+
     /**
      * Relasi ke data Master Karyawan.
      */

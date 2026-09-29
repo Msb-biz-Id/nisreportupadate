@@ -29,6 +29,7 @@ class HcmOvertimeBatch extends Model
         'payment_method',
         'coa_code',
         'finance_notes',
+        'payout_proof_url',
         'created_by',
     ];
 

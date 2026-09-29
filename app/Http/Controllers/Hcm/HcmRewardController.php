@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Hcm;
 
 use App\Http\Controllers\Controller;
+use App\Exports\HcmRewardExport;
 use App\Models\Hcm\HcmEmployee;
 use App\Models\Hcm\HcmEmployeeReward;
 use App\Models\Hcm\HcmMasterOption;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class HcmRewardController extends Controller
 {
@@ -83,6 +86,41 @@ class HcmRewardController extends Controller
             'employees' => $employees,
             'distributionStatuses' => $distributionStatuses,
         ]);
+    }
+
+    /**
+     * Export Excel rekapitulasi reward & penghargaan.
+     */
+    public function exportExcel(Request $request): BinaryFileResponse
+    {
+        Gate::authorize('hcm.manage-rewards');
+
+        $statusFilter = $request->query('status', 'all');
+        $yearFilter = $request->query('year', 'all');
+        $search = $request->query('search', '');
+        $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
+
+        $rewards = HcmEmployeeReward::with('employee:id,employee_code,name,department')
+            ->when($escapedSearch, function ($q, $term) {
+                $q->where(function ($sub) use ($term) {
+                    $sub->where('reward_name', 'like', "%{$term}%")
+                        ->orWhereHas('employee', fn ($eq) => $eq->where('name', 'like', "%{$term}%")->orWhere('employee_code', 'like', "%{$term}%"));
+                });
+            })
+            ->when($statusFilter !== 'all', fn ($q) => $q->where('distribution_status', $statusFilter))
+            ->when($yearFilter !== 'all', fn ($q) => $q->where('reward_year', (int) $yearFilter))
+            ->orderBy('reward_year', 'desc')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $filename = 'Rekap_Reward_' . now()->format('Ymd') . '.xlsx';
+
+        ActivityLogger::log('export', 'hcm', null, 'Export Excel rekapitulasi reward & penghargaan');
+
+        return Excel::download(
+            new HcmRewardExport($rewards, Auth::user()?->name, ['status' => $statusFilter, 'year' => $yearFilter, 'search' => $search]),
+            $filename
+        );
     }
 
     /**

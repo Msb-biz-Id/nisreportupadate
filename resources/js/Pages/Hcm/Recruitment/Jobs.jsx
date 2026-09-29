@@ -73,6 +73,13 @@ export default function JobsIndex({
         requirements: '',
         benefits: '',
         deadline: '',
+        legal_entity: '',
+        salary_range_min: '',
+        salary_range_max: '',
+        start_date: '',
+        end_date: '',
+        recruitment_channel: '',
+        status: 'Aktif',
         is_active: true,
     });
 
@@ -123,6 +130,13 @@ export default function JobsIndex({
             requirements: '',
             benefits: '',
             deadline: '',
+            legal_entity: '',
+            salary_range_min: '',
+            salary_range_max: '',
+            start_date: '',
+            end_date: '',
+            recruitment_channel: '',
+            status: 'Aktif',
             is_active: true,
         });
         setIsFormModalOpen(true);
@@ -143,6 +157,13 @@ export default function JobsIndex({
             requirements: job.requirements,
             benefits: job.benefits || '',
             deadline: job.deadline || '',
+            legal_entity: job.legal_entity || '',
+            salary_range_min: job.salary_range_min ?? '',
+            salary_range_max: job.salary_range_max ?? '',
+            start_date: job.start_date || '',
+            end_date: job.end_date || '',
+            recruitment_channel: job.recruitment_channel || '',
+            status: job.status || 'Aktif',
             is_active: Boolean(job.is_active),
         });
         setIsFormModalOpen(true);
@@ -359,7 +380,7 @@ export default function JobsIndex({
                                                     {job.title}
                                                 </div>
                                                 <div className="text-[10px] text-zinc-400">
-                                                    {job.job_type} • Min. {job.min_education}
+                                                    {job.job_code ? `${job.job_code} • ` : ''}{job.job_type} • Min. {job.min_education}
                                                 </div>
                                             </TableCell>
 
@@ -616,6 +637,79 @@ export default function JobsIndex({
                                         value={form.data.deadline}
                                         onChange={(e) => form.setData('deadline', e.target.value)}
                                         className="text-xs"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Entitas Legal (CV)</Label>
+                                    <Input
+                                        value={form.data.legal_entity}
+                                        onChange={(e) => form.setData('legal_entity', e.target.value)}
+                                        placeholder="CV Jersey Ekonomis / CV Apparel Allegiant"
+                                        className="text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Saluran Rekrutmen</Label>
+                                    <Input
+                                        value={form.data.recruitment_channel}
+                                        onChange={(e) => form.setData('recruitment_channel', e.target.value)}
+                                        placeholder="Instagram / Walk-in / Referral"
+                                        className="text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Rentang Gaji Min (Rp)</Label>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        value={form.data.salary_range_min}
+                                        onChange={(e) => form.setData('salary_range_min', e.target.value)}
+                                        className="text-xs font-mono"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Rentang Gaji Max (Rp)</Label>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        value={form.data.salary_range_max}
+                                        onChange={(e) => form.setData('salary_range_max', e.target.value)}
+                                        className="text-xs font-mono"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Tanggal Dibuka</Label>
+                                    <Input
+                                        type="date"
+                                        value={form.data.start_date}
+                                        onChange={(e) => form.setData('start_date', e.target.value)}
+                                        className="text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Tanggal Ditutup</Label>
+                                    <Input
+                                        type="date"
+                                        value={form.data.end_date}
+                                        onChange={(e) => form.setData('end_date', e.target.value)}
+                                        className="text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Status Loker</Label>
+                                    <SearchableSelect
+                                        value={form.data.status}
+                                        onValueChange={(val) => form.setData('status', val)}
+                                        options={[
+                                            { label: 'Draft', value: 'Draft' },
+                                            { label: 'Aktif / Buka', value: 'Aktif' },
+                                            { label: 'Ditutup', value: 'Ditutup' },
+                                            { label: 'Terpenuhi', value: 'Terpenuhi' },
+                                        ]}
+                                        placeholder="Pilih status"
                                     />
                                 </div>
                             </div>

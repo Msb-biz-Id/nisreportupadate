@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
+import UniversalDocumentViewer from '@/Components/Hcm/UniversalDocumentViewer';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -56,9 +57,15 @@ export default function DocumentIndex({ auth, documents, filters, metrics, categ
     const form = useForm({
         document_code: '',
         title: '',
+        document_stage: 'Pengajuan',
         category: categories[0] || 'SOP (Standar Operasional Prosedur)',
+        department: '',
         revision_number: 'Rev 00',
+        proposed_budget: '',
+        actual_budget: '',
         effective_date: new Date().toISOString().split('T')[0],
+        submission_date: new Date().toISOString().split('T')[0],
+        approval_date: '',
         status: 'Aktif',
         file_upload: null,
         file_url: '',
@@ -87,9 +94,15 @@ export default function DocumentIndex({ auth, documents, filters, metrics, categ
         form.setData({
             document_code: '',
             title: '',
+            document_stage: 'Pengajuan',
             category: categories[0] || 'SOP (Standar Operasional Prosedur)',
+            department: '',
             revision_number: 'Rev 00',
+            proposed_budget: '',
+            actual_budget: '',
             effective_date: new Date().toISOString().split('T')[0],
+            submission_date: new Date().toISOString().split('T')[0],
+            approval_date: '',
             status: 'Aktif',
             file_upload: null,
             file_url: '',
@@ -104,9 +117,15 @@ export default function DocumentIndex({ auth, documents, filters, metrics, categ
         form.setData({
             document_code: doc.document_code,
             title: doc.title,
+            document_stage: doc.document_stage || 'Pengajuan',
             category: doc.category,
+            department: doc.department || '',
             revision_number: doc.revision_number,
+            proposed_budget: doc.proposed_budget ?? '',
+            actual_budget: doc.actual_budget ?? '',
             effective_date: doc.effective_date,
+            submission_date: doc.submission_date || '',
+            approval_date: doc.approval_date || '',
             status: doc.status,
             file_upload: null,
             file_url: doc.file_url || '',
@@ -179,11 +198,23 @@ export default function DocumentIndex({ auth, documents, filters, metrics, categ
     return (
         <AppLayout
             header={
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                    <ShieldCheck className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                        Dokumen Internal & SOP Perusahaan
+                    </span>
+                </div>
+            }
+        >
+            <Head title="Dokumen Internal & SOP Perusahaan - HCM" />
+
+            <div className="space-y-4">
+                {/* Header Banner Canvas */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
                     <div>
-                        <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <ShieldCheck className="h-5 w-5 text-indigo-600" />
-                            Dokumen Internal & SOP Perusahaan
+                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                            <ShieldCheck className="h-5 w-5 text-indigo-600 shrink-0" />
+                            <span>Dokumen Internal & SOP Perusahaan</span>
                         </h1>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                             Pusat kendali dokumen resmi, Standar Operasional Prosedur (SOP), Formulir Kerja, dan Peraturan Perusahaan.
@@ -193,17 +224,12 @@ export default function DocumentIndex({ auth, documents, filters, metrics, categ
                     <Button
                         onClick={openCreateModal}
                         size="sm"
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 shadow-sm"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 shadow-xs shrink-0 self-start sm:self-auto"
                     >
                         <Plus className="h-3.5 w-3.5" />
-                        Tambah Dokumen SOP Baru
+                        <span>Tambah Dokumen SOP Baru</span>
                     </Button>
                 </div>
-            }
-        >
-            <Head title="Dokumen Internal & SOP Perusahaan - HCM" />
-
-            <div className="space-y-4">
                 {/* 1. Baris Metrik Ringkasan */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs p-3.5 flex items-center gap-3">
@@ -308,6 +334,8 @@ export default function DocumentIndex({ auth, documents, filters, metrics, categ
                                     <TableHead className="w-28 text-xs">Kode</TableHead>
                                     <TableHead className="text-xs">Judul Dokumen & Deskripsi</TableHead>
                                     <TableHead className="text-xs">Kategori</TableHead>
+                                    <TableHead className="w-24 text-xs">Tahap</TableHead>
+                                    <TableHead className="w-36 text-xs">Anggaran (Ajuan/LPJ)</TableHead>
                                     <TableHead className="w-24 text-xs">Revisi</TableHead>
                                     <TableHead className="w-28 text-xs">Tgl Berlaku</TableHead>
                                     <TableHead className="w-28 text-center text-xs">Status</TableHead>
@@ -336,6 +364,15 @@ export default function DocumentIndex({ auth, documents, filters, metrics, categ
                                                 <Badge variant="outline" className="text-[11px] font-normal">
                                                     {doc.category}
                                                 </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge className={`text-[10px] ${doc.document_stage === 'Realisasi' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-sky-500/10 text-sky-600'}`}>
+                                                    {doc.document_stage || 'Pengajuan'}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                                                <div>Rp {Number(doc.proposed_budget || 0).toLocaleString('id-ID')}</div>
+                                                <div className="text-[10px] text-zinc-400">Realisasi: Rp {Number(doc.actual_budget || 0).toLocaleString('id-ID')}</div>
                                             </TableCell>
                                             <TableCell className="text-xs font-mono text-zinc-600 dark:text-zinc-400">
                                                 {doc.revision_number}
@@ -487,6 +524,71 @@ export default function DocumentIndex({ auth, documents, filters, metrics, categ
                             </div>
                         </div>
 
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Tahap Siklus</Label>
+                                <SearchableSelect
+                                    options={[
+                                        { value: 'Pengajuan', label: 'Pengajuan (RAB/Proposal)' },
+                                        { value: 'Realisasi', label: 'Realisasi (LPJ/SPJ)' },
+                                    ]}
+                                    value={form.data.document_stage}
+                                    onChange={(val) => form.setData('document_stage', val)}
+                                    placeholder="Pilih Tahap"
+                                    className="w-full text-xs"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Departemen Pembuat</Label>
+                                <Input
+                                    value={form.data.department}
+                                    onChange={(e) => form.setData('department', e.target.value)}
+                                    placeholder="Produksi / Marketing / HCM"
+                                    className="h-8 text-xs"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Anggaran Diajukan (Rp)</Label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    value={form.data.proposed_budget}
+                                    onChange={(e) => form.setData('proposed_budget', e.target.value)}
+                                    placeholder="0"
+                                    className="h-8 text-xs"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Realisasi Anggaran (Rp)</Label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    value={form.data.actual_budget}
+                                    onChange={(e) => form.setData('actual_budget', e.target.value)}
+                                    placeholder="0"
+                                    className="h-8 text-xs"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Tanggal Diajukan</Label>
+                                <Input
+                                    type="date"
+                                    value={form.data.submission_date}
+                                    onChange={(e) => form.setData('submission_date', e.target.value)}
+                                    className="h-8 text-xs"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Tanggal Disetujui</Label>
+                                <Input
+                                    type="date"
+                                    value={form.data.approval_date}
+                                    onChange={(e) => form.setData('approval_date', e.target.value)}
+                                    className="h-8 text-xs"
+                                />
+                            </div>
+                        </div>
+
                         <div className="space-y-1">
                             <Label className="text-xs font-medium">Judul Dokumen *</Label>
                             <Input
@@ -573,16 +675,6 @@ export default function DocumentIndex({ auth, documents, filters, metrics, categ
                                 Berkas otomatis tersimpan di storage server & disinkronkan ke Google Drive folder <code>01_Dokumen_Internal</code>.
                             </p>
 
-                            <div className="pt-1.5 border-t border-zinc-200/60 dark:border-zinc-800">
-                                <Label className="text-[11px] text-zinc-500">Atau Tautan Penyimpanan Cloud Eksternal (Opsional)</Label>
-                                <Input
-                                    type="url"
-                                    value={form.data.file_url}
-                                    onChange={(e) => form.setData('file_url', e.target.value)}
-                                    placeholder="https://drive.google.com/..."
-                                    className="text-xs h-7 mt-0.5"
-                                />
-                            </div>
                         </div>
 
                         <DialogFooter className="gap-2 pt-2">
@@ -607,47 +699,12 @@ export default function DocumentIndex({ auth, documents, filters, metrics, categ
             </Dialog>
 
             {/* MODAL 2: In-App Document Preview Modal */}
-            <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
-                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-4">
-                    <DialogHeader className="pb-2 border-b">
-                        <div className="flex items-center justify-between">
-                            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-indigo-600" />
-                                {previewFile?.name || 'Pratinjau Dokumen'}
-                            </DialogTitle>
-                            {previewFile?.url && (
-                                <a
-                                    href={previewFile.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-indigo-600 hover:underline flex items-center gap-1"
-                                >
-                                    <ExternalLink className="h-3.5 w-3.5" />
-                                    Buka di Tab Baru
-                                </a>
-                            )}
-                        </div>
-                    </DialogHeader>
-                    <div className="flex-1 w-full min-h-[500px] bg-zinc-100 dark:bg-zinc-900 rounded-lg overflow-hidden flex items-center justify-center p-2">
-                        {previewFile?.isPdf ? (
-                            <iframe
-                                src={previewFile.url}
-                                className="w-full h-full min-h-[500px] border-0 rounded"
-                                title="Pratinjau PDF"
-                            />
-                        ) : (
-                            <img
-                                src={previewFile?.url}
-                                alt="Pratinjau Berkas"
-                                className="max-h-[600px] max-w-full object-contain rounded shadow"
-                                onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                }}
-                            />
-                        )}
-                    </div>
-                </DialogContent>
-            </Dialog>
+            <UniversalDocumentViewer
+                isOpen={!!previewFile}
+                onClose={() => setPreviewFile(null)}
+                fileUrl={previewFile?.url}
+                fileName={previewFile?.name || 'Dokumen Internal & SOP'}
+            />
         </AppLayout>
     );
 }

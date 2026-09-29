@@ -274,6 +274,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('/{employee}', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'destroy'])->name('destroy');
             Route::post('/{employee}/contracts', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'storeContract'])->name('contracts.store');
             Route::post('/{employee}/compensation-histories', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'storeCompensationHistory'])->name('compensation-histories.store');
+    Route::put('/{employee}/onboarding', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'updateOnboarding'])->name('onboarding.update');
+    Route::put('/{employee}/offboarding', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'updateOffboarding'])->name('offboarding.update');
+    Route::post('/{employee}/offboard', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'offboard'])->name('offboard');
             Route::post('/{employee}/photo', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'updatePhoto'])->name('photo.update');
             // PDF
             Route::get('/{employee}/pdf/dossier', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'employeeDossier'])->name('pdf.dossier');
@@ -289,10 +292,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/{contract}/upload', [\App\Http\Controllers\Hcm\HcmContractController::class, 'uploadFile'])->name('upload');
         });
 
+        // Kompensasi & Gaji (Modul Khusus)
+        Route::prefix('compensations')->name('compensations.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Hcm\HcmCompensationController::class, 'index'])->name('index');
+        });
+
         // Presensi & Absensi Harian & Matriks Bulanan
         Route::prefix('attendance')->name('attendance.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'index'])->name('index');
             Route::get('/monthly', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'monthlyCalendar'])->name('monthly');
+            Route::get('/export-monthly', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'exportMonthly'])->name('export-monthly');
+            Route::get('/export-daily', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'exportDaily'])->name('export-daily');
+            Route::get('/wa-summary', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'waSummary'])->name('wa-summary');
             Route::post('/batch', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'batchStore'])->name('batch-store');
             Route::post('/set-all-present', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'setAllPresent'])->name('set-all-present');
             Route::post('/set-bulk', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'setBulkAttendance'])->name('set-bulk');
@@ -316,10 +327,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/batches/{batch}/items', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'storeOvertimeItems'])->name('items.store');
             Route::delete('/batches/{batch}/items/{overtime}', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'destroyOvertimeItem'])->name('items.destroy');
             Route::post('/batches/{batch}/sign-hcm', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'signHcm'])->name('sign-hcm');
+            Route::post('/batches/{batch}/start-finance', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'startFinance'])->name('start-finance');
             Route::post('/batches/{batch}/sign-finance', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'signFinance'])->name('sign-finance');
             Route::post('/settings', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'updateSettings'])->name('settings.update');
             // PDF
             Route::get('/batches/{batch}/pdf', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'overtimeVoucher'])->name('pdf');
+            Route::get('/batches/{batch}/excel', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'exportBatchExcel'])->name('export');
         });
 
         // Uang Makan Bulanan & Double Sign-Off
@@ -328,15 +341,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/generate', [\App\Http\Controllers\Hcm\HcmMealAllowanceController::class, 'generateBatch'])->name('generate');
             Route::get('/batches/{batch}', [\App\Http\Controllers\Hcm\HcmMealAllowanceController::class, 'show'])->name('show');
             Route::post('/batches/{batch}/sign-hcm', [\App\Http\Controllers\Hcm\HcmMealAllowanceController::class, 'signHcm'])->name('sign-hcm');
+            Route::post('/batches/{batch}/start-finance', [\App\Http\Controllers\Hcm\HcmMealAllowanceController::class, 'startFinance'])->name('start-finance');
             Route::post('/batches/{batch}/sign-finance', [\App\Http\Controllers\Hcm\HcmMealAllowanceController::class, 'signFinance'])->name('sign-finance');
             Route::post('/settings', [\App\Http\Controllers\Hcm\HcmMealAllowanceController::class, 'updateSettings'])->name('settings.update');
             // PDF
             Route::get('/batches/{batch}/pdf', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'mealAllowanceReport'])->name('pdf');
+            Route::get('/batches/{batch}/excel', [\App\Http\Controllers\Hcm\HcmMealAllowanceController::class, 'exportBatchExcel'])->name('export');
         });
 
         // Apresiasi & Reward Karyawan
         Route::prefix('rewards')->name('rewards.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Hcm\HcmRewardController::class, 'index'])->name('index');
+            Route::get('/export', [\App\Http\Controllers\Hcm\HcmRewardController::class, 'exportExcel'])->name('export');
             Route::post('/', [\App\Http\Controllers\Hcm\HcmRewardController::class, 'store'])->name('store');
             Route::put('/{reward}', [\App\Http\Controllers\Hcm\HcmRewardController::class, 'update'])->name('update');
             Route::patch('/{reward}/status', [\App\Http\Controllers\Hcm\HcmRewardController::class, 'updateStatus'])->name('update-status');
@@ -362,6 +378,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/applicants', [\App\Http\Controllers\Hcm\HcmRecruitmentController::class, 'applicants'])->name('applicants.index');
             Route::patch('/applicants/{applicant}/status', [\App\Http\Controllers\Hcm\HcmRecruitmentController::class, 'updateApplicantStatus'])->name('applicants.update-status');
             Route::post('/applicants/{applicant}/convert', [\App\Http\Controllers\Hcm\HcmRecruitmentController::class, 'convertApplicant'])->name('applicants.convert');
+
+            // Modul 11.4: Rekap Hasil Wawancara Kandidat
+            Route::post('/applicants/{applicant}/interviews', [\App\Http\Controllers\Hcm\HcmRecruitmentController::class, 'storeInterview'])->name('applicants.interviews.store');
+            Route::put('/interviews/{interview}', [\App\Http\Controllers\Hcm\HcmRecruitmentController::class, 'updateInterview'])->name('interviews.update');
+            Route::delete('/interviews/{interview}', [\App\Http\Controllers\Hcm\HcmRecruitmentController::class, 'destroyInterview'])->name('interviews.destroy');
+
+            // Laporan Performa Rekrutmen per Loker + cetak PDF
+            Route::get('/reports', [\App\Http\Controllers\Hcm\HcmRecruitmentController::class, 'reports'])->name('reports.index');
+            Route::get('/reports/pdf', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'recruitmentReport'])->name('reports.pdf');
+            Route::get('/reports/excel', [\App\Http\Controllers\Hcm\HcmRecruitmentController::class, 'exportReport'])->name('reports.excel');
+            Route::get('/applicants/{applicant}/pdf', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'applicantReport'])->name('applicants.pdf');
         });
 
         // Modul Buku Agenda Persuratan (Modul Khusus Terpisah)
@@ -380,12 +407,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('/{document}', [\App\Http\Controllers\Hcm\HcmDocumentController::class, 'destroy'])->name('destroy');
         });
 
+        // Modul 9: Arsip Korespondensi Eksternal (BPJS/Disnaker/Bank/Mitra)
+        Route::prefix('external-letters')->name('external-letters.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Hcm\HcmExternalLetterController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\Hcm\HcmExternalLetterController::class, 'store'])->name('store');
+            Route::put('/{externalLetter}', [\App\Http\Controllers\Hcm\HcmExternalLetterController::class, 'update'])->name('update');
+            Route::delete('/{externalLetter}', [\App\Http\Controllers\Hcm\HcmExternalLetterController::class, 'destroy'])->name('destroy');
+        });
+
         // Modul Pengaturan HCM (Profil Instansi, Kop Surat, Medsos, Lembur Dinamis, & Uang Makan)
         Route::prefix('settings')->name('settings.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'index'])->name('index');
             Route::post('/profile', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'updateProfile'])->name('profile.update');
             Route::post('/overtime', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'updateOvertime'])->name('overtime.update');
             Route::post('/meal-allowance', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'updateMealAllowance'])->name('meal-allowance.update');
+            Route::post('/storage', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'updateStorage'])->name('storage.update');
+            Route::post('/storage/test-connection', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'testStorageConnection'])->name('storage.test-connection');
         });
     });
 

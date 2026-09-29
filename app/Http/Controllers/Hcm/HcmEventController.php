@@ -83,6 +83,11 @@ class HcmEventController extends Controller
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:150'],
             'event_type' => ['required', 'string', 'max:50'],
+            'organizer_name' => ['nullable', 'string', 'max:100'],
+            'target_audience' => ['nullable', 'string', 'max:100'],
+            'reminder_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'is_annual_recurring' => ['boolean'],
+            'invitation_file_url' => ['nullable', 'string', 'max:255'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'start_time' => ['nullable', 'string', 'max:10'],
@@ -112,6 +117,11 @@ class HcmEventController extends Controller
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:150'],
             'event_type' => ['required', 'string', 'max:50'],
+            'organizer_name' => ['nullable', 'string', 'max:100'],
+            'target_audience' => ['nullable', 'string', 'max:100'],
+            'reminder_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'is_annual_recurring' => ['boolean'],
+            'invitation_file_url' => ['nullable', 'string', 'max:255'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'start_time' => ['nullable', 'string', 'max:10'],

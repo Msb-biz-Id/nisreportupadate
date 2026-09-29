@@ -16,6 +16,7 @@ import {
     Sparkles,
     UserCheck,
     FileText,
+    FileSpreadsheet,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent } from '@/Components/ui/card';
@@ -228,6 +229,14 @@ export default function RewardsIndex({
                     </div>
 
                     <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => { window.location.href = route('hcm.rewards.export', { status: statusFilter, year: yearFilter, search }); }}
+                            className="gap-1.5 text-xs font-semibold"
+                        >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            Export Excel
+                        </Button>
                         <Button
                             onClick={openAddModal}
                             className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-xs font-semibold shadow-sm"

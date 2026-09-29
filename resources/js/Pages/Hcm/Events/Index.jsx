@@ -82,11 +82,16 @@ export default function HcmEventsIndex({
     const form = useForm({
         title: '',
         event_type: 'Acara Perusahaan',
+        organizer_name: '',
         start_date: today,
         end_date: today,
         start_time: '09:00',
         end_time: '17:00',
         location: '',
+        target_audience: 'Semua Tim',
+        reminder_days: 3,
+        is_annual_recurring: false,
+        invitation_file_url: '',
         description: '',
         color_code: '#3b82f6',
         is_public: true,
@@ -114,11 +119,16 @@ export default function HcmEventsIndex({
         form.setData({
             title: '',
             event_type: 'Acara Perusahaan',
+            organizer_name: '',
             start_date: today,
             end_date: today,
             start_time: '09:00',
             end_time: '17:00',
             location: '',
+            target_audience: 'Semua Tim',
+            reminder_days: 3,
+            is_annual_recurring: false,
+            invitation_file_url: '',
             description: '',
             color_code: '#3b82f6',
             is_public: true,
@@ -131,11 +141,16 @@ export default function HcmEventsIndex({
         form.setData({
             title: ev.title,
             event_type: ev.event_type,
+            organizer_name: ev.organizer_name || '',
             start_date: ev.start_date,
             end_date: ev.end_date,
             start_time: ev.start_time || '',
             end_time: ev.end_time || '',
             location: ev.location || '',
+            target_audience: ev.target_audience || 'Semua Tim',
+            reminder_days: ev.reminder_days ?? 3,
+            is_annual_recurring: !!ev.is_annual_recurring,
+            invitation_file_url: ev.invitation_file_url || '',
             description: ev.description || '',
             color_code: ev.color_code || '#3b82f6',
             is_public: ev.is_public ?? true,
@@ -519,6 +534,56 @@ export default function HcmEventsIndex({
                                     placeholder="Contoh: Hall Pabrik / Villa Kaliurang"
                                     className="text-xs"
                                 />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Penyelenggara / Pengundang</Label>
+                                    <Input
+                                        value={form.data.organizer_name}
+                                        onChange={(e) => form.setData('organizer_name', e.target.value)}
+                                        placeholder="Manajemen NISGroup / Sdr. Rian (Sewing)"
+                                        className="text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Target Peserta</Label>
+                                    <Input
+                                        value={form.data.target_audience}
+                                        onChange={(e) => form.setData('target_audience', e.target.value)}
+                                        placeholder="Semua Tim / Divisi Produksi"
+                                        className="text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Pengingat (H-N)</Label>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        value={form.data.reminder_days}
+                                        onChange={(e) => form.setData('reminder_days', parseInt(e.target.value) || 0)}
+                                        className="text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Lampiran Undangan (URL)</Label>
+                                    <Input
+                                        value={form.data.invitation_file_url}
+                                        onChange={(e) => form.setData('invitation_file_url', e.target.value)}
+                                        placeholder="https://drive.google.com/..."
+                                        className="text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-1.5 flex flex-col justify-end">
+                                    <Label className="text-xs font-semibold">Berulang Tahunan</Label>
+                                    <button
+                                        type="button"
+                                        onClick={() => form.setData('is_annual_recurring', !form.data.is_annual_recurring)}
+                                        className={`h-9 rounded-md border px-3 text-xs text-left transition ${form.data.is_annual_recurring ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-zinc-200 bg-white text-zinc-600'}`}
+                                    >
+                                        {form.data.is_annual_recurring ? 'Ya (agenda tahunan)' : 'Tidak'}
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="space-y-1.5">

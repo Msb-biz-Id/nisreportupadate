@@ -22,6 +22,7 @@ class HcmDocumentController extends Controller
 
         $categoryFilter = $request->query('category', 'all');
         $statusFilter = $request->query('status', 'all');
+        $stageFilter = $request->query('stage', 'all');
         $search = $request->query('search', '');
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
@@ -33,6 +34,7 @@ class HcmDocumentController extends Controller
                     ->orWhere('description', 'like', "%{$t}%")
             ))
             ->when($categoryFilter !== 'all', fn ($q) => $q->where('category', $categoryFilter))
+            ->when($stageFilter !== 'all', fn ($q) => $q->where('document_stage', $stageFilter))
             ->when($statusFilter !== 'all', fn ($q) => $q->where('status', $statusFilter))
             ->orderBy('category')
             ->orderBy('document_code')
@@ -44,9 +46,19 @@ class HcmDocumentController extends Controller
             'active_sop' => HcmInternalDocument::where('category', 'SOP')->where('status', 'Aktif')->count(),
             'company_regulations' => HcmInternalDocument::where('category', 'Peraturan Perusahaan')->count(),
             'standard_forms' => HcmInternalDocument::where('category', 'Formulir Standar')->count(),
+            'pengajuan_count' => HcmInternalDocument::where('document_stage', 'Pengajuan')->count(),
+            'realisasi_count' => HcmInternalDocument::where('document_stage', 'Realisasi')->count(),
+            'total_proposed_budget' => (float) HcmInternalDocument::sum('proposed_budget'),
+            'total_actual_budget' => (float) HcmInternalDocument::sum('actual_budget'),
         ];
 
         $categories = [
+            'Pengajuan RAB (Rencana Anggaran Biaya)',
+            'Proposal Kegiatan / Acara',
+            'Pengajuan Pembelian Aset / Inventaris',
+            'LPJ (Laporan Pertanggungjawaban) Kegiatan',
+            'Realisasi Pembelian Aset & Nota/Faktur',
+            'Laporan & Bukti Pengeluaran Perjalanan Dinas',
             'SOP (Standar Operasional Prosedur)',
             'Peraturan Perusahaan',
             'Formulir Standar',
@@ -60,10 +72,12 @@ class HcmDocumentController extends Controller
             'filters' => [
                 'category' => $categoryFilter,
                 'status' => $statusFilter,
+                'stage' => $stageFilter,
                 'search' => $search,
             ],
             'metrics' => $metrics,
             'categories' => $categories,
+            'stages' => ['Pengajuan', 'Realisasi'],
         ]);
     }
 
@@ -78,8 +92,14 @@ class HcmDocumentController extends Controller
             'document_code' => ['required', 'string', 'max:50', 'unique:hcm_internal_documents,document_code'],
             'title' => ['required', 'string', 'max:200'],
             'category' => ['required', 'string', 'max:100'],
+            'document_stage' => ['nullable', 'string', 'in:Pengajuan,Realisasi'],
+            'department' => ['nullable', 'string', 'max:100'],
             'revision_number' => ['required', 'string', 'max:20'],
+            'proposed_budget' => ['nullable', 'numeric', 'min:0'],
+            'actual_budget' => ['nullable', 'numeric', 'min:0'],
             'effective_date' => ['required', 'date'],
+            'submission_date' => ['nullable', 'date'],
+            'approval_date' => ['nullable', 'date'],
             'status' => ['required', 'string', 'max:50'],
             'file_upload' => ['nullable', 'file', 'mimes:pdf,doc,docx,xls,xlsx,png,jpg', 'max:10240'],
             'file_url' => ['nullable', 'string', 'max:255'],
@@ -114,8 +134,14 @@ class HcmDocumentController extends Controller
             'document_code' => ['required', 'string', 'max:50', 'unique:hcm_internal_documents,document_code,' . $document->id],
             'title' => ['required', 'string', 'max:200'],
             'category' => ['required', 'string', 'max:100'],
+            'document_stage' => ['nullable', 'string', 'in:Pengajuan,Realisasi'],
+            'department' => ['nullable', 'string', 'max:100'],
             'revision_number' => ['required', 'string', 'max:20'],
+            'proposed_budget' => ['nullable', 'numeric', 'min:0'],
+            'actual_budget' => ['nullable', 'numeric', 'min:0'],
             'effective_date' => ['required', 'date'],
+            'submission_date' => ['nullable', 'date'],
+            'approval_date' => ['nullable', 'date'],
             'status' => ['required', 'string', 'max:50'],
             'file_upload' => ['nullable', 'file', 'mimes:pdf,doc,docx,xls,xlsx,png,jpg', 'max:10240'],
             'file_url' => ['nullable', 'string', 'max:255'],

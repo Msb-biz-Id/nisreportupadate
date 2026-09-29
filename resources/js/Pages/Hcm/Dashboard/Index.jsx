@@ -69,20 +69,30 @@ export default function HcmDashboardIndex({
         (moduleTotals.meal_allowance?.pending_batches || 0);
 
     return (
-        <AppLayout title="Command Center Kepegawaian">
+        <AppLayout
+            title="Command Center Kepegawaian"
+            header={
+                <div className="flex items-center gap-2 min-w-0">
+                    <LayoutDashboard className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                        Command Center Kepegawaian
+                    </span>
+                </div>
+            }
+        >
             <Head title="Command Center Kepegawaian (HCM) - NISGroup" />
 
             <div className="space-y-6">
                 {/* 1. Header Command Center */}
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-r from-blue-900/10 via-indigo-900/5 to-transparent p-5 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-r from-blue-900/10 via-indigo-900/5 to-transparent p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
                     <div>
                         <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
-                                <LayoutDashboard className="w-6 h-6" />
+                            <div className="p-2 rounded-xl bg-blue-600 text-white shadow-xs">
+                                <LayoutDashboard className="w-5 h-5" />
                             </div>
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                                    <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                                         Command Center Kepegawaian
                                     </h1>
                                     <Badge className="bg-blue-600/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px]">

@@ -75,14 +75,20 @@ class HcmPublicCareerController extends Controller
 
         $resumeUrl = null;
         if ($request->hasFile('resume_file')) {
-            $resumeUrl = $request->file('resume_file')->store('recruitment/resumes', 'public');
-            $resumeUrl = '/storage/' . $resumeUrl;
+            $uploadedResume = \App\Services\GoogleDriveSyncService::uploadFile(
+                $request->file('resume_file'),
+                \App\Services\GoogleDriveSyncService::FOLDER_RECRUITMENT
+            );
+            $resumeUrl = $uploadedResume['url'];
         }
 
         $ktpUrl = null;
         if ($request->hasFile('ktp_file')) {
-            $ktpUrl = $request->file('ktp_file')->store('recruitment/ktp', 'public');
-            $ktpUrl = '/storage/' . $ktpUrl;
+            $uploadedKtp = \App\Services\GoogleDriveSyncService::uploadFile(
+                $request->file('ktp_file'),
+                \App\Services\GoogleDriveSyncService::FOLDER_RECRUITMENT
+            );
+            $ktpUrl = $uploadedKtp['url'];
         }
 
         $photoPath = null;

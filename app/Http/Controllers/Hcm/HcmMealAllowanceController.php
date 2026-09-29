@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Hcm;
 
 use App\Http\Controllers\Controller;
+use App\Exports\HcmMealAllowanceBatchExport;
 use App\Models\Hcm\HcmAttendance;
 use App\Models\Hcm\HcmEmployee;
 use App\Models\Hcm\HcmMealAllowanceBatch;
 use App\Models\Hcm\HcmMealAllowanceItem;
 use App\Models\Settings\SystemSetting;
 use App\Services\ActivityLogger;
+use App\Services\Notifications\IdealNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,6 +19,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class HcmMealAllowanceController extends Controller
 {
@@ -273,17 +277,44 @@ class HcmMealAllowanceController extends Controller
 
         ActivityLogger::log('sign-off', 'hcm', $batch, "Verifikasi sign-off HCM batch uang makan {$batch->batch_code}");
 
+        IdealNotificationService::dispatch('hcm_meal_allowance_ready_to_pay', [
+            'title' => 'Rekap Uang Makan Siap Dibayarkan',
+            'body' => "Rekap Uang Makan periode " . Carbon::create()->month((int) $batch->period_month)->isoFormat('MMMM') . " {$batch->period_year} telah disahkan HCM & siap diproses.",
+            'action_url' => route('hcm.meal-allowance.index'),
+            'batch_code' => $batch->batch_code,
+            'emoji' => '🍽️',
+            'sound' => 'cash-register',
+        ]);
+
         return redirect()->back()->with('success', 'Batch uang makan berhasil diverifikasi oleh HCM dan diteruskan ke Tim Keuangan.');
     }
 
     /**
-     * Double Sign-Off Tahap 2: Otorisasi Pembayaran Keuangan.
+     * Double Sign-Off Tahap 3: Keuangan mulai memverifikasi kas (PENDING_FINANCE_SIGN).
+     */
+    public function startFinance(HcmMealAllowanceBatch $batch): RedirectResponse
+    {
+        Gate::authorize('finance.sign-paid');
+
+        if ($batch->status !== 'APPROVED_BY_HCM') {
+            return redirect()->back()->with('error', 'Batch harus disetujui HCM terlebih dahulu.');
+        }
+
+        $batch->update(['status' => 'PENDING_FINANCE_SIGN']);
+
+        ActivityLogger::log('sign-off', 'hcm', $batch, "Keuangan mulai memproses pembayaran batch uang makan {$batch->batch_code}");
+
+        return redirect()->back()->with('success', "Batch uang makan {$batch->batch_code} masuk proses verifikasi kas Keuangan.");
+    }
+
+    /**
+     * Double Sign-Off Tahap 4: Otorisasi Pembayaran Keuangan.
      */
     public function signFinance(Request $request, HcmMealAllowanceBatch $batch): RedirectResponse
     {
         Gate::authorize('finance.sign-paid');
 
-        if ($batch->status !== 'APPROVED_BY_HCM') {
+        if (!in_array($batch->status, ['APPROVED_BY_HCM', 'PENDING_FINANCE_SIGN'], true)) {
             return redirect()->back()->with('error', 'Batch harus disetujui oleh HCM terlebih dahulu sebelum dicairkan.');
         }
 
@@ -304,7 +335,32 @@ class HcmMealAllowanceController extends Controller
 
         ActivityLogger::log('sign-off', 'hcm', $batch, "Pencairan lunas batch uang makan {$batch->batch_code} oleh Keuangan ({$validated['payment_method']})");
 
+        IdealNotificationService::dispatch('hcm_payout_completed', [
+            'title' => 'Pencairan Kas Selesai',
+            'body' => "Pencairan Uang Makan {$batch->batch_code} sebesar Rp " . number_format((float) $batch->total_amount, 0, ',', '.') . " telah berstatus Lunas (PAID_COMPLETED).",
+            'action_url' => route('hcm.meal-allowance.index'),
+            'batch_code' => $batch->batch_code,
+            'emoji' => '✅',
+            'sound' => 'success-tada',
+        ]);
+
         return redirect()->back()->with('success', "Pencairan uang makan {$batch->batch_code} berhasil disetujui & dicatat lunas oleh Keuangan.");
+    }
+
+    /**
+     * Export Excel rekap batch uang makan bulanan.
+     */
+    public function exportBatchExcel(HcmMealAllowanceBatch $batch): BinaryFileResponse
+    {
+        Gate::authorize('hcm.manage-meal-allowance');
+
+        $batch->load(['items.employee:id,employee_code,name,department']);
+
+        $filename = 'Rekap_Uang_Makan_' . $batch->batch_code . '_' . now()->format('Ymd') . '.xlsx';
+
+        ActivityLogger::log('export', 'hcm', $batch, "Export Excel rekap uang makan {$batch->batch_code}");
+
+        return Excel::download(new HcmMealAllowanceBatchExport($batch, Auth::user()?->name), $filename);
     }
 
     /**

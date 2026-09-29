@@ -17,8 +17,13 @@ import {
     ExternalLink,
     X,
     Filter,
+    FileText,
+    CheckCircle2,
+    XCircle,
+    UserCheck,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
+import UniversalDocumentViewer from '@/Components/Hcm/UniversalDocumentViewer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -166,54 +171,90 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
 
     const getReviewBadge = (status, days) => {
         if (status === 'Selesai Kontrak' || (days !== null && days < 0)) {
-            return <Badge className="bg-rose-500/10 text-rose-600 border-rose-200">Kedaluwarsa</Badge>;
+            return (
+                <Badge className="bg-rose-500/10 text-rose-600 border-rose-200 gap-1 inline-flex items-center">
+                    <XCircle className="h-3 w-3 shrink-0" />
+                    <span>Kedaluwarsa</span>
+                </Badge>
+            );
         }
         if (days !== null && days <= 14) {
-            return <Badge className="bg-rose-500 text-white animate-pulse">Sisa {days} Hari (Kritis)</Badge>;
+            return (
+                <Badge className="bg-rose-500 text-white animate-pulse gap-1 inline-flex items-center">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    <span>Sisa {days} Hari (Kritis)</span>
+                </Badge>
+            );
         }
         if (days !== null && days <= 30) {
-            return <Badge className="bg-amber-500/15 text-amber-700 border-amber-300">Sisa {days} Hari</Badge>;
+            return (
+                <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-300 gap-1 inline-flex items-center">
+                    <Clock className="h-3 w-3 shrink-0" />
+                    <span>Sisa {days} Hari (Review)</span>
+                </Badge>
+            );
         }
         if (days !== null && days <= 60) {
-            return <Badge className="bg-sky-500/10 text-sky-700 border-sky-200">Sisa {days} Hari</Badge>;
+            return (
+                <Badge className="bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-200 gap-1 inline-flex items-center">
+                    <Clock className="h-3 w-3 shrink-0" />
+                    <span>Sisa {days} Hari (Evaluasi)</span>
+                </Badge>
+            );
         }
         if (status === 'Aktif') {
-            return <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-200">Aktif ({days ? `${days} hr` : 'Tetap'})</Badge>;
+            return (
+                <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 gap-1 inline-flex items-center">
+                    <CheckCircle2 className="h-3 w-3 shrink-0" />
+                    <span>Aktif ({days ? `${days} hr` : 'Tetap'})</span>
+                </Badge>
+            );
         }
         return <Badge variant="outline">{status}</Badge>;
     };
 
     return (
         <AppLayout
+            title="Master Karyawan (Data Kontrak & Legal)"
             header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-2xl">📜</span>
-                            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                                Kontrak Kerja & Legalitas PKWT
-                            </h1>
+                <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span className="text-sm sm:text-base font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                        Master Karyawan (Data Kontrak & Legal PKWT)
+                    </span>
+                </div>
+            }
+        >
+            <Head title="Master Karyawan - Data Kontrak & Legalitas PKWT" />
+
+            <div className="space-y-5">
+                {/* Banner Judul Modul */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-zinc-200/80 dark:border-zinc-800/80">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
+                            <FileText className="h-5 w-5" />
                         </div>
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                            Monitoring masa berlaku kontrak, sisa durasi PKWT, evaluasi perpanjangan, dan arsip naskah perjanjian kerja.
-                        </p>
+                        <div>
+                            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                                Master Karyawan: Data Kontrak & Legalitas PKWT
+                            </h1>
+                            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+                                Monitoring masa berlaku kontrak, sisa durasi PKWT, evaluasi perpanjangan, dan arsip naskah perjanjian kerja NISGroup.
+                            </p>
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-2">
                         <Button
                             onClick={openCreateModal}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm flex items-center gap-2"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm flex items-center gap-2 text-xs sm:text-sm h-9"
                         >
                             <Plus className="h-4 w-4" />
                             <span>Terbitkan Kontrak Baru</span>
                         </Button>
                     </div>
                 </div>
-            }
-        >
-            <Head title="Kontrak Kerja & PKWT" />
 
-            <div className="space-y-6">
                 {/* Metrik Statistik Kontrak */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                     <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
@@ -275,6 +316,110 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
                             <span className="text-[10px] text-zinc-400">Permanen tanpa batas</span>
                         </CardContent>
                     </Card>
+                </div>
+
+                {/* Quick Filter Chips Evaluasi Masa PKWT */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+                    <span className="text-zinc-400 font-medium text-[11px] shrink-0 mr-1">Filter Evaluasi:</span>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setSelectedReviewStatus('all');
+                            applyFilters(searchTerm, selectedEntity, 'all', selectedStatus);
+                        }}
+                        className={`px-3 py-1.5 rounded-lg font-medium transition shrink-0 border ${
+                            selectedReviewStatus === 'all'
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                        }`}
+                    >
+                        Semua Status
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const val = 'Masa Tenggang H-14';
+                            setSelectedReviewStatus(val);
+                            applyFilters(searchTerm, selectedEntity, val, selectedStatus);
+                        }}
+                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition shrink-0 border ${
+                            selectedReviewStatus === 'Masa Tenggang H-14'
+                                ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                                : 'bg-rose-50/50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900 hover:bg-rose-100/60'
+                        }`}
+                    >
+                        <AlertTriangle className="h-3 w-3 shrink-0" />
+                        <span>Kritis H-14</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const val = 'Wajib Review H-30';
+                            setSelectedReviewStatus(val);
+                            applyFilters(searchTerm, selectedEntity, val, selectedStatus);
+                        }}
+                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition shrink-0 border ${
+                            selectedReviewStatus === 'Wajib Review H-30'
+                                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                                : 'bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900 hover:bg-amber-100/60'
+                        }`}
+                    >
+                        <Clock className="h-3 w-3 shrink-0" />
+                        <span>Review H-30</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const val = 'Mendekati H-60';
+                            setSelectedReviewStatus(val);
+                            applyFilters(searchTerm, selectedEntity, val, selectedStatus);
+                        }}
+                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition shrink-0 border ${
+                            selectedReviewStatus === 'Mendekati H-60'
+                                ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                                : 'bg-sky-50/50 dark:bg-sky-950/20 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-900 hover:bg-sky-100/60'
+                        }`}
+                    >
+                        <Clock className="h-3 w-3 shrink-0" />
+                        <span>Evaluasi H-60</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const val = 'Aktif';
+                            setSelectedReviewStatus(val);
+                            applyFilters(searchTerm, selectedEntity, val, selectedStatus);
+                        }}
+                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition shrink-0 border ${
+                            selectedReviewStatus === 'Aktif'
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                : 'bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900 hover:bg-emerald-100/60'
+                        }`}
+                    >
+                        <CheckCircle2 className="h-3 w-3 shrink-0" />
+                        <span>Aktif Berjalan</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const val = 'Tetap (PKWTT)';
+                            setSelectedStatus(val);
+                            applyFilters(searchTerm, selectedEntity, selectedReviewStatus, val);
+                        }}
+                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg font-medium transition shrink-0 border ${
+                            selectedStatus === 'Tetap (PKWTT)'
+                                ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                                : 'bg-purple-50/50 dark:bg-purple-950/20 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-900 hover:bg-purple-100/60'
+                        }`}
+                    >
+                        <Briefcase className="h-3 w-3 shrink-0" />
+                        <span>Tetap (PKWTT)</span>
+                    </button>
                 </div>
 
                 {/* Filter Toolbar */}
@@ -352,10 +497,17 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
                                         <tr key={c.id} className="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40 transition">
                                             <td className="py-3 px-3.5">
                                                 <div className="font-mono font-semibold text-zinc-900 dark:text-zinc-100">{c.contract_number}</div>
-                                                <div className="text-[11px] text-zinc-400 flex items-center gap-1 mt-0.5">
-                                                    <span>Kontrak Ke-{c.contract_sequence}</span>
+                                                <div className="text-[11px] text-zinc-500 flex flex-wrap items-center gap-1.5 mt-1">
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                                                        Kontrak Ke-{c.contract_sequence}
+                                                    </span>
                                                     <span>•</span>
                                                     <span>{c.duration_text}</span>
+                                                    {c.trainee_start_month && (
+                                                        <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-900/50">
+                                                            Trainee: {c.trainee_start_month} - {c.trainee_end_month}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </td>
 
@@ -690,51 +842,12 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
             </Dialog>
 
             {/* MODAL IN-APP DOCUMENT VIEWER */}
-            <Dialog open={isViewerOpen} onOpenChange={setIsViewerOpen}>
-                <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-4">
-                    <DialogHeader className="flex flex-row items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
-                        <div>
-                            <DialogTitle className="text-sm font-bold flex items-center gap-2">
-                                <FileCheck className="h-4 w-4 text-indigo-600" />
-                                Pratinjau Berkas: {viewingFileName}
-                            </DialogTitle>
-                        </div>
-                        <div className="flex items-center gap-2 pr-6">
-                            {viewingFileUrl && (
-                                <a
-                                    href={viewingFileUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 text-zinc-700 dark:text-zinc-300 transition"
-                                >
-                                    <ExternalLink className="h-3.5 w-3.5" />
-                                    <span>Buka di Tab Baru</span>
-                                </a>
-                            )}
-                        </div>
-                    </DialogHeader>
-
-                    <div className="flex-1 w-full min-h-[60vh] bg-zinc-100 dark:bg-zinc-900 rounded-lg overflow-hidden flex items-center justify-center p-2">
-                        {viewingFileUrl ? (
-                            viewingFileUrl.toLowerCase().endsWith('.pdf') ? (
-                                <iframe
-                                    src={`${viewingFileUrl}#toolbar=1`}
-                                    className="w-full h-[65vh] rounded border-0"
-                                    title="PDF Preview"
-                                />
-                            ) : (
-                                <img
-                                    src={viewingFileUrl}
-                                    alt="Preview Dokumen"
-                                    className="max-h-[65vh] max-w-full object-contain rounded"
-                                />
-                            )
-                        ) : (
-                            <span className="text-xs text-zinc-400">Berkas tidak dapat dimuat.</span>
-                        )}
-                    </div>
-                </DialogContent>
-            </Dialog>
+            <UniversalDocumentViewer
+                isOpen={isViewerOpen}
+                onClose={() => setIsViewerOpen(false)}
+                fileUrl={viewingFileUrl}
+                fileName={`Kontrak: ${viewingFileName}`}
+            />
         </AppLayout>
     );
 }

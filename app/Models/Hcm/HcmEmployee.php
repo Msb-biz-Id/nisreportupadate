@@ -2,6 +2,7 @@
 
 namespace App\Models\Hcm;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -15,6 +16,7 @@ class HcmEmployee extends Model
 
     protected $fillable = [
         'employee_code',
+        'employee_category',
         'name',
         'nickname',
         'department',
@@ -53,7 +55,41 @@ class HcmEmployee extends Model
     protected $appends = [
         'photo_path',
         'photo_base64',
+        'is_intern',
+        'is_regular',
     ];
+
+    /**
+     * Scope untuk menyaring karyawan reguler (Managerial, Kontrak, Borongan).
+     */
+    public function scopeRegular(Builder $query): Builder
+    {
+        return $query->where('employee_category', 'REGULAR');
+    }
+
+    /**
+     * Scope untuk menyaring peserta magang SMK (PKL).
+     */
+    public function scopeInterns(Builder $query): Builder
+    {
+        return $query->where('employee_category', 'INTERN');
+    }
+
+    /**
+     * Accessor is_intern
+     */
+    public function getIsInternAttribute(): bool
+    {
+        return ($this->employee_category === 'INTERN') || ($this->job_level === 'Magang');
+    }
+
+    /**
+     * Accessor is_regular
+     */
+    public function getIsRegularAttribute(): bool
+    {
+        return ($this->employee_category ?? 'REGULAR') === 'REGULAR' && $this->job_level !== 'Magang';
+    }
 
     /**
      * Dapatkan path fisik file foto di storage disk.
@@ -100,6 +136,22 @@ class HcmEmployee extends Model
     public function intern(): HasOne
     {
         return $this->hasOne(HcmIntern::class, 'employee_id');
+    }
+
+    /**
+     * Rekap onboarding karyawan baru (Modul 12).
+     */
+    public function onboarding(): HasOne
+    {
+        return $this->hasOne(HcmOnboarding::class, 'employee_id');
+    }
+
+    /**
+     * Rekap offboarding karyawan keluar (Modul 12).
+     */
+    public function offboarding(): HasOne
+    {
+        return $this->hasOne(HcmOffboarding::class, 'employee_id');
     }
 
     /**

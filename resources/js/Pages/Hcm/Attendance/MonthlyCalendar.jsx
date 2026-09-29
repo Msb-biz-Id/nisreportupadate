@@ -17,7 +17,11 @@ import {
     Check,
     X,
     Percent,
+    MessageSquare,
+    UserCheck,
+    GraduationCap,
 } from 'lucide-react';
+import WhatsAppSummaryModal from './Components/WhatsAppSummaryModal';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -36,8 +40,10 @@ export default function MonthlyCalendar({
     metrics,
 }) {
     const [selectedMonth, setSelectedMonth] = useState(month || new Date().toISOString().substring(0, 7));
+    const [category, setCategory] = useState(filters.category || 'all');
     const [department, setDepartment] = useState(filters.department || 'all');
     const [search, setSearch] = useState(filters.search || '');
+    const [isWaModalOpen, setIsWaModalOpen] = useState(false);
 
     // Navigasi Bulan (Sebelumnya / Berikutnya)
     const handleMonthChange = (offset) => {
@@ -53,13 +59,13 @@ export default function MonthlyCalendar({
         }
         const newMonth = `${year}-${String(m).padStart(2, '0')}`;
         setSelectedMonth(newMonth);
-        applyFilter(newMonth, department, search);
+        applyFilter(newMonth, department, search, category);
     };
 
-    const applyFilter = (m = selectedMonth, d = department, s = search) => {
+    const applyFilter = (m = selectedMonth, d = department, s = search, cat = category) => {
         router.get(
             route('hcm.attendance.monthly'),
-            { month: m, department: d, search: s },
+            { month: m, department: d, search: s, category: cat },
             { preserveState: true, preserveScroll: true }
         );
     };
@@ -129,47 +135,129 @@ export default function MonthlyCalendar({
     return (
         <AppLayout
             header={
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <CalendarDays className="h-5 w-5 text-indigo-600" />
-                            Matriks Kalender Presensi Bulanan
-                        </h1>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                            Visualisasi absensi 1-31 hari per karyawan untuk periode {formatMonthIndo(selectedMonth)}.
-                        </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                        {/* Tombol Kembali ke Mode Harian */}
-                        <Link href={route('hcm.attendance.index')}>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs gap-1.5 border-zinc-300 dark:border-zinc-700"
-                            >
-                                <ArrowLeft className="h-3.5 w-3.5" />
-                                Mode Harian Massal
-                            </Button>
-                        </Link>
-
-                        {/* Cetak Matriks */}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.print()}
-                            className="text-xs gap-1.5"
-                        >
-                            <Printer className="h-3.5 w-3.5" />
-                            Cetak Rekap
-                        </Button>
-                    </div>
+                <div className="flex items-center gap-2 min-w-0">
+                    <CalendarDays className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                        Matriks Kalender Presensi Bulanan
+                    </span>
                 </div>
             }
         >
             <Head title={`Presensi Bulanan ${formatMonthIndo(selectedMonth)} - HCM`} />
 
             <div className="space-y-4">
+                {/* Header Banner Canvas */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
+                    <div>
+                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                            <CalendarDays className="h-5 w-5 text-indigo-600 shrink-0" />
+                            <span>Matriks Kalender Presensi Bulanan</span>
+                        </h1>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                            Visualisasi absensi 1-31 hari per karyawan untuk periode {formatMonthIndo(selectedMonth)}.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsWaModalOpen(true)}
+                            className="text-xs gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"
+                            title="Salin ringkasan presensi bulanan ke WhatsApp"
+                        >
+                            <MessageSquare className="h-3.5 w-3.5" />
+                            <span>Ringkasan WA</span>
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(route('hcm.attendance.export-monthly', { month: selectedMonth, category, department }))}
+                            className="text-xs gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400"
+                            title="Unduh Matriks Bulanan dalam format Excel (.xlsx)"
+                        >
+                            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                            <span>Export Excel</span>
+                        </Button>
+
+                        <Link href={route('hcm.attendance.index')}>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs gap-1.5 border-zinc-200 dark:border-zinc-700"
+                            >
+                                <ArrowLeft className="h-3.5 w-3.5" />
+                                <span>Mode Harian Massal</span>
+                            </Button>
+                        </Link>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.print()}
+                            className="text-xs gap-1.5 border-zinc-200 dark:border-zinc-700"
+                        >
+                            <Printer className="h-3.5 w-3.5" />
+                            <span>Cetak Rekap</span>
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Segmented Category Filter (Model Karyawan Dual Model) */}
+                <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60">
+                    <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-zinc-500 shrink-0" />
+                        <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Model Personel:</span>
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-xs">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setCategory('all');
+                                applyFilter(selectedMonth, department, search, 'all');
+                            }}
+                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                                category === 'all'
+                                    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-xs'
+                                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                            }`}
+                        >
+                            Semua Personel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setCategory('REGULAR');
+                                applyFilter(selectedMonth, department, search, 'REGULAR');
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                                category === 'REGULAR'
+                                    ? 'bg-blue-600 text-white shadow-xs'
+                                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                            }`}
+                        >
+                            <UserCheck className="h-3 w-3" />
+                            Karyawan Reguler
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setCategory('INTERN');
+                                applyFilter(selectedMonth, department, search, 'INTERN');
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                                category === 'INTERN'
+                                    ? 'bg-purple-600 text-white shadow-xs'
+                                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                            }`}
+                        >
+                            <GraduationCap className="h-3 w-3" />
+                            Peserta Magang SMK
+                        </button>
+                    </div>
+                </div>
                 {/* 1. KARTU METRIK RINGKASAN BULANAN */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
                     <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs p-3">
@@ -335,7 +423,7 @@ export default function MonthlyCalendar({
 
                 {/* 4. TABEL MATRIKS BULANAN (SPREADSHEET GRID) */}
                 <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto max-h-[70vh]">
+                    <div className="overflow-x-auto max-h-[70vh] scrollbar-thin">
                         <table className="w-full border-collapse text-left text-xs">
                             <thead className="sticky top-0 z-20 bg-zinc-100 dark:bg-zinc-800 shadow-xs border-b border-zinc-200 dark:border-zinc-700">
                                 <tr>
@@ -411,8 +499,19 @@ export default function MonthlyCalendar({
 
                                                 {/* Identitas Karyawan Sticky */}
                                                 <td className="sticky left-10 z-10 bg-white dark:bg-zinc-900 p-2 border-r border-zinc-200 dark:border-zinc-800">
-                                                    <div className="font-semibold text-zinc-900 dark:text-zinc-100 text-xs truncate max-w-[150px]">
-                                                        {emp.name}
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-xs truncate max-w-[130px]">
+                                                            {emp.name}
+                                                        </span>
+                                                        {emp.employee_category === 'INTERN' ? (
+                                                            <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 shrink-0">
+                                                                Magang
+                                                            </span>
+                                                        ) : (
+                                                            <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 shrink-0">
+                                                                Reguler
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div className="text-[10px] text-zinc-400 truncate max-w-[150px]">
                                                         {emp.employee_code} • {emp.department}
@@ -475,6 +574,17 @@ export default function MonthlyCalendar({
                     </div>
                 </Card>
             </div>
+
+            {/* Modal Generator Ringkasan WhatsApp */}
+            <WhatsAppSummaryModal
+                isOpen={isWaModalOpen}
+                onClose={() => setIsWaModalOpen(false)}
+                defaultType="monthly"
+                initialDate={new Date().toISOString().split('T')[0]}
+                initialMonth={selectedMonth}
+                initialCategory={category}
+                initialDepartment={department}
+            />
         </AppLayout>
     );
 }

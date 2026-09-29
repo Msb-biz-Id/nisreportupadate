@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
+import UniversalDocumentViewer from '@/Components/Hcm/UniversalDocumentViewer';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -97,6 +98,7 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
             recipient: '',
             subject: '',
             category: 'Umum',
+            disposition_status: '',
             file_upload: null,
             file_url: '',
             physical_location: 'Ordner Arsip HCM',
@@ -117,6 +119,7 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
             recipient: letter.recipient,
             subject: letter.subject,
             category: letter.category || 'Umum',
+            disposition_status: letter.disposition_status || '',
             file_upload: null,
             file_url: letter.file_url || '',
             physical_location: letter.physical_location || 'Ordner Arsip HCM',
@@ -189,11 +192,23 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
     return (
         <AppLayout
             header={
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                    <BookOpen className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                        Buku Agenda Persuratan HCM
+                    </span>
+                </div>
+            }
+        >
+            <Head title="Buku Agenda Persuratan - HCM" />
+
+            <div className="space-y-4">
+                {/* Header Banner Canvas */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
                     <div>
-                        <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <BookOpen className="h-5 w-5 text-indigo-600" />
-                            Buku Agenda Persuratan HCM
+                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                            <BookOpen className="h-5 w-5 text-indigo-600 shrink-0" />
+                            <span>Buku Agenda Persuratan HCM</span>
                         </h1>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                             Pencatatan tertib surat masuk, surat keluar, memo internal dinas, dan arsip fisik SK Direksi.
@@ -203,17 +218,12 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
                     <Button
                         onClick={openCreateModal}
                         size="sm"
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 shadow-sm"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 shadow-xs shrink-0 self-start sm:self-auto"
                     >
                         <Plus className="h-3.5 w-3.5" />
-                        Catat Surat Baru
+                        <span>Catat Surat Baru</span>
                     </Button>
                 </div>
-            }
-        >
-            <Head title="Buku Agenda Persuratan - HCM" />
-
-            <div className="space-y-4">
                 {/* 1. Baris Metrik Ringkasan */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs p-3.5 flex items-center gap-3">
@@ -322,6 +332,7 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
                                     <TableHead className="text-xs">Nomor Surat & Perihal</TableHead>
                                     <TableHead className="text-xs">Pengirim & Penerima</TableHead>
                                     <TableHead className="w-28 text-xs">Tanggal</TableHead>
+                                    <TableHead className="w-36 text-xs">Disposisi</TableHead>
                                     <TableHead className="w-32 text-xs">Lokasi Fisik</TableHead>
                                     <TableHead className="w-24 text-center text-xs">Berkas</TableHead>
                                     <TableHead className="w-24 text-right text-xs">Aksi</TableHead>
@@ -360,6 +371,11 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
                                                         Tercatat: {letter.received_or_sent_date}
                                                     </div>
                                                 )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                                                    {letter.disposition_status || '-'}
+                                                </span>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-1 text-[11px] text-zinc-600 dark:text-zinc-400">
@@ -579,6 +595,17 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
                             />
                         </div>
 
+                        <div className="space-y-1">
+                            <Label className="text-xs font-medium">Status Disposisi</Label>
+                            <Input
+                                type="text"
+                                value={form.data.disposition_status}
+                                onChange={(e) => form.setData('disposition_status', e.target.value)}
+                                placeholder="Selesai / Diteruskan ke HCM Manager / Menunggu Tindak Lanjut"
+                                className="h-8 text-xs"
+                            />
+                        </div>
+
                         {/* Upload Berkas Fisik ke Google Drive */}
                         <div className="space-y-1.5 p-3 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
                             <Label className="text-xs font-semibold flex items-center gap-1.5 text-zinc-800 dark:text-zinc-200">
@@ -599,16 +626,6 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
                                 Berkas otomatis tersimpan di storage lokal & Google Drive folder <code>02_Surat_Masuk_Keluar</code>.
                             </p>
 
-                            <div className="pt-1.5 border-t border-zinc-200/60 dark:border-zinc-800">
-                                <Label className="text-[11px] text-zinc-500">Atau Tautan Google Drive Eksternal (Opsional)</Label>
-                                <Input
-                                    type="url"
-                                    value={form.data.file_url}
-                                    onChange={(e) => form.setData('file_url', e.target.value)}
-                                    placeholder="https://drive.google.com/..."
-                                    className="text-xs h-7 mt-0.5"
-                                />
-                            </div>
                         </div>
 
                         <div className="space-y-1">
@@ -644,47 +661,12 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
             </Dialog>
 
             {/* MODAL 2: In-App Document Preview Modal */}
-            <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
-                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-4">
-                    <DialogHeader className="pb-2 border-b">
-                        <div className="flex items-center justify-between">
-                            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-indigo-600" />
-                                {previewFile?.name || 'Pratinjau Surat'}
-                            </DialogTitle>
-                            {previewFile?.url && (
-                                <a
-                                    href={previewFile.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-indigo-600 hover:underline flex items-center gap-1"
-                                >
-                                    <ExternalLink className="h-3.5 w-3.5" />
-                                    Buka di Tab Baru
-                                </a>
-                            )}
-                        </div>
-                    </DialogHeader>
-                    <div className="flex-1 w-full min-h-[500px] bg-zinc-100 dark:bg-zinc-900 rounded-lg overflow-hidden flex items-center justify-center p-2">
-                        {previewFile?.isPdf ? (
-                            <iframe
-                                src={previewFile.url}
-                                className="w-full h-full min-h-[500px] border-0 rounded"
-                                title="Pratinjau PDF Surat"
-                            />
-                        ) : (
-                            <img
-                                src={previewFile?.url}
-                                alt="Pratinjau Berkas"
-                                className="max-h-[600px] max-w-full object-contain rounded shadow"
-                                onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                }}
-                            />
-                        )}
-                    </div>
-                </DialogContent>
-            </Dialog>
+            <UniversalDocumentViewer
+                isOpen={!!previewFile}
+                onClose={() => setPreviewFile(null)}
+                fileUrl={previewFile?.url}
+                fileName={previewFile?.name || 'Surat Agenda'}
+            />
         </AppLayout>
     );
 }

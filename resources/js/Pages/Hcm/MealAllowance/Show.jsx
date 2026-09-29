@@ -19,6 +19,8 @@ import {
     Search,
     Filter,
     HelpCircle,
+    Printer,
+    FileSpreadsheet,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent } from '@/Components/ui/card';
@@ -140,6 +142,8 @@ export default function MealAllowanceShow({ batch, settings }) {
                                     className={
                                         batch.status === 'PAID_COMPLETED'
                                             ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                            : batch.status === 'PENDING_FINANCE_SIGN'
+                                            ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30'
                                             : batch.status === 'APPROVED_BY_HCM'
                                             ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30'
                                             : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
@@ -147,7 +151,11 @@ export default function MealAllowanceShow({ batch, settings }) {
                                 >
                                     {batch.status === 'PAID_COMPLETED' ? (
                                         <span className="flex items-center gap-1 font-semibold">
-                                            <CheckCircle2 className="w-3.5 h-3.5" /> Lunas & Dicairkan
+                                            <CheckCircle2 className="w-3.5 h-3.5" /> Lunas &amp; Dicairkan
+                                        </span>
+                                    ) : batch.status === 'PENDING_FINANCE_SIGN' ? (
+                                        <span className="flex items-center gap-1 font-semibold">
+                                            <Clock className="w-3.5 h-3.5" /> Verifikasi Kas Keuangan
                                         </span>
                                     ) : batch.status === 'APPROVED_BY_HCM' ? (
                                         <span className="flex items-center gap-1 font-semibold">
@@ -329,11 +337,21 @@ export default function MealAllowanceShow({ batch, settings }) {
 
                                 {batch.status === 'APPROVED_BY_HCM' && (
                                     <Button
+                                        onClick={() => router.post(route('hcm.meal-allowance.start-finance', batch.id), {}, { preserveScroll: true })}
+                                        className="w-full md:w-auto bg-sky-600 hover:bg-sky-700 text-white gap-1.5 text-xs font-semibold"
+                                    >
+                                        <Landmark className="w-4 h-4" />
+                                        Mulai Verifikasi Kas (Keuangan)
+                                    </Button>
+                                )}
+
+                                {batch.status === 'PENDING_FINANCE_SIGN' && (
+                                    <Button
                                         onClick={() => setIsFinanceModalOpen(true)}
                                         className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-xs font-semibold shadow-sm"
                                     >
                                         <Landmark className="w-4 h-4" />
-                                        Otorisasi Pencairan Keuangan (Sign 2)
+                                        Sign &amp; Tandai Lunas
                                     </Button>
                                 )}
 
@@ -343,6 +361,23 @@ export default function MealAllowanceShow({ batch, settings }) {
                                         Arsip Telah Selesai
                                     </Badge>
                                 )}
+
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => window.open(route('hcm.meal-allowance.pdf', batch.id) + '?action=stream', '_blank')}
+                                    className="w-full md:w-auto text-xs gap-1.5"
+                                >
+                                    <Printer className="w-3.5 h-3.5" /> Cetak PDF
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => { window.location.href = route('hcm.meal-allowance.export', batch.id); }}
+                                    className="w-full md:w-auto text-xs gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"
+                                >
+                                    <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+                                </Button>
                             </div>
                         </div>
                     </CardContent>

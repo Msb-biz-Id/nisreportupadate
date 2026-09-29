@@ -17,6 +17,8 @@ import {
     Sparkles,
     AlertCircle,
     Check,
+    Printer,
+    FileSpreadsheet,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent } from '@/Components/ui/card';
@@ -68,6 +70,7 @@ export default function OvertimeShow({
         payment_method: 'Kas Tunai',
         coa_code: batch.coa_code || rates.coa_code || '5-50100',
         finance_notes: '',
+        payout_proof: null,
     });
 
     // Format Rupiah
@@ -159,6 +162,7 @@ export default function OvertimeShow({
     const handleFinanceSubmit = (e) => {
         e.preventDefault();
         financeForm.post(route('hcm.overtime.sign-finance', batch.id), {
+            forceFormData: true,
             onSuccess: () => {
                 setIsFinanceModalOpen(false);
             },
@@ -202,10 +206,18 @@ export default function OvertimeShow({
                                             ? 'bg-emerald-500/10 text-emerald-600 border-emerald-300'
                                             : batch.status === 'APPROVED_BY_HCM'
                                             ? 'bg-amber-500/10 text-amber-600 border-amber-300'
+                                            : batch.status === 'PENDING_FINANCE_SIGN'
+                                            ? 'bg-sky-500/10 text-sky-600 border-sky-300'
                                             : 'bg-zinc-500/10 text-zinc-600'
                                     }`}
                                 >
-                                    {batch.status === 'PAID_COMPLETED' ? 'LUNAS (PAID)' : batch.status === 'APPROVED_BY_HCM' ? 'SIGN HCM (MENUNGGU BAYAR)' : 'DRAF (HCM)'}
+                                    {batch.status === 'PAID_COMPLETED'
+                                        ? 'LUNAS (PAID)'
+                                        : batch.status === 'APPROVED_BY_HCM'
+                                        ? 'SIGN HCM (MENUNGGU BAYAR)'
+                                        : batch.status === 'PENDING_FINANCE_SIGN'
+                                        ? 'VERIFIKASI KAS (KEUANGAN)'
+                                        : 'DRAF (HCM)'}
                                 </Badge>
                             </div>
                             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
@@ -229,12 +241,23 @@ export default function OvertimeShow({
 
                         {batch.status === 'APPROVED_BY_HCM' && (
                             <Button
+                                onClick={() => router.post(route('hcm.overtime.start-finance', batch.id), {}, { preserveScroll: true })}
+                                size="sm"
+                                className="bg-sky-600 hover:bg-sky-700 text-white text-xs gap-1.5 shadow-sm"
+                            >
+                                <DollarSign className="h-4 w-4" />
+                                2. Mulai Verifikasi Kas (Keuangan)
+                            </Button>
+                        )}
+
+                        {batch.status === 'PENDING_FINANCE_SIGN' && (
+                            <Button
                                 onClick={() => setIsFinanceModalOpen(true)}
                                 size="sm"
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 shadow-sm"
                             >
                                 <DollarSign className="h-4 w-4" />
-                                2. Otorisasi Bayar & Sign Keuangan
+                                3. Sign & Tandai Lunas
                             </Button>
                         )}
 
@@ -244,6 +267,23 @@ export default function OvertimeShow({
                                 Terkunci Permanen (Lunas)
                             </Badge>
                         )}
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(route('hcm.overtime.pdf', batch.id) + '?action=stream', '_blank')}
+                            className="text-xs gap-1.5"
+                        >
+                            <Printer className="h-3.5 w-3.5" /> Cetak PDF
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => { window.location.href = route('hcm.overtime.export', batch.id); }}
+                            className="text-xs gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"
+                        >
+                            <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+                        </Button>
                     </div>
                 </div>
             }
@@ -591,6 +631,23 @@ export default function OvertimeShow({
                                 placeholder="e.g. Dicairkan via kas kasir produksi / Diserahkan Sabtu 3 Okt"
                                 className="text-xs"
                             />
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-xs font-medium">Bukti Bayar / Transfer (Opsional)</Label>
+                            <Input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        financeForm.setData('payout_proof', e.target.files[0]);
+                                    }
+                                }}
+                                className="text-xs file:text-xs"
+                            />
+                            <p className="text-[10px] text-zinc-500">
+                                Tanda terima / slip transfer. Berkas dialirkan ke Google Drive; jika kosong, cukup catatan voucher.
+                            </p>
                         </div>
 
                         <DialogFooter className="gap-2 pt-2">

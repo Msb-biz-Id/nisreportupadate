@@ -18,6 +18,8 @@ class HcmIntern extends Model
         'class',
         'major',
         'nis',
+        'student_phone',
+        'student_address',
         'start_date',
         'end_date',
         'duration_text',

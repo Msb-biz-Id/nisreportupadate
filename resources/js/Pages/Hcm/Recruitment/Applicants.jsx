@@ -18,8 +18,12 @@ import {
     Eye,
     Rocket,
     Building2,
+    Trash2,
+    Printer,
+    Edit2,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
+import UniversalDocumentViewer from '@/Components/Hcm/UniversalDocumentViewer';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -58,10 +62,16 @@ export default function ApplicantsIndex({
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+    const [previewDoc, setPreviewDoc] = useState(null);
 
     // Form Status & Jadwal Interview
     const statusForm = useForm({
         status: 'SUBMITTED',
+        invitation_status: 'Belum Diundang',
+        interview_result: '',
+        onboarding_attendance: '',
+        is_blacklisted: false,
+        hcm_notes: '',
         interview_date: '',
         interview_location: 'Kantor / Pabrik Klaten',
         interviewer_notes: '',
@@ -76,6 +86,19 @@ export default function ApplicantsIndex({
         position: '',
         join_date: new Date().toISOString().split('T')[0],
     });
+
+    // Form Rekap Hasil Wawancara (Modul 11.4)
+    const interviewForm = useForm({
+        interview_round: '',
+        interviewer_name: '',
+        interview_date: new Date().toISOString().split('T')[0],
+        interview_result: '',
+        offering_status: '',
+        interview_decision: '',
+        salary_expectation: '',
+        offering_notes: '',
+    });
+    const [editingInterview, setEditingInterview] = useState(null);
 
     const formatRp = (val) => {
         if (!val) return 'Rp 0';
@@ -103,6 +126,7 @@ export default function ApplicantsIndex({
 
     const openDetailModal = (app) => {
         setSelectedApplicant(app);
+        resetInterviewForm();
         setIsDetailModalOpen(true);
     };
 
@@ -110,6 +134,11 @@ export default function ApplicantsIndex({
         setSelectedApplicant(app);
         statusForm.setData({
             status: app.status,
+            invitation_status: app.invitation_status || 'Belum Diundang',
+            interview_result: app.interview_result || '',
+            onboarding_attendance: app.onboarding_attendance || '',
+            is_blacklisted: !!app.is_blacklisted,
+            hcm_notes: app.hcm_notes || '',
             interview_date: app.interview_date ? app.interview_date.replace(' ', 'T').slice(0, 16) : '',
             interview_location: app.interview_location || 'Kantor / Pabrik Klaten',
             interviewer_notes: app.interviewer_notes || '',
@@ -146,6 +175,56 @@ export default function ApplicantsIndex({
                 setIsConvertModalOpen(false);
             },
         });
+    };
+
+    const resetInterviewForm = () => {
+        setEditingInterview(null);
+        interviewForm.reset();
+        interviewForm.setData({
+            interview_round: '',
+            interviewer_name: '',
+            interview_date: new Date().toISOString().split('T')[0],
+            interview_result: '',
+            offering_status: '',
+            interview_decision: '',
+            salary_expectation: '',
+            offering_notes: '',
+        });
+    };
+
+    const openEditInterview = (iv) => {
+        setEditingInterview(iv);
+        interviewForm.setData({
+            interview_round: iv.interview_round || '',
+            interviewer_name: iv.interviewer_name || '',
+            interview_date: (iv.interview_date || '').slice(0, 10),
+            interview_result: iv.interview_result || '',
+            offering_status: iv.offering_status || '',
+            interview_decision: iv.interview_decision || '',
+            salary_expectation: iv.salary_expectation ?? '',
+            offering_notes: iv.offering_notes || '',
+        });
+    };
+
+    const handleInterviewSubmit = (e) => {
+        e.preventDefault();
+        if (editingInterview) {
+            interviewForm.put(route('hcm.recruitment.interviews.update', editingInterview.id), {
+                preserveScroll: true,
+                onSuccess: () => resetInterviewForm(),
+            });
+        } else {
+            interviewForm.post(route('hcm.recruitment.applicants.interviews.store', selectedApplicant.id), {
+                preserveScroll: true,
+                onSuccess: () => resetInterviewForm(),
+            });
+        }
+    };
+
+    const handleDeleteInterview = (iv) => {
+        if (!confirm('Hapus rekap wawancara ini?')) return;
+        if (editingInterview?.id === iv.id) setEditingInterview(null);
+        router.delete(route('hcm.recruitment.interviews.destroy', iv.id), { preserveScroll: true });
     };
 
     const getStatusBadge = (status) => {
@@ -607,29 +686,33 @@ export default function ApplicantsIndex({
                                     <div className="font-semibold text-zinc-700 dark:text-zinc-300">Berkas Terlampir:</div>
                                     <div className="flex flex-wrap gap-2">
                                         {selectedApplicant.resume_file_url ? (
-                                            <a
-                                                href={selectedApplicant.resume_file_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/40 text-blue-600 font-semibold hover:underline text-xs"
+                                            <button
+                                                type="button"
+                                                onClick={() => setPreviewDoc({
+                                                    url: selectedApplicant.resume_file_url,
+                                                    name: `CV / Resume - ${selectedApplicant.name}`,
+                                                })}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 text-xs transition"
                                             >
-                                                <ExternalLink className="w-3.5 h-3.5" />
-                                                Buka Berkas CV / Resume
-                                            </a>
+                                                <Eye className="w-3.5 h-3.5" />
+                                                Lihat CV / Resume (In-App)
+                                            </button>
                                         ) : (
-                                            <span className="text-zinc-400 italic">CV tidak dilampirkan</span>
+                                            <span className="text-zinc-400 italic text-xs">CV tidak dilampirkan</span>
                                         )}
 
                                         {selectedApplicant.ktp_file_url && (
-                                            <a
-                                                href={selectedApplicant.ktp_file_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold hover:underline text-xs"
+                                            <button
+                                                type="button"
+                                                onClick={() => setPreviewDoc({
+                                                    url: selectedApplicant.ktp_file_url,
+                                                    name: `Scan KTP - ${selectedApplicant.name}`,
+                                                })}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-700 text-xs transition"
                                             >
-                                                <ExternalLink className="w-3.5 h-3.5" />
-                                                Buka Scan KTP
-                                            </a>
+                                                <Eye className="w-3.5 h-3.5" />
+                                                Lihat KTP (In-App)
+                                            </button>
                                         )}
 
                                         {selectedApplicant.portfolio_file_url && (
@@ -637,7 +720,7 @@ export default function ApplicantsIndex({
                                                 href={selectedApplicant.portfolio_file_url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-950/40 text-purple-600 font-semibold hover:underline text-xs"
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 font-semibold hover:underline text-xs"
                                             >
                                                 <ExternalLink className="w-3.5 h-3.5" />
                                                 Tautan Portofolio
@@ -645,10 +728,78 @@ export default function ApplicantsIndex({
                                         )}
                                     </div>
                                 </div>
+                                <div className="space-y-2">
+                                    <div className="font-semibold text-zinc-700 dark:text-zinc-300">Rekap Hasil Wawancara:</div>
+                                    <div className="space-y-2">
+                                        {(selectedApplicant.interviews || []).length > 0 ? (
+                                            selectedApplicant.interviews.map((iv) => (
+                                                <div key={iv.id} className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-2.5 text-xs">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                                                            {iv.interview_round || 'Wawancara'}{iv.interviewer_name ? ` • ${iv.interviewer_name}` : ''}
+                                                        </span>
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            <span className="text-[10px] text-zinc-400">{(iv.interview_date || '').slice(0, 10) || '-'}</span>
+                                                            <button type="button" onClick={() => openEditInterview(iv)} className="text-indigo-500 hover:text-indigo-700">
+                                                                <Edit2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <button type="button" onClick={() => handleDeleteInterview(iv)} className="text-rose-500 hover:text-rose-700">
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-1 flex flex-wrap gap-1.5">
+                                                        {iv.interview_result && <Badge className="text-[10px] bg-sky-500/10 text-sky-600">{iv.interview_result}</Badge>}
+                                                        {iv.offering_status && <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600">{iv.offering_status}</Badge>}
+                                                        {iv.interview_decision && <Badge variant="outline" className="text-[10px]">{iv.interview_decision}</Badge>}
+                                                    </div>
+                                                    {iv.offering_notes && <p className="mt-1 text-zinc-500">{iv.offering_notes}</p>}
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="text-zinc-400 italic text-xs">Belum ada sesi wawancara yang tercatat.</p>
+                                        )}
+                                    </div>
+
+                                    <form onSubmit={handleInterviewSubmit} className={`rounded-lg border p-3 space-y-2 ${editingInterview ? 'border-indigo-300 bg-indigo-50/40 dark:border-indigo-800 dark:bg-indigo-950/20' : 'border-dashed border-zinc-300 dark:border-zinc-700'}`}>
+                                        <div className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                            {editingInterview ? `Edit Sesi Wawancara${editingInterview.interview_round ? ' — ' + editingInterview.interview_round : ''}` : 'Tambah Sesi Wawancara'}
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <Input value={interviewForm.data.interview_round} onChange={(e) => interviewForm.setData('interview_round', e.target.value)} placeholder="Ronde (HRD / User / Manager)" className="h-8 text-xs" />
+                                            <Input value={interviewForm.data.interviewer_name} onChange={(e) => interviewForm.setData('interviewer_name', e.target.value)} placeholder="Nama Pewawancara" className="h-8 text-xs" />
+                                            <Input type="date" value={interviewForm.data.interview_date} onChange={(e) => interviewForm.setData('interview_date', e.target.value)} className="h-8 text-xs" />
+                                            <SearchableSelect value={interviewForm.data.interview_result} onValueChange={(v) => interviewForm.setData('interview_result', v)} options={[{ label: 'Disarankan Diterima', value: 'Disarankan Diterima' }, { label: 'Dipertimbangkan', value: 'Dipertimbangkan' }, { label: 'Ditolak', value: 'Ditolak' }]} placeholder="Hasil Wawancara" className="text-xs" />
+                                            <SearchableSelect value={interviewForm.data.offering_status} onValueChange={(v) => interviewForm.setData('offering_status', v)} options={[{ label: 'Diterima (Join)', value: 'Diterima (Join)' }, { label: 'Dipertimbangkan Kembali', value: 'Dipertimbangkan Kembali' }, { label: 'Ditolak Pelamar', value: 'Ditolak Pelamar' }, { label: 'Pending', value: 'Pending' }]} placeholder="Status Offering" className="text-xs" />
+                                            <SearchableSelect value={interviewForm.data.interview_decision} onValueChange={(v) => interviewForm.setData('interview_decision', v)} options={[{ label: 'Diterima', value: 'Diterima' }, { label: 'Pending', value: 'Pending' }, { label: 'Ditolak', value: 'Ditolak' }]} placeholder="Keputusan" className="text-xs" />
+                                            <Input type="number" min="0" value={interviewForm.data.salary_expectation} onChange={(e) => interviewForm.setData('salary_expectation', e.target.value)} placeholder="Ekspektasi Gaji (Rp)" className="h-8 text-xs" />
+                                        </div>
+                                        <Textarea value={interviewForm.data.offering_notes} onChange={(e) => interviewForm.setData('offering_notes', e.target.value)} placeholder="Catatan hasil wawancara / offering..." rows={2} className="text-xs" />
+                                        <div className="flex justify-end gap-2">
+                                            {editingInterview && (
+                                                <Button type="button" variant="outline" size="sm" onClick={resetInterviewForm} className="text-xs">
+                                                    Batal
+                                                </Button>
+                                            )}
+                                            <Button type="submit" size="sm" disabled={interviewForm.processing} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs">
+                                                {editingInterview ? 'Perbarui Wawancara' : 'Simpan Wawancara'}
+                                            </Button>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
                         )}
 
-                        <DialogFooter className="pt-2">
+                        <DialogFooter className="pt-2 gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(route('hcm.recruitment.applicants.pdf', selectedApplicant.id) + '?action=stream', '_blank')}
+                                className="text-xs gap-1.5"
+                            >
+                                <Printer className="w-3.5 h-3.5" /> Cetak Profil Pelamar
+                            </Button>
                             <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(false)}>
                                 Tutup
                             </Button>
@@ -686,6 +837,60 @@ export default function ApplicantsIndex({
                                 />
                             </div>
 
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Status Undangan</Label>
+                                    <SearchableSelect
+                                        value={statusForm.data.invitation_status}
+                                        onValueChange={(val) => statusForm.setData('invitation_status', val)}
+                                        options={[
+                                            { label: 'Belum Diundang', value: 'Belum Diundang' },
+                                            { label: 'Diundang', value: 'Diundang' },
+                                            { label: 'Hadir Interview', value: 'Hadir Interview' },
+                                            { label: 'Tidak Diundang', value: 'Tidak Diundang' },
+                                        ]}
+                                        placeholder="Pilih status undangan"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Hasil Interview</Label>
+                                    <SearchableSelect
+                                        value={statusForm.data.interview_result}
+                                        onValueChange={(val) => statusForm.setData('interview_result', val)}
+                                        options={[
+                                            { label: '- (Belum ada)', value: '' },
+                                            { label: 'Disarankan Diterima', value: 'Disarankan Diterima' },
+                                            { label: 'Dipertimbangkan', value: 'Dipertimbangkan' },
+                                            { label: 'Ditolak', value: 'Ditolak' },
+                                        ]}
+                                        placeholder="Pilih hasil interview"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Status Kehadiran Kerja</Label>
+                                    <SearchableSelect
+                                        value={statusForm.data.onboarding_attendance}
+                                        onValueChange={(val) => statusForm.setData('onboarding_attendance', val)}
+                                        options={[
+                                            { label: '- (Belum ada)', value: '' },
+                                            { label: 'Hadir', value: 'Hadir' },
+                                            { label: 'Tidak Hadir', value: 'Tidak Hadir' },
+                                        ]}
+                                        placeholder="Pilih kehadiran"
+                                    />
+                                </div>
+                                <div className="space-y-1.5 flex flex-col justify-end">
+                                    <Label className="text-xs font-semibold">Status Blacklist</Label>
+                                    <button
+                                        type="button"
+                                        onClick={() => statusForm.setData('is_blacklisted', !statusForm.data.is_blacklisted)}
+                                        className={`h-9 rounded-md border px-3 text-xs text-left transition ${statusForm.data.is_blacklisted ? 'border-rose-300 bg-rose-50 text-rose-700' : 'border-zinc-200 bg-white text-zinc-600'}`}
+                                    >
+                                        {statusForm.data.is_blacklisted ? 'Ya — Masuk Blacklist' : 'Tidak'}
+                                    </button>
+                                </div>
+                            </div>
+
                             {statusForm.data.status === 'INTERVIEW' && (
                                 <>
                                     <div className="space-y-1.5">
@@ -717,6 +922,17 @@ export default function ApplicantsIndex({
                                     onChange={(e) => statusForm.setData('interviewer_notes', e.target.value)}
                                     placeholder="Hasil wawancara, nilai tes teknis jahit/desain, dsb..."
                                     rows={3}
+                                    className="text-xs"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Catatan Rekam Jejak HCM</Label>
+                                <Textarea
+                                    value={statusForm.data.hcm_notes}
+                                    onChange={(e) => statusForm.setData('hcm_notes', e.target.value)}
+                                    placeholder="Catatan internal HCM (disiplin, tindak lanjut, dsb)..."
+                                    rows={2}
                                     className="text-xs"
                                 />
                             </div>
@@ -845,6 +1061,14 @@ export default function ApplicantsIndex({
                         </form>
                     </DialogContent>
                 </Dialog>
+
+                {/* MODAL IN-APP DOCUMENT VIEWER */}
+                <UniversalDocumentViewer
+                    isOpen={!!previewDoc}
+                    onClose={() => setPreviewDoc(null)}
+                    fileUrl={previewDoc?.url}
+                    fileName={previewDoc?.name || 'Dokumen Pelamar'}
+                />
             </div>
         </AppLayout>
     );

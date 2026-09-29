@@ -26,9 +26,17 @@ import {
     FileText,
     Calendar,
     ArrowRight,
+    Cloud,
+    HardDrive,
+    FolderTree,
+    AlertTriangle,
+    RefreshCw,
+    Key,
+    ExternalLink,
 } from 'lucide-react';
+import axios from 'axios';
 
-export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_allowance = {}, payroll = {} }) {
+export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_allowance = {}, payroll = {}, storage = {} }) {
     const [activeTab, setActiveTab] = useState('profile');
     const [logoPreview, setLogoPreview] = useState(profile.logo_url || null);
 
@@ -139,8 +147,57 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
         });
     };
 
+    // Form 4: Google Drive & Cloud Storage
+    const storageForm = useForm({
+        drive_sync_enabled: storage.drive_sync_enabled ?? false,
+        root_folder_id: storage.root_folder_id || '',
+        auto_unlink_local: storage.auto_unlink_local ?? false,
+        service_account_file: null,
+        service_account_raw: '',
+        clear_service_account: false,
+    });
+
+    const [testState, setTestState] = useState({ loading: false, result: null });
+
+    const handleTestConnection = async () => {
+        setTestState({ loading: true, result: null });
+        try {
+            const res = await axios.post(route('hcm.settings.storage.test-connection'));
+            setTestState({ loading: false, result: res.data });
+        } catch (err) {
+            setTestState({
+                loading: false,
+                result: {
+                    success: false,
+                    message: err.response?.data?.message || 'Gagal menghubungi server Google Drive.',
+                },
+            });
+        }
+    };
+
+    const submitStorage = (e) => {
+        e.preventDefault();
+        storageForm.post(route('hcm.settings.storage.update'), {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                storageForm.reset('service_account_file', 'service_account_raw');
+            },
+        });
+    };
+
     return (
-        <AppLayout title="Pengaturan Kepegawaian (HCM)">
+        <AppLayout
+            title="Pengaturan Kepegawaian (HCM)"
+            header={
+                <div className="flex items-center gap-2 min-w-0">
+                    <SlidersHorizontal className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                        Pengaturan Modul Kepegawaian
+                    </span>
+                </div>
+            }
+        >
             <Head title="Pengaturan Kepegawaian (HCM) - Profil & Biaya Lembur" />
 
             <div className="space-y-6">
@@ -148,17 +205,17 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-5">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300">
                                 Sub-Modul HCM
                             </span>
                             <span className="text-xs text-zinc-400">&bull;</span>
                             <span className="text-xs text-zinc-500 dark:text-zinc-400">Konfigurasi Sentral Kepegawaian</span>
                         </div>
-                        <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <SlidersHorizontal className="h-6 w-6 text-red-600 dark:text-red-500" />
-                            Pengaturan Modul Kepegawaian
+                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                            <SlidersHorizontal className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                            <span>Pengaturan Modul Kepegawaian</span>
                         </h1>
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                        <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
                             Atur profil instansi, logo, identitas kop surat, footer dokumen resmi, serta konfigurasi tarif lembur dinamis & tunjangan makan.
                         </p>
                     </div>
@@ -212,6 +269,19 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                     >
                         <UtensilsCrossed className="h-4 w-4" />
                         Uang Makan & Cut-Off Payroll
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('storage')}
+                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+                            activeTab === 'storage'
+                                ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-400'
+                                : 'border-transparent text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
+                        }`}
+                    >
+                        <Cloud className="h-4 w-4" />
+                        Google Drive & Cloud Storage
                     </button>
                 </div>
 
@@ -914,6 +984,284 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                                 </Button>
                             </div>
                         </form>
+                    </div>
+                )}
+
+                {/* TAB 4: GOOGLE DRIVE & CLOUD STORAGE INTEGRATION */}
+                {activeTab === 'storage' && (
+                    <div className="space-y-6">
+                        {/* Status Card Banner */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <Card className="border-l-4 border-l-emerald-500">
+                                <CardContent className="p-4 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-xs text-zinc-500">Status Integrasi</p>
+                                        <p className="text-sm font-semibold flex items-center gap-1.5 mt-0.5">
+                                            {storage.drive_sync_enabled ? (
+                                                <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                                    <CheckCircle2 className="h-4 w-4" /> Sinkronisasi Aktif
+                                                </span>
+                                            ) : (
+                                                <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                                    <AlertTriangle className="h-4 w-4" /> Mode Lokal (Nonaktif)
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
+                                    <Cloud className={`h-8 w-8 ${storage.drive_sync_enabled ? 'text-emerald-500' : 'text-zinc-400'}`} />
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-l-4 border-l-indigo-500">
+                                <CardContent className="p-4 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-xs text-zinc-500">Service Account Google</p>
+                                        <p className="text-sm font-semibold truncate max-w-[210px] mt-0.5">
+                                            {storage.has_service_account ? (
+                                                <span className="text-indigo-600 dark:text-indigo-400" title={storage.service_account_email}>
+                                                    {storage.service_account_email || 'Terkonfigurasi'}
+                                                </span>
+                                            ) : (
+                                                <span className="text-zinc-400">Belum Ada Kredensial</span>
+                                            )}
+                                        </p>
+                                    </div>
+                                    <Key className="h-8 w-8 text-indigo-500" />
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-l-4 border-l-blue-500">
+                                <CardContent className="p-4 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-xs text-zinc-500">Optimalisasi Hosting</p>
+                                        <p className="text-sm font-semibold mt-0.5">
+                                            {storage.auto_unlink_local ? (
+                                                <span className="text-blue-600 dark:text-blue-400">0 MB Local Storage Waste</span>
+                                            ) : (
+                                                <span className="text-zinc-500">Simpan Salinan Lokal</span>
+                                            )}
+                                        </p>
+                                    </div>
+                                    <HardDrive className="h-8 w-8 text-blue-500" />
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            {/* Form Konfigurasi Google Drive */}
+                            <div className="lg:col-span-7 space-y-6">
+                                <form onSubmit={submitStorage} className="space-y-6">
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle className="text-base flex items-center gap-2">
+                                                <Cloud className="h-4 w-4 text-red-600" />
+                                                Pengaturan Akun & Root Folder
+                                            </CardTitle>
+                                            <CardDescription>
+                                                Dokumen digital HCM (Kontrak PKWT, Bukti Sakit, Surat, SOP, CV Pelamar) akan dialirkan otomatis ke Google Drive perusahaan.
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="space-y-5">
+                                            {/* Toggle Sinkronisasi */}
+                                            <div className="flex items-center justify-between p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+                                                <div>
+                                                    <Label htmlFor="drive_sync_enabled" className="font-semibold text-sm cursor-pointer">
+                                                        Aktifkan Sinkronisasi Google Drive Otomatis
+                                                    </Label>
+                                                    <p className="text-xs text-zinc-500 mt-0.5">
+                                                        Jika aktif, file unggahan akan otomatis dialirkan ke subfolder Google Drive terkait.
+                                                    </p>
+                                                </div>
+                                                <input
+                                                    type="checkbox"
+                                                    id="drive_sync_enabled"
+                                                    checked={storageForm.data.drive_sync_enabled}
+                                                    onChange={(e) => storageForm.setData('drive_sync_enabled', e.target.checked)}
+                                                    className="h-5 w-5 rounded border-zinc-300 text-red-600 focus:ring-red-500"
+                                                />
+                                            </div>
+
+                                            {/* Toggle Auto-Unlink */}
+                                            <div className="flex items-center justify-between p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+                                                <div>
+                                                    <Label htmlFor="auto_unlink_local" className="font-semibold text-sm cursor-pointer">
+                                                        Hapus File Lokal Sementara (Auto-Unlink)
+                                                    </Label>
+                                                    <p className="text-xs text-zinc-500 mt-0.5">
+                                                        Menghapus file sementara di hosting setelah sukses terunggah ke Google Drive (menjaga kapasitas server tetap 0 MB).
+                                                    </p>
+                                                </div>
+                                                <input
+                                                    type="checkbox"
+                                                    id="auto_unlink_local"
+                                                    checked={storageForm.data.auto_unlink_local}
+                                                    onChange={(e) => storageForm.setData('auto_unlink_local', e.target.checked)}
+                                                    className="h-5 w-5 rounded border-zinc-300 text-red-600 focus:ring-red-500"
+                                                />
+                                            </div>
+
+                                            {/* Input Root Folder ID */}
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="root_folder_id">Root Folder ID Google Drive (Opsional)</Label>
+                                                <Input
+                                                    id="root_folder_id"
+                                                    value={storageForm.data.root_folder_id}
+                                                    onChange={(e) => storageForm.setData('root_folder_id', e.target.value)}
+                                                    placeholder="Contoh: 1a2B3c4D5e6F_gHiJkLmNoPqRsTuVw"
+                                                />
+                                                <p className="text-xs text-zinc-500">
+                                                    Dapat disalin dari URL folder Google Drive browser Anda (setelah bagian <code className="bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded">/folders/</code>). Kosongkan jika ingin menggunakan My Drive root.
+                                                </p>
+                                            </div>
+
+                                            {/* Upload Kredensial Service Account JSON */}
+                                            <div className="space-y-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                                                <Label htmlFor="service_account_file">
+                                                    Berkas Kredensial Google Service Account (JSON)
+                                                </Label>
+                                                
+                                                {storage.has_service_account && (
+                                                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs space-y-1">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                                                                <CheckCircle2 className="h-4 w-4" /> Kredensial Aktif Tersimpan Aman
+                                                            </span>
+                                                            <label className="flex items-center gap-1.5 cursor-pointer text-red-600 hover:text-red-700">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={storageForm.data.clear_service_account}
+                                                                    onChange={(e) => storageForm.setData('clear_service_account', e.target.checked)}
+                                                                    className="rounded text-red-600 focus:ring-red-500"
+                                                                />
+                                                                <span>Hapus Kredensial</span>
+                                                            </label>
+                                                        </div>
+                                                        <p className="text-emerald-700 dark:text-emerald-400 font-mono text-[11px] truncate">
+                                                            Email: {storage.service_account_email}
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                <Input
+                                                    id="service_account_file"
+                                                    type="file"
+                                                    accept=".json"
+                                                    onChange={(e) => storageForm.setData('service_account_file', e.target.files[0] || null)}
+                                                    className="cursor-pointer"
+                                                />
+                                                <p className="text-xs text-zinc-500">
+                                                    Unggah berkas JSON Service Account yang diunduh dari Google Cloud Console (IAM & Admin &gt; Service Accounts &gt; Keys).
+                                                </p>
+                                                {storageForm.errors.service_account_file && (
+                                                    <p className="text-xs text-red-500">{storageForm.errors.service_account_file}</p>
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    <div className="flex justify-end">
+                                        <Button
+                                            type="submit"
+                                            disabled={storageForm.processing}
+                                            className="bg-red-600 hover:bg-red-700 text-white min-w-44 shadow-sm"
+                                        >
+                                            <Save className="h-4 w-4 mr-2" />
+                                            {storageForm.processing ? 'Menyimpan...' : 'Simpan Pengaturan Cloud'}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            {/* Panel Uji Koneksi & Arsitektur Subfolder */}
+                            <div className="lg:col-span-5 space-y-6">
+                                {/* Uji Koneksi Langsung */}
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-base flex items-center justify-between">
+                                            <span className="flex items-center gap-2">
+                                                <RefreshCw className="h-4 w-4 text-indigo-600" />
+                                                Uji Koneksi API Riil
+                                            </span>
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Verifikasi autentikasi JWT token dan perizinan akses folder langsung ke server Google Drive.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <Button
+                                            type="button"
+                                            onClick={handleTestConnection}
+                                            disabled={testState.loading}
+                                            variant="outline"
+                                            className="w-full border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
+                                        >
+                                            <RefreshCw className={`h-4 w-4 mr-2 ${testState.loading ? 'animate-spin' : ''}`} />
+                                            {testState.loading ? 'Menguji Koneksi...' : 'Tes Koneksi Google Drive Sekarang'}
+                                        </Button>
+
+                                        {testState.result && (
+                                            <div
+                                                className={`p-3.5 rounded-lg border text-xs space-y-2 ${
+                                                    testState.result.success
+                                                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                                                        : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2 font-semibold">
+                                                    {testState.result.success ? (
+                                                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                                    ) : (
+                                                        <AlertTriangle className="h-4 w-4 text-red-600" />
+                                                    )}
+                                                    <span>{testState.result.message}</span>
+                                                </div>
+
+                                                {testState.result.success && (
+                                                    <div className="space-y-1 pt-1 text-[11px] font-mono border-t border-emerald-200/50 dark:border-emerald-800/50">
+                                                        <div>Akun: {testState.result.service_account_email}</div>
+                                                        <div>Root Folder: {testState.result.root_folder_name}</div>
+                                                        {testState.result.storage_quota?.limit && (
+                                                            <div>
+                                                                Kapasitas: {(testState.result.storage_quota.usage / 1024 / 1024 / 1024).toFixed(2)} GB / {(testState.result.storage_quota.limit / 1024 / 1024 / 1024).toFixed(2)} GB
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                {/* Blueprint Subfolder Terstruktur */}
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-base flex items-center gap-2">
+                                            <FolderTree className="h-4 w-4 text-blue-600" />
+                                            Struktur Subfolder Otomatis
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Sistem otomatis membuat dan mengarahkan file ke 5 subfolder standar Google Drive:
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-2.5 text-xs">
+                                        <div className="p-2.5 rounded bg-zinc-100 dark:bg-zinc-800/60 font-mono text-[11px] space-y-1.5 text-zinc-700 dark:text-zinc-300">
+                                            <div className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                                                <FolderTree className="h-3.5 w-3.5 text-amber-500" />
+                                                📁 [Root] NISGroup HCM/
+                                            </div>
+                                            <div className="pl-4">├── 📁 01_Dokumen_Internal (SOP, Kebijakan, SK)</div>
+                                            <div className="pl-4">├── 📁 02_Surat_Masuk_Keluar (Agenda Persuratan)</div>
+                                            <div className="pl-4">├── 📁 03_Kontrak_PKWT (Scan Kontrak Karyawan)</div>
+                                            <div className="pl-4">├── 📁 04_Surat_Dokter_Presensi (Bukti Izin/Sakit)</div>
+                                            <div className="pl-4">└── 📁 05_Rekrutmen_Pelamar (CV/Resume Pelamar)</div>
+                                        </div>
+                                        <p className="text-xs text-zinc-500 pt-1">
+                                            💡 Setiap berkas yang diunggah otomatis diberikan hak akses baca (*anyone with link = reader*) sehingga preview dokumen in-app dapat dibuka tanpa hambatan autentikasi.
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

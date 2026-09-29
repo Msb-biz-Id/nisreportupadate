@@ -83,6 +83,14 @@ class HcmSettingController extends Controller
             'payroll' => [
                 'cutoff_day' => (int) SystemSetting::get('hcm_payroll', 'cutoff_day', 25),
             ],
+            'storage' => [
+                'drive_sync_enabled' => (bool) SystemSetting::get('hcm_storage', 'drive_sync_enabled', false),
+                'root_folder_id' => (string) SystemSetting::get('hcm_storage', 'root_folder_id', ''),
+                'auto_unlink_local' => (bool) SystemSetting::get('hcm_storage', 'auto_unlink_local', false),
+                'has_service_account' => !empty(SystemSetting::get('hcm_storage', 'service_account_json')),
+                'service_account_email' => \App\Services\GoogleDriveClient::getCredentials()['client_email'] ?? null,
+                'project_id' => \App\Services\GoogleDriveClient::getCredentials()['project_id'] ?? null,
+            ],
         ]);
     }
 
@@ -203,5 +211,65 @@ class HcmSettingController extends Controller
         ActivityLogger::log('update', 'hcm', null, 'Memperbarui konfigurasi uang makan dan cut-off payroll dari modul Pengaturan HCM.');
 
         return back()->with('success', 'Pengaturan uang makan dan batas cut-off penggajian berhasil diperbarui.');
+    }
+
+    /**
+     * Perbarui Konfigurasi Sinkronisasi Google Drive & Penyimpanan Dokumen HCM.
+     */
+    public function updateStorage(Request $request): RedirectResponse
+    {
+        $this->authorizeAccess();
+
+        $validated = $request->validate([
+            'drive_sync_enabled' => ['required', 'boolean'],
+            'root_folder_id' => ['nullable', 'string', 'max:255'],
+            'auto_unlink_local' => ['required', 'boolean'],
+            'service_account_file' => ['nullable', 'file', 'mimes:json,txt', 'max:1024'],
+            'service_account_raw' => ['nullable', 'string'],
+            'clear_service_account' => ['nullable', 'boolean'],
+        ]);
+
+        SystemSetting::set('hcm_storage', 'drive_sync_enabled', $validated['drive_sync_enabled'] ? '1' : '0', false, 'Status aktif sinkronisasi Google Drive HCM');
+        SystemSetting::set('hcm_storage', 'root_folder_id', trim($validated['root_folder_id'] ?? ''), false, 'ID Folder Utama Google Drive untuk HCM');
+        SystemSetting::set('hcm_storage', 'auto_unlink_local', $validated['auto_unlink_local'] ? '1' : '0', false, 'Opsi hapus berkas lokal setelah sinkron Google Drive');
+
+        // Reset kredensial jika diminta
+        if ($request->boolean('clear_service_account')) {
+            SystemSetting::set('hcm_storage', 'service_account_json', null, true, 'Kredensial Service Account Google Drive HCM');
+            ActivityLogger::log('update', 'hcm', null, 'Menghapus kredensial Service Account Google Drive HCM.');
+            return back()->with('success', 'Kredensial Google Drive berhasil dihapus. Sistem beralih ke penyimpanan lokal.');
+        }
+
+        // Simpan file JSON service account jika diunggah
+        $jsonContent = null;
+        if ($request->hasFile('service_account_file')) {
+            $jsonContent = file_get_contents($request->file('service_account_file')->getRealPath());
+        } elseif (!empty($validated['service_account_raw'])) {
+            $jsonContent = trim($validated['service_account_raw']);
+        }
+
+        if ($jsonContent) {
+            $decoded = json_decode($jsonContent, true);
+            if (!is_array($decoded) || empty($decoded['client_email']) || empty($decoded['private_key'])) {
+                return back()->withErrors(['service_account_file' => 'Berkas JSON tidak valid. Pastikan berisi "client_email" dan "private_key" Google Service Account.']);
+            }
+
+            SystemSetting::set('hcm_storage', 'service_account_json', json_encode($decoded), true, 'Kredensial Service Account Google Drive HCM');
+            ActivityLogger::log('update', 'hcm', null, "Memperbarui kredensial Service Account Google Drive ({$decoded['client_email']}).");
+        }
+
+        return back()->with('success', 'Pengaturan penyimpanan Google Drive HCM berhasil disimpan.');
+    }
+
+    /**
+     * Endpoint AJAX untuk menguji koneksi Google Drive secara riil.
+     */
+    public function testStorageConnection(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $this->authorizeAccess();
+
+        $result = \App\Services\GoogleDriveClient::testConnection();
+
+        return response()->json($result);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Models\Hcm;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class HcmJobApplicant extends Model
 {
@@ -15,6 +16,7 @@ class HcmJobApplicant extends Model
     protected $fillable = [
         'job_posting_id',
         'applicant_code',
+        'apply_date',
         'name',
         'nickname',
         'gender',
@@ -38,6 +40,11 @@ class HcmJobApplicant extends Model
         'photo',
         'photo_url',
         'status',
+        'invitation_status',
+        'interview_result',
+        'onboarding_attendance',
+        'is_blacklisted',
+        'hcm_notes',
         'interview_date',
         'interview_location',
         'interviewer_notes',
@@ -49,9 +56,11 @@ class HcmJobApplicant extends Model
     protected $casts = [
         'birth_date' => 'date:Y-m-d',
         'available_start_date' => 'date:Y-m-d',
+        'apply_date' => 'date:Y-m-d',
         'interview_date' => 'datetime',
         'converted_at' => 'datetime',
         'expected_salary' => 'decimal:2',
+        'is_blacklisted' => 'boolean',
     ];
 
     protected $appends = [
@@ -103,6 +112,16 @@ class HcmJobApplicant extends Model
         return $this->belongsTo(HcmJobPosting::class, 'job_posting_id');
     }
 
+    /**
+     * Rekap sesi wawancara kandidat (bisa multi-ronde).
+     */
+    public function interviews(): HasMany
+    {
+        return $this->hasMany(HcmApplicantInterview::class, 'applicant_id')
+            ->orderByDesc('interview_date')
+            ->orderByDesc('id');
+    }
+
     public function convertedEmployee(): BelongsTo
     {
         return $this->belongsTo(HcmEmployee::class, 'converted_employee_id');
@@ -118,6 +137,9 @@ class HcmJobApplicant extends Model
                 $lastId = self::max('id') ?? 0;
                 $number = str_pad($lastId + 1, 4, '0', STR_PAD_LEFT);
                 $applicant->applicant_code = "APL-{$year}-{$number}";
+            }
+            if (empty($applicant->apply_date)) {
+                $applicant->apply_date = now()->toDateString();
             }
         });
     }

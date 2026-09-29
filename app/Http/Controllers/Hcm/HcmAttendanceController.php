@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers\Hcm;
 
+use App\Exports\HcmAttendanceDailyExport;
+use App\Exports\HcmAttendanceMonthlyMatrixExport;
 use App\Http\Controllers\Controller;
 use App\Models\Hcm\HcmAttendance;
 use App\Models\Hcm\HcmEmployee;
 use App\Models\Hcm\HcmLeaveRequest;
 use App\Models\Hcm\HcmMasterOption;
+use App\Services\HcmAttendanceWaSummaryService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +20,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class HcmAttendanceController extends Controller
 {
@@ -29,6 +35,7 @@ class HcmAttendanceController extends Controller
         $selectedMonth = $request->query('month', date('Y-m'));
         $selectedYear = (int) $request->query('year', Carbon::parse($selectedMonth . '-01')->format('Y'));
         $selectedDate = $request->query('date', date('Y-m-d'));
+        $categoryFilter = $request->query('category', 'all'); // 'all', 'REGULAR', 'INTERN'
         $departmentFilter = $request->query('department', 'all');
         $search = $request->query('search', '');
         $activeTab = $request->query('tab', 'matrix'); // 'matrix', 'dossier', 'daily'
@@ -44,6 +51,8 @@ class HcmAttendanceController extends Controller
                       ->orWhere('employee_code', 'like', "%{$term}%");
                 });
             })
+            ->when($categoryFilter === 'REGULAR', fn ($q) => $q->regular())
+            ->when($categoryFilter === 'INTERN', fn ($q) => $q->interns())
             ->when($departmentFilter !== 'all', fn ($q) => $q->where('department', $departmentFilter))
             ->orderBy('department')
             ->orderBy('name');
@@ -329,6 +338,7 @@ class HcmAttendanceController extends Controller
                 'employee_code' => $emp->employee_code,
                 'name' => $emp->name,
                 'nickname' => $emp->nickname,
+                'employee_category' => $emp->employee_category,
                 'department' => $emp->department,
                 'position' => $emp->position,
                 'job_level' => $emp->job_level,
@@ -389,6 +399,7 @@ class HcmAttendanceController extends Controller
                 'month' => $selectedMonth,
                 'year' => $selectedYear,
                 'date' => $selectedDate,
+                'category' => $categoryFilter,
                 'department' => $departmentFilter,
                 'search' => $search,
             ],
@@ -598,6 +609,7 @@ class HcmAttendanceController extends Controller
         Gate::authorize('hcm.manage-attendance');
 
         $selectedMonth = $request->query('month', date('Y-m'));
+        $categoryFilter = $request->query('category', 'all');
         $departmentFilter = $request->query('department', 'all');
         $search = $request->query('search', '');
 
@@ -619,6 +631,8 @@ class HcmAttendanceController extends Controller
 
         // Ambil karyawan aktif
         $employees = HcmEmployee::where('is_active', true)
+            ->when($categoryFilter === 'REGULAR', fn ($q) => $q->regular())
+            ->when($categoryFilter === 'INTERN', fn ($q) => $q->interns())
             ->when($departmentFilter !== 'all', fn ($q) => $q->where('department', $departmentFilter))
             ->when($search, fn ($q) => $q->where(fn ($sub) => $sub->where('name', 'like', "%{$search}%")->orWhere('employee_code', 'like', "%{$search}%")))
             ->orderBy('department')
@@ -725,6 +739,7 @@ class HcmAttendanceController extends Controller
                 'employee_id' => $emp->id,
                 'employee_code' => $emp->employee_code,
                 'name' => $emp->name,
+                'employee_category' => $emp->employee_category,
                 'department' => $emp->department,
                 'position' => $emp->position,
                 'days' => $daysData,
@@ -780,6 +795,7 @@ class HcmAttendanceController extends Controller
             'positions' => $positions,
             'filters' => [
                 'month' => $selectedMonth,
+                'category' => $categoryFilter,
                 'department' => $departmentFilter,
                 'search' => $search,
             ],
@@ -828,4 +844,83 @@ class HcmAttendanceController extends Controller
 
         return redirect()->back()->with('success', "Presensi {$emp->name} tanggal {$validated['date']} berhasil diperbarui ({$validated['attendance_category']}).");
     }
+
+    /**
+     * Unduh Rekap Matriks Presensi Bulanan dalam format Excel (.xlsx).
+     */
+    public function exportMonthly(Request $request): BinaryFileResponse
+    {
+        Gate::authorize('hcm.manage-attendance');
+
+        $month = $request->query('month', date('Y-m'));
+        $category = $request->query('category', 'all');
+        $department = $request->query('department', 'all');
+        $userName = Auth::user()?->name;
+
+        $catSlug = match ($category) {
+            'REGULAR' => 'Reguler',
+            'INTERN' => 'Magang',
+            default => 'Semua',
+        };
+
+        $filename = 'Rekap_Matriks_Presensi_' . Carbon::parse($month . '-01')->format('Y_m') . "_{$catSlug}.xlsx";
+
+        return Excel::download(
+            new HcmAttendanceMonthlyMatrixExport($month, $category, $department, $userName),
+            $filename
+        );
+    }
+
+    /**
+     * Unduh Daftar Presensi Harian dalam format Excel (.xlsx).
+     */
+    public function exportDaily(Request $request): BinaryFileResponse
+    {
+        Gate::authorize('hcm.manage-attendance');
+
+        $date = $request->query('date', date('Y-m-d'));
+        $category = $request->query('category', 'all');
+        $department = $request->query('department', 'all');
+        $userName = Auth::user()?->name;
+
+        $catSlug = match ($category) {
+            'REGULAR' => 'Reguler',
+            'INTERN' => 'Magang',
+            default => 'Semua',
+        };
+
+        $filename = 'Presensi_Harian_' . Carbon::parse($date)->format('Y_m_d') . "_{$catSlug}.xlsx";
+
+        return Excel::download(
+            new HcmAttendanceDailyExport($date, $category, $department, $userName),
+            $filename
+        );
+    }
+
+    /**
+     * Dapatkan teks ringkasan presensi siap kirim ke WhatsApp.
+     */
+    public function waSummary(Request $request, HcmAttendanceWaSummaryService $waService): JsonResponse
+    {
+        Gate::authorize('hcm.manage-attendance');
+
+        $type = $request->query('type', 'daily');
+        $category = $request->query('category', 'all');
+        $department = $request->query('department', 'all');
+
+        if ($type === 'monthly') {
+            $month = $request->query('month', date('Y-m'));
+            $data = $waService->generateMonthlySummary($month, $category, $department);
+        } else {
+            $date = $request->query('date', date('Y-m-d'));
+            $data = $waService->generateDailySummary($date, $category, $department);
+        }
+
+        return response()->json([
+            'success' => true,
+            'text' => $data['text'],
+            'stats' => $data['stats'],
+        ]);
+    }
 }
+

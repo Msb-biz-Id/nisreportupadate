@@ -17,21 +17,31 @@ class HcmJobPosting extends Model
     protected $table = 'hcm_job_postings';
 
     protected $fillable = [
+        'job_code',
         'title',
         'slug',
         'department',
+        'legal_entity',
         'position',
         'job_type',
         'location',
         'quota',
+        'fulfilled_count',
         'min_education',
         'min_experience_years',
         'salary_range',
+        'salary_range_min',
+        'salary_range_max',
         'description',
         'requirements',
         'benefits',
         'deadline',
+        'start_date',
+        'end_date',
+        'recruitment_channel',
+        'recruiter_id',
         'is_active',
+        'status',
         'views_count',
         'created_by',
     ];
@@ -39,9 +49,14 @@ class HcmJobPosting extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'deadline' => 'date:Y-m-d',
+        'start_date' => 'date:Y-m-d',
+        'end_date' => 'date:Y-m-d',
         'quota' => 'integer',
+        'fulfilled_count' => 'integer',
         'min_experience_years' => 'integer',
         'views_count' => 'integer',
+        'salary_range_min' => 'decimal:2',
+        'salary_range_max' => 'decimal:2',
     ];
 
     protected $appends = ['shareable_url'];
@@ -82,6 +97,11 @@ class HcmJobPosting extends Model
         static::creating(function ($job) {
             if (empty($job->slug)) {
                 $job->slug = Str::slug($job->title) . '-' . Str::random(5);
+            }
+            if (empty($job->job_code)) {
+                $year = date('Y');
+                $lastId = self::max('id') ?? 0;
+                $job->job_code = 'LKR-' . $year . '-' . str_pad($lastId + 1, 3, '0', STR_PAD_LEFT);
             }
         });
     }

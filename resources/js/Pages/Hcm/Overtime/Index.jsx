@@ -123,41 +123,48 @@ export default function OvertimeIndex({
     return (
         <AppLayout
             header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <Clock className="h-5 w-5 text-indigo-600" />
-                            Rekap Lembur Mingguan & Double Sign-Off
-                        </h1>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                            Otomatisasi kalkulasi upah lembur reguler & akhir pekan dengan validasi ganda HCM & Keuangan.
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <Link
-                            href={route('hcm.settings.index')}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700 dark:hover:bg-zinc-750 transition shadow-sm"
-                        >
-                            <SlidersHorizontal className="h-3.5 w-3.5 text-indigo-600" />
-                            Pengaturan Tarif HCM
-                        </Link>
-
-                        <Button
-                            onClick={() => setIsCreateBatchModalOpen(true)}
-                            size="sm"
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 shadow-sm"
-                        >
-                            <Plus className="h-3.5 w-3.5" />
-                            Buat Batch Mingguan
-                        </Button>
-                    </div>
+                <div className="flex items-center gap-2 min-w-0">
+                    <Clock className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                        Rekap Lembur Mingguan & Double Sign-Off
+                    </span>
                 </div>
             }
         >
             <Head title="Lembur Mingguan - Kepegawaian" />
 
             <div className="space-y-4">
+                {/* Header Banner Canvas */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
+                    <div>
+                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                            <Clock className="h-5 w-5 text-indigo-600 shrink-0" />
+                            <span>Rekap Lembur Mingguan & Double Sign-Off</span>
+                        </h1>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                            Otomatisasi kalkulasi upah lembur reguler & akhir pekan dengan validasi ganda HCM & Keuangan.
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                        <Link
+                            href={route('hcm.settings.index')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700 dark:hover:bg-zinc-750 transition shadow-xs"
+                        >
+                            <SlidersHorizontal className="h-3.5 w-3.5 text-indigo-600" />
+                            <span>Pengaturan Tarif HCM</span>
+                        </Link>
+
+                        <Button
+                            onClick={() => setIsCreateBatchModalOpen(true)}
+                            size="sm"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 shadow-xs"
+                        >
+                            <Plus className="h-3.5 w-3.5" />
+                            <span>Buat Batch Mingguan</span>
+                        </Button>
+                    </div>
+                </div>
                 {/* 1. Baris Metrik Ringkasan */}
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                     <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm p-4">

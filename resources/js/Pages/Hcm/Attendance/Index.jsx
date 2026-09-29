@@ -24,7 +24,13 @@ import {
     Eye,
     TrendingUp,
     FileText,
+    MessageSquare,
+    Share2,
+    Download,
+    UserCheck,
+    GraduationCap,
 } from 'lucide-react';
+import WhatsAppSummaryModal from './Components/WhatsAppSummaryModal';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -63,6 +69,7 @@ export default function AttendanceIndex({
     // State Filter Matriks Bulanan
     const [currentMonth, setCurrentMonth] = useState(filters.month || propMonth || new Date().toISOString().substring(0, 7));
     const [currentYear, setCurrentYear] = useState(filters.year || propYear || new Date().getFullYear());
+    const [selectedCategory, setSelectedCategory] = useState(filters.category || 'all');
     const [selectedDepartment, setSelectedDepartment] = useState(filters.department || 'all');
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
 
@@ -71,8 +78,11 @@ export default function AttendanceIndex({
     const [dailyRows, setDailyRows] = useState(dailyMatrixData);
     const [isDirty, setIsDirty] = useState(false);
     const [isSavingDaily, setIsSavingDaily] = useState(false);
+    const [dailyStatusFilter, setDailyStatusFilter] = useState('all');
 
     // Modals
+    const [isWaModalOpen, setIsWaModalOpen] = useState(false);
+    const [waModalType, setWaModalType] = useState('daily');
     const [isBulkShiftModalOpen, setIsBulkShiftModalOpen] = useState(false);
     const [isSetAllModalOpen, setIsSetAllModalOpen] = useState(false);
     const [cellDetailModal, setCellDetailModal] = useState({
@@ -129,7 +139,15 @@ export default function AttendanceIndex({
     };
 
     // Terapkan Filter
-    const applyFilters = (tab = currentTab, m = currentMonth, y = currentYear, dt = dailyDate, dept = selectedDepartment, s = searchTerm) => {
+    const applyFilters = (
+        tab = currentTab,
+        m = currentMonth,
+        y = currentYear,
+        dt = dailyDate,
+        dept = selectedDepartment,
+        s = searchTerm,
+        cat = selectedCategory
+    ) => {
         router.get(
             route('hcm.attendance.index'),
             {
@@ -139,6 +157,7 @@ export default function AttendanceIndex({
                 date: dt,
                 department: dept,
                 search: s,
+                category: cat,
             },
             {
                 preserveState: true,
@@ -237,10 +256,40 @@ export default function AttendanceIndex({
     };
 
     // Handler Entri Harian
-    const handleDailyRowChange = (index, field, value) => {
-        const updated = [...dailyRows];
-        updated[index] = { ...updated[index], [field]: value };
-        setDailyRows(updated);
+    const handleDailyRowChange = (employeeId, field, value) => {
+        setDailyRows((prev) =>
+            prev.map((r) => (r.employee_id === employeeId ? { ...r, [field]: value } : r))
+        );
+        setIsDirty(true);
+    };
+
+    // Quick 1-Click Status Set
+    const handleQuickSetRowStatus = (employeeId, status) => {
+        setDailyRows((prev) =>
+            prev.map((r) => {
+                if (r.employee_id !== employeeId) return r;
+                let clockIn = r.clock_in;
+                let clockOut = r.clock_out;
+
+                if (status === 'Hadir') {
+                    clockIn = clockIn || '08:00';
+                    clockOut = clockOut || '17:00';
+                } else if (status === 'Terlambat') {
+                    clockIn = '08:30';
+                    clockOut = clockOut || '17:00';
+                } else if (['Izin', 'Sakit', 'Cuti', 'Alpha/Mangkir'].includes(status)) {
+                    clockIn = null;
+                    clockOut = null;
+                }
+
+                return {
+                    ...r,
+                    attendance_category: status,
+                    clock_in: clockIn,
+                    clock_out: clockOut,
+                };
+            })
+        );
         setIsDirty(true);
     };
 
@@ -269,6 +318,20 @@ export default function AttendanceIndex({
             }
         );
     };
+
+    // Pintasan keyboard Ctrl/Cmd + S untuk menyimpan rekapitulasi harian massal.
+    useEffect(() => {
+        const onKeyDown = (e) => {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                if (currentTab === 'daily') {
+                    e.preventDefault();
+                    if (!isSavingDaily) handleSaveDailyBatch();
+                }
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [currentTab, isSavingDaily, dailyDate, dailyRows]);
 
     const handleSetAllPresentSubmit = () => {
         router.post(
@@ -320,22 +383,61 @@ export default function AttendanceIndex({
         });
     }, [dossierEmployees, selectedDepartment, searchTerm]);
 
+    // Filtered data entri harian
+    const filteredDailyRows = useMemo(() => {
+        return (dailyRows || []).filter((row) => {
+            const matchSearch =
+                !searchTerm ||
+                row.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                row.employee_code?.toLowerCase().includes(searchTerm.toLowerCase());
+
+            if (!matchSearch) return false;
+
+            if (dailyStatusFilter === 'all') return true;
+            if (dailyStatusFilter === 'unmarked') {
+                return !row.attendance_category && !row.has_active_leave;
+            }
+            if (dailyStatusFilter === 'Hadir') {
+                return row.attendance_category === 'Hadir' || row.attendance_category === 'PRESENT';
+            }
+            if (dailyStatusFilter === 'Terlambat') {
+                return row.attendance_category === 'Terlambat' || row.attendance_category === 'LATE';
+            }
+            if (dailyStatusFilter === 'leave_sick') {
+                return ['Izin', 'Sakit', 'Cuti', 'Dinas Luar', 'PERMIT', 'SICK', 'LEAVE'].includes(row.attendance_category) || row.has_active_leave;
+            }
+            if (dailyStatusFilter === 'Alpha/Mangkir') {
+                return row.attendance_category === 'Alpha/Mangkir' || row.attendance_category === 'ALPHA';
+            }
+            return true;
+        });
+    }, [dailyRows, searchTerm, dailyStatusFilter]);
+
     return (
-        <AppLayout>
+        <AppLayout
+            header={
+                <div className="flex items-center gap-2 min-w-0">
+                    <CalendarDays className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                        Presensi & Absensi Karyawan
+                    </span>
+                </div>
+            }
+        >
             <Head title="Presensi & Absensi Karyawan - HCM System" />
 
             <div className="space-y-6">
                 {/* Header Utama & Navigasi Tab */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-xl md:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2.5">
-                            <div className="p-2 rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-600/20">
-                                <CalendarDays className="h-6 w-6" />
+                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                            <div className="p-1.5 rounded-lg bg-indigo-600 text-white shadow-xs">
+                                <CalendarDays className="h-5 w-5" />
                             </div>
-                            Presensi & Absensi Karyawan
+                            <span>Presensi & Absensi Karyawan</span>
                         </h1>
-                        <p className="text-xs md:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                            Matriks kalender bulanan 1–31 hari, rekapitulasi multi-bulan sinkron Profil Dossier, dan pencatatan harian massal.
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                            Matriks kalender bulanan 1–31 hari, rekapitulasi presensi tahunan seluruh karyawan, dan pencatatan harian massal.
                         </p>
                     </div>
 
@@ -370,7 +472,7 @@ export default function AttendanceIndex({
                             }`}
                         >
                             <Layers className="h-3.5 w-3.5" />
-                            Rekap Multi-Bulan (Dossier)
+                            Rekap Tahunan Karyawan
                         </button>
 
                         <button
@@ -387,6 +489,61 @@ export default function AttendanceIndex({
                         >
                             <Clock className="h-3.5 w-3.5" />
                             Entri Harian & Shift
+                        </button>
+                    </div>
+                </div>
+
+                {/* Segmented Category Filter (Model Karyawan Dual Model) */}
+                <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60">
+                    <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-zinc-500 shrink-0" />
+                        <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Model Personel:</span>
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-xs">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSelectedCategory('all');
+                                applyFilters(currentTab, currentMonth, currentYear, dailyDate, selectedDepartment, searchTerm, 'all');
+                            }}
+                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                                selectedCategory === 'all'
+                                    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-xs'
+                                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                            }`}
+                        >
+                            Semua Personel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSelectedCategory('REGULAR');
+                                applyFilters(currentTab, currentMonth, currentYear, dailyDate, selectedDepartment, searchTerm, 'REGULAR');
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                                selectedCategory === 'REGULAR'
+                                    ? 'bg-blue-600 text-white shadow-xs'
+                                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                            }`}
+                        >
+                            <UserCheck className="h-3 w-3" />
+                            Karyawan Reguler
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSelectedCategory('INTERN');
+                                applyFilters(currentTab, currentMonth, currentYear, dailyDate, selectedDepartment, searchTerm, 'INTERN');
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                                selectedCategory === 'INTERN'
+                                    ? 'bg-purple-600 text-white shadow-xs'
+                                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                            }`}
+                        >
+                            <GraduationCap className="h-3 w-3" />
+                            Peserta Magang SMK
                         </button>
                     </div>
                 </div>
@@ -533,8 +690,8 @@ export default function AttendanceIndex({
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <div className="relative flex-1 lg:w-56">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="relative flex-1 lg:w-48">
                                     <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-400" />
                                     <Input
                                         placeholder="Cari karyawan..."
@@ -542,7 +699,7 @@ export default function AttendanceIndex({
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
-                                                applyFilters('matrix', currentMonth, currentYear, dailyDate, selectedDepartment, searchTerm);
+                                                applyFilters('matrix', currentMonth, currentYear, dailyDate, selectedDepartment, searchTerm, selectedCategory);
                                             }
                                         }}
                                         className="h-8 pl-8 text-xs"
@@ -552,11 +709,36 @@ export default function AttendanceIndex({
                                 <Button
                                     variant="outline"
                                     size="sm"
+                                    onClick={() => {
+                                        setWaModalType('monthly');
+                                        setIsWaModalOpen(true);
+                                    }}
+                                    className="h-8 text-xs gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"
+                                    title="Salin ringkasan WA untuk grup Direksi/Manajemen"
+                                >
+                                    <MessageSquare className="h-3.5 w-3.5" />
+                                    <span className="hidden sm:inline">Ringkasan WA</span>
+                                </Button>
+
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => window.open(route('hcm.attendance.export-monthly', { month: currentMonth, category: selectedCategory, department: selectedDepartment }))}
+                                    className="h-8 text-xs gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400"
+                                    title="Unduh Matriks Bulanan dalam format Excel (.xlsx)"
+                                >
+                                    <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                                    <span className="hidden sm:inline">Export Excel</span>
+                                </Button>
+
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     onClick={() => window.print()}
                                     className="h-8 text-xs gap-1.5 border-zinc-300 dark:border-zinc-700"
                                 >
                                     <Printer className="h-3.5 w-3.5" />
-                                    <span className="hidden sm:inline">Cetak Rekap</span>
+                                    <span className="hidden sm:inline">Cetak</span>
                                 </Button>
 
                                 <Button
@@ -565,14 +747,14 @@ export default function AttendanceIndex({
                                     className="h-8 text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
                                 >
                                     <Sparkles className="h-3.5 w-3.5" />
-                                    Set Massal Shift
+                                    Set Massal
                                 </Button>
                             </div>
                         </div>
 
                         {/* Matriks Kalender Bulanan 1 - 31 Hari */}
                         <Card className="border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto scrollbar-thin">
                                 <table className="w-full text-left border-collapse text-xs">
                                     <thead>
                                         <tr className="bg-zinc-50 dark:bg-zinc-800/80 border-b border-zinc-200 dark:border-zinc-700">
@@ -770,7 +952,7 @@ export default function AttendanceIndex({
                                     className="h-8 text-xs gap-1.5"
                                 >
                                     <Printer className="h-3.5 w-3.5" />
-                                    Cetak Dossier Rekap
+                                    Cetak Rekap Tahunan
                                 </Button>
                             </div>
                         </div>
@@ -812,18 +994,18 @@ export default function AttendanceIndex({
                                                 </span>
                                                 <span className="text-zinc-300 dark:text-zinc-700">|</span>
                                                 <Link
-                                                    href={route('hcm.pdf.employee-dossier', emp.employee_id)}
+                                                    href={route('hcm.employees.pdf.dossier', emp.employee_id)}
                                                     target="_blank"
                                                     className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
                                                 >
                                                     <FileText className="h-3 w-3" />
-                                                    Download Dossier PDF
+                                                    Buku Riwayat Karyawan (PDF)
                                                 </Link>
                                             </div>
                                         </div>
 
-                                        {/* Tabel Rekap Multi-Bulan Sinkron Format Dossier */}
-                                        <div className="overflow-x-auto">
+                                        {/* Tabel Rekap Multi-Bulan */}
+                                        <div className="overflow-x-auto scrollbar-thin">
                                             <table className="w-full text-left text-xs border-collapse">
                                                 <thead>
                                                     <tr className="bg-zinc-100/60 dark:bg-zinc-800/40 text-zinc-600 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800 text-[11px] uppercase tracking-wider">
@@ -949,7 +1131,32 @@ export default function AttendanceIndex({
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        setWaModalType('daily');
+                                        setIsWaModalOpen(true);
+                                    }}
+                                    className="h-8 text-xs gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"
+                                    title="Salin ringkasan presensi harian untuk grup WA"
+                                >
+                                    <MessageSquare className="h-3.5 w-3.5" />
+                                    <span className="hidden sm:inline">Ringkasan WA</span>
+                                </Button>
+
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => window.open(route('hcm.attendance.export-daily', { date: dailyDate, category: selectedCategory, department: selectedDepartment }))}
+                                    className="h-8 text-xs gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400"
+                                    title="Unduh Daftar Presensi Harian dalam format Excel (.xlsx)"
+                                >
+                                    <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                                    <span className="hidden sm:inline">Export Excel</span>
+                                </Button>
+
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -967,7 +1174,7 @@ export default function AttendanceIndex({
                                     className="h-8 text-xs gap-1.5 border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400"
                                 >
                                     <Sparkles className="h-3.5 w-3.5" />
-                                    Set Shift / Divisi
+                                    Set Shift
                                 </Button>
 
                                 <Button
@@ -982,9 +1189,82 @@ export default function AttendanceIndex({
                             </div>
                         </div>
 
+                        {/* Quick Status Filter Chips */}
+                        <div className="flex flex-wrap items-center gap-1.5 p-2 bg-zinc-50 dark:bg-zinc-850 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                            <span className="text-[11px] text-zinc-500 font-semibold uppercase tracking-wider mr-1">Filter Baris:</span>
+                            <button
+                                type="button"
+                                onClick={() => setDailyStatusFilter('all')}
+                                className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
+                                    dailyStatusFilter === 'all'
+                                        ? 'bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900 shadow-xs'
+                                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
+                                }`}
+                            >
+                                Semua ({dailyRows.length})
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setDailyStatusFilter('unmarked')}
+                                className={`px-2.5 py-1 text-xs rounded-lg font-semibold transition-all ${
+                                    dailyStatusFilter === 'unmarked'
+                                        ? 'bg-amber-600 text-white shadow-xs'
+                                        : metrics.daily?.belum_terabsen > 0
+                                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300/50'
+                                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                                }`}
+                            >
+                                Belum Diabsen ({metrics.daily?.belum_terabsen ?? 0})
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setDailyStatusFilter('Hadir')}
+                                className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
+                                    dailyStatusFilter === 'Hadir'
+                                        ? 'bg-emerald-600 text-white shadow-xs'
+                                        : 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400'
+                                }`}
+                            >
+                                Hadir ({metrics.daily?.hadir ?? 0})
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setDailyStatusFilter('Terlambat')}
+                                className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
+                                    dailyStatusFilter === 'Terlambat'
+                                        ? 'bg-amber-600 text-white shadow-xs'
+                                        : 'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400'
+                                }`}
+                            >
+                                Terlambat ({metrics.daily?.terlambat ?? 0})
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setDailyStatusFilter('leave_sick')}
+                                className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
+                                    dailyStatusFilter === 'leave_sick'
+                                        ? 'bg-sky-600 text-white shadow-xs'
+                                        : 'bg-sky-50 dark:bg-sky-950/20 text-sky-700 dark:text-sky-400'
+                                }`}
+                            >
+                                Izin / Sakit / Cuti ({metrics.daily?.cuti_izin_sakit ?? 0})
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setDailyStatusFilter('Alpha/Mangkir')}
+                                className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
+                                    dailyStatusFilter === 'Alpha/Mangkir'
+                                        ? 'bg-rose-600 text-white shadow-xs'
+                                        : 'bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400'
+                                }`}
+                            >
+                                Alpha ({metrics.daily?.alpha ?? 0})
+                            </button>
+                        </div>
+
                         {/* Tabel Input Harian */}
                         <Card className="border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto scrollbar-thin">
                                 <table className="w-full text-left text-xs border-collapse">
                                     <thead>
                                         <tr className="bg-zinc-50 dark:bg-zinc-800/80 border-b border-zinc-200 dark:border-zinc-700 text-[11px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
@@ -997,17 +1277,28 @@ export default function AttendanceIndex({
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                                        {dailyRows.length === 0 ? (
+                                        {filteredDailyRows.length === 0 ? (
                                             <tr>
                                                 <td colSpan={6} className="p-8 text-center text-zinc-400">
-                                                    Tidak ada data karyawan aktif untuk tanggal ini.
+                                                    Tidak ada data personel yang cocok dengan filter.
                                                 </td>
                                             </tr>
                                         ) : (
-                                            dailyRows.map((row, idx) => (
+                                            filteredDailyRows.map((row) => (
                                                 <tr key={row.employee_id} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30">
                                                     <td className="p-2.5">
-                                                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">{row.name}</div>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="font-semibold text-zinc-900 dark:text-zinc-100">{row.name}</span>
+                                                            {row.employee_category === 'INTERN' ? (
+                                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 shrink-0">
+                                                                    Magang SMK
+                                                                </span>
+                                                            ) : (
+                                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 shrink-0">
+                                                                    Reguler
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <div className="text-[10px] text-zinc-400 font-mono">{row.employee_code}</div>
                                                     </td>
                                                     <td className="p-2.5 text-zinc-600 dark:text-zinc-400">
@@ -1016,10 +1307,11 @@ export default function AttendanceIndex({
                                                     </td>
                                                     <td className="p-2">
                                                         <select
-                                                            value={row.attendance_category || 'Hadir'}
-                                                            onChange={(e) => handleDailyRowChange(idx, 'attendance_category', e.target.value)}
-                                                            className="w-full h-8 text-xs rounded-md border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:ring-indigo-500 focus:border-indigo-500"
+                                                            value={row.attendance_category || ''}
+                                                            onChange={(e) => handleDailyRowChange(row.employee_id, 'attendance_category', e.target.value)}
+                                                            className="w-full h-8 text-xs rounded-md border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
                                                         >
+                                                            <option value="">-- Belum Diabsen --</option>
                                                             <option value="Hadir">Hadir Tepat</option>
                                                             <option value="Terlambat">Terlambat</option>
                                                             <option value="Izin">Izin</option>
@@ -1028,12 +1320,76 @@ export default function AttendanceIndex({
                                                             <option value="Dinas Luar">Dinas Luar</option>
                                                             <option value="Alpha/Mangkir">Alpha / Mangkir</option>
                                                         </select>
+
+                                                        {/* Quick 1-Click Status Toggles */}
+                                                        <div className="flex items-center gap-1 mt-1">
+                                                            <button
+                                                                type="button"
+                                                                title="Set Hadir (08:00 - 17:00)"
+                                                                onClick={() => handleQuickSetRowStatus(row.employee_id, 'Hadir')}
+                                                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                                    row.attendance_category === 'Hadir'
+                                                                        ? 'bg-emerald-600 text-white shadow-xs'
+                                                                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 hover:bg-emerald-200'
+                                                                }`}
+                                                            >
+                                                                H
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                title="Set Terlambat (08:30 - 17:00)"
+                                                                onClick={() => handleQuickSetRowStatus(row.employee_id, 'Terlambat')}
+                                                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                                    row.attendance_category === 'Terlambat'
+                                                                        ? 'bg-amber-600 text-white shadow-xs'
+                                                                        : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 hover:bg-amber-200'
+                                                                }`}
+                                                            >
+                                                                T
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                title="Set Izin"
+                                                                onClick={() => handleQuickSetRowStatus(row.employee_id, 'Izin')}
+                                                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                                    row.attendance_category === 'Izin'
+                                                                        ? 'bg-sky-600 text-white shadow-xs'
+                                                                        : 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 hover:bg-sky-200'
+                                                                }`}
+                                                            >
+                                                                I
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                title="Set Sakit"
+                                                                onClick={() => handleQuickSetRowStatus(row.employee_id, 'Sakit')}
+                                                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                                    row.attendance_category === 'Sakit'
+                                                                        ? 'bg-purple-600 text-white shadow-xs'
+                                                                        : 'bg-purple-100 text-purple-700 dark:bg-purple-950/50 hover:bg-purple-200'
+                                                                }`}
+                                                            >
+                                                                S
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                title="Set Alpha / Mangkir"
+                                                                onClick={() => handleQuickSetRowStatus(row.employee_id, 'Alpha/Mangkir')}
+                                                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                                    row.attendance_category === 'Alpha/Mangkir'
+                                                                        ? 'bg-rose-600 text-white shadow-xs'
+                                                                        : 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 hover:bg-rose-200'
+                                                                }`}
+                                                            >
+                                                                A
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                     <td className="p-2">
                                                         <Input
                                                             type="time"
                                                             value={row.clock_in || ''}
-                                                            onChange={(e) => handleDailyRowChange(idx, 'clock_in', e.target.value)}
+                                                            onChange={(e) => handleDailyRowChange(row.employee_id, 'clock_in', e.target.value)}
                                                             className="h-8 text-xs font-mono"
                                                         />
                                                     </td>
@@ -1041,17 +1397,22 @@ export default function AttendanceIndex({
                                                         <Input
                                                             type="time"
                                                             value={row.clock_out || ''}
-                                                            onChange={(e) => handleDailyRowChange(idx, 'clock_out', e.target.value)}
+                                                            onChange={(e) => handleDailyRowChange(row.employee_id, 'clock_out', e.target.value)}
                                                             className="h-8 text-xs font-mono"
                                                         />
                                                     </td>
                                                     <td className="p-2">
                                                         <Input
                                                             value={row.notes || ''}
-                                                            onChange={(e) => handleDailyRowChange(idx, 'notes', e.target.value)}
+                                                            onChange={(e) => handleDailyRowChange(row.employee_id, 'notes', e.target.value)}
                                                             placeholder="Keterangan..."
                                                             className="h-8 text-xs"
                                                         />
+                                                        {row.has_active_leave && (
+                                                            <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium block mt-0.5">
+                                                                Cuti/Izin Resmi Terjadwal
+                                                            </span>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))
@@ -1355,6 +1716,19 @@ export default function AttendanceIndex({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* ========================================================================= */}
+            {/* MODAL 4: GENERATOR & SALIN RINGKASAN WHATSAPP                              */}
+            {/* ========================================================================= */}
+            <WhatsAppSummaryModal
+                isOpen={isWaModalOpen}
+                onClose={() => setIsWaModalOpen(false)}
+                defaultType={waModalType}
+                initialDate={dailyDate}
+                initialMonth={currentMonth}
+                initialCategory={selectedCategory}
+                initialDepartment={selectedDepartment}
+            />
         </AppLayout>
     );
 }

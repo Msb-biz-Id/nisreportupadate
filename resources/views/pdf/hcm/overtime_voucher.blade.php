@@ -118,6 +118,8 @@
         <div class="vh-value" style="margin-top:4px;">
             @if($batch->status === 'PAID_COMPLETED')
                 <span class="status-pill status-paid">✓ LUNAS TERBAYAR</span>
+            @elseif($batch->status === 'PENDING_FINANCE_SIGN')
+                <span class="status-pill status-approved">● VERIFIKASI KAS KEUANGAN</span>
             @elseif($batch->status === 'APPROVED_BY_HCM')
                 <span class="status-pill status-approved">● DISETUJUI HCM</span>
             @else
@@ -186,6 +188,13 @@
     &nbsp;&nbsp;|&nbsp;&nbsp;
     <strong style="color:#22543d;">Tanggal Bayar:</strong>
     <span style="color:#2f855a;">{{ \Carbon\Carbon::parse($batch->finance_signed_at ?? $batch->paid_at)->isoFormat('D MMMM Y') }}</span>
+    @endif
+    <br>
+    <strong style="color:#22543d;">Bukti Bayar / Transfer:</strong>
+    @if($batch->payout_proof_url)
+        <span style="color:#2f855a;word-break:break-all;">{{ $batch->payout_proof_url }}</span>
+    @else
+        <span style="color:#718096;">Tidak dilampirkan (cukup catatan voucher).</span>
     @endif
 </div>
 @endif

@@ -293,6 +293,16 @@ function buildMenu(user, reportsList = []) {
             });
         }
 
+        // Kompensasi & Gaji (Menu Terpisah)
+        if (user?.is_superadmin || hasPermission(user, 'hcm.manage-compensation') || user?.roles?.includes('admin_hcm')) {
+            hcmItems.push({
+                name: 'Kompensasi & Gaji',
+                href: route('hcm.compensations.index'),
+                icon: Wallet,
+                active: route().current('hcm.compensations.*'),
+            });
+        }
+
         // Presensi Harian (Matriks Absensi)
         if (user?.is_superadmin || hasPermission(user, 'hcm.manage-attendance') || user?.roles?.includes('admin_hcm') || user?.roles?.includes('staff_hcm')) {
             hcmItems.push({
@@ -363,6 +373,12 @@ function buildMenu(user, reportsList = []) {
                         icon: Users,
                         active: route().current('hcm.recruitment.applicants.*'),
                     },
+                    {
+                        name: 'Laporan Rekrutmen',
+                        href: route('hcm.recruitment.reports.index'),
+                        icon: BarChart3,
+                        active: route().current('hcm.recruitment.reports.*'),
+                    },
                 ],
             });
         }
@@ -386,6 +402,12 @@ function buildMenu(user, reportsList = []) {
                         href: route('hcm.letters.index'),
                         icon: Mail,
                         active: route().current('hcm.letters.*'),
+                    },
+                    {
+                        name: 'Surat Eksternal',
+                        href: route('hcm.external-letters.index'),
+                        icon: Mail,
+                        active: route().current('hcm.external-letters.*'),
                     },
                 ],
             });

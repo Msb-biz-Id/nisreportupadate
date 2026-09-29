@@ -196,27 +196,43 @@ class HcmDashboardController extends Controller
             ->pluck('employee_id')
             ->all();
 
-        $unexcusedAbsenceAlerts = $activeEmployees->filter(function ($emp) use ($todayAttendances, $activeLeavesEmpIds) {
-            if (in_array($emp->id, $activeLeavesEmpIds)) {
-                return false;
-            }
-            $att = $todayAttendances->get($emp->id);
-            if (!$att) {
-                return true; // Belum clock-in tanpa keterangan
-            }
-            return $att->attendance_category === 'Alpha/Mangkir';
-        })->map(function ($emp) use ($todayAttendances) {
-            $att = $todayAttendances->get($emp->id);
-            return [
-                'employee_id' => $emp->id,
-                'name' => $emp->name,
-                'nickname' => $emp->nickname,
-                'employee_code' => $emp->employee_code,
-                'department' => $emp->department,
-                'position' => $emp->position,
-                'status' => $att ? $att->attendance_category : 'Belum Absen',
-            ];
-        })->values();
+        // Karyawan dengan pengajuan izin/cuti hari ini yang DITOLAK.
+        $rejectedLeaveEmpIds = HcmLeaveRequest::where('status', 'REJECTED')
+            ->whereDate('start_date', '<=', $todayStr)
+            ->whereDate('end_date', '>=', $todayStr)
+            ->pluck('employee_id')
+            ->all();
+
+        // Alert mangkir baru aktif setelah pukul 08:30 WIB.
+        $absenceAlertActive = now()->greaterThanOrEqualTo(\Carbon\Carbon::parse($todayStr)->setTime(8, 30));
+
+        $unexcusedAbsenceAlerts = $absenceAlertActive
+            ? $activeEmployees->filter(function ($emp) use ($todayAttendances, $activeLeavesEmpIds) {
+                if (in_array($emp->id, $activeLeavesEmpIds)) {
+                    return false;
+                }
+                $att = $todayAttendances->get($emp->id);
+                if (!$att) {
+                    return true; // Belum clock-in tanpa keterangan
+                }
+                return $att->attendance_category === 'Alpha/Mangkir';
+            })->map(function ($emp) use ($todayAttendances, $rejectedLeaveEmpIds) {
+                $att = $todayAttendances->get($emp->id);
+                $status = $att ? $att->attendance_category : 'Belum Absen';
+                if (in_array($emp->id, $rejectedLeaveEmpIds)) {
+                    $status = 'Mangkir (Izin Ditolak)';
+                }
+                return [
+                    'employee_id' => $emp->id,
+                    'name' => $emp->name,
+                    'nickname' => $emp->nickname,
+                    'employee_code' => $emp->employee_code,
+                    'department' => $emp->department,
+                    'position' => $emp->position,
+                    'status' => $status,
+                ];
+            })->values()
+            : collect();
 
         // === 5. PENGINGAT VALIDASI LEMBUR MINGGUAN (Jumat/Sabtu Alert) ===
         $isFriday = $today->isFriday();
@@ -367,6 +383,7 @@ class HcmDashboardController extends Controller
             'probationAlerts' => $probationAlerts,
             'contractAlerts' => $contractAlerts,
             'unexcusedAbsenceAlerts' => $unexcusedAbsenceAlerts,
+            'absenceAlertActive' => $absenceAlertActive,
             'overtimeReminder' => $overtimeReminder,
             'payrollCutoffReminder' => $payrollCutoffReminder,
             'pendingLeaves' => $pendingLeaves,

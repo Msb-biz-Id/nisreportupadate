@@ -20,6 +20,7 @@ import {
     Eye,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
+import UniversalDocumentViewer from '@/Components/Hcm/UniversalDocumentViewer';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -183,11 +184,23 @@ export default function LeavesIndex({
     return (
         <AppLayout
             header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                    <CalendarDays className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                        Cuti & Perizinan Karyawan
+                    </span>
+                </div>
+            }
+        >
+            <Head title="Cuti & Perizinan - Kepegawaian" />
+
+            <div className="space-y-4">
+                {/* Header Banner Canvas */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
                     <div>
-                        <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <CalendarDays className="h-5 w-5 text-indigo-600" />
-                            Cuti & Perizinan Karyawan
+                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                            <CalendarDays className="h-5 w-5 text-indigo-600 shrink-0" />
+                            <span>Cuti & Perizinan Karyawan</span>
                         </h1>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                             Manajemen pengajuan cuti tahunan, izin sakit, dinas luar, dan persetujuan atasan.
@@ -197,17 +210,12 @@ export default function LeavesIndex({
                     <Button
                         onClick={() => setIsCreateModalOpen(true)}
                         size="sm"
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 shadow-sm"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 shadow-xs shrink-0 self-start sm:self-auto"
                     >
                         <Plus className="h-3.5 w-3.5" />
-                        Ajukan Cuti / Izin Baru
+                        <span>Ajukan Cuti / Izin Baru</span>
                     </Button>
                 </div>
-            }
-        >
-            <Head title="Cuti & Perizinan - Kepegawaian" />
-
-            <div className="space-y-4">
                 {/* 1. Baris Metrik Ringkasan */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <Card className="border border-amber-200/80 dark:border-amber-900/40 bg-amber-50/30 dark:bg-amber-950/20 shadow-sm p-4">
@@ -675,47 +683,12 @@ export default function LeavesIndex({
             </Dialog>
 
             {/* MODAL 3: In-App Document Preview Modal */}
-            <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
-                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-4">
-                    <DialogHeader className="pb-2 border-b">
-                        <div className="flex items-center justify-between">
-                            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-indigo-600" />
-                                {previewFile?.name || 'Pratinjau Dokumen'}
-                            </DialogTitle>
-                            {previewFile?.url && (
-                                <a
-                                    href={previewFile.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-indigo-600 hover:underline flex items-center gap-1"
-                                >
-                                    <ExternalLink className="h-3.5 w-3.5" />
-                                    Buka di Tab Baru
-                                </a>
-                            )}
-                        </div>
-                    </DialogHeader>
-                    <div className="flex-1 w-full min-h-[500px] bg-zinc-100 dark:bg-zinc-900 rounded-lg overflow-hidden flex items-center justify-center p-2">
-                        {previewFile?.isPdf ? (
-                            <iframe
-                                src={previewFile.url}
-                                className="w-full h-full min-h-[500px] border-0 rounded"
-                                title="Pratinjau PDF"
-                            />
-                        ) : (
-                            <img
-                                src={previewFile?.url}
-                                alt="Pratinjau Berkas"
-                                className="max-h-[600px] max-w-full object-contain rounded shadow"
-                                onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                }}
-                            />
-                        )}
-                    </div>
-                </DialogContent>
-            </Dialog>
+            <UniversalDocumentViewer
+                isOpen={!!previewFile}
+                onClose={() => setPreviewFile(null)}
+                fileUrl={previewFile?.url}
+                fileName={previewFile?.name || 'Bukti Surat Dokter / Izin'}
+            />
         </AppLayout>
     );
 }

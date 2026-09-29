@@ -9,6 +9,8 @@ use App\Models\Hcm\HcmContract;
 use App\Models\Hcm\HcmEmployee;
 use App\Models\Hcm\HcmIntern;
 use App\Models\Hcm\HcmMasterOption;
+use App\Models\Hcm\HcmOffboarding;
+use App\Models\Hcm\HcmOnboarding;
 use App\Services\ActivityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,10 +30,12 @@ class HcmEmployeeController extends Controller
     {
         Gate::authorize('hcm.manage-employees');
 
+        $category = $request->query('category', 'regular'); // 'regular' atau 'intern'
         $search = $request->query('search', '');
         $departmentFilter = $request->query('department', 'all');
         $jobLevelFilter = $request->query('job_level', 'all');
         $statusFilter = $request->query('status', 'all');
+        $schoolFilter = $request->query('school', 'all');
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
@@ -40,17 +44,37 @@ class HcmEmployeeController extends Controller
             'activeContract',
             'compensation',
         ])
+            ->when($category === 'intern', function ($query) {
+                $query->where(function ($q) {
+                    $q->where('employee_category', 'INTERN')
+                      ->orWhere('job_level', 'Magang');
+                });
+            })
+            ->when($category === 'regular', function ($query) {
+                $query->where(function ($q) {
+                    $q->where('employee_category', 'REGULAR')
+                      ->orWhereNull('employee_category');
+                })->where('job_level', '!=', 'Magang');
+            })
             ->when($escapedSearch, function ($query, $term) {
                 $query->where(function ($q) use ($term) {
                     $q->where('name', 'like', "%{$term}%")
                       ->orWhere('nickname', 'like', "%{$term}%")
                       ->orWhere('employee_code', 'like', "%{$term}%")
                       ->orWhere('nik_ktp', 'like', "%{$term}%")
-                      ->orWhere('phone_number', 'like', "%{$term}%");
+                      ->orWhere('phone_number', 'like', "%{$term}%")
+                      ->orWhereHas('intern', function ($iq) use ($term) {
+                          $iq->where('school_name', 'like', "%{$term}%")
+                            ->orWhere('nis', 'like', "%{$term}%")
+                            ->orWhere('major', 'like', "%{$term}%");
+                      });
                 });
             })
             ->when($departmentFilter !== 'all', fn ($q) => $q->where('department', $departmentFilter))
             ->when($jobLevelFilter !== 'all', fn ($q) => $q->where('job_level', $jobLevelFilter))
+            ->when($schoolFilter !== 'all' && $category === 'intern', function ($q) use ($schoolFilter) {
+                $q->whereHas('intern', fn ($iq) => $iq->where('school_name', $schoolFilter));
+            })
             ->when($statusFilter === 'active', fn ($q) => $q->where('is_active', true))
             ->when($statusFilter === 'inactive', fn ($q) => $q->where('is_active', false))
             ->orderBy('id', 'desc');
@@ -60,24 +84,61 @@ class HcmEmployeeController extends Controller
         // Dropdown dinamis dari master data
         $dropdowns = HcmMasterOption::getAllDropdowns();
 
-        // Ringkasan metrik statistik
+        // Daftar sekolah SMK untuk filter peserta magang
+        $schools = HcmIntern::whereNotNull('school_name')
+            ->select('school_name')
+            ->distinct()
+            ->orderBy('school_name')
+            ->pluck('school_name')
+            ->values()
+            ->all();
+
+        // Ringkasan metrik statistik terpisah
+        $regularBase = HcmEmployee::where(function ($q) {
+            $q->where('employee_category', 'REGULAR')
+              ->orWhereNull('employee_category');
+        })->where('job_level', '!=', 'Magang');
+
+        $internBase = HcmEmployee::where(function ($q) {
+            $q->where('employee_category', 'INTERN')
+              ->orWhere('job_level', 'Magang');
+        });
+
         $metrics = [
-            'total_active' => HcmEmployee::where('is_active', true)->count(),
-            'total_interns' => HcmEmployee::where('job_level', 'Magang')->where('is_active', true)->count(),
-            'total_contract' => HcmEmployee::whereIn('employment_status', ['PKWT', 'PKWT Lanjutan', 'Kontrak (PKWT)'])->where('is_active', true)->count(),
-            'total_permanent' => HcmEmployee::whereIn('employment_status', ['Karyawan Tetap', 'Tetap (PKWTT)'])->where('is_active', true)->count(),
+            // Metrik Karyawan Reguler
+            'total_active_regular' => (clone $regularBase)->where('is_active', true)->count(),
+            'total_permanent' => (clone $regularBase)->whereIn('employment_status', ['Karyawan Tetap', 'Tetap (PKWTT)'])->where('is_active', true)->count(),
+            'total_contract' => (clone $regularBase)->whereIn('employment_status', ['PKWT', 'PKWT Lanjutan', 'Kontrak (PKWT)'])->where('is_active', true)->count(),
+            'total_freelance' => (clone $regularBase)->whereIn('job_level', ['Borongan', 'Harian'])->where('is_active', true)->count(),
+
+            // Metrik Peserta Magang SMK
+            'total_interns_active' => (clone $internBase)->where('is_active', true)->count(),
+            'interns_expiring_soon' => HcmIntern::whereHas('employee', fn ($q) => $q->where('is_active', true))
+                ->whereNotNull('end_date')
+                ->whereBetween('end_date', [now()->startOfDay(), now()->addDays(30)->endOfDay()])
+                ->count(),
+            'total_intern_schools' => count($schools),
+            'interns_completed' => HcmIntern::whereNotNull('end_date')
+                ->where('end_date', '<', now()->startOfDay())
+                ->count(),
+
+            // Keseluruhan
+            'total_all_active' => HcmEmployee::where('is_active', true)->count(),
         ];
 
         return Inertia::render('Hcm/Employees/Index', [
             'employees' => $employees,
             'filters' => [
+                'category' => $category,
                 'search' => $search,
                 'department' => $departmentFilter,
                 'job_level' => $jobLevelFilter,
                 'status' => $statusFilter,
+                'school' => $schoolFilter,
             ],
             'metrics' => $metrics,
             'dropdowns' => $dropdowns,
+            'schools' => $schools,
         ]);
     }
 
@@ -89,6 +150,7 @@ class HcmEmployeeController extends Controller
         Gate::authorize('hcm.manage-employees');
 
         $validated = $request->validate([
+            'employee_category' => ['nullable', 'string', 'in:REGULAR,INTERN'],
             'name' => ['required', 'string', 'max:150'],
             'nickname' => ['required', 'string', 'max:50'],
             'department' => ['required', 'string', 'max:100'],
@@ -97,7 +159,7 @@ class HcmEmployeeController extends Controller
             'employment_status' => ['required', 'string', 'max:50'],
             'legal_entity' => ['nullable', 'string', 'max:100'],
             'phone_number' => ['required', 'string', 'max:25'],
-            'gender' => ['required', 'string', 'in:Laki Laki,Perempuan'],
+            'gender' => ['required', 'string', 'in:Laki Laki,Laki-Laki,Perempuan'],
             'religion' => ['nullable', 'string', 'max:30'],
             'education' => ['nullable', 'string', 'max:50'],
             'marital_status' => ['nullable', 'string', 'max:30'],
@@ -119,6 +181,8 @@ class HcmEmployeeController extends Controller
             'intern_class' => ['nullable', 'string', 'max:20'],
             'intern_major' => ['nullable', 'string', 'max:100'],
             'intern_nis' => ['nullable', 'string', 'max:50'],
+            'intern_student_phone' => ['nullable', 'string', 'max:25'],
+            'intern_student_address' => ['nullable', 'string'],
             'intern_start_date' => ['nullable', 'date'],
             'intern_end_date' => ['nullable', 'date'],
             'intern_duration_text' => ['nullable', 'string', 'max:50'],
@@ -140,8 +204,14 @@ class HcmEmployeeController extends Controller
 
         $employee = null;
         DB::transaction(function () use ($request, $validated, &$employee) {
+            // Tentukan kategori karyawan
+            $category = $validated['employee_category'] ?? null;
+            if (!$category) {
+                $category = ($validated['job_level'] === 'Magang' || $validated['employment_status'] === 'Magang') ? 'INTERN' : 'REGULAR';
+            }
+            $isIntern = ($category === 'INTERN');
+
             // Generate auto employee_code
-            $isIntern = ($validated['job_level'] === 'Magang' || $validated['employment_status'] === 'Magang');
             $prefix = $isIntern ? 'INT-' : 'EMP-';
             $year = date('Y');
             $count = HcmEmployee::whereYear('created_at', $year)
@@ -158,6 +228,7 @@ class HcmEmployeeController extends Controller
 
             $employee = HcmEmployee::create([
                 'employee_code' => $code,
+                'employee_category' => $category,
                 'name' => $validated['name'],
                 'nickname' => $validated['nickname'],
                 'department' => $validated['department'],
@@ -195,6 +266,8 @@ class HcmEmployeeController extends Controller
                     'class' => $validated['intern_class'] ?? 'XII',
                     'major' => $validated['intern_major'] ?? null,
                     'nis' => $validated['intern_nis'] ?? null,
+                    'student_phone' => $validated['intern_student_phone'] ?? null,
+                    'student_address' => $validated['intern_student_address'] ?? null,
                     'start_date' => $validated['intern_start_date'] ?? $validated['join_date'] ?? null,
                     'end_date' => $validated['intern_end_date'] ?? null,
                     'duration_text' => $validated['intern_duration_text'] ?? null,
@@ -237,6 +310,9 @@ class HcmEmployeeController extends Controller
                     'salary_status' => 'Telah Berlaku',
                 ]);
             }
+
+            // Modul 12: buat rekap onboarding karyawan baru.
+            HcmOnboarding::syncFor($employee);
         });
 
         if ($employee) {
@@ -249,22 +325,36 @@ class HcmEmployeeController extends Controller
     /**
      * Tampilkan Buku Induk Profil Karyawan 360° (6 Tab Interaktif).
      */
-    public function show(HcmEmployee $employee): Response
+    public function show(Request $request, HcmEmployee $employee): Response
     {
         Gate::authorize('hcm.manage-employees');
+
+        $month = $request->query('month', now()->format('Y-m'));
+        try {
+            $monthStart = \Carbon\Carbon::parse($month . '-01')->startOfMonth();
+        } catch (\Throwable $e) {
+            $monthStart = now()->startOfMonth();
+        }
+        $monthEnd = $monthStart->copy()->endOfMonth();
 
         $employee->load([
             'intern',
             'contracts',
             'compensation.histories.approver',
-            'attendances' => fn ($q) => $q->orderBy('attendance_date', 'desc')->limit(31),
+            'onboarding',
+            'offboarding',
+            'attendances' => fn ($q) => $q->whereBetween('attendance_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
+                ->orderBy('attendance_date'),
             'leaveRequests' => fn ($q) => $q->orderBy('start_date', 'desc')->limit(10),
             'overtimes.batch' => fn ($q) => $q->orderBy('overtime_date', 'desc')->limit(20),
+            'rewards' => fn ($q) => $q->orderByDesc('reward_year')->orderByDesc('id'),
         ]);
 
         return Inertia::render('Hcm/Employees/Show', [
             'employee' => $employee,
             'dropdowns' => HcmMasterOption::getAllDropdowns(),
+            'attendanceMonth' => $monthStart->format('Y-m'),
+            'attendanceDaysInMonth' => $monthStart->daysInMonth,
         ]);
     }
 
@@ -276,6 +366,7 @@ class HcmEmployeeController extends Controller
         Gate::authorize('hcm.manage-employees');
 
         $validated = $request->validate([
+            'employee_category' => ['nullable', 'string', 'in:REGULAR,INTERN'],
             'name' => ['required', 'string', 'max:150'],
             'nickname' => ['required', 'string', 'max:50'],
             'department' => ['required', 'string', 'max:100'],
@@ -306,6 +397,8 @@ class HcmEmployeeController extends Controller
             'intern_class' => ['nullable', 'string', 'max:20'],
             'intern_major' => ['nullable', 'string', 'max:100'],
             'intern_nis' => ['nullable', 'string', 'max:50'],
+            'intern_student_phone' => ['nullable', 'string', 'max:25'],
+            'intern_student_address' => ['nullable', 'string'],
             'intern_start_date' => ['nullable', 'date'],
             'intern_end_date' => ['nullable', 'date'],
             'intern_duration_text' => ['nullable', 'string', 'max:50'],
@@ -337,9 +430,16 @@ class HcmEmployeeController extends Controller
                 $photoUrl = '/storage/' . $photoPath;
             }
 
+            // Tentukan kategori jika diberikan atau inferensi
+            $category = $validated['employee_category'] ?? null;
+            if (!$category) {
+                $category = ($validated['job_level'] === 'Magang' || $validated['employment_status'] === 'Magang') ? 'INTERN' : ($employee->employee_category ?? 'REGULAR');
+            }
+
             $employee->update([
                 'photo' => $photoPath,
                 'photo_url' => $photoUrl,
+                'employee_category' => $category,
                 'name' => $validated['name'],
                 'nickname' => $validated['nickname'],
                 'department' => $validated['department'],
@@ -375,6 +475,8 @@ class HcmEmployeeController extends Controller
                         'class' => $validated['intern_class'] ?? 'XII',
                         'major' => $validated['intern_major'] ?? null,
                         'nis' => $validated['intern_nis'] ?? null,
+                        'student_phone' => $validated['intern_student_phone'] ?? null,
+                        'student_address' => $validated['intern_student_address'] ?? null,
                         'start_date' => $validated['intern_start_date'] ?? null,
                         'end_date' => $validated['intern_end_date'] ?? null,
                         'duration_text' => $validated['intern_duration_text'] ?? null,
@@ -383,6 +485,9 @@ class HcmEmployeeController extends Controller
                     ]
                 );
             }
+
+            // Modul 12: sinkronkan kelengkapan rekap onboarding.
+            HcmOnboarding::syncFor($employee);
         });
 
         ActivityLogger::log('update', 'hcm', $employee, "Memperbarui data profil karyawan: {$employee->name} ({$employee->employee_code})");
@@ -443,6 +548,9 @@ class HcmEmployeeController extends Controller
             'position' => $validated['position'],
             'legal_entity' => $validated['legal_entity'],
         ]);
+
+        // Modul 12: kontrak baru menuntaskan checklist onboarding "Tanda Tangan Kontrak".
+        HcmOnboarding::syncFor($employee);
 
         ActivityLogger::log('create', 'hcm', $employee, "Menambahkan naskah kontrak kerja baru #{$validated['contract_number']} untuk {$employee->name}");
 
@@ -521,14 +629,133 @@ class HcmEmployeeController extends Controller
     {
         Gate::authorize('hcm.manage-employees');
 
-        $employee->update([
-            'is_active' => !$employee->is_active,
-        ]);
+        DB::transaction(function () use ($employee) {
+            $employee->update([
+                'is_active' => !$employee->is_active,
+            ]);
+
+            if ($employee->is_active) {
+                // Karyawan aktif kembali: rekap offboarding dibatalkan.
+                HcmOffboarding::where('employee_id', $employee->id)->delete();
+            } else {
+                // Karyawan keluar: buka rekap offboarding & sinkronkan onboarding.
+                HcmOnboarding::syncFor($employee);
+                HcmOffboarding::openFor($employee);
+            }
+        });
 
         $status = $employee->is_active ? 'diaktifkan kembali' : 'dinonaktifkan (offboarding)';
         ActivityLogger::log('toggle', 'hcm', $employee, "Status karyawan {$employee->name} {$status}");
 
         return redirect()->back()->with('success', "Karyawan '{$employee->name}' berhasil {$status}.");
+    }
+
+    /**
+     * Perbarui rekap onboarding karyawan baru (Modul 12).
+     */
+    public function updateOnboarding(Request $request, HcmEmployee $employee): RedirectResponse
+    {
+        Gate::authorize('hcm.manage-employees');
+
+        $validated = $request->validate([
+            'position' => ['nullable', 'string', 'max:100'],
+            'department' => ['nullable', 'string', 'max:100'],
+            'join_date' => ['nullable', 'date'],
+            'checklist' => ['nullable', 'array'],
+            'checklist.ktp' => ['nullable', 'boolean'],
+            'checklist.bpjs' => ['nullable', 'boolean'],
+            'checklist.kontrak' => ['nullable', 'boolean'],
+            'checklist.seragam' => ['nullable', 'boolean'],
+            'approve' => ['nullable', 'boolean'],
+        ]);
+
+        $onboarding = HcmOnboarding::firstOrNew(['employee_id' => $employee->id]);
+
+        $onboarding->position = $validated['position'] ?? $onboarding->position ?? $employee->position;
+        $onboarding->department = $validated['department'] ?? $onboarding->department ?? $employee->department;
+        $onboarding->join_date = $validated['join_date'] ?? $onboarding->join_date ?? $employee->join_date;
+
+        $manual = collect($request->input('checklist', []))
+            ->map(fn ($v) => (bool) $v)
+            ->all();
+        $onboarding->status_checklist = array_merge($onboarding->status_checklist ?? [], $manual);
+
+        if ($request->boolean('approve')) {
+            $onboarding->approved_date = $onboarding->approved_date ?: now()->toDateString();
+        }
+
+        $onboarding->save();
+
+        // Rekonsiliasi dengan data karyawan terkini (auto-approve jika lengkap).
+        HcmOnboarding::syncFor($employee);
+
+        ActivityLogger::log('update', 'hcm', $employee, "Memperbarui rekap onboarding {$employee->name} ({$employee->employee_code})");
+
+        return redirect()->back()->with('success', 'Rekap onboarding berhasil diperbarui.');
+    }
+
+    /**
+     * Perbarui rekap offboarding karyawan keluar (Modul 12).
+     */
+    public function updateOffboarding(Request $request, HcmEmployee $employee): RedirectResponse
+    {
+        Gate::authorize('hcm.manage-employees');
+
+        $validated = $request->validate([
+            'position' => ['nullable', 'string', 'max:100'],
+            'exit_date' => ['required', 'date'],
+            'exit_reason' => ['nullable', 'string', 'max:150'],
+            'notice_compliance' => ['nullable', 'string', 'max:100'],
+            'rights_status' => ['nullable', 'string', 'max:100'],
+            'asset_clearance' => ['nullable', 'string', 'max:100'],
+            'clearance_status' => ['nullable', 'string', 'max:50'],
+            'offboarding_notes' => ['nullable', 'string'],
+        ]);
+
+        $offboarding = HcmOffboarding::firstOrCreate(
+            ['employee_id' => $employee->id],
+            ['position' => $employee->position, 'exit_date' => now()->toDateString()]
+        );
+
+        $offboarding->update($validated);
+
+        ActivityLogger::log('update', 'hcm', $employee, "Memperbarui rekap offboarding {$employee->name} ({$employee->employee_code})");
+
+        return redirect()->back()->with('success', 'Rekap offboarding berhasil diperbarui.');
+    }
+
+    /**
+     * Proses karyawan keluar (offboarding) sekaligus: nonaktifkan + simpan data keluar (Modul 12).
+     */
+    public function offboard(Request $request, HcmEmployee $employee): RedirectResponse
+    {
+        Gate::authorize('hcm.manage-employees');
+
+        $validated = $request->validate([
+            'position' => ['nullable', 'string', 'max:100'],
+            'exit_date' => ['required', 'date'],
+            'exit_reason' => ['required', 'string', 'max:150'],
+            'notice_compliance' => ['nullable', 'string', 'max:100'],
+            'rights_status' => ['nullable', 'string', 'max:100'],
+            'asset_clearance' => ['nullable', 'string', 'max:100'],
+            'clearance_status' => ['nullable', 'string', 'max:50'],
+            'offboarding_notes' => ['nullable', 'string'],
+        ]);
+
+        DB::transaction(function () use ($employee, $validated) {
+            $employee->update(['is_active' => false]);
+
+            HcmOnboarding::syncFor($employee);
+
+            $offboarding = HcmOffboarding::firstOrNew(['employee_id' => $employee->id]);
+            $offboarding->fill($validated);
+            $offboarding->position = $validated['position'] ?? $employee->position;
+            $offboarding->save();
+        });
+
+        ActivityLogger::log('update', 'hcm', $employee, "Memproses karyawan keluar: {$employee->name} ({$employee->employee_code})");
+
+        return redirect()->back()->with('success', "Karyawan '{$employee->name}' telah diproses keluar (offboarding).");
     }
 
     /**

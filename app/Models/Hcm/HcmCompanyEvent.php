@@ -16,11 +16,16 @@ class HcmCompanyEvent extends Model
     protected $fillable = [
         'title',
         'event_type',
+        'organizer_name',
         'start_date',
         'end_date',
         'start_time',
         'end_time',
         'location',
+        'target_audience',
+        'reminder_days',
+        'is_annual_recurring',
+        'invitation_file_url',
         'description',
         'color_code',
         'is_public',
@@ -31,6 +36,8 @@ class HcmCompanyEvent extends Model
         'start_date' => 'date:Y-m-d',
         'end_date' => 'date:Y-m-d',
         'is_public' => 'boolean',
+        'is_annual_recurring' => 'boolean',
+        'reminder_days' => 'integer',
     ];
 
     /**

@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Hcm;
 
 use App\Http\Controllers\Controller;
+use App\Exports\HcmOvertimeBatchExport;
 use App\Models\Hcm\HcmEmployee;
 use App\Models\Hcm\HcmMasterOption;
 use App\Models\Hcm\HcmOvertime;
 use App\Models\Hcm\HcmOvertimeBatch;
 use App\Models\Settings\SystemSetting;
 use App\Services\ActivityLogger;
+use App\Services\Notifications\IdealNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,6 +19,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class HcmOvertimeController extends Controller
 {
@@ -45,11 +49,13 @@ class HcmOvertimeController extends Controller
         $firstHalfRate = $isWeekend ? $rates['weekend_first_half_rate'] : $rates['weekday_first_half_rate'];
 
         if ($hours < 0.5) {
+            // Durasi < 30 menit: tidak dihitung lembur (dibulatkan ke bawah).
             $totalAmount = 0;
-        } elseif ($hours == 0.5) {
+        } elseif ($hours < 1) {
+            // Durasi 30 s.d. < 60 menit: tarif 30 menit pertama (flat).
             $totalAmount = $firstHalfRate;
         } else {
-            // Proporsional per jam
+            // Durasi >= 1 jam: proporsional per jam.
             $totalAmount = round($hours * $hourlyRate, 2);
         }
 
@@ -91,6 +97,7 @@ class HcmOvertimeController extends Controller
         $metrics = [
             'draft_batches' => HcmOvertimeBatch::where('status', 'DRAFT')->count(),
             'pending_finance_sign' => HcmOvertimeBatch::where('status', 'APPROVED_BY_HCM')->count(),
+            'in_finance_process' => HcmOvertimeBatch::where('status', 'PENDING_FINANCE_SIGN')->count(),
             'paid_completed' => HcmOvertimeBatch::where('status', 'PAID_COMPLETED')->count(),
             'total_paid_amount' => HcmOvertimeBatch::where('status', 'PAID_COMPLETED')->sum('total_amount'),
         ];
@@ -154,14 +161,21 @@ class HcmOvertimeController extends Controller
         Gate::authorize('hcm.manage-overtime');
 
         $validated = $request->validate([
-            'period_start' => ['required', 'date'],
-            'period_end' => ['required', 'date', 'after_or_equal:period_start'],
+            'period_start' => ['nullable', 'date'],
+            'period_end' => ['nullable', 'date'],
             'payout_date' => ['required', 'date'],
         ]);
 
-        $start = Carbon::parse($validated['period_start']);
-        $year = $start->format('Y');
-        $weekNumber = $start->weekOfYear;
+        // Cut-off dibakukan: Sabtu 00:00 s.d. Jumat 23:59, pencairan Sabtu berikutnya.
+        $payout = Carbon::parse($validated['payout_date'])->startOfDay();
+        if ($payout->dayOfWeek !== Carbon::SATURDAY) {
+            $payout = $payout->next(Carbon::SATURDAY);
+        }
+        $periodEnd = $payout->copy()->subDay();          // Jumat
+        $periodStart = $periodEnd->copy()->subDays(6);   // Sabtu pekan sebelumnya
+
+        $year = $periodStart->format('Y');
+        $weekNumber = $periodStart->weekOfYear;
 
         $batchCode = "OT-{$year}-W" . str_pad($weekNumber, 2, '0', STR_PAD_LEFT);
 
@@ -175,15 +189,15 @@ class HcmOvertimeController extends Controller
 
         $batch = HcmOvertimeBatch::create([
             'batch_code' => $batchCode,
-            'period_start' => $validated['period_start'],
-            'period_end' => $validated['period_end'],
-            'payout_date' => $validated['payout_date'],
+            'period_start' => $periodStart->toDateString(),
+            'period_end' => $periodEnd->toDateString(),
+            'payout_date' => $payout->toDateString(),
             'status' => 'DRAFT',
             'coa_code' => $rates['coa_code'],
             'created_by' => Auth::id(),
         ]);
 
-        ActivityLogger::log('create', 'hcm', $batch, "Membuat batch lembur baru: {$batchCode}");
+        ActivityLogger::log('create', 'hcm', $batch, "Membuat batch lembur baru: {$batchCode} ({$periodStart->toDateString()} s/d {$periodEnd->toDateString()})");
 
         return redirect()->route('hcm.overtime.show', $batch)->with('success', "Batch lembur mingguan {$batchCode} berhasil dibuat.");
     }
@@ -202,7 +216,7 @@ class HcmOvertimeController extends Controller
         $validated = $request->validate([
             'overtime_date' => ['required', 'date'],
             'day_type' => ['required', 'string', 'in:Lembur Hari Kerja,Lembur Hari Libur'],
-            'duration_hours' => ['required', 'numeric', 'min:0.5', 'max:24'],
+            'duration_hours' => ['required', 'numeric', 'gt:0', 'max:24'],
             'task_description' => ['nullable', 'string', 'max:500'],
             'employee_ids' => ['required', 'array', 'min:1'],
             'employee_ids.*' => ['required', 'exists:hcm_employees,id'],
@@ -288,17 +302,44 @@ class HcmOvertimeController extends Controller
 
         ActivityLogger::log('sign-off', 'hcm', $batch, "Verifikasi sign-off HCM batch lembur {$batch->batch_code}");
 
+        IdealNotificationService::dispatch('hcm_overtime_ready_to_pay', [
+            'title' => 'Rekap Lembur Siap Dicairkan',
+            'body' => "Rekap Lembur {$batch->batch_code} periode " . Carbon::parse($batch->period_start)->isoFormat('D MMM') . ' s/d ' . Carbon::parse($batch->period_end)->isoFormat('D MMM Y') . ' telah disetujui HCM & siap dicairkan.',
+            'action_url' => route('hcm.overtime.index'),
+            'batch_code' => $batch->batch_code,
+            'emoji' => '💸',
+            'sound' => 'cash-register',
+        ]);
+
         return redirect()->back()->with('success', 'Batch lembur berhasil ditandatangani oleh HCM dan diteruskan ke Tim Keuangan.');
     }
 
     /**
-     * Double Sign-Off Tahap 2: Pembayaran & Eksekusi Keuangan (Gatekeeper Dana).
+     * Double Sign-Off Tahap 3: Keuangan mulai memverifikasi kas (status PENDING_FINANCE_SIGN).
+     */
+    public function startFinance(HcmOvertimeBatch $batch): RedirectResponse
+    {
+        Gate::authorize('finance.sign-paid');
+
+        if ($batch->status !== 'APPROVED_BY_HCM') {
+            return redirect()->back()->with('error', 'Batch harus disetujui HCM terlebih dahulu.');
+        }
+
+        $batch->update(['status' => 'PENDING_FINANCE_SIGN']);
+
+        ActivityLogger::log('sign-off', 'hcm', $batch, "Keuangan mulai memproses pembayaran batch lembur {$batch->batch_code}");
+
+        return redirect()->back()->with('success', "Batch lembur {$batch->batch_code} masuk proses verifikasi kas Keuangan.");
+    }
+
+    /**
+     * Double Sign-Off Tahap 4: Pembayaran & Eksekusi Keuangan (Gatekeeper Dana).
      */
     public function signFinance(Request $request, HcmOvertimeBatch $batch): RedirectResponse
     {
         Gate::authorize('finance.sign-paid');
 
-        if ($batch->status !== 'APPROVED_BY_HCM') {
+        if (!in_array($batch->status, ['APPROVED_BY_HCM', 'PENDING_FINANCE_SIGN'], true)) {
             return redirect()->back()->with('error', 'Batch harus disetujui oleh HCM terlebih dahulu sebelum dibayarkan.');
         }
 
@@ -306,7 +347,18 @@ class HcmOvertimeController extends Controller
             'payment_method' => ['required', 'string', 'in:Kas Tunai,Transfer Bank'],
             'coa_code' => ['nullable', 'string', 'max:50'],
             'finance_notes' => ['nullable', 'string', 'max:500'],
+            'payout_proof' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'payout_proof_url' => ['nullable', 'string', 'max:255'],
         ]);
+
+        $payoutProofUrl = $validated['payout_proof_url'] ?? null;
+        if ($request->hasFile('payout_proof')) {
+            $uploaded = \App\Services\GoogleDriveSyncService::uploadFile(
+                $request->file('payout_proof'),
+                \App\Services\GoogleDriveSyncService::FOLDER_DOCUMENTS
+            );
+            $payoutProofUrl = $uploaded['url'];
+        }
 
         $batch->update([
             'status' => 'PAID_COMPLETED',
@@ -315,11 +367,37 @@ class HcmOvertimeController extends Controller
             'payment_method' => $validated['payment_method'],
             'coa_code' => $validated['coa_code'] ?? $batch->coa_code,
             'finance_notes' => $validated['finance_notes'] ?? null,
+            'payout_proof_url' => $payoutProofUrl ?? $batch->payout_proof_url,
         ]);
 
         ActivityLogger::log('sign-off', 'hcm', $batch, "Pencairan lunas batch lembur {$batch->batch_code} oleh Keuangan ({$validated['payment_method']})");
 
+        IdealNotificationService::dispatch('hcm_payout_completed', [
+            'title' => 'Pencairan Kas Selesai',
+            'body' => "Pencairan Lembur {$batch->batch_code} sebesar Rp " . number_format((float) $batch->total_amount, 0, ',', '.') . " telah berstatus Lunas (PAID_COMPLETED).",
+            'action_url' => route('hcm.overtime.index'),
+            'batch_code' => $batch->batch_code,
+            'emoji' => '✅',
+            'sound' => 'success-tada',
+        ]);
+
         return redirect()->back()->with('success', "Pencairan lembur {$batch->batch_code} berhasil disetujui & dicatat lunas oleh Keuangan.");
+    }
+
+    /**
+     * Export Excel rekap batch lembur mingguan.
+     */
+    public function exportBatchExcel(HcmOvertimeBatch $batch): BinaryFileResponse
+    {
+        Gate::authorize('hcm.manage-overtime');
+
+        $batch->load(['overtimes.employee:id,employee_code,name,department,position']);
+
+        $filename = 'Rekap_Lembur_' . $batch->batch_code . '_' . now()->format('Ymd') . '.xlsx';
+
+        ActivityLogger::log('export', 'hcm', $batch, "Export Excel rekap lembur {$batch->batch_code}");
+
+        return Excel::download(new HcmOvertimeBatchExport($batch, Auth::user()?->name), $filename);
     }
 
     /**
