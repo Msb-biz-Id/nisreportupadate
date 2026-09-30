@@ -50,17 +50,17 @@ class HcmDashboardController extends Controller
                 'total_all' => $allEmployees->count(),
                 'total_active' => $activeEmployees->count(),
                 'total_inactive' => $allEmployees->where('is_active', false)->count(),
-                'pkwtt' => $activeEmployees->where('employment_status', 'Tetap (PKWTT)')->count(),
-                'pkwt' => $activeEmployees->where('employment_status', 'Kontrak (PKWT)')->count(),
-                'magang' => $activeEmployees->where('employment_status', 'Magang')->count(),
-                'probation' => $activeEmployees->where('employment_status', 'Probation')->count(),
+                'pkwtt' => $activeEmployees->filter(fn ($e) => str_contains($e->employment_status ?? '', 'Tetap'))->count(),
+                'pkwt' => $activeEmployees->filter(fn ($e) => str_contains($e->employment_status ?? '', 'PKWT') || str_contains($e->employment_status ?? '', 'Kontrak'))->count(),
+                'magang' => $activeEmployees->filter(fn ($e) => str_contains($e->employment_status ?? '', 'Magang') || $e->job_level === 'Magang' || $e->employee_category === 'Magang')->count(),
+                'probation' => $activeEmployees->filter(fn ($e) => str_contains($e->employment_status ?? '', 'Probation') || str_contains($e->employment_status ?? '', 'Trainee') || $e->job_level === 'Trainee')->count(),
             ],
 
             // 2. Modul Kontrak Kerja PKWT
             'contracts' => [
                 'total_contracts' => HcmContract::count(),
-                'active' => HcmContract::where('review_status', 'Aktif')->count(),
-                'expiring_h30' => HcmContract::where('review_status', 'Aktif')
+                'active' => HcmContract::where('review_status', 'like', '%Aktif%')->count(),
+                'expiring_h30' => HcmContract::where('review_status', 'like', '%Aktif%')
                     ->whereDate('end_date', '>=', $todayStr)
                     ->whereDate('end_date', '<=', $today->copy()->addDays(30)->toDateString())
                     ->count(),

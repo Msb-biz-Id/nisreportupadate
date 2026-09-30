@@ -47,6 +47,10 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::get('/invoice/{invoiceNumber}/pdf', [InvoiceController::class, 'publicPdf'])->name('invoice.public.pdf');
     Route::get('/fo/{noPo}', [OrderController::class, 'publicFoPreview'])->name('orders.public.fo.preview');
     Route::get('/fo/{noPo}/pdf', [OrderController::class, 'publicFoPdf'])->name('orders.public.fo.pdf');
+
+    // Portal Karir & Pendaftaran Pelamar Mandiri (Guest Route Publik)
+    Route::get('/karir/{slug}', [\App\Http\Controllers\Hcm\HcmPublicCareerController::class, 'show'])->name('career.show');
+    Route::post('/karir/{slug}/apply', [\App\Http\Controllers\Hcm\HcmPublicCareerController::class, 'apply'])->name('career.apply');
 });
 
 // Webhook Sidobe — public endpoint, no auth, CSRF excluded via VerifyCsrfToken
@@ -295,6 +299,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Kompensasi & Gaji (Modul Khusus)
         Route::prefix('compensations')->name('compensations.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Hcm\HcmCompensationController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\Hcm\HcmCompensationController::class, 'store'])->name('store');
+            Route::put('/{compensation}', [\App\Http\Controllers\Hcm\HcmCompensationController::class, 'update'])->name('update');
+            Route::delete('/{compensation}', [\App\Http\Controllers\Hcm\HcmCompensationController::class, 'destroy'])->name('destroy');
+            Route::post('/{compensation}/increment', [\App\Http\Controllers\Hcm\HcmCompensationController::class, 'storeIncrement'])->name('increment.store');
         });
 
         // Presensi & Absensi Harian & Matriks Bulanan
@@ -323,8 +331,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('overtime')->name('overtime.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'index'])->name('index');
             Route::post('/batches', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'storeBatch'])->name('batches.store');
+            Route::put('/batches/{batch}', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'updateBatch'])->name('batches.update');
+            Route::delete('/batches/{batch}', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'destroyBatch'])->name('batches.destroy');
             Route::get('/batches/{batch}', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'show'])->name('show');
             Route::post('/batches/{batch}/items', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'storeOvertimeItems'])->name('items.store');
+            Route::put('/batches/{batch}/items/{overtime}', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'updateOvertimeItem'])->name('items.update');
             Route::delete('/batches/{batch}/items/{overtime}', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'destroyOvertimeItem'])->name('items.destroy');
             Route::post('/batches/{batch}/sign-hcm', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'signHcm'])->name('sign-hcm');
             Route::post('/batches/{batch}/start-finance', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'startFinance'])->name('start-finance');

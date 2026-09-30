@@ -14,6 +14,7 @@ class HcmApplicantInterview extends Model
     protected $table = 'hcm_applicant_interviews';
 
     protected $fillable = [
+        'uuid',
         'applicant_id',
         'interview_round',
         'interviewer_name',
@@ -31,6 +32,27 @@ class HcmApplicantInterview extends Model
         'offering_notes',
         'created_by',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function ($model) {
+            if (empty($model->uuid)) {
+                $model->uuid = (string) \Illuminate\Support\Str::uuid();
+            }
+        });
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->where($field ?? 'uuid', $value)
+            ->orWhere('id', is_numeric($value) ? (int) $value : 0)
+            ->firstOrFail();
+    }
 
     protected function casts(): array
     {

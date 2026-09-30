@@ -18,8 +18,13 @@ class DatabaseSeeder extends Seeder
             EkspedisiSeeder::class,
             OrderSeeder::class,
             HcmMasterDataSeeder::class,
-            HcmEmployeeSeeder::class,
             HcmUserSeeder::class,
+            HcmEmployeeSeeder::class,
+            HcmAttendanceAndLeaveSeeder::class,
+            HcmOvertimeSeeder::class,
+            HcmMealAllowanceAndRewardSeeder::class,
+            HcmRecruitmentAndDocumentSeeder::class,
+            HcmCompanyEventSeeder::class,
             // MultiFontTestSeeder::class,
         ]);
     }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Hcm;
 
 use App\Http\Controllers\Controller;
 use App\Models\Hcm\HcmInternalDocument;
+use App\Models\Hcm\HcmMasterOption;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,6 +24,7 @@ class HcmDocumentController extends Controller
         $categoryFilter = $request->query('category', 'all');
         $statusFilter = $request->query('status', 'all');
         $stageFilter = $request->query('stage', 'all');
+        $departmentFilter = $request->query('department', 'all');
         $search = $request->query('search', '');
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
@@ -32,40 +34,80 @@ class HcmDocumentController extends Controller
                 $sub->where('title', 'like', "%{$t}%")
                     ->orWhere('document_code', 'like', "%{$t}%")
                     ->orWhere('description', 'like', "%{$t}%")
+                    ->orWhere('department', 'like', "%{$t}%")
             ))
             ->when($categoryFilter !== 'all', fn ($q) => $q->where('category', $categoryFilter))
             ->when($stageFilter !== 'all', fn ($q) => $q->where('document_stage', $stageFilter))
+            ->when($departmentFilter !== 'all', fn ($q) => $q->where('department', $departmentFilter))
             ->when($statusFilter !== 'all', fn ($q) => $q->where('status', $statusFilter))
-            ->orderBy('category')
-            ->orderBy('document_code')
+            ->orderByDesc('id')
             ->paginate(12)
             ->withQueryString();
 
         $metrics = [
             'total_documents' => HcmInternalDocument::count(),
-            'active_sop' => HcmInternalDocument::where('category', 'SOP')->where('status', 'Aktif')->count(),
-            'company_regulations' => HcmInternalDocument::where('category', 'Peraturan Perusahaan')->count(),
-            'standard_forms' => HcmInternalDocument::where('category', 'Formulir Standar')->count(),
+            'active_sop' => HcmInternalDocument::where(fn ($q) =>
+                $q->where('category', 'like', '%SOP%')
+                    ->orWhere('document_stage', 'SOP & Kebijakan')
+            )->whereIn('status', ['Aktif', 'Berlaku'])->count(),
             'pengajuan_count' => HcmInternalDocument::where('document_stage', 'Pengajuan')->count(),
             'realisasi_count' => HcmInternalDocument::where('document_stage', 'Realisasi')->count(),
             'total_proposed_budget' => (float) HcmInternalDocument::sum('proposed_budget'),
             'total_actual_budget' => (float) HcmInternalDocument::sum('actual_budget'),
         ];
 
-        $categories = [
+        // Ambil Departemen / Divisi dinamis dari Master Data
+        $departments = HcmMasterOption::getOptions('divisi') ?: [
+            'Keuangan',
+            'Human Capital Management',
+            'Marketing',
+            'Produksi',
+            'Media Internal',
+            'Media Eksternal',
+        ];
+
+        // Ambil Kategori Dokumen per Siklus dari Master Data (Blueprint Website HCM NIS.xlsx)
+        $categoriesPengajuan = HcmMasterOption::getOptions('kategori_dokumen_pengajuan') ?: [
             'Pengajuan RAB (Rencana Anggaran Biaya)',
             'Proposal Kegiatan / Acara',
             'Pengajuan Pembelian Aset / Inventaris',
-            'LPJ (Laporan Pertanggungjawaban) Kegiatan',
-            'Realisasi Pembelian Aset & Nota/Faktur',
-            'Laporan & Bukti Pengeluaran Perjalanan Dinas',
-            'SOP (Standar Operasional Prosedur)',
-            'Peraturan Perusahaan',
-            'Formulir Standar',
-            'Pedoman Keselamatan Kerja (K3)',
-            'Kebijakan Direksi',
-            'Lainnya',
+            'Pengajuan Perjalanan Dinas / Surat Tugas',
         ];
+
+        $categoriesRealisasi = HcmMasterOption::getOptions('kategori_dokumen_realisasi') ?: [
+            'LPJ (Laporan Pertanggungjawaban) Kegiatan',
+            'Realisasi Pembelian Aset & Nota/Faktur Pembelanjaan',
+            'Laporan & Bukti Pengeluaran Perjalanan Dinas (Reimburse / Settlement)',
+        ];
+
+        $categoriesKebijakan = HcmMasterOption::getOptions('dokumen_administratif_kebijakan') ?: [
+            'Standard Operating Procedure (SOP)',
+            'Surat Keputusan (SK) & Kebijakan Internal',
+            'Kontrak / Perjanjian Kerjasama (Vendor / Partner)',
+            'Surat Peringatan (SP 1 / SP 2 / SP 3)',
+            'Surat Keputusan / Pemberitahuan PHK',
+            'Surat Pengalaman Kerja (Paklaring)',
+            'Surat Pengumuman Internal (Mutasi, Promosi, atau Kebijakan)',
+            'Berita Acara / Surat Klarifikasi',
+            'Surat Tugas & Perjalanan Dinas (SPPD)',
+        ];
+
+        $categoriesByStage = [
+            'Pengajuan' => $categoriesPengajuan,
+            'Realisasi' => $categoriesRealisasi,
+            'SOP & Kebijakan' => $categoriesKebijakan,
+        ];
+
+        // Seluruh kategori gabungan untuk opsi filter & fallback
+        $allCategories = array_values(array_unique(array_merge(
+            $categoriesPengajuan,
+            $categoriesRealisasi,
+            $categoriesKebijakan,
+            HcmInternalDocument::distinct()->whereNotNull('category')->pluck('category')->toArray()
+        )));
+
+        $stages = ['Pengajuan', 'Realisasi', 'SOP & Kebijakan'];
+        $statuses = ['Berlaku', 'Selesai', 'Dalam Revisi', 'Dibatalkan', 'Arsip'];
 
         return Inertia::render('Hcm/Documents/Index', [
             'documents' => $documents,
@@ -73,11 +115,15 @@ class HcmDocumentController extends Controller
                 'category' => $categoryFilter,
                 'status' => $statusFilter,
                 'stage' => $stageFilter,
+                'department' => $departmentFilter,
                 'search' => $search,
             ],
             'metrics' => $metrics,
-            'categories' => $categories,
-            'stages' => ['Pengajuan', 'Realisasi'],
+            'departments' => $departments,
+            'categories' => $allCategories,
+            'categoriesByStage' => $categoriesByStage,
+            'stages' => $stages,
+            'statuses' => $statuses,
         ]);
     }
 
@@ -89,15 +135,15 @@ class HcmDocumentController extends Controller
         Gate::authorize('hcm.manage-documents');
 
         $validated = $request->validate([
-            'document_code' => ['required', 'string', 'max:50', 'unique:hcm_internal_documents,document_code'],
-            'title' => ['required', 'string', 'max:200'],
-            'category' => ['required', 'string', 'max:100'],
-            'document_stage' => ['nullable', 'string', 'in:Pengajuan,Realisasi'],
+            'document_code' => ['required', 'string', 'max:100', 'unique:hcm_internal_documents,document_code'],
+            'title' => ['required', 'string', 'max:255'],
+            'category' => ['required', 'string', 'max:150'],
+            'document_stage' => ['nullable', 'string', 'max:50'],
             'department' => ['nullable', 'string', 'max:100'],
-            'revision_number' => ['required', 'string', 'max:20'],
+            'revision_number' => ['nullable', 'string', 'max:30'],
             'proposed_budget' => ['nullable', 'numeric', 'min:0'],
             'actual_budget' => ['nullable', 'numeric', 'min:0'],
-            'effective_date' => ['required', 'date'],
+            'effective_date' => ['nullable', 'date'],
             'submission_date' => ['nullable', 'date'],
             'approval_date' => ['nullable', 'date'],
             'status' => ['required', 'string', 'max:50'],
@@ -131,15 +177,15 @@ class HcmDocumentController extends Controller
         Gate::authorize('hcm.manage-documents');
 
         $validated = $request->validate([
-            'document_code' => ['required', 'string', 'max:50', 'unique:hcm_internal_documents,document_code,' . $document->id],
-            'title' => ['required', 'string', 'max:200'],
-            'category' => ['required', 'string', 'max:100'],
-            'document_stage' => ['nullable', 'string', 'in:Pengajuan,Realisasi'],
+            'document_code' => ['required', 'string', 'max:100', 'unique:hcm_internal_documents,document_code,' . $document->id],
+            'title' => ['required', 'string', 'max:255'],
+            'category' => ['required', 'string', 'max:150'],
+            'document_stage' => ['nullable', 'string', 'in:Pengajuan,Realisasi,SOP & Kebijakan'],
             'department' => ['nullable', 'string', 'max:100'],
-            'revision_number' => ['required', 'string', 'max:20'],
+            'revision_number' => ['nullable', 'string', 'max:30'],
             'proposed_budget' => ['nullable', 'numeric', 'min:0'],
             'actual_budget' => ['nullable', 'numeric', 'min:0'],
-            'effective_date' => ['required', 'date'],
+            'effective_date' => ['nullable', 'date'],
             'submission_date' => ['nullable', 'date'],
             'approval_date' => ['nullable', 'date'],
             'status' => ['required', 'string', 'max:50'],

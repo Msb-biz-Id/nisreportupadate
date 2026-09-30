@@ -149,7 +149,7 @@ export default function RewardsIndex({
     const handleSubmit = (e) => {
         e.preventDefault();
         if (editingReward) {
-            form.put(route('hcm.rewards.update', editingReward.id), {
+            form.put(route('hcm.rewards.update', editingReward.uuid || editingReward.id), {
                 onSuccess: () => {
                     setIsFormModalOpen(false);
                     form.reset();
@@ -167,7 +167,7 @@ export default function RewardsIndex({
 
     const handleDelete = (reward) => {
         if (confirm(`Hapus catatan reward "${reward.reward_name}" untuk ${reward.employee?.name}?`)) {
-            router.delete(route('hcm.rewards.destroy', reward.id));
+            router.delete(route('hcm.rewards.destroy', reward.uuid || reward.id));
         }
     };
 

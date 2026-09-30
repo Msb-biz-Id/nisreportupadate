@@ -34,7 +34,7 @@ export default function OffboardEmployeeDialog({ isOpen, onClose, employee, drop
 
     const submit = (e) => {
         e.preventDefault();
-        form.post(route('hcm.employees.offboard', employee.id), {
+        form.post(route('hcm.employees.offboard', employee.employee_code || employee.id), {
             preserveScroll: true,
             onSuccess: () => {
                 form.reset();

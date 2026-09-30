@@ -14,6 +14,7 @@ class HcmCompensation extends Model
     protected $table = 'hcm_compensations';
 
     protected $fillable = [
+        'uuid',
         'employee_id',
         'employment_status',
         'legal_entity',
@@ -40,6 +41,30 @@ class HcmCompensation extends Model
         'increment_2_amount' => 'float',
         'increment_3_amount' => 'float',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function ($model) {
+            if (empty($model->uuid)) {
+                $model->uuid = (string) \Illuminate\Support\Str::uuid();
+            }
+        });
+    }
+
+    /**
+     * Non-ID Base URL: Gunakan uuid sebagai route key publik (Zero Raw DB ID Exposure).
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->where($field ?? 'uuid', $value)
+            ->orWhere('id', is_numeric($value) ? (int) $value : 0)
+            ->firstOrFail();
+    }
 
     public function employee(): BelongsTo
     {

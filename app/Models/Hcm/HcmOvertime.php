@@ -14,6 +14,7 @@ class HcmOvertime extends Model
     protected $table = 'hcm_overtimes';
 
     protected $fillable = [
+        'uuid',
         'batch_id',
         'overtime_date',
         'employee_id',
@@ -26,6 +27,30 @@ class HcmOvertime extends Model
         'task_description',
         'created_by',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function ($model) {
+            if (empty($model->uuid)) {
+                $model->uuid = (string) \Illuminate\Support\Str::uuid();
+            }
+        });
+    }
+
+    /**
+     * Non-ID Base URL: Gunakan uuid sebagai route key publik (Zero Raw DB ID Exposure).
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->where($field ?? 'uuid', $value)
+            ->orWhere('id', is_numeric($value) ? (int) $value : 0)
+            ->firstOrFail();
+    }
 
     protected $casts = [
         'overtime_date' => 'date:Y-m-d',

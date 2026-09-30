@@ -75,6 +75,8 @@ class HcmOvertimeController extends Controller
 
         $statusFilter = $request->query('status', 'all');
         $search = $request->query('search', '');
+        $monthFilter = $request->query('month', 'all');
+        $yearFilter = $request->query('year', 'all');
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
@@ -87,6 +89,20 @@ class HcmOvertimeController extends Controller
                 $q->where('batch_code', 'like', "%{$term}%");
             })
             ->when($statusFilter !== 'all', fn ($q) => $q->where('status', $statusFilter))
+            ->when($monthFilter !== 'all', function ($q) use ($monthFilter) {
+                $q->where(function ($sub) use ($monthFilter) {
+                    $sub->whereMonth('period_start', (int) $monthFilter)
+                        ->orWhereMonth('period_end', (int) $monthFilter)
+                        ->orWhereMonth('payout_date', (int) $monthFilter);
+                });
+            })
+            ->when($yearFilter !== 'all', function ($q) use ($yearFilter) {
+                $q->where(function ($sub) use ($yearFilter) {
+                    $sub->whereYear('period_start', (int) $yearFilter)
+                        ->orWhereYear('payout_date', (int) $yearFilter);
+                });
+            })
+            ->orderBy('period_start', 'desc')
             ->orderBy('id', 'desc');
 
         $batches = $batchesQuery->paginate(12)->withQueryString();
@@ -102,12 +118,28 @@ class HcmOvertimeController extends Controller
             'total_paid_amount' => HcmOvertimeBatch::where('status', 'PAID_COMPLETED')->sum('total_amount'),
         ];
 
+        // Daftar tahun yang ada pada batch
+        $years = HcmOvertimeBatch::select('period_start')
+            ->get()
+            ->map(fn ($b) => Carbon::parse($b->period_start)->format('Y'))
+            ->unique()
+            ->sortDesc()
+            ->values()
+            ->all();
+
+        if (empty($years)) {
+            $years = [(string) date('Y')];
+        }
+
         return Inertia::render('Hcm/Overtime/Index', [
             'batches' => $batches,
             'filters' => [
                 'status' => $statusFilter,
                 'search' => $search,
+                'month' => $monthFilter,
+                'year' => $yearFilter,
             ],
+            'availableYears' => $years,
             'rates' => $rates,
             'metrics' => $metrics,
         ]);
@@ -133,22 +165,52 @@ class HcmOvertimeController extends Controller
         // Ambil daftar karyawan aktif untuk Bulk Dispatcher
         $employees = HcmEmployee::where('is_active', true)
             ->select('id', 'employee_code', 'name', 'department', 'position')
+            ->orderBy('position')
             ->orderBy('department')
             ->orderBy('name')
             ->get();
 
+        // Master posisi / jabatan kerja
+        $positions = HcmMasterOption::select('hcm_master_options.name')
+            ->join('hcm_master_categories', 'hcm_master_options.category_id', '=', 'hcm_master_categories.id')
+            ->where('hcm_master_categories.code', 'posisi')
+            ->where('hcm_master_options.is_active', true)
+            ->orderBy('hcm_master_options.order_index')
+            ->pluck('name')
+            ->all();
+
+        if (empty($positions)) {
+            $positions = HcmEmployee::whereNotNull('position')
+                ->where('position', '!=', '')
+                ->distinct()
+                ->orderBy('position')
+                ->pluck('position')
+                ->all();
+        }
+
         // Master divisi kerja
         $departments = HcmMasterOption::select('hcm_master_options.name')
             ->join('hcm_master_categories', 'hcm_master_options.category_id', '=', 'hcm_master_categories.id')
-            ->where('hcm_master_categories.code', 'department')
+            ->where('hcm_master_categories.code', 'divisi')
             ->where('hcm_master_options.is_active', true)
             ->orderBy('hcm_master_options.order_index')
-            ->pluck('name');
+            ->pluck('name')
+            ->all();
+
+        if (empty($departments)) {
+            $departments = HcmEmployee::whereNotNull('department')
+                ->where('department', '!=', '')
+                ->distinct()
+                ->orderBy('department')
+                ->pluck('department')
+                ->all();
+        }
 
         return Inertia::render('Hcm/Overtime/Show', [
             'batch' => $batch,
             'rates' => $rates,
             'employees' => $employees,
+            'positions' => $positions,
             'departments' => $departments,
         ]);
     }
@@ -173,6 +235,15 @@ class HcmOvertimeController extends Controller
         }
         $periodEnd = $payout->copy()->subDay();          // Jumat
         $periodStart = $periodEnd->copy()->subDays(6);   // Sabtu pekan sebelumnya
+
+        // Cegah dobel batch untuk periode cut-off yang sama persis
+        $existing = HcmOvertimeBatch::where('period_start', $periodStart->toDateString())
+            ->where('period_end', $periodEnd->toDateString())
+            ->first();
+
+        if ($existing) {
+            return redirect()->route('hcm.overtime.show', $existing)->with('warning', "Batch lembur untuk periode {$periodStart->format('d/m/Y')} s.d. {$periodEnd->format('d/m/Y')} sudah ada dengan kode {$existing->batch_code}. Anda diarahkan ke lembar kerja tersebut.");
+        }
 
         $year = $periodStart->format('Y');
         $weekNumber = $periodStart->weekOfYear;
@@ -200,6 +271,69 @@ class HcmOvertimeController extends Controller
         ActivityLogger::log('create', 'hcm', $batch, "Membuat batch lembur baru: {$batchCode} ({$periodStart->toDateString()} s/d {$periodEnd->toDateString()})");
 
         return redirect()->route('hcm.overtime.show', $batch)->with('success', "Batch lembur mingguan {$batchCode} berhasil dibuat.");
+    }
+
+    /**
+     * Perbarui Informasi Batch Mingguan (Hanya jika DRAFT).
+     */
+    public function updateBatch(Request $request, HcmOvertimeBatch $batch): RedirectResponse
+    {
+        Gate::authorize('hcm.manage-overtime');
+
+        if ($batch->status !== 'DRAFT') {
+            return redirect()->back()->with('error', 'Batch yang sudah ditandatangani atau dicairkan tidak dapat diubah.');
+        }
+
+        $validated = $request->validate([
+            'period_start' => ['required', 'date'],
+            'period_end' => ['required', 'date', 'after_or_equal:period_start'],
+            'payout_date' => ['required', 'date'],
+            'coa_code' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        // Cek bentrok dengan batch lain
+        $conflict = HcmOvertimeBatch::where('id', '!=', $batch->id)
+            ->where('period_start', $validated['period_start'])
+            ->where('period_end', $validated['period_end'])
+            ->first();
+
+        if ($conflict) {
+            return redirect()->back()->with('error', "Periode cut-off tersebut bentrok dengan batch {$conflict->batch_code}.");
+        }
+
+        $batch->update([
+            'period_start' => $validated['period_start'],
+            'period_end' => $validated['period_end'],
+            'payout_date' => $validated['payout_date'],
+            'coa_code' => $validated['coa_code'] ?? $batch->coa_code,
+        ]);
+
+        ActivityLogger::log('update', 'hcm', $batch, "Memperbarui batch lembur: {$batch->batch_code}");
+
+        return redirect()->back()->with('success', "Informasi batch {$batch->batch_code} berhasil diperbarui.");
+    }
+
+    /**
+     * Hapus Batch Mingguan (Hanya jika DRAFT).
+     */
+    public function destroyBatch(HcmOvertimeBatch $batch): RedirectResponse
+    {
+        Gate::authorize('hcm.manage-overtime');
+
+        if ($batch->status !== 'DRAFT') {
+            return redirect()->back()->with('error', 'Hanya batch berstatus DRAF yang dapat dihapus.');
+        }
+
+        $batchCode = $batch->batch_code;
+
+        DB::transaction(function () use ($batch) {
+            $batch->overtimes()->delete();
+            $batch->delete();
+        });
+
+        ActivityLogger::log('delete', 'hcm', $batch, "Menghapus batch lembur {$batchCode}");
+
+        return redirect()->route('hcm.overtime.index')->with('success', "Batch lembur {$batchCode} beserta seluruh entri rinciannya berhasil dihapus.");
     }
 
     /**
@@ -255,6 +389,48 @@ class HcmOvertimeController extends Controller
         ActivityLogger::log('create', 'hcm', $batch, "Input lembur massal {$totalAdded} karyawan pada batch {$batch->batch_code}");
 
         return redirect()->back()->with('success', "Berhasil menambahkan lembur untuk {$totalAdded} karyawan.");
+    }
+
+    /**
+     * Perbarui satu item rincian lembur karyawan (Hanya jika DRAFT).
+     */
+    public function updateOvertimeItem(Request $request, HcmOvertimeBatch $batch, HcmOvertime $overtime): RedirectResponse
+    {
+        Gate::authorize('hcm.manage-overtime');
+
+        if ($batch->status !== 'DRAFT') {
+            return redirect()->back()->with('error', 'Batch ini telah dikunci.');
+        }
+
+        $validated = $request->validate([
+            'overtime_date' => ['required', 'date'],
+            'day_type' => ['required', 'string', 'in:Lembur Hari Kerja,Lembur Hari Libur'],
+            'duration_hours' => ['required', 'numeric', 'gt:0', 'max:24'],
+            'task_description' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $rates = self::getDynamicRates();
+        $calc = self::calculateAmount((float) $validated['duration_hours'], $validated['day_type'], $rates);
+
+        $overtime->update([
+            'overtime_date' => $validated['overtime_date'],
+            'day_type' => $validated['day_type'],
+            'duration_hours' => $validated['duration_hours'],
+            'hourly_rate' => $calc['hourly_rate'],
+            'first_half_rate' => $calc['first_half_rate'],
+            'total_amount' => $calc['total_amount'],
+            'task_description' => $validated['task_description'] ?? null,
+        ]);
+
+        // Recalculate totals on batch
+        $batch->update([
+            'total_hours' => $batch->overtimes()->sum('duration_hours'),
+            'total_amount' => $batch->overtimes()->sum('total_amount'),
+        ]);
+
+        ActivityLogger::log('update', 'hcm', $batch, "Memperbarui rincian lembur karyawan {$overtime->employee?->name} pada batch {$batch->batch_code}");
+
+        return redirect()->back()->with('success', "Rincian lembur karyawan berhasil diperbarui.");
     }
 
     /**

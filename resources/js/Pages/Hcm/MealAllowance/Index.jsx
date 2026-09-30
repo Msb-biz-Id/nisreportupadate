@@ -334,7 +334,7 @@ export default function MealAllowanceIndex({
 
                                                 <TableCell className="text-right">
                                                     <Link
-                                                        href={route('hcm.meal-allowance.show', b.id)}
+                                                        href={route('hcm.meal-allowance.show', b.batch_code || b.id)}
                                                         className="inline-flex items-center gap-1 text-xs text-indigo-600 font-medium hover:underline"
                                                     >
                                                         Lembar Rekap

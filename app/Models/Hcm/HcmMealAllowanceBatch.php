@@ -76,4 +76,19 @@ class HcmMealAllowanceBatch extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    /**
+     * Non-ID Base URL: Gunakan batch_code sebagai route key publik (Zero Raw DB ID Exposure).
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'batch_code';
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->where($field ?? 'batch_code', $value)
+            ->orWhere('id', is_numeric($value) ? (int) $value : 0)
+            ->firstOrFail();
+    }
 }

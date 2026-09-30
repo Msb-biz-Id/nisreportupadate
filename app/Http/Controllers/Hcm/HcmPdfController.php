@@ -166,7 +166,9 @@ class HcmPdfController extends Controller
         $rows = HcmRecruitmentController::buildJobPerformance();
 
         $jobId = $request->query('job_id');
-        $selectedJob = $jobId ? HcmJobPosting::find($jobId) : null;
+        $selectedJob = $jobId
+            ? (is_numeric($jobId) ? HcmJobPosting::find($jobId) : HcmJobPosting::where('slug', $jobId)->first())
+            : null;
         $applicants = $selectedJob
             ? HcmJobApplicant::with('interviews')->where('job_posting_id', $selectedJob->id)->orderByDesc('id')->get()
             : collect();

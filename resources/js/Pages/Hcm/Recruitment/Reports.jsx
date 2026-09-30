@@ -26,26 +26,26 @@ import {
 
 export default function RecruitmentReports({ rows = [], summary = {}, channels = [], selectedJob = null, selectedApplicants = [], filters = {} }) {
     const openDetail = (job) => {
-        router.get(route('hcm.recruitment.reports.index'), { job_id: job.id }, { preserveState: true });
+        router.get(route('hcm.recruitment.reports.index'), { job_id: job.slug || job.job_code || job.id }, { preserveState: true });
     };
 
     const resetDetail = () => {
         router.get(route('hcm.recruitment.reports.index'), {}, { preserveState: true });
     };
 
-    const printReport = (jobId = null) => {
+    const printReport = (jobParam = null) => {
         const base = route('hcm.recruitment.reports.pdf');
-        const url = jobId ? `${base}?job_id=${jobId}&action=stream` : `${base}?action=stream`;
+        const url = jobParam ? `${base}?job_id=${encodeURIComponent(jobParam)}&action=stream` : `${base}?action=stream`;
         window.open(url, '_blank');
     };
 
-    const exportExcel = (jobId = null) => {
+    const exportExcel = (jobParam = null) => {
         const base = route('hcm.recruitment.reports.excel');
-        window.location.href = jobId ? `${base}?job_id=${jobId}` : base;
+        window.location.href = jobParam ? `${base}?job_id=${encodeURIComponent(jobParam)}` : base;
     };
 
     const printApplicant = (app) => {
-        window.open(route('hcm.recruitment.applicants.pdf', app.id) + '?action=stream', '_blank');
+        window.open(route('hcm.recruitment.applicants.pdf', app.applicant_code || app.id) + '?action=stream', '_blank');
     };
 
     const stageTag = (status) => {
@@ -83,7 +83,7 @@ export default function RecruitmentReports({ rows = [], summary = {}, channels =
                         )}
                         <Button
                             size="sm"
-                            onClick={() => printReport(selectedJob?.id)}
+                            onClick={() => printReport(selectedJob?.slug || selectedJob?.job_code || selectedJob?.id)}
                             className="text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
                         >
                             <Printer className="h-3.5 w-3.5" /> Cetak Laporan{selectedJob ? ' Loker Ini' : ' Semua'}
@@ -91,7 +91,7 @@ export default function RecruitmentReports({ rows = [], summary = {}, channels =
                         <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => exportExcel(selectedJob?.id)}
+                            onClick={() => exportExcel(selectedJob?.slug || selectedJob?.job_code || selectedJob?.id)}
                             className="text-xs gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"
                         >
                             <FileText className="h-3.5 w-3.5" /> Export Excel
@@ -178,7 +178,7 @@ export default function RecruitmentReports({ rows = [], summary = {}, channels =
                                                         <Button variant="outline" size="sm" onClick={() => openDetail(r)} className="h-6 text-[10px] px-2 gap-1">
                                                             <Eye className="h-3 w-3" /> Detail
                                                         </Button>
-                                                        <Button variant="outline" size="sm" onClick={() => printReport(r.id)} className="h-6 text-[10px] px-2 gap-1">
+                                                        <Button variant="outline" size="sm" onClick={() => printReport(r.slug || r.job_code || r.id)} className="h-6 text-[10px] px-2 gap-1">
                                                             <Printer className="h-3 w-3" /> Cetak
                                                         </Button>
                                                     </div>

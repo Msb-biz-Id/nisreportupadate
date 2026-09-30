@@ -161,7 +161,7 @@ export default function HcmEventsIndex({
     const handleSubmit = (e) => {
         e.preventDefault();
         if (editingEvent) {
-            form.put(route('hcm.events.update', editingEvent.id), {
+            form.put(route('hcm.events.update', editingEvent.uuid || editingEvent.id), {
                 onSuccess: () => {
                     setIsModalOpen(false);
                     form.reset();
@@ -179,7 +179,7 @@ export default function HcmEventsIndex({
 
     const handleDelete = (ev) => {
         if (confirm(`Hapus kegiatan "${ev.title}" dari kalender perusahaan?`)) {
-            router.delete(route('hcm.events.destroy', ev.id));
+            router.delete(route('hcm.events.destroy', ev.uuid || ev.id));
         }
     };
 

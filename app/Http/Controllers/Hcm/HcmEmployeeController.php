@@ -12,6 +12,8 @@ use App\Models\Hcm\HcmMasterOption;
 use App\Models\Hcm\HcmOffboarding;
 use App\Models\Hcm\HcmOnboarding;
 use App\Services\ActivityLogger;
+use App\Services\GoogleDriveSyncService;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -45,16 +47,10 @@ class HcmEmployeeController extends Controller
             'compensation',
         ])
             ->when($category === 'intern', function ($query) {
-                $query->where(function ($q) {
-                    $q->where('employee_category', 'INTERN')
-                      ->orWhere('job_level', 'Magang');
-                });
+                $query->interns();
             })
             ->when($category === 'regular', function ($query) {
-                $query->where(function ($q) {
-                    $q->where('employee_category', 'REGULAR')
-                      ->orWhereNull('employee_category');
-                })->where('job_level', '!=', 'Magang');
+                $query->regular();
             })
             ->when($escapedSearch, function ($query, $term) {
                 $query->where(function ($q) use ($term) {
@@ -94,15 +90,8 @@ class HcmEmployeeController extends Controller
             ->all();
 
         // Ringkasan metrik statistik terpisah
-        $regularBase = HcmEmployee::where(function ($q) {
-            $q->where('employee_category', 'REGULAR')
-              ->orWhereNull('employee_category');
-        })->where('job_level', '!=', 'Magang');
-
-        $internBase = HcmEmployee::where(function ($q) {
-            $q->where('employee_category', 'INTERN')
-              ->orWhere('job_level', 'Magang');
-        });
+        $regularBase = HcmEmployee::regular();
+        $internBase = HcmEmployee::interns();
 
         $metrics = [
             // Metrik Karyawan Reguler

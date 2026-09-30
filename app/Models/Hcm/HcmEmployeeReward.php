@@ -14,6 +14,7 @@ class HcmEmployeeReward extends Model
     protected $table = 'hcm_employee_rewards';
 
     protected $fillable = [
+        'uuid',
         'employee_id',
         'position',
         'reward_name',
@@ -26,6 +27,30 @@ class HcmEmployeeReward extends Model
         'notes',
         'created_by',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function ($model) {
+            if (empty($model->uuid)) {
+                $model->uuid = (string) \Illuminate\Support\Str::uuid();
+            }
+        });
+    }
+
+    /**
+     * Non-ID Base URL: Gunakan uuid sebagai route key publik (Zero Raw DB ID Exposure).
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->where($field ?? 'uuid', $value)
+            ->orWhere('id', is_numeric($value) ? (int) $value : 0)
+            ->firstOrFail();
+    }
 
     protected $casts = [
         'received_date' => 'date:Y-m-d',

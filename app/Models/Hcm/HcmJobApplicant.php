@@ -143,4 +143,19 @@ class HcmJobApplicant extends Model
             }
         });
     }
+
+    /**
+     * Non-ID Base URL: Gunakan applicant_code sebagai route key publik (Zero Raw DB ID Exposure).
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'applicant_code';
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->where($field ?? 'applicant_code', $value)
+            ->orWhere('id', is_numeric($value) ? (int) $value : 0)
+            ->firstOrFail();
+    }
 }

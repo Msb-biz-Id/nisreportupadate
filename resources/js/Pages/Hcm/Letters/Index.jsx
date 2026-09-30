@@ -131,7 +131,7 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
     const handleSubmit = (e) => {
         e.preventDefault();
         if (editingLetter) {
-            form.post(route('hcm.letters.update', editingLetter.id), {
+            form.post(route('hcm.letters.update', editingLetter.agenda_number || editingLetter.id), {
                 forceFormData: true,
                 data: {
                     ...form.data,
@@ -154,7 +154,7 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
 
     const handleDelete = (letter) => {
         if (confirm(`Yakin ingin menghapus agenda surat nomor "${letter.letter_number}"?`)) {
-            router.delete(route('hcm.letters.destroy', letter.id));
+            router.delete(route('hcm.letters.destroy', letter.agenda_number || letter.id));
         }
     };
 

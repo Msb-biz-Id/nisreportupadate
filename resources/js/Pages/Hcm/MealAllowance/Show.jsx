@@ -107,14 +107,14 @@ export default function MealAllowanceShow({ batch, settings }) {
     // Handle Sign HCM
     const handleSignHcm = () => {
         if (confirm('Verifikasi rekap kehadiran uang makan ini dan teruskan ke Bagian Keuangan?')) {
-            router.post(route('hcm.meal-allowance.sign-hcm', batch.id));
+            router.post(route('hcm.meal-allowance.sign-hcm', batch.batch_code || batch.id));
         }
     };
 
     // Handle Sign Finance
     const handleFinanceSubmit = (e) => {
         e.preventDefault();
-        financeForm.post(route('hcm.meal-allowance.sign-finance', batch.id), {
+        financeForm.post(route('hcm.meal-allowance.sign-finance', batch.batch_code || batch.id), {
             onSuccess: () => setIsFinanceModalOpen(false),
         });
     };
@@ -337,7 +337,7 @@ export default function MealAllowanceShow({ batch, settings }) {
 
                                 {batch.status === 'APPROVED_BY_HCM' && (
                                     <Button
-                                        onClick={() => router.post(route('hcm.meal-allowance.start-finance', batch.id), {}, { preserveScroll: true })}
+                                        onClick={() => router.post(route('hcm.meal-allowance.start-finance', batch.batch_code || batch.id), {}, { preserveScroll: true })}
                                         className="w-full md:w-auto bg-sky-600 hover:bg-sky-700 text-white gap-1.5 text-xs font-semibold"
                                     >
                                         <Landmark className="w-4 h-4" />
@@ -365,7 +365,7 @@ export default function MealAllowanceShow({ batch, settings }) {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => window.open(route('hcm.meal-allowance.pdf', batch.id) + '?action=stream', '_blank')}
+                                    onClick={() => window.open(route('hcm.meal-allowance.pdf', batch.batch_code || batch.id) + '?action=stream', '_blank')}
                                     className="w-full md:w-auto text-xs gap-1.5"
                                 >
                                     <Printer className="w-3.5 h-3.5" /> Cetak PDF
@@ -373,7 +373,7 @@ export default function MealAllowanceShow({ batch, settings }) {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => { window.location.href = route('hcm.meal-allowance.export', batch.id); }}
+                                    onClick={() => { window.location.href = route('hcm.meal-allowance.export', batch.batch_code || batch.id); }}
                                     className="w-full md:w-auto text-xs gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"
                                 >
                                     <FileSpreadsheet className="w-3.5 h-3.5" /> Excel

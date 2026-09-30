@@ -86,7 +86,7 @@ export default function ExternalLetterIndex({ letters, filters = {}, metrics = {
     const submit = (e) => {
         e.preventDefault();
         if (editing) {
-            form.put(route('hcm.external-letters.update', editing.id), { forceFormData: true, onSuccess: () => setIsModalOpen(false) });
+            form.put(route('hcm.external-letters.update', editing.registration_no || editing.id), { forceFormData: true, onSuccess: () => setIsModalOpen(false) });
         } else {
             form.post(route('hcm.external-letters.store'), { forceFormData: true, onSuccess: () => setIsModalOpen(false) });
         }
@@ -94,7 +94,7 @@ export default function ExternalLetterIndex({ letters, filters = {}, metrics = {
 
     const destroy = (l) => {
         if (!confirm(`Hapus surat eksternal ${l.registration_no}?`)) return;
-        router.delete(route('hcm.external-letters.destroy', l.id), { preserveScroll: true });
+        router.delete(route('hcm.external-letters.destroy', l.registration_no || l.id), { preserveScroll: true });
     };
 
     const rows = letters?.data || [];

@@ -72,9 +72,9 @@ class HcmSettingController extends Controller
                 'coa_name' => (string) SystemSetting::get('hcm_overtime', 'coa_name', 'Beban Upah Lembur Karyawan Pabrik'),
             ],
             'meal_allowance' => [
-                'monthly_rate' => (float) SystemSetting::get('hcm_meal_allowance', 'monthly_rate', 250000),
-                'alpha_deduction_rate' => (float) SystemSetting::get('hcm_meal_allowance', 'alpha_deduction_rate', 25000),
-                'half_day_deduction_rate' => (float) SystemSetting::get('hcm_meal_allowance', 'half_day_deduction_rate', 12500),
+                'monthly_rate' => (float) SystemSetting::get('hcm_meal_allowance', 'monthly_rate', 280000),
+                'alpha_deduction_rate' => (float) SystemSetting::get('hcm_meal_allowance', 'alpha_deduction_rate', 14000),
+                'half_day_deduction_rate' => (float) SystemSetting::get('hcm_meal_allowance', 'half_day_deduction_rate', 7000),
                 'max_late_tolerance' => (int) SystemSetting::get('hcm_meal_allowance', 'max_late_tolerance', 3),
                 'max_permit_bonus_limit' => (int) SystemSetting::get('hcm_meal_allowance', 'max_permit_bonus_limit', 2),
                 'coa_code' => (string) SystemSetting::get('hcm_meal_allowance', 'coa_code', '5-50200'),

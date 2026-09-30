@@ -176,7 +176,7 @@ export default function HcmMasterDataIndex({
     function handleSubmit(e) {
         e.preventDefault();
         if (editingOption) {
-            form.put(route('hcm.master-data.options.update', editingOption.id), {
+            form.put(route('hcm.master-data.options.update', editingOption.uuid || editingOption.id), {
                 preserveScroll: true,
                 onSuccess: () => {
                     setDialogOpen(false);
@@ -184,7 +184,7 @@ export default function HcmMasterDataIndex({
                 },
             });
         } else if (selectedCategory) {
-            form.post(route('hcm.master-data.options.store', selectedCategory.id), {
+            form.post(route('hcm.master-data.options.store', selectedCategory.code || selectedCategory.id), {
                 preserveScroll: true,
                 onSuccess: () => {
                     setDialogOpen(false);
@@ -197,7 +197,7 @@ export default function HcmMasterDataIndex({
     // Toggle status switch
     function handleToggleActive(option) {
         router.post(
-            route('hcm.master-data.options.toggle', option.id),
+            route('hcm.master-data.options.toggle', option.uuid || option.id),
             {},
             {
                 preserveScroll: true,
@@ -214,7 +214,7 @@ export default function HcmMasterDataIndex({
     // Eksekusi hapus
     function handleDelete() {
         if (!optionToDelete) return;
-        router.delete(route('hcm.master-data.options.destroy', optionToDelete.id), {
+        router.delete(route('hcm.master-data.options.destroy', optionToDelete.uuid || optionToDelete.id), {
             preserveScroll: true,
             onSuccess: () => {
                 setDeleteDialogOpen(false);

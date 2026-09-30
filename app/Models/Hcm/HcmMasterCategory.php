@@ -42,4 +42,19 @@ class HcmMasterCategory extends Model
             ->orderBy('order_index')
             ->orderBy('id');
     }
+
+    /**
+     * Non-ID Base URL: Gunakan code kategori sebagai route key publik (Zero Raw DB ID Exposure).
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'code';
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->where($field ?? 'code', $value)
+            ->orWhere('id', is_numeric($value) ? (int) $value : 0)
+            ->firstOrFail();
+    }
 }

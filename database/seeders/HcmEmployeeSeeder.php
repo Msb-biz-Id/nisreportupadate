@@ -7,254 +7,727 @@ use App\Models\Hcm\HcmCompensationHistory;
 use App\Models\Hcm\HcmContract;
 use App\Models\Hcm\HcmEmployee;
 use App\Models\Hcm\HcmIntern;
+use App\Models\Hcm\HcmOffboarding;
+use App\Models\Hcm\HcmOnboarding;
 use Illuminate\Database\Seeder;
 
 class HcmEmployeeSeeder extends Seeder
 {
     /**
-     * Run the database seeds with factual data from Blueprint Excel.
+     * Run the database seeds with comprehensive, realistic employee data.
      */
     public function run(): void
     {
-        // 1. Bambang Sadewo (Managerial - Tetap)
-        $bambang = HcmEmployee::updateOrCreate(
-            ['nik_ktp' => '3524012010010001'],
+        $employeesData = [
+            // 1. Managerial / PIC Produksi (Tetap)
             [
+                'nik_ktp' => '3524012010010001',
                 'employee_code' => 'EMP-2026-001',
                 'name' => 'Bambang Sadewo',
                 'nickname' => 'Bambang',
                 'department' => 'Produksi',
                 'position' => 'PIC Produksi',
-                'job_level' => 'Managerial',
-                'employment_status' => 'Karyawan Tetap',
+                'job_level' => 'PIC',
+                'employment_status' => 'Tetap (PKWTT)',
+                'employee_category' => 'Pabrik / Lapangan',
                 'legal_entity' => 'CV Bawang Merah',
                 'phone_number' => '085234567890',
-                'gender' => 'Laki Laki',
+                'gender' => 'Laki-Laki',
                 'religion' => 'Islam',
-                'education' => 'SMA Sederajat',
-                'marital_status' => 'Belum Menikah',
+                'education' => 'SMA / SMK / Sederajat',
+                'marital_status' => 'Menikah',
                 'birth_place' => 'Lamongan',
-                'birth_date' => '2001-10-20',
+                'birth_date' => '1998-10-20',
                 'bpjs_kesehatan_no' => '0001234567891',
                 'bpjs_ketenagakerjaan_no' => '0009876543211',
                 'shirt_size' => 'XL',
                 'address' => 'RT.03 RW. 01 Ds. Kwangya Kec. Lamongan Kab. Lamongan Jawa Timur',
                 'bank_account_no' => '0011-01-098765-50-1',
                 'bank_name' => 'Bank BRI',
-                'email' => 'bambang.unyuk@gmail.com',
+                'email' => 'bambang.sadewo@gmail.com',
                 'join_date' => '2024-08-01',
                 'is_active' => true,
-            ]
-        );
-
-        HcmContract::updateOrCreate(
-            ['contract_number' => '001/OWR/PKWT/X/2026'],
-            [
-                'employee_id' => $bambang->id,
-                'contract_sequence' => 3,
-                'employment_status' => 'Karyawan Tetap',
-                'position' => 'PIC Produksi',
-                'legal_entity' => 'CV Bawang Merah',
-                'duration_text' => 'Tetap',
-                'trainee_start_month' => 'Agustus',
-                'trainee_end_month' => 'Oktober',
-                'contract_month' => 'September',
-                'start_year' => 2026,
-                'start_date' => '2026-08-01',
-                'end_date' => null,
-                'review_status' => 'Aktif',
-            ]
-        );
-
-        $compBambang = HcmCompensation::updateOrCreate(
-            ['employee_id' => $bambang->id],
-            [
-                'employment_status' => 'Karyawan Tetap',
-                'legal_entity' => 'CV Bawang Merah',
-                'contract_number' => '001/OWR/PKWT/X/2026',
-                'duration_text' => 'Tetap',
-                'trainee_duration_months' => 24,
-                'evaluation_cycle_months' => 6,
-                'initial_salary' => 3500000,
-                'current_salary' => 4200000,
-                'salary_increment_count' => 2,
-                'increment_1_amount' => 350000,
-                'increment_2_amount' => 350000,
-                'salary_status' => 'Telah Berlaku',
-            ]
-        );
-
-        HcmCompensationHistory::firstOrCreate(
-            [
-                'compensation_id' => $compBambang->id,
-                'effective_date' => '2025-08-01',
+                'contract' => [
+                    'contract_number' => '001/OWR/PKWT/X/2026',
+                    'contract_sequence' => 3,
+                    'duration_text' => 'Tetap',
+                    'start_year' => 2026,
+                    'start_date' => '2024-08-01',
+                    'end_date' => null,
+                    'review_status' => 'Aktif (Aman / Jauh dari Masa Berakhir)',
+                ],
+                'compensation' => [
+                    'duration_text' => 'Tetap',
+                    'trainee_duration_months' => 24,
+                    'evaluation_cycle_months' => 6,
+                    'initial_salary' => 3500000,
+                    'current_salary' => 4500000,
+                    'salary_increment_count' => 2,
+                    'increment_1_amount' => 500000,
+                    'increment_2_amount' => 500000,
+                    'salary_status' => 'Aktif / Berlaku Bulan Ini (Ready to Pay)',
+                    'histories' => [
+                        [
+                            'effective_date' => '2025-08-01',
+                            'previous_salary' => 3500000,
+                            'new_salary' => 4000000,
+                            'increment_amount' => 500000,
+                            'reason' => 'Evaluasi Kinerja 1 Tahun',
+                        ],
+                        [
+                            'effective_date' => '2026-02-01',
+                            'previous_salary' => 4000000,
+                            'new_salary' => 4500000,
+                            'increment_amount' => 500000,
+                            'reason' => 'Promosi Menjadi PIC Produksi',
+                        ],
+                    ],
+                ],
             ],
-            [
-                'employee_id' => $bambang->id,
-                'previous_salary' => 3500000,
-                'new_salary' => 3850000,
-                'increment_amount' => 350000,
-                'reason' => 'Evaluasi Siklus 6 Bulan (Kenaikan ke-1)',
-            ]
-        );
 
-        HcmCompensationHistory::firstOrCreate(
+            // 2. Potong Bahan (Kontrak PKWT Lanjutan)
             [
-                'compensation_id' => $compBambang->id,
-                'effective_date' => '2026-02-01',
-            ],
-            [
-                'employee_id' => $bambang->id,
-                'previous_salary' => 3850000,
-                'new_salary' => 4200000,
-                'increment_amount' => 350000,
-                'reason' => 'Evaluasi Siklus 6 Bulan (Kenaikan ke-2)',
-            ]
-        );
-
-        // 2. Puji Astuti (Kontrak / PKWT Lanjutan)
-        $puji = HcmEmployee::updateOrCreate(
-            ['nik_ktp' => '3524012010020002'],
-            [
+                'nik_ktp' => '3524012010020002',
                 'employee_code' => 'EMP-2026-002',
                 'name' => 'Puji Astuti',
                 'nickname' => 'Puji',
                 'department' => 'Produksi',
                 'position' => 'Potong Bahan',
-                'job_level' => 'Kontrak',
+                'job_level' => 'Leader',
                 'employment_status' => 'PKWT Lanjutan',
+                'employee_category' => 'Pabrik / Lapangan',
                 'legal_entity' => 'CV Bawang Putih',
                 'phone_number' => '085234567891',
-                'gender' => 'Laki Laki',
+                'gender' => 'Perempuan',
                 'religion' => 'Islam',
-                'education' => 'SMA Sederajat',
-                'marital_status' => 'Belum Menikah',
+                'education' => 'SMA / SMK / Sederajat',
+                'marital_status' => 'Menikah',
                 'birth_place' => 'Lamongan',
-                'birth_date' => '2002-10-20',
+                'birth_date' => '2000-05-14',
+                'bpjs_kesehatan_no' => '0001234567892',
+                'bpjs_ketenagakerjaan_no' => '0009876543212',
                 'shirt_size' => 'L',
-                'address' => 'Lamongan, Jawa Timur',
+                'address' => 'Ds. Plosowahyu Kec. Lamongan Kab. Lamongan',
                 'bank_account_no' => '0011-01-098765-50-2',
                 'bank_name' => 'Bank BRI',
+                'email' => 'puji.astuti@gmail.com',
                 'join_date' => '2025-08-01',
                 'is_active' => true,
-            ]
-        );
+                'contract' => [
+                    'contract_number' => '002/OWR/PKWT/X/2026',
+                    'contract_sequence' => 2,
+                    'duration_text' => '2 Tahun',
+                    'start_year' => 2026,
+                    'start_date' => '2025-08-01',
+                    'end_date' => '2027-08-01',
+                    'review_status' => 'Aktif (Aman / Jauh dari Masa Berakhir)',
+                ],
+                'compensation' => [
+                    'duration_text' => '2 Tahun',
+                    'trainee_duration_months' => 12,
+                    'evaluation_cycle_months' => 6,
+                    'initial_salary' => 2500000,
+                    'current_salary' => 2850000,
+                    'salary_increment_count' => 1,
+                    'increment_1_amount' => 350000,
+                    'salary_status' => 'Aktif / Berlaku Bulan Ini (Ready to Pay)',
+                    'histories' => [
+                        [
+                            'effective_date' => '2026-02-01',
+                            'previous_salary' => 2500000,
+                            'new_salary' => 2850000,
+                            'increment_amount' => 350000,
+                            'reason' => 'Evaluasi Perpanjangan Kontrak ke-2',
+                        ],
+                    ],
+                ],
+            ],
 
-        HcmContract::updateOrCreate(
-            ['contract_number' => '002/OWR/PKWT/X/2026'],
+            // 3. Jahit (Borongan)
             [
-                'employee_id' => $puji->id,
-                'contract_sequence' => 2,
-                'employment_status' => 'PKWT Lanjutan',
-                'position' => 'Potong Bahan',
-                'legal_entity' => 'CV Bawang Putih',
-                'duration_text' => '2 Tahun',
-                'trainee_start_month' => 'Agustus',
-                'trainee_end_month' => 'Oktober',
-                'contract_month' => 'Oktober',
-                'start_year' => 2026,
-                'start_date' => '2025-08-01',
-                'end_date' => '2027-08-01',
-                'review_status' => 'Aktif',
-            ]
-        );
-
-        HcmCompensation::updateOrCreate(
-            ['employee_id' => $puji->id],
-            [
-                'employment_status' => 'PKWT Lanjutan',
-                'legal_entity' => 'CV Bawang Putih',
-                'contract_number' => '002/OWR/PKWT/X/2026',
-                'duration_text' => '2 Tahun',
-                'trainee_duration_months' => 12,
-                'evaluation_cycle_months' => 6,
-                'initial_salary' => 2500000,
-                'current_salary' => 2800000,
-                'salary_increment_count' => 1,
-                'increment_1_amount' => 300000,
-                'salary_status' => 'Telah Berlaku',
-            ]
-        );
-
-        // 3. Danang (Borongan / PKWT)
-        $danang = HcmEmployee::updateOrCreate(
-            ['nik_ktp' => '3524012010030003'],
-            [
+                'nik_ktp' => '3524012010030003',
                 'employee_code' => 'EMP-2026-003',
-                'name' => 'Danang',
+                'name' => 'Danang Prasetyo',
                 'nickname' => 'Danang',
                 'department' => 'Produksi',
                 'position' => 'Jahit',
                 'job_level' => 'Borongan',
-                'employment_status' => 'PKWT',
+                'employment_status' => 'Borongan',
+                'employee_category' => 'Pabrik / Lapangan',
                 'legal_entity' => 'CV Bawang Putih',
                 'phone_number' => '085234567892',
-                'gender' => 'Laki Laki',
+                'gender' => 'Laki-Laki',
                 'religion' => 'Islam',
-                'education' => 'SMA Sederajat',
+                'education' => 'SMA / SMK / Sederajat',
                 'marital_status' => 'Belum Menikah',
                 'birth_place' => 'Lamongan',
-                'birth_date' => '2003-10-20',
+                'birth_date' => '2001-11-09',
+                'bpjs_kesehatan_no' => '0001234567893',
                 'shirt_size' => 'M',
-                'address' => 'Lamongan, Jawa Timur',
+                'address' => 'Ds. Sukomulyo Kec. Lamongan Kab. Lamongan',
                 'bank_account_no' => '0011-01-098765-50-3',
                 'bank_name' => 'Bank BRI',
+                'email' => 'danang.prasetyo@gmail.com',
                 'join_date' => '2026-01-01',
                 'is_active' => true,
-            ]
-        );
+                'contract' => [
+                    'contract_number' => '003/OWR/PKWT/X/2026',
+                    'contract_sequence' => 1,
+                    'duration_text' => '1 Tahun',
+                    'start_year' => 2026,
+                    'start_date' => '2026-01-01',
+                    'end_date' => '2026-10-25', // Expiring in ~25 days! Triggers H-30 alert!
+                    'review_status' => 'Wajib Review & Tindak Lanjut (H-30 Kontrak Berakhir)',
+                ],
+                'compensation' => [
+                    'duration_text' => '1 Tahun',
+                    'trainee_duration_months' => 6,
+                    'evaluation_cycle_months' => 6,
+                    'initial_salary' => 2400000,
+                    'current_salary' => 2400000,
+                    'salary_increment_count' => 0,
+                    'salary_status' => 'Aktif / Berlaku Bulan Ini (Ready to Pay)',
+                ],
+            ],
 
-        HcmContract::updateOrCreate(
-            ['contract_number' => '003/OWR/PKWT/X/2026'],
+            // 4. Setting Printing & Sublime (Staff Produksi)
             [
-                'employee_id' => $danang->id,
-                'contract_sequence' => 1,
-                'employment_status' => 'PKWT',
-                'position' => 'Jahit',
+                'nik_ktp' => '3524012010040004',
+                'employee_code' => 'EMP-2026-004',
+                'name' => 'Rahmat Hidayat',
+                'nickname' => 'Rahmat',
+                'department' => 'Produksi',
+                'position' => 'Setting Printing',
+                'job_level' => 'Staff',
+                'employment_status' => 'Kontrak (PKWT)',
+                'employee_category' => 'Pabrik / Lapangan',
+                'legal_entity' => 'CV Jersey Ekonomis',
+                'phone_number' => '085234567893',
+                'gender' => 'Laki-Laki',
+                'religion' => 'Islam',
+                'education' => 'SMA / SMK / Sederajat',
+                'marital_status' => 'Belum Menikah',
+                'birth_place' => 'Gresik',
+                'birth_date' => '1999-04-12',
+                'bpjs_kesehatan_no' => '0001234567894',
+                'bpjs_ketenagakerjaan_no' => '0009876543214',
+                'shirt_size' => 'L',
+                'address' => 'Driyorejo, Gresik, Jawa Timur',
+                'bank_account_no' => '0011-01-098765-50-4',
+                'bank_name' => 'Bank BCA',
+                'email' => 'rahmat.hidayat@gmail.com',
+                'join_date' => '2025-11-01',
+                'is_active' => true,
+                'contract' => [
+                    'contract_number' => '004/OWR/PKWT/XI/2026',
+                    'contract_sequence' => 1,
+                    'duration_text' => '1 Tahun',
+                    'start_year' => 2026,
+                    'start_date' => '2025-11-01',
+                    'end_date' => '2026-11-01', // Approaching H-60
+                    'review_status' => 'Mendekati Evaluasi (H-60 Kontrak Berakhir)',
+                ],
+                'compensation' => [
+                    'duration_text' => '1 Tahun',
+                    'trainee_duration_months' => 6,
+                    'evaluation_cycle_months' => 6,
+                    'initial_salary' => 2600000,
+                    'current_salary' => 2800000,
+                    'salary_increment_count' => 1,
+                    'increment_1_amount' => 200000,
+                    'salary_status' => 'Aktif / Berlaku Bulan Ini (Ready to Pay)',
+                ],
+            ],
+
+            // 5. Quality Control (Supervisor Produksi)
+            [
+                'nik_ktp' => '3524012010050005',
+                'employee_code' => 'EMP-2026-005',
+                'name' => 'Dewi Sartika',
+                'nickname' => 'Dewi',
+                'department' => 'Produksi',
+                'position' => 'Quality Control',
+                'job_level' => 'Supervisor',
+                'employment_status' => 'Tetap (PKWTT)',
+                'employee_category' => 'Pabrik / Lapangan',
+                'legal_entity' => 'CV Apparel Allegiant',
+                'phone_number' => '085234567894',
+                'gender' => 'Perempuan',
+                'religion' => 'Islam',
+                'education' => 'Diploma 3 (D3)',
+                'marital_status' => 'Menikah',
+                'birth_place' => 'Lamongan',
+                'birth_date' => '1996-09-30', // Birthday TODAY!
+                'bpjs_kesehatan_no' => '0001234567895',
+                'bpjs_ketenagakerjaan_no' => '0009876543215',
+                'shirt_size' => 'M',
+                'address' => 'Jl. Veteran No. 45, Lamongan',
+                'bank_account_no' => '0011-01-098765-50-5',
+                'bank_name' => 'Bank Mandiri',
+                'email' => 'dewi.sartika@gmail.com',
+                'join_date' => '2024-03-01',
+                'is_active' => true,
+                'contract' => [
+                    'contract_number' => '005/OWR/PKWT/III/2026',
+                    'contract_sequence' => 2,
+                    'duration_text' => 'Tetap',
+                    'start_year' => 2026,
+                    'start_date' => '2024-03-01',
+                    'end_date' => null,
+                    'review_status' => 'Aktif (Aman / Jauh dari Masa Berakhir)',
+                ],
+                'compensation' => [
+                    'duration_text' => 'Tetap',
+                    'trainee_duration_months' => 12,
+                    'evaluation_cycle_months' => 6,
+                    'initial_salary' => 3200000,
+                    'current_salary' => 3900000,
+                    'salary_increment_count' => 2,
+                    'increment_1_amount' => 350000,
+                    'increment_2_amount' => 350000,
+                    'salary_status' => 'Aktif / Berlaku Bulan Ini (Ready to Pay)',
+                ],
+            ],
+
+            // 6. Finishing & Packing (Staff Produksi)
+            [
+                'nik_ktp' => '3524012010060006',
+                'employee_code' => 'EMP-2026-006',
+                'name' => 'Agus Setiawan',
+                'nickname' => 'Agus',
+                'department' => 'Produksi',
+                'position' => 'Finishing (Packing)',
+                'job_level' => 'Staff',
+                'employment_status' => 'Kontrak (PKWT)',
+                'employee_category' => 'Pabrik / Lapangan',
                 'legal_entity' => 'CV Bawang Putih',
-                'duration_text' => '1 Tahun',
-                'trainee_start_month' => 'Agustus',
-                'trainee_end_month' => 'Oktober',
-                'contract_month' => 'November',
-                'start_year' => 2026,
-                'start_date' => '2026-01-01',
-                'end_date' => '2027-01-01',
-                'review_status' => 'Aktif',
-            ]
-        );
+                'phone_number' => '085234567895',
+                'gender' => 'Laki-Laki',
+                'religion' => 'Islam',
+                'education' => 'SMA / SMK / Sederajat',
+                'marital_status' => 'Belum Menikah',
+                'birth_place' => 'Lamongan',
+                'birth_date' => '2002-08-18',
+                'bpjs_kesehatan_no' => '0001234567896',
+                'shirt_size' => 'L',
+                'address' => 'Ds. Tambakrigadung Kec. Tikung Kab. Lamongan',
+                'bank_account_no' => '0011-01-098765-50-6',
+                'bank_name' => 'Bank BRI',
+                'email' => 'agus.setiawan@gmail.com',
+                'join_date' => '2026-02-15',
+                'is_active' => true,
+                'contract' => [
+                    'contract_number' => '006/OWR/PKWT/II/2026',
+                    'contract_sequence' => 1,
+                    'duration_text' => '1 Tahun',
+                    'start_year' => 2026,
+                    'start_date' => '2026-02-15',
+                    'end_date' => '2027-02-15',
+                    'review_status' => 'Aktif (Aman / Jauh dari Masa Berakhir)',
+                ],
+                'compensation' => [
+                    'duration_text' => '1 Tahun',
+                    'initial_salary' => 2300000,
+                    'current_salary' => 2300000,
+                    'salary_increment_count' => 0,
+                    'salary_status' => 'Aktif / Berlaku Bulan Ini (Ready to Pay)',
+                ],
+            ],
 
-        HcmCompensation::updateOrCreate(
-            ['employee_id' => $danang->id],
+            // 7. Finance & Accounting (Manager Keuangan - Kantor)
             [
-                'employment_status' => 'PKWT',
+                'nik_ktp' => '3524012010070007',
+                'employee_code' => 'EMP-2026-007',
+                'name' => 'Nur Aini Farida',
+                'nickname' => 'Aini',
+                'department' => 'Keuangan',
+                'position' => 'Finance',
+                'job_level' => 'Manager',
+                'employment_status' => 'Tetap (PKWTT)',
+                'employee_category' => 'Kantor',
+                'legal_entity' => 'CV Bawang Merah',
+                'phone_number' => '081234567897',
+                'gender' => 'Perempuan',
+                'religion' => 'Islam',
+                'education' => 'Strata 1 (S1)',
+                'marital_status' => 'Menikah',
+                'birth_place' => 'Surabaya',
+                'birth_date' => '1994-07-22',
+                'bpjs_kesehatan_no' => '0001234567897',
+                'bpjs_ketenagakerjaan_no' => '0009876543217',
+                'shirt_size' => 'M',
+                'address' => 'Perum Graha Indah Blok C No. 12, Lamongan',
+                'bank_account_no' => '0011-01-098765-50-7',
+                'bank_name' => 'Bank BCA',
+                'email' => 'aini.finance@nisgroup.id',
+                'join_date' => '2023-09-01',
+                'is_active' => true,
+                'contract' => [
+                    'contract_number' => '007/OWR/PKWT/IX/2026',
+                    'contract_sequence' => 3,
+                    'duration_text' => 'Tetap',
+                    'start_year' => 2026,
+                    'start_date' => '2023-09-01',
+                    'end_date' => null,
+                    'review_status' => 'Aktif (Aman / Jauh dari Masa Berakhir)',
+                ],
+                'compensation' => [
+                    'duration_text' => 'Tetap',
+                    'trainee_duration_months' => 24,
+                    'evaluation_cycle_months' => 6,
+                    'initial_salary' => 4500000,
+                    'current_salary' => 5800000,
+                    'salary_increment_count' => 2,
+                    'increment_1_amount' => 600000,
+                    'increment_2_amount' => 700000,
+                    'salary_status' => 'Aktif / Berlaku Bulan Ini (Ready to Pay)',
+                ],
+            ],
+
+            // 8. Accounting Staff (Kantor)
+            [
+                'nik_ktp' => '3524012010080008',
+                'employee_code' => 'EMP-2026-008',
+                'name' => 'Faisal Akbar',
+                'nickname' => 'Faisal',
+                'department' => 'Keuangan',
+                'position' => 'Accounting',
+                'job_level' => 'Staff',
+                'employment_status' => 'Kontrak (PKWT)',
+                'employee_category' => 'Kantor',
+                'legal_entity' => 'CV Bawang Merah',
+                'phone_number' => '081234567898',
+                'gender' => 'Laki-Laki',
+                'religion' => 'Islam',
+                'education' => 'Strata 1 (S1)',
+                'marital_status' => 'Belum Menikah',
+                'birth_place' => 'Tuban',
+                'birth_date' => '2001-03-10',
+                'bpjs_kesehatan_no' => '0001234567898',
+                'bpjs_ketenagakerjaan_no' => '0009876543218',
+                'shirt_size' => 'L',
+                'address' => 'Jl. Panglima Sudirman No. 88, Lamongan',
+                'bank_account_no' => '0011-01-098765-50-8',
+                'bank_name' => 'Bank Mandiri',
+                'email' => 'faisal.akbar@nisgroup.id',
+                'join_date' => '2025-09-15',
+                'is_active' => true,
+                'contract' => [
+                    'contract_number' => '008/OWR/PKWT/IX/2026',
+                    'contract_sequence' => 2,
+                    'duration_text' => '1 Tahun',
+                    'start_year' => 2026,
+                    'start_date' => '2025-09-15',
+                    'end_date' => '2026-10-15', // Expiring in 15 days! Critical H-30 alert!
+                    'review_status' => 'Masa Tenggang / Proses Keputusan (H-14 s.d. Hari H)',
+                ],
+                'compensation' => [
+                    'duration_text' => '1 Tahun',
+                    'initial_salary' => 2900000,
+                    'current_salary' => 3200000,
+                    'salary_increment_count' => 1,
+                    'increment_1_amount' => 300000,
+                    'salary_status' => 'Aktif / Berlaku Bulan Ini (Ready to Pay)',
+                ],
+            ],
+
+            // 9. Staff HR & Legalitas (HCM - Kantor)
+            [
+                'nik_ktp' => '3524012010090009',
+                'employee_code' => 'EMP-2026-009',
+                'name' => 'Ardiansyah Pratama',
+                'nickname' => 'Ardi',
+                'department' => 'Human Capital Management',
+                'position' => 'Admin HCM',
+                'job_level' => 'Supervisor',
+                'employment_status' => 'Tetap (PKWTT)',
+                'employee_category' => 'Kantor',
+                'legal_entity' => 'CV Bawang Merah',
+                'phone_number' => '081234567891',
+                'gender' => 'Laki-Laki',
+                'religion' => 'Islam',
+                'education' => 'Strata 1 (S1)',
+                'marital_status' => 'Menikah',
+                'birth_place' => 'Lamongan',
+                'birth_date' => '1995-12-05',
+                'bpjs_kesehatan_no' => '0001234567899',
+                'bpjs_ketenagakerjaan_no' => '0009876543219',
+                'shirt_size' => 'L',
+                'address' => 'Ds. Deket Kulon Kec. Deket Kab. Lamongan',
+                'bank_account_no' => '0011-01-098765-50-9',
+                'bank_name' => 'Bank BCA',
+                'email' => 'staff.hcm@nisgroup.id',
+                'join_date' => '2024-01-10',
+                'is_active' => true,
+                'contract' => [
+                    'contract_number' => '009/OWR/PKWT/I/2026',
+                    'contract_sequence' => 2,
+                    'duration_text' => 'Tetap',
+                    'start_year' => 2026,
+                    'start_date' => '2024-01-10',
+                    'end_date' => null,
+                    'review_status' => 'Aktif (Aman / Jauh dari Masa Berakhir)',
+                ],
+                'compensation' => [
+                    'duration_text' => 'Tetap',
+                    'initial_salary' => 3800000,
+                    'current_salary' => 4500000,
+                    'salary_increment_count' => 2,
+                    'increment_1_amount' => 350000,
+                    'increment_2_amount' => 350000,
+                    'salary_status' => 'Aktif / Berlaku Bulan Ini (Ready to Pay)',
+                ],
+            ],
+
+            // 10. Graphic Designer Sportswear (Marketing - Kantor)
+            [
+                'nik_ktp' => '3524012010100010',
+                'employee_code' => 'EMP-2026-010',
+                'name' => 'Bintang Ramadhan',
+                'nickname' => 'Bintang',
+                'department' => 'Marketing',
+                'position' => 'Designer',
+                'job_level' => 'Leader',
+                'employment_status' => 'Tetap (PKWTT)',
+                'employee_category' => 'Kantor',
+                'legal_entity' => 'CV Jersey Ekonomis',
+                'phone_number' => '081234567810',
+                'gender' => 'Laki-Laki',
+                'religion' => 'Islam',
+                'education' => 'Strata 1 (S1)',
+                'marital_status' => 'Belum Menikah',
+                'birth_place' => 'Surabaya',
+                'birth_date' => '1999-06-18',
+                'bpjs_kesehatan_no' => '0001234567810',
+                'bpjs_ketenagakerjaan_no' => '0009876543220',
+                'shirt_size' => 'XL',
+                'address' => 'Jl. Basuki Rahmat No. 20, Lamongan',
+                'bank_account_no' => '0011-01-098765-51-0',
+                'bank_name' => 'Bank BCA',
+                'email' => 'bintang.design@nisgroup.id',
+                'join_date' => '2024-05-01',
+                'is_active' => true,
+                'contract' => [
+                    'contract_number' => '010/OWR/PKWT/V/2026',
+                    'contract_sequence' => 2,
+                    'duration_text' => 'Tetap',
+                    'start_year' => 2026,
+                    'start_date' => '2024-05-01',
+                    'end_date' => null,
+                    'review_status' => 'Aktif (Aman / Jauh dari Masa Berakhir)',
+                ],
+                'compensation' => [
+                    'duration_text' => 'Tetap',
+                    'initial_salary' => 3400000,
+                    'current_salary' => 4200000,
+                    'salary_increment_count' => 2,
+                    'increment_1_amount' => 400000,
+                    'increment_2_amount' => 400000,
+                    'salary_status' => 'Aktif / Berlaku Bulan Ini (Ready to Pay)',
+                ],
+            ],
+
+            // 11. Admin Brand & CS (Marketing - Kantor - Probation)
+            [
+                'nik_ktp' => '3524012010110011',
+                'employee_code' => 'EMP-2026-011',
+                'name' => 'Nadia Putri',
+                'nickname' => 'Nadia',
+                'department' => 'Marketing',
+                'position' => 'Admin Brand',
+                'job_level' => 'Trainee',
+                'employment_status' => 'Trainee (Probation)',
+                'employee_category' => 'Kantor',
+                'legal_entity' => 'CV Jersey Ekonomis',
+                'phone_number' => '081234567811',
+                'gender' => 'Perempuan',
+                'religion' => 'Islam',
+                'education' => 'Diploma 3 (D3)',
+                'marital_status' => 'Belum Menikah',
+                'birth_place' => 'Bojonegoro',
+                'birth_date' => '2003-01-25',
+                'bpjs_kesehatan_no' => '0001234567811',
+                'shirt_size' => 'S',
+                'address' => 'Ds. Made Kec. Lamongan Kab. Lamongan',
+                'bank_account_no' => '0011-01-098765-51-1',
+                'bank_name' => 'Bank BRI',
+                'email' => 'nadia.putri@gmail.com',
+                'join_date' => '2026-07-05', // Joined ~3 months ago -> probation ends around 2026-10-05 (diff ~5 days, triggers H-7 alert!)
+                'is_active' => true,
+                'contract' => [
+                    'contract_number' => '011/OWR/PKWT/VII/2026',
+                    'contract_sequence' => 1,
+                    'duration_text' => '3 Bulan (Probation)',
+                    'start_year' => 2026,
+                    'start_date' => '2026-07-05',
+                    'end_date' => '2026-10-05',
+                    'review_status' => 'Masa Tenggang / Proses Keputusan (H-14 s.d. Hari H)',
+                ],
+                'compensation' => [
+                    'duration_text' => '3 Bulan',
+                    'initial_salary' => 2400000,
+                    'current_salary' => 2400000,
+                    'salary_increment_count' => 0,
+                    'salary_status' => 'Aktif / Berlaku Bulan Ini (Ready to Pay)',
+                ],
+            ],
+
+            // 12. Web Developer (Media Eksternal - Kantor)
+            [
+                'nik_ktp' => '3524012010120012',
+                'employee_code' => 'EMP-2026-012',
+                'name' => 'Ilham Kurniawan',
+                'nickname' => 'Ilham',
+                'department' => 'Media Eksternal',
+                'position' => 'Web Developer',
+                'job_level' => 'Staff',
+                'employment_status' => 'Tetap (PKWTT)',
+                'employee_category' => 'Kantor',
+                'legal_entity' => 'CV Apparel Allegiant',
+                'phone_number' => '081234567812',
+                'gender' => 'Laki-Laki',
+                'religion' => 'Islam',
+                'education' => 'Strata 1 (S1)',
+                'marital_status' => 'Belum Menikah',
+                'birth_place' => 'Malang',
+                'birth_date' => '1998-11-30',
+                'bpjs_kesehatan_no' => '0001234567812',
+                'bpjs_ketenagakerjaan_no' => '0009876543222',
+                'shirt_size' => 'L',
+                'address' => 'Jl. Sunan Drajat No. 104, Lamongan',
+                'bank_account_no' => '0011-01-098765-51-2',
+                'bank_name' => 'Bank Mandiri',
+                'email' => 'ilham.dev@nisgroup.id',
+                'join_date' => '2024-09-01',
+                'is_active' => true,
+                'contract' => [
+                    'contract_number' => '012/OWR/PKWT/IX/2026',
+                    'contract_sequence' => 2,
+                    'duration_text' => 'Tetap',
+                    'start_year' => 2026,
+                    'start_date' => '2024-09-01',
+                    'end_date' => null,
+                    'review_status' => 'Aktif (Aman / Jauh dari Masa Berakhir)',
+                ],
+                'compensation' => [
+                    'duration_text' => 'Tetap',
+                    'initial_salary' => 4000000,
+                    'current_salary' => 4800000,
+                    'salary_increment_count' => 2,
+                    'increment_1_amount' => 400000,
+                    'increment_2_amount' => 400000,
+                    'salary_status' => 'Aktif / Berlaku Bulan Ini (Ready to Pay)',
+                ],
+            ],
+
+            // 13. Video Editor & Content Creator (Media Internal - Kantor)
+            [
+                'nik_ktp' => '3524012010130013',
+                'employee_code' => 'EMP-2026-013',
+                'name' => 'Rizky Wahyu',
+                'nickname' => 'Rizky',
+                'department' => 'Media Internal',
+                'position' => 'Editor',
+                'job_level' => 'Staff',
+                'employment_status' => 'Kontrak (PKWT)',
+                'employee_category' => 'Kantor',
+                'legal_entity' => 'CV Jersey Ekonomis',
+                'phone_number' => '081234567813',
+                'gender' => 'Laki-Laki',
+                'religion' => 'Islam',
+                'education' => 'SMA / SMK / Sederajat',
+                'marital_status' => 'Belum Menikah',
+                'birth_place' => 'Lamongan',
+                'birth_date' => '2001-08-04',
+                'bpjs_kesehatan_no' => '0001234567813',
+                'shirt_size' => 'M',
+                'address' => 'Ds. Tanjung Kec. Lamongan Kab. Lamongan',
+                'bank_account_no' => '0011-01-098765-51-3',
+                'bank_name' => 'Bank BCA',
+                'email' => 'rizky.creative@nisgroup.id',
+                'join_date' => '2025-10-01',
+                'is_active' => true,
+                'contract' => [
+                    'contract_number' => '013/OWR/PKWT/X/2026',
+                    'contract_sequence' => 1,
+                    'duration_text' => '1 Tahun',
+                    'start_year' => 2026,
+                    'start_date' => '2025-10-01',
+                    'end_date' => '2026-10-01', // Expiring TOMORROW! Critical alert!
+                    'review_status' => 'Wajib Review & Tindak Lanjut (H-30 Kontrak Berakhir)',
+                ],
+                'compensation' => [
+                    'duration_text' => '1 Tahun',
+                    'initial_salary' => 2700000,
+                    'current_salary' => 3000000,
+                    'salary_increment_count' => 1,
+                    'increment_1_amount' => 300000,
+                    'salary_status' => 'Aktif / Berlaku Bulan Ini (Ready to Pay)',
+                ],
+            ],
+
+            // 14. Press Sublime Specialist (Produksi)
+            [
+                'nik_ktp' => '3524012010140014',
+                'employee_code' => 'EMP-2026-014',
+                'name' => 'Hendra Saputra',
+                'nickname' => 'Hendra',
+                'department' => 'Produksi',
+                'position' => 'Press Sublime',
+                'job_level' => 'Staff',
+                'employment_status' => 'Kontrak (PKWT)',
+                'employee_category' => 'Pabrik / Lapangan',
                 'legal_entity' => 'CV Bawang Putih',
-                'contract_number' => '003/OWR/PKWT/X/2026',
-                'duration_text' => '1 Tahun',
-                'trainee_duration_months' => 8,
-                'evaluation_cycle_months' => 4,
-                'initial_salary' => 2200000,
-                'current_salary' => 2200000,
-                'salary_increment_count' => 0,
-                'salary_status' => 'Telah Berlaku',
-            ]
-        );
+                'phone_number' => '081234567814',
+                'gender' => 'Laki-Laki',
+                'religion' => 'Islam',
+                'education' => 'SMA / SMK / Sederajat',
+                'marital_status' => 'Menikah',
+                'birth_place' => 'Lamongan',
+                'birth_date' => '2000-02-17',
+                'bpjs_kesehatan_no' => '0001234567814',
+                'shirt_size' => 'XL',
+                'address' => 'Ds. Karanglangit Kec. Lamongan',
+                'bank_account_no' => '0011-01-098765-51-4',
+                'bank_name' => 'Bank BRI',
+                'email' => 'hendra.sublime@gmail.com',
+                'join_date' => '2025-06-01',
+                'is_active' => true,
+                'contract' => [
+                    'contract_number' => '014/OWR/PKWT/VI/2026',
+                    'contract_sequence' => 2,
+                    'duration_text' => '1 Tahun',
+                    'start_year' => 2026,
+                    'start_date' => '2025-06-01',
+                    'end_date' => '2027-06-01',
+                    'review_status' => 'Aktif (Aman / Jauh dari Masa Berakhir)',
+                ],
+                'compensation' => [
+                    'duration_text' => '1 Tahun',
+                    'initial_salary' => 2500000,
+                    'current_salary' => 2750000,
+                    'salary_increment_count' => 1,
+                    'increment_1_amount' => 250000,
+                    'salary_status' => 'Aktif / Berlaku Bulan Ini (Ready to Pay)',
+                ],
+            ],
 
-        // 4. Peserta Magang SMK 2 Lamongan
-        $magang = HcmEmployee::updateOrCreate(
-            ['nik_ktp' => '3524011504080004'],
+            // 15. Magang SMK 2 Lamongan 1 (Tata Busana)
             [
+                'nik_ktp' => '3524011504080004',
                 'employee_code' => 'INT-2026-001',
                 'name' => 'Siti Nurhaliza',
                 'nickname' => 'Siti',
                 'department' => 'Produksi',
                 'position' => 'Jahit',
                 'job_level' => 'Magang',
-                'employment_status' => 'Magang',
+                'employment_status' => 'Magang (Internship)',
+                'employee_category' => 'Pabrik / Lapangan',
                 'legal_entity' => 'CV Bawang Merah',
                 'phone_number' => '085712345678',
                 'gender' => 'Perempuan',
                 'religion' => 'Islam',
-                'education' => 'SMA Sederajat',
+                'education' => 'SMA / SMK / Sederajat',
                 'marital_status' => 'Belum Menikah',
                 'birth_place' => 'Lamongan',
                 'birth_date' => '2008-04-15',
@@ -262,22 +735,266 @@ class HcmEmployeeSeeder extends Seeder
                 'address' => 'Dusun Kebonagung, Kec. Sukodadi, Kab. Lamongan',
                 'join_date' => '2026-07-31',
                 'is_active' => true,
-            ]
-        );
+                'intern' => [
+                    'school_name' => 'SMK 2 Lamongan',
+                    'class' => 'XII',
+                    'major' => 'Tata Busana',
+                    'nis' => '2024.12.045',
+                    'student_phone' => '085712345678',
+                    'student_address' => 'Dusun Kebonagung, Kec. Sukodadi, Kab. Lamongan',
+                    'start_date' => '2026-07-31',
+                    'end_date' => '2026-10-31',
+                    'duration_text' => '3 Bulan',
+                    'mentor_teacher_name' => 'Bu Ningsih, S.Pd',
+                    'mentor_teacher_phone' => '081234567899',
+                ],
+            ],
 
-        HcmIntern::updateOrCreate(
-            ['employee_id' => $magang->id],
+            // 16. Magang SMK 2 Lamongan 2 (Tata Busana)
             [
-                'school_name' => 'SMK 2 Lamongan',
-                'class' => 'XII',
-                'major' => 'Tata Busana',
-                'nis' => '2024.12.045',
-                'start_date' => '2026-07-31',
-                'end_date' => '2026-10-30',
-                'duration_text' => '3 bulan',
-                'mentor_teacher_name' => 'Bu. Ningsih',
-                'mentor_teacher_phone' => '081234567899',
-            ]
-        );
+                'nik_ktp' => '3524011504080016',
+                'employee_code' => 'INT-2026-002',
+                'name' => 'Anisa Rahmawati',
+                'nickname' => 'Anisa',
+                'department' => 'Produksi',
+                'position' => 'Finishing (Steam)',
+                'job_level' => 'Magang',
+                'employment_status' => 'Magang (Internship)',
+                'employee_category' => 'Pabrik / Lapangan',
+                'legal_entity' => 'CV Bawang Merah',
+                'phone_number' => '085712345679',
+                'gender' => 'Perempuan',
+                'religion' => 'Islam',
+                'education' => 'SMA / SMK / Sederajat',
+                'marital_status' => 'Belum Menikah',
+                'birth_place' => 'Lamongan',
+                'birth_date' => '2008-09-12',
+                'shirt_size' => 'S',
+                'address' => 'Dusun Gajah, Kec. Baureno, Kab. Bojonegoro',
+                'join_date' => '2026-07-31',
+                'is_active' => true,
+                'intern' => [
+                    'school_name' => 'SMK 2 Lamongan',
+                    'class' => 'XII',
+                    'major' => 'Tata Busana',
+                    'nis' => '2024.12.046',
+                    'student_phone' => '085712345679',
+                    'student_address' => 'Dusun Gajah, Kec. Baureno, Kab. Bojonegoro',
+                    'start_date' => '2026-07-31',
+                    'end_date' => '2026-10-31',
+                    'duration_text' => '3 Bulan',
+                    'mentor_teacher_name' => 'Bu Ningsih, S.Pd',
+                    'mentor_teacher_phone' => '081234567899',
+                ],
+            ],
+
+            // 17. Magang SMK Negeri 1 Klaten (RPL / Web)
+            [
+                'nik_ktp' => '3524011504080017',
+                'employee_code' => 'INT-2026-003',
+                'name' => 'Dimas Arya',
+                'nickname' => 'Dimas',
+                'department' => 'Media Eksternal',
+                'position' => 'Web Developer',
+                'job_level' => 'Magang',
+                'employment_status' => 'Magang (Internship)',
+                'employee_category' => 'Kantor',
+                'legal_entity' => 'CV Apparel Allegiant',
+                'phone_number' => '085712345680',
+                'gender' => 'Laki-Laki',
+                'religion' => 'Islam',
+                'education' => 'SMA / SMK / Sederajat',
+                'marital_status' => 'Belum Menikah',
+                'birth_place' => 'Klaten',
+                'birth_date' => '2008-01-20',
+                'shirt_size' => 'M',
+                'address' => 'Pedan, Klaten, Jawa Tengah',
+                'join_date' => '2026-08-01',
+                'is_active' => true,
+                'intern' => [
+                    'school_name' => 'SMK Negeri 1 Klaten',
+                    'class' => 'XII',
+                    'major' => 'Rekayasa Perangkat Lunak',
+                    'nis' => '2024.11.088',
+                    'student_phone' => '085712345680',
+                    'student_address' => 'Pedan, Klaten, Jawa Tengah',
+                    'start_date' => '2026-08-01',
+                    'end_date' => '2026-11-30',
+                    'duration_text' => '4 Bulan',
+                    'mentor_teacher_name' => 'Pak Eko Susilo, S.Kom',
+                    'mentor_teacher_phone' => '081399887766',
+                ],
+            ],
+
+            // 18. Karyawan Offboarded 1 (Resign Baik-Baik)
+            [
+                'nik_ktp' => '3524012010180018',
+                'employee_code' => 'EMP-2025-018',
+                'name' => 'Budi Santoso',
+                'nickname' => 'Budi',
+                'department' => 'Produksi',
+                'position' => 'Potong Bahan',
+                'job_level' => 'Staff',
+                'employment_status' => 'Kontrak (PKWT)',
+                'employee_category' => 'Pabrik / Lapangan',
+                'legal_entity' => 'CV Bawang Putih',
+                'phone_number' => '081234567818',
+                'gender' => 'Laki-Laki',
+                'religion' => 'Islam',
+                'education' => 'SMA / SMK / Sederajat',
+                'marital_status' => 'Menikah',
+                'birth_place' => 'Lamongan',
+                'birth_date' => '1997-05-10',
+                'shirt_size' => 'L',
+                'address' => 'Babat, Lamongan',
+                'join_date' => '2024-06-01',
+                'is_active' => false, // Inactive
+                'contract' => [
+                    'contract_number' => '018/OWR/PKWT/VI/2024',
+                    'contract_sequence' => 2,
+                    'duration_text' => '2 Tahun',
+                    'start_year' => 2024,
+                    'start_date' => '2024-06-01',
+                    'end_date' => '2026-06-30',
+                    'review_status' => 'Berakhir (Resign)',
+                ],
+                'offboarding' => [
+                    'exit_date' => '2026-06-30',
+                    'exit_reason' => 'Mengundurkan Diri (Pindah Domisili)',
+                    'notice_compliance' => 'Sesuai Ketentuan (1 Bulan / Full Notice)',
+                    'rights_status' => 'Lunas & Dibayarkan Penuh (Full Settlement Paid)',
+                    'asset_clearance' => 'Lengkap & Terbit',
+                    'clearance_status' => 'Selesai (Clear)',
+                    'offboarding_notes' => 'Telah serah terima seluruh inventaris kerja gunting potong elektrik dan ID card. Paklaring diterbitkan.',
+                ],
+            ],
+
+            // 19. Karyawan Offboarded 2 (Kontrak Selesai)
+            [
+                'nik_ktp' => '3524012010190019',
+                'employee_code' => 'EMP-2025-019',
+                'name' => 'Tri Wahyuni',
+                'nickname' => 'Yuni',
+                'department' => 'Marketing',
+                'position' => 'Admin Brand',
+                'job_level' => 'Staff',
+                'employment_status' => 'Kontrak (PKWT)',
+                'employee_category' => 'Kantor',
+                'legal_entity' => 'CV Jersey Ekonomis',
+                'phone_number' => '081234567819',
+                'gender' => 'Perempuan',
+                'religion' => 'Islam',
+                'education' => 'SMA / SMK / Sederajat',
+                'marital_status' => 'Belum Menikah',
+                'birth_place' => 'Lamongan',
+                'birth_date' => '2001-10-02',
+                'shirt_size' => 'M',
+                'address' => 'Tikung, Lamongan',
+                'join_date' => '2025-01-01',
+                'is_active' => false, // Inactive
+                'contract' => [
+                    'contract_number' => '019/OWR/PKWT/I/2025',
+                    'contract_sequence' => 1,
+                    'duration_text' => '1 Tahun',
+                    'start_year' => 2025,
+                    'start_date' => '2025-01-01',
+                    'end_date' => '2026-08-31',
+                    'review_status' => 'Selesai Kontrak (Tidak Diperpanjang)',
+                ],
+                'offboarding' => [
+                    'exit_date' => '2026-08-31',
+                    'exit_reason' => 'Kontrak Selesai & Tidak Diperpanjang',
+                    'notice_compliance' => 'Sesuai Ketentuan (1 Bulan / Full Notice)',
+                    'rights_status' => 'Lunas & Dibayarkan Penuh (Full Settlement Paid)',
+                    'asset_clearance' => 'Lengkap & Terbit',
+                    'clearance_status' => 'Selesai (Clear)',
+                    'offboarding_notes' => 'Masa kontrak 1 tahun telah berakhir dengan baik. Tanggungan komputer dan akses akun brand telah diserahkan.',
+                ],
+            ],
+        ];
+
+        foreach ($employeesData as $data) {
+            $contractData = $data['contract'] ?? null;
+            $compensationData = $data['compensation'] ?? null;
+            $internData = $data['intern'] ?? null;
+            $offboardingData = $data['offboarding'] ?? null;
+
+            unset($data['contract'], $data['compensation'], $data['intern'], $data['offboarding']);
+
+            $employee = HcmEmployee::updateOrCreate(
+                ['nik_ktp' => $data['nik_ktp']],
+                $data
+            );
+
+            // 1. Kontrak Kerja
+            if ($contractData) {
+                $contractData['employee_id'] = $employee->id;
+                $contractData['position'] = $employee->position;
+                $contractData['legal_entity'] = $employee->legal_entity;
+                $contractData['employment_status'] = $employee->employment_status;
+                HcmContract::updateOrCreate(
+                    ['contract_number' => $contractData['contract_number']],
+                    $contractData
+                );
+            }
+
+            // 2. Kompensasi & Gaji
+            if ($compensationData) {
+                $histories = $compensationData['histories'] ?? [];
+                unset($compensationData['histories']);
+
+                $compensationData['employee_id'] = $employee->id;
+                $compensationData['employment_status'] = $employee->employment_status;
+                $compensationData['legal_entity'] = $employee->legal_entity;
+                if ($contractData) {
+                    $compensationData['contract_number'] = $contractData['contract_number'];
+                }
+
+                $comp = HcmCompensation::updateOrCreate(
+                    ['employee_id' => $employee->id],
+                    $compensationData
+                );
+
+                foreach ($histories as $history) {
+                    HcmCompensationHistory::firstOrCreate(
+                        [
+                            'compensation_id' => $comp->id,
+                            'effective_date' => $history['effective_date'],
+                        ],
+                        [
+                            'employee_id' => $employee->id,
+                            'previous_salary' => $history['previous_salary'],
+                            'new_salary' => $history['new_salary'],
+                            'increment_amount' => $history['increment_amount'],
+                            'reason' => $history['reason'],
+                        ]
+                    );
+                }
+            }
+
+            // 3. Peserta Magang
+            if ($internData) {
+                $internData['employee_id'] = $employee->id;
+                HcmIntern::updateOrCreate(
+                    ['employee_id' => $employee->id],
+                    $internData
+                );
+            }
+
+            // 4. Onboarding Checklist Sync
+            if ($employee->is_active) {
+                HcmOnboarding::syncFor($employee);
+            }
+
+            // 5. Offboarding Record
+            if ($offboardingData) {
+                $offboardingData['employee_id'] = $employee->id;
+                $offboardingData['position'] = $employee->position;
+                HcmOffboarding::updateOrCreate(
+                    ['employee_id' => $employee->id],
+                    $offboardingData
+                );
+            }
+        }
     }
 }

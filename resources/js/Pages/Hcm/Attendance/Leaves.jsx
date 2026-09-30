@@ -92,9 +92,10 @@ export default function LeavesIndex({
     };
 
     // Handle persetujuan cuti
-    const handleApprove = (id) => {
+    const handleApprove = (req) => {
+        const key = req?.uuid || req?.id || req;
         if (confirm('Setujui permohonan izin ini? Seluruh tanggal pada durasi izin akan otomatis tercatat di log presensi harian.')) {
-            router.post(route('hcm.leaves.approve', id));
+            router.post(route('hcm.leaves.approve', key));
         }
     };
 
@@ -110,7 +111,7 @@ export default function LeavesIndex({
         e.preventDefault();
         if (!selectedRequest) return;
 
-        rejectForm.post(route('hcm.leaves.reject', selectedRequest.id), {
+        rejectForm.post(route('hcm.leaves.reject', selectedRequest.uuid || selectedRequest.id), {
             onSuccess: () => {
                 setIsRejectModalOpen(false);
                 setSelectedRequest(null);
@@ -119,9 +120,10 @@ export default function LeavesIndex({
     };
 
     // Handle hapus tiket
-    const handleDelete = (id) => {
+    const handleDelete = (req) => {
+        const key = req?.uuid || req?.id || req;
         if (confirm('Hapus tiket permohonan cuti ini?')) {
-            router.delete(route('hcm.leaves.destroy', id));
+            router.delete(route('hcm.leaves.destroy', key));
         }
     };
 
@@ -430,7 +432,7 @@ export default function LeavesIndex({
                                                         <div className="flex items-center justify-end gap-1">
                                                             <Button
                                                                 size="sm"
-                                                                onClick={() => handleApprove(req.id)}
+                                                                onClick={() => handleApprove(req)}
                                                                 className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
                                                                 title="Setujui dan sinkronkan ke presensi harian"
                                                             >
@@ -452,7 +454,7 @@ export default function LeavesIndex({
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
-                                                                onClick={() => handleDelete(req.id)}
+                                                                onClick={() => handleDelete(req)}
                                                                 className="h-7 px-1.5 text-zinc-400 hover:text-rose-600"
                                                                 title="Hapus permohonan"
                                                             >

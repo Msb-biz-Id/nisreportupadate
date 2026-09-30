@@ -47,4 +47,19 @@ class HcmExternalLetter extends Model
             }
         });
     }
+
+    /**
+     * Non-ID Base URL: Gunakan registration_no sebagai route key publik (Zero Raw DB ID Exposure).
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'registration_no';
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->where($field ?? 'registration_no', $value)
+            ->orWhere('id', is_numeric($value) ? (int) $value : 0)
+            ->firstOrFail();
+    }
 }

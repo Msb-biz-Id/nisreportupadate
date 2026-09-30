@@ -105,4 +105,19 @@ class HcmJobPosting extends Model
             }
         });
     }
+
+    /**
+     * Non-ID Base URL: Gunakan slug sebagai route key publik (Zero Raw DB ID Exposure).
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->where($field ?? 'slug', $value)
+            ->orWhere('id', is_numeric($value) ? (int) $value : 0)
+            ->firstOrFail();
+    }
 }

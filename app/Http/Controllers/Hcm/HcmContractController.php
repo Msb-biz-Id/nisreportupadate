@@ -29,7 +29,7 @@ class HcmContractController extends Controller
         $reviewStatus = $request->input('review_status');
         $employmentStatus = $request->input('employment_status');
 
-        $query = HcmContract::with(['employee:id,name,employee_code,department,position,legal_entity,is_active,photo_url'])
+        $query = HcmContract::with(['employee:id,name,nickname,employee_code,department,position,legal_entity,is_active,photo_url'])
             ->orderByDesc('start_date');
 
         if ($search) {
@@ -37,7 +37,9 @@ class HcmContractController extends Controller
                 $q->where('contract_number', 'like', "%{$search}%")
                     ->orWhereHas('employee', function ($eq) use ($search) {
                         $eq->where('name', 'like', "%{$search}%")
-                            ->orWhere('employee_code', 'like', "%{$search}%");
+                            ->orWhere('nickname', 'like', "%{$search}%")
+                            ->orWhere('employee_code', 'like', "%{$search}%")
+                            ->orWhere('nik_ktp', 'like', "%{$search}%");
                     });
             });
         }
@@ -46,12 +48,46 @@ class HcmContractController extends Controller
             $query->where('legal_entity', $legalEntity);
         }
 
-        if ($reviewStatus && $reviewStatus !== 'all') {
-            $query->where('review_status', $reviewStatus);
+        if ($employmentStatus && $employmentStatus !== 'all') {
+            if ($employmentStatus === 'Tetap (PKWTT)' || str_contains($employmentStatus, 'Tetap')) {
+                $query->where(function ($q) {
+                    $q->where('employment_status', 'like', '%Tetap%')
+                      ->orWhereNull('end_date');
+                });
+            } else {
+                $query->where('employment_status', $employmentStatus);
+            }
         }
 
-        if ($employmentStatus && $employmentStatus !== 'all') {
-            $query->where('employment_status', $employmentStatus);
+        if ($reviewStatus && $reviewStatus !== 'all') {
+            if ($reviewStatus === 'H-14' || str_contains($reviewStatus, 'H-14') || str_contains($reviewStatus, 'Kritis')) {
+                $query->where(function ($q) {
+                    $q->where('review_status', 'like', '%H-14%')
+                      ->orWhere(function ($dq) {
+                          $dq->whereNotNull('end_date')
+                             ->whereBetween('end_date', [Carbon::today(), Carbon::today()->addDays(14)]);
+                      });
+                });
+            } elseif ($reviewStatus === 'H-30' || str_contains($reviewStatus, 'H-30') || str_contains($reviewStatus, 'Review')) {
+                $query->where(function ($q) {
+                    $q->where('review_status', 'like', '%H-30%')
+                      ->orWhere(function ($dq) {
+                          $dq->whereNotNull('end_date')
+                             ->whereBetween('end_date', [Carbon::today(), Carbon::today()->addDays(30)]);
+                      });
+                });
+            } elseif ($reviewStatus === 'H-60' || str_contains($reviewStatus, 'H-60') || str_contains($reviewStatus, 'Evaluasi')) {
+                $query->where('review_status', 'like', '%H-60%');
+            } elseif ($reviewStatus === 'Aktif' || str_contains($reviewStatus, 'Aktif')) {
+                $query->where('review_status', 'like', '%Aktif%');
+            } elseif ($reviewStatus === 'Tetap (PKWTT)' || str_contains($reviewStatus, 'Tetap')) {
+                $query->where(function ($q) {
+                    $q->where('employment_status', 'like', '%Tetap%')
+                      ->orWhereNull('end_date');
+                });
+            } else {
+                $query->where('review_status', 'like', "%{$reviewStatus}%");
+            }
         }
 
         $contracts = $query->paginate(15)->withQueryString();
@@ -63,7 +99,7 @@ class HcmContractController extends Controller
 
         $metrics = [
             'total_contracts' => HcmContract::count(),
-            'active_contracts' => HcmContract::where('review_status', 'Aktif')->count(),
+            'active_contracts' => HcmContract::where('review_status', 'like', '%Aktif%')->count(),
             'expiring_30_days' => HcmContract::whereNotNull('end_date')
                 ->whereBetween('end_date', [$today, $in30Days])
                 ->count(),
@@ -92,7 +128,7 @@ class HcmContractController extends Controller
                 'Diputus',
             ],
             'employees' => HcmEmployee::where('is_active', true)
-                ->select('id', 'name', 'employee_code', 'department', 'position', 'legal_entity')
+                ->select('id', 'name', 'nickname', 'employee_code', 'department', 'position', 'legal_entity')
                 ->orderBy('name')
                 ->get(),
         ];
@@ -125,6 +161,11 @@ class HcmContractController extends Controller
             'position' => ['required', 'string', 'max:100'],
             'legal_entity' => ['required', 'string', 'max:100'],
             'duration_text' => ['required', 'string', 'max:50'],
+            'trainee_start_month' => ['nullable', 'string', 'max:50'],
+            'trainee_end_month' => ['nullable', 'string', 'max:50'],
+            'contract_month' => ['nullable', 'string', 'max:50'],
+            'start_year' => ['nullable', 'integer'],
+            'end_year' => ['nullable', 'integer'],
             'start_date' => ['required', 'date'],
             'end_date' => ['nullable', 'date'],
             'review_status' => ['required', 'string', 'max:100'],
@@ -152,9 +193,11 @@ class HcmContractController extends Controller
             'position' => $validated['position'],
             'legal_entity' => $validated['legal_entity'],
             'duration_text' => $validated['duration_text'],
-            'start_year' => $startDate->year,
-            'end_year' => $endDate ? $endDate->year : null,
-            'contract_month' => $startDate->locale('id')->isoFormat('MMMM'),
+            'trainee_start_month' => $validated['trainee_start_month'] ?? null,
+            'trainee_end_month' => $validated['trainee_end_month'] ?? null,
+            'start_year' => $validated['start_year'] ?? $startDate->year,
+            'end_year' => $validated['end_year'] ?? ($endDate ? $endDate->year : null),
+            'contract_month' => $validated['contract_month'] ?? $startDate->locale('id')->isoFormat('MMMM'),
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'] ?? null,
             'review_status' => $validated['review_status'],
@@ -191,6 +234,11 @@ class HcmContractController extends Controller
             'position' => ['required', 'string', 'max:100'],
             'legal_entity' => ['required', 'string', 'max:100'],
             'duration_text' => ['required', 'string', 'max:50'],
+            'trainee_start_month' => ['nullable', 'string', 'max:50'],
+            'trainee_end_month' => ['nullable', 'string', 'max:50'],
+            'contract_month' => ['nullable', 'string', 'max:50'],
+            'start_year' => ['nullable', 'integer'],
+            'end_year' => ['nullable', 'integer'],
             'start_date' => ['required', 'date'],
             'end_date' => ['nullable', 'date'],
             'review_status' => ['required', 'string', 'max:100'],
@@ -220,9 +268,11 @@ class HcmContractController extends Controller
             'position' => $validated['position'],
             'legal_entity' => $validated['legal_entity'],
             'duration_text' => $validated['duration_text'],
-            'start_year' => $startDate->year,
-            'end_year' => $endDate ? $endDate->year : null,
-            'contract_month' => $startDate->locale('id')->isoFormat('MMMM'),
+            'trainee_start_month' => $validated['trainee_start_month'] ?? null,
+            'trainee_end_month' => $validated['trainee_end_month'] ?? null,
+            'start_year' => $validated['start_year'] ?? $startDate->year,
+            'end_year' => $validated['end_year'] ?? ($endDate ? $endDate->year : null),
+            'contract_month' => $validated['contract_month'] ?? $startDate->locale('id')->isoFormat('MMMM'),
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'] ?? null,
             'review_status' => $validated['review_status'],

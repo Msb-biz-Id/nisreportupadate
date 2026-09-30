@@ -100,7 +100,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
 
     const handleContractSubmit = (e) => {
         e.preventDefault();
-        contractForm.post(route('hcm.employees.contracts.store', employee.id), {
+        contractForm.post(route('hcm.employees.contracts.store', employee.employee_code || employee.id), {
             forceFormData: true,
             onSuccess: () => {
                 setIsContractModalOpen(false);
@@ -111,7 +111,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
 
     const handleCompensationSubmit = (e) => {
         e.preventDefault();
-        compensationForm.post(route('hcm.employees.compensation-histories.store', employee.id), {
+        compensationForm.post(route('hcm.employees.compensation-histories.store', employee.employee_code || employee.id), {
             onSuccess: () => {
                 setIsCompensationModalOpen(false);
                 compensationForm.reset();
@@ -154,7 +154,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
 
     const handleOnboardingSubmit = (e) => {
         e.preventDefault();
-        onboardingForm.put(route('hcm.employees.onboarding.update', employee.id), {
+        onboardingForm.put(route('hcm.employees.onboarding.update', employee.employee_code || employee.id), {
             preserveScroll: true,
             onSuccess: () => onboardingForm.setData('approve', false),
         });
@@ -162,14 +162,14 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
 
     const handleOffboardingSubmit = (e) => {
         e.preventDefault();
-        offboardingForm.put(route('hcm.employees.offboarding.update', employee.id), {
+        offboardingForm.put(route('hcm.employees.offboarding.update', employee.employee_code || employee.id), {
             preserveScroll: true,
         });
     };
 
     const handleReactivate = () => {
         if (!confirm(`Aktifkan kembali ${employee.name}? Rekap offboarding akan dibatalkan.`)) return;
-        router.post(route('hcm.employees.toggle', employee.id), {}, { preserveScroll: true });
+        router.post(route('hcm.employees.toggle', employee.employee_code || employee.id), {}, { preserveScroll: true });
     };
 
     // Format Rupiah
@@ -201,7 +201,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
     const shiftAttMonth = (delta) => {
         const d = new Date(attMonth + '-01');
         d.setMonth(d.getMonth() + delta);
-        router.get(route('hcm.employees.show', employee.id), { month: d.toISOString().slice(0, 7) }, { preserveState: true, preserveScroll: true });
+        router.get(route('hcm.employees.show', employee.employee_code || employee.id), { month: d.toISOString().slice(0, 7) }, { preserveState: true, preserveScroll: true });
     };
 
     const tabs = isIntern
@@ -250,7 +250,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                             type="button"
                             onClick={() =>
                                 setPdfPreview({
-                                    url: route('hcm.employees.pdf.dossier', employee.id) + '?action=stream',
+                                    url: route('hcm.employees.pdf.dossier', employee.employee_code || employee.id) + '?action=stream',
                                     name: `${isIntern ? 'Buku Riwayat Magang' : 'Buku Riwayat Karyawan'} - ${employee.name}`,
                                 })
                             }
@@ -322,7 +322,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                             type="button"
                             onClick={() =>
                                 setPdfPreview({
-                                    url: route('hcm.employees.pdf.dossier', employee.id) + '?action=stream',
+                                    url: route('hcm.employees.pdf.dossier', employee.employee_code || employee.id) + '?action=stream',
                                     name: `${isIntern ? 'Buku Riwayat Magang' : 'Buku Riwayat Karyawan'} - ${employee.name}`,
                                 })
                             }
@@ -335,7 +335,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                         </Button>
 
                         <a
-                            href={route('hcm.employees.pdf.dossier', employee.id)}
+                            href={route('hcm.employees.pdf.dossier', employee.employee_code || employee.id)}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 shadow-xs transition"
@@ -350,7 +350,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                     type="button"
                                     onClick={() =>
                                         setPdfPreview({
-                                            url: route('hcm.employees.pdf.paklaring', employee.id) + '?action=stream',
+                                            url: route('hcm.employees.pdf.paklaring', employee.employee_code || employee.id) + '?action=stream',
                                             name: `Surat Pengalaman Kerja (Paklaring) - ${employee.name}`,
                                         })
                                     }
@@ -474,7 +474,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                                     if (e.target.files?.[0]) {
                                                         const formData = new FormData();
                                                         formData.append('photo', e.target.files[0]);
-                                                        router.post(route('hcm.employees.photo.update', employee.id), formData, {
+                                                        router.post(route('hcm.employees.photo.update', employee.employee_code || employee.id), formData, {
                                                             forceFormData: true,
                                                             preserveScroll: true,
                                                         });
@@ -487,7 +487,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                                 type="button"
                                                 onClick={() => {
                                                     if (confirm('Yakin ingin menghapus foto profil ini?')) {
-                                                        router.post(route('hcm.employees.photo.update', employee.id), {
+                                                        router.post(route('hcm.employees.photo.update', employee.employee_code || employee.id), {
                                                             remove_photo: true,
                                                         }, {
                                                             preserveScroll: true,
@@ -789,8 +789,19 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                                     <div className="font-mono font-semibold text-xs text-zinc-900 dark:text-zinc-100">
                                                         {contract.contract_number}
                                                     </div>
-                                                    <div className="text-[11px] text-zinc-400 mt-0.5">
-                                                        Masa: {contract.duration_text}
+                                                    <div className="text-[11px] text-zinc-400 mt-0.5 flex items-center gap-2">
+                                                        <span>Masa: {contract.duration_text || '-'}</span>
+                                                        {contract.file_contract_url && (
+                                                            <a
+                                                                href={contract.file_contract_url}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 underline font-medium"
+                                                                title="Buka Berkas Scan Kontrak"
+                                                            >
+                                                                <FileText className="h-3 w-3" /> Berkas
+                                                            </a>
+                                                        )}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
@@ -802,26 +813,32 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-xs text-zinc-700 dark:text-zinc-300">
-                                                    {contract.legal_entity}
+                                                    {contract.legal_entity || '-'}
                                                 </TableCell>
                                                 <TableCell className="text-xs">
-                                                    <div>
-                                                        {contract.start_date || '-'} s.d. {contract.end_date || 'Tetap'}
+                                                    <div className="font-mono text-zinc-700 dark:text-zinc-300">
+                                                        {(contract.start_date ? String(contract.start_date).slice(0, 10) : '-')} s.d. {(contract.end_date ? String(contract.end_date).slice(0, 10) : 'Tetap (PKWTT)')}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-center">
                                                     {contract.end_date ? (
                                                         <Badge
                                                             variant="outline"
-                                                            className={`text-[11px] ${
-                                                                contract.days_remaining <= 30
+                                                            className={`text-[11px] font-medium ${
+                                                                contract.days_remaining < 0
+                                                                    ? 'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+                                                                    : contract.days_remaining <= 30
                                                                     ? 'bg-rose-50 text-rose-700 border-rose-200'
                                                                     : contract.days_remaining <= 60
                                                                     ? 'bg-amber-50 text-amber-700 border-amber-200'
                                                                     : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                             }`}
                                                         >
-                                                            {contract.days_remaining > 0 ? `${contract.days_remaining} Hari Lagi` : 'Kedaluwarsa'}
+                                                            {contract.days_remaining > 0
+                                                                ? `${contract.days_remaining} Hari Lagi`
+                                                                : contract.days_remaining === 0
+                                                                ? 'Hari Terakhir'
+                                                                : `Selesai (${Math.abs(contract.days_remaining)} Hari Lalu)`}
                                                         </Badge>
                                                     ) : (
                                                         <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[11px]">
@@ -831,7 +848,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                                 </TableCell>
                                                 <TableCell className="text-center">
                                                     <Badge className="text-[11px] bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
-                                                        {contract.review_status}
+                                                        {contract.review_status || 'Aktif'}
                                                     </Badge>
                                                 </TableCell>
                                             </TableRow>

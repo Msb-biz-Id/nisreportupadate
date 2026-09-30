@@ -12,11 +12,16 @@ import { cn } from '@/lib/utils';
  *   clearable    – show X button to clear
  *   className
  */
-export function SearchableSelect({ value, onValueChange, options = [], placeholder = '— Pilih —', clearable = true, disabled = false, className }) {
+export function SearchableSelect({ value, onValueChange, onChange, options = [], placeholder = '— Pilih —', clearable = true, disabled = false, className }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     const ref = useRef(null);
     const inputRef = useRef(null);
+
+    const triggerChange = (val) => {
+        if (typeof onValueChange === 'function') onValueChange(val);
+        if (typeof onChange === 'function') onChange(val);
+    };
 
     const selected = options.find((o) => o.value === value);
     const filtered = search
@@ -37,7 +42,7 @@ export function SearchableSelect({ value, onValueChange, options = [], placehold
     }, []);
 
     function select(val) {
-        onValueChange(val);
+        triggerChange(val);
         setOpen(false);
     }
 
@@ -56,7 +61,7 @@ export function SearchableSelect({ value, onValueChange, options = [], placehold
                     {clearable && selected && !disabled && (
                         <X
                             className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground"
-                            onClick={(e) => { e.stopPropagation(); onValueChange(''); }}
+                            onClick={(e) => { e.stopPropagation(); triggerChange(''); }}
                         />
                     )}
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />

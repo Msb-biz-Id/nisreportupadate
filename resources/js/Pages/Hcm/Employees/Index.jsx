@@ -211,7 +211,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
         // On -> aktifkan kembali (batalkan rekap offboarding).
         if (!confirm(`Aktifkan kembali ${employee.name}? Rekap offboarding akan dibatalkan.`)) return;
         router.post(
-            route('hcm.employees.toggle', employee.id),
+            route('hcm.employees.toggle', employee.employee_code || employee.id),
             {},
             {
                 preserveScroll: true,
@@ -279,7 +279,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
     const handleEditSubmit = (e) => {
         e.preventDefault();
         if (!targetEmployee) return;
-        editForm.post(route('hcm.employees.update', targetEmployee.id), {
+        editForm.post(route('hcm.employees.update', targetEmployee.employee_code || targetEmployee.id), {
             forceFormData: true,
             data: {
                 ...editForm.data,
@@ -293,7 +293,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
 
     const handleDeleteSubmit = () => {
         if (!targetEmployee) return;
-        router.delete(route('hcm.employees.destroy', targetEmployee.id), {
+        router.delete(route('hcm.employees.destroy', targetEmployee.employee_code || targetEmployee.id), {
             onSuccess: () => {
                 setIsDeleteModalOpen(false);
             },
@@ -335,12 +335,12 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                         <Users className="h-4 w-4 text-indigo-600 shrink-0" />
                     )}
                     <span className="text-sm sm:text-base font-semibold truncate text-zinc-900 dark:text-zinc-100">
-                        Master Karyawan: {activeCategory === 'intern' ? 'Data Peserta Magang SMK' : 'Data Umum Karyawan'}
+                        1. Master Karyawan (Data Umum Karyawan)
                     </span>
                 </div>
             }
         >
-            <Head title={`Master Karyawan - ${activeCategory === 'intern' ? 'Peserta Magang SMK' : 'Data Umum'}`} />
+            <Head title={`Master Karyawan - ${activeCategory === 'intern' ? 'Data Peserta Magang NISGroup' : 'Data Karyawan Managerial/Kontrak/Borongan'}`} />
 
             <div className="space-y-5">
                 {/* Banner Judul Modul */}
@@ -355,12 +355,14 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                         </div>
                         <div>
                             <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                                Master Karyawan: {activeCategory === 'intern' ? 'Data Peserta Magang SMK' : 'Data Umum Karyawan'}
+                                1. Master Karyawan (Data Umum Karyawan)
                             </h1>
                             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-                                {activeCategory === 'intern'
+                                <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                                    {activeCategory === 'intern' ? 'Kategori: Data Peserta Magang NISGroup' : 'Kategori: Data Karyawan Managerial/Kontrak/Borongan NISGroup'}
+                                </span> — {activeCategory === 'intern'
                                     ? 'Monitoring data siswa PKL/vokasi, asal sekolah SMK, guru pendamping, dan sisa masa magang.'
-                                    : 'Kelola biodata, identitas KTP, BPJS, rekening payroll BRI, ukuran seragam, dan buku induk NISGroup.'}
+                                    : 'Kelola biodata resmi, NIK KTP, BPJS, nomor rekening payroll BRI, ukuran seragam, dan buku induk NISGroup.'}
                             </p>
                         </div>
                     </div>
@@ -379,7 +381,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                             className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm flex items-center gap-2 text-xs sm:text-sm h-9"
                         >
                             <UserPlus className="h-4 w-4" />
-                            <span>{activeCategory === 'intern' ? 'Tambah Siswa Magang' : 'Tambah Karyawan'}</span>
+                            <span>{activeCategory === 'intern' ? 'Tambah Peserta Magang' : 'Tambah Karyawan'}</span>
                         </Button>
                     </div>
                 </div>
@@ -396,7 +398,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                         }`}
                     >
                         <Users className="h-4 w-4 shrink-0" />
-                        <span>Data Karyawan NISGroup</span>
+                        <span>Data Karyawan Managerial / Kontrak / Borongan</span>
                         <span className={`text-[11px] px-2 py-0.5 rounded-full ${
                             activeCategory === 'regular'
                                 ? 'bg-indigo-700/80 text-white'
@@ -416,7 +418,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                         }`}
                     >
                         <GraduationCap className="h-4 w-4 shrink-0" />
-                        <span>Peserta Magang SMK (PKL)</span>
+                        <span>Data Peserta Magang NISGroup</span>
                         <span className={`text-[11px] px-2 py-0.5 rounded-full ${
                             activeCategory === 'intern'
                                 ? 'bg-indigo-700/80 text-white'
@@ -713,14 +715,20 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                             ) : (
                                 <TableRow>
                                     <TableHead className="w-[45px] text-center font-bold">No</TableHead>
-                                    <TableHead className="min-w-[200px] font-bold">Siswa Magang & NIS</TableHead>
-                                    <TableHead className="min-w-[180px] font-bold">Asal Sekolah SMK</TableHead>
-                                    <TableHead className="min-w-[140px] font-bold">Kelas & Jurusan</TableHead>
-                                    <TableHead className="min-w-[170px] font-bold">Guru Pendamping & HP</TableHead>
-                                    <TableHead className="min-w-[170px] font-bold">Periode & Durasi</TableHead>
-                                    <TableHead className="min-w-[130px] text-center font-bold">Sisa Masa Magang</TableHead>
-                                    <TableHead className="min-w-[100px] text-center font-bold">Status Aktif</TableHead>
-                                    <TableHead className="w-[150px] text-center font-bold">Aksi</TableHead>
+                                    <TableHead className="min-w-[180px] font-bold">Nama</TableHead>
+                                    <TableHead className="min-w-[120px] font-bold">Nama Panggil</TableHead>
+                                    <TableHead className="min-w-[180px] font-bold">Nama Sekolah</TableHead>
+                                    <TableHead className="min-w-[80px] font-bold text-center">Kelas</TableHead>
+                                    <TableHead className="min-w-[140px] font-bold">Jurusan</TableHead>
+                                    <TableHead className="min-w-[130px] font-bold">No. Induk Siswa (NIS)</TableHead>
+                                    <TableHead className="min-w-[120px] font-bold">No HP</TableHead>
+                                    <TableHead className="min-w-[120px] font-bold">Tanggal Bergabung</TableHead>
+                                    <TableHead className="min-w-[120px] font-bold">Tanggal Berakhir</TableHead>
+                                    <TableHead className="min-w-[100px] font-bold">Durasi Magang</TableHead>
+                                    <TableHead className="min-w-[150px] font-bold">Guru Pendamping</TableHead>
+                                    <TableHead className="min-w-[140px] font-bold">No HP Guru Pendamping</TableHead>
+                                    <TableHead className="min-w-[200px] font-bold">Alamat</TableHead>
+                                    <TableHead className="w-[130px] text-center font-bold sticky right-0 bg-zinc-50/95 dark:bg-zinc-800/95 backdrop-blur-xs shadow-xs">Aksi</TableHead>
                                 </TableRow>
                             )}
                         </TableHeader>
@@ -832,7 +840,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                                                 <TableCell className="text-center">
                                                     <div className="flex items-center justify-center gap-1">
                                                         <Link
-                                                            href={route('hcm.employees.show', emp.id)}
+                                                            href={route('hcm.employees.show', emp.employee_code || emp.id)}
                                                             className="inline-flex items-center justify-center h-7 px-2 rounded-md text-[11px] font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 dark:text-indigo-300 transition-colors"
                                                             title="Lihat Profil Dossier 360°"
                                                         >
@@ -867,136 +875,99 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                                             </TableRow>
                                         );
                                     } else {
-                                        // Tab Peserta Magang SMK
+                                        // Tab Peserta Magang SMK - 13 Kolom Sesuai Excel Sheet Database Row 9
                                         return (
                                             <TableRow key={emp.id} className="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/50 transition-colors">
                                                 <TableCell className="text-center font-medium text-xs text-zinc-500">
                                                     {employees.from + index}
                                                 </TableCell>
 
-                                                {/* Siswa Magang & Identitas */}
+                                                {/* 1. Nama */}
                                                 <TableCell>
-                                                    <div className="flex items-center gap-2.5">
+                                                    <div className="flex items-center gap-2">
                                                         {emp.photo_url ? (
                                                             <img
                                                                 src={emp.photo_url}
                                                                 alt={emp.name}
-                                                                className="h-9 w-9 shrink-0 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-xs"
+                                                                className="h-8 w-8 shrink-0 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-xs"
                                                             />
                                                         ) : (
-                                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-teal-500 to-emerald-500 text-white font-bold text-xs shadow-xs">
+                                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-teal-500 to-emerald-500 text-white font-bold text-xs shadow-xs">
                                                                 {emp.name.charAt(0).toUpperCase()}
                                                             </div>
                                                         )}
-                                                        <div>
-                                                            <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                                                                <span>{emp.name}</span>
-                                                                {emp.nickname && (
-                                                                    <span className="text-xs text-zinc-400 font-normal">
-                                                                        ({emp.nickname})
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <div className="text-[11px] font-mono text-zinc-500 flex items-center gap-1.5 mt-0.5">
-                                                                <span>{emp.employee_code}</span>
-                                                                {emp.intern?.nis && (
-                                                                    <>
-                                                                        <span>•</span>
-                                                                        <span>NIS: {emp.intern.nis}</span>
-                                                                    </>
-                                                                )}
-                                                            </div>
+                                                        <div className="min-w-0">
+                                                            <div className="font-semibold text-zinc-900 dark:text-zinc-100">{emp.name}</div>
+                                                            <div className="text-[10px] font-mono text-zinc-400">{emp.employee_code}</div>
                                                         </div>
                                                     </div>
                                                 </TableCell>
 
-                                                {/* Asal Sekolah SMK */}
-                                                <TableCell>
-                                                    <div className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
-                                                        <Building2 className="h-3 w-3 shrink-0" />
-                                                        <span>{emp.intern?.school_name || 'SMK Mitra NISGroup'}</span>
-                                                    </div>
-                                                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                                                        Penempatan: {emp.department}
-                                                    </div>
+                                                {/* 2. Nama Panggil */}
+                                                <TableCell className="font-medium text-zinc-800 dark:text-zinc-200">
+                                                    {emp.nickname || '-'}
                                                 </TableCell>
 
-                                                {/* Kelas & Jurusan */}
-                                                <TableCell>
-                                                    <div className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
-                                                        {emp.intern?.major || 'Tata Busana'}
-                                                    </div>
-                                                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                                                        Kelas {emp.intern?.class || 'XII'}
-                                                    </div>
+                                                {/* 3. Nama Sekolah */}
+                                                <TableCell className="font-medium text-indigo-700 dark:text-indigo-300">
+                                                    {emp.intern?.school_name || '-'}
                                                 </TableCell>
 
-                                                {/* Guru Pembimbing & Kontak */}
-                                                <TableCell>
-                                                    <div className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
-                                                        {emp.intern?.mentor_teacher_name || '-'}
-                                                    </div>
-                                                    <div className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 mt-0.5">
-                                                        {emp.intern?.mentor_teacher_phone || emp.phone_number}
-                                                    </div>
+                                                {/* 4. Kelas */}
+                                                <TableCell className="text-center font-medium text-zinc-800 dark:text-zinc-200">
+                                                    {emp.intern?.class || '-'}
                                                 </TableCell>
 
-                                                {/* Periode & Durasi Magang */}
-                                                <TableCell>
-                                                    <div className="text-xs font-mono text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
-                                                        <Calendar className="h-3 w-3 text-zinc-400 shrink-0" />
-                                                        <span>{emp.intern?.start_date ? new Date(emp.intern.start_date).toLocaleDateString('id-ID') : '-'}</span>
-                                                        <span>s/d</span>
-                                                        <span>{emp.intern?.end_date ? new Date(emp.intern.end_date).toLocaleDateString('id-ID') : '-'}</span>
-                                                    </div>
-                                                    <div className="text-[11px] text-zinc-400 mt-0.5">
-                                                        Durasi: {emp.intern?.duration_text || '3 Bulan'}
-                                                    </div>
+                                                {/* 5. Jurusan */}
+                                                <TableCell className="text-zinc-700 dark:text-zinc-300">
+                                                    {emp.intern?.major || '-'}
                                                 </TableCell>
 
-                                                {/* Sisa Hari & Status Badge */}
-                                                <TableCell className="text-center">
-                                                    {internDays !== null && internDays < 0 ? (
-                                                        <Badge className="bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 gap-1 inline-flex items-center text-[10px]">
-                                                            <CheckCircle2 className="h-3 w-3 shrink-0" />
-                                                            <span>Selesai</span>
-                                                        </Badge>
-                                                    ) : internDays !== null && internDays <= 14 ? (
-                                                        <Badge className="bg-rose-500 text-white animate-pulse gap-1 inline-flex items-center text-[10px]">
-                                                            <AlertTriangle className="h-3 w-3 shrink-0" />
-                                                            <span>Sisa {internDays} Hari</span>
-                                                        </Badge>
-                                                    ) : internDays !== null && internDays <= 30 ? (
-                                                        <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-300 gap-1 inline-flex items-center text-[10px]">
-                                                            <Clock className="h-3 w-3 shrink-0" />
-                                                            <span>Sisa {internDays} Hari</span>
-                                                        </Badge>
-                                                    ) : (
-                                                        <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 gap-1 inline-flex items-center text-[10px]">
-                                                            <CheckCircle2 className="h-3 w-3 shrink-0" />
-                                                            <span>Aktif ({internDays ? `${internDays} hr` : 'PKL'})</span>
-                                                        </Badge>
-                                                    )}
+                                                {/* 6. No. Induk Siswa (NIS) */}
+                                                <TableCell className="font-mono text-zinc-800 dark:text-zinc-200">
+                                                    {emp.intern?.nis || '-'}
                                                 </TableCell>
 
-                                                {/* Switch Toggle Status Aktif */}
-                                                <TableCell className="text-center">
-                                                    <div className="inline-flex items-center gap-1.5">
-                                                        <Switch
-                                                            checked={emp.is_active}
-                                                            onCheckedChange={() => handleToggleStatus(emp)}
-                                                        />
-                                                        <span className={`text-[11px] font-medium ${emp.is_active ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'}`}>
-                                                            {emp.is_active ? 'Aktif' : 'Off'}
-                                                        </span>
-                                                    </div>
+                                                {/* 7. No HP */}
+                                                <TableCell className="font-mono text-zinc-700 dark:text-zinc-300">
+                                                    {emp.intern?.student_phone || emp.phone_number || '-'}
                                                 </TableCell>
 
-                                                {/* Tombol Aksi */}
-                                                <TableCell className="text-center">
+                                                {/* 8. Tanggal Bergabung */}
+                                                <TableCell className="font-mono text-zinc-700 dark:text-zinc-300">
+                                                    {emp.intern?.start_date ? new Date(emp.intern.start_date).toLocaleDateString('id-ID') : (emp.join_date ? new Date(emp.join_date).toLocaleDateString('id-ID') : '-')}
+                                                </TableCell>
+
+                                                {/* 9. Tanggal Berakhir */}
+                                                <TableCell className="font-mono text-zinc-700 dark:text-zinc-300">
+                                                    {emp.intern?.end_date ? new Date(emp.intern.end_date).toLocaleDateString('id-ID') : '-'}
+                                                </TableCell>
+
+                                                {/* 10. Durasi Magang */}
+                                                <TableCell className="text-zinc-700 dark:text-zinc-300">
+                                                    {emp.intern?.duration_text || '-'}
+                                                </TableCell>
+
+                                                {/* 11. Guru Pendamping */}
+                                                <TableCell className="text-zinc-800 dark:text-zinc-200">
+                                                    {emp.intern?.mentor_teacher_name || '-'}
+                                                </TableCell>
+
+                                                {/* 12. No HP Guru Pendamping */}
+                                                <TableCell className="font-mono text-zinc-700 dark:text-zinc-300">
+                                                    {emp.intern?.mentor_teacher_phone || '-'}
+                                                </TableCell>
+
+                                                {/* 13. Alamat */}
+                                                <TableCell className="text-zinc-600 dark:text-zinc-400 max-w-[250px] truncate" title={emp.intern?.student_address || emp.address || ''}>
+                                                    {emp.intern?.student_address || emp.address || '-'}
+                                                </TableCell>
+
+                                                {/* Aksi */}
+                                                <TableCell className="text-center sticky right-0 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xs shadow-xs">
                                                     <div className="flex items-center justify-center gap-1">
                                                         <Link
-                                                            href={route('hcm.employees.show', emp.id)}
+                                                            href={route('hcm.employees.show', emp.employee_code || emp.id)}
                                                             className="inline-flex items-center justify-center h-7 px-2 rounded-md text-[11px] font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 dark:text-indigo-300 transition-colors"
                                                             title="Lihat Profil Dossier Magang"
                                                         >
@@ -1034,7 +1005,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                                 })
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={activeCategory === 'regular' ? 9 : 9} className="h-32 text-center text-zinc-500 dark:text-zinc-400">
+                                    <TableCell colSpan={activeCategory === 'regular' ? 9 : 15} className="h-32 text-center text-zinc-500 dark:text-zinc-400">
                                         {activeCategory === 'intern'
                                             ? 'Tidak ada data peserta magang SMK yang cocok dengan kriteria filter.'
                                             : 'Tidak ada data karyawan yang cocok dengan kriteria filter.'}

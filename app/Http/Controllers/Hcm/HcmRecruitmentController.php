@@ -60,16 +60,44 @@ class HcmRecruitmentController extends Controller
             'hired_applicants' => HcmJobApplicant::where('status', 'ACCEPTED')->count(),
         ];
 
-        // Ambil opsi master departemen & posisi
-        $departments = HcmMasterOption::whereHas('category', fn ($c) => $c->where('code', 'divisi'))
-            ->where('is_active', true)
-            ->orderBy('order_index')
-            ->pluck('name');
+        // Ambil opsi master departemen, posisi, CV, & saluran rekrutmen
+        $departments = HcmMasterOption::getOptions('divisi') ?: [
+            'Keuangan',
+            'Human Capital Management',
+            'Marketing',
+            'Produksi',
+            'Media Internal',
+            'Media Eksternal',
+        ];
 
-        $positions = HcmMasterOption::whereHas('category', fn ($c) => $c->where('code', 'posisi'))
-            ->where('is_active', true)
-            ->orderBy('order_index')
-            ->pluck('name');
+        $positions = HcmMasterOption::getOptions('posisi') ?: [
+            'Staff',
+            'Operator',
+            'Jahit',
+            'Cutting',
+            'Finishing',
+            'Quality Control',
+            'Designer',
+            'Admin Produksi',
+        ];
+
+        $legalEntities = HcmMasterOption::getOptions('entitas_cv') ?: [
+            'CV Jersey Ekonomis',
+            'CV Apparel Allegiant',
+            'CV Bawang Merah',
+            'CV Bawang Putih',
+        ];
+
+        $channels = [
+            'Instagram',
+            'WhatsApp Group',
+            'Walk-in / Pabrik',
+            'Jobstreet / Portal Karir',
+            'Referral / Rekomendasi Karyawan',
+            'Spanduk / Banner Mading Pabrik',
+            'Sekolah / Kampus (BKK)',
+            'Website Resmi',
+        ];
 
         return Inertia::render('Hcm/Recruitment/Jobs', [
             'jobs' => $jobs,
@@ -81,6 +109,8 @@ class HcmRecruitmentController extends Controller
             'metrics' => $metrics,
             'departments' => $departments,
             'positions' => $positions,
+            'legalEntities' => $legalEntities,
+            'channels' => $channels,
         ]);
     }
 
@@ -187,15 +217,13 @@ class HcmRecruitmentController extends Controller
     }
 
     /**
-     * Generate QR Code SVG untuk link internal loker (via simple-qrcode).
+     * Generate QR Code SVG untuk link publik pendaftaran loker (/karir/{slug}).
      * Disajikan sebagai endpoint GET yang dapat ditampilkan sebagai <img src=...>.
      */
     public function jobQrCode(HcmJobPosting $job): HttpResponse
     {
-        Gate::authorize('hcm.manage-recruitment');
-
-        // Link internal yang di-encode ke QR — diarahkan ke halaman pipeline pelamar
-        $url = route('hcm.recruitment.applicants.index', ['job_id' => $job->id]);
+        // Link publik formulir pendaftaran loker untuk calon pelamar
+        $url = url("/karir/{$job->slug}");
 
         $svg = QrCode::format('svg')
             ->size(300)
@@ -210,7 +238,7 @@ class HcmRecruitmentController extends Controller
     }
 
     /**
-     * Tampilkan Pipeline Pelamar Masuk (Recruitment Funnel).
+     * Tampilkan Pipeline Pelamar Masuk (Recruitment Funnel & Interview Recap).
      */
     public function applicants(Request $request): Response
     {
@@ -219,11 +247,14 @@ class HcmRecruitmentController extends Controller
         $search = $request->query('search', '');
         $statusFilter = $request->query('status', 'all');
         $jobFilter = $request->query('job_id', 'all');
+        $blacklistFilter = $request->query('blacklist', 'all');
+        $invitationFilter = $request->query('invitation', 'all');
+        $attendanceFilter = $request->query('attendance', 'all');
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
         $applicants = HcmJobApplicant::with([
-            'jobPosting:id,title,department,position',
+            'jobPosting:id,slug,title,department,position',
             'convertedEmployee:id,employee_code,name',
             'interviews',
         ])
@@ -234,9 +265,19 @@ class HcmRecruitmentController extends Controller
                     ->orWhere('email', 'like', "%{$t}%")
             ))
             ->when($statusFilter !== 'all', fn ($q) => $q->where('status', $statusFilter))
-            ->when($jobFilter !== 'all', fn ($q) => $q->where('job_posting_id', (int) $jobFilter))
+            ->when($blacklistFilter === 'yes', fn ($q) => $q->where('is_blacklisted', true))
+            ->when($blacklistFilter === 'no', fn ($q) => $q->where('is_blacklisted', false))
+            ->when($invitationFilter !== 'all', fn ($q) => $q->where('invitation_status', $invitationFilter))
+            ->when($attendanceFilter !== 'all', fn ($q) => $q->where('onboarding_attendance', $attendanceFilter))
+            ->when($jobFilter !== 'all', function ($q) use ($jobFilter) {
+                if (is_numeric($jobFilter)) {
+                    $q->where('job_posting_id', (int) $jobFilter);
+                } else {
+                    $q->whereHas('jobPosting', fn ($jq) => $jq->where('slug', $jobFilter));
+                }
+            })
             ->orderBy('id', 'desc')
-            ->paginate(12)
+            ->paginate(15)
             ->withQueryString();
 
         $metrics = [
@@ -245,11 +286,14 @@ class HcmRecruitmentController extends Controller
             'interview' => HcmJobApplicant::where('status', 'INTERVIEW')->count(),
             'accepted' => HcmJobApplicant::where('status', 'ACCEPTED')->count(),
             'converted' => HcmJobApplicant::whereNotNull('converted_employee_id')->count(),
+            'blacklisted' => HcmJobApplicant::where('is_blacklisted', true)->count(),
         ];
 
-        $jobOptions = HcmJobPosting::select('id', 'title', 'department')
+        $jobOptions = HcmJobPosting::select('id', 'slug', 'title', 'department')
             ->orderBy('title')
             ->get();
+
+        $dropdowns = HcmMasterOption::getAllDropdowns();
 
         return Inertia::render('Hcm/Recruitment/Applicants', [
             'applicants' => $applicants,
@@ -257,9 +301,13 @@ class HcmRecruitmentController extends Controller
                 'search' => $search,
                 'status' => $statusFilter,
                 'job_id' => $jobFilter,
+                'blacklist' => $blacklistFilter,
+                'invitation' => $invitationFilter,
+                'attendance' => $attendanceFilter,
             ],
             'metrics' => $metrics,
             'jobOptions' => $jobOptions,
+            'dropdowns' => $dropdowns,
         ]);
     }
 
@@ -365,7 +413,7 @@ class HcmRecruitmentController extends Controller
 
         ActivityLogger::log('create', 'hcm', $newEmployee, "Konversi pelamar {$applicant->name} menjadi karyawan ({$newEmployee->employee_code})");
 
-        return redirect()->route('hcm.employees.show', $newEmployee->id)
+        return redirect()->route('hcm.employees.show', $newEmployee->employee_code)
             ->with('success', "Pelamar {$applicant->name} berhasil dikonversi menjadi Karyawan Baru dengan NIK {$newEmployee->employee_code}.");
     }
 
@@ -483,7 +531,9 @@ class HcmRecruitmentController extends Controller
         $selectedApplicants = collect();
 
         if ($selectedJobId) {
-            $selectedJob = HcmJobPosting::find($selectedJobId);
+            $selectedJob = is_numeric($selectedJobId)
+                ? HcmJobPosting::find($selectedJobId)
+                : HcmJobPosting::where('slug', $selectedJobId)->first();
             if ($selectedJob) {
                 $selectedApplicants = HcmJobApplicant::with(['interviews'])
                     ->where('job_posting_id', $selectedJob->id)
@@ -522,7 +572,9 @@ class HcmRecruitmentController extends Controller
         $rows = self::buildJobPerformance();
 
         $jobId = $request->query('job_id');
-        $selectedJob = $jobId ? HcmJobPosting::find($jobId) : null;
+        $selectedJob = $jobId
+            ? (is_numeric($jobId) ? HcmJobPosting::find($jobId) : HcmJobPosting::where('slug', $jobId)->first())
+            : null;
         $applicants = $selectedJob
             ? HcmJobApplicant::with('interviews')->where('job_posting_id', $selectedJob->id)->orderByDesc('id')->get()
             : collect();
@@ -561,6 +613,7 @@ class HcmRecruitmentController extends Controller
 
             return [
                 'id' => $job->id,
+                'slug' => $job->slug,
                 'job_code' => $job->job_code,
                 'title' => $job->title,
                 'department' => $job->department,

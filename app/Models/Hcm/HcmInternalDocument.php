@@ -43,4 +43,19 @@ class HcmInternalDocument extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    /**
+     * Non-ID Base URL: Gunakan document_code sebagai route key publik (Zero Raw DB ID Exposure).
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'document_code';
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->where($field ?? 'document_code', $value)
+            ->orWhere('id', is_numeric($value) ? (int) $value : 0)
+            ->firstOrFail();
+    }
 }

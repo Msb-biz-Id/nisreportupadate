@@ -60,11 +60,36 @@ class HcmEmployee extends Model
     ];
 
     /**
-     * Scope untuk menyaring karyawan reguler (Managerial, Kontrak, Borongan).
+     * Non-ID Base URL: Gunakan employee_code sebagai route key publik (Zero Raw DB ID Exposure).
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'employee_code';
+    }
+
+    /**
+     * Resolusi route binding dengan fallback aman.
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->where($field ?? 'employee_code', $value)
+            ->orWhere('id', is_numeric($value) ? (int) $value : 0)
+            ->firstOrFail();
+    }
+
+    /**
+     * Scope untuk menyaring karyawan reguler (Managerial, Kontrak, Borongan, Harian).
      */
     public function scopeRegular(Builder $query): Builder
     {
-        return $query->where('employee_category', 'REGULAR');
+        return $query->where(function ($q) {
+            $q->where('job_level', '!=', 'Magang')
+              ->orWhereNull('job_level');
+        })->where(function ($q) {
+            $q->where('employee_category', '!=', 'Magang')
+              ->where('employee_category', '!=', 'INTERN')
+              ->orWhereNull('employee_category');
+        })->whereDoesntHave('intern');
     }
 
     /**
@@ -72,7 +97,12 @@ class HcmEmployee extends Model
      */
     public function scopeInterns(Builder $query): Builder
     {
-        return $query->where('employee_category', 'INTERN');
+        return $query->where(function ($q) {
+            $q->where('job_level', 'Magang')
+              ->orWhere('employee_category', 'Magang')
+              ->orWhere('employee_category', 'INTERN')
+              ->orWhereHas('intern');
+        });
     }
 
     /**
@@ -80,7 +110,10 @@ class HcmEmployee extends Model
      */
     public function getIsInternAttribute(): bool
     {
-        return ($this->employee_category === 'INTERN') || ($this->job_level === 'Magang');
+        return ($this->employee_category === 'INTERN')
+            || ($this->employee_category === 'Magang')
+            || ($this->job_level === 'Magang')
+            || ($this->relationLoaded('intern') && $this->intern !== null);
     }
 
     /**
