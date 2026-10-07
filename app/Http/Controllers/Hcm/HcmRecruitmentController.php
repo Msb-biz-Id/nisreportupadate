@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Hcm;
 
+use App\Exports\HcmApplicantDossierExport;
 use App\Exports\HcmRecruitmentReportExport;
 use App\Http\Controllers\Controller;
 use App\Models\Hcm\HcmEmployee;
@@ -576,8 +577,10 @@ class HcmRecruitmentController extends Controller
             ? (is_numeric($jobId) ? HcmJobPosting::find($jobId) : HcmJobPosting::where('slug', $jobId)->first())
             : null;
         $applicants = $selectedJob
-            ? HcmJobApplicant::with('interviews')->where('job_posting_id', $selectedJob->id)->orderByDesc('id')->get()
-            : collect();
+            ? HcmJobApplicant::with(['interviews', 'jobPosting'])->where('job_posting_id', $selectedJob->id)->orderByDesc('id')->get()
+            : HcmJobApplicant::with(['interviews', 'jobPosting'])->orderByDesc('id')->get();
+
+        $channels = self::channelPerformance()->toArray();
 
         $scope = $selectedJob ? Str::slug($selectedJob->title) : 'Semua-Loker';
         $filename = 'Laporan_Rekrutmen_' . $scope . '_' . now()->format('Ymd') . '.xlsx';
@@ -585,7 +588,25 @@ class HcmRecruitmentController extends Controller
         ActivityLogger::log('export', 'hcm', $selectedJob, 'Export Excel laporan rekrutmen' . ($selectedJob ? ": {$selectedJob->title}" : ' (semua loker)'));
 
         return Excel::download(
-            new HcmRecruitmentReportExport($rows, $selectedJob, $applicants, Auth::user()?->name),
+            new HcmRecruitmentReportExport($rows, $selectedJob, $applicants, Auth::user()?->name, $channels),
+            $filename
+        );
+    }
+
+    /**
+     * Export Excel berkas kandidat pelamar (Biodata & Riwayat Wawancara).
+     */
+    public function exportApplicantExcel(HcmJobApplicant $applicant): BinaryFileResponse
+    {
+        Gate::authorize('hcm.manage-recruitment');
+
+        $applicant->load(['jobPosting', 'interviews']);
+        $filename = 'Profil_Pelamar_' . Str::slug($applicant->name) . '_' . ($applicant->applicant_code ?: $applicant->id) . '.xlsx';
+
+        ActivityLogger::log('export', 'hcm', $applicant, "Export Excel profil pelamar: {$applicant->name} ({$applicant->applicant_code})");
+
+        return Excel::download(
+            new HcmApplicantDossierExport($applicant),
             $filename
         );
     }
@@ -620,10 +641,12 @@ class HcmRecruitmentController extends Controller
                 'legal_entity' => $job->legal_entity,
                 'status' => $job->status ?? ($job->is_active ? 'Aktif' : 'Ditutup'),
                 'quota' => $quota,
+                'target_hires' => $quota,
                 'fulfilled_count' => $hired,
                 'total_applicants' => $total,
                 'submitted' => $byStage('SUBMITTED'),
                 'screening' => $byStage('SCREENING'),
+                'reviewing' => $byStage('SCREENING'),
                 'interview' => $byStage('INTERVIEW'),
                 'accepted' => $byStage('ACCEPTED'),
                 'rejected' => $byStage('REJECTED'),

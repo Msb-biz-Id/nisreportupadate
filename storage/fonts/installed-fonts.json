@@ -11,9 +11,13 @@
     "sarabun": {
         "normal": "sarabun_normal_74af2b57c47eb3c74d9f6ea3c9ed8076"
     },
-
-
     "noto sans kr": {
         "normal": "noto_sans_kr_normal_f4d8c549cb39a96247f3816b7e653697"
+    },
+    "inter": {
+        "normal": "C:\\laragon\\www\\reportlaravel\\storage\\fonts\/inter_normal_7db5155348dffb481927b6617bac1016",
+        "600": "C:\\laragon\\www\\reportlaravel\\storage\\fonts\/inter_600_146ef6a918c6bc3a69af2b659110f65c",
+        "bold": "C:\\laragon\\www\\reportlaravel\\storage\\fonts\/inter_bold_146ef6a918c6bc3a69af2b659110f65c",
+        "800": "inter_800_146ef6a918c6bc3a69af2b659110f65c"
     }
 }

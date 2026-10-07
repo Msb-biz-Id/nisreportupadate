@@ -10,6 +10,7 @@ use App\Models\Hcm\HcmJobPosting;
 use App\Models\Hcm\HcmMealAllowanceBatch;
 use App\Models\Hcm\HcmOvertimeBatch;
 use App\Services\ActivityLogger;
+use App\Services\HcmPdfHelper;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -35,7 +36,9 @@ class HcmPdfController extends Controller
             'offboarding',
         ]);
 
-        $pdf = Pdf::loadView('pdf.hcm.employee_dossier', compact('employee'))
+        $profile = HcmPdfHelper::getProfileData($employee);
+
+        $pdf = Pdf::loadView('pdf.hcm.employee_dossier', compact('employee', 'profile'))
             ->setPaper('a4', 'portrait')
             ->setOptions([
                 'isHtml5ParserEnabled' => true,
@@ -70,7 +73,9 @@ class HcmPdfController extends Controller
             'financeSigner:id,name',
         ]);
 
-        $pdf = Pdf::loadView('pdf.hcm.overtime_voucher', compact('batch'))
+        $profile = HcmPdfHelper::getProfileData();
+
+        $pdf = Pdf::loadView('pdf.hcm.overtime_voucher', compact('batch', 'profile'))
             ->setPaper('a4', 'portrait')
             ->setOptions([
                 'isHtml5ParserEnabled' => true,
@@ -104,7 +109,9 @@ class HcmPdfController extends Controller
             'financeSigner:id,name',
         ]);
 
-        $pdf = Pdf::loadView('pdf.hcm.meal_allowance_report', compact('batch'))
+        $profile = HcmPdfHelper::getProfileData();
+
+        $pdf = Pdf::loadView('pdf.hcm.meal_allowance_report', compact('batch', 'profile'))
             ->setPaper('a4', 'landscape')
             ->setOptions([
                 'isHtml5ParserEnabled' => true,
@@ -126,7 +133,7 @@ class HcmPdfController extends Controller
 
     /**
      * PDF 4: Surat Keterangan Pengalaman Kerja / Paklaring Resmi
-     * Berisi: kop surat perusahaan, detail karyawan, masa kerja, tanda tangan.
+     * Berisi: kop surat perusahaan & divisi HCM, detail karyawan, masa kerja, tanda tangan otomatis.
      */
     public function paklaring(Request $request, HcmEmployee $employee): Response
     {
@@ -134,8 +141,9 @@ class HcmPdfController extends Controller
 
         $employee->load(['contracts' => fn($q) => $q->orderBy('start_date')->limit(1)]);
 
-        // Paklaring hanya untuk karyawan yang sudah tidak aktif atau atas permintaan
-        $pdf = Pdf::loadView('pdf.hcm.paklaring', compact('employee'))
+        $profile = HcmPdfHelper::getProfileData($employee);
+
+        $pdf = Pdf::loadView('pdf.hcm.paklaring', compact('employee', 'profile'))
             ->setPaper('a4', 'portrait')
             ->setOptions([
                 'isHtml5ParserEnabled' => true,
@@ -182,7 +190,9 @@ class HcmPdfController extends Controller
 
         $channels = HcmRecruitmentController::channelPerformance();
 
-        $pdf = Pdf::loadView('pdf.hcm.recruitment_report', compact('rows', 'selectedJob', 'applicants', 'summary', 'channels'))
+        $profile = HcmPdfHelper::getProfileData();
+
+        $pdf = Pdf::loadView('pdf.hcm.recruitment_report', compact('rows', 'selectedJob', 'applicants', 'summary', 'channels', 'profile'))
             ->setPaper('a4', 'landscape')
             ->setOptions([
                 'isHtml5ParserEnabled' => true,
@@ -212,7 +222,9 @@ class HcmPdfController extends Controller
 
         $applicant->load(['jobPosting', 'interviews.creator:id,name']);
 
-        $pdf = Pdf::loadView('pdf.hcm.recruitment_applicant', compact('applicant'))
+        $profile = HcmPdfHelper::getProfileData();
+
+        $pdf = Pdf::loadView('pdf.hcm.recruitment_applicant', compact('applicant', 'profile'))
             ->setPaper('a4', 'portrait')
             ->setOptions([
                 'isHtml5ParserEnabled' => true,

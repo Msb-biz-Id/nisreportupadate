@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, Link } from '@inertiajs/react';
 import { 
     Briefcase, MapPin, Clock, Calendar, Users, CheckCircle2, 
     FileText, User, Phone, Mail, GraduationCap, Award, 
-    Upload, AlertCircle, Sparkles, Send, ArrowLeft
+    Upload, AlertCircle, Sparkles, Send, ArrowLeft,
+    Home, Copy, Check, ArrowUp, ChevronRight
 } from 'lucide-react';
 
 export default function CareerApply({ job, company = {}, flash = {} }) {
@@ -32,6 +33,24 @@ export default function CareerApply({ job, company = {}, flash = {} }) {
     });
 
     const [activeTab, setActiveTab] = useState('job'); // 'job' or 'apply'
+    const [copied, setCopied] = useState(false);
+
+    const handleCopyLink = () => {
+        if (typeof window !== 'undefined') {
+            navigator.clipboard.writeText(window.location.href);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    const scrollToTop = () => {
+        if (typeof window !== 'undefined') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+    const whatsappShareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(`Halo! Cek lowongan kerja ${job?.title || 'ini'} di ${company?.company_name || 'perusahaan'}: ${shareUrl}`)}`;
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -45,35 +64,75 @@ export default function CareerApply({ job, company = {}, flash = {} }) {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 text-slate-800">
+        <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-20 sm:pb-0">
             <Head title={`${job.title} - Karir & Lowongan Kerja`} />
 
             {/* Header Brand */}
-            <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
+            <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+                    <Link 
+                        href="/karir" 
+                        className="flex items-center space-x-3 group hover:opacity-90 transition"
+                        title="Kembali ke Beranda Karir"
+                    >
                         {company?.logo_url ? (
-                            <img src={company.logo_url} alt={company.name || 'Logo'} className="w-10 h-10 rounded-xl object-contain bg-white border border-slate-200 p-1 shadow-sm" />
+                            <img 
+                                src={company.logo_url} 
+                                alt={company.division_name || 'Logo HRIS'} 
+                                className="w-10 h-10 rounded-xl object-contain bg-white border border-slate-200 p-1 shadow-sm group-hover:scale-105 transition-transform" 
+                            />
                         ) : (
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-sky-500/20 font-bold text-lg">
-                                {company?.name ? company.name.substring(0, 3).toUpperCase() : 'HCM'}
+                            <div 
+                                style={{ backgroundColor: company?.theme_color || '#a8001c' }}
+                                className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md font-bold text-sm tracking-wider group-hover:scale-105 transition-transform"
+                            >
+                                {company?.logo_initial || 'HCM'}
                             </div>
                         )}
                         <div>
-                            <h1 className="text-base font-bold text-slate-900 tracking-tight leading-none">PORTAL KARIR & REKRUTMEN</h1>
-                            <p className="text-xs text-slate-500 mt-0.5">{company?.name || 'Human Capital Management System'}</p>
+                            <h1 className="text-base font-bold text-slate-900 tracking-tight leading-none group-hover:text-red-700 transition">
+                                {company?.portal_title || 'PORTAL KARIR & REKRUTMEN'}
+                            </h1>
+                            <p 
+                                style={{ color: company?.theme_color || '#a8001c' }} 
+                                className="text-xs font-semibold mt-1"
+                            >
+                                {company?.division_name || 'Divisi Human Capital Management'}
+                            </p>
                         </div>
+                    </Link>
+                    <div className="flex items-center gap-2.5">
+                        {job.is_active && job.status === 'Aktif' ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setActiveTab('apply');
+                                    setTimeout(() => {
+                                        const tabsEl = document.getElementById('career-tabs');
+                                        if (tabsEl) {
+                                            tabsEl.scrollIntoView({ behavior: 'smooth' });
+                                        }
+                                    }, 50);
+                                }}
+                                style={{ backgroundColor: company?.theme_color || '#a8001c' }}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-white text-xs sm:text-sm font-bold shadow-sm hover:opacity-90 active:scale-95 transition cursor-pointer"
+                            >
+                                <Send className="w-3.5 h-3.5" />
+                                <span>Lamar Sekarang</span>
+                            </button>
+                        ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                                <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                                Lowongan Ditutup
+                            </span>
+                        )}
                     </div>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Lowongan Aktif
-                    </span>
                 </div>
             </header>
 
             {/* Hero Job Banner */}
-            <div className="bg-gradient-to-b from-slate-900 to-slate-800 text-white py-10 px-4 sm:px-6">
-                <div className="max-w-5xl mx-auto">
+            <div className="bg-gradient-to-b from-slate-900 via-slate-850 to-slate-800 text-white py-12 px-4 sm:px-6">
+                <div className="max-w-6xl mx-auto">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-white/10 text-sky-300 text-xs font-medium backdrop-blur-sm mb-4">
                         <Briefcase className="w-3.5 h-3.5" />
                         <span>Kode Lowongan: {job.job_code}</span>
@@ -117,13 +176,14 @@ export default function CareerApply({ job, company = {}, flash = {} }) {
             </div>
 
             {/* Navigation Tabs */}
-            <div className="bg-white border-b border-slate-200 sticky top-16 z-20 shadow-xs">
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 flex gap-4">
+            <div id="career-tabs" className="bg-white border-b border-slate-200 sticky top-16 z-20 shadow-xs">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 flex gap-4">
                     <button
                         onClick={() => setActiveTab('job')}
+                        style={activeTab === 'job' ? { borderColor: company?.theme_color || '#a8001c', color: company?.theme_color || '#a8001c' } : {}}
                         className={`py-3.5 px-4 font-semibold text-sm border-b-2 transition flex items-center gap-2 ${
                             activeTab === 'job' 
-                                ? 'border-sky-600 text-sky-600' 
+                                ? '' 
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
@@ -132,9 +192,10 @@ export default function CareerApply({ job, company = {}, flash = {} }) {
                     </button>
                     <button
                         onClick={() => setActiveTab('apply')}
+                        style={activeTab === 'apply' ? { borderColor: company?.theme_color || '#a8001c', color: company?.theme_color || '#a8001c' } : {}}
                         className={`py-3.5 px-4 font-semibold text-sm border-b-2 transition flex items-center gap-2 ${
                             activeTab === 'apply' 
-                                ? 'border-sky-600 text-sky-600' 
+                                ? '' 
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
@@ -145,7 +206,7 @@ export default function CareerApply({ job, company = {}, flash = {} }) {
             </div>
 
             {/* Main Content Area */}
-            <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+            <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
                 {/* Flash Success Notification */}
                 {flash.success && (
                     <div className="mb-8 p-6 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start gap-4 shadow-sm animate-fade-in">
@@ -202,19 +263,54 @@ export default function CareerApply({ job, company = {}, flash = {} }) {
                         )}
 
                         <div className="flex justify-end pt-4">
-                            <button
-                                onClick={() => setActiveTab('apply')}
-                                className="px-6 py-3 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-semibold text-sm shadow-md hover:from-sky-700 hover:to-indigo-700 transition flex items-center gap-2"
-                            >
-                                <Send className="w-4 h-4" />
-                                Siap Bergabung? Lamar Posisi Ini Sekarang
-                            </button>
+                            {job.is_active && job.status === 'Aktif' ? (
+                                <button
+                                    onClick={() => setActiveTab('apply')}
+                                    style={{ backgroundColor: company?.theme_color || '#a8001c' }}
+                                    className="px-6 py-3 rounded-xl text-white font-semibold text-sm shadow-md hover:opacity-90 transition flex items-center gap-2"
+                                >
+                                    <Send className="w-4 h-4" />
+                                    Siap Bergabung? Lamar Posisi Ini Sekarang
+                                </button>
+                            ) : (
+                                <div className="px-5 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 font-medium text-xs flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4 text-amber-500" />
+                                    Pendaftaran untuk posisi ini telah ditutup.
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
 
                 {/* Tab 2: Application Form */}
                 {activeTab === 'apply' && (
+                    (!job.is_active || job.status !== 'Aktif') ? (
+                        <div className="bg-white rounded-2xl border border-slate-200 p-8 sm:p-12 text-center space-y-4 shadow-xs">
+                            <div className="w-14 h-14 bg-rose-50 text-rose-500 border border-rose-100 rounded-full flex items-center justify-center mx-auto">
+                                <AlertCircle className="w-7 h-7" />
+                            </div>
+                            <h2 className="text-xl font-bold text-slate-900">Pendaftaran Lowongan Sedang Ditutup</h2>
+                            <p className="text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+                                Mohon maaf, saat ini pendaftaran untuk posisi <strong>{job.title}</strong> telah ditutup atau kuota pemenuhan kandidat telah terpenuhi.
+                            </p>
+                            <div className="pt-2 flex items-center justify-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('job')}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
+                                >
+                                    <ArrowLeft className="w-4 h-4" />
+                                    Lihat Rincian Lowongan
+                                </button>
+                                <Link
+                                    href="/karir"
+                                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold shadow-sm transition"
+                                >
+                                    Cari Posisi Lainnya
+                                </Link>
+                            </div>
+                        </div>
+                    ) : (
                     <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-8">
                         <div>
                             <h2 className="text-xl font-bold text-slate-900 tracking-tight">Formulir Pendaftaran Calon Karyawan</h2>
@@ -532,20 +628,81 @@ export default function CareerApply({ job, company = {}, flash = {} }) {
                             <button
                                 type="submit"
                                 disabled={processing}
-                                className="px-6 py-3 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-bold text-sm shadow-md hover:from-sky-700 hover:to-indigo-700 transition flex items-center gap-2 disabled:opacity-50"
+                                style={{ backgroundColor: company?.theme_color || '#a8001c' }}
+                                className="px-6 py-3 rounded-xl text-white font-bold text-sm shadow-md hover:opacity-90 transition flex items-center gap-2 disabled:opacity-50"
                             >
                                 <Send className="w-4 h-4" />
                                 {processing ? 'Sedang Mengirim Lamaran...' : 'Kirim Lamaran Sekarang'}
                             </button>
                         </div>
                     </form>
+                    )
                 )}
             </main>
 
             {/* Footer */}
-            <footer className="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-500">
-                <p>{company?.footer_text || `© ${new Date().getFullYear()} ${company?.name || 'Human Capital Management System'} - All Rights Reserved.`}</p>
+            <footer className="bg-white border-t border-slate-200 mt-12 py-8 text-center text-xs text-slate-500">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6">
+                    <p>{company?.footer_text || `© ${new Date().getFullYear()} ${company?.name || 'Perusahaan'}. Seluruh Hak Cipta Dilindungi.`}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">Human Capital Management & E-Recruitment Portal.</p>
+                </div>
             </footer>
+
+            {/* Sticky Bottom Navigation - Mobile Only */}
+            <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+                <div className="grid grid-cols-4 items-center justify-items-center gap-1">
+                    {/* Home */}
+                    <Link 
+                        href="/karir" 
+                        className="flex flex-col items-center justify-center text-slate-600 hover:text-slate-900 active:scale-95 transition w-full py-1"
+                    >
+                        <Home className="w-5 h-5 text-slate-700" />
+                        <span className="text-[10px] font-semibold mt-0.5 text-slate-700">Home</span>
+                    </Link>
+
+                    {/* Salin Link */}
+                    <button
+                        type="button"
+                        onClick={handleCopyLink}
+                        className="flex flex-col items-center justify-center text-slate-600 hover:text-slate-900 active:scale-95 transition w-full py-1"
+                    >
+                        {copied ? (
+                            <Check className="w-5 h-5 text-emerald-600" />
+                        ) : (
+                            <Copy className="w-5 h-5 text-slate-700" />
+                        )}
+                        <span className={`text-[10px] font-semibold mt-0.5 ${copied ? 'text-emerald-600 font-bold' : 'text-slate-700'}`}>
+                            {copied ? 'Tersalin' : 'Salin Link'}
+                        </span>
+                    </button>
+
+                    {/* WhatsApp */}
+                    <a
+                        href={whatsappShareUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-center justify-center text-emerald-600 hover:text-emerald-700 active:scale-95 transition w-full py-1"
+                    >
+                        <div className="w-5 h-5 flex items-center justify-center text-emerald-600">
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                                <path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1" />
+                            </svg>
+                        </div>
+                        <span className="text-[10px] font-semibold mt-0.5 text-emerald-700">WhatsApp</span>
+                    </a>
+
+                    {/* Back to Top */}
+                    <button
+                        type="button"
+                        onClick={scrollToTop}
+                        className="flex flex-col items-center justify-center text-slate-600 hover:text-slate-900 active:scale-95 transition w-full py-1"
+                    >
+                        <ArrowUp className="w-5 h-5 text-slate-700" />
+                        <span className="text-[10px] font-semibold mt-0.5 text-slate-700">Ke Atas</span>
+                    </button>
+                </div>
+            </nav>
         </div>
     );
 }

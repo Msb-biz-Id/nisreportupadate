@@ -49,6 +49,7 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::get('/fo/{noPo}/pdf', [OrderController::class, 'publicFoPdf'])->name('orders.public.fo.pdf');
 
     // Portal Karir & Pendaftaran Pelamar Mandiri (Guest Route Publik)
+    Route::get('/karir', [\App\Http\Controllers\Hcm\HcmPublicCareerController::class, 'index'])->name('career.index');
     Route::get('/karir/{slug}', [\App\Http\Controllers\Hcm\HcmPublicCareerController::class, 'show'])->name('career.show');
     Route::post('/karir/{slug}/apply', [\App\Http\Controllers\Hcm\HcmPublicCareerController::class, 'apply'])->name('career.apply');
 });
@@ -400,6 +401,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/reports/pdf', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'recruitmentReport'])->name('reports.pdf');
             Route::get('/reports/excel', [\App\Http\Controllers\Hcm\HcmRecruitmentController::class, 'exportReport'])->name('reports.excel');
             Route::get('/applicants/{applicant}/pdf', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'applicantReport'])->name('applicants.pdf');
+            Route::get('/applicants/{applicant}/excel', [\App\Http\Controllers\Hcm\HcmRecruitmentController::class, 'exportApplicantExcel'])->name('applicants.excel');
         });
 
         // Modul Buku Agenda Persuratan (Modul Khusus Terpisah)

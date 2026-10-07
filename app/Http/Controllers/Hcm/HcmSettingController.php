@@ -32,7 +32,7 @@ class HcmSettingController extends Controller
     }
 
     /**
-     * Halaman Utama Pengaturan HCM (Profil Instansi, Kop Surat, Medsos, Lembur Dinamis, & Uang Makan).
+     * Halaman Utama Pengaturan HCM (Profil Divisi, Kop Surat Resmi, TTD Digital, Lembur Dinamis, & Uang Makan).
      */
     public function index(Request $request): Response
     {
@@ -40,16 +40,21 @@ class HcmSettingController extends Controller
 
         /** @var \Illuminate\Filesystem\FilesystemAdapter $publicDisk */
         $publicDisk = Storage::disk('public');
+        
         $logo = SystemSetting::get('hcm_profile', 'logo');
-        $logoUrl = null;
-        if ($logo) {
-            $logoUrl = UrlHelper::clean($publicDisk->url($logo), $request);
-        }
+        $logoUrl = $logo ? UrlHelper::clean($publicDisk->url($logo), $request) : null;
+
+        $signature = SystemSetting::get('hcm_profile', 'signature');
+        $signatureUrl = $signature ? UrlHelper::clean($publicDisk->url($signature), $request) : null;
+
+        $stamp = SystemSetting::get('hcm_profile', 'stamp');
+        $stampUrl = $stamp ? UrlHelper::clean($publicDisk->url($stamp), $request) : null;
 
         return Inertia::render('Hcm/Settings/Index', [
             'profile' => [
                 'company_name' => SystemSetting::get('hcm_profile', 'company_name', config('app.name', 'NISGroup')),
-                'company_tagline' => SystemSetting::get('hcm_profile', 'company_tagline', 'Human Capital Management & Operations'),
+                'division_name' => SystemSetting::get('hcm_profile', 'division_name', 'Divisi Human Capital Management'),
+                'company_tagline' => SystemSetting::get('hcm_profile', 'company_tagline', 'People, Culture & Organizational Development'),
                 'company_address' => SystemSetting::get('hcm_profile', 'company_address', 'Klaten, Jawa Tengah'),
                 'company_city' => SystemSetting::get('hcm_profile', 'company_city', 'Klaten'),
                 'company_email' => SystemSetting::get('hcm_profile', 'company_email', 'hrd@nisgroup.co.id'),
@@ -62,6 +67,17 @@ class HcmSettingController extends Controller
                 'kop_header_line2' => SystemSetting::get('hcm_profile', 'kop_header_line2', 'No. Izin KBLI 14111 / 14120 - Manajemen SDM Terpadu'),
                 'document_footer_text' => SystemSetting::get('hcm_profile', 'document_footer_text', 'Dokumen resmi diterbitkan otomatis oleh Sistem Kepegawaian terintegrasi.'),
                 'document_footer_disclaimer' => SystemSetting::get('hcm_profile', 'document_footer_disclaimer', 'Keabsahan dokumen dapat diverifikasi langsung melalui portal HCM atau QR code tertera.'),
+                
+                // Pejabat Penandatangan Resmi (Automatic Signer) & Tanda Tangan Digital
+                'signer_name' => SystemSetting::get('hcm_profile', 'signer_name', 'Ahmad Fauzi, S.Psi., CHRP'),
+                'signer_role' => SystemSetting::get('hcm_profile', 'signer_role', 'Head of Human Capital Management'),
+                'signer_nik' => SystemSetting::get('hcm_profile', 'signer_nik', 'HCM-2021-001'),
+                'show_signature_on_pdf' => (bool) SystemSetting::get('hcm_profile', 'show_signature_on_pdf', true),
+                'show_stamp_on_pdf' => (bool) SystemSetting::get('hcm_profile', 'show_stamp_on_pdf', true),
+                'signature' => $signature,
+                'signature_url' => $signatureUrl,
+                'stamp' => $stamp,
+                'stamp_url' => $stampUrl,
             ],
             'overtime' => [
                 'weekday_hourly_rate' => (float) SystemSetting::get('hcm_overtime', 'weekday_hourly_rate', 10000),
@@ -95,7 +111,7 @@ class HcmSettingController extends Controller
     }
 
     /**
-     * Perbarui Profil Instansi, Kop Surat, Medsos, Logo & Footer Dokumen HCM.
+     * Perbarui Profil Divisi, Instansi, Pejabat Penandatangan, TTD Digital & Stempel.
      */
     public function updateProfile(Request $request): RedirectResponse
     {
@@ -103,6 +119,7 @@ class HcmSettingController extends Controller
 
         $validated = $request->validate([
             'company_name' => ['required', 'string', 'max:150'],
+            'division_name' => ['nullable', 'string', 'max:150'],
             'company_tagline' => ['nullable', 'string', 'max:255'],
             'company_address' => ['required', 'string', 'max:500'],
             'company_city' => ['nullable', 'string', 'max:100'],
@@ -114,14 +131,28 @@ class HcmSettingController extends Controller
             'kop_header_line2' => ['nullable', 'string', 'max:255'],
             'document_footer_text' => ['nullable', 'string', 'max:500'],
             'document_footer_disclaimer' => ['nullable', 'string', 'max:500'],
+            
+            // Penandatangan otomatis & TTD Digital
+            'signer_name' => ['nullable', 'string', 'max:150'],
+            'signer_role' => ['nullable', 'string', 'max:150'],
+            'signer_nik' => ['nullable', 'string', 'max:50'],
+            'show_signature_on_pdf' => ['nullable', 'boolean'],
+            'show_stamp_on_pdf' => ['nullable', 'boolean'],
+            
+            // Upload Gambar
             'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:3072'],
             'remove_logo' => ['nullable', 'boolean'],
+            'signature' => ['nullable', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:2048'],
+            'remove_signature' => ['nullable', 'boolean'],
+            'stamp' => ['nullable', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:2048'],
+            'remove_stamp' => ['nullable', 'boolean'],
         ]);
 
         SystemSetting::set('hcm_profile', 'company_name', $validated['company_name'], false, 'Nama resmi instansi/perusahaan pada kop dokumen HCM');
+        SystemSetting::set('hcm_profile', 'division_name', $validated['division_name'] ?? 'Divisi Human Capital Management', false, 'Nama divisi kepegawaian HCM');
         SystemSetting::set('hcm_profile', 'company_tagline', $validated['company_tagline'] ?? '', false, 'Tagline atau sub-identitas instansi');
         SystemSetting::set('hcm_profile', 'company_address', $validated['company_address'], false, 'Alamat domisili instansi/pabrik pada kop dokumen');
-        SystemSetting::set('hcm_profile', 'company_city', $validated['company_city'] ?? '', false, 'Kota domisili kantor HCM');
+        SystemSetting::set('hcm_profile', 'company_city', $validated['company_city'] ?? 'Klaten', false, 'Kota domisili kantor HCM');
         SystemSetting::set('hcm_profile', 'company_email', $validated['company_email'] ?? '', false, 'Alamat email korespondensi resmi HCM');
         SystemSetting::set('hcm_profile', 'company_phone', $validated['company_phone'] ?? '', false, 'Nomor telepon atau hotline resmi HCM');
         SystemSetting::set('hcm_profile', 'company_website', $validated['company_website'] ?? '', false, 'Situs web resmi perusahaan');
@@ -131,13 +162,24 @@ class HcmSettingController extends Controller
         SystemSetting::set('hcm_profile', 'document_footer_text', $validated['document_footer_text'] ?? '', false, 'Catatan kaki / footer dokumen resmi HCM');
         SystemSetting::set('hcm_profile', 'document_footer_disclaimer', $validated['document_footer_disclaimer'] ?? '', false, 'Teks klausul disclaimer keabsahan dokumen HCM');
 
+        // Pengaturan Penandatangan Resmi (Automatic Signer)
+        SystemSetting::set('hcm_profile', 'signer_name', $validated['signer_name'] ?? '', false, 'Nama pejabat penandatangan dokumen resmi HCM');
+        SystemSetting::set('hcm_profile', 'signer_role', $validated['signer_role'] ?? '', false, 'Jabatan resmi penandatangan dokumen HCM');
+        SystemSetting::set('hcm_profile', 'signer_nik', $validated['signer_nik'] ?? '', false, 'NIK/NIP pejabat penandatangan');
+        SystemSetting::set('hcm_profile', 'show_signature_on_pdf', $request->boolean('show_signature_on_pdf', true), false, 'Otomatis tampilkan TTD digital pada dokumen PDF');
+        SystemSetting::set('hcm_profile', 'show_stamp_on_pdf', $request->boolean('show_stamp_on_pdf', true), false, 'Otomatis tampilkan cap/stempel resmi pada dokumen PDF');
+
         // Sinkronkan juga ke general company address agar modul lain tetap konsisten
         SystemSetting::set('company', 'address', $validated['company_address'], false, 'Alamat perusahaan terpadu');
 
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $publicDisk */
+        $publicDisk = Storage::disk('public');
+
+        // 1. Penanganan Logo
         if ($request->boolean('remove_logo')) {
             $oldLogo = SystemSetting::get('hcm_profile', 'logo');
-            if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {
-                Storage::disk('public')->delete($oldLogo);
+            if ($oldLogo && $publicDisk->exists($oldLogo)) {
+                $publicDisk->delete($oldLogo);
             }
             SystemSetting::set('hcm_profile', 'logo', null, false, 'Logo resmi kop dokumen HCM');
         } elseif ($request->hasFile('logo')) {
@@ -145,9 +187,33 @@ class HcmSettingController extends Controller
             SystemSetting::set('hcm_profile', 'logo', $path, false, 'Logo resmi kop dokumen HCM');
         }
 
-        ActivityLogger::log('update', 'hcm', null, 'Memperbarui profil instansi, kop surat, dan footer dokumen HCM.');
+        // 2. Penanganan Tanda Tangan Digital (Signature)
+        if ($request->boolean('remove_signature')) {
+            $oldSig = SystemSetting::get('hcm_profile', 'signature');
+            if ($oldSig && $publicDisk->exists($oldSig)) {
+                $publicDisk->delete($oldSig);
+            }
+            SystemSetting::set('hcm_profile', 'signature', null, false, 'Tanda tangan digital pejabat HCM');
+        } elseif ($request->hasFile('signature')) {
+            $path = $request->file('signature')->store('hcm/signatures', 'public');
+            SystemSetting::set('hcm_profile', 'signature', $path, false, 'Tanda tangan digital pejabat HCM');
+        }
 
-        return back()->with('success', 'Profil instansi, kop surat, kontak medsos, dan footer dokumen HCM berhasil disimpan.');
+        // 3. Penanganan Stempel / Cap Resmi (Stamp)
+        if ($request->boolean('remove_stamp')) {
+            $oldStamp = SystemSetting::get('hcm_profile', 'stamp');
+            if ($oldStamp && $publicDisk->exists($oldStamp)) {
+                $publicDisk->delete($oldStamp);
+            }
+            SystemSetting::set('hcm_profile', 'stamp', null, false, 'Stempel cap resmi divisi HCM');
+        } elseif ($request->hasFile('stamp')) {
+            $path = $request->file('stamp')->store('hcm/stamps', 'public');
+            SystemSetting::set('hcm_profile', 'stamp', $path, false, 'Stempel cap resmi divisi HCM');
+        }
+
+        ActivityLogger::log('update', 'hcm', null, 'Memperbarui profil divisi, penandatangan resmi, TTD digital, kop surat, dan stempel dokumen HCM.');
+
+        return back()->with('success', 'Profil divisi, penandatangan resmi, TTD digital, stempel, dan kop surat HCM berhasil disimpan.');
     }
 
     /**

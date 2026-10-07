@@ -38,12 +38,13 @@ class HcmMasterDataSeeder extends Seeder
                 'icon' => 'Building2',
                 'description' => 'Divisi atau unit departemen kerja perusahaan',
                 'options' => [
-                    'Keuangan',
-                    'Human Capital Management',
-                    'Marketing',
-                    'Produksi',
-                    'Media Internal',
-                    'Media Eksternal',
+                    ['name' => 'Human Capital Management', 'code' => 'HCM'],
+                    ['name' => 'Finance & Accounting', 'code' => 'FIN'],
+                    ['name' => 'Brand & Marketing', 'code' => 'BRM'],
+                    ['name' => 'Support & Control Produksi', 'code' => 'SCP'],
+                    ['name' => 'Produksi', 'code' => 'PRD'],
+                    ['name' => 'Media Internal', 'code' => 'MIN'],
+                    ['name' => 'Media Eksternal', 'code' => 'MEX'],
                 ],
             ],
             [
@@ -382,14 +383,17 @@ class HcmMasterDataSeeder extends Seeder
                 $catData
             );
 
-            foreach ($options as $optIndex => $optName) {
+            foreach ($options as $optIndex => $optItem) {
+                $optName = is_array($optItem) ? $optItem['name'] : $optItem;
+                $optCode = is_array($optItem) ? $optItem['code'] : Str::slug($optName, '_');
+
                 HcmMasterOption::updateOrCreate(
                     [
                         'category_id' => $category->id,
                         'name' => $optName,
                     ],
                     [
-                        'code' => Str::slug($optName, '_'),
+                        'code' => $optCode,
                         'order_index' => $optIndex + 1,
                         'is_active' => true,
                     ]

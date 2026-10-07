@@ -26,29 +26,23 @@
         'warnSoft'    => '#fef3c7',
     ];
 
-    // ----- Company profile: fully dynamic from System Settings -----
-    $s = fn($key, $default = null) => \App\Models\Settings\SystemSetting::get('hcm_profile', $key, $default);
+    // ----- Company & Division profile: fully dynamic from System Settings via HcmPdfHelper -----
+    $p = $profile ?? \App\Services\HcmPdfHelper::getProfileData($employee);
 
-    $companyName  = $employee->legal_entity ?: $s('company_name', config('app.name', 'NISGroup'));
-    $companyTag   = $s('company_tagline', 'Human Capital Management & Operations');
-    $companyAddr  = $s('company_address', 'Klaten, Jawa Tengah');
-    $companyCity  = $s('company_city', 'Klaten');
-    $companyPhone = $s('company_phone');
-    $companyEmail = $s('company_email');
-    $companyWeb   = $s('company_website');
-    $companySoc   = $s('company_socials');
-    $footerText   = $s('document_footer_text', 'Dokumen resmi diterbitkan oleh Sistem HCM.');
-    $footerDisc   = $s('document_footer_disclaimer');
-    $contacts     = array_values(array_filter([$companyPhone, $companyEmail, $companyWeb, $companySoc]));
+    $companyName  = $p['company_name'];
+    $companyTag   = $p['company_tagline'];
+    $companyAddr  = $p['company_address'];
+    $companyCity  = $p['company_city'];
+    $companyPhone = $p['company_phone'];
+    $companyEmail = $p['company_email'];
+    $companyWeb   = $p['company_website'];
+    $companySoc   = $p['company_socials'];
+    $footerText   = $p['document_footer_text'];
+    $footerDisc   = $p['document_footer_disclaimer'];
+    $contacts     = $p['contacts'];
 
-    // ----- Logo -----
-    $hcmLogo  = $s('logo');
-    $logoPath = $hcmLogo && file_exists(storage_path('app/public/' . $hcmLogo))
-        ? storage_path('app/public/' . $hcmLogo)
-        : (file_exists(public_path('images/logo.png')) ? public_path('images/logo.png') : null);
-    $logoBase64 = $logoPath
-        ? 'data:image/' . pathinfo($logoPath, PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($logoPath))
-        : null;
+    // ----- Logo Base64 -----
+    $logoBase64 = $p['logo_base64'];
 
     // ----- Derived values -----
     $joinDate     = $employee->join_date ? \Carbon\Carbon::parse($employee->join_date) : null;
@@ -114,15 +108,16 @@
 
     // ----- Reusable data-row renderer (keeps markup DRY & dynamic) -----
     $row = function ($icon, $label, $value, array $o = []) use ($svgIcon, $c) {
-        $raw   = $o['raw'] ?? false;
-        $val   = $raw ? $value : e(($value === null || $value === '') ? '-' : $value);
-        $cls   = $o['class'] ?? '';
-        $style = $o['style'] ?? '';
-        $ic    = $o['iconColor'] ?? $c['accent'];
+        $raw       = $o['raw'] ?? false;
+        $val       = $raw ? $value : e(($value === null || $value === '') ? '-' : $value);
+        $cls       = $o['class'] ?? '';
+        $style     = $o['style'] ?? '';
+        $styleAttr = !empty($style) ? ' style="' . $style . '"' : '';
+        $ic        = $o['iconColor'] ?? $c['accent'];
         return '<tr class="data-row">'
             . '<td class="cell-icon"><span class="icon-chip"><img src="' . $svgIcon($icon, $ic) . '" alt=""></span></td>'
             . '<td class="cell-label">' . e($label) . '</td>'
-            . '<td class="cell-val ' . $cls . '" style="' . $style . '">' . $val . '</td>'
+            . '<td class="cell-val ' . $cls . '"' . $styleAttr . '>' . $val . '</td>'
             . '</tr>';
     };
 
@@ -173,7 +168,6 @@
 <title>{{ $docTitle }} - {{ $employee->name }}</title>
 <style>
   @font-face { font-family: 'Inter'; font-weight: 400; src: url('{{ public_path("fonts/Inter-Regular.ttf") }}') format('truetype'); }
-  @font-face { font-family: 'Inter'; font-weight: 600; src: url('{{ public_path("fonts/Inter-Bold.ttf") }}') format('truetype'); }
   @font-face { font-family: 'Inter'; font-weight: 700; src: url('{{ public_path("fonts/Inter-Bold.ttf") }}') format('truetype'); }
 
   @page {
@@ -187,7 +181,7 @@
   body {
     font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
     background: #ffffff;
-    color: {{ $c['ink'] }};
+    color: #0f172a;
     font-size: 10px;
     line-height: 1.35;
     -webkit-print-color-adjust: exact;
@@ -196,19 +190,19 @@
   table { border-collapse: collapse; }
 
   /* ================= HEADER ================= */
-  .header-strip { height: 5px; background-color: {{ $c['accent'] }}; }
-  .page-header { background-color: {{ $c['ink'] }}; border-bottom: 3px solid {{ $c['accent'] }}; }
+  .header-strip { height: 5px; background-color: #a8001c; }
+  .page-header { background-color: #0f172a; border-bottom: 3px solid #a8001c; }
   .ph-table { width: 100%; border-collapse: collapse; }
   .ph-table > tbody > tr > td { padding: 15px 34px; vertical-align: middle; }
   .brand-logo-box {
-    width: 42px; height: 42px; background-color: #ffffff; color: {{ $c['accent'] }};
+    width: 42px; height: 42px; background-color: #ffffff; color: #a8001c;
     font-size: 18px; font-weight: 700; text-align: center; line-height: 42px;
     border-radius: 9px; overflow: hidden;
   }
   .brand-logo-box img { width: 100%; height: 100%; object-fit: contain; padding: 5px; }
   .brand-title { font-size: 14.5px; font-weight: 700; color: #ffffff; letter-spacing: .5px; text-transform: uppercase; }
-  .brand-tagline { font-size: 8.5px; color: {{ $c['accentSoft'] }}; margin-top: 2px; }
-  .brand-contact { font-size: 8px; color: {{ $c['soft'] }}; margin-top: 6px; }
+  .brand-tagline { font-size: 8.5px; color: #eff6ff; margin-top: 2px; }
+  .brand-contact { font-size: 8px; color: #94a3b8; margin-top: 6px; }
   .doc-kicker { font-size: 8px; color: #7dd3fc; letter-spacing: 2px; text-transform: uppercase; text-align: right; }
   .doc-title { font-size: 13px; font-weight: 700; color: #ffffff; letter-spacing: 1.5px; text-transform: uppercase; text-align: right; margin-top: 1px; }
   .doc-chip {
@@ -224,14 +218,14 @@
   .profile { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
   .profile > tbody > tr > td { vertical-align: top; }
   .photo-frame {
-    width: 122px; height: 156px; background-color: {{ $c['surface'] }}; border: 1px solid {{ $c['line'] }};
+    width: 122px; height: 156px; background-color: #f8fafc; border: 1px solid #e2e8f0;
     border-radius: 10px; overflow: hidden; text-align: center;
   }
   .photo-frame img.user-photo { width: 120px; height: 154px; object-fit: cover; border-radius: 9px; display: block; }
-  .photo-empty { color: {{ $c['soft'] }}; font-size: 8.5px; font-weight: 700; letter-spacing: 1.5px; }
-  .emp-name { font-size: 23px; font-weight: 700; color: {{ $c['ink'] }}; line-height: 1.1; letter-spacing: -.4px; }
-  .emp-nick { font-size: 10px; color: {{ $c['muted'] }}; margin-top: 2px; }
-  .emp-role { font-size: 11px; font-weight: 600; color: {{ $c['accent'] }}; margin-top: 4px; }
+  .photo-empty { color: #94a3b8; font-size: 8.5px; font-weight: 700; letter-spacing: 1.5px; }
+  .emp-name { font-size: 23px; font-weight: 700; color: #0f172a; line-height: 1.1; letter-spacing: -.4px; }
+  .emp-nick { font-size: 10px; color: #64748b; margin-top: 2px; }
+  .emp-role { font-size: 11px; font-weight: 600; color: #a8001c; margin-top: 4px; }
 
   /* BADGES */
   .tags { margin: 9px 0 11px 0; }
@@ -239,30 +233,30 @@
     display: inline-block; font-size: 8.5px; font-weight: 600; padding: 3px 9px;
     border-radius: 12px; margin-right: 5px; letter-spacing: .3px;
   }
-  .tag-blue  { background-color: {{ $c['accentSoft'] }}; color: {{ $c['accentDeep'] }}; }
-  .tag-slate { background-color: {{ $c['line2'] }}; color: #334155; }
-  .tag-green { background-color: {{ $c['successSoft'] }}; color: {{ $c['success'] }}; }
-  .tag-red   { background-color: {{ $c['dangerSoft'] }}; color: {{ $c['danger'] }}; }
-  .tag-amber { background-color: {{ $c['warnSoft'] }}; color: {{ $c['warn'] }}; }
+  .tag-blue  { background-color: #eff6ff; color: #1d4ed8; }
+  .tag-slate { background-color: #f1f5f9; color: #334155; }
+  .tag-green { background-color: #dcfce7; color: #15803d; }
+  .tag-red   { background-color: #fee2e2; color: #b91c1c; }
+  .tag-amber { background-color: #fef3c7; color: #b45309; }
 
   /* QUICK INFO PANEL */
-  .quick-panel { background-color: {{ $c['surface'] }}; border: 1px solid {{ $c['line'] }}; border-radius: 10px; padding: 9px 12px; }
+  .quick-panel { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 12px; }
   .quick { width: 100%; border-collapse: collapse; }
   .quick td { padding: 3.5px 0; vertical-align: middle; font-size: 9.5px; }
-  .q-icon { display: inline-block; width: 20px; height: 20px; background: #ffffff; border: 1px solid {{ $c['line'] }}; border-radius: 6px; margin-right: 6px; position: relative; }
+  .q-icon { display: inline-block; width: 20px; height: 20px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; margin-right: 6px; position: relative; }
   .q-icon img { width: 12px; height: 12px; position: absolute; top: 4px; left: 4px; }
-  .q-label { color: {{ $c['muted'] }}; }
-  .q-value { font-weight: 600; color: {{ $c['ink'] }}; }
+  .q-label { color: #64748b; }
+  .q-value { font-weight: 600; color: #0f172a; }
 
   /* ================= SECTIONS ================= */
   .section { margin-bottom: 15px; page-break-inside: avoid; }
   .sec-head { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
   .sec-num {
-    display: inline-block; width: 20px; height: 20px; background-color: {{ $c['accent'] }}; color: #ffffff;
+    display: inline-block; width: 20px; height: 20px; background-color: #a8001c; color: #ffffff;
     font-size: 9px; font-weight: 700; text-align: center; line-height: 20px; border-radius: 6px;
   }
-  .sec-title { font-size: 10.5px; font-weight: 700; color: {{ $c['ink'] }}; letter-spacing: 1.2px; text-transform: uppercase; padding-left: 9px; white-space: nowrap; }
-  .sec-rule { border-bottom: 1px solid {{ $c['line'] }}; width: 100%; }
+  .sec-title { font-size: 10.5px; font-weight: 700; color: #0f172a; letter-spacing: 1.2px; text-transform: uppercase; padding-left: 9px; white-space: nowrap; }
+  .sec-rule { border-bottom: 1px solid #e2e8f0; width: 100%; }
 
   /* DATA GRID (2 columns) */
   .grid { width: 100%; border-collapse: collapse; }
@@ -270,59 +264,66 @@
   .grid > tbody > tr > td.col:last-child { padding-right: 0; padding-left: 15px; }
 
   .rows { width: 100%; border-collapse: collapse; }
-  .data-row td { padding: 4.5px 0; vertical-align: middle; font-size: 9.5px; border-bottom: 1px solid {{ $c['line2'] }}; }
+  .data-row td { padding: 4.5px 0; vertical-align: middle; font-size: 9.5px; border-bottom: 1px solid #f1f5f9; }
   .data-row:last-child td { border-bottom: none; }
   .cell-icon { width: 27px; }
   .icon-chip {
-    display: inline-block; width: 20px; height: 20px; background-color: {{ $c['accentSoft'] }};
-    border: 1px solid {{ $c['accentLine'] }}; border-radius: 6px; position: relative;
+    display: inline-block; width: 20px; height: 20px; background-color: #eff6ff;
+    border: 1px solid #dbeafe; border-radius: 6px; position: relative;
   }
   .icon-chip img { width: 12px; height: 12px; position: absolute; top: 4px; left: 4px; }
-  .cell-label { width: 96px; color: {{ $c['muted'] }}; font-weight: 400; }
-  .cell-val { color: {{ $c['ink'] }}; font-weight: 600; }
+  .cell-label { width: 96px; color: #64748b; font-weight: 400; }
+  .cell-val { color: #0f172a; font-weight: 600; }
   .mono { font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: -.2px; }
-  .soft { color: {{ $c['muted'] }}; font-weight: 400; }
+  .soft { color: #64748b; font-weight: 400; }
 
   /* ================= STAT CARDS ================= */
   .stat-table { width: 100%; border-collapse: separate; border-spacing: 10px 0; margin-top: 2px; }
-  .stat-card { background-color: #ffffff; border: 1px solid {{ $c['line'] }}; border-top: 3px solid {{ $c['accent'] }}; border-radius: 10px; padding: 10px 12px; width: 50%; }
-  .stat-card.ok { border-top-color: {{ $c['success'] }}; }
-  .stat-card.warn { border-top-color: {{ $c['danger'] }}; }
-  .stat-card.amber { border-top-color: {{ $c['warn'] }}; }
-  .stat-card .k { font-size: 7.5px; color: {{ $c['muted'] }}; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-  .stat-card .v { font-size: 15px; font-weight: 700; color: {{ $c['ink'] }}; letter-spacing: -.3px; }
-  .stat-card .v small { font-size: 10px; font-weight: 400; color: {{ $c['muted'] }}; margin-right: 2px; }
+  .stat-card { background-color: #ffffff; border: 1px solid #e2e8f0; border-top: 3px solid #a8001c; border-radius: 10px; padding: 10px 12px; width: 50%; }
+  .stat-card.ok { border-top-color: #15803d; }
+  .stat-card.warn { border-top-color: #b91c1c; }
+  .stat-card.amber { border-top-color: #b45309; }
+  .stat-card .k { font-size: 7.5px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .stat-card .v { font-size: 15px; font-weight: 700; color: #0f172a; letter-spacing: -.3px; }
+  .stat-card .v small { font-size: 10px; font-weight: 400; color: #64748b; margin-right: 2px; }
 
   /* ================= TABLES ================= */
-  .tbl-wrap { border: 1px solid {{ $c['line'] }}; border-radius: 10px; overflow: hidden; margin-top: 4px; }
+  .tbl-wrap { border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; margin-top: 4px; }
   .tbl { width: 100%; border-collapse: collapse; font-size: 9px; }
   .tbl thead { display: table-header-group; }
   .tbl thead th {
-    background-color: {{ $c['surface'] }}; color: #475569; font-size: 7.5px; font-weight: 700;
+    background-color: #f8fafc; color: #475569; font-size: 7.5px; font-weight: 700;
     letter-spacing: .6px; text-transform: uppercase; padding: 7px 9px; text-align: left;
-    border-bottom: 1px solid {{ $c['line'] }};
+    border-bottom: 1px solid #e2e8f0;
   }
-  .tbl tbody td { padding: 6.5px 9px; color: {{ $c['ink2'] }}; border-bottom: 1px solid {{ $c['line2'] }}; }
+  .tbl tbody td { padding: 6.5px 9px; color: #1e293b; border-bottom: 1px solid #f1f5f9; }
   .tbl tbody tr:last-child td { border-bottom: none; }
-  .tbl tfoot td { background-color: {{ $c['surface'] }}; font-weight: 700; color: {{ $c['ink'] }}; padding: 7px 9px; border-top: 1px solid {{ $c['line'] }}; }
+  .tbl tfoot td { background-color: #f8fafc; font-weight: 700; color: #0f172a; padding: 7px 9px; border-top: 1px solid #e2e8f0; }
   .tbl .c { text-align: center; }
   .tbl .r { text-align: right; }
 
   /* NOTES */
-  .notes-box { background-color: {{ $c['surface'] }}; border: 1px solid {{ $c['line'] }}; border-left: 4px solid {{ $c['accent'] }}; border-radius: 8px; padding: 9px 12px; font-size: 9.5px; color: {{ $c['ink2'] }}; }
+  .notes-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #a8001c; border-radius: 8px; padding: 9px 12px; font-size: 9.5px; color: #1e293b; }
+  .notes-box-success { border-left-color: #15803d; }
+
+  /* UTILITY STATUS CLASSES */
+  .text-inc-pos { color: #15803d; font-weight: 700; }
+  .text-inc-neg { color: #b91c1c; font-weight: 700; }
+  .text-alpha-val { color: #b91c1c; font-weight: 600; }
+  .footer-disc-box { margin-top: 14px; text-align: center; font-size: 7.5px; color: #94a3b8; }
 
   /* ================= SIGNATURE ================= */
   .sign-table { width: 100%; border-collapse: collapse; margin-top: 26px; page-break-inside: avoid; }
   .sign-table td { width: 50%; text-align: center; vertical-align: top; padding: 0 18px; }
   .sign-title { font-size: 9px; color: #475569; }
   .sign-space { height: 52px; }
-  .sign-name { width: 74%; margin: 0 auto; border-top: 1.5px solid {{ $c['ink'] }}; padding-top: 5px; font-size: 9.5px; font-weight: 700; color: {{ $c['ink'] }}; }
-  .sign-role { font-size: 8px; color: {{ $c['soft'] }}; margin-top: 2px; }
+  .sign-name { width: 74%; margin: 0 auto; border-top: 1.5px solid #0f172a; padding-top: 5px; font-size: 9.5px; font-weight: 700; color: #0f172a; }
+  .sign-role { font-size: 8px; color: #94a3b8; margin-top: 2px; }
 
   /* ================= RUNNING FOOTER ================= */
-  .footer { position: fixed; bottom: -34px; left: 0; right: 0; height: 30px; background-color: {{ $c['ink'] }}; border-top: 2px solid {{ $c['accent'] }}; }
+  .footer { position: fixed; bottom: -34px; left: 0; right: 0; height: 30px; background-color: #0f172a; border-top: 2px solid #a8001c; }
   .footer-table { width: 100%; border-collapse: collapse; }
-  .footer-table td { padding: 8px 34px; font-size: 7.5px; color: {{ $c['soft'] }}; vertical-align: middle; }
+  .footer-table td { padding: 8px 34px; font-size: 7.5px; color: #94a3b8; vertical-align: middle; }
   .fuel { color: #7dd3fc; }
   .page-no::before { content: "HAL " counter(page); }
 </style>
@@ -657,7 +658,7 @@
                 <td>{{ $fdate($hist->effective_date) }}</td>
                 <td class="r soft">{{ $rp($prev) }}</td>
                 <td class="r" style="font-weight:700;">{{ $rp($new) }}</td>
-                <td class="r" style="color:{{ $inc >= 0 ? $c['success'] : $c['danger'] }}; font-weight:700;">
+                <td class="r {{ $inc >= 0 ? 'text-inc-pos' : 'text-inc-neg' }}">
                   {{ $inc >= 0 ? '+' : '-' }}{{ $rp(abs($inc)) }}
                 </td>
                 <td class="soft">{{ $hist->reason ?: '-' }}</td>
@@ -718,7 +719,7 @@
                 <td class="c">{{ $d['izin'] }}</td>
                 <td class="c">{{ $d['sakit'] }}</td>
                 <td class="c">{{ $d['cuti'] }}</td>
-                <td class="c" style="color:{{ $c['danger'] }}; font-weight:600;">{{ $d['alpha'] }}</td>
+                <td class="c text-alpha-val">{{ $d['alpha'] }}</td>
                 <td class="c">{{ $d['libur'] }}</td>
                 <td class="c" style="font-weight:700;">{{ $d['hadir'] + $d['telat'] }}<span class="soft"> / {{ $d['total'] }}</span></td>
               </tr>
@@ -856,7 +857,7 @@
         </table>
       </div>
       @else
-      <div class="notes-box" style="border-left-color: {{ $c['success'] }};">
+      <div class="notes-box notes-box-success">
         Karyawan berstatus <strong>AKTIF</strong> — belum ada proses offboarding yang tercatat.
       </div>
       @endif
@@ -870,26 +871,50 @@
     </div>
     @endif
 
-    {{-- ============ TANDA TANGAN ============ --}}
+    {{-- ============ TANDA TANGAN RESMI ============ --}}
+    @php
+        $hcmName = $p['signer_name'];
+        $hcmRole = $p['signer_role'];
+        $hcmNik  = $p['signer_nik'];
+        $showHcmSig = $p['show_signature_on_pdf'] && !empty($p['signature_base64']);
+        $showStamp  = $p['show_stamp_on_pdf'] && !empty($p['stamp_base64']);
+    @endphp
     <table class="sign-table">
       <tr>
-        <td>
-          <div class="sign-title">Mengetahui, Kepala Divisi {{ $employee->department ?: '' }}</div>
-          <div class="sign-space"></div>
-          <div class="sign-name">(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div>
-          <div class="sign-role">Kepala Divisi / Manajer Departemen</div>
+        <td style="vertical-align: top;">
+          <div class="sign-title">Mengetahui, Kepala Departemen {{ $employee->department ?: '' }}</div>
+          <div class="sign-space" style="height: 60px;"></div>
+          <div class="sign-name" style="border-top: 1.5px solid #0f172a; padding-top: 4px; font-weight: 700;">
+            (&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)
+          </div>
+          <div class="sign-role">Kepala Departemen / Manajer Terkait</div>
         </td>
-        <td>
+        <td style="vertical-align: top;">
           <div class="sign-title">{{ $companyCity }}, {{ now()->isoFormat('D MMMM Y') }}</div>
-          <div class="sign-space"></div>
-          <div class="sign-name">(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div>
-          <div class="sign-role">HR Manager / Admin HCM</div>
+          <div class="sign-space" style="height: 60px; position: relative;">
+            @if($showStamp)
+              <div style="position: absolute; left: 15%; top: 0px; width: 55px; height: 55px; z-index: 1;">
+                <img src="{{ $p['stamp_base64'] }}" alt="Stempel" style="width: 55px; height: 55px; object-fit: contain; opacity: 0.85;">
+              </div>
+            @endif
+            @if($showHcmSig)
+              <div style="position: absolute; left: 28%; top: 2px; width: 130px; height: 54px; z-index: 2;">
+                <img src="{{ $p['signature_base64'] }}" alt="TTD HCM" style="max-width: 130px; max-height: 54px; object-fit: contain;">
+              </div>
+            @endif
+          </div>
+          <div class="sign-name" style="border-top: 1.5px solid #0f172a; padding-top: 4px; font-weight: 700; color: #0f172a;">
+            {{ $hcmName ?: '( ___________________________ )' }}
+          </div>
+          <div class="sign-role" style="font-weight: 600; color: #475569;">
+            {{ $hcmRole }} @if($hcmNik) &bull; NIK: {{ $hcmNik }} @endif
+          </div>
         </td>
       </tr>
     </table>
 
     @if($footerDisc)
-      <div style="margin-top:14px; text-align:center; font-size:7.5px; color:{{ $c['soft'] }};">
+      <div class="footer-disc-box">
         {{ $footerDisc }}
       </div>
     @endif

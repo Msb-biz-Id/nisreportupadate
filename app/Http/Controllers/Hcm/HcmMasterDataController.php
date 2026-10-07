@@ -85,11 +85,15 @@ class HcmMasterDataController extends Controller
         ]);
 
         $maxOrder = $category->options()->max('order_index') ?? 0;
+        $rawCode = trim($validated['code'] ?? '');
+        $code = !empty($rawCode)
+            ? strtoupper(preg_replace('/[^A-Za-z0-9_-]/', '', $rawCode))
+            : Str::slug($validated['name'], '_');
 
         HcmMasterOption::create([
             'category_id' => $category->id,
             'name' => trim($validated['name']),
-            'code' => !empty($validated['code']) ? Str::slug($validated['code'], '_') : Str::slug($validated['name'], '_'),
+            'code' => $code,
             'order_index' => $validated['order_index'] ?? ($maxOrder + 1),
             'description' => $validated['description'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
@@ -113,9 +117,14 @@ class HcmMasterDataController extends Controller
             'is_active' => ['nullable', 'boolean'],
         ]);
 
+        $rawCode = trim($validated['code'] ?? '');
+        $code = !empty($rawCode)
+            ? strtoupper(preg_replace('/[^A-Za-z0-9_-]/', '', $rawCode))
+            : $option->code;
+
         $option->update([
             'name' => trim($validated['name']),
-            'code' => !empty($validated['code']) ? Str::slug($validated['code'], '_') : $option->code,
+            'code' => $code,
             'order_index' => $validated['order_index'] ?? $option->order_index,
             'description' => $validated['description'] ?? null,
             'is_active' => $validated['is_active'] ?? $option->is_active,

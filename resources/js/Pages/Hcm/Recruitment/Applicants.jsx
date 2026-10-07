@@ -17,6 +17,7 @@ import {
     Building2,
     Trash2,
     Printer,
+    FileSpreadsheet,
     Edit2,
     AlertTriangle,
     ShieldAlert,
@@ -1081,6 +1082,20 @@ export default function ApplicantsIndex({
                             className="text-xs gap-1.5"
                         >
                             <Printer className="w-3.5 h-3.5" /> Cetak Profil
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                window.location.href = route(
+                                    'hcm.recruitment.applicants.excel',
+                                    selectedApplicant?.applicant_code || selectedApplicant?.id
+                                );
+                            }}
+                            className="text-xs gap-1.5 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                        >
+                            <FileSpreadsheet className="w-3.5 h-3.5" /> Unduh Excel
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(false)} className="text-xs">
                             Tutup

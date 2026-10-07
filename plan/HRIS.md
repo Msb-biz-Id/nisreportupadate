@@ -1,6 +1,6 @@
 # Rencana Pengembangan Sistem HRIS / HCM (Human Capital Management) NISGroup
 
-Dokumen ini merupakan perencanaan teknis, arsitektur data, logika bisnis, dan alur operasional komprehensif implementasi modul **HRIS / HCM** pada platform NISReport. Dokumen ini diperbarui secara faktual 100% berdasarkan analisis mendalam terhadap **`Blueprint Website HCM NIS.xlsx`** (mencakup seluruh 5 sheet: *Dashboard*, *Alur & Validasi*, *Business Rules*, *Database*, dan *DropDown*).
+Dokumen ini merupakan perencanaan teknis, arsitektur data, logika bisnis, dan alur operasional komprehensif implementasi modul **HRIS / HCM** pada platform NISReport. Dokumen ini diperbarui secara faktual 100% berdasarkan analisis mendalam dan komparasi terhadap **`Blueprint Website HCM NIS 2.xlsx`** (mencakup seluruh 6 sheet: *Dashboard*, *Alur & Validasi*, *Business Rules*, *Database*, *DropDown*, dan *Struktur Fungsi Kerja*).
 
 ---
 
@@ -22,7 +22,7 @@ Semua transaksi keuangan kepegawaian (Lembur Mingguan & Uang Makan Bulanan) meng
                                                               [Kunci Permanen / Read-Only]
 ```
 1. **HCM Role (Gatekeeper Data)**:
-   - Bertanggung jawab penuh atas validitas data input (absensi, pengajuan izin/cuti/sakit, jam lembur riil, dan rekap akumulasi hari hadir).
+   - Bertanggung jawab penuh atas validitas data input (absensi, pengajuan izin/cuti/sakit, izin keluar kantor, penyesuaian/potongan gaji, jam lembur riil, dan rekap akumulasi hari hadir).
 2. **Finance Role (Gatekeeper Dana)**:
    - Bertanggung jawab atas pencairan dana tunai/transfer perbankan berdasarkan data yang telah ditandatangani (*signed*) oleh HCM.
 3. **Double Sign-Off Rule**:
@@ -46,10 +46,20 @@ Sistem HCM diintegrasikan ke dalam navigasi utama sistem (`SidebarContent.jsx`) 
     ├── 🗂️ Master Data              (route: 'hcm.master-data.index')
     ├── 👨‍💼 Master Karyawan & Magang (route: 'hcm.employees.index')
     ├── 📜 Kontrak & PKWT           (route: 'hcm.contracts.index')
+    │   ├── Manajemen Kontrak Aktif & Renewal
+    │   └── Pengelompokan Masa Kerja (Bucket 1, 2, 3+ Thn)
     ├── 💰 Kompensasi & Gaji        (route: 'hcm.compensations.index')
+    │   ├── Honor/Gaji & Riwayat Kenaikan (Increment Tracker)
+    │   └── Penyesuaian & Potongan Gaji Bulanan (Deductions)
+    ├── 💳 Payroll & Penggajian Terpadu (route: 'hcm.payroll.index')
+    │   ├── Rekapitulasi Gaji per Departemen & Divisi
+    │   ├── Pemrosesan Siklus Mundur Bulan (Work Period vs Payout Period)
+    │   ├── Rincian Slip Gaji Digital & Ekspor Transfer Bank BRI
+    │   └── Double Sign-Off Otorisasi Kas (HCM & Keuangan)
     ├── ⏱️ Presensi & Ketidakhadiran (route: 'hcm.attendance.index')
     │   ├── Matrix Editor Absensi Harian (Bulk Logger)
-    │   └── Pengajuan Cuti, Izin & Sakit
+    │   ├── Pengajuan Cuti, Izin & Sakit
+    │   └── Izin Keluar Kantor (Gate Pass)
     ├── ⚡ Lembur Mingguan (Overtime)(route: 'hcm.overtime.index')
     ├── 🍽️ Uang Makan Bulanan       (route: 'hcm.meal-allowance.index')
     ├── 🎁 Reward & Penghargaan     (route: 'hcm.rewards.index')
@@ -72,9 +82,9 @@ Sistem HCM diintegrasikan ke dalam navigasi utama sistem (`SidebarContent.jsx`) 
 Sistem eksisting telah memiliki 7 role baku: `superadmin`, `owner`, `admin_brand`, `admin_reseller`, `admin_produksi`, `admin_keuangan`, dan `supervisor`. Integrasi modul Kepegawaian/HCM dirancang selaras dengan pola penamaan dan otorisasi eksisting:
 
 - **Peran Pengguna (Roles)**:
-  - **`admin_hcm`** *(Role Baru)*: Administrator utama Kepegawaian / HR Manager. Memiliki akses penuh ke seluruh modul Kepegawaian, otorisasi persetujuan cuti/izin, evaluasi kontrak PKWT, manajemen rekrutmen, Master Data dinamis, serta menandatangani `[Approve & Sign HCM]` untuk lembur dan uang makan.
+  - **`admin_hcm`** *(Role Baru)*: Administrator utama Kepegawaian / HR Manager. Memiliki akses penuh ke seluruh modul Kepegawaian, otorisasi persetujuan cuti/izin, evaluasi kontrak PKWT, manajemen rekrutmen, Master Data dinamis, serta menandatangani `[Approve & Sign HCM]` untuk lembur, uang makan, dan draf payroll bulanan.
   - **`staff_hcm`** *(Role Baru)*: Staf operasional kepegawaian. Bertugas melakukan input absensi harian massal (Bulk Matrix Logger), input berkas pelamar, input data lembur harian, pencatatan buku agenda surat, dan jadwal event kalender.
-  - **`admin_keuangan`** *(Role Eksisting)*: Bertindak sebagai **Gatekeeper Dana** yang mengevaluasi antrean lembur mingguan dan uang makan bulanan yang telah disahkan HCM, lalu mengeksekusi penandatanganan `[Sign & Paid]`.
+  - **`admin_keuangan`** *(Role Eksisting)*: Bertindak sebagai **Gatekeeper Dana** yang mengevaluasi antrean lembur mingguan, uang makan bulanan, dan payroll terpadu yang telah disahkan HCM, lalu mengeksekusi penandatanganan `[Sign & Paid]`.
   - **`admin_produksi`** *(Role Eksisting)*: Memantau presensi tim produksinya di lantai pabrik dan mengajukan jam lembur regu kerja via fitur Bulk Overtime.
   - **`superadmin` & `owner`** *(Role Eksisting)*: Memiliki akses pengawasan menyeluruh terhadap dashboard kepegawaian, audit trail aktivitas, serta rekapitulasi pencairan kas yang telah disahkan.
 
@@ -85,11 +95,15 @@ Sistem eksisting telah memiliki 7 role baku: `superadmin`, `owner`, `admin_brand
   ```php
   // Permission Baru Modul Kepegawaian (HCM)
   'hcm.view',                   // Melihat menu dan dashboard Kepegawaian
-  'hcm.manage-master',          // CRUD 22 kategori Master Data dinamis (Job Level, Divisi, Posisi, CV, dll.)
+  'hcm.manage-master',          // CRUD 23 kategori Master Data dinamis (Job Level, Divisi, Posisi, CV, Status Lampiran, dll.)
   'hcm.manage-employees',       // CRUD data master karyawan dan peserta magang SMK
-  'hcm.manage-contracts',       // CRUD kontrak kerja PKWT dan evaluasi berkala
-  'hcm.manage-compensation',    // Mengelola data gaji/honor dan riwayat kenaikan upah
+  'hcm.manage-contracts',       // CRUD kontrak kerja PKWT, renewal & grouping masa kerja
+  'hcm.manage-compensation',    // Mengelola data gaji/honor, riwayat kenaikan upah & siklus evaluasi
+  'hcm.manage-salary-adjustments', // Mengelola penyesuaian & pemotongan gaji bulanan (deductions)
+  'hcm.manage-payroll',         // Menyusun periode payroll, kalkulasi take-home pay terpadu & grouping departemen-divisi
+  'hcm.sign-payroll',           // Otorisasi [Approve & Sign HCM] mengunci draf payroll bulanan ke Keuangan
   'hcm.manage-attendance',      // Akses Bulk Matrix Absensi Harian & approval cuti/izin/sakit
+  'hcm.manage-exit-permits',    // Mengelola log & approval izin keluar kantor (gate pass)
   'hcm.manage-overtime',        // Input jam lembur harian & penyusunan batch mingguan
   'hcm.sign-overtime',          // Otorisasi [Approve & Sign HCM] untuk mengunci lembur ke Keuangan
   'hcm.manage-meal-allowance',  // Rekapitulasi hari hadir, potongan kehadiran & hold logic uang makan
@@ -99,10 +113,12 @@ Sistem eksisting telah memiliki 7 role baku: `superadmin`, `owner`, `admin_brand
   'hcm.manage-documents',       // Mengelola arsip dokumen internal (RAB/LPJ) & eksternal (BPJS/Disnaker)
   'hcm.manage-agenda',          // Mengelola buku agenda penomoran surat resmi masuk/keluar
   'hcm.manage-events',          // Mengelola company calendar, agenda internal & undangan sosial
-  'hcm.export-reports',         // Ekspor PDF Dossier Karyawan, slip lembur, rekap absensi, dan paklaring
+  'hcm.export-reports',         // Ekspor PDF Dossier Karyawan, slip gaji, slip lembur, rekap absensi, dan paklaring
 
   // Permission Tambahan untuk Divisi Keuangan
   'finance.sign-paid',          // Otorisasi [Sign & Paid] pencairan kas lembur & uang makan (diberikan ke admin_keuangan)
+  'finance.manage-payroll',     // Mengakses dashboard payroll & memproses final take-home pay pasca potongan HCM
+  'finance.sign-payroll',       // Otorisasi [Sign & Paid] pencairan kas payroll bulanan terpadu (admin_keuangan)
   ```
 
 ---
@@ -133,9 +149,9 @@ Sistem notifikasi kepegawaian memanfaatkan infrastruktur notifikasi bawaan platf
 
 ## 2. Modul Master Data HCM (Tab Menu Vertikal untuk Pengelolaan Dropdown Dinamis)
 
-Berdasarkan lembar kerja **`DropDown `** pada Blueprint Excel, kebutuhan seluruh data pilihan/dropdown dikelompokkan ke dalam modul **Master Data HCM** (`/hcm/master-data`):
-1. **Fokus Khusus Data Dropdown Dinamis**: Modul ini khusus difokuskan untuk mengelola seluruh opsi dropdown yang ada di sistem (seperti Job Level, Divisi, Posisi, Status Ketenagakerjaan, CV, Kategori Dokumen, dll.) agar dapat ditambah, diubah, atau dinonaktifkan secara mandiri oleh Admin HCM melalui panel admin tanpa perlu mengubah kode program (*zero code deployment*).
-2. **Hak Akses Khusus**: Pengaturan CRUD Master Data HCM dibatasi hanya untuk role `hcm_manager` / `superadmin` (permission `hcm.manage-master-data`). Staf dan karyawan operasional hanya dapat membaca dan memilih opsi aktif saat mengisi formulir.
+Berdasarkan lembar kerja **`DropDown `** dan sheet baru **`Struktur Fungsi Kerja `** pada Blueprint Excel 2, kebutuhan seluruh data pilihan/dropdown dikelompokkan ke dalam modul **Master Data HCM** (`/hcm/master-data`):
+1. **Fokus Khusus Data Dropdown Dinamis**: Modul ini khusus difokuskan untuk mengelola seluruh opsi dropdown yang ada di sistem (seperti Job Level, Departemen, Divisi, Posisi, Status Lampiran, Status Ketenagakerjaan, CV, Kategori Dokumen, dll.) agar dapat ditambah, diubah, atau dinonaktifkan secara mandiri oleh Admin HCM melalui panel admin tanpa perlu mengubah kode program (*zero code deployment*).
+2. **Hak Akses Khusus**: Pengaturan CRUD Master Data HCM dibatasi hanya untuk role `admin_hcm` / `superadmin` (permission `hcm.manage-master`). Staf dan karyawan operasional hanya dapat membaca dan memilih opsi aktif saat mengisi formulir.
 
 ### Arsitektur Antarmuka: Split-Pane dengan Tab Menu Vertikal
 Halaman Master Data HCM (`resources/js/Pages/Hcm/MasterData/Index.jsx`) mengadopsi tata letak **Vertical Tab Menu** (Sisi Kiri: Menu Kategori Dropdown, Sisi Kanan: Panel CRUD Data Opsi):
@@ -177,50 +193,126 @@ Halaman Master Data HCM (`resources/js/Pages/Hcm/MasterData/Index.jsx`) mengadop
 +----------------------------------------------------+----------------------------------------------------------+
 ```
 
-### Rincian 22 Kategori Master Data HRIS (100% Sesuai Blueprint Excel):
+### Rincian 24 Kategori Master Data HRIS (100% Sesuai Blueprint Excel 2):
 
-| No | Kategori Data Master | Kelompok Grup | Opsi Default dari Blueprint Excel |
+| No | Kategori Data Master | Kelompok Grup | Opsi Default dari Blueprint Excel 2 |
 | :---: | :--- | :--- | :--- |
 | 1 | **Job Level** | Kepegawaian & Struktur | Direksi, Manager, PIC, Supervisor, Leader, Staff, Trainee, Harian, Borongan |
-| 2 | **Divisi** | Kepegawaian & Struktur | Keuangan, Human Capital Management, Marketing, Produksi, Media Internal, Media Eksternal |
-| 3 | **Posisi / Jabatan** | Kepegawaian & Struktur | Finance, Accounting, Purchasing, Human Capital Management, Admin HCM, Marketing, Admin Brand, Designer, Produksi, Admin Produksi, Setting Printing, Potong Bahan, Press Sublime, Potong Pola, Jahit, Quality Control, Finishing (Press), Finishing (Steam), Finishing (Packing), Operasional, Media Internal, Media Spesialist, Publisher, Editor, Planner, Media Eksternal, Web Editor, Web Developer |
-| 4 | **Status Ketenagakerjaan** | Kepegawaian & Struktur | Tetap (PKWTT), Kontrak (PKWT), PKWT Lanjutan, Freelance / Lepas, Trainee (Probation), Paruh Waktu (Part-Time), Harian, Borongan, Magang (Internship) |
-| 5 | **Entitas Legal (CV)** | Kepegawaian & Struktur | CV Jersey Ekonomis, CV Apparel Allegiant, CV Bawang Merah, CV Bawang Putih |
-| 6 | **Status Review Kontrak** | Kontrak & Legalitas | Aktif (Aman / Jauh dari Masa Berakhir), Mendekati Evaluasi (H-60 Kontrak Berakhir), Wajib Review & Tindak Lanjut (H-30 Kontrak Berakhir), Masa Tenggang / Proses Keputusan (H-14 s.d. Hari H), Pengajuan Perpanjangan (Renewal Process), Disetujui untuk Diperpanjang, Pengangkatan Menjadi Karyawan Tetap (Converted to Permanent), Kontrak Selesai & Tidak Diperpanjang (Non-Renewal / Offboarding), Resign / Berhenti atas Permintaan Sendiri selama Masa Kontrak |
-| 7 | **Status Pengajuan / Honor** | Kompensasi & Gaji | Draft, Sedang Diajukan / Pending, Menunggu Persetujuan Atasan / Manager, Menunggu Verifikasi HR / Finance, Revisi / Perbaikan, Disetujui (Menunggu Masa Berlaku), Aktif / Berlaku Bulan Ini (Ready to Pay), Selesai (Paid), Berakhir / Expired |
-| 8 | **Kategori Kehadiran** | Presensi & Absensi | Hadir, Terlambat, Pulang Cepat, Cuti, Izin, Sakit, Dinas Luar, Alpha/Mangkir, Libur/Cuti Bersama |
-| 9 | **Jenis Hari Lembur** | Presensi & Lembur | Lembur Hari Kerja, Lembur Hari Libur |
-| 10 | **Kategori Dokumen Pengajuan** | Dokumen Internal | Pengajuan RAB (Rencana Anggaran Biaya), Proposal Kegiatan / Acara, Pengajuan Pembelian Aset / Inventaris, Pengajuan Perjalanan Dinas / Surat Tugas |
-| 11 | **Kategori Dokumen Realisasi** | Dokumen Internal | LPJ (Laporan Pertanggungjawaban) Kegiatan, Realisasi Pembelian Aset & Nota/Faktur Pembelanjaan, Laporan & Bukti Pengeluaran Perjalanan Dinas (Reimburse / Settlement) |
-| 12 | **Dokumen Administratif & Kebijakan** | Dokumen Perusahaan | Surat Keputusan (SK) & Kebijakan Internal, Kontrak / Perjanjian Kerjasama (Vendor / Partner), Standard Operating Procedure (SOP), Surat Peringatan (SP 1 / SP 2 / SP 3), Surat Keputusan / Pemberitahuan PHK, Surat Pengalaman Kerja (Paklaring), Surat Pengumuman Internal (Mutasi, Promosi, atau Kebijakan), Berita Acara / Surat Klarifikasi, Surat Tugas & Perjalanan Dinas (SPPD) |
-| 13 | **Kepatuhan Notice Period** | Offboarding & Terminasi | Sesuai Ketentuan (1 Bulan / Full Notice), Kurang dari Ketentuan (Short Notice < 1 Bulan), Tanpa Notice (Immediate / Walk Out), Garden Leave (Dibebastugaskan), Pemutusan oleh Perusahaan (Immediate Termination) |
-| 14 | **Hak Karyawan (Sisa Hak)** | Offboarding & Terminasi | Lunas & Dibayarkan Penuh (Full Settlement Paid), Dipotong / Ada Penyesuaian (Deducted / Adjusted), Ditahan Sebagian (Partially Held), Belum Dibayarkan / Pending (Unpaid) |
-| 15 | **Pengembalian Aset & Paklaring** | Offboarding & Terminasi | Lengkap & Terbit, Belum Lengkap / Aset Ditahan, Tidak Terbit |
-| 16 | **Status Clearance Sheet** | Offboarding & Terminasi | Pending, Selesai (Clear) |
-| 17 | **Status Penyaluran Reward** | Apresiasi & Reward | Belum Diterima, Sudah Diterima (Serah Terima Langsung), Sudah Ditransfer, Tertunda / Pending, Dibatalkan |
-| 18 | **Jenis Kelamin** | Demografi Karyawan | Laki-Laki, Perempuan |
-| 19 | **Agama** | Demografi Karyawan | Islam, Kristen, Katolik, Hindu, Buddha, Konghucu |
-| 20 | **Pendidikan Terakhir** | Demografi Karyawan | SD / Sederajat, SMP / Sederajat, SMA / SMK / Sederajat, Diploma 1 (D1), Diploma 2 (D2), Diploma 3 (D3), Diploma 4 (D4), Strata 1 (S1), Strata 2 (S2), Strata 3 (S3) |
-| 21 | **Status Pernikahan** | Demografi Karyawan | Belum Menikah, Menikah, Cerai Hidup, Cerai Mati |
-| 22 | **Ukuran Baju Seragam** | Fasilitas & Atribut | S, M, L, XL, XXL, XXXL, XXXXL |
+| 2 | **Departemen** *(Baru)* | Kepegawaian & Struktur | Finance, Human Capital Management, Marketing, Produksi, Media Internal, Media Eksternal |
+| 3 | **Divisi** | Kepegawaian & Struktur | Finance, HCM, Marketing, Produksi, Media Internal, Media Eksternal |
+| 4 | **Posisi / Jabatan** | Kepegawaian & Struktur | Finance, Accounting, Purchasing, Human Capital Management, Admin HCM, Marketing, Admin Brand, Designer, Produksi, Admin Produksi, Setting Printing, Potong Bahan, Press Sublime, Potong Pola, Jahit, Quality Control, Finishing (Press), Finishing (Steam), Finishing (Packing), Operasional, Media Internal, Media Spesialist, Publisher, Editor, Planner, Media Eksternal, Web Editor, Web Developer |
+| 5 | **Status Ketenagakerjaan** | Kepegawaian & Struktur | Tetap (PKWTT), Kontrak (PKWT), PKWT Lanjutan, Freelance / Lepas, Trainee (Probation), Paruh Waktu (Part-Time), Harian, Borongan, Magang (Internship) |
+| 6 | **Entitas Legal (CV)** | Kepegawaian & Struktur | CV Jersey Ekonomis, CV Apparel Allegiant, CV Bawang Merah, CV Bawang Putih |
+| 7 | **Status Lampiran** *(Baru)* | Kepegawaian & Struktur | Terlampir, Tidak Terlampir |
+| 8 | **Status Review Kontrak** | Kontrak & Legalitas | Aktif (Aman / Jauh dari Masa Berakhir), Mendekati Evaluasi (H-60 Kontrak Berakhir), Wajib Review & Tindak Lanjut (H-30 Kontrak Berakhir), Masa Tenggang / Proses Keputusan (H-14 s.d. Hari H), Pengajuan Perpanjangan (Renewal Process), Disetujui untuk Diperpanjang, Pengangkatan Menjadi Karyawan Tetap (Converted to Permanent), Kontrak Selesai & Tidak Diperpanjang (Non-Renewal / Offboarding), Resign / Berhenti atas Permintaan Sendiri selama Masa Kontrak |
+| 9 | **Status Pengajuan / Honor** | Kompensasi & Gaji | Draft, Sedang Diajukan / Pending, Menunggu Persetujuan Atasan / Manager, Menunggu Verifikasi HR / Finance, Revisi / Perbaikan, Disetujui (Menunggu Masa Berlaku), Aktif / Berlaku Bulan Ini (Ready to Pay), Selesai (Paid), Berakhir / Expired |
+| 10 | **Kategori Potongan Gaji** *(Baru)* | Kompensasi & Gaji | Pelanggaran (Disciplinary Penalty), Kelebihan Pengambilan Cuti (Leave Exceed / Unpaid Leave), Cuti Khusus Berjenjang (Maternity Leave / Tiered Deduction) |
+| 11 | **Kategori Kehadiran** | Presensi & Absensi | Hadir, Terlambat, Pulang Cepat, Cuti, Izin, Sakit, Dinas Luar, Alpha/Mangkir, Libur/Cuti Bersama |
+| 12 | **Jenis Hari Lembur** | Presensi & Lembur | Lembur Hari Kerja, Lembur Hari Libur |
+| 13 | **Kategori Dokumen Pengajuan** | Dokumen Internal | Pengajuan RAB (Rencana Anggaran Biaya), Proposal Kegiatan / Acara, Pengajuan Pembelian Aset / Inventaris, Pengajuan Perjalanan Dinas / Surat Tugas |
+| 14 | **Kategori Dokumen Realisasi** | Dokumen Internal | LPJ (Laporan Pertanggungjawaban) Kegiatan, Realisasi Pembelian Aset & Nota/Faktur Pembelanjaan, Laporan & Bukti Pengeluaran Perjalanan Dinas (Reimburse / Settlement) |
+| 15 | **Dokumen Administratif & Kebijakan** | Dokumen Perusahaan | Surat Keputusan (SK) & Kebijakan Internal, Kontrak / Perjanjian Kerjasama (Vendor / Partner), Standard Operating Procedure (SOP), Surat Peringatan (SP 1 / SP 2 / SP 3), Surat Keputusan / Pemberitahuan PHK, Surat Pengalaman Kerja (Paklaring), Surat Pengumuman Internal (Mutasi, Promosi, atau Kebijakan), Berita Acara / Surat Klarifikasi, Surat Tugas & Perjalanan Dinas (SPPD) |
+| 16 | **Kepatuhan Notice Period** | Offboarding & Terminasi | Sesuai Ketentuan (1 Bulan / Full Notice), Kurang dari Ketentuan (Short Notice < 1 Bulan), Tanpa Notice (Immediate / Walk Out), Garden Leave (Dibebastugaskan), Pemutusan oleh Perusahaan (Immediate Termination) |
+| 17 | **Hak Karyawan (Sisa Hak)** | Offboarding & Terminasi | Lunas & Dibayarkan Penuh (Full Settlement Paid), Dipotong / Ada Penyesuaian (Deducted / Adjusted), Ditahan Sebagian (Partially Held), Belum Dibayarkan / Pending (Unpaid) |
+| 18 | **Pengembalian Aset & Dokumen** | Offboarding & Terminasi | Lengkap & Terbit, Belum Lengkap / Aset Ditahan, Tidak Terbit |
+| 19 | **Status Clearance Sheet** | Offboarding & Terminasi | Pending, Selesai (Clear) |
+| 20 | **Status Penyaluran Reward** | Apresiasi & Reward | Belum Diterima, Sudah Diterima (Serah Terima Langsung), Sudah Ditransfer, Tertunda / Pending, Dibatalkan |
+| 21 | **Jenis Kelamin** | Demografi Karyawan | Laki-Laki, Perempuan |
+| 22 | **Agama** | Demografi Karyawan | Islam, Kristen, Katolik, Hindu, Buddha, Konghucu |
+| 23 | **Pendidikan Terakhir** | Demografi Karyawan | SD / Sederajat, SMP / Sederajat, SMA / SMK / Sederajat, Diploma 1 (D1), Diploma 2 (D2), Diploma 3 (D3), Diploma 4 (D4), Strata 1 (S1), Strata 2 (S2), Strata 3 (S3) |
+| 24 | **Status Pernikahan** | Demografi Karyawan | Belum Menikah, Menikah, Cerai Hidup, Cerai Mati |
+| 25 | **Ukuran Baju Seragam** | Fasilitas & Atribut | S, M, L, XL, XXL, XXXL, XXXXL |
 
 ---
 
-## 3. Kamus Data & Spesifikasi Detail Field (12 Modul Database Blueprint)
+### Struktur Organisasi & Pemetaan Fungsi Kerja (Sheet: `Struktur Fungsi Kerja`)
 
-Berdasarkan lembar kerja **`Database`** pada Blueprint Excel, berikut adalah skema lengkap setiap tabel:
+Berdasarkan sheet baru **`Struktur Fungsi Kerja `** dan keselarasan dengan migrasi resmi (`2026_10_06_090000_sync_hcm_departments_with_official_codes.php`), **KODE DEPARTEMEN RESMI TETAP MENGGUNAKAN KODE BAKU PERUSAHAAN**, namun strukturnya kini **DIKELOMPOKKAN SECARA HIERARKIS 3 TINGKAT**:
+1. **Tingkat 1: Departemen (Department)**: Unit organisasi induk dengan Kode Departemen Resmi NIS Group (`FIN`, `HCM`, `BRM`, `SCP`, `PRD`, `MIN`, `MEX`).
+2. **Tingkat 2: Divisi (Division)**: Sub-unit fungsional di bawah naungan departemen.
+3. **Tingkat 3: Posisi / Jabatan (Job Position)**: Peran penugasan operasional karyawan di bawah divisi.
+
+#### Matriks Hierarki Resmi Departemen $\rightarrow$ Divisi $\rightarrow$ Posisi
+
+| No | Kode Dept Resmi | Nama Departemen Resmi | Divisi Sub-Unit | Posisi / Jabatan Operasional yang Dibawahi |
+| :---: | :---: | :--- | :--- | :--- |
+| 1 | **FIN** | **Finance & Accounting** | Divisi Finance | Accounting, Purchasing |
+| 2 | **HCM** | **Human Capital Management** | Divisi HCM | Admin HCM |
+| 3 | **BRM** | **Brand & Marketing** | Divisi Marketing | Admin Brand, Designer |
+| 4 | **PRD** | **Produksi** | Divisi Produksi | Admin Produksi, Setting Printing, Potong Bahan, Press Sublime, Potong Pola, Jahit, Quality Control, Finishing (Press), Finishing (Steam), Finishing (Packing), Operasional |
+| 5 | **MIN** | **Media Internal** | Divisi Media Internal | Media Spesialist, Publisher, Editor, Planner |
+| 6 | **MEX** | **Media Eksternal** | Divisi Media Eksternal | Media Spesialist, Web Editor, Web Developer |
+
+```
+NIS GROUP HIERARCHICAL STRUCTURE
+├── 🏢 [FIN] FINANCE & ACCOUNTING
+│   └── 🏛️ Divisi Finance
+│       ├── Accounting
+│       └── Purchasing
+│
+├── 🏢 [HCM] HUMAN CAPITAL MANAGEMENT
+│   └── 🏛️ Divisi HCM
+│       └── Admin HCM
+│
+├── 🏢 [BRM] BRAND & MARKETING
+│   └── 🏛️ Divisi Marketing
+│       ├── Admin Brand
+│       └── Designer
+│
+├── 🏢 [PRD] PRODUKSI
+│   └── 🏛️ Divisi Produksi
+│       ├── Admin Produksi
+│       ├── Setting Printing
+│       ├── Potong Bahan
+│       ├── Press Sublime
+│       ├── Potong Pola
+│       ├── Jahit
+│       ├── Quality Control
+│       ├── Finishing (Press)
+│       ├── Finishing (Steam)
+│       ├── Finishing (Packing)
+│       └── Operasional
+│
+├── 🏢 [MIN] MEDIA INTERNAL
+│   └── 🏛️ Divisi Media Internal
+│       ├── Media Spesialist
+│       ├── Publisher
+│       ├── Editor
+│       └── Planner
+│
+└── 🏢 [MEX] MEDIA EKSTERNAL
+    └── 🏛️ Divisi Media Eksternal
+        ├── Media Spesialist
+        ├── Web Editor
+        └── Web Developer
+```
+
+> **Aturan Multi-Level Grouping pada Sistem & Payroll**:
+> 1. Pada data master karyawan (`hcm_employees`), atribut `department`, `division`, dan `position` saling terikat (cascading dependency).
+> 2. Pada seluruh laporan manajerial, rekapitulasi kehadiran, lembur mingguan, uang makan bulanan, dan **terutama Rekapitulasi Penggajian (Payroll)**, data wajib disajikan dalam format **bertingkat (Multi-Level Grouping)**:
+>    - **Level Group Induk**: Departemen (menampilkan total headcount dan subtotal biaya departemen).
+>    - **Level Sub-Group**: Divisi (menampilkan rincian subtotal per divisi, contoh: Subtotal Divisi Jahit, Divisi Setting Printing).
+>    - **Level Detail Item**: Data masing-masing karyawan beserta jabatannya.
+
+---
+
+## 3. Kamus Data & Spesifikasi Detail Field (16 Modul Database Blueprint 2)
+
+Berdasarkan lembar kerja **`Database`** pada Blueprint Excel 2, berikut adalah skema lengkap setiap tabel:
 
 ### A. Modul 1: Master Karyawan Data Umum (`hcm_employees`)
-Menampung seluruh tenaga kerja Managerial, Kontrak, Borongan, dan Harian.
+Menampung seluruh tenaga kerja Managerial, Kontrak, Borongan, Harian, dan Siswa Magang.
 
 | Label Kolom UI | Nama Kolom DB | Tipe Data | Validasi / Aturan | Keterangan & Kontrol UI |
 | :--- | :--- | :--- | :--- | :--- |
 | **Kategori Tenaga Kerja** | `category` | `varchar(50)` | `required` | Managerial, Kontrak, Borongan, Harian, Magang |
 | **Nama Lengkap** | `full_name` | `varchar(150)` | `required, string` | Nama lengkap resmi sesuai KTP |
 | **Nama Panggilan** | `nickname` | `varchar(50)` | `required, string` | Nama panggilan akrab (untuk badge & matrix) |
-| **Divisi** | `department` | `varchar(100)` | `required` | Pilihan dari dropdown Divisi |
-| **Posisi / Jabatan** | `position` | `varchar(100)` | `required` | Pilihan dari dropdown Posisi |
+| **Departemen** *(Baru)* | `department` | `varchar(100)` | `required` | Finance, HCM, Marketing, Produksi, Media Internal, Media Eksternal |
+| **Divisi** | `division` | `varchar(100)` | `nullable` | Divisi unit kerja spesifik |
+| **Posisi / Jabatan** | `position` | `varchar(100)` | `required` | Pilihan dari 29 posisi resmi Blueprint 2 |
 | **Level / Jenjang** | `job_level` | `varchar(50)` | `required` | Pilihan dari dropdown Job Level |
+| **Tanggal Bergabung Pertama**| `original_join_date`| `date` | `required, date` | **Permanen / Kunci Utama**: Menghitung masa kerja kumulatif |
 | **No. HP Pribadi** | `phone_number` | `varchar(25)` | `required` | Nomor telepon seluler / WhatsApp |
 | **Jenis Kelamin** | `gender` | `varchar(20)` | `required` | Laki-Laki / Perempuan |
 | **Agama** | `religion` | `varchar(30)` | `required` | Islam, Kristen, Katolik, Hindu, Buddha, Konghucu |
@@ -260,7 +352,7 @@ Menampung data siswa SMK Praktik Kerja Lapangan (PKL) / Magang.
 ---
 
 ### C. Modul 3: Kontrak & Legalitas PKWT (`hcm_contracts`)
-Pencatatan riwayat perjanjian kerja waktu tertentu (PKWT) dan sistem evaluasi berkala.
+Pencatatan riwayat perjanjian kerja waktu tertentu (PKWT), perpanjangan (renewal), dan pengelompokan masa kerja.
 
 | Label Kolom UI | Nama Kolom DB | Tipe Data | Validasi / Aturan | Keterangan & Kontrol UI |
 | :--- | :--- | :--- | :--- | :--- |
@@ -276,16 +368,20 @@ Pencatatan riwayat perjanjian kerja waktu tertentu (PKWT) dan sistem evaluasi be
 | **Bulan Kontrak** | `contract_month` | `varchar(50)` | `nullable` | Bulan penerbitan kontrak kerja |
 | **Tahun Mulai Kontrak** | `start_year` | `integer` | `required` | e.g. 2026 |
 | **Tahun Berakhir Kontrak** | `end_year` | `varchar(10)` | `nullable` | e.g. 2027, 2028, atau `-` (Tetap) |
-| **Tanggal Mulai Kontrak** | `start_date` | `date` | `required, date` | Tanggal efektif mulai kontrak |
+| **Tanggal Mulai Kontrak Aktif**| `start_date` | `date` | `required, date` | Tanggal efektif mulai kontrak yang sedang berjalan |
 | **Tanggal Berakhir Kontrak** | `end_date` | `date` | `nullable, date` | Tanggal berakhir (null jika Tetap) |
 | **Sisa Masa Kontrak (Hari)** | `days_remaining` | `virtual / calc` | Auto-calculated | `DATEDIFF(end_date, CURDATE())` |
 | **Status Review Kontrak** | `review_status` | `varchar(100)` | `required` | Dropdown Status Review (Aktif, Mendekati H-60, Wajib Review H-30, Masa Tenggang H-14, dll) |
+| **Pengelompokan Masa Kerja**| `tenure_bucket` | `virtual / calc` | Auto-calculated | **Kelompok 1 Tahun** (12-23 bln), **Kelompok 2 Tahun** (24-35 bln), **Kelompok 3 Tahun+** (36+ bln) |
 | **File Dokumen Digital** | `file_contract_url` | `varchar(255)` | `nullable` | Link Google Drive scan kontrak fisik |
+
+> **Aturan Contract Renewal Workflow**:
+> Ketika kontrak diperpanjang, nomor kontrak baru dan masa berlaku baru dicatat, kontrak lama diarsipkan ke tabel historis, namun **`original_join_date` tetap dipertahankan** agar rekam jejak loyalitas dan kenaikan upah kumulatif tidak hilang.
 
 ---
 
 ### D. Modul 4: Kompensasi & Riwayat Honor/Gaji (`hcm_compensations` & `histories`)
-Pencatatan gaji/honor, siklus peninjauan berkala, dan rekam jejak kenaikan upah.
+Pencatatan gaji/honor, evaluasi berkala kenaikan upah, dan perencanaan anggaran (*planned increment*).
 
 | Label Kolom UI | Nama Kolom DB | Tipe Data | Validasi / Aturan | Keterangan & Kontrol UI |
 | :--- | :--- | :--- | :--- | :--- |
@@ -295,14 +391,22 @@ Pencatatan gaji/honor, siklus peninjauan berkala, dan rekam jejak kenaikan upah.
 | **No. Kontrak Terkait** | `contract_number` | `varchar(100)` | `nullable` | Referensi naskah kontrak kerja |
 | **Masa Kontrak** | `duration_text` | `varchar(50)` | `nullable` | e.g. 1 Tahun, 2 Tahun, Tetap |
 | **Masa Kerja Trainee (Bulan)**| `trainee_duration_months`| `integer` | `nullable` | Durasi training (e.g. 8, 12, 24 bulan) |
-| **Siklus Evaluasi (Bulan)** | `evaluation_cycle_months`| `integer` | `required, default:6` | Siklus review kenaikan gaji (e.g. 4 atau 6 bulan) |
+| **Siklus Evaluasi (Bulan)** | `evaluation_cycle_months`| `integer` | `required, default:6` | Siklus review berkala (default: 6 bulan, dapat custom milestone) |
 | **Honor Awal Kontrak (Rp)** | `initial_salary` | `decimal(15,2)` | `required, min:0` | Nominal gaji permulaan kerja |
 | **Honor Saat Ini (Rp)** | `current_salary` | `decimal(15,2)` | `required, min:0` | Nominal gaji yang sedang berjalan aktif |
+| **Rencana Kenaikan Berikutnya**| `planned_increment` | `decimal(15,2)` | `nullable` | Proyeksi rencana kenaikan upah untuk pelaporan ke owner |
 | **Total Kenaikan (Kali)** | `salary_increment_count` | `integer` | `default:0` | Frekuensi perolehan kenaikan honor |
 | **Histori Kenaikan 1 (Rp)** | `increment_1_amount` | `decimal(15,2)` | `nullable` | Riwayat nominal kenaikan pertama |
 | **Histori Kenaikan 2 (Rp)** | `increment_2_amount` | `decimal(15,2)` | `nullable` | Riwayat nominal kenaikan kedua |
 | **Histori Kenaikan 3 (Rp)** | `increment_3_amount` | `decimal(15,2)` | `nullable` | Riwayat nominal kenaikan ketiga |
+| **Status Keputusan Evaluasi**| `decision_status` | `varchar(50)` | `default:Sedang Diajukan` | Pilihan: `Sedang Diajukan`, `Sudah Disetujui / ACC`, `Ditunda`, `Tidak Naik` |
+| **Tanggal Efektif Kenaikan**| `effective_date` | `date` | `nullable` | Tanggal mulai berlakunya nominal baru (terpisah dari tgl evaluasi) |
 | **Status Pengajuan/Honor** | `salary_status` | `varchar(100)` | `required` | Dropdown Status Pengajuan/Honor (Draft, Sedang Diajukan, Telah Berlaku, Selesai, dll) |
+
+> **Logika Mundur Bulan (Work Period vs Payout Period)**:
+> Gaji bulan kinerja berjalan (contoh: Oktober) dicairkan di bulan berikutnya (November). Jika kenaikan gaji di-ACC pada evaluasi Oktober, gaji Oktober tetap memakai nominal lama, dan pencairan November memasukkan nominal baru dengan catatan penyesuaian evaluasi.
+
+---
 
 ---
 
@@ -330,7 +434,26 @@ Pencatatan gaji/honor, siklus peninjauan berkala, dan rekam jejak kenaikan upah.
 
 ---
 
-### F. Modul 6: Rekap Lembur Mingguan (`hcm_overtimes` & `batches`)
+### F. Modul 6: Izin Keluar Kantor / Gate Pass (`hcm_office_exit_permits`)
+*Modul Baru Faktual dari Blueprint Excel 2 (Sheet Database Baris 33–36)*:
+Pencatatan izin meninggalkan area pabrik/kantor selama jam kerja (misal: servis kendaraan/ganti oli, urusan perbankan, dinas mendadak).
+
+| Label Kolom UI | Nama Kolom DB | Tipe Data | Validasi / Aturan | Keterangan & Kontrol UI |
+| :--- | :--- | :--- | :--- | :--- |
+| **Tanggal Izin** | `permit_date` | `date` | `required, date` | Tanggal izin keluar dilaksanakan |
+| **Karyawan** | `employee_id` | `foreignId` | `required, exists:hcm_employees,id` | Karyawan pemohon izin keluar |
+| **Posisi / Jabatan** | `position` | `varchar(100)` | `nullable` | Posisi penugasan karyawan |
+| **Jam Keluar** | `exit_time` | `time` | `required` | Jam keluar meninggalkan kantor (e.g. 14:30) |
+| **Jam Kembali** | `return_time` | `time` | `nullable` | Jam kembali tiba di kantor (e.g. 15:30) |
+| **Keterangan / Keperluan** | `purpose` | `varchar(150)` | `required` | e.g. Ganti Oli, Pembuatan Rekening, Keperluan Dinas |
+| **Catatan / Alasan Detail** | `notes` | `text` | `nullable` | Keterangan tambahan atau catatan atasan |
+| **Status Lampiran** | `attachment_status` | `varchar(30)` | `required` | Pilihan: `Terlampir` / `Tidak Terlampir` |
+| **File Bukti Lampiran** | `attachment_url` | `varchar(255)` | `nullable` | Tautan scan/foto bukti urusan di Google Drive |
+| **Status Approval** | `status` | `varchar(50)` | `default:APPROVED` | Status persetujuan: Disetujui Leader / HCM |
+
+---
+
+### G. Modul 7: Rekap Lembur Mingguan (`hcm_overtimes` & `batches`)
 
 #### 1. Rincian Lembur Harian Karyawan (`hcm_overtimes`)
 | Label Kolom UI | Nama Kolom DB | Tipe Data | Validasi / Aturan | Keterangan & Kontrol UI |
@@ -355,7 +478,7 @@ Pencatatan gaji/honor, siklus peninjauan berkala, dan rekam jejak kenaikan upah.
 
 ---
 
-### G. Modul 7: Rekapitulasi Uang Makan Bulanan (`hcm_meal_allowance_batches` & `items`)
+### H. Modul 8: Rekapitulasi Uang Makan Bulanan (`hcm_meal_allowance_batches` & `items`)
 - **Periode Hitung**: Tanggal 1 s.d. akhir bulan berjalan. Pencairan dilaksanakan pada akhir bulan.
 - **Rincian Per Karyawan (`hcm_meal_allowance_items`)**:
   - `employee_id`, `actual_present_days`, `half_days_count`, `alpha_days_count`, `late_count`.
@@ -368,7 +491,78 @@ Pencatatan gaji/honor, siklus peninjauan berkala, dan rekam jejak kenaikan upah.
 
 ---
 
-### H. Modul 8: Arsip Dokumen Internal Perusahaan (`hcm_internal_documents`)
+### I. Modul 9: Penyesuaian & Pemotongan Gaji Bulanan (`hcm_salary_deductions`)
+*Modul Baru Faktual dari Blueprint Excel 2 (Sheet Business Rules Bagian 5)*:
+Mencatat pemotongan gaji bulanan (Pelanggaran, Kelebihan Cuti, Cuti Khusus Berjenjang) yang diinput oleh HCM dan otomatis terpotong saat Tim Keuangan mencairkan gaji.
+
+| Label Kolom UI | Nama Kolom DB | Tipe Data | Validasi / Aturan | Keterangan & Kontrol UI |
+| :--- | :--- | :--- | :--- | :--- |
+| **Karyawan** | `employee_id` | `foreignId` | `required, exists:hcm_employees,id` | Karyawan yang terkena penyesuaian |
+| **Bulan Gaji Berlaku** | `effective_payroll_month`| `varchar(7)` | `required` | Format: `YYYY-MM` (Target bulan pencairan gaji) |
+| **Kategori Pemotongan** | `deduction_category` | `varchar(100)` | `required` | Pilihan: `Pelanggaran`, `Kelebihan Pengambilan Cuti`, `Cuti Khusus Berjenjang` |
+| **Tipe Perhitungan** | `calculation_type` | `enum` | `required, in:fixed,percent` | Potongan nominal rupiah tetap atau persentase gaji |
+| **Persentase Potongan (%)**| `percentage_rate` | `decimal(5,2)` | `nullable` | Misal 25.00% (Cuti melahirkan bln 1), 50.00% (bln 2) |
+| **Nominal Potongan (Rp)** | `deduction_amount` | `decimal(15,2)` | `required, min:0` | Total nominal rupiah pemotongan |
+| **Catatan / Keterangan** | `notes` | `text` | `required` | e.g. *"Potongan cuti melahirkan bulan ke-2 sebesar 50%"* |
+| **Gaji Pokok Sebelum Potong**| `base_salary_snapshot`| `decimal(15,2)`| `required` | Snapshot gaji pokok aktif bulan berjalan |
+| **Gaji Bersih (Take-Home)**| `net_salary_snapshot` | `decimal(15,2)` | `auto-calculated` | `base_salary_snapshot - deduction_amount` |
+| **Status Pemrosesan** | `status` | `varchar(50)` | `default:SUBMITTED` | `SUBMITTED` (HCM) $\rightarrow$ `APPLIED_IN_PAYROLL` (Finance) |
+
+---
+
+### J. Modul 10: Master Rekapitulasi Payroll Bulanan & Slip Gaji Terpadu (`hcm_payrolls` & `items`)
+*Modul Penggajian Komprehensif Sesuai Business Rules Blueprint 2*:
+Mengintegrasikan seluruh komponen penggajian (Gaji Pokok, Tunjangan Uang Makan, Upah Lembur, Penyesuaian Kenaikan, dan Pemotongan Gaji) ke dalam satu batch periode terpadu dengan **Pengelompokan Bertingkat Departemen $\rightarrow$ Divisi**.
+
+#### 1. Header Batch Penggajian Bulanan (`hcm_payrolls`)
+| Label Kolom UI | Nama Kolom DB | Tipe Data | Validasi / Aturan | Keterangan & Kontrol UI |
+| :--- | :--- | :--- | :--- | :--- |
+| **Kode Periode Payroll** | `period_code` | `varchar(50)` | `required, unique` | e.g. `PAY-2026-11` (Batch Pencairan November 2026) |
+| **Bulan Kinerja (Work Period)**| `work_period_month`| `varchar(7)` | `required` | Format: `YYYY-MM` (e.g. `2026-10` untuk Kinerja Oktober) |
+| **Bulan Pencairan (Payout)** | `payout_period_month`| `varchar(7)` | `required` | Format: `YYYY-MM` (e.g. `2026-11` untuk Pencairan November) |
+| **Tanggal Pencairan / Transfer**| `payout_date` | `date` | `required, date` | Tanggal eksekusi transfer dana ke karyawan |
+| **Total Headcount** | `total_employees` | `integer` | `required, min:1` | Jumlah karyawan yang masuk dalam payroll batch |
+| **Total Gaji Pokok (Rp)** | `total_base_salary`| `decimal(15,2)` | `required` | Akumulasi honor/gaji pokok seluruh karyawan |
+| **Total Uang Makan (Rp)**| `total_meal_allowance`| `decimal(15,2)`| `required` | Akumulasi uang makan yang lolos syarat absensi |
+| **Total Lembur (Rp)** | `total_overtime_pay`| `decimal(15,2)` | `required` | Akumulasi upah lembur dari cut-off mingguan |
+| **Total Penyesuaian (Rp)**| `total_adjustments`| `decimal(15,2)` | `default:0` | Akumulasi kenaikan honor/penyesuaian disetujui |
+| **Total Potongan Gaji (Rp)**| `total_deductions`| `decimal(15,2)` | `required` | Akumulasi potongan pelanggaran, cuti & khusus |
+| **Grand Total Take-Home Pay**| `total_net_payout` | `decimal(15,2)` | `required` | Total kas bersih yang dikeluarkan perusahaan |
+| **Status Approval Batch** | `status` | `varchar(50)` | `default:DRAFT_HCM` | `DRAFT_HCM` $\rightarrow$ `APPROVED_BY_HCM` $\rightarrow$ `APPROVED_BY_FINANCE` $\rightarrow$ `PAID_COMPLETED` |
+| **Disahkan Oleh HCM** | `hcm_signed_by` | `foreignId` | `nullable, exists:users,id` | User Admin HCM yang memvalidasi draf |
+| **Waktu Tanda Tangan HCM** | `hcm_signed_at` | `timestamp` | `nullable` | Timestamp otorisasi [Approve & Sign HCM] |
+| **Disahkan Oleh Keuangan**| `finance_signed_by`| `foreignId` | `nullable, exists:users,id` | User Admin Keuangan yang memproses pencairan |
+| **Waktu Tanda Tangan Fin** | `finance_signed_at`| `timestamp` | `nullable` | Timestamp otorisasi [Sign & Paid] Keuangan |
+| **Metode Pembayaran** | `payment_method` | `varchar(50)` | `default:Bank Transfer BRI`| Pilihan: Transfer Bank BRI, Tunai / Kas Kecil |
+| **Bukti Transfer / Dokumen**| `payment_proof_url`| `varchar(255)`| `nullable, url` | Tautan bukti rekap transfer bank di Google Drive |
+
+#### 2. Detail Rincian Gaji per Karyawan (`hcm_payroll_items`)
+| Label Kolom UI | Nama Kolom DB | Tipe Data | Validasi / Aturan | Keterangan & Kontrol UI |
+| :--- | :--- | :--- | :--- | :--- |
+| **Relasi Batch Payroll** | `payroll_id` | `foreignId` | `required, exists:hcm_payrolls,id` | Referensi batch penggajian |
+| **Karyawan** | `employee_id` | `foreignId` | `required, exists:hcm_employees,id` | Karyawan penerima gaji |
+| **Departemen** | `department` | `varchar(100)` | `required` | Nama & Kode Departemen Resmi (e.g. `[PRD] Produksi`) |
+| **Divisi** | `division` | `varchar(100)` | `required` | Unit divisi kerja (e.g. `Divisi Jahit`) |
+| **Posisi / Jabatan** | `position` | `varchar(100)` | `required` | Jabatan riil karyawan saat periode kinerja |
+| **Level Jabatan** | `job_level` | `varchar(50)` | `required` | Jenjang jabatan karyawan |
+| **Nama Bank & Rekening** | `bank_account_no` | `varchar(50)` | `nullable` | Nomor Rekening Bank BRI untuk transfer massal |
+| **Gaji Pokok / Honor (Rp)**| `base_salary` | `decimal(15,2)` | `required, min:0` | Gaji pokok aktif bulan kinerja berjalan |
+| **Uang Makan Bersih (Rp)** | `meal_allowance` | `decimal(15,2)` | `default:0` | Hasil audit absensi bulan berjalan (+ hold bulan lalu jika ada) |
+| **Upah Lembur Riil (Rp)** | `overtime_pay` | `decimal(15,2)` | `default:0` | Akumulasi total upah lembur batch mingguan |
+| **Penyesuaian Kenaikan (Rp)**| `increment_adjustment`| `decimal(15,2)`| `default:0` | Kenaikan gaji hasil evaluasi kinerja efektif |
+| **Catatan Penyesuaian** | `adjustment_notes` | `text` | `nullable` | e.g. *"Penyesuaian kenaikan evaluasi kinerja bln Oktober"* |
+| **Potongan Pelanggaran (Rp)**| `penalty_deduction`| `decimal(15,2)` | `default:0` | Potongan pelanggaran disiplin/SOP |
+| **Potongan Cuti (Rp)** | `leave_deduction` | `decimal(15,2)` | `default:0` | Potongan kelebihan hak cuti tahunan |
+| **Potongan Berjenjang (Rp)**| `tiered_deduction` | `decimal(15,2)` | `default:0` | Potongan cuti khusus berjenjang (e.g. Melahirkan 25%/50%) |
+| **Total Penghasilan (Gross)**| `total_earnings` | `decimal(15,2)` | `auto-calculated` | `base_salary + meal_allowance + overtime_pay + increment_adjustment` |
+| **Total Potongan (Rp)** | `total_deductions` | `decimal(15,2)` | `auto-calculated` | `penalty_deduction + leave_deduction + tiered_deduction` |
+| **Gaji Bersih (Take-Home)**| `net_salary` | `decimal(15,2)` | `auto-calculated` | `total_earnings - total_deductions` |
+| **Token Slip Gaji Unik** | `slip_token` | `varchar(64)` | `required, unique` | Hash token unik aman untuk unduh/lihat slip digital |
+| **Status Pembayaran** | `is_paid` | `boolean` | `default:false` | True saat Keuangan telah menyelesaikan pembayaran |
+
+---
+
+### K. Modul 11: Arsip Dokumen Internal Perusahaan (`hcm_internal_documents`)
 Mencakup dokumen Pengajuan (RAB, Proposal) dan Realisasi (LPJ, Pembelian Aset).
 
 | Label Kolom UI | Nama Kolom DB | Tipe Data | Validasi / Aturan | Keterangan & Kontrol UI |
@@ -387,7 +581,7 @@ Mencakup dokumen Pengajuan (RAB, Proposal) dan Realisasi (LPJ, Pembelian Aset).
 
 ---
 
-### I. Modul 9: Arsip Korespondensi Eksternal (`hcm_external_letters`)
+### K. Modul 11: Arsip Korespondensi Eksternal (`hcm_external_letters`)
 Mencatat surat-menyurat dengan instansi eksternal (BPJS-TK, Disnaker, Bank, Mitra).
 
 | Label Kolom UI | Nama Kolom DB | Tipe Data | Validasi / Aturan | Keterangan & Kontrol UI |
@@ -403,7 +597,7 @@ Mencatat surat-menyurat dengan instansi eksternal (BPJS-TK, Disnaker, Bank, Mitr
 
 ---
 
-### J. Modul 10: Buku Agenda Penomoran Surat Masuk & Keluar (`hcm_agenda_letters`)
+### L. Modul 12: Buku Agenda Penomoran Surat Masuk & Keluar (`hcm_agenda_letters`)
 Buku registrasi penomoran surat resmi perusahaan agar tidak terjadi nomor surat ganda.
 
 | Label Kolom UI | Nama Kolom DB | Tipe Data | Validasi / Aturan | Keterangan & Kontrol UI |
@@ -420,7 +614,7 @@ Buku registrasi penomoran surat resmi perusahaan agar tidak terjadi nomor surat 
 
 ---
 
-### K. Modul 11: Rekrutmen Pipeline, Loker & Public Career Form (`hcm_job_postings`, `applicants`, `interviews`)
+### M. Modul 13: Rekrutmen Pipeline, Loker & Public Career Form (`hcm_job_postings`, `applicants`, `interviews`)
 
 Modul ini mengelola seluruh rantai pasok talenta dari publikasi lowongan kerja, pendaftaran mandiri oleh pelamar via tautan publik, screening, wawancara, hingga konversi otomatis menjadi karyawan baru.
 
@@ -510,7 +704,7 @@ Setiap data pelamar yang masuk dari formulir online otomatis tercatat di tabel p
 
 ---
 
-### L. Modul 12: Status & Transisi Kepegawaian (Onboarding & Offboarding)
+### N. Modul 14: Status & Transisi Kepegawaian (Onboarding & Offboarding)
 
 #### 1. Rekap Onboarding Karyawan Baru (`hcm_onboardings`)
 - `employee_id`, `position`, `join_date`, `status_checklist` (Kelengkapan berkas KTP, BPJS, TTD Kontrak, Seragam), `approved_date`, `department`.
@@ -530,8 +724,8 @@ Setiap data pelamar yang masuk dari formulir online otomatis tercatat di tabel p
 
 ---
 
-### M. Modul 13: Rekapitulasi Penyaluran Reward & Penghargaan (`hcm_employee_rewards`)
-*Modul Baru Faktual dari Blueprint Excel (Sheet Database Baris 84–87 & DropDown Kolom V)*:
+### O. Modul 15: Rekapitulasi Penyaluran Reward & Penghargaan (`hcm_employee_rewards`)
+*Modul Faktual dari Blueprint Excel (Sheet Database & DropDown Kolom W)*:
 Pencatatan apresiasi, bonus non-gaji, dan barang reward (seperti tiket liburan, mesin cuci, piagam prestasi) untuk karyawan berprestasi.
 
 | Label Kolom UI | Nama Kolom DB | Tipe Data | Validasi / Aturan | Keterangan & Kontrol UI |
@@ -548,7 +742,7 @@ Pencatatan apresiasi, bonus non-gaji, dan barang reward (seperti tiket liburan, 
 
 ---
 
-### N. Modul 14: Company Events & Social Calendar (`hcm_company_events`)
+### P. Modul 16: Company Events & Social Calendar (`hcm_company_events`)
 Menampung agenda internal kantor, undangan sosial dari karyawan, dan hari libur nasional tahunan.
 
 | Label Kolom UI | Nama Kolom DB | Tipe Data | Validasi / Aturan | Keterangan & Kontrol UI |
@@ -615,9 +809,123 @@ Berdasarkan lembar kerja **`Business Rules`** pada Blueprint Excel, sistem HRIS 
 
 ---
 
+### C. Logika Alur & Sistem Reminder Kontrak Karyawan (Sheet Business Rules Bagian 3)
+Untuk mendukung pengelolaan siklus kontrak kerja PKWT dan evaluasi berkala secara otomatis:
+
+1. **Skenario A: Evaluasi Berkala & Keputusan Kenaikan Gaji**:
+   - **Siklus Berkala Default**: Kontrak 2 tahun (24 bulan) dengan siklus evaluasi setiap 6 bulan.
+   - **Bulan ke-6**: Sistem otomatis memunculkan reminder di dashboard HCM bahwa karyawan memasuki periode evaluasi pertama.
+   - **Tindakan HCM / Manajemen**: Mengisi formulir evaluasi dan memilih status keputusan:
+     - `Sedang Diajukan`
+     - `Sudah Disetujui / ACC` $\rightarrow$ Gaji diperbarui, tercatat ke riwayat kenaikan gaji ke-1, dan sistem otomatis menjadwalkan reminder evaluasi berikutnya pada bulan ke-12.
+     - `Ditunda` $\rightarrow$ Gaji tetap, sistem dapat menjadwalkan reminder ulang atau melanjutkan siklus reguler ke bulan ke-12 dengan catatan evaluasi sebelumnya.
+     - `Tidak Naik` $\rightarrow$ Gaji tetap, tercatat dalam evaluasi kinerja.
+   - **Custom Milestone Date**: Jika evaluasi dilakukan pada bulan ke-6 lalu diputuskan kenaikan berikutnya menyusul dalam 3 bulan (bulan ke-9), sistem wajib mengakomodasi *custom milestone date* tanpa merusak master reminder utama di bulan ke-12.
+
+2. **Skenario C: Reminder Masa Berakhir Kontrak (Contract Expiry)**:
+   - Sistem wajib mendeteksi **H-30** atau **H-14** sebelum `Tanggal Berakhir Kontrak` (`end_date`) untuk memicu alert ke HCM apakah kontrak akan diperpanjang (PKWT lanjutan), diangkat menjadi karyawan tetap (PKWTT), atau dihentikan (offboarding).
+
+---
+
+### D. Logika Masa Kerja Kumulatif, Perbaruan Kontrak & Pengelompokan (Grouping)
+
+1. **Pemisahan 2 Parameter Tanggal Kunci**:
+   - **`Tanggal Mulai Kontrak Aktif (Current Contract Start Date)`**: Melacak masa berlaku naskah kontrak kerja yang sedang berjalan saat ini (misal: kontrak ke-2 dimulai 01 Januari 2026).
+   - **`Tanggal Bergabung Pertama (Original Join Date / First Contract Start Date)`**: **Kunci Utama Permanen** (*immutable*). Tanggal ini tidak berubah meskipun karyawan sudah memperpanjang kontrak berkali-kali.
+
+2. **Rumus Kalkulasi Masa Kerja Berjalan**:
+   - Sistem menghitung selisih waktu (tahun dan bulan) antara `Original Join Date` hingga Tanggal Hari Ini.
+   - *Contoh*: Masuk pertama 10 Januari 2024. Pada Januari 2026 masuk kontrak ke-2. Pada Oktober 2026 masa kerja dihitung dari 10 Januari 2024 = 2 Tahun 9 Bulan (Masuk Kategori Kelompok Tahun ke-2).
+
+3. **Bucket Pengelompokan Durasi Masa Kerja (Grouping Buckets)**:
+   - **Kelompok 1 Tahun**: Karyawan dengan masa kerja kumulatif 12 s.d. 23 bulan.
+   - **Kelompok 2 Tahun**: Karyawan dengan masa kerja kumulatif 24 s.d. 35 bulan.
+   - **Kelompok 3 Tahun / Seterusnya**: Karyawan dengan masa kerja kumulatif $\ge 36$ bulan.
+   - *Fungsi*: Memudahkan HCM dan Manajemen menyaring data karyawan yang telah loyal bertahan untuk evaluasi jangka panjang, bonus loyalitas, atau pertimbangan pengangkatan tetap (PKWTT).
+
+4. **Alur Kerja Pembaruan Kontrak (Contract Renewal Workflow)**:
+   - Ketika kontrak akan habis dan disetujui untuk diperpanjang:
+     1. HCM membuka menu *Contract Renewal*, menginput nomor kontrak baru dan masa durasi baru.
+     2. Sistem otomatis mengarsipkan kontrak lama ke riwayat historis kontrak karyawan (`hcm_contracts` archive).
+     3. Sistem memperbarui nomor dokumen kontrak aktif dan tanggal berakhir baru.
+     4. **Sistem TETAP MEMPERTAHANKAN `Original Join Date`** agar kalkulasi masa kerja kumulatif dan histori kenaikan gaji tidak terhapus.
+
+---
+
+### E. Payroll & Kenaikan Gaji Berbasis Siklus Kontrak (Sheet Business Rules Bagian 4)
+
+1. **Alur Evaluasi Kenaikan Gaji & Sistem Reminder**:
+   - **Pemicu Otomatis (Trigger by Contract)**: Jadwal evaluasi dibaca otomatis dari data kontrak.
+   - **Notifikasi/Reminder ke HCM**: Dikirim ke dashboard HCM pada bulan evaluasi berjalan.
+   - **Pemisahan Tanggal**: `Tanggal Evaluasi` dipisahkan secara tegas dari `Tanggal Efektif Kenaikan (Effective Date)`. Misal evaluasi bulan ke-6, namun disepakati kenaikan baru berlaku efektif 1 bulan atau 3 bulan ke depan.
+
+2. **Rekapitulasi Historis Kenaikan Gaji (Salary Increment Tracker)**:
+   - Mencatat: Masa Kerja Kontrak Ke-, Riwayat Nominal Kenaikan Sebelumnya (+Rp 300.000, +Rp 500.000, dll.), Gaji Pokok Saat Ini, Rencana Kenaikan Berikutnya (*Planned Increment* untuk proyeksi keuangan owner), dan Status Pengajuan Honor.
+
+3. **Logika Efektif Gaji & Siklus Payroll (Aturan Mundur Bulan)**:
+   - **Prinsip Dasar**: Gaji bulan berjalan dibayarkan/diterima di bulan berikutnya (Gaji bulan Oktober dibayarkan bulan November).
+   - **Pemisahan Periode**:
+     - *Bulan Kinerja (Work Period)*: Bulan di mana karyawan bertugas (contoh: Kinerja Oktober).
+     - *Bulan Pembayaran (Payout Period)*: Bulan di mana gaji dicairkan/ditransfer (contoh: Cair November).
+   - **Aturan Saat ACC Kenaikan Gaji**:
+     - Jika HCM menyetujui kenaikan dengan *Effective Date* bulan Oktober:
+       - *Gaji Periode Oktober*: Tetap menggunakan nominal lama (tidak mengubah pembukuan yang sudah lewat).
+       - *Pencairan Bulan November*: Sistem memasukkan nominal baru dan mencantumkan catatan/label penyesuaian (*adjustment note*) bahwa kenaikan bersumber dari evaluasi Oktober.
+
+---
+
+### F. Payroll & Pemotongan Gaji Bulanan (Sheet Business Rules Bagian 5)
+
+1. **Jenis-Jenis Kategori Pemotongan Gaji (Deduction Categories)**:
+   - **Pelanggaran (Disciplinary Penalty)**: Pemotongan nominal rupiah tetap atau persentase akibat pelanggaran SOP atau aturan kedisiplinan.
+   - **Kelebihan Pengambilan Cuti (Leave Exceed / Unpaid Leave)**: Pemotongan otomatis atau manual ketika karyawan mengambil cuti melampaui kuota jatah cuti resmi.
+   - **Cuti Khusus Berjenjang (Maternity Leave / Tiered Deduction)**: Pemotongan bertahap sesuai kebijakan perusahaan (misal: bulan ke-1 masa cuti melahirkan dipotong 25%, bulan ke-2 dipotong 50%, dsb.).
+
+2. **Alur Kerja (Workflow): HCM Input, Keuangan Eksekusi**:
+   - **Langkah 1 (Input HCM)**:
+     - HCM membuka menu *Monthly Salary Adjustment*.
+     - Memilih nama karyawan, kategori pemotongan, nominal (Rp) atau persentase (%), menentukan *Effective Payroll Month* (misal `2026-11`), dan mengisi catatan/alasan.
+   - **Langkah 2 (Sinkronisasi ke Dashboard Keuangan)**:
+     - Tim Keuangan melihat rekapitulasi data potongan yang telah divalidasi HCM.
+     - Sistem otomatis menghitung `Net Salary (Take-Home Pay) = Gaji Pokok/Honor Saat Ini - Total Potongan Bulan Tersebut`.
+   - **Langkah 3 (Pembayaran & Rekapitulasi)**:
+     - Tim Keuangan mengeksekusi pencairan sesuai take-home pay dengan rincian potongan transparan pada slip gaji karyawan.
+   - **Transparansi & Audit Trail**:
+     - Seluruh riwayat pemotongan per karyawan terekam dalam database untuk audit manajemen/owner dan pertimbangan evaluasi kinerja berkala.
+
+---
+
+### G. Rekapitulasi Payroll Terpadu & Multi-Level Grouping (Departemen $\rightarrow$ Divisi)
+
+Untuk memastikan akurasi dan transparansi keuangan operasional, sistem penggajian bulanan NIS Group menggabungkan seluruh komponen keuangan ke dalam satu kesatuan sistem terpadu (*Unified Payroll Engine*):
+
+1. **Penyatuan 4 Pilar Komponen Penggajian**:
+   - **Gaji Pokok / Honor Aktif**: Ditarik dari `hcm_compensations.current_salary`.
+   - **Tunjangan Uang Makan Bulanan**: Ditarik otomatis dari rekapitulasi `hcm_meal_allowance_batches` bulan berjalan (setelah memperhitungkan potongan kehadiran dan aturan penahanan/hold jika terlambat $\ge 4\times$).
+   - **Upah Lembur Riil**: Ditarik otomatis dari akumulasi batch lembur mingguan (`hcm_overtime_batches`) dalam cut-off bulan kinerja.
+   - **Penyesuaian Kenaikan Gaji**: Ditarik dari evaluasi berkala yang telah di-ACC dengan *Effective Date* bulan berjalan.
+   - **Pemotongan Gaji Bulanan**: Ditarik dari `hcm_salary_deductions` (Pelanggaran Disiplin, Kelebihan Cuti, dan Cuti Khusus Berjenjang seperti Melahirkan 25%/50%).
+
+2. **Formula Baku Net Salary (Take-Home Pay)**:
+   $$\text{Total Penghasilan (Gross)} = \text{Gaji Pokok} + \text{Uang Makan} + \text{Upah Lembur} + \text{Penyesuaian Kenaikan}$$
+   $$\text{Total Pemotongan} = \text{Potongan Pelanggaran} + \text{Potongan Cuti} + \text{Potongan Berjenjang}$$
+   $$\mathbf{Net\ Salary\ (Take-Home\ Pay)} = \text{Total Penghasilan (Gross)} - \text{Total Pemotongan}$$
+
+3. **Multi-Level Grouping Penggajian (Departemen $\rightarrow$ Divisi)**:
+   Seluruh dashboard penggajian dan dokumen laporan keuangan menyajikan ringkasan bertingkat:
+   - **Level 1 (Departemen Induk)**: Menampilkan subtotal headcount dan total belanja gaji per departemen dengan kode resmi (`[FIN]`, `[HCM]`, `[BRM]`, `[SCP]`, `[PRD]`, `[MIN]`, `[MEX]`).
+   - **Level 2 (Divisi Kerja)**: Menampilkan rincian subtotal per divisi operasional (contoh: dalam Departemen Produksi terdapat Subtotal Divisi Jahit, Divisi Setting Printing, Divisi Sablon, Divisi Finishing).
+   - **Level 3 (Karyawan & Posisi)**: Rincian data individual per karyawan beserta rincian slip, nomor rekening Bank BRI, dan status pembayaran.
+
+4. **Slip Gaji Digital Transparan (PDF)**:
+   - Dihasilkan otomatis saat status payroll mencapai `PAID_COMPLETED`.
+   - Menampilkan rincian pendapatan, rincian potongan itemized, catatan evaluasi/alasan potongan, subtotal departemen-divisi, dan QR verification hash.
+
+---
+
 ## 5. Matriks Alur Kerja & Validasi Operasional (Workflow Matrix)
 
-Berdasarkan lembar kerja **`Alur & Validasi`** pada Blueprint Excel, berikut adalah 3 alur operasional utama:
+Berdasarkan lembar kerja **`Alur & Validasi`** dan **`Business Rules`** pada Blueprint Excel, berikut adalah 4 alur operasional utama:
 
 ### Tabel Matriks Workflow Blueprint:
 
@@ -634,6 +942,10 @@ Berdasarkan lembar kerja **`Alur & Validasi`** pada Blueprint Excel, berikut ada
 | | **2. HCM Approval** | HCM Admin / Manager | Audit rekap hari hadir & Klik tombol `[Approve & Sign HCM]` | `APPROVED_BY_HCM` | Data total hari kerja dan nominal terkunci untuk HCM. Tidak bisa diedit lagi. | Diteruskan ke antrean Tim Keuangan. |
 | | **3. Payout Execution** | Tim Keuangan | Cek nominal hasil kalkulasi & proses pembayaran akhir bulan | `PENDING_FINANCE_SIGN` | Keuangan mengeksekusi pencairan bersamaan payroll / kas tunai. | Siap di-sign oleh Tim Keuangan. |
 | | **4. Finance Sign-Off** | Tim Keuangan | Klik tombol `[Sign & Paid]` | `PAID_COMPLETED` | Sistem terkunci total (Read-Only). Menutup buku uang makan bulan berjalan secara resmi. | Arsip digital & pembukuan kas selesai. |
+| **Alur 4: Siklus Payroll Bulanan Terpadu (Single Gateway)** | **1. Draf & Aggregation** | HCM Admin | Susun draf payroll periode kinerja, tarik lembur, uang makan & input potongan gaji | `DRAFT_HCM` | Sistem memvalidasi kelengkapan data potongan & status evaluasi kenaikan upah. | Tampil preview draf rekap gaji per departemen & divisi. |
+| | **2. HCM Sign-Off** | HCM Manager | Review rekapitulasi & Klik tombol `[Approve & Sign Payroll HCM]` | `APPROVED_BY_HCM` | Draf payroll terkunci untuk HCM (Read-Only). Notifikasi otomatis meluncur ke Keuangan. | Masuk antrean Dashboard Keuangan & Payroll. |
+| | **3. Finance Audit & Verification**| Tim Keuangan | Review subtotal per Departemen & Divisi, cek rekening Bank BRI | `PENDING_FINANCE_SIGN` | Tim Keuangan mencocokkan total take-home pay dengan saldo bank perusahaan. | Menyiapkan batch transfer massal Bank BRI. |
+| | **4. Finance Payout & Sign-Off** | Tim Keuangan | Eksekusi transfer & Klik tombol `[Sign & Mark as Paid]` | `PAID_COMPLETED` | Seluruh data payroll terkunci permanen. Slip Gaji Digital otomatis aktif untuk seluruh karyawan. | Rekapitulasi final tersimpan ke laporan Owner & audit trail. |
 
 ---
 
@@ -751,77 +1063,73 @@ Untuk menjamin kapasitas disk hosting lokal tetap ringan (*0 MB Local Storage Wa
 
 ---
 
-## 8. Roadmap Pelaksanaan Bertahap (Execution Plan)
+## 8. Roadmap Pelaksanaan Bertahap (Execution Plan Ideal Berbasis Perubahan Blueprint 2)
 
-### Tahap 1: Pondasi Database, Master Data HCM, RBAC & Profil 360° (Minggu 1)
-- [ ] Buat file migrasi database:
-  - `hcm_master_categories` & `hcm_master_options` (Manajemen mandiri 22 kategori Master Data HCM untuk dropdown dinamis).
-  - `hcm_employees` & `hcm_interns` (Master Karyawan Umum & Siswa Magang SMK).
-  - `hcm_contracts` (Kontrak PKWT, hitungan sisa hari, review status).
-  - `hcm_compensations` & `hcm_compensation_histories` (Gaji & siklus evaluasi 4/6 bulan).
-  - `hcm_employee_rewards` (Pencatatan reward barang/tiket & status penyaluran).
-- [ ] Buat Seeder Faktual Blueprint:
-  - Seed seluruh 22 kategori Master Data HCM beserta seluruh opsi bawaan dari lembar kerja *DropDown*.
-  - Seed master karyawan faktual dari lembar kerja *Database*: Bambang Sadewo (Managerial/Tetap), Puji Astuti (Kontrak/PKWT Lanjutan), Danang (Borongan/PKWT), dan siswa magang SMK 2 Lamongan.
-- [ ] Konfigurasi Spatie Role & Permission (tambahkan role `admin_hcm` & `staff_hcm`, integrasikan 16 permissions `hcm.*`, berikan `finance.sign-paid` ke `admin_keuangan`, serta daftarkan `admin_hcm` ke `hasAccessToBrand` di `User.php`).
-- [ ] Integrasikan Section Menu **"👥 KEPEGAWAIAN"** di `SidebarContent.jsx`.
-- [ ] Bangun Halaman **Master Data dengan Tab Menu Vertikal** (`resources/js/Pages/Hcm/MasterData/Index.jsx`).
-- [ ] Bangun Antarmuka Master Karyawan & Profil 360° Berbasis 6 Tab (`resources/js/Pages/Hcm/Employees/Show.jsx`).
+Rencana aksi pelaksanaan disusun secara sistematis agar penambahan hierarki Departemen-Divisi dan modul Payroll terpadu terimplementasi secara kokoh tanpa mengganggu fungsi sistem yang sedang berjalan:
 
-### Tahap 2: Absensi Harian, Bulk Matrix & Kalkulasi Lembur Mingguan (Minggu 2)
-- [ ] Buat migrasi `hcm_attendances`, `hcm_leave_requests`, `hcm_overtimes`, `hcm_overtime_batches`.
-- [ ] Bangun antarmuka **Bulk Daily Attendance Matrix Editor** (Quick Logger H/T/I/S/A, set semua hadir, upload bukti sakit).
-- [ ] Bangun modul Pengajuan & Persetujuan Cuti/Izin/Sakit dengan validasi alasan penolakan.
-- [ ] Implementasikan Backend Engine Kalkulasi Lembur:
-  - Aturan Rp 10.000 (weekday) vs Rp 15.000 (weekend).
-  - Aturan 30 menit pertama (Rp 5.000 / Rp 10.000).
-  - Cut-off mingguan: Sabtu 00:00 s.d. Jumat 23:59.
-- [ ] Bangun antarmuka **Bulk Overtime Dispatcher** (Input lembur regu kerja massal).
-- [ ] Implementasikan tombol `[Approve & Sign HCM]` untuk mengunci batch lembur mingguan ke status `APPROVED_BY_HCM`.
+### Fase 1: Struktur Organisasi Berjenjang & Master Data Sinkron
+- [ ] **Migrasi Kolom Organisasi & Integritas Masa Kerja**:
+  - Tambahkan kolom `division` (varchar 100, nullable) pada tabel `hcm_employees`.
+  - Tambahkan kolom `original_join_date` (date) pada tabel `hcm_employees` sebagai *immutable anchor* masa kerja kumulatif.
+- [ ] **Sinkronisasi Kode Departemen Baku & Opsi Master Data**:
+  - Pastikan Kode Departemen Resmi NIS Group tetap menggunakan kode resmi: `FIN` (Finance & Accounting), `HCM` (Human Capital Management), `BRM` (Brand & Marketing), `SCP` (Support & Control Produksi), `PRD` (Produksi), `MIN` (Media Internal), `MEX` (Media Eksternal).
+  - Seed master data baru pada `HcmMasterDataSeeder.php`:
+    - `status_lampiran`: `Terlampir`, `Tidak Terlampir`.
+    - `kategori_potongan_gaji`: `Pelanggaran`, `Kelebihan Pengambilan Cuti`, `Cuti Khusus Berjenjang`.
+  - Perbarui relasi hierarkis Departemen $\rightarrow$ Divisi $\rightarrow$ Posisi pada formulir registrasi karyawan dan filter dashboard.
+- [ ] **Logika Pengelompokan Masa Kerja (Tenure Buckets)**:
+  - Buat helper/accessor di model `HcmEmployee` untuk menghitung masa kerja kumulatif dari `original_join_date`:
+    - **Kelompok 1 Tahun**: 12–23 bulan.
+    - **Kelompok 2 Tahun**: 24–35 bulan.
+    - **Kelompok 3 Tahun / Seterusnya**: $\ge 36$ bulan.
+  - Tambahkan filter tenure bucket pada daftar karyawan dan kontrak.
 
-### Tahap 3: Double Sign-Off Keuangan, Uang Makan, Events & Dashboard HCM (Minggu 3)
-- [ ] Bangun antarmuka Divisi Keuangan: Review antrean lembur mingguan & eksekusi tombol `[Sign & Paid]`.
-- [ ] Implementasikan Backend Engine Uang Makan Bulanan:
-  - Perhitungan standar Rp 70.000/minggu (Rp 280.000/bulan).
-  - Aturan pemotongan Alpha & Setengah Hari; Cuti/Dinas Luar tidak dipotong.
-  - Aturan toleransi keterlambatan 3x; Sanksi telat $\ge 4\times$ ditahan (*Hold*) ke bulan berikutnya.
-  - Aturan penandaan pembatalan bonus jika izin $> 2\times$ sebulan.
-- [ ] Buat migrasi `hcm_company_events` untuk agenda internal, undangan karyawan, dan libur tahunan.
-- [ ] Bangun **Dynamic Birthday & Work Anniversary Engine** (otomatis agregasi tanggal lahir dan masa kerja).
-- [ ] Bangun **Dashboard Interaktif HCM**:
-  - Blok Urgent & Action Needed (Probation H-7, Kontrak H-30, Pending Approvals).
-  - Blok Daily Schedule (Daftar Izin Hari Ini, Unexcused Absence Alert Merah).
-  - Blok Payroll Reminders (Lembur Sabtu, Cut-Off Bulanan H-3).
-  - Blok Events & Social Calendar (Kalender Interaktif, Ultah H-3, Work Anniversary).
-  - Penerapan konsisten 5 kode warna (Merah, Kuning, Biru, Hijau, Abu-abu).
+### Fase 2: Izin Keluar Kantor (Gate Pass) & Presensi
+- [ ] **Migrasi & Model Izin Keluar Kantor (`hcm_office_exit_permits`)**:
+  - Kolom: `employee_id`, `permit_date`, `position`, `exit_time`, `return_time`, `purpose`, `notes`, `attachment_status`, `attachment_url`, `status`.
+- [ ] **Controller & Komponen Antarmuka**:
+  - Buat controller `HcmOfficeExitPermitController` atau integrasikan ke `HcmAttendanceController`.
+  - Buat tab / modal *"Izin Keluar Kantor (Gate Pass)"* pada halaman `/hcm/attendance` dengan status lampiran (`Terlampir` / `Tidak Terlampir`).
 
-### Tahap 4: Arsip Dokumen, Persuratan, Google Drive & Rekrutmen Pipeline (Minggu 4)
-- [ ] Modul Arsip Dokumen Internal: Pengajuan RAB/Proposal dan Realisasi LPJ/Aset.
-- [ ] Modul Korespondensi Eksternal: Surat Masuk & Surat Keluar (BPJS, Disnaker, Bank).
-- [ ] Modul Buku Agenda Penomoran Surat Resmi (`AGD-YYYY-XXX`).
-- [ ] Integrasi Google Drive API & In-App PDF Modal Viewer (baca langsung tanpa download).
-- [ ] Modul Master Lowongan Kerja (Loker): Kuota, departemen, saluran rekrutmen, PIC HCM.
-- [ ] Pipeline Pelamar & Rekap Wawancara: Kanban pelamar, screening, catatan wawancara, offering response, dan Blacklist Engine.
-- [ ] Dashboard Laporan Performa Rekrutmen: *Fulfillment Rate*, *Funnel Conversion*, *Time-to-Hire*, dan ROI saluran.
-- [ ] Modul Transisi: Onboarding checklist dan Offboarding Clearance Sheet (termasuk status Paklaring).
-- [ ] Modul Penyaluran Reward & Penghargaan Karyawan.
+### Fase 3: Evaluasi Kontrak, Kenaikan Gaji & Pemotongan Gaji Bulanan (Deductions)
+- [ ] **Engine Evaluasi Berkala & Contract Renewal**:
+  - Form evaluasi berkala (siklus 6 bulan) dengan opsi keputusan: `Sedang Diajukan`, `Sudah Disetujui / ACC`, `Ditunda`, `Tidak Naik`.
+  - Dukungan *custom milestone date* (tunda 3 bulan) tanpa merusak pengingat utama.
+  - Workflow *Contract Renewal*: simpan kontrak lama ke arsip historis, perbarui masa berlaku baru, pertahankan `original_join_date`.
+- [ ] **Migrasi & Modul Pemotongan Gaji Bulanan (`hcm_salary_deductions`)**:
+  - Kolom: `employee_id`, `effective_payroll_month`, `deduction_category`, `calculation_type`, `percentage_rate`, `deduction_amount`, `notes`, `base_salary_snapshot`, `net_salary_snapshot`, `status`.
+  - Formulir input HCM (*Monthly Salary Adjustment*) dengan opsi pemotongan disiplin, kelebihan cuti, dan potongan berjenjang (Maternity: 25%, 50%).
 
-### Tahap 5: Cetak Dokumen PDF Resmi (Laravel-DomPDF), Audit & Uji Sistem (Minggu 5)
-- [ ] Integrasi `ActivityLog` untuk audit trail perubahan data krusial dan otorisasi finansial.
-- [ ] Implementasi Template PDF Resmi via `barryvdh/laravel-dompdf`:
-  - Cetak Buku Profil Karyawan Lengkap (*Employee Dossier PDF*)
-  - Cetak Slip Bukti Bayar Lembur Mingguan (*Payment Voucher PDF*)
-  - Cetak Rekapitulasi Presensi & Uang Makan Bulanan
-  - Cetak Surat Pengalaman Kerja Resmi (*Paklaring PDF*)
-- [ ] Fitur Ekspor Excel Rekapitulasi via `maatwebsite/excel`.
-- [ ] Pengujian menyeluruh (*Feature & Unit Testing* pada double sign-off, formula kalkulasi upah, dan proteksi role).
+### Fase 4: Engine Penggajian Terpadu & Multi-Level Grouping (Departemen $\rightarrow$ Divisi)
+- [ ] **Migrasi Tabel Payroll Terpadu**:
+  - Buat tabel `hcm_payrolls` (Batch Penggajian): `period_code`, `work_period_month`, `payout_period_month`, `payout_date`, `total_employees`, `total_base_salary`, `total_meal_allowance`, `total_overtime_pay`, `total_adjustments`, `total_deductions`, `total_net_payout`, `status`, `hcm_signed_by`, `hcm_signed_at`, `finance_signed_by`, `finance_signed_at`, `payment_method`, `payment_proof_url`.
+  - Buat tabel `hcm_payroll_items` (Rincian per Karyawan): `payroll_id`, `employee_id`, `department`, `division`, `position`, `job_level`, `bank_account_no`, `base_salary`, `meal_allowance`, `overtime_pay`, `increment_adjustment`, `penalty_deduction`, `leave_deduction`, `tiered_deduction`, `total_earnings`, `total_deductions`, `net_salary`, `slip_token`, `is_paid`.
+- [ ] **Backend Payroll Service & Logic Mundur Bulan**:
+  - Tarik data periode kinerja (contoh: Kinerja 1–31 Oktober) untuk dibayarkan pada periode pencairan (November).
+  - Agregasi otomatis: Gaji Pokok + Uang Makan (lolos audit absensi & hold rule $\ge 4\times$ telat) + Lembur Mingguan + Penyesuaian Kenaikan - Total Potongan Bulanan = Net Salary (Take-Home Pay).
+- [ ] **Antarmuka Rekapitulasi Penggajian Multi-Level Grouping (`/hcm/payroll`)**:
+  - Tampilan ringkasan berjenjang:
+    - **Header**: Total Anggaran Penggajian Perusahaan.
+    - **Level 1**: Card / Accordion subtotal per **Departemen** (`[FIN]`, `[HCM]`, `[BRM]`, `[SCP]`, `[PRD]`, `[MIN]`, `[MEX]`).
+    - **Level 2**: Sub-tabel subtotal per **Divisi** di bawah departemen terkait.
+    - **Level 3**: Rincian gaji per karyawan beserta rekening Bank BRI.
+  - Otorisasi Double Sign-Off: Tombol `[Approve & Sign Payroll HCM]` dan tombol `[Sign & Paid Keuangan]`.
+
+### Fase 5: Slip Gaji Digital Transparan (PDF) & Validasi Sistem
+- [ ] **Generator Slip Gaji Digital Transparan**:
+  - Template PDF profesional via `barryvdh/laravel-dompdf` menampilkan rincian pendapatan, potongan itemized, alasan pemotongan, nomor rekening Bank BRI, watermark status `PAID`, dan verifikasi digital.
+- [ ] **Ekspor Laporan Finansial**:
+  - Ekspor Excel rekapitulasi penggajian per Departemen & Divisi via `maatwebsite/excel`.
+  - Ekspor format transfer massal bank (*payroll disbursement batch*).
+- [ ] **Testing Menyeluruh (Unit & Feature Test)**:
+  - Uji kalkulasi take-home pay, aturan hold uang makan, formula lembur, potongan berjenjang cuti hamil, dan grouping Departemen-Divisi.
 
 ---
 
 ## 9. Standar Kualitas & Kriteria Selesai (Definition of Done)
 
-1. **Akurasi 100% Terhadap Blueprint**: Seluruh tabel, field, rumus perhitungan, opsi dropdown, dan alur validasi dari kelima sheet `Blueprint Website HCM NIS.xlsx` terimplementasi penuh tanpa ada halusinasi data.
-2. **Harmoni Sistem & Navigasi**: Modul HCM menyatu mulus di `SidebarContent.jsx` NISReport dan terikat dengan Spatie Permission serta tabel notifikasi existing.
-3. **Efisiensi Bulk Logger**: Input absensi 50+ karyawan dapat diselesaikan dalam hitungan detik melalui *Bulk Attendance Matrix Editor*.
-4. **Keamanan Finansial Terjamin**: Alur *Double Sign-Off* memastikan uang lembur dan uang makan terkunci permanen pasca persetujuan Tim Keuangan.
-5. **Transparansi Dokumen Tanpa Beban Hosting**: Seluruh berkas digital tersimpan aman di Google Drive dan dapat langsung dibaca di web melalui *In-App PDF Viewer*.
+1. **Akurasi 100% Terhadap Blueprint 2**: Seluruh tabel, field, rumus perhitungan, opsi dropdown, dan alur validasi dari keenam sheet `Blueprint Website HCM NIS 2.xlsx` (*Dashboard*, *Alur & Validasi*, *Business Rules*, *Database*, *DropDown*, dan *Struktur Fungsi Kerja*) terimplementasi penuh tanpa ada halusinasi data.
+2. **Harmoni Sistem & Navigasi**: Modul HCM menyatu mulus di navigasi `SidebarContent.jsx` NISReport, terikat dengan Spatie Permission granular, dan terintegrasi dengan kanal notifikasi (In-App, WhatsApp, Telegram, Email).
+3. **Integritas Masa Kerja & Kontrak**: Penggunaan `original_join_date` menjamin data loyalitas karyawan tidak ter-reset saat perpanjangan kontrak PKWT, dan sistem bucket durasi (1, 2, 3+ tahun) akurat.
+4. **Kejelasan Finansial (Payroll & Deductions)**: Pemisahan bulan kinerja dan bulan pencairan berjalan presisi; seluruh pemotongan kedisiplinan dan cuti yang diinput HCM tersinkronisasi mulus ke dashboard Keuangan dengan Take-Home Pay yang transparan.
+5. **Tertib Administrasi Jam Kerja**: Fitur *Izin Keluar Kantor (Gate Pass)* mengontrol mobilitas keluar-masuk karyawan pada jam kerja dengan validasi status lampiran.

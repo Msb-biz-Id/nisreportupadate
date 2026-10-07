@@ -162,6 +162,47 @@ class HcmMasterOption extends Model
             'asset_clearance' => $pick('pengembalian_aset_paklaring', 'asset_clearance'),
             'clearance_status' => $pick('status_clearance_sheet', 'clearance_status'),
             'banks' => ['Bank BRI', 'Bank Mandiri', 'Bank BCA', 'Bank BNI', 'BSI', 'Bank Jateng', 'Tunai / Kas'],
+            'departments_with_codes' => self::getDepartmentsWithCodes(),
         ];
+    }
+
+    /**
+     * Dapatkan daftar departemen/divisi beserta kode singkatannya (misal HCM, FIN, BRM, PRD).
+     *
+     * @return array<int, array{name: string, code: string}>
+     */
+    public static function getDepartmentsWithCodes(): array
+    {
+        return self::join('hcm_master_categories', 'hcm_master_options.category_id', '=', 'hcm_master_categories.id')
+            ->whereIn('hcm_master_categories.code', ['divisi', 'department', 'departments'])
+            ->where('hcm_master_options.is_active', true)
+            ->orderBy('hcm_master_options.order_index')
+            ->orderBy('hcm_master_options.name')
+            ->get(['hcm_master_options.name', 'hcm_master_options.code'])
+            ->map(function ($item) {
+                return [
+                    'name' => $item->name,
+                    'code' => strtoupper($item->code ?: \Illuminate\Support\Str::slug($item->name, '')),
+                ];
+            })
+            ->values()
+            ->toArray();
+    }
+
+    /**
+     * Dapatkan kode departemen berdasarkan nama departemen.
+     */
+    public static function getDepartmentCodeByName(?string $name): ?string
+    {
+        if (!$name) {
+            return null;
+        }
+
+        $option = self::join('hcm_master_categories', 'hcm_master_options.category_id', '=', 'hcm_master_categories.id')
+            ->whereIn('hcm_master_categories.code', ['divisi', 'department', 'departments'])
+            ->where('hcm_master_options.name', $name)
+            ->first(['hcm_master_options.code']);
+
+        return $option?->code ? strtoupper($option->code) : null;
     }
 }

@@ -1,7 +1,7 @@
 # Rencana Pengembangan Sistem Purchasing & Asset Management NISGroup
 ## Dokumen Blueprint Teknis, Arsitektur Data, dan Alur Kerja Operasional
 
-Dokumen ini merupakan perencanaan teknis, arsitektur data, logika bisnis, matriks persetujuan (*approval matrix*), dan skema implementasi komprehensif untuk modul **Purchasing & Asset Management** pada platform NISReport. Seluruh isi dokumen ini disusun dan diverifikasi secara mendalam berdasarkan dekonstruksi 100% dari berkas **`Blueprint Website Purchasing NIS.xlsx`** (mencakup 5 lembar kerja: *Dashboard*, *Database*, *DropDown*, *Alur & Validasi*, dan *Business Rules*).
+Dokumen ini merupakan perencanaan teknis, arsitektur data, logika bisnis, matriks persetujuan (*approval matrix*), dan skema implementasi komprehensif untuk modul **Purchasing & Asset Management** pada platform NISReport. Seluruh isi dokumen ini disusun, diverifikasi, dan disinkronkan secara mendalam berdasarkan dekonstruksi 100% dari berkas **`Blueprint Website Purchasing NIS.xlsx`** (mencakup 7 lembar kerja resmi: *Dashboard*, *Database*, *DropDown*, *Alur & Validasi*, *Business Rules*, *Kode Barang*, dan *Kontak Suplier*).
 
 ---
 
@@ -11,11 +11,13 @@ Tabel berikut menunjukkan keselarasan faktual antara dokumen Blueprint Excel res
 
 | No | Lembar Kerja Excel | Konten / Fitur pada Excel | Status Audit | Penanganan Teknis pada Sistem NISReport |
 | :--- | :--- | :--- | :---: | :--- |
-| **1** | **`Dashboard`** | • Widget *Urgent & Action Needed* (Tagihan TOP hari ini, Overdue, Pending Approvals, Stok kritis)<br>• Widget *Upcoming Schedules* (Garansi aset sisa 2 hari, software sisa 4 hari)<br>• Skema 5 Warna UX (*Red, Yellow/Amber, Blue, Green, Grey*) | **100% Cocok** | Diimplementasikan pada widget dashboard `/purchasing` menggunakan card-based alert system, reactive badge, sound chime, dan scheduled background job. |
+| **1** | **`Dashboard`** | • Widget *Urgent & Action Needed* (Tagihan TOP hari ini, Overdue, Pending Approvals, Stok kritis)<br>• Widget *Upcoming Schedules* (Garansi aset sisa 2 hari, software sisa 4 hari, minimum stock)<br>• Skema 5 Warna UX (*Red, Yellow/Amber, Blue, Green, Grey*) | **100% Cocok** | Diimplementasikan pada widget dashboard `/purchasing` menggunakan card-based alert system, reactive badge, sound chime, dan scheduled background job. |
 | **2** | **`Database`** | • Master Log Pembelian Operasional (19 Kolom)<br>• Master Log Inventaris Aset Tetap (22 Kolom)<br>• Master Log Sistem Termin / TOP (9 Kolom)<br>• Master Log Aset Retirement (14 Kolom)<br>• Master Log Pemakaian Harian Material Khusus (Kain Putih, Kertas, Tinta) | **100% Cocok** | Dikonversi menjadi tabel database InnoDB ter-normalisasi: `purchasing_orders`, `purchasing_payments`, `purchasing_assets`, `purchasing_asset_retirements`, `purchasing_material_stocks`, dan `purchasing_material_usages`. |
 | **3** | **`DropDown `** | • 14 Kategori Dropdown dinamis (Posisi dari HRIS, 5 Lokasi Ruko, 30 Kategori Item, 385+ Nama Item, 23 Satuan, 4 Kategori Vendor, 7 Jenis Transaksi, 10 Status Pembelian, 29 Kategori Aset, 13 Satuan Aset, 15 Alasan Retirement, 10 Kondisi Akhir, 12 Metode Pelepasan, 8 Varian Tinta) | **100% Cocok** | Dikelola melalui antarmuka *Vertical Tab Menu* mandiri (`/purchasing/master-data`) berbasis tabel `purchasing_master_options` (*zero code deployment*). |
-| **4** | **`Alur & Validasi`** | • Alur 1: Pembelian Operasional Harian<br>• Alur 2: Pembelian Aset Tetap (Capex)<br>• Alur 3: Asset Retirement (Pelepasan/Penjualan)<br>• Alur 4: Pencatatan Material Khusus<br>• Prinsip *Double Sign-Off* (Purchasing & Finance) | **100% Cocok** | Diterapkan menggunakan State Machine formal dengan status kode: `PENDING_PIC_CHECK`, `APPROVED_BY_PIC`, `PENDING_FINANCE_APPROVAL`, `PURCHASE_COMPLETED`, `PENDING_DOCUMENT_CHECK`, `APPROVED_ASSET_BUDGET`, `ASSET_REGISTERED`, `DRAFT_RETIREMENT`, `PENDING_SALE_APPROVAL`, `RETIRED_COMPLETED`, `STOCK_LOG_ACTIVE`, dan `SYNCED_TO_FINANCE`. |
-| **5** | **`Business Rules`** | • Pemisahan Capex vs Opex<br>• Filter Rekapitulasi Divisi & Lokasi Ruko<br>• Penyesuaian Nilai Sisa Buku (*Book Value*) & Pengurangan Unit Real-Time saat Aset Pensiun<br>• Formula Bahan Putih: $\text{Stok Akhir} = \text{Stok Awal} + \text{Masuk} - \text{Keluar}$<br>• Reorder Alert jika $\text{Stok Akhir} \le \text{Threshold}$<br>• Bahan Warna: Sekali habis tanpa rekap harian<br>• 4 Halaman Laporan Khusus Terpisah | **100% Cocok** | Diterapkan di layer Service (`PurchasingCalculationService` & `MaterialStockService`), Observer mutasi aset, serta 4 dedicated tab views. |
+| **4** | **`Alur & Validasi`** | • Alur 1: Pembelian Operasional Harian (Opex)<br>• Alur 2: Pembelian Aset Tetap (Capex)<br>• Alur 3: Asset Retirement (Pelepasan/Penjualan)<br>• Alur 4: Pencatatan Material Khusus<br>• Prinsip *Double Sign-Off* (Purchasing & Finance) | **100% Cocok** | Diterapkan menggunakan State Machine formal dengan status kode: `PENDING_PIC_CHECK`, `APPROVED_BY_PIC`, `PENDING_FINANCE_APPROVAL`, `PURCHASE_COMPLETED`, `PENDING_DOCUMENT_CHECK`, `APPROVED_ASSET_BUDGET`, `ASSET_REGISTERED`, `DRAFT_RETIREMENT`, `PENDING_SALE_APPROVAL`, `RETIRED_COMPLETED`, `STOCK_LOG_ACTIVE`, dan `SYNCED_TO_FINANCE`. |
+| **5** | **`Business Rules`** | • Pemisahan Capex vs Opex<br>• Filter Rekapitulasi Divisi & Lokasi Ruko<br>• Penyesuaian Nilai Sisa Buku (*Book Value*) & Pengurangan Unit Real-Time saat Aset Pensiun<br>• Formula Bahan Putih: $\text{Stok Akhir} = \text{Stok Awal} + \text{Masuk} - \text{Keluar}$<br>• Reorder Alert jika $\text{Stok Akhir} \le \text{Threshold}$<br>• Bahan Warna: Sekali habis tanpa rekap harian<br>• 4 Halaman Laporan Khusus Terpisah<br>• **Purchase History Search & Re-order Info** (Keyword matching & linked vendor) | **100% Cocok** | Diterapkan di layer Service (`PurchasingCalculationService` & `MaterialStockService`), Observer mutasi aset, modul pencarian katalog historis, serta 4 dedicated tab views. |
+| **6** | **`Kode Barang `** *(Baru)* | • Format Kode Aset: `[Kategori].[Dept].[Tahun3Digit].[Urut3Digit]` (Contoh: `IT.HCM.026.001`)<br>• Alur Pendaftaran Aset 2 Tahap (*Quick 2-Step Registration*)<br>• Mutasi Aset (Regenerasi kode & log riwayat audit kepemilikan)<br>• Tambah Master Kategori & Departemen Dinamis<br>• Search Box & Multi-Filter Aset<br>• *Smart Suggestion* (Rekomendasi kategori otomatis berbasis keyword)<br>• *Clickable Asset Code* (Modal popup detail riwayat aset & servis)<br>• Master 20 Kode Kategori Aset & 7 Kode Departemen Resmi | **100% Cocok** | Diterapkan pada `PurchasingAssetCodeService`, tabel `purchasing_asset_mutations`, kamus keyword `purchasing_asset_suggestions`, dan modal popup drawer detail aset di React. |
+| **7** | **`Kontak Suplier`** *(Baru)* | • Hak Akses CRUD Suplier Khusus Admin Purchasing<br>• Validasi Pencegahan Duplikasi Nama Perusahaan/Toko<br>• Relasi Foreign Key ke Pembelian & Pencatatan Aset<br>• Dukungan **Multi-PIC / Banyak Kontak per Suplier** (One-to-Many Contacts: Sales, Finance, PIC baru)<br>• Penanda **Kontak Utama (*Primary Contact*)**<br>• Fleksibilitas Update Nomor/Email PIC Kapan Saja | **100% Cocok** | Diterapkan pada tabel relasional `purchasing_vendors` & `purchasing_vendor_contacts`, form repeater multi-kontak di UI React, dan validasi Eloquent. |
 
 ---
 
@@ -27,10 +29,14 @@ Modul Purchasing dirancang mandiri tanpa risiko merusak (*zero breaking changes*
    - Backend: `App\Http\Controllers\Purchasing\*`, `App\Models\Purchasing\*`, `App\Services\Purchasing\*`.
    - Frontend: `resources/js/Pages/Purchasing/*`.
    - Database: Menggunakan tabel baru berawalan `purchasing_*`. Tidak ada modifikasi skema (*alter table*) pada tabel-tabel milik modul lain (`hcm_*`, `orders`, `productions`, `invoices`, `refunds`, `users`).
-2. **Titik Temu ke Modul HRIS: Data Posisi & Karyawan (Read-Only)**:
-   - Modul Purchasing **TIDAK** mencampuri sistem kepegawaian (absensi, lembur, gaji, kontrak, dokumen).
-   - Purchasing hanya membaca (*read-only reference*) master posisi dari `App\Models\Hcm\HcmMasterOption` kategori `posisi` atau relasi `App\Models\Hcm\HcmEmployee`.
-   - Data pemohon disimpan dalam snapshot string (`position`, `department`) dan foreign key opsional `requester_employee_id` agar data riwayat pembelian tetap konsisten bila terjadi mutasi/promosi karyawan.
+2. **Titik Temu ke Modul HRIS: Data Departemen/Divisi, Posisi & Karyawan (Single Source of Truth - Read-Only)**:
+   - Modul Purchasing **TIDAK MENGELOLA / TIDAK MEMBUAT MASTER DATA DEPARTEMEN & POSISI SENDIRI**. Seluruh data struktur organisasi dipusatkan di modul HRIS (*Single Source of Truth*).
+   - Modul Purchasing membaca langsung (*live read-only reference*) dari master data HRIS:
+     - **Departemen / Divisi & Kode Resmi**: Menarik daftar nama divisi beserta kode singkatannya (`HCM`, `FIN`, `BRM`, `SCP`, `PRD`, `MIN`, `MEX`) melalui `App\Models\Hcm\HcmMasterOption::getDepartmentsWithCodes()`.
+     - **Posisi**: Menarik 28 posisi operasional & staf kantor melalui `App\Models\Hcm\HcmMasterOption::getOptions('posisi')`.
+     - **Karyawan Pemohon**: Relasi opsional `requester_employee_id` ke `App\Models\Hcm\HcmEmployee`.
+   - Data pemohon pada transaksi disimpan dalam bentuk snapshot string (`position`, `department`) dan `requester_employee_id` agar data transaksi lampau tetap konsisten jika terjadi mutasi/promosi karyawan.
+   - **Perubahan & Penambahan Baru Terpusat di HRIS**: Jika perusahaan menambah divisi baru (misal *Research & Development* dengan kode `RND`) atau posisi baru, pengaturannya dilakukan langsung di menu **HRIS $\rightarrow$ Master Data**. Modul Purchasing otomatis menarik dan menampilkan data baru tersebut secara *real-time* tanpa perlu input ulang atau *hardcode*.
 3. **Pemanfaatan Layanan Bersama (Shared Core Services)**:
    - **Audit Trail Terpusat**: Menggunakan `App\Services\ActivityLogger::log($action, 'purchasing', $model, $desc)`.
    - **Sistem Notifikasi Multi-Channel**: Menggunakan `App\Notifications\SystemEventNotification` (In-App database, WhatsApp, Telegram, Email, Sound Bell).
@@ -63,15 +69,14 @@ Berdasarkan sheet *Alur & Validasi*, setiap transaksi pengadaan dan pelepasan as
 3. **Aturan Validasi Mutlak (Double Sign-Off Rule)**:
    - Transaksi pembelian ataupun penjualan aset pensiun **tidak sah dan tidak berstatus Closed** sebelum Tim Keuangan memvalidasi dan menekan tombol persetujuan/pembayaran di sistem.
 
-
 ---
 
-### D. Pedoman Engineering, Keamanan & Kualitas Kode (Clean Code Standard)
+### C. Pedoman Engineering, Keamanan & Kualitas Kode (Clean Code Standard)
 
 Sesuai instruksi baku arsitektur sistem NISReport, modul Purchasing & Asset Management wajib memenuhi standar kepatuhan teknis berikut:
 
 #### 1. Pencegahan N+1 Query Problem (Zero N+1 Queries)
-- **Eager Loading Wajib**: Seluruh relasi Eloquent wajib dimuat di awal menggunakan `with([...])` pada query controller/service (misal: `with(['vendor', 'requester', 'location', 'category', 'payments'])`).
+- **Eager Loading Wajib**: Seluruh relasi Eloquent wajib dimuat di awal menggunakan `with([...])` pada query controller/service (misal: `with(['vendor.contacts', 'requester', 'location', 'category', 'payments', 'mutations'])`).
 - **Agregasi Efisien**: Menggunakan `withCount()`, `withSum()`, `withAvg()`, atau `withExists()` daripada melakukan query iteratif di dalam loop/map.
 - **Strict Pagination**: Seluruh listing tabel data diwajibkan menggunakan pagination (`paginate(20)` atau `cursorPaginate()`) dengan pengindeksan kolom filter (`transaction_date`, `status`, `department`, `location_id`, `uuid`).
 - **Verifikasi Query**: Setiap endpoint diuji menggunakan automated test dan log query (`DB::enableQueryLog()`) untuk menjamin jumlah query konstan/flat dan tidak berlipat ganda terhadap jumlah data.
@@ -80,8 +85,8 @@ Sesuai instruksi baku arsitektur sistem NISReport, modul Purchasing & Asset Mana
 - **Zero Raw DB ID Exposure**: Tidak boleh ada endpoint atau URL yang menampilkan ID numerik auto-increment database (seperti `/purchasing/orders/1`, `/purchasing/assets/5`). Hal ini untuk mencegah serangan *ID Enumeration* dan *Insecure Direct Object Reference (IDOR)*.
 - **Route Key Wajib Menggunakan Kode Bisnis atau UUID**:
   - `purchasing_orders`: Menggunakan nomor PO unik (`po_number`, contoh: `/purchasing/orders/PO-202603-0001`) atau `uuid` (`/purchasing/orders/{order:uuid}`).
-  - `purchasing_assets`: Menggunakan kode aset unik (`asset_code`, contoh: `/purchasing/assets/MCH-PRD-25-013`) atau `uuid` (`/purchasing/assets/{asset:uuid}`).
-  - `purchasing_vendors`: Menggunakan kode vendor (`vendor_code`, contoh: `/purchasing/vendors/VND-001`) atau `uuid`.
+  - `purchasing_assets`: Menggunakan kode aset unik (`asset_code`, contoh: `/purchasing/assets/IT.HCM.026.001`) atau `uuid` (`/purchasing/assets/{asset:uuid}`).
+  - `purchasing_vendors`: Menggunakan kode vendor unik (`vendor_code`, contoh: `/purchasing/vendors/VND-001`) atau `uuid`.
   - `purchasing_payments`: Menggunakan `uuid` (`/purchasing/payments/{payment:uuid}`).
   - `purchasing_material_stocks`: Menggunakan `code` / `slug` unik (`/purchasing/materials/{material:code}`).
   - `purchasing_master_options`: Menggunakan `code` atau kategori (`/purchasing/master-data/{category}`).
@@ -91,26 +96,28 @@ Sesuai instruksi baku arsitektur sistem NISReport, modul Purchasing & Asset Mana
 - **Zero Raw Emojis**: Dilarang keras menggunakan karakter emoji mentah pada UI antarmuka, label form, breadcrumb, controller, maupun basis data.
 - **Modern Lucide SVG Icons**: Seluruh antarmuka menggunakan pustaka ikon modern resmi NISReport (`lucide-react`), seperti:
   - Menu Purchasing: `ShoppingBag`
-  - Dashboard: `LayoutDashboard`
+  - Dashboard & Alert Center: `LayoutDashboard`
   - Pembelian Operasional: `FileText`
   - Termin / TOP: `CreditCard`
   - Aset Tetap: `Package` / `Box`
   - Pelepasan Aset: `Archive`
   - Material Khusus: `Layers`
-  - Vendor / Supplier: `Building2`
-  - Master Data: `SlidersHorizontal`
-  - Laporan: `BarChart3`
+  - Direktori Suplier / Vendor: `Building2`
+  - Master Data & Kode: `SlidersHorizontal`
+  - Laporan & Riwayat Pencarian: `BarChart3`
 - Ikon ditampilkan dengan ukuran proporsional (16px–20px), tata letak rapi, dan warna harmoni yang elegan (*slate*, *emerald*, *amber*, *rose*).
 
 #### 4. Clean Code & SOLID Architecture
 - **Slim Controller**: Controller hanya bertindak sebagai orkestrator HTTP request dan response Inertia.
-- **Service Layer Pattern**: Seluruh kalkulasi matematika, mutasi stok harian, penyusutan aset, dan pencatatan riwayat dieksekusi di Service khusus:
+- **Service Layer Pattern**: Seluruh kalkulasi matematika, generator kode aset berjenjang, mutasi stok harian, penyusutan aset, pencarian riwayat katalog, dan mutasi vendor dieksekusi di Service khusus:
   - `PurchasingOrderService`
   - `PurchasingPaymentService`
   - `PurchasingAssetService`
+  - `PurchasingAssetCodeService` (Generator `[Kategori].[Dept].[Tahun3Digit].[Urut3Digit]` & Log Mutasi)
   - `PurchasingMaterialStockService`
   - `PurchasingCalculationService`
-- **FormRequest Terdedikasi**: Seluruh input form divalidasi dan disanitasi menggunakan kelas FormRequest (misal: `StorePurchasingOrderRequest`, `UpdatePurchasingOrderRequest`), tidak ada validasi inline yang berantakan di controller.
+  - `PurchasingVendorService` (Pengelolaan multi-kontak & validasi unik)
+- **FormRequest Terdedikasi**: Seluruh input form divalidasi dan disanitasi menggunakan kelas FormRequest (misal: `StorePurchasingOrderRequest`, `StorePurchasingAssetRequest`, `MutatePurchasingAssetRequest`, `StorePurchasingVendorRequest`).
 - **Resource / DTO Transformasi**: Data yang dikirim ke props Inertia React melalui transformasi konsisten untuk mencegah kebocoran data sensitif (*over-fetching*).
 
 #### 5. Protokol Keamanan Tingkat Tinggi (Enterprise Security Guidelines)
@@ -130,7 +137,7 @@ Sesuai instruksi baku arsitektur sistem NISReport, modul Purchasing & Asset Mana
 
 ---
 
-### E. Integrasi Navigasi Menu Sidebar "Purchasing & Assets"
+### D. Integrasi Navigasi Menu Sidebar "Purchasing & Aset"
 Sistem diintegrasikan ke navigasi utama sistem (`resources/js/Layouts/SidebarContent.jsx`) sebagai kelompok menu tersendiri (**"Purchasing & Aset"**):
 
 ```
@@ -151,8 +158,9 @@ Sistem diintegrasikan ke navigasi utama sistem (`resources/js/Layouts/SidebarCon
     │   ├── Monitoring Tagihan Jatuh Tempo (Hari Ini / Overdue)
     │   └── Jadwal Cicilan Termin Vendor
     ├── Manajemen Aset Tetap (Capex) (route: 'purchasing.assets.index', icon: Package)
-    │   ├── Master Inventaris Aset & Garansi
-    │   ├── Mutasi Lokasi & Ruko
+    │   ├── Quick 2-Step Registration (Generate Kode & Deep Info)
+    │   ├── Master Inventaris & Clickable Detail Drawer
+    │   ├── Mutasi Departemen & Audit History
     │   └── Pelepasan Aset (Retirement) (route: 'purchasing.assets.retirement', icon: Archive)
     ├── Material Khusus & Stok       (route: 'purchasing.materials.index', icon: Layers)
     │   ├── Stok & Pemakaian Kain Putih
@@ -160,15 +168,22 @@ Sistem diintegrasikan ke navigasi utama sistem (`resources/js/Layouts/SidebarCon
     │   ├── Stok & Pemakaian Kertas
     │   └── Stok & Pemakaian Tinta
     ├── Direktori Supplier / Vendor  (route: 'purchasing.vendors.index', icon: Building2)
-    ├── Master Data Dropdown Dinamis (route: 'purchasing.master-data.index', icon: SlidersHorizontal)
-    └── Laporan & Rekapitulasi Biaya (route: 'purchasing.reports.index', icon: BarChart3)
+    │   ├── Profil Suplier & Multi-PIC Contacts
+    │   └── Penanda Primary Contact & Riwayat
+    ├── Master Data & Kode           (route: 'purchasing.master-data.index', icon: SlidersHorizontal)
+    │   ├── Master Dropdown Dinamis
+    │   ├── Master Kategori & Departemen Aset
+    │   └── Kamus Smart Suggestion Keyword
+    └── Laporan & Riwayat Pembelian  (route: 'purchasing.reports.index', icon: BarChart3)
+        ├── Purchase History Search & Re-order Info
+        └── Rekapitulasi Biaya Opex/Capex per Divisi & Ruko
 ```
 
 ---
 
 ## 3. Matriks Alur Kerja & Status Sistem (Workflow Matrix)
 
-Sesuai sheet **`Alur & Validasi`** pada Blueprint, berikut 4 alur kerja formal beserta kode status dan gerbang validasi (*validation gate*):
+Sesuai sheet **`Alur & Validasi`** dan **`Kode Barang `** pada Blueprint, berikut 5 alur kerja formal beserta kode status dan gerbang validasi (*validation gate*):
 
 ### Alur 1: Pembelian Operasional Harian (Opex)
 | No | Tahapan Proses | User / Role | Aksi & Pemicu | Kode Status Sistem | Aturan Validasi (*Gate*) | Tindakan Lanjutan |
@@ -178,21 +193,28 @@ Sesuai sheet **`Alur & Validasi`** pada Blueprint, berikut 4 alur kerja formal b
 | **3** | Web Input & Finance Approval | Purchasing / Keuangan | Purchasing input ke web, Keuangan mereview anggaran | `PENDING_FINANCE_APPROVAL` | Keuangan mencocokkan ketersediaan kas (kas kecil / transfer terjadwal). | Anggaran dikunci; Purchasing siap mengeksekusi pembelian. |
 | **4** | Payout & Execution | Purchasing / Keuangan | Keuangan mencairkan dana $\rightarrow$ Purchasing membeli barang | `PURCHASE_COMPLETED` | Wajib mengunggah nota/struk belanja asli ke sistem web untuk dicocokkan Keuangan. | Verifikasi akhir Keuangan $\rightarrow$ Status `PAID_COMPLETED`. |
 
-### Alur 2: Pembelian Aset Tetap (Capex)
+### Alur 2: Pembelian & Registrasi Aset Tetap (Capex 2-Step Registration)
 | No | Tahapan Proses | User / Role | Aksi & Pemicu | Kode Status Sistem | Aturan Validasi (*Gate*) | Tindakan Lanjutan |
 | :---: | :--- | :--- | :--- | :--- | :--- | :--- |
 | **1** | Formal Request & Logging | Purchasing Staff | Menerima pengajuan pembelian aset dengan dokumen resmi | `PENDING_DOCUMENT_CHECK` | Wajib mengunggah dokumen PDF/berkas pengajuan aset bertanda tangan pemohon. | Diajukan ke Keuangan dan Direksi. |
 | **2** | Finance & Management Approval | Keuangan / Direksi | Audit kelayakan anggaran dan urgensi pengadaan aset | `APPROVED_ASSET_BUDGET` | Dana investasi aset dikunci (*budget locked*). | Purchasing menerbitkan PO resmi ke vendor. |
-| **3** | Execution & Asset Registration | Purchasing Staff | Melakukan pembelian, cek fisik, dan pendaftaran ke Master Data Aset | `ASSET_REGISTERED` | Nomor seri, masa garansi, spesifikasi, lokasi ruko, dan umur ekonomis wajib diisi lengkap. | Aset aktif digunakan dan masuk jadwal monitoring pemeliharaan. |
+| **3** | **Tahap 1: Quick Registration** | Purchasing Staff | Memilih Kategori & Departemen $\rightarrow$ Sistem generate kode unik otomatis | `ASSET_CODE_GENERATED` | Format baku `[Kategori].[Dept].[Tahun3Digit].[Urut3Digit]` (contoh: `IT.HCM.026.001`). Nomor urut dikunci. | Kode placeholder aktif dan siap ditempelkan/dicatat. |
+| **4** | **Tahap 2: Deep Information** | Purchasing Staff | Barang fisik datang, nota/invoice keluar $\rightarrow$ Membuka aset untuk mengisi data lengkap | `ASSET_REGISTERED` | Nomor seri, masa garansi, spesifikasi, lokasi ruko, vendor, foto nota/kartu garansi wajib lengkap. | Aset aktif digunakan dan masuk jadwal monitoring pemeliharaan. |
 
-### Alur 3: Asset Retirement (Pelepasan / Pensiun Aset)
+### Alur 3: Mutasi & Perpindahan Aset Antar-Departemen
+| No | Tahapan Proses | User / Role | Aksi & Pemicu | Kode Status Sistem | Aturan Validasi (*Gate*) | Tindakan Lanjutan |
+| :---: | :--- | :--- | :--- | :--- | :--- | :--- |
+| **1** | Pengajuan Mutasi | Admin / PIC Divisi | Buka profil aset, klik tombol "Mutasi Aset", pilih departemen tujuan baru | `PENDING_MUTATION` | Wajib menyertakan departemen tujuan, PIC penerima baru, tanggal mutasi, dan alasan perpindahan. | Sistem memvalidasi kesiapan regenerasi kode. |
+| **2** | Eksekusi & Regenerasi Kode | Purchasing Staff | Konfirmasi mutasi fisik aset di web | `MUTATION_COMPLETED` | Sistem otomatis meregenerasi kode aset menyesuaikan departemen baru (contoh: `IT.HCM.026.001` $\rightarrow$ `IT.FIN.026.001`). Data riwayat perolehan awal tidak terhapus. | Sistem mencatat tabel riwayat kepemilikan (`purchasing_asset_mutations`) untuk audit trail. |
+
+### Alur 4: Asset Retirement (Pelepasan / Pensiun Aset)
 | No | Tahapan Proses | User / Role | Aksi & Pemicu | Kode Status Sistem | Aturan Validasi (*Gate*) | Tindakan Lanjutan |
 | :---: | :--- | :--- | :--- | :--- | :--- | :--- |
 | **1** | Physical Check & Status | Purchasing Staff | Memeriksa kondisi fisik aset di lapangan untuk menentukan status pelepasan | `DRAFT_RETIREMENT` | Menentukan metode pelepasan (dijual, dibuang, ditarik gudang, kanibal, dll.). | Jika opsi dijual, wajib mengajukan persetujuan finansial. |
 | **2** | Financial Approval (Jual) | Tim Keuangan | Menganalisis nilai sisa buku (*Book Value*) dan estimasi harga jual | `PENDING_SALE_APPROVAL` | Keuangan menyetujui/menolak rencana harga pelepasan aset. | Jika disetujui, diteruskan kembali ke Purchasing untuk eksekusi. |
 | **3** | Execution & System Archive | Purchasing Staff | Mengeksekusi penjualan/pelepasan dan memperbarui status aset di web | `RETIRED_COMPLETED` | Hasil penjualan masuk kas perusahaan, nilai buku otomatis dipotong, status aset diarsipkan (*archived*). | Terbit Berita Acara Pelepasan Aset untuk arsip audit. |
 
-### Alur 4: Pencatatan Material Khusus (Kain, Kertas, Tinta)
+### Alur 5: Pencatatan Material Khusus (Kain, Kertas, Tinta)
 | No | Tahapan Proses | User / Role | Aksi & Pemicu | Kode Status Sistem | Aturan Validasi (*Gate*) | Tindakan Lanjutan |
 | :---: | :--- | :--- | :--- | :--- | :--- | :--- |
 | **1** | Stok Input & Log Harian | Purchasing Staff | Mencatat keluar-masuk stok khusus (Kain Putih, Kain Warna, Kertas, Tinta) | `STOCK_LOG_ACTIVE` | Input transaksi harian terpusat hanya melalui hak akses role Purchasing. | Data tersimpan real-time di database. |
@@ -202,7 +224,7 @@ Sesuai sheet **`Alur & Validasi`** pada Blueprint, berikut 4 alur kerja formal b
 
 ## 4. Logika Bisnis & Perhitungan Otomatis (Business Rules)
 
-Sesuai sheet **`Business Rules`** pada Blueprint, backend menerapkan formula dan aturan otomatis berikut:
+Sesuai sheet **`Business Rules`**, **`Kode Barang `**, dan **`Kontak Suplier`** pada Blueprint, backend menerapkan formula dan aturan otomatis berikut:
 
 ### A. Formula Nilai Pembelian & Anggaran Divisi
 1. **Perhitungan Nilai Pembelian**:
@@ -227,6 +249,37 @@ Sesuai sheet **`Business Rules`** pada Blueprint, backend menerapkan formula dan
    - **Laporan 2**: Rekap Pembelian Kain Warna (riwayat pengadaan & total biaya).
    - **Laporan 3**: Stok & Pemakaian Kertas (kontrol persediaan ATK sublim).
    - **Laporan 4**: Stok & Pemakaian Tinta (kontrol per varian warna & maintenance).
+
+### C. Modul Riwayat & Pencarian Spesifikasi Pembelian (Purchase History Search)
+Sesuai sheet *Business Rules* baris R27–R35:
+1. **Keyword Matching**: Staf dapat mengetik kata kunci spesifik (merek, tipe, nama barang, nomor PO) pada kotak pencarian riwayat pembelian untuk melacak transaksi masa lalu secara instan tanpa membuka arsip fisik atau chat WhatsApp lama.
+2. **Informasi Lengkap Transaksi**: Setiap item pada hasil pencarian menampilkan nama barang, spesifikasi lengkap, tanggal pembelian terakhir, harga perolehan, unit kerja pemohon, dan kode aset terkait (bila berupa aset).
+3. **Informasi Suplier Terikat untuk Re-Order**: Sistem menampilkan nama toko/suplier, nomor telepon/WhatsApp PIC yang bersangkutan, serta tautan langsung ke suplier agar staf dapat melakukan *repeat order* dengan cepat dan akurat.
+
+### D. Logika Kodifikasi Aset, Mutasi, dan Smart Suggestion (Sheet Kode Barang)
+1. **Format Standar Kode Aset**:
+   $$\text{Kode Aset} = \text{[Kode Kategori]} . \text{[Kode Departemen]} . \text{[Tahun 3 Digit]} . \text{[No Urut 3 Digit]}$$
+   - **Contoh Riil**: `IT.HCM.026.001` (Kategori: Perangkat IT `IT`, Departemen: Human Capital Management `HCM`, Tahun 2026 `026`, Urutan `001`).
+   - Nomor Urut 3 digit digenerate otomatis (*auto-increment*) berbasis kombinasi unik `category_code` + `department_code` + `year_code`.
+2. **Aturan Mutasi Aset (Perubahan Kode & Preservation of History)**:
+   - Jika aset berpindah departemen (misal laptop `IT.HCM.026.001` dipindah ke Finance `FIN`), kode aset otomatis diperbarui menjadi `IT.FIN.026.001` (atau nomor urut aktif berikutnya di departemen baru).
+   - Riwayat kepemilikan sebelumnya **wajib tersimpan permanen** di tabel `purchasing_asset_mutations` dengan mencatat: `old_asset_code`, `new_asset_code`, `from_department`, `to_department`, `mutation_date`, `pic_user_id`, dan `notes`. Data perolehan awal tetap utuh demi kepentingan audit.
+3. **Smart Suggestion Engine (Rekomendasi Kategori Otomatis)**:
+   - Saat admin mengetik nama barang pada form pembelian/pendaftaran aset (misal: "Laptop ThinkPad", "Mesin Jahit Juki", "Meja Resepsionis"), sistem melakukan pencocokan kata kunci (*keyword matching*) terhadap kamus kata kunci di database (`purchasing_asset_suggestions`).
+   - Sistem memunculkan dropdown saran kategori aset yang cocok (misal: mengetik "Laptop" langsung menyarankan kategori `IT` - Perangkat IT; mengetik "Meja" menyarankan `FRN` - Furniture & Fixture).
+4. **Interaksi Clickable Asset Code**:
+   - Seluruh tampilan kode aset di Dashboard, tabel inventaris, dan riwayat pencarian disajikan sebagai tautan aktif (*clickable link*).
+   - Mengklik kode aset akan membuka drawer/modal pop-up yang merangkum: (1) Spesifikasi & status pemegang saat ini, (2) Riwayat mutasi/perpindahan departemen, (3) Data finansial & masa garansi, dan (4) Riwayat pemeliharaan/servis (*Maintenance Log*).
+
+### E. Aturan Bisnis Direktori Suplier & Multi-PIC (Sheet Kontak Suplier)
+1. **Hak Akses Ketat**: Hanya pengguna dengan hak akses Admin Purchasing (`admin_purchasing`) yang memiliki wewenang membuat, memperbarui, atau menghapus data suplier.
+2. **Validasi Anti-Duplikasi**: Sistem memvalidasi nama perusahaan/toko secara case-insensitive agar tidak terjadi pencatatan ganda.
+3. **Dukungan Multi-PIC (Banyak Kontak per Suplier)**:
+   - Satu entitas suplier dapat memiliki banyak kontak PIC (misalnya: PIC 1 Sales Utama, PIC 2 Finance Penagihan, PIC 3 Customer Service).
+   - Kontak dapat ditambah atau diubah kapan saja tanpa merusak relasi histori transaksi.
+4. **Penanda Primary Contact**:
+   - Tepat satu kontak dalam daftar kontak suplier wajib ditandai sebagai **Kontak Utama (*Primary*)**.
+   - Kontak utama ini yang akan ditampilkan pada dropdown pemesanan cepat dan detail order.
 
 ---
 
@@ -265,70 +318,96 @@ Sesuai sheet **`Dashboard`**, sistem menerapkan *5-Tier Color-Coding Matrix*:
 
 ---
 
-## 6. Katalog Lengkap Master Data Dinamis (Sheet DropDown)
+## 6. Katalog Lengkap Master Data Dinamis & Standar Kode Resmi
 
-Berikut daftar lengkap seluruh opsi dropdown dinamis yang telah diekstrak secara faktual dari sheet **`DropDown `**:
+Berikut daftar lengkap seluruh opsi master data yang diekstrak secara faktual dari sheet **`DropDown `**, **`Kode Barang `**, dan **`Kontak Suplier`**:
 
-### 1. Posisi (28 Opsi Terkoneksi HRIS)
-`Finance`, `Accounting`, `Purchasing`, `Human Capital Management`, `Admin HCM`, `Marketing`, `Admin Brand`, `Designer`, `Produksi`, `Admin Produksi`, `Setting Printing`, `Potong Bahan`, `Press Sublime`, `Potong Pola`, `Jahit`, `Quality Control`, `Finishing (Press)`, `Finishing (Steam)`, `Finishing (Packing)`, `Operasional`, `Media Internal`, `Media Spesialist`, `Publisher`, `Editor`, `Planner`, `Media Eksternal`, `Web Editor`, `Web Developer`.
+### A. Tabel Standar Kode Kategori Aset Resmi (Sheet Kode Barang)
+| No | Nama Kategori Aset | Kode Kategori | Keterangan / Contoh Item |
+| :---: | :--- | :---: | :--- |
+| 1 | Tanah | `TNH` | Lahan, tanah pabrik, tanah kantor |
+| 2 | Bangunan / Properti | `BGN` | Gedung kantor, pabrik, gudang, renovasi besar |
+| 3 | Kendaraan | `KND` | Mobil operasional, motor kurir, truk logistik |
+| 4 | Mesin & Peralatan Produksi | `MSN` | Mesin jahit industri, mesin potong, conveyor |
+| 5 | Peralatan Kantor | `KTK` | Meja kerja, kursi, lemari arsip, brankas |
+| 6 | Perangkat IT (Laptop / PC / Server) | `IT` | Laptop staff, PC workstation, server utama |
+| 7 | Periferal IT (Printer / Scanner / Router) | `ITP` | Printer, scanner, switch, router, AP Wi-Fi |
+| 8 | Furniture & Fixture | `FRN` | Sofa resepsionis, interior, lampu gantung, partisi |
+| 9 | Peralatan Gudang | `GDG` | Hand pallet, rak heavy duty, tangga gudang |
+| 10 | Peralatan Keamanan (CCTV / Alarm / APAR) | `KMN` | Kamera CCTV, mesin fingerprint, APAR, alarm |
+| 11 | Peralatan Operasional (Tools) | `TLS` | Toolbox, bor tangan, obeng set, alat ukur |
+| 12 | Aset Marketing / Branding | `MKT` | Banner permanen, neon box, booth pameran |
+| 13 | Software / Lisensi | `SFT` | Lisensi software berbayar tahunan / perpetual |
+| 14 | Aset Tidak Berwujud | `ATB` | Hak paten, hak cipta, legalitas merek |
+| 15 | Perbaikan / Improvement (Capex) | `PRB` | Modifikasi besar aset yang menambah umur ekonomis |
+| 16 | Infrastruktur & Instalasi | `INF` | Instalasi listrik pabrik, pipa air, penangkal petir |
+| 17 | Peralatan Studio / Multimedia | `MDM` | Kamera DSLR, mic wireless, lampu studio |
+| 18 | Peralatan Karyawan (HP / Tablet) | `KRY` | Smartphone operasional / tablet lapangan |
+| 19 | Peralatan Pantry & Facility | `FAS` | Kulkas kantor, dispenser, AC ruang istirahat |
+| 20 | Legal / Administratif | `LGL` | Dokumen legalitas berharga / arsip penting |
 
-### 2. Lokasi Ruko / Gudang (5 Opsi)
-`Laras Liris`, `Walisongo`, `Artomoro`, `Green HCM`, `Green Admin`.
+### B. Tabel Standar Kode Departemen Penanggung Jawab Aset (Tersinkronisasi 100% dari HRIS Master Data)
+| No | Nama Departemen / Divisi (di HRIS) | Kode Departemen | Status di HRIS | Keterangan Alokasi |
+| :---: | :--- | :---: | :---: | :--- |
+| 1 | Human Capital Management | `HCM` | Aktif | Divisi kepegawaian, HR, & umum |
+| 2 | Finance & Accounting | `FIN` | Aktif | Divisi keuangan, kas, akuntansi |
+| 3 | Brand & Marketing | `BRM` | Aktif | Divisi promosi & pemasaran |
+| 4 | Support & Control Produksi | `SCP` | Aktif | Tim pendukung & QC pabrik |
+| 5 | Produksi | `PRD` | Aktif | Divisi manufaktur jahit, potong, sublim |
+| 6 | Media Internal | `MIN` | Aktif | Tim kreatif & publikasi internal |
+| 7 | Media Eksternal | `MEX` | Aktif | Tim konten & media eksternal |
 
-### 3. Kategori Item Pembelian (30 Opsi)
-`ATK`, `Consumable Printer / IT`, `Pantry / Konsumsi Kantor`, `Kebersihan Kantor`, `Maintenance / Perawatan`, `Operasional Kantor`, `Safety / K3`, `Kesejahteraan Karyawan`, `Printing / Percetakan`, `Kain Putih`, `Kain Warna`, `Jarum`, `Kancing`, `Size`, `DTF Size`, `Benang`, `Poliester`, `Resleting`, `Bawahan`, `Kerah`, `Woffin / Wishtag`, `Perlengkapan Jahit`, `Perlengkapan Steam`, `Polyflex`, `Kemasan`, `Sticker`, `Logo`, `Materi Marketing`, `Perlengkapan Packing`, `Perlengkapan QC`.
+> [!NOTE]
+> **Prinsip Single Source of Truth**:
+> Modul Purchasing **tidak membuat tabel master departemen sendiri**. Seluruh data departemen di atas tersimpan pada tabel `hcm_master_options` (kategori `divisi`) dan dibaca secara dinamis menggunakan `HcmMasterOption::getDepartmentsWithCodes()`. Jika perusahaan menambah departemen baru (misalnya `Research & Development` dengan kode `RND`) di menu **HRIS Master Data**, modul Purchasing secara otomatis menarik dan menampilkannya di formulir pembuatan kode aset, filter, maupun mutasi.
 
-### 4. Satuan Barang (23 Opsi)
-`Pcs`, `Box / Dus`, `Pack / Pak`, `Rim`, `Roll / Rol`, `Lusin`, `Kodi`, `Gross`, `Set`, `Botol`, `Galon`, `Jerigen`, `Pail / Drum`, `Sachet / Tube`, `Yard`, `Meter`, `Kilogram (Kg)`, `Roll`, `Bulan`, `Tahun / Year`, `Jam / Hari`, `Lembar / Sheet`, `Tabung`.
+---
 
-### 5. Kategori Supplier / Vendor (4 Opsi)
-`E-Commerce / Marketplace Online`, `Pembelian Langsung / Offline`, `Vendor Kontrak / Langganan`, `Langganan Digital / Software`.
-
-### 6. Jenis Transaksi Pembayaran (7 Opsi)
-`Tunai / Kas Kecil (Cash / Petty Cash)`, `Transfer Bank (Bank Transfer / Virtual Account)`, `E-Wallet / Dompet Digital`, `QRIS`, `Kartu Kredit / Kartu Debit (Credit / Debit Card)`, `Tempo / Kredit (Term of Payment / TOP)`, `Reimburse / Dana Talangan Pribadi`.
-
-### 7. Status Pembelian (10 Opsi)
-`Draft`, `Menunggu Persetujuan (Pending Approval)`, `Disetujui (Approved)`, `Ditolak (Rejected)`, `Diproses / Dipesan (In Process / Ordered)`, `Sebagian Diterima (Partial Received)`, `Selesai / Barang Diterima (Completed / Received)`, `Menunggu Validasi Invoice / Keuangan (Pending Finance Verification)`, `Lunas (Paid)`, `Dibatalkan (Cancelled)`.
-
-### 8. Kategori Aset Tetap (29 Opsi)
-`Tanah & Bangunan / Properti`, `Kendaraan`, `Mesin & Peralatan Produksi`, `Peralatan Kantor`, `Perangkat IT (Laptop / PC / Server)`, `Periferal IT (Printer / Scanner / Router)`, `Furniture & Fixture`, `Peralatan Gudang`, `Peralatan Keamanan (CCTV / Alarm / APAR)`, `Peralatan Operasional (Tools)`, `Aset Marketing / Branding`, `Software / Lisensi`, `Aset Tidak Berwujud`, `Perbaikan / Improvement (Capex)`, `Infrastruktur & Instalasi`, `Peralatan Studio / Multimedia`, `Peralatan Karyawan (HP / Tablet)`, `Peralatan Pantry & Facility`, `Legal / Administratif`, `Kendaraan Logistik / Distribusi`, `Perlengkapan Keselamatan & Kesehatan Kerja (K3 / PPE)`, `Peralatan Kebersihan & Sanitasi Gedung (Facility Maintenance)`, `Peralatan Pembangkit & Kelistrikan Cadangan (Power & Utility)`, `Aset Energi & Bahan Bakar Cadangan (Fuel / Energy Storage)`, `Perlengkapan Display & Visual Merchandising`, `Peralatan Medis & Ruang Kesehatan (Clinic / First Aid)`, `Inventaris Mess / Perumahan Karyawan`, `Aset Pelatihan & Ruang Meeting (Training & Presentation)`, `Aset Lingkungan & Pengolahan Limbah (Waste & Environmental)`.
-
-### 9. Satuan Aset Tetap (13 Opsi)
-`Pcs`, `Unit`, `Set`, `Pasang (Pair)`, `Batang`, `Lembar / Sheet`, `Roll / Rol`, `Box / Dus`, `Pack / Pak`, `Paket / Project`, `Meter`, `Meter Persegi`, `Titik`.
-
-### 10. Alasan Aset Retirement (15 Opsi)
-`Rusak Berat (Tidak Layak Pakai)`, `Usang / Ketinggalan Teknologi`, `Biaya Perbaikan Terlalu Mahal`, `Dijual / Pelepasan Komersial`, `Hilang / Dicuri`, `Rusak karena Bencana / Kecelakaan`, `Masa Manfaat Habis`, `Ditukar Tambah`, `Dimusnahkan / Scrap Total`, `Pengembalian ke Pihak Ketiga`, `Hibah / Donasi ke Pihak Lain`, `Penutupan Lokasi / Ruko / Divisi`, `Hasil Temuan Audit / Penghapusan Fisik`, `Penurunan Kapasitas / Perubahan Fungsi Operasional`, `Cacat Produksi / Bawaan Pabrik`.
-
-### 11. Kondisi Akhir Aset (10 Opsi)
-`Sangat Baik (Seperti Baru / Mint Condition)`, `Baik (Berfungsi Normal / Pemakaian Normal)`, `Cukup / Layak Pakai (Ada Tanda Pemakaian / Minor Wear)`, `Rusak Ringan (Perlu Servis / Bisa Diperbaiki)`, `Rusak Sedang (Fungsi Terganggu / Sebagian Komponen Rusak)`, `Rusak Berat / Total (Tidak Dapat Berfungsi Sama Sekali)`, `Sisa Komponen Saja / Kanibalan (Spare Parts Only / Stripped)`, `Scrap / Besi Tua / Bahan Daur Ulang`, `Hilang Total (Tidak Ada Wujud Fisik)`, `Utuh & Layak Jual (Resaleable / Good for Secondary Market)`.
-
-### 12. Metode Pelepasan Aset (12 Opsi)
-`Lelang Terbuka / Publik`, `Penjualan Langsung / Negosiasi`, `Penjualan ke Karyawan`, `Tukar Tambah`, `Hibah / Donasi Amal`, `Pemusnahan / Penghancuran Total`, `Pengembalian ke Lessor / Vendor`, `Kanibalan Komponen`, `Klaim Asuransi`, `Dibuang / Dimusnahkan Langsung`, `Ditarik Kembali ke Gudang Pusat`, `Disimpan Sebagai Cadangan / Standby`.
-
-### 13. Varian Tinta & Maintenance (8 Opsi)
-`Cyan`, `Magenta`, `Yellow`, `Liquid Maintanance`, `Wipercloth`, `Flow Pink`, `Flow Yellow`, `Hitam`.
-
-### 14. Katalog Nama Item (385+ Opsi Terklasifikasi Berdasarkan Kategori)
-Pada lembar kerja *DropDown*, kolom D memuat 385+ rincian nama item yang terklasifikasi menurut kategori itemnya. Sistem web menyediakan fitur *Dependent Dropdown* (pilihan Nama Item terfilter otomatis saat memilih Kategori Item) serta *Text Autocomplete / Searchable Input*:
-- **Kain Putih**: `(Putih) Airwalk`, `(Putih) Smash`, `(Putih) Milano`, `(Putih) Benzema`, `(Putih) Aktive Waffle`, `(Putih) Diadora Embis Mixed`, `(Putih) Diadora Polos`, `(Putih) Oscar Ashley`, `(Putih) Canvas`.
-- **Kain Warna**: Aneka warna bahan Milano (Navy, Benhur, Turqish, Biru Langit, Hijau TNI/Botol/Fuji/Mint, Toska, Orange, Merah Hati/Cabe, Maroon, Ungu, Hitam, Abu, Pink Fanta), Airwalk (Putih, Abu, Hitam, Turqis, Benhur, Navy, Ungu, Tosca, Hijau Botol/Army/TNI, Merah Cabe, Maroon), Topo (Hitam, Hijau Botol, Merah Cabe, Navy, Maroon, Benhur, Ungu), Waffle (Hitam, Merah Cabe, Turqish), Smash (Maroon, Hijau Botol, Navy, Hitam, Kuning Kenari), Scuba, Straw, Parasut, dll.
-- **Jarum & Alat Jahit**: Jarum Obras DC, Jarum Jahit DB, Jarum Overdex UY, Jarum Kansai UO, Jarum Rantai TV, Jarum Singer, Jarum Pasang Kancing TQ, Jarum Lubang Kancing DP, Sepatu Tindes, Sepatu Biasa, Sepatu 1 Kaki, Spool, Skoci, Obeng Jarum, Baut Jarum, Magnet Mesin, Minyak Mesin, Kapur Jahit, Gunting Potong Kain.
-- **Kancing**: Kancing Executive (Hitam, Putih, Navy, Biru Benhur, Merah Cabe, Hijau Botol, Maroon, Biru Muda), Kancing Baseball Putih.
-- **Size & DTF Size**: Size XS s.d. XXXL Dewasa, Size XS s.d. XL Anak, DTF Size XS s.d. XXXL Dewasa & Anak, DTF Size UPXL.
-- **Benang & Poliester**: 45+ varian warna benang jahit dan 24+ varian poliester (Hitam, Putih, Putih Tulang, Buttermilk, Cream, Mahoghani, Abu Muda/Tua/Polisi, Biru Langit/SMA/Toska/Benhur/Navy/Turkish, Hijau Botol/Fuji/Stabilo/Mint/Sage/Madrasah/Emerald/Army/Telur Asin, Toska 1&2, Ungu Muda/Tua, Magenta, Orange, Oren Salmon, Labu, Kuning Kenari/Emas/Kubus/Stabilo, Coklat, dll.).
-- **Polyflex**: Polyflex Black, White, Red, Yellow/Kunyit, Kuning Kenari, Navy, Gray, Sky Blue, Green, Benhur, Golden Yellow, Orange, Purple, Choco/Brown, Pink, Gold, Gold Glossy, Silver, Silver Glossy, Maroon, Neon Yellow/Orange/Blue, Merah Cabe, Pink Fanta, Hijau Botol, Glow in the dark, Reflective, Polyflex Remover.
-- **Kemasan, Label & Perlengkapan**: Plastik Polos, Plastik Packing Alle, Plastik Packing Drive, Kresek Packing Akhir, Kardus/Karton Packing, Box Packing, Stiker Allegiant, Tutup Kerah Allegiant/Drive, Woffin/Wishtag Allegiant, Tali Kolor, Karet Celana, Resleting Anti Air/Biasa/Jaket, Kain Keras, Mata Ayam, Lakban.
-- **ATK & Operasional Kantor**: Kertas & Media Cetak, Alat Tulis, Pengarsipan, Penjepit Kertas, Perekat & Pemotong, Penggaris, Spidol Warna, Sapu, Cikrak, Tempat Sampah, Kapur Barus, Tikar, Kursi Kerja, Lampu, Baterai, LPG, Kuota Internet, Langganan Software (Canva, ChatGPT, dll.), Biaya Ongkos Kirim, Laundry, Lowongan Pekerjaan.
-- **Logo & Aksesoris**: (Logo) PVC Holo, Flocktatami, HTL, DTF, Bordir, Rubber, PVC Biasa, Thick.
+### C. Master Dropdown Operasional & Bisnis (Sheet DropDown)
+1. **Posisi (28 Opsi Terkoneksi HRIS)**:
+   `Finance`, `Accounting`, `Purchasing`, `Human Capital Management`, `Admin HCM`, `Marketing`, `Admin Brand`, `Designer`, `Produksi`, `Admin Produksi`, `Setting Printing`, `Potong Bahan`, `Press Sublime`, `Potong Pola`, `Jahit`, `Quality Control`, `Finishing (Press)`, `Finishing (Steam)`, `Finishing (Packing)`, `Operasional`, `Media Internal`, `Media Spesialist`, `Publisher`, `Editor`, `Planner`, `Media Eksternal`, `Web Editor`, `Web Developer`.
+2. **Lokasi Ruko / Gudang (5 Opsi)**:
+   `Laras Liris`, `Walisongo`, `Artomoro`, `Green HCM`, `Green Admin`.
+3. **Kategori Item Pembelian (30 Opsi)**:
+   `ATK`, `Consumable Printer / IT`, `Pantry / Konsumsi Kantor`, `Kebersihan Kantor`, `Maintenance / Perawatan`, `Operasional Kantor`, `Safety / K3`, `Kesejahteraan Karyawan`, `Printing / Percetakan`, `Kain Putih`, `Kain Warna`, `Jarum`, `Kancing`, `Size`, `DTF Size`, `Benang`, `Poliester`, `Resleting`, `Bawahan`, `Kerah`, `Woffin / Wishtag`, `Perlengkapan Jahit`, `Perlengkapan Steam`, `Polyflex`, `Kemasan`, `Sticker`, `Logo`, `Materi Marketing`, `Perlengkapan Packing`, `Perlengkapan QC`.
+4. **Satuan Barang (23 Opsi)**:
+   `Pcs`, `Box / Dus`, `Pack / Pak`, `Rim`, `Roll / Rol`, `Lusin`, `Kodi`, `Gross`, `Set`, `Botol`, `Galon`, `Jerigen`, `Pail / Drum`, `Sachet / Tube`, `Yard`, `Meter`, `Kilogram (Kg)`, `Roll`, `Bulan`, `Tahun / Year`, `Jam / Hari`, `Lembar / Sheet`, `Tabung`.
+5. **Kategori Supplier / Vendor (4 Opsi)**:
+   `E-Commerce / Marketplace Online`, `Pembelian Langsung / Offline`, `Vendor Kontrak / Langganan`, `Langganan Digital / Software`.
+6. **Jenis Transaksi Pembayaran (7 Opsi)**:
+   `Tunai / Kas Kecil (Cash / Petty Cash)`, `Transfer Bank (Bank Transfer / Virtual Account)`, `E-Wallet / Dompet Digital`, `QRIS`, `Kartu Kredit / Kartu Debit (Credit / Debit Card)`, `Tempo / Kredit (Term of Payment / TOP)`, `Reimburse / Dana Talangan Pribadi`.
+7. **Status Pembelian (10 Opsi)**:
+   `Draft`, `Menunggu Persetujuan (Pending Approval)`, `Disetujui (Approved)`, `Ditolak (Rejected)`, `Diproses / Dipesan (In Process / Ordered)`, `Sebagian Diterima (Partial Received)`, `Selesai / Barang Diterima (Completed / Received)`, `Menunggu Validasi Invoice / Keuangan (Pending Finance Verification)`, `Lunas (Paid)`, `Dibatalkan (Cancelled)`.
+8. **Satuan Aset Tetap (13 Opsi)**:
+   `Pcs`, `Unit`, `Set`, `Pasang (Pair)`, `Batang`, `Lembar / Sheet`, `Roll / Rol`, `Box / Dus`, `Pack / Pak`, `Paket / Project`, `Meter`, `Meter Persegi`, `Titik`.
+9. **Alasan Aset Retirement (15 Opsi)**:
+   `Rusak Berat (Tidak Layak Pakai)`, `Usang / Ketinggalan Teknologi`, `Biaya Perbaikan Terlalu Mahal`, `Dijual / Pelepasan Komersial`, `Hilang / Dicuri`, `Rusak karena Bencana / Kecelakaan`, `Masa Manfaat Habis`, `Ditukar Tambah`, `Dimusnahkan / Scrap Total`, `Pengembalian ke Pihak Ketiga`, `Hibah / Donasi ke Pihak Lain`, `Penutupan Lokasi / Ruko / Divisi`, `Hasil Temuan Audit / Penghapusan Fisik`, `Penurunan Kapasitas / Perubahan Fungsi Operasional`, `Cacat Produksi / Bawaan Pabrik`.
+10. **Kondisi Akhir Aset (10 Opsi)**:
+    `Sangat Baik (Seperti Baru / Mint Condition)`, `Baik (Berfungsi Normal / Pemakaian Normal)`, `Cukup / Layak Pakai (Ada Tanda Pemakaian / Minor Wear)`, `Rusak Ringan (Perlu Servis / Bisa Diperbaiki)`, `Rusak Sedang (Fungsi Terganggu / Sebagian Komponen Rusak)`, `Rusak Berat / Total (Tidak Dapat Berfungsi Sama Sekali)`, `Sisa Komponen Saja / Kanibalan (Spare Parts Only / Stripped)`, `Scrap / Besi Tua / Bahan Daur Ulang`, `Hilang Total (Tidak Ada Wujud Fisik)`, `Utuh & Layak Jual (Resaleable / Good for Secondary Market)`.
+11. **Metode Pelepasan Aset (12 Opsi)**:
+    `Lelang Terbuka / Publik`, `Penjualan Langsung / Negosiasi`, `Penjualan ke Karyawan`, `Tukar Tambah`, `Hibah / Donasi Amal`, `Pemusnahan / Penghancuran Total`, `Pengembalian ke Lessor / Vendor`, `Kanibalan Komponen`, `Klaim Asuransi`, `Dibuang / Dimusnahkan Langsung`, `Ditarik Kembali ke Gudang Pusat`, `Disimpan Sebagai Cadangan / Standby`.
+12. **Varian Tinta & Maintenance (8 Opsi)**:
+    `Cyan`, `Magenta`, `Yellow`, `Liquid Maintanance`, `Wipercloth`, `Flow Pink`, `Flow Yellow`, `Hitam`.
+13. **Katalog Nama Item (385+ Opsi Terklasifikasi Berdasarkan Kategori)**:
+    - **Kain Putih**: `(Putih) Airwalk`, `(Putih) Smash`, `(Putih) Milano Alle`, `(Putih) Milano Drive`, `(Putih) Topo`, `(Putih) Teraria`, `(Putih) Lotto Alle Halus`, `(Putih) Lotto Drive Kasar`, `(Putih) Waffle`, `(Putih) Straw`, `(Putih) Curly`, `(Putih) Pique`, `(Putih) Senna`, `(Putih) Olino`, `(Putih) Century`, `(Putih) Scuba`, `(Putih) Pales > Bendera`, `(Putih) Satin > Bendera`, `(Putih) Rib`, `(Putih) Dropnidel`, `(Putih) Evistra (Kemeja)`, `(Putih) Jaguar Tripel S`, `(Putih) Parasut`, `(Putih) Mikro DK Lite`, `(Putih) Monochrome`, `(Putih) Aktive Waffle`, `(Putih) Diadora Embis Mixed`, `(Putih) Diadora Polos`, `(Putih) Oscar Ashley`, `(Putih) Canvas`.
+    - **Kain Warna**: Aneka varian Milano (Magenta, Fanta, Pink Muda, Pink Baby, Kubus 1&2, Gold, Army, Kuning Emas/Kenari, Italy, Navy, Benhur, Turqish, Biru Langit, Hijau TNI/Botol/Fuji/Mint, Toska Tua, Tosca 1&2, Orange Tua/Muda, Merah Hati/Cabe, Maroon, Ungu, Hitam, Abu Tua/Muda, Putih), Airwalk (Putih, Abu Muda/Tua, Hitam, Turqis, Benhur, Navy, Ungu, Tosca 1, Hijau Botol/Army/TNI/Fuji, Merah Cabe, Maroon), Topo (Putih, Hitam, Hijau Botol, Merah Cabe, Navy, Maroon, Benhur, Ungu), Waffle (Hitam, Merah Cabe, Turqish), Smash (Maroon, Hijau Botol, Navy, Hitam, Kuning Kenari), Scuba, Straw, Parasut, dll.
+    - **Jarum & Alat Jahit**: Jarum Obras DC, Jarum Jahit DB, Jarum Overdex UY, Jarum Kansai UO, Jarum Rantai TV, Jarum Singer, Jarum Pasang Kancing TQ, Jarum Lubang Kancing DP, Sepatu Tindes, Sepatu Biasa, Sepatu 1 Kaki, Spool, Skoci, Obeng Jarum, Baut Jarum, Magnet Mesin, Minyak Mesin, Kapur Jahit, Gunting Potong Kain.
+    - **Kancing**: Kancing Executive (Hitam, Putih, Navy, Biru Benhur, Merah Cabe, Hijau Botol, Maroon, Biru Muda), Kancing Baseball Putih.
+    - **Size & DTF Size**: Size XS s.d. XXXL Dewasa, Size XS s.d. XL Anak, DTF Size XS s.d. XXXL Dewasa & Anak, DTF Size UPXL Dewasa.
+    - **Benang & Poliester**: 45+ varian warna benang jahit dan 24+ varian poliester.
+    - **Polyflex**: Polyflex Black, White, Red, Yellow/Kunyit, Kuning Kenari, Navy, Gray, Sky Blue, Green, Benhur, Golden Yellow, Orange, Purple, Choco/Brown, Pink, Gold, Gold Glossy, Silver, Silver Glossy, Maroon, Neon Yellow/Orange/Blue, Merah Cabe, Pink Fanta, Hijau Botol, Glow in the dark, Reflective, Polyflex Remover.
+    - **Kemasan & Packing**: Plastik Polos, Plastik Packing Alle, Plastik Packing Drive, Kresek Packing Akhir, Kardus/Karton Packing, Box Packing, Stiker Allegiant, Tutup Kerah Allegiant/Drive, Woffin/Wishtag Allegiant, Tali Kolor, Karet Celana, Resleting Anti Air/Biasa/Jaket, Kain Keras, Mata Ayam, Lakban.
+    - **ATK & Operasional Kantor**: Kertas & Media Cetak, Alat Tulis, Pengarsipan, Penjepit Kertas, Perekat & Pemotong, Penggaris, Spidol Warna, Sapu, Cikrak, Tempat Sampah, Kapur Barus, Tikar, Kursi Kerja, Lampu, Baterai, LPG, Kuota Internet, Langganan Software, Biaya Ongkos Kirim, Laundry, Lowongan Pekerjaan.
+    - **Logo**: (Logo) PVC Holo, Flocktatami, HTL, DTF, Bordir, Rubber, PVC Biasa, Thick.
 
 ---
 
 ## 7. Arsitektur Data & Skema Database (Database Blueprint)
 
-Berikut rancangan struktur tabel relasional InnoDB dengan foreign keys, indexing, dan soft deletes:
+Berikut rancangan struktur tabel relasional InnoDB dengan foreign keys, indexing, dan soft deletes yang telah disempurnakan:
 
 ### 1. `purchasing_master_options`
-Menampung seluruh opsi dropdown dinamis (posisi, lokasi, kategori, satuan, alasan pensiun, dll.):
+Menampung opsi dropdown dinamis khusus purchasing (lokasi ruko, kategori item, satuan, kategori vendor, jenis transaksi, alasan pensiun, kondisi akhir, metode pelepasan, varian tinta). **Catatan Penting**: Data Posisi dan Departemen **TIDAK** disimpan di tabel ini, melainkan ditarik langsung dari master data HRIS (`hcm_master_options` kategori `posisi` dan `divisi`).
 ```sql
 CREATE TABLE `purchasing_master_options` (
   `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -343,18 +422,18 @@ CREATE TABLE `purchasing_master_options` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
-### 2. `purchasing_vendors`
-Direktori vendor/supplier:
+### 2. `purchasing_vendors` & `purchasing_vendor_contacts` (Sheet Kontak Suplier)
+Direktori vendor/supplier dengan dukungan multi-PIC, validasi anti-duplikasi, dan primary contact:
 ```sql
 CREATE TABLE `purchasing_vendors` (
   `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   `uuid` CHAR(36) UNIQUE NOT NULL,
-  `vendor_code` VARCHAR(50) UNIQUE NOT NULL,
-  `name` VARCHAR(150) NOT NULL,
+  `vendor_code` VARCHAR(50) UNIQUE NOT NULL, -- Route Binding (misal: VND-001)
+  `name` VARCHAR(150) UNIQUE NOT NULL, -- Validasi anti-duplikasi
   `category` VARCHAR(50) NOT NULL, -- e_commerce, offline, contract, software
-  `contact_person` VARCHAR(100) NULL,
-  `phone` VARCHAR(50) NULL,
-  `email` VARCHAR(100) NULL,
+  `item_category` VARCHAR(100) NULL, -- Kategori Item yang dipasok
+  `item_name` VARCHAR(150) NULL, -- Nama Item utama
+  `specification` TEXT NULL,
   `address` TEXT NULL,
   `bank_name` VARCHAR(100) NULL,
   `bank_account_no` VARCHAR(100) NULL,
@@ -365,6 +444,22 @@ CREATE TABLE `purchasing_vendors` (
   `created_at` TIMESTAMP NULL,
   `updated_at` TIMESTAMP NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `purchasing_vendor_contacts` (
+  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `uuid` CHAR(36) UNIQUE NOT NULL,
+  `vendor_id` BIGINT UNSIGNED NOT NULL,
+  `pic_name` VARCHAR(100) NOT NULL, -- Nama PIC
+  `role_title` VARCHAR(100) NULL, -- Sales Utama, Admin Finance, Owner, dll.
+  `phone` VARCHAR(50) NOT NULL, -- No Telepon / WhatsApp
+  `email` VARCHAR(100) NULL,
+  `is_primary` BOOLEAN DEFAULT FALSE, -- Penanda Kontak Utama
+  `notes` TEXT NULL,
+  `created_at` TIMESTAMP NULL,
+  `updated_at` TIMESTAMP NULL,
+  INDEX `idx_pvc_vendor_primary` (`vendor_id`, `is_primary`),
+  CONSTRAINT `fk_pvc_vendor` FOREIGN KEY (`vendor_id`) REFERENCES `purchasing_vendors` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
 ### 3. `purchasing_orders` (Log Pembelian Opex & Capex Intake)
@@ -372,7 +467,7 @@ CREATE TABLE `purchasing_vendors` (
 CREATE TABLE `purchasing_orders` (
   `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   `uuid` CHAR(36) UNIQUE NOT NULL,
-  `po_number` VARCHAR(50) UNIQUE NOT NULL, -- PO-202603-001 (Route Binding)
+  `po_number` VARCHAR(50) UNIQUE NOT NULL, -- PO-202603-0001 (Route Binding)
   `transaction_date` DATE NOT NULL,
   `order_type` ENUM('OPEX', 'CAPEX') NOT NULL DEFAULT 'OPEX',
   `requester_employee_id` BIGINT UNSIGNED NULL, -- Relasi opsional ke hcm_employees
@@ -406,7 +501,8 @@ CREATE TABLE `purchasing_orders` (
   `updated_at` TIMESTAMP NULL,
   `deleted_at` TIMESTAMP NULL,
   INDEX `idx_po_date_status` (`transaction_date`, `status`),
-  INDEX `idx_po_type_dept` (`order_type`, `department`)
+  INDEX `idx_po_type_dept` (`order_type`, `department`),
+  CONSTRAINT `fk_po_vendor` FOREIGN KEY (`vendor_id`) REFERENCES `purchasing_vendors` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
@@ -435,12 +531,18 @@ CREATE TABLE `purchasing_payments` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
-### 5. `purchasing_assets` (Master Inventaris Aset Tetap)
+### 5. `purchasing_assets` (Master Inventaris Aset Tetap - Format Baku)
+Mendukung format kode resmi `[Kategori].[Dept].[Tahun3Digit].[Urut3Digit]` dan alur registrasi 2 tahap:
 ```sql
 CREATE TABLE `purchasing_assets` (
   `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   `uuid` CHAR(36) UNIQUE NOT NULL,
-  `asset_code` VARCHAR(50) UNIQUE NOT NULL, -- MCH-PRD-25-013, FUR-PRD-014 (Route Binding)
+  `asset_code` VARCHAR(50) UNIQUE NOT NULL, -- IT.HCM.026.001 (Route Binding)
+  `category_code` VARCHAR(10) NOT NULL, -- IT, MSN, FRN, KND, dll.
+  `department_code` VARCHAR(10) NOT NULL, -- HCM, FIN, BRM, SCP, PRD, MIN, MEX
+  `year_code` VARCHAR(5) NOT NULL, -- 026 (Tahun 3 digit)
+  `sequence_number` INT UNSIGNED NOT NULL, -- 1, 2, 3
+  `registration_stage` ENUM('QUICK_REGISTERED', 'COMPLETED') NOT NULL DEFAULT 'QUICK_REGISTERED',
   `order_id` BIGINT UNSIGNED NULL,
   `asset_name` VARCHAR(150) NOT NULL,
   `asset_category_id` BIGINT UNSIGNED NOT NULL,
@@ -450,6 +552,7 @@ CREATE TABLE `purchasing_assets` (
   `location_id` BIGINT UNSIGNED NOT NULL,
   `department` VARCHAR(100) NOT NULL,
   `position` VARCHAR(100) NOT NULL,
+  `vendor_id` BIGINT UNSIGNED NULL,
   `supplier_name` VARCHAR(150) NULL,
   `purchase_date` DATE NOT NULL,
   `received_date` DATE NULL,
@@ -463,12 +566,51 @@ CREATE TABLE `purchasing_assets` (
   `created_at` TIMESTAMP NULL,
   `updated_at` TIMESTAMP NULL,
   `deleted_at` TIMESTAMP NULL,
+  INDEX `idx_pa_code_lookup` (`category_code`, `department_code`, `year_code`),
   INDEX `idx_pa_status_loc` (`status`, `location_id`),
-  INDEX `idx_pa_warranty` (`warranty_expires_at`)
+  INDEX `idx_pa_warranty` (`warranty_expires_at`),
+  CONSTRAINT `fk_pa_vendor` FOREIGN KEY (`vendor_id`) REFERENCES `purchasing_vendors` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
-### 6. `purchasing_asset_retirements` (Log Pelepasan/Pensiun Aset)
+### 6. `purchasing_asset_mutations` (Riwayat Mutasi & Audit Trail Aset)
+Menyimpan riwayat perpindahan departemen dan audit perubahan kode aset:
+```sql
+CREATE TABLE `purchasing_asset_mutations` (
+  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `uuid` CHAR(36) UNIQUE NOT NULL,
+  `asset_id` BIGINT UNSIGNED NOT NULL,
+  `old_asset_code` VARCHAR(50) NOT NULL, -- IT.HCM.026.001
+  `new_asset_code` VARCHAR(50) NOT NULL, -- IT.FIN.026.001
+  `from_department_code` VARCHAR(10) NOT NULL, -- HCM
+  `to_department_code` VARCHAR(10) NOT NULL, -- FIN
+  `from_department_name` VARCHAR(100) NOT NULL,
+  `to_department_name` VARCHAR(100) NOT NULL,
+  `mutation_date` DATE NOT NULL,
+  `pic_user_id` BIGINT UNSIGNED NOT NULL, -- Staf yang melakukan mutasi
+  `notes` TEXT NULL,
+  `created_at` TIMESTAMP NULL,
+  `updated_at` TIMESTAMP NULL,
+  INDEX `idx_pam_asset` (`asset_id`),
+  CONSTRAINT `fk_pam_asset` FOREIGN KEY (`asset_id`) REFERENCES `purchasing_assets` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+### 7. `purchasing_asset_suggestions` (Kamus Keyword Smart Suggestion)
+Mendukung rekomendasi kategori aset otomatis saat staf mengetik nama barang:
+```sql
+CREATE TABLE `purchasing_asset_suggestions` (
+  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `keyword` VARCHAR(100) UNIQUE NOT NULL, -- e.g. laptop, printer, jahit, meja, ac, kamera
+  `category_code` VARCHAR(10) NOT NULL, -- IT, ITP, MSN, FRN, FAS, MDM
+  `category_name` VARCHAR(150) NOT NULL,
+  `created_at` TIMESTAMP NULL,
+  `updated_at` TIMESTAMP NULL,
+  INDEX `idx_pas_keyword` (`keyword`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+### 8. `purchasing_asset_retirements` (Log Pelepasan/Pensiun Aset)
 ```sql
 CREATE TABLE `purchasing_asset_retirements` (
   `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -491,7 +633,7 @@ CREATE TABLE `purchasing_asset_retirements` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
-### 7. `purchasing_material_stocks` & `purchasing_material_usages`
+### 9. `purchasing_material_stocks` & `purchasing_material_usages`
 ```sql
 CREATE TABLE `purchasing_material_stocks` (
   `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -544,11 +686,13 @@ Menambahkan role dan permission baru ke sistem tanpa mengubah role lama:
 'purchasing.manage-orders',        // Transaksi pembelian operasional
 'purchasing.approve-pic',          // Otorisasi PIC divisi pemohon
 'purchasing.manage-payments',      // Kontrol termin & jatuh tempo TOP
-'purchasing.manage-assets',        // Registrasi & inventarisasi aset tetap
+'purchasing.manage-assets',        // Registrasi & inventarisasi aset tetap (Quick & Deep)
+'purchasing.mutate-assets',        // Mutasi perpindahan departemen aset
 'purchasing.retire-assets',        // Pelepasan & pensiun aset tetap
 'purchasing.manage-materials',     // Input pemakaian & monitoring stok
-'purchasing.manage-vendors',       // Direktori supplier / vendor
-'purchasing.manage-master',        // Kelola dropdown dinamis
+'purchasing.manage-vendors',       // Direktori supplier / vendor & Multi-PIC
+'purchasing.manage-master',        // Kelola dropdown dinamis & kode aset
+'purchasing.search-history',       // Pencarian riwayat katalog & info suplier re-order
 'purchasing.export-reports',       // Ekspor PDF & Excel
 ```
 
@@ -564,7 +708,10 @@ Selaras dengan modul lain di NISReport:
 \App\Services\ActivityLogger::log('approve', 'purchasing', $order, "PIC Divisi menyetujui pengajuan PO {$order->po_number}");
 \App\Services\ActivityLogger::log('approve', 'purchasing', $order, "Keuangan menyetujui anggaran PO {$order->po_number}");
 \App\Services\ActivityLogger::log('sign-off', 'purchasing', $payment, "Pencairan lunas tagihan {$payment->invoice_number} ({$payment->payment_method})");
+\App\Services\ActivityLogger::log('asset-code', 'purchasing', $asset, "Generate kode aset {$asset->asset_code} untuk {$asset->department}");
+\App\Services\ActivityLogger::log('asset-mutate', 'purchasing', $asset, "Mutasi aset dari {$mutation->from_department_name} ke {$mutation->to_department_name} (Kode baru: {$asset->asset_code})");
 \App\Services\ActivityLogger::log('retire', 'purchasing', $asset, "Pelepasan aset {$asset->asset_code} ({$asset->asset_name}) - Metode: {$retirement->disposal_method}");
+\App\Services\ActivityLogger::log('vendor-contact', 'purchasing', $vendor, "Menambahkan kontak PIC {$contact->pic_name} ({$contact->phone}) pada vendor {$vendor->name}");
 \App\Services\ActivityLogger::log('stock-update', 'purchasing', $usage, "Input pemakaian harian {$usage->material_name}: {$usage->quantity_out} {$usage->unit}");
 ```
 
@@ -588,15 +735,27 @@ Mendaftarkan 7 event notifikasi purchasing ke konfigurasi sistem:
 ## 9. Roadmap Implementasi Bertahap
 
 ```
-FASE 1: Fondasi Skema Database, Seeder RBAC & Master Data Dinamis (Minggu 1)
- ├── Migrations 8 tabel: purchasing_master_options, purchasing_vendors, purchasing_orders, purchasing_payments, purchasing_assets, purchasing_asset_retirements, purchasing_material_stocks, purchasing_material_usages
- ├── Seeder role admin_purchasing, staff_purchasing & permissions
- ├── Service pembacaan posisi & karyawan aktif HRIS (Read-Only)
- └── UI Master Data Dinamis Dropdown (/purchasing/master-data)
+FASE 1: Fondasi Skema Database, Seeder RBAC, Direktori Suplier & Master Data (Minggu 1)
+ ├── Migrations 10 tabel: 
+ │    ├── purchasing_master_options
+ │    ├── purchasing_vendors & purchasing_vendor_contacts (Multi-PIC & Primary Contact)
+ │    ├── purchasing_asset_suggestions (Kamus Keyword Smart Suggestion)
+ │    ├── purchasing_orders & purchasing_payments
+ │    ├── purchasing_assets & purchasing_asset_mutations
+ │    ├── purchasing_asset_retirements
+ │    └── purchasing_material_stocks & purchasing_material_usages
+ ├── Seeder:
+ │    ├── RBAC permissions & roles (admin_purchasing, staff_purchasing)
+ │    ├── Master Dropdown resmi non-HRIS (Lokasi, Satuan, Status, Alasan, Varian)
+ │    ├── Master 20 Kode Kategori Aset resmi
+ │    └── Kamus Smart Suggestion keywords
+ ├── UI Master Data Dinamis (/purchasing/master-data) & Direktori Suplier (/purchasing/vendors)
+ └── Service integrasi data HRIS (Read-Only: HcmMasterOption::getDepartmentsWithCodes() & getOptions('posisi'))
 
-FASE 2: Pembelian Operasional Harian & Double Sign-Off Matrix (Minggu 2)
+FASE 2: Pembelian Operasional Harian, Riwayat Katalog & Double Sign-Off (Minggu 2)
  ├── CRUD Pembelian Operasional Harian (Opex) & upload nota digital
  ├── Logika kalkulasi otomatis (Subtotal, Diskon, Ongkir, PPN, Grand Total)
+ ├── Modul Purchase History Search (Keyword matching riwayat pembelian & linked vendor re-order)
  ├── Alur Approval berjenjang (PIC -> Finance Approval -> Sign & Paid)
  └── Integrasi ActivityLogger ('purchasing')
 
@@ -606,8 +765,12 @@ FASE 3: Sistem Termin TOP & Widget Alert Center Dashboard (Minggu 3)
  ├── Scheduled Console Command: Pengecekan otomatis TOP hari H & overdue
  └── Integrasi SystemEventNotification (In-App, WA, Telegram, Audio Bell)
 
-FASE 4: Manajemen Aset Tetap (Capex) & Asset Retirement Workflow (Minggu 4)
- ├── Master inventaris aset, pencatatan masa garansi, serial number, lokasi ruko
+FASE 4: Manajemen Aset Tetap, Kodifikasi Resmi & Asset Retirement (Minggu 4)
+ ├── Generator Kode Aset Otomatis: [Kategori].[Dept].[Tahun3Digit].[Urut3Digit]
+ ├── Alur Pendaftaran Aset 2 Tahap (Quick Registration -> Deep Information)
+ ├── Smart Suggestion input kategori aset berbasis kata kunci
+ ├── Fitur Mutasi Aset (Regenerasi kode departemen baru & log riwayat kepemilikan)
+ ├── Interaksi Clickable Asset Code (Modal drawer detail aset, garansi, history, log servis)
  ├── Generate label Barcode / QR Code aset
  ├── Workflow Asset Retirement (Cek fisik -> Approval Keuangan -> Berita Acara)
  └── Real-time Book Value & unit reduction update
@@ -617,7 +780,7 @@ FASE 5: Modul Material Khusus & Dedicated Views (Minggu 5)
  ├── Tab 2: Kain Warna (Inbound Purchase Log & distribusi produksi)
  ├── Tab 3: Kertas Printing (Kontrol persediaan media cetak)
  ├── Tab 4: Tinta Printing (Kontrol 8 varian warna & cairan maintenance)
- └── Laporan performa pengadaan & ekspor resmi PDF & Excel
+ └── Laporan performa pengadaan, rekapitulasi biaya divisi & ekspor resmi PDF & Excel
 ```
 
 ### Aturan Eksekusi Berjenjang (Phase-Gate Quality Gate)
@@ -637,6 +800,6 @@ FASE 5: Modul Material Khusus & Dedicated Views (Minggu 5)
 
 ## 10. Jaminan Keandalan & Kesimpulan
 
-1. **Kepatuhan 100% pada Blueprint**: Seluruh variabel, rumus, workflow approval, skema warna, dan kategori data dari `Blueprint Website Purchasing NIS.xlsx` telah diakomodasi secara komprehensif tanpa ada yang terlewat.
+1. **Kepatuhan 100% pada Blueprint Excel Terbaru**: Seluruh variabel, rumus, workflow approval, skema warna, 20 kategori aset, 7 kode departemen, aturan mutasi kode aset, registrasi 2 tahap, pencarian riwayat pembelian, direktori suplier Multi-PIC, dan kategori data dari `Blueprint Website Purchasing NIS.xlsx` (7 sheets) telah diakomodasi secara komprehensif tanpa ada yang terlewat atau berasumsi/berhalusinasi.
 2. **Kemandirian Modul**: Modul Purchasing berdiri kokoh di jalurnya sendiri tanpa merusak modul HRIS, Produksi, Reseller, ataupun Keuangan.
 3. **Koneksi Harmonis**: Modul ini mengambil referensi posisi secara dinamis dari HRIS, mencatat seluruh mutasi pada Audit Log terpusat, tunduk pada RBAC Spatie, dan mengirimkan peringatan darurat via saluran notifikasi terpadu NISReport.

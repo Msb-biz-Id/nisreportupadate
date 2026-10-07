@@ -33,19 +33,25 @@ import {
     RefreshCw,
     Key,
     ExternalLink,
+    PenTool,
+    Stamp,
+    CheckSquare,
 } from 'lucide-react';
 import axios from 'axios';
 
 export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_allowance = {}, payroll = {}, storage = {} }) {
     const [activeTab, setActiveTab] = useState('profile');
     const [logoPreview, setLogoPreview] = useState(profile.logo_url || null);
+    const [signaturePreview, setSignaturePreview] = useState(profile.signature_url || null);
+    const [stampPreview, setStampPreview] = useState(profile.stamp_url || null);
 
-    // Form 1: Profil Instansi & Kop Dokumen
+    // Form 1: Profil Divisi, Instansi, Kop Dokumen & Penandatangan Otomatis
     const profileForm = useForm({
         company_name: profile.company_name || '',
+        division_name: profile.division_name || 'Divisi Human Capital Management',
         company_tagline: profile.company_tagline || '',
         company_address: profile.company_address || '',
-        company_city: profile.company_city || '',
+        company_city: profile.company_city || 'Klaten',
         company_email: profile.company_email || '',
         company_phone: profile.company_phone || '',
         company_website: profile.company_website || '',
@@ -54,8 +60,20 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
         kop_header_line2: profile.kop_header_line2 || '',
         document_footer_text: profile.document_footer_text || '',
         document_footer_disclaimer: profile.document_footer_disclaimer || '',
+
+        // Penandatangan Otomatis & TTD Digital
+        signer_name: profile.signer_name || 'Ahmad Fauzi, S.Psi., CHRP',
+        signer_role: profile.signer_role || 'Head of Human Capital Management',
+        signer_nik: profile.signer_nik || 'HCM-2021-001',
+        show_signature_on_pdf: profile.show_signature_on_pdf ?? true,
+        show_stamp_on_pdf: profile.show_stamp_on_pdf ?? true,
+
         logo: null,
         remove_logo: false,
+        signature: null,
+        remove_signature: false,
+        stamp: null,
+        remove_stamp: false,
     });
 
     // Form 2: Biaya Lembur Dinamis
@@ -123,6 +141,56 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
             remove_logo: true,
         }));
         setLogoPreview(null);
+    };
+
+    const handleSignatureChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            profileForm.setData((prev) => ({
+                ...prev,
+                signature: file,
+                remove_signature: false,
+            }));
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setSignaturePreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleRemoveSignature = () => {
+        profileForm.setData((prev) => ({
+            ...prev,
+            signature: null,
+            remove_signature: true,
+        }));
+        setSignaturePreview(null);
+    };
+
+    const handleStampChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            profileForm.setData((prev) => ({
+                ...prev,
+                stamp: file,
+                remove_stamp: false,
+            }));
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setStampPreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleRemoveStamp = () => {
+        profileForm.setData((prev) => ({
+            ...prev,
+            stamp: null,
+            remove_stamp: true,
+        }));
+        setStampPreview(null);
     };
 
     const submitProfile = (e) => {
@@ -242,7 +310,7 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                         }`}
                     >
                         <Building2 className="h-4 w-4" />
-                        Profil Instansi & Kop Dokumen
+                        Profil Divisi & Kop Surat Resmi
                     </button>
 
                     <button
@@ -285,30 +353,45 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                     </button>
                 </div>
 
-                {/* TAB 1: PROFIL INSTANSI, KOP SURAT, MEDSOS & FOOTER */}
+                {/* TAB 1: PROFIL DIVISI, INSTANSI, PENANDATANGAN OTOMATIS & KOP SURAT BAKU */}
                 {activeTab === 'profile' && (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                         <div className="lg:col-span-7 space-y-6">
                             <form onSubmit={submitProfile} className="space-y-6">
+                                {/* CARD 1: IDENTITAS DIVISI HCM & PERUSAHAAN */}
                                 <Card>
                                     <CardHeader>
                                         <CardTitle className="text-base flex items-center gap-2">
                                             <Building2 className="h-4 w-4 text-red-600" />
-                                            Identitas Legal Perusahaan & Kontak
+                                            Profil Divisi HCM & Identitas Entitas
                                         </CardTitle>
                                         <CardDescription>
-                                            Identitas ini otomatis disematkan pada seluruh berkas resmi HCM (Paklaring, Profil Karyawan, Slip Lembur, Rekap Presensi).
+                                            Identitas resmi divisi kepegawaian dan perusahaan yang dicantumkan pada kop surat, formulir, dan berkas administrasi legal.
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div className="space-y-1.5 sm:col-span-2">
-                                                <Label htmlFor="company_name">Nama Perusahaan / Instansi Legal *</Label>
+                                                <Label htmlFor="division_name">Nama Divisi Kepegawaian (HCM) *</Label>
+                                                <Input
+                                                    id="division_name"
+                                                    value={profileForm.data.division_name}
+                                                    onChange={(e) => profileForm.setData('division_name', e.target.value)}
+                                                    placeholder="Contoh: Divisi Human Capital Management"
+                                                    required
+                                                />
+                                                {profileForm.errors.division_name && (
+                                                    <p className="text-xs text-red-500">{profileForm.errors.division_name}</p>
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-1.5 sm:col-span-2">
+                                                <Label htmlFor="company_name">Nama Perusahaan / Holding Legal *</Label>
                                                 <Input
                                                     id="company_name"
                                                     value={profileForm.data.company_name}
                                                     onChange={(e) => profileForm.setData('company_name', e.target.value)}
-                                                    placeholder="Contoh: PT. NIS KONVEKSI INDONESIA"
+                                                    placeholder="Contoh: NIS Group / PT Natural Indah Sukses"
                                                     required
                                                 />
                                                 {profileForm.errors.company_name && (
@@ -317,17 +400,17 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                                             </div>
 
                                             <div className="space-y-1.5 sm:col-span-2">
-                                                <Label htmlFor="company_tagline">Tagline / Slogan Sub-Identitas</Label>
+                                                <Label htmlFor="company_tagline">Tagline / Sub-Identitas</Label>
                                                 <Input
                                                     id="company_tagline"
                                                     value={profileForm.data.company_tagline}
                                                     onChange={(e) => profileForm.setData('company_tagline', e.target.value)}
-                                                    placeholder="Contoh: Human Capital & Apparel Manufacturing Industry"
+                                                    placeholder="Contoh: People, Culture & Organizational Development"
                                                 />
                                             </div>
 
                                             <div className="space-y-1.5 sm:col-span-2">
-                                                <Label htmlFor="company_address">Alamat Lengkap Domisili / Pabrik *</Label>
+                                                <Label htmlFor="company_address">Alamat Lengkap Kantor / Pabrik *</Label>
                                                 <Textarea
                                                     id="company_address"
                                                     rows={2}
@@ -342,7 +425,7 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                                             </div>
 
                                             <div className="space-y-1.5">
-                                                <Label htmlFor="company_city">Kota / Domisili Tanda Tangan</Label>
+                                                <Label htmlFor="company_city">Kota Domisili Surat</Label>
                                                 <Input
                                                     id="company_city"
                                                     value={profileForm.data.company_city}
@@ -362,7 +445,7 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                                             </div>
 
                                             <div className="space-y-1.5">
-                                                <Label htmlFor="company_email">Email Resmi Korespondensi HCM</Label>
+                                                <Label htmlFor="company_email">Email Resmi Divisi HCM</Label>
                                                 <Input
                                                     id="company_email"
                                                     type="email"
@@ -395,11 +478,203 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                                     </CardContent>
                                 </Card>
 
+                                {/* CARD 2: PEJABAT PENANDATANGAN RESMI & TTD DIGITAL (AUTOMATIC SIGNER) */}
+                                <Card className="border-indigo-200 dark:border-indigo-900/50 bg-gradient-to-b from-indigo-50/20 to-transparent">
+                                    <CardHeader>
+                                        <CardTitle className="text-base flex items-center gap-2 text-indigo-950 dark:text-indigo-200">
+                                            <PenTool className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                            Pejabat Penandatangan Resmi & Tanda Tangan Digital
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Nama pejabat penandatangan otomatis tercetak di lembar pengesahan (Paklaring, Surat Rekomendasi, Laporan Presensi, dsb).
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="space-y-1.5 sm:col-span-2">
+                                                <Label htmlFor="signer_name">Nama Lengkap Pejabat Penandatangan *</Label>
+                                                <Input
+                                                    id="signer_name"
+                                                    value={profileForm.data.signer_name}
+                                                    onChange={(e) => profileForm.setData('signer_name', e.target.value)}
+                                                    placeholder="Contoh: Ahmad Fauzi, S.Psi., CHRP"
+                                                    required
+                                                />
+                                                <p className="text-[11px] text-zinc-500">
+                                                    Nama akan dicetak tebal dengan garis bawah resmi: <strong><u>Ahmad Fauzi, S.Psi., CHRP</u></strong>
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="signer_role">Jabatan Resmi Pejabat *</Label>
+                                                <Input
+                                                    id="signer_role"
+                                                    value={profileForm.data.signer_role}
+                                                    onChange={(e) => profileForm.setData('signer_role', e.target.value)}
+                                                    placeholder="Contoh: Head of Human Capital Management"
+                                                    required
+                                                />
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="signer_nik">NIK / NIP Pejabat</Label>
+                                                <Input
+                                                    id="signer_nik"
+                                                    value={profileForm.data.signer_nik}
+                                                    onChange={(e) => profileForm.setData('signer_nik', e.target.value)}
+                                                    placeholder="Contoh: HCM-2021-001"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* UPLOAD TTD DIGITAL & STEMPEL */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                                            {/* UPLOAD TTD DIGITAL */}
+                                            <div className="p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-xs font-semibold flex items-center gap-1.5">
+                                                        <PenTool className="h-3.5 w-3.5 text-indigo-600" />
+                                                        Tanda Tangan Digital (PNG)
+                                                    </Label>
+                                                    <Badge variant="outline" className="text-[10px]">
+                                                        {signaturePreview ? 'Aktif' : 'Kosong'}
+                                                    </Badge>
+                                                </div>
+
+                                                <div className="h-20 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-md flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
+                                                    {signaturePreview ? (
+                                                        <img
+                                                            src={signaturePreview}
+                                                            alt="TTD Preview"
+                                                            className="max-h-16 max-w-full object-contain p-1"
+                                                        />
+                                                    ) : (
+                                                        <span className="text-[11px] text-zinc-400 italic">
+                                                            Belum ada TTD digital
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="file"
+                                                        id="signature_file"
+                                                        accept="image/*"
+                                                        onChange={handleSignatureChange}
+                                                        className="hidden"
+                                                    />
+                                                    <label
+                                                        htmlFor="signature_file"
+                                                        className="flex-1 text-center py-1.5 px-2 text-xs font-medium bg-zinc-800 hover:bg-zinc-900 text-white rounded cursor-pointer transition"
+                                                    >
+                                                        Upload TTD (PNG)
+                                                    </label>
+                                                    {signaturePreview && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={handleRemoveSignature}
+                                                            className="text-xs text-red-600 hover:bg-red-50"
+                                                        >
+                                                            Hapus
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                                <p className="text-[10px] text-zinc-500">
+                                                    Disarankan format PNG transparan tanpa background.
+                                                </p>
+                                            </div>
+
+                                            {/* UPLOAD STEMPEL CAP */}
+                                            <div className="p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-xs font-semibold flex items-center gap-1.5">
+                                                        <Stamp className="h-3.5 w-3.5 text-indigo-600" />
+                                                        Stempel / Cap Resmi Divisi (PNG)
+                                                    </Label>
+                                                    <Badge variant="outline" className="text-[10px]">
+                                                        {stampPreview ? 'Aktif' : 'Kosong'}
+                                                    </Badge>
+                                                </div>
+
+                                                <div className="h-20 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-md flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
+                                                    {stampPreview ? (
+                                                        <img
+                                                            src={stampPreview}
+                                                            alt="Stempel Preview"
+                                                            className="max-h-16 max-w-full object-contain p-1"
+                                                        />
+                                                    ) : (
+                                                        <span className="text-[11px] text-zinc-400 italic">
+                                                            Belum ada stempel cap
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="file"
+                                                        id="stamp_file"
+                                                        accept="image/*"
+                                                        onChange={handleStampChange}
+                                                        className="hidden"
+                                                    />
+                                                    <label
+                                                        htmlFor="stamp_file"
+                                                        className="flex-1 text-center py-1.5 px-2 text-xs font-medium bg-zinc-800 hover:bg-zinc-900 text-white rounded cursor-pointer transition"
+                                                    >
+                                                        Upload Cap (PNG)
+                                                    </label>
+                                                    {stampPreview && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={handleRemoveStamp}
+                                                            className="text-xs text-red-600 hover:bg-red-50"
+                                                        >
+                                                            Hapus
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                                <p className="text-[10px] text-zinc-500">
+                                                    Cap akan dirender natural berdampingan dengan TTD.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* TOGGLE OPTIONS */}
+                                        <div className="space-y-2 pt-2">
+                                            <label className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={profileForm.data.show_signature_on_pdf}
+                                                    onChange={(e) => profileForm.setData('show_signature_on_pdf', e.target.checked)}
+                                                    className="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span>Tampilkan Tanda Tangan Digital secara otomatis pada berkas PDF</span>
+                                            </label>
+
+                                            <label className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={profileForm.data.show_stamp_on_pdf}
+                                                    onChange={(e) => profileForm.setData('show_stamp_on_pdf', e.target.checked)}
+                                                    className="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <span>Tampilkan Stempel / Cap Resmi secara otomatis pada berkas PDF</span>
+                                            </label>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* CARD 3: KOP SURAT & FOOTER */}
                                 <Card>
                                     <CardHeader>
                                         <CardTitle className="text-base flex items-center gap-2">
                                             <FileText className="h-4 w-4 text-red-600" />
-                                            Kop Surat & Footer Dokumen Resmi
+                                            Teks Kop Surat & Footer Dokumen Legal
                                         </CardTitle>
                                         <CardDescription>
                                             Kustomisasi teks header kop surat dan klausul catatan kaki dokumen cetak PDF.
@@ -450,6 +725,7 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                                     </CardContent>
                                 </Card>
 
+                                {/* CARD 4: LOGO RESMI */}
                                 <Card>
                                     <CardHeader>
                                         <CardTitle className="text-base flex items-center gap-2">
@@ -521,13 +797,13 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                                         className="bg-red-600 hover:bg-red-700 text-white min-w-44 shadow-sm"
                                     >
                                         <Save className="h-4 w-4 mr-2" />
-                                        {profileForm.processing ? 'Menyimpan...' : 'Simpan Profil & Kop Surat'}
+                                        {profileForm.processing ? 'Menyimpan...' : 'Simpan Profil & Penandatangan'}
                                     </Button>
                                 </div>
                             </form>
                         </div>
 
-                        {/* LIVE PREVIEW KOP SURAT */}
+                        {/* LIVE PREVIEW KOP SURAT BAKU & BLOK TANDA TANGAN */}
                         <div className="lg:col-span-5 space-y-4">
                             <div className="sticky top-6">
                                 <Card className="border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-md">
@@ -535,95 +811,140 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                                         <CardTitle className="text-sm font-semibold flex items-center justify-between">
                                             <span className="flex items-center gap-1.5 text-zinc-800 dark:text-zinc-200">
                                                 <Eye className="h-4 w-4 text-emerald-600" />
-                                                Live Preview Kop Surat & Footer
+                                                Live Preview Surat & TTD Resmi
                                             </span>
                                             <Badge variant="outline" className="text-[10px] uppercase font-mono">
-                                                Simulasi PDF
+                                                Standar Baku Indonesia
                                             </Badge>
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent className="p-5 space-y-6 text-zinc-800 dark:text-zinc-200 font-sans">
-                                        {/* Mock Paper Kop */}
-                                        <div className="p-4 bg-zinc-50 dark:bg-zinc-950/70 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-inner">
-                                            <div className="flex items-start gap-3 border-b-2 border-zinc-900 dark:border-zinc-100 pb-3 mb-3">
-                                                <div className="w-14 h-14 rounded border border-zinc-300 dark:border-zinc-700 flex items-center justify-center shrink-0 bg-white dark:bg-zinc-800 overflow-hidden">
-                                                    {logoPreview ? (
-                                                        <img
-                                                            src={logoPreview}
-                                                            alt="Logo"
-                                                            className="w-full h-full object-contain p-1"
-                                                        />
-                                                    ) : (
-                                                        <span className="text-xl font-bold text-zinc-500">
-                                                            {profileForm.data.company_name?.charAt(0) || 'N'}
-                                                        </span>
-                                                    )}
-                                                </div>
+                                        {/* Mock Paper Surat Resmi */}
+                                        <div className="p-4 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-lg shadow-sm">
+                                            {/* KOP SURAT BAKU DENGAN GARIS GANDA */}
+                                            <div className="pb-2">
+                                                <table className="w-full border-collapse">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td className="w-14 align-middle pr-3">
+                                                                <div className="w-12 h-12 rounded border border-zinc-200 dark:border-zinc-700 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 overflow-hidden">
+                                                                    {logoPreview ? (
+                                                                        <img
+                                                                            src={logoPreview}
+                                                                            alt="Logo"
+                                                                            className="w-full h-full object-contain p-1"
+                                                                        />
+                                                                    ) : (
+                                                                        <span className="text-lg font-bold text-zinc-600">
+                                                                            {profileForm.data.company_name?.charAt(0) || 'N'}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td className="align-middle text-center">
+                                                                <h3 className="font-extrabold text-xs uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
+                                                                    {profileForm.data.company_name || 'NAMA PERUSAHAAN LEGAL'}
+                                                                </h3>
+                                                                <p className="text-[10.5px] font-bold text-indigo-900 dark:text-indigo-400 uppercase tracking-tight mt-0.5">
+                                                                    {profileForm.data.division_name || 'DIVISI HUMAN CAPITAL MANAGEMENT'}
+                                                                </p>
+                                                                <p className="text-[9px] text-zinc-600 dark:text-zinc-400 line-clamp-2 mt-0.5">
+                                                                    {profileForm.data.company_address || 'Alamat Lengkap Perusahaan / Kawasan Pabrik'}
+                                                                </p>
+                                                                <p className="text-[8px] text-zinc-500 dark:text-zinc-500 mt-0.5">
+                                                                    {[
+                                                                        profileForm.data.company_phone && `Tel: ${profileForm.data.company_phone}`,
+                                                                        profileForm.data.company_email && `Email: ${profileForm.data.company_email}`,
+                                                                        profileForm.data.company_website && `Web: ${profileForm.data.company_website}`,
+                                                                    ].filter(Boolean).join(' | ')}
+                                                                </p>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
 
-                                                <div className="flex-1 min-w-0">
-                                                    <h3 className="font-extrabold text-sm uppercase tracking-wide leading-tight text-zinc-900 dark:text-zinc-100 truncate">
-                                                        {profileForm.data.company_name || 'NAMA PERUSAHAAN'}
-                                                    </h3>
-                                                    <p className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mt-0.5 leading-snug">
-                                                        {profileForm.data.kop_header_line1 || 'Divisi Human Capital & SDM'}
-                                                    </p>
-                                                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-0.5">
-                                                        {profileForm.data.company_address || 'Alamat Perusahaan'}
-                                                    </p>
-                                                    <div className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1 flex flex-wrap gap-x-2">
-                                                        {profileForm.data.company_phone && (
-                                                            <span>Tel: {profileForm.data.company_phone}</span>
-                                                        )}
-                                                        {profileForm.data.company_email && (
-                                                            <span>Email: {profileForm.data.company_email}</span>
-                                                        )}
-                                                        {profileForm.data.company_socials && (
-                                                            <span>Medsos: {profileForm.data.company_socials}</span>
-                                                        )}
-                                                    </div>
+                                                {/* GARIS GANDA BAKU RESMI INDONESIA */}
+                                                <div className="w-full mt-2.5">
+                                                    <div className="border-t-[2.5px] border-zinc-900 dark:border-zinc-100 w-full"></div>
+                                                    <div className="border-t-[0.8px] border-zinc-900 dark:border-zinc-100 w-full mt-0.5"></div>
                                                 </div>
                                             </div>
 
-                                            {/* Dummy Document Body */}
-                                            <div className="py-4 space-y-2 text-center">
-                                                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 underline underline-offset-4">
-                                                    SURAT KETERANGAN / VOUCHER RESMI
+                                            {/* DUMMY BADAN SURAT */}
+                                            <div className="py-3 space-y-1.5 text-center border-b border-zinc-100 dark:border-zinc-800">
+                                                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-zinc-800 dark:text-zinc-200 underline underline-offset-2">
+                                                    SURAT KETERANGAN PENGALAMAN KERJA
                                                 </span>
-                                                <p className="text-[9px] text-zinc-400 font-mono">
-                                                    No: DOC/HCM/{new Date().getFullYear()}/001
+                                                <p className="text-[8.5px] text-zinc-500 font-mono">
+                                                    Nomor: SKP/042/10/{new Date().getFullYear()}
                                                 </p>
-                                                <div className="h-10 border border-dashed border-zinc-200 dark:border-zinc-800 rounded flex items-center justify-center text-[10px] text-zinc-400 italic">
-                                                    [ Konten Lembar Dokumen / Tabel Detail Karyawan ]
+                                                <div className="py-3 px-2 text-[9px] text-zinc-500 italic text-left bg-zinc-50/60 dark:bg-zinc-900/40 rounded">
+                                                    Yang bertanda tangan di bawah ini menerangkan bahwa nama karyawan yang bersangkutan telah bekerja dengan dedikasi dan integritas yang baik...
                                                 </div>
                                             </div>
 
-                                            {/* Mock TTD */}
-                                            <div className="flex justify-end text-right text-[10px] pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                                                <div>
-                                                    <p className="text-zinc-500">
+                                            {/* BLOK TANDA TANGAN OTOMATIS */}
+                                            <div className="flex justify-end text-right pt-3">
+                                                <div className="text-center min-w-[190px]">
+                                                    <p className="text-[9px] text-zinc-600 dark:text-zinc-400">
                                                         {profileForm.data.company_city || 'Klaten'}, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                                                     </p>
-                                                    <p className="font-semibold mt-0.5">Pimpinan / HR Manager</p>
-                                                    <div className="h-8"></div>
-                                                    <p className="font-bold underline text-zinc-800 dark:text-zinc-200">
-                                                        ( Manajemen HCM )
+                                                    <p className="text-[9px] font-semibold text-zinc-700 dark:text-zinc-300 mt-0.5">
+                                                        {profileForm.data.signer_role || 'Head of Human Capital Management'}
                                                     </p>
+
+                                                    {/* WADAH TTD & STEMPEL */}
+                                                    <div className="relative h-14 w-40 mx-auto my-1 flex items-center justify-center">
+                                                        {/* Stempel Cap Preview */}
+                                                        {profileForm.data.show_stamp_on_pdf && stampPreview && (
+                                                            <div className="absolute left-1 top-0 w-14 h-14 z-0 opacity-80 pointer-events-none">
+                                                                <img
+                                                                    src={stampPreview}
+                                                                    alt="Stempel"
+                                                                    className="w-full h-full object-contain"
+                                                                />
+                                                            </div>
+                                                        )}
+
+                                                        {/* TTD Digital Preview */}
+                                                        {profileForm.data.show_signature_on_pdf && signaturePreview ? (
+                                                            <div className="relative z-10 max-h-12 max-w-full">
+                                                                <img
+                                                                    src={signaturePreview}
+                                                                    alt="TTD"
+                                                                    className="max-h-12 max-w-36 object-contain"
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="h-10"></div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Nama Pejabat Bergaris Bawah Baku */}
+                                                    <p className="text-[9.5px] font-extrabold text-zinc-900 dark:text-zinc-100 underline decoration-zinc-900 dark:decoration-zinc-100">
+                                                        {profileForm.data.signer_name || '( ________________________ )'}
+                                                    </p>
+                                                    {profileForm.data.signer_nik && (
+                                                        <p className="text-[8px] text-zinc-500 mt-0.5">
+                                                            NIK. {profileForm.data.signer_nik}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
 
-                                            {/* Mock Footer Note */}
-                                            <div className="mt-4 pt-2 border-t border-zinc-200 dark:border-zinc-800 text-[8px] text-zinc-400 text-center space-y-0.5">
-                                                <p>{profileForm.data.document_footer_text || 'Dokumen diterbitkan resmi oleh sistem.'}</p>
+                                            {/* FOOTER CATATAN KAKI */}
+                                            <div className="mt-4 pt-2 border-t border-zinc-200 dark:border-zinc-800 text-[7.5px] text-zinc-400 text-center space-y-0.5">
+                                                <p>{profileForm.data.document_footer_text || 'Dokumen resmi diterbitkan otomatis oleh Sistem Kepegawaian terintegrasi.'}</p>
                                                 <p className="italic text-zinc-500">
-                                                    {profileForm.data.document_footer_disclaimer || 'Keabsahan dokumen terverifikasi.'}
+                                                    {profileForm.data.document_footer_disclaimer || 'Keabsahan dokumen dapat diverifikasi langsung melalui portal HCM.'}
                                                 </p>
                                             </div>
                                         </div>
 
-                                        <div className="text-xs text-zinc-500 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 p-3 rounded-lg flex items-start gap-2">
-                                            <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                        <div className="text-xs text-zinc-500 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/50 p-3 rounded-lg flex items-start gap-2">
+                                            <Info className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
                                             <p>
-                                                Format di atas akan tercetak langsung pada file PDF Paklaring, Buku Dossier Profil Karyawan, Voucher Lembur, dan Rekap Uang Makan.
+                                                Format surat di atas memenuhi kaidah standar tata naskah dinas resmi Republik Indonesia dengan garis ganda (*official double-border*) serta tanda tangan sah pejabat HCM.
                                             </p>
                                         </div>
                                     </CardContent>

@@ -14,30 +14,78 @@ use Inertia\Response;
 class HcmPublicCareerController extends Controller
 {
     /**
+     * Tampilkan direktori portal karir terbuka (/karir).
+     */
+    public function index(): Response
+    {
+        $jobs = HcmJobPosting::query()
+            ->orderByDesc('is_active')
+            ->orderByDesc('id')
+            ->get();
+
+        $departments = HcmJobPosting::whereNotNull('department')
+            ->where('department', '!=', '')
+            ->distinct()
+            ->pluck('department');
+
+        return Inertia::render('Career/Index', [
+            'jobs' => $jobs,
+            'departments' => $departments,
+            'company' => $this->getCareerCompanyInfo(),
+        ]);
+    }
+
+    /**
      * Tampilkan formulir pendaftaran online publik berdasarkan slug loker (/karir/{slug}).
      */
     public function show(string $slug): Response
     {
-        $job = HcmJobPosting::where('slug', $slug)
-            ->where('is_active', true)
-            ->firstOrFail();
+        $job = HcmJobPosting::where('slug', $slug)->firstOrFail();
 
         // Increment hit counter
         $job->increment('views_count');
 
-        $hcmProfile = \App\Models\Settings\SystemSetting::getGroup('hcm_profile');
-        $companyName = $hcmProfile['company_name'] ?? config('app.name', 'PT Nusantara Inti Solusindo');
-        $company = [
-            'name' => $companyName,
-            'tagline' => $hcmProfile['kop_header_line1'] ?? 'Human Capital Management System',
-            'logo_url' => !empty($hcmProfile['logo']) ? '/storage/' . $hcmProfile['logo'] : null,
-            'footer_text' => $hcmProfile['document_footer_text'] ?? "© " . date('Y') . " {$companyName} - All Rights Reserved. Human Capital Management System.",
-        ];
-
         return Inertia::render('Career/Apply', [
             'job' => $job,
-            'company' => $company,
+            'company' => $this->getCareerCompanyInfo(),
         ]);
+    }
+
+    /**
+     * Helper resolusi profil divisi & logo HRIS untuk portal karir publik.
+     */
+    private function getCareerCompanyInfo(): array
+    {
+        $hcmProfile = \App\Models\Settings\SystemSetting::getGroup('hcm_profile');
+        $divisionName = $hcmProfile['division_name'] ?? 'Divisi Human Capital Management';
+        $companyName = $hcmProfile['company_name'] ?? 'PT Nusantara Inti Solusindo';
+
+        // Warna tema resmi perusahaan (Default: #a8001c - Merah Maroon Khas Brand/NIS)
+        $themeColor = \App\Models\Settings\SystemSetting::get('hcm_profile', 'theme_color', \App\Models\Settings\SystemSetting::get('system', 'theme_color', '#a8001c'));
+
+        // Logo resolving: utamakan logo khusus HCM, lalu logo sistem
+        $logoUrl = null;
+        if (!empty($hcmProfile['logo'])) {
+            $logoUrl = '/storage/' . $hcmProfile['logo'];
+        } elseif (file_exists(storage_path('app/public/system/vHtjoYxbSXFbyBNfqOWKsiy3t310jJOhTlZhYcpD.png'))) {
+            $logoUrl = '/storage/system/vHtjoYxbSXFbyBNfqOWKsiy3t310jJOhTlZhYcpD.png';
+        } elseif (file_exists(storage_path('app/public/system/logo.svg'))) {
+            $logoUrl = '/storage/system/logo.svg';
+        }
+
+        $portalTitle = $hcmProfile['career_portal_title'] ?? 'PORTAL KARIR & REKRUTMEN';
+
+        return [
+            'name' => $divisionName,
+            'division_name' => $divisionName,
+            'company_name' => $companyName,
+            'portal_title' => $portalTitle,
+            'theme_color' => $themeColor,
+            'tagline' => $hcmProfile['company_tagline'] ?? $hcmProfile['kop_header_line1'] ?? 'People, Culture & Organizational Development',
+            'logo_url' => $logoUrl,
+            'logo_initial' => 'HCM',
+            'footer_text' => $hcmProfile['document_footer_text'] ?? "© " . date('Y') . " {$companyName} — {$divisionName}. Seluruh Hak Cipta Dilindungi.",
+        ];
     }
 
     /**
@@ -45,9 +93,13 @@ class HcmPublicCareerController extends Controller
      */
     public function apply(Request $request, string $slug): RedirectResponse
     {
-        $job = HcmJobPosting::where('slug', $slug)
-            ->where('is_active', true)
-            ->firstOrFail();
+        $job = HcmJobPosting::where('slug', $slug)->firstOrFail();
+
+        if (!$job->is_active || $job->status !== 'Aktif') {
+            return redirect()->back()->withErrors([
+                'general' => 'Mohon maaf, pendaftaran untuk posisi ini telah ditutup atau kuota pemenuhan telah terpenuhi.'
+            ]);
+        }
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:150'],
