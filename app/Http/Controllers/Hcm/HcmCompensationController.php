@@ -33,7 +33,7 @@ class HcmCompensationController extends Controller
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
         $query = HcmCompensation::with([
-            'employee:id,employee_code,name,nickname,department,position,legal_entity,employment_status,is_active,photo_url',
+            'employee:id,employee_code,name,nickname,department,division,legal_entity,employment_status,is_active,photo_url,join_date,original_join_date',
             'histories' => fn($q) => $q->orderBy('effective_date', 'desc')->take(5),
         ])
             ->when($escapedSearch, function ($q, $term) {
@@ -44,7 +44,8 @@ class HcmCompensationController extends Controller
                             $eq->where('name', 'like', "%{$term}%")
                                 ->orWhere('nickname', 'like', "%{$term}%")
                                 ->orWhere('employee_code', 'like', "%{$term}%")
-                                ->orWhere('position', 'like', "%{$term}%");
+                                ->orWhere('department', 'like', "%{$term}%")
+                                ->orWhere('division', 'like', "%{$term}%");
                         });
                 });
             })
@@ -74,41 +75,41 @@ class HcmCompensationController extends Controller
             'total_increment' => (float) ((clone $all)->sum('current_salary') - (clone $all)->sum('initial_salary')),
             'avg_current' => (float) round((clone $all)->avg('current_salary') ?? 0, 2),
             'status_telah_berlaku' => (clone $all)->where('salary_status', 'like', '%Telah berlaku%')->orWhere('salary_status', 'like', '%Aktif%')->count(),
-            'status_sedang_diajukan' => (clone $all)->where('salary_status', 'like', '%Sedang Diajukan%')->orWhere('salary_status', 'like', '%Pending%')->count(),
+            'status_sedang_diajukan' => (clone $all)->where(function ($q) {
+                $q->where('salary_status', 'like', '%Sedang Diajukan%')
+                  ->orWhere('decision_status', 'Sedang Diajukan');
+            })->count(),
+            'evaluations_pending' => (clone $all)->where('decision_status', 'Sedang Diajukan')->count(),
+            'evaluations_approved' => (clone $all)->where('decision_status', 'Sudah Disetujui / ACC')->count(),
         ];
+
+        // Ambil potongan gaji bulan aktif berjalan
+        $currentMonth = \Carbon\Carbon::now()->format('Y-m');
+        $currentMonthDeductions = \App\Models\Hcm\HcmSalaryDeduction::with(['employee:id,name,employee_code,department,division'])
+            ->where('effective_payroll_month', $currentMonth)
+            ->get();
 
         $dropdowns = [
             'employees' => HcmEmployee::where('is_active', true)
-                ->select('id', 'name', 'nickname', 'employee_code', 'department', 'position', 'legal_entity', 'employment_status')
+                ->select('id', 'name', 'nickname', 'employee_code', 'department', 'division', 'legal_entity', 'employment_status')
                 ->orderBy('name')
                 ->get(),
-            'employment_statuses' => HcmMasterOption::getOptions('employment_statuses') ?: [
-                'Karyawan Tetap',
-                'PKWT',
-                'PKWT Lanjutan',
-                'Trainee (Probation)',
-                'Harian',
-                'Borongan',
-            ],
-            'legal_entities' => HcmMasterOption::getOptions('legal_entities') ?: [
-                'CV Jersey Ekonomis',
-                'CV Apparel Allegiant',
-                'CV Bawang Merah',
-                'CV Bawang Putih',
-            ],
-            'salary_statuses' => HcmMasterOption::getOptions('status_pengajuan_honor') ?: [
-                'Telah berlaku',
+            'employment_statuses' => HcmMasterOption::getOptions('status_ketenagakerjaan'),
+            'legal_entities' => HcmMasterOption::getOptions('entitas_cv'),
+            'salary_statuses' => HcmMasterOption::getOptions('status_pengajuan_honor'),
+            'deduction_categories' => HcmMasterOption::getOptions('kategori_potongan_gaji'),
+            'decision_statuses' => [
                 'Sedang Diajukan',
-                'Pending',
-                'Draft',
-                'Disetujui',
-                'Revisi',
-                'Selesai',
+                'Sudah Disetujui / ACC',
+                'Ditunda',
+                'Tidak Naik',
             ],
         ];
 
         return Inertia::render('Hcm/Compensations/Index', [
             'compensations' => $compensations,
+            'currentMonthDeductions' => $currentMonthDeductions,
+            'currentMonth' => $currentMonth,
             'filters' => [
                 'search' => $search,
                 'status' => $statusFilter,
@@ -240,6 +241,76 @@ class HcmCompensationController extends Controller
         );
 
         return redirect()->back()->with('success', "Kenaikan honor untuk {$compensation->employee?->name} berhasil dicatat.");
+    }
+
+    /**
+     * Keputusan Evaluasi Gaji / Siklus Kenaikan (ACC, Ditunda, Tidak Naik, Sedang Diajukan).
+     */
+    public function updateDecision(Request $request, HcmCompensation $compensation): RedirectResponse
+    {
+        Gate::authorize('hcm.manage-compensation');
+
+        $validated = $request->validate([
+            'decision_status' => ['required', 'string', 'in:Sedang Diajukan,Sudah Disetujui / ACC,Ditunda,Tidak Naik'],
+            'planned_increment' => ['nullable', 'numeric', 'min:0'],
+            'effective_date' => ['nullable', 'date'],
+            'custom_milestone_date' => ['nullable', 'date'],
+            'decision_notes' => ['nullable', 'string', 'max:500'],
+            'apply_immediately' => ['nullable', 'boolean'],
+        ]);
+
+        DB::transaction(function () use ($compensation, $validated) {
+            $updateData = [
+                'decision_status' => $validated['decision_status'],
+                'planned_increment' => $validated['planned_increment'] ?? 0,
+                'effective_date' => $validated['effective_date'] ?? null,
+                'custom_milestone_date' => $validated['custom_milestone_date'] ?? null,
+                'decision_notes' => $validated['decision_notes'] ?? null,
+            ];
+
+            // Jika status ACC dan dicentang langsung terapkan ke gaji berjalan
+            if ($validated['decision_status'] === 'Sudah Disetujui / ACC' && !empty($validated['apply_immediately']) && !empty($validated['planned_increment']) && (float) $validated['planned_increment'] > 0) {
+                $previousSalary = (float) $compensation->current_salary;
+                $incrementAmount = (float) $validated['planned_increment'];
+                $newSalary = $previousSalary + $incrementAmount;
+                $newCount = ($compensation->salary_increment_count ?? 0) + 1;
+
+                $updateData['current_salary'] = $newSalary;
+                $updateData['salary_increment_count'] = $newCount;
+                $updateData['salary_status'] = 'Telah berlaku';
+
+                if ($newCount === 1) {
+                    $updateData['increment_1_amount'] = $incrementAmount;
+                } elseif ($newCount === 2) {
+                    $updateData['increment_2_amount'] = $incrementAmount;
+                } else {
+                    $updateData['increment_3_amount'] = $incrementAmount;
+                }
+
+                HcmCompensationHistory::create([
+                    'compensation_id' => $compensation->id,
+                    'employee_id' => $compensation->employee_id,
+                    'previous_salary' => $previousSalary,
+                    'new_salary' => $newSalary,
+                    'increment_amount' => $incrementAmount,
+                    'effective_date' => $validated['effective_date'] ?? now()->toDateString(),
+                    'reason' => $validated['decision_notes'] ?? 'Kenaikan Gaji dari Keputusan Evaluasi Siklus Berkala',
+                    'approved_by' => Auth::id(),
+                ]);
+            }
+
+            $compensation->update($updateData);
+        });
+
+        $empName = $compensation->employee?->name ?? 'Karyawan';
+        ActivityLogger::log(
+            'update',
+            'hcm',
+            $compensation,
+            "Memperbarui keputusan evaluasi gaji {$empName}: Status [{$validated['decision_status']}]"
+        );
+
+        return redirect()->back()->with('success', "Keputusan evaluasi kenaikan honor {$empName} berhasil disimpan.");
     }
 
     /**

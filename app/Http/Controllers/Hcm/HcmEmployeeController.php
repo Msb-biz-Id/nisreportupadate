@@ -35,6 +35,8 @@ class HcmEmployeeController extends Controller
         $category = $request->query('category', 'regular'); // 'regular' atau 'intern'
         $search = $request->query('search', '');
         $departmentFilter = $request->query('department', 'all');
+        $divisionFilter = $request->query('division', 'all');
+        $tenureFilter = $request->query('tenure_bucket', 'all');
         $jobLevelFilter = $request->query('job_level', 'all');
         $statusFilter = $request->query('status', 'all');
         $schoolFilter = $request->query('school', 'all');
@@ -67,6 +69,8 @@ class HcmEmployeeController extends Controller
                 });
             })
             ->when($departmentFilter !== 'all', fn ($q) => $q->where('department', $departmentFilter))
+            ->when($divisionFilter !== 'all', fn ($q) => $q->where('division', $divisionFilter))
+            ->when($tenureFilter !== 'all', fn ($q) => $q->tenureBucket($tenureFilter))
             ->when($jobLevelFilter !== 'all', fn ($q) => $q->where('job_level', $jobLevelFilter))
             ->when($schoolFilter !== 'all' && $category === 'intern', function ($q) use ($schoolFilter) {
                 $q->whereHas('intern', fn ($iq) => $iq->where('school_name', $schoolFilter));
@@ -121,6 +125,8 @@ class HcmEmployeeController extends Controller
                 'category' => $category,
                 'search' => $search,
                 'department' => $departmentFilter,
+                'division' => $divisionFilter,
+                'tenure_bucket' => $tenureFilter,
                 'job_level' => $jobLevelFilter,
                 'status' => $statusFilter,
                 'school' => $schoolFilter,
@@ -143,7 +149,8 @@ class HcmEmployeeController extends Controller
             'name' => ['required', 'string', 'max:150'],
             'nickname' => ['required', 'string', 'max:50'],
             'department' => ['required', 'string', 'max:100'],
-            'position' => ['required', 'string', 'max:100'],
+            'division' => ['required', 'string', 'max:100'],
+            'position' => ['nullable', 'string', 'max:100'],
             'job_level' => ['required', 'string', 'max:50'],
             'employment_status' => ['required', 'string', 'max:50'],
             'legal_entity' => ['nullable', 'string', 'max:100'],
@@ -163,6 +170,7 @@ class HcmEmployeeController extends Controller
             'bank_name' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:100'],
             'join_date' => ['nullable', 'date'],
+            'original_join_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
 
             // Data Magang (Opsional jika job_level Magang)
@@ -221,7 +229,8 @@ class HcmEmployeeController extends Controller
                 'name' => $validated['name'],
                 'nickname' => $validated['nickname'],
                 'department' => $validated['department'],
-                'position' => $validated['position'],
+                'division' => $validated['division'],
+                'position' => $validated['position'] ?? $validated['division'],
                 'job_level' => $validated['job_level'],
                 'employment_status' => $validated['employment_status'],
                 'legal_entity' => $validated['legal_entity'] ?? null,
@@ -241,6 +250,7 @@ class HcmEmployeeController extends Controller
                 'bank_name' => $validated['bank_name'] ?? 'Bank BRI',
                 'email' => $validated['email'] ?? null,
                 'join_date' => $validated['join_date'] ?? now()->toDateString(),
+                'original_join_date' => $validated['original_join_date'] ?? $validated['join_date'] ?? now()->toDateString(),
                 'notes' => $validated['notes'] ?? null,
                 'photo' => $photoPath,
                 'photo_url' => $photoUrl,
@@ -320,7 +330,7 @@ class HcmEmployeeController extends Controller
 
         $month = $request->query('month', now()->format('Y-m'));
         try {
-            $monthStart = \Carbon\Carbon::parse($month . '-01')->startOfMonth();
+            $monthStart = Carbon::parse($month . '-01')->startOfMonth();
         } catch (\Throwable $e) {
             $monthStart = now()->startOfMonth();
         }
@@ -359,7 +369,8 @@ class HcmEmployeeController extends Controller
             'name' => ['required', 'string', 'max:150'],
             'nickname' => ['required', 'string', 'max:50'],
             'department' => ['required', 'string', 'max:100'],
-            'position' => ['required', 'string', 'max:100'],
+            'division' => ['required', 'string', 'max:100'],
+            'position' => ['nullable', 'string', 'max:100'],
             'job_level' => ['required', 'string', 'max:50'],
             'employment_status' => ['required', 'string', 'max:50'],
             'legal_entity' => ['nullable', 'string', 'max:100'],
@@ -379,6 +390,7 @@ class HcmEmployeeController extends Controller
             'bank_name' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:100'],
             'join_date' => ['nullable', 'date'],
+            'original_join_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
 
             // Data Magang (jika ada)
@@ -432,7 +444,8 @@ class HcmEmployeeController extends Controller
                 'name' => $validated['name'],
                 'nickname' => $validated['nickname'],
                 'department' => $validated['department'],
-                'position' => $validated['position'],
+                'division' => $validated['division'],
+                'position' => $validated['position'] ?? $validated['division'],
                 'job_level' => $validated['job_level'],
                 'employment_status' => $validated['employment_status'],
                 'legal_entity' => $validated['legal_entity'] ?? null,
@@ -452,6 +465,7 @@ class HcmEmployeeController extends Controller
                 'bank_name' => $validated['bank_name'] ?? 'Bank BRI',
                 'email' => $validated['email'] ?? null,
                 'join_date' => $validated['join_date'] ?? $employee->join_date,
+                'original_join_date' => $validated['original_join_date'] ?? $employee->original_join_date ?? $validated['join_date'] ?? null,
                 'notes' => $validated['notes'] ?? null,
             ]);
 
@@ -494,7 +508,8 @@ class HcmEmployeeController extends Controller
         $validated = $request->validate([
             'contract_number' => ['required', 'string', 'max:100', 'unique:hcm_contracts,contract_number'],
             'employment_status' => ['required', 'string', 'max:50'],
-            'position' => ['required', 'string', 'max:100'],
+            'division' => ['nullable', 'string', 'max:100'],
+            'position' => ['nullable', 'string', 'max:100'],
             'legal_entity' => ['required', 'string', 'max:100'],
             'duration_text' => ['required', 'string', 'max:50'],
             'start_date' => ['required', 'date'],
@@ -507,20 +522,22 @@ class HcmEmployeeController extends Controller
 
         $fileUrl = $validated['file_contract_url'] ?? null;
         if ($request->hasFile('file_contract')) {
-            $uploaded = \App\Services\GoogleDriveSyncService::uploadFile(
+            $uploaded = GoogleDriveSyncService::uploadFile(
                 $request->file('file_contract'),
-                \App\Services\GoogleDriveSyncService::FOLDER_CONTRACTS
+                GoogleDriveSyncService::FOLDER_CONTRACTS
             );
             $fileUrl = $uploaded['url'];
         }
 
         $nextSequence = ($employee->contracts()->max('contract_sequence') ?? 0) + 1;
+        $division = $validated['division'] ?? $validated['position'] ?? $employee->division;
+        $position = $division;
 
         $employee->contracts()->create([
             'contract_number' => $validated['contract_number'],
             'contract_sequence' => $nextSequence,
             'employment_status' => $validated['employment_status'],
-            'position' => $validated['position'],
+            'position' => $position,
             'legal_entity' => $validated['legal_entity'],
             'duration_text' => $validated['duration_text'],
             'start_year' => date('Y', strtotime($validated['start_date'])),
@@ -531,10 +548,11 @@ class HcmEmployeeController extends Controller
             'notes' => $validated['notes'] ?? null,
         ]);
 
-        // Perbarui juga employment_status & position di master jika berubah
+        // Perbarui juga employment_status & divisi di master jika berubah
         $employee->update([
             'employment_status' => $validated['employment_status'],
-            'position' => $validated['position'],
+            'division' => $division,
+            'position' => $position,
             'legal_entity' => $validated['legal_entity'],
         ]);
 
@@ -660,7 +678,7 @@ class HcmEmployeeController extends Controller
 
         $onboarding = HcmOnboarding::firstOrNew(['employee_id' => $employee->id]);
 
-        $onboarding->position = $validated['position'] ?? $onboarding->position ?? $employee->position;
+        $onboarding->position = $validated['position'] ?? $onboarding->position ?? ($employee->division ?: $employee->position);
         $onboarding->department = $validated['department'] ?? $onboarding->department ?? $employee->department;
         $onboarding->join_date = $validated['join_date'] ?? $onboarding->join_date ?? $employee->join_date;
 
@@ -703,7 +721,7 @@ class HcmEmployeeController extends Controller
 
         $offboarding = HcmOffboarding::firstOrCreate(
             ['employee_id' => $employee->id],
-            ['position' => $employee->position, 'exit_date' => now()->toDateString()]
+            ['position' => $employee->division ?: $employee->position, 'exit_date' => now()->toDateString()]
         );
 
         $offboarding->update($validated);
@@ -738,7 +756,7 @@ class HcmEmployeeController extends Controller
 
             $offboarding = HcmOffboarding::firstOrNew(['employee_id' => $employee->id]);
             $offboarding->fill($validated);
-            $offboarding->position = $validated['position'] ?? $employee->position;
+            $offboarding->position = $validated['position'] ?? ($employee->division ?: $employee->position);
             $offboarding->save();
         });
 

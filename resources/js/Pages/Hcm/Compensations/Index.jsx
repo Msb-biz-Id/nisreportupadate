@@ -42,6 +42,7 @@ import {
     RotateCcw,
     DollarSign,
     Briefcase,
+    Scissors,
 } from 'lucide-react';
 
 const rp = (v) => {
@@ -68,6 +69,7 @@ export default function CompensationIndex({
     const [incrementModalOpen, setIncrementModalOpen] = useState(false);
     const [historyModalOpen, setHistoryModalOpen] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [decisionModalOpen, setDecisionModalOpen] = useState(false);
     const [selectedCompensation, setSelectedCompensation] = useState(null);
 
     // Sync state if server filter changes
@@ -120,6 +122,41 @@ export default function CompensationIndex({
         effective_date: new Date().toISOString().split('T')[0],
         reason: 'Kenaikan Gaji Berkala / Evaluasi Performa 6 Bulan',
     });
+
+    // Form Keputusan Evaluasi Kenaikan Gaji (Siklus Milestone & ACC/Tunda)
+    const decisionForm = useForm({
+        decision_status: 'Sedang Diajukan',
+        planned_increment: '',
+        effective_date: '',
+        custom_milestone_date: '',
+        decision_notes: '',
+        apply_immediately: false,
+    });
+
+    const handleOpenDecision = (c) => {
+        setSelectedCompensation(c);
+        decisionForm.setData({
+            decision_status: c.decision_status || 'Sedang Diajukan',
+            planned_increment: c.planned_increment ?? '',
+            effective_date: c.effective_date ? String(c.effective_date).slice(0, 10) : new Date().toISOString().split('T')[0],
+            custom_milestone_date: c.custom_milestone_date ? String(c.custom_milestone_date).slice(0, 10) : '',
+            decision_notes: c.decision_notes || '',
+            apply_immediately: false,
+        });
+        setDecisionModalOpen(true);
+    };
+
+    const submitDecision = (e) => {
+        e.preventDefault();
+        if (!selectedCompensation) return;
+        const key = selectedCompensation.uuid || selectedCompensation.id;
+        decisionForm.put(route('hcm.compensations.decision.update', key), {
+            onSuccess: () => {
+                setDecisionModalOpen(false);
+                decisionForm.reset();
+            },
+        });
+    };
 
     const applyFilter = (s = search, st = status, empSt = employmentStatus, e = entity) => {
         router.get(
@@ -347,14 +384,27 @@ export default function CompensationIndex({
                         </div>
                     </div>
 
-                    <Button
-                        type="button"
-                        onClick={handleOpenCreate}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs font-semibold gap-1.5 h-9 text-xs shrink-0"
-                    >
-                        <PlusCircle className="h-4 w-4" />
-                        <span>+ Tambah Data Kompensasi</span>
-                    </Button>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <Link href={route('hcm.salary-deductions.index')}>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900/60 dark:text-rose-300 font-semibold gap-1.5 h-9 text-xs shrink-0"
+                            >
+                                <Scissors className="h-4 w-4 text-rose-600" />
+                                <span>Potongan &amp; Penyesuaian Gaji</span>
+                            </Button>
+                        </Link>
+
+                        <Button
+                            type="button"
+                            onClick={handleOpenCreate}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs font-semibold gap-1.5 h-9 text-xs shrink-0"
+                        >
+                            <PlusCircle className="h-4 w-4" />
+                            <span>+ Tambah Data Kompensasi</span>
+                        </Button>
+                    </div>
                 </div>
 
                 {/* 4 Cards Metrik Finansial */}
@@ -537,7 +587,7 @@ export default function CompensationIndex({
                                 <Input
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
-                                    placeholder="Cari nama karyawan, nama panggil, NIK, posisi, no kontrak..."
+                                    placeholder="Cari nama karyawan, nama panggil, NIK, departemen, divisi, no kontrak..."
                                     className="pl-9 h-9 text-xs"
                                 />
                             </div>
@@ -616,7 +666,7 @@ export default function CompensationIndex({
                                         <th className="py-3 px-3">Status Ketenagakerjaan</th>
                                         <th className="py-3 px-3">Nama</th>
                                         <th className="py-3 px-3">Nama Panggil</th>
-                                        <th className="py-3 px-3">Posisi</th>
+                                        <th className="py-3 px-3">Departemen / Divisi</th>
                                         <th className="py-3 px-3">CV</th>
                                         <th className="py-3 px-3">No. Kontrak</th>
                                         <th className="py-3 px-3">Masa Kontrak</th>
@@ -671,9 +721,16 @@ export default function CompensationIndex({
                                                         {emp?.nickname || '-'}
                                                     </td>
 
-                                                    {/* 4. Posisi */}
-                                                    <td className="py-3 px-3 text-zinc-700 dark:text-zinc-300">
-                                                        {emp?.position || '-'}
+                                                    {/* 4. Departemen / Divisi */}
+                                                    <td className="py-3 px-3">
+                                                        <div className="font-semibold text-zinc-800 dark:text-zinc-200">
+                                                            {emp?.department || '-'}
+                                                        </div>
+                                                        {emp?.division && (
+                                                            <div className="text-[10px] text-zinc-400">
+                                                                {emp?.division}
+                                                            </div>
+                                                        )}
                                                     </td>
 
                                                     {/* 5. CV */}
@@ -734,14 +791,43 @@ export default function CompensationIndex({
                                                         {c.increment_3_amount ? rp(c.increment_3_amount) : '-'}
                                                     </td>
 
-                                                    {/* 15. Status Pengajuan/Honor */}
+                                                    {/* 15. Status Pengajuan / Keputusan Evaluasi */}
                                                     <td className="py-3 px-3 text-center">
-                                                        {getStatusBadge(c.salary_status)}
+                                                        <div>{getStatusBadge(c.salary_status)}</div>
+                                                        {c.decision_status && (
+                                                            <div className="mt-1">
+                                                                <span
+                                                                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
+                                                                        c.decision_status === 'Sudah Disetujui / ACC'
+                                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                                            : c.decision_status === 'Ditunda'
+                                                                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                                            : c.decision_status === 'Tidak Naik'
+                                                                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                                                            : 'bg-blue-50 text-blue-700 border-blue-200'
+                                                                    }`}
+                                                                >
+                                                                    {c.decision_status}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </td>
 
                                                     {/* 16. Aksi */}
                                                     <td className="py-3 px-3.5 text-right sticky right-0 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xs shadow-xs">
                                                         <div className="flex items-center justify-end gap-1">
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleOpenDecision(c)}
+                                                                className="h-7 text-[11px] px-2 gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300"
+                                                                title="Tentukan Keputusan Evaluasi Kenaikan Gaji (ACC/Tunda)"
+                                                            >
+                                                                <FileText className="h-3 w-3 text-indigo-500" />
+                                                                <span>Evaluasi</span>
+                                                            </Button>
+
                                                             <Button
                                                                 type="button"
                                                                 variant="outline"
@@ -759,7 +845,7 @@ export default function CompensationIndex({
                                                                 size="sm"
                                                                 onClick={() => handleOpenIncrement(c)}
                                                                 className="h-7 text-[11px] px-2 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                                                title="Catat Kenaikan Honor (Audit Trail)"
+                                                                title="Catat Kenaikan Honor Langsung"
                                                             >
                                                                 <ArrowUpRight className="h-3 w-3" />
                                                                 <span>Naikkan</span>
@@ -873,7 +959,7 @@ export default function CompensationIndex({
                                 value={createForm.data.employee_id}
                                 onValueChange={handleSelectEmployee}
                                 options={(dropdowns.employees || []).map((e) => ({
-                                    label: `${e.name} (${e.nickname || '-'}) — ${e.employee_code} [${e.position || '-'}]`,
+                                    label: `${e.name} (${e.nickname || '-'}) — ${e.employee_code} [${e.division || e.department || '-'}]`,
                                     value: String(e.id),
                                 }))}
                                 placeholder="Cari nama karyawan / NIK..."
@@ -1404,6 +1490,147 @@ export default function CompensationIndex({
                                 disabled={incrementForm.processing}
                             >
                                 {incrementForm.processing ? 'Menyimpan...' : 'Simpan Kenaikan'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Modal Keputusan Evaluasi Kenaikan Gaji (Siklus Milestone & ACC/Tunda) */}
+            <Dialog open={decisionModalOpen} onOpenChange={setDecisionModalOpen}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="text-base font-bold flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                            <FileText className="h-4 w-4" />
+                            <span>Keputusan Evaluasi Kenaikan Gaji Berkala</span>
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Karyawan: <strong>{selectedCompensation?.employee?.name}</strong> ({selectedCompensation?.employee?.employee_code}) • {selectedCompensation?.employee?.department || '-'} / {selectedCompensation?.employee?.division || '-'}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={submitDecision} className="space-y-3.5">
+                        {/* Info Ringkas Masa Kerja & Gaji Berjalan */}
+                        <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/80 space-y-1.5 text-xs">
+                            <div className="flex justify-between text-zinc-600 dark:text-zinc-300">
+                                <span>Tanggal Masuk (Anchor):</span>
+                                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                                    {selectedCompensation?.employee?.original_join_date || selectedCompensation?.employee?.join_date || '-'}
+                                </span>
+                            </div>
+                            <div className="flex justify-between text-zinc-600 dark:text-zinc-300">
+                                <span>Gaji Berjalan Saat Ini:</span>
+                                <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">
+                                    {rp(selectedCompensation?.current_salary)}
+                                </span>
+                            </div>
+                            <div className="flex justify-between text-zinc-600 dark:text-zinc-300">
+                                <span>Siklus Review Standar:</span>
+                                <span className="font-semibold text-indigo-600">
+                                    Setiap {selectedCompensation?.evaluation_cycle_months ?? 12} Bulan
+                                </span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <Label className="text-xs font-semibold">Status Keputusan Evaluasi *</Label>
+                            <SearchableSelect
+                                value={decisionForm.data.decision_status}
+                                onValueChange={(val) => decisionForm.setData('decision_status', val)}
+                                options={[
+                                    { label: 'Sedang Diajukan', value: 'Sedang Diajukan' },
+                                    { label: 'Sudah Disetujui / ACC', value: 'Sudah Disetujui / ACC' },
+                                    { label: 'Ditunda', value: 'Ditunda' },
+                                    { label: 'Tidak Naik', value: 'Tidak Naik' },
+                                ]}
+                                placeholder="Pilih Status Keputusan"
+                                className="mt-1 text-xs"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <Label className="text-xs font-semibold">Usulan / Nilai Kenaikan (Rp)</Label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    value={decisionForm.data.planned_increment}
+                                    onChange={(e) => decisionForm.setData('planned_increment', e.target.value)}
+                                    placeholder="Contoh: 200000"
+                                    className="mt-1 h-9 text-xs font-mono"
+                                />
+                            </div>
+
+                            <div>
+                                <Label className="text-xs font-semibold">Tanggal Efektif</Label>
+                                <Input
+                                    type="date"
+                                    value={decisionForm.data.effective_date}
+                                    onChange={(e) => decisionForm.setData('effective_date', e.target.value)}
+                                    className="mt-1 h-9 text-xs"
+                                />
+                            </div>
+                        </div>
+
+                        {decisionForm.data.decision_status === 'Ditunda' && (
+                            <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 space-y-1">
+                                <Label className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                                    Tanggal Review Baru (Custom Milestone) *
+                                </Label>
+                                <p className="text-[10px] text-amber-700 dark:text-amber-400">
+                                    Jadwal evaluasi khusus (misal tunda 3 bulan) tanpa merusak siklus tahunan masa kerja.
+                                </p>
+                                <Input
+                                    type="date"
+                                    value={decisionForm.data.custom_milestone_date}
+                                    onChange={(e) => decisionForm.setData('custom_milestone_date', e.target.value)}
+                                    className="h-8 text-xs bg-white dark:bg-zinc-900 mt-1"
+                                />
+                            </div>
+                        )}
+
+                        <div>
+                            <Label className="text-xs font-semibold">Catatan &amp; Notula Hasil Evaluasi</Label>
+                            <Input
+                                value={decisionForm.data.decision_notes}
+                                onChange={(e) => decisionForm.setData('decision_notes', e.target.value)}
+                                placeholder="Alasan penundaan / persetujuan / catatan performa..."
+                                className="mt-1 h-9 text-xs"
+                            />
+                        </div>
+
+                        {decisionForm.data.decision_status === 'Sudah Disetujui / ACC' && (
+                            <div className="flex items-center gap-2 p-2 rounded bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40">
+                                <input
+                                    type="checkbox"
+                                    id="apply_immediately"
+                                    checked={decisionForm.data.apply_immediately}
+                                    onChange={(e) => decisionForm.setData('apply_immediately', e.target.checked)}
+                                    className="rounded border-emerald-300 text-emerald-600 h-4 w-4"
+                                />
+                                <Label htmlFor="apply_immediately" className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 cursor-pointer">
+                                    Langsung terapkan kenaikan ini ke Gaji Berjalan saat disimpan (Apply Increment)
+                                </Label>
+                            </div>
+                        )}
+
+                        <DialogFooter className="pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setDecisionModalOpen(false)}
+                                className="text-xs"
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                size="sm"
+                                disabled={decisionForm.processing}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold"
+                            >
+                                {decisionForm.processing ? 'Menyimpan...' : 'Simpan Keputusan'}
                             </Button>
                         </DialogFooter>
                     </form>

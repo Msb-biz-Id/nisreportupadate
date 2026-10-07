@@ -29,7 +29,7 @@ class HcmContractController extends Controller
         $reviewStatus = $request->input('review_status');
         $employmentStatus = $request->input('employment_status');
 
-        $query = HcmContract::with(['employee:id,name,nickname,employee_code,department,position,legal_entity,is_active,photo_url'])
+        $query = HcmContract::with(['employee:id,name,nickname,employee_code,department,division,legal_entity,is_active,photo_url,join_date,original_join_date'])
             ->orderByDesc('start_date');
 
         if ($search) {
@@ -117,18 +117,10 @@ class HcmContractController extends Controller
         $dropdowns = [
             'legal_entities' => HcmMasterOption::getOptions('legal_entities'),
             'employment_statuses' => HcmMasterOption::getOptions('employment_statuses'),
-            'positions' => HcmMasterOption::getOptions('positions'),
-            'review_statuses' => [
-                'Aktif',
-                'Mendekati H-60',
-                'Wajib Review H-30',
-                'Masa Tenggang H-14',
-                'Perpanjang',
-                'Selesai Kontrak',
-                'Diputus',
-            ],
+            'review_statuses' => HcmMasterOption::getOptions('status_review_kontrak'),
+            'divisions' => HcmMasterOption::getOptions('divisi') ?: HcmMasterOption::getOptions('divisions'),
             'employees' => HcmEmployee::where('is_active', true)
-                ->select('id', 'name', 'nickname', 'employee_code', 'department', 'position', 'legal_entity')
+                ->select('id', 'name', 'nickname', 'employee_code', 'department', 'division', 'legal_entity')
                 ->orderBy('name')
                 ->get(),
         ];
@@ -158,7 +150,7 @@ class HcmContractController extends Controller
             'contract_number' => ['required', 'string', 'max:100', 'unique:hcm_contracts,contract_number'],
             'contract_sequence' => ['required', 'integer', 'min:1'],
             'employment_status' => ['required', 'string', 'max:50'],
-            'position' => ['required', 'string', 'max:100'],
+            'position' => ['nullable', 'string', 'max:100'],
             'legal_entity' => ['required', 'string', 'max:100'],
             'duration_text' => ['required', 'string', 'max:50'],
             'trainee_start_month' => ['nullable', 'string', 'max:50'],
@@ -190,7 +182,7 @@ class HcmContractController extends Controller
             'contract_number' => $validated['contract_number'],
             'contract_sequence' => $validated['contract_sequence'],
             'employment_status' => $validated['employment_status'],
-            'position' => $validated['position'],
+            'position' => $validated['position'] ?? null,
             'legal_entity' => $validated['legal_entity'],
             'duration_text' => $validated['duration_text'],
             'trainee_start_month' => $validated['trainee_start_month'] ?? null,
@@ -206,13 +198,20 @@ class HcmContractController extends Controller
         ]);
 
         // Perbarui employment_status & legal_entity di master employee jika merupakan kontrak terbaru
+        // PERHATIAN: original_join_date harus permanen dan TIDAK BOLEH ditimpa saat renewal kontrak!
         $employee = HcmEmployee::find($validated['employee_id']);
         if ($employee) {
-            $employee->update([
+            $updatePayload = [
                 'employment_status' => $validated['employment_status'],
                 'legal_entity' => $validated['legal_entity'],
-                'position' => $validated['position'],
-            ]);
+            ];
+            if (empty($employee->original_join_date) && !empty($employee->join_date)) {
+                $updatePayload['original_join_date'] = $employee->join_date;
+            } elseif (empty($employee->original_join_date) && empty($employee->join_date)) {
+                $updatePayload['original_join_date'] = $validated['start_date'];
+                $updatePayload['join_date'] = $validated['start_date'];
+            }
+            $employee->update($updatePayload);
         }
 
         ActivityLogger::log('create', 'hcm', $contract, "Penerbitan kontrak PKWT baru: {$contract->contract_number} untuk {$employee?->name}");
@@ -231,7 +230,7 @@ class HcmContractController extends Controller
             'contract_number' => ['required', 'string', 'max:100', 'unique:hcm_contracts,contract_number,' . $contract->id],
             'contract_sequence' => ['required', 'integer', 'min:1'],
             'employment_status' => ['required', 'string', 'max:50'],
-            'position' => ['required', 'string', 'max:100'],
+            'position' => ['nullable', 'string', 'max:100'],
             'legal_entity' => ['required', 'string', 'max:100'],
             'duration_text' => ['required', 'string', 'max:50'],
             'trainee_start_month' => ['nullable', 'string', 'max:50'],

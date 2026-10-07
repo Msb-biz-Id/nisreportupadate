@@ -98,6 +98,11 @@ class HcmSettingController extends Controller
             ],
             'payroll' => [
                 'cutoff_day' => (int) SystemSetting::get('hcm_payroll', 'cutoff_day', 25),
+                'auto_send_slip_email' => (bool) SystemSetting::get('hcm_payroll', 'auto_send_slip_email', false),
+                'slip_email_delay_minutes' => (int) SystemSetting::get('hcm_payroll', 'slip_email_delay_minutes', 60),
+                'send_salary_slip_email' => (bool) SystemSetting::get('hcm_payroll', 'send_salary_slip_email', true),
+                'send_meal_slip_email' => (bool) SystemSetting::get('hcm_payroll', 'send_meal_slip_email', true),
+                'send_overtime_slip_email' => (bool) SystemSetting::get('hcm_payroll', 'send_overtime_slip_email', true),
             ],
             'storage' => [
                 'drive_sync_enabled' => (bool) SystemSetting::get('hcm_storage', 'drive_sync_enabled', false),
@@ -277,6 +282,34 @@ class HcmSettingController extends Controller
         ActivityLogger::log('update', 'hcm', null, 'Memperbarui konfigurasi uang makan dan cut-off payroll dari modul Pengaturan HCM.');
 
         return back()->with('success', 'Pengaturan uang makan dan batas cut-off penggajian berhasil diperbarui.');
+    }
+
+    /**
+     * Perbarui Konfigurasi Distribusi Slip Otomatis & Notifikasi Email ke Karyawan.
+     */
+    public function updatePayroll(Request $request): RedirectResponse
+    {
+        $this->authorizeAccess();
+
+        $validated = $request->validate([
+            'cutoff_day' => ['required', 'integer', 'between:1,31'],
+            'auto_send_slip_email' => ['required', 'boolean'],
+            'slip_email_delay_minutes' => ['required', 'integer', 'min:0', 'max:1440'],
+            'send_salary_slip_email' => ['nullable', 'boolean'],
+            'send_meal_slip_email' => ['nullable', 'boolean'],
+            'send_overtime_slip_email' => ['nullable', 'boolean'],
+        ]);
+
+        SystemSetting::set('hcm_payroll', 'cutoff_day', (string) $validated['cutoff_day'], false, 'Tanggal batas cut-off payroll bulanan');
+        SystemSetting::set('hcm_payroll', 'auto_send_slip_email', $validated['auto_send_slip_email'] ? '1' : '0', false, 'Opsi kirim slip ke email karyawan otomatis setelah approval keuangan');
+        SystemSetting::set('hcm_payroll', 'slip_email_delay_minutes', (string) $validated['slip_email_delay_minutes'], false, 'Jeda waktu (menit) sebelum slip dikirim ke email karyawan untuk penyetoran ke BRI');
+        SystemSetting::set('hcm_payroll', 'send_salary_slip_email', $request->boolean('send_salary_slip_email') ? '1' : '0', false, 'Kirim otomatis slip gaji bulanan');
+        SystemSetting::set('hcm_payroll', 'send_meal_slip_email', $request->boolean('send_meal_slip_email') ? '1' : '0', false, 'Kirim otomatis slip uang makan bulanan');
+        SystemSetting::set('hcm_payroll', 'send_overtime_slip_email', $request->boolean('send_overtime_slip_email') ? '1' : '0', false, 'Kirim otomatis slip upah lembur');
+
+        ActivityLogger::log('update', 'hcm', null, "Memperbarui konfigurasi auto-send slip email HCM (Delay: {$validated['slip_email_delay_minutes']} menit).");
+
+        return back()->with('success', 'Pengaturan distribusi slip & notifikasi email otomatis berhasil diperbarui.');
     }
 
     /**

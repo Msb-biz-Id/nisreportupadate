@@ -16,6 +16,7 @@ use App\Models\Hcm\HcmOvertimeBatch;
 use App\Models\Settings\SystemSetting;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -37,14 +38,63 @@ class HcmDashboardController extends Controller
 
         // 1. Ambil seluruh data karyawan aktif untuk kalkulasi alert dinamis & total
         $allEmployees = HcmEmployee::select(
-            'id', 'employee_code', 'name', 'nickname', 'department', 'position', 'job_level',
+            'id', 'employee_code', 'name', 'nickname', 'department', 'division', 'job_level',
             'birth_date', 'join_date', 'employment_status', 'is_active'
         )->get();
 
         $activeEmployees = $allEmployees->where('is_active', true);
 
-        // === TOTAL DARI SELURUH MODUL KEPEGAWAIAN ===
-        $moduleTotals = [
+        // 2. Metrik modul dan alert
+        $moduleTotals = $this->getModuleTotals($allEmployees, $activeEmployees, $today, $todayStr, $startOfMonth, $endOfMonth, $startOfYear);
+        $probationAlerts = $this->getProbationAlerts($activeEmployees, $today);
+        $contractAlerts = $this->getContractAlerts($today, $todayStr);
+        $activeLeavesToday = $this->getActiveLeavesToday($todayStr);
+        [$unexcusedAbsenceAlerts, $absenceAlertActive] = $this->getUnexcusedAbsenceAlerts($activeEmployees, $todayStr);
+        $overtimeReminder = $this->getOvertimeReminder($today);
+        [$payrollCutoffReminder, $daysToCutoff] = $this->getPayrollCutoffReminder($today);
+        $pendingLeaves = $this->getPendingLeaves();
+        $birthdayAlerts = $this->getBirthdayAlerts($activeEmployees, $today);
+        $anniversaryAlerts = $this->getAnniversaryAlerts($activeEmployees, $today);
+
+        $upcomingEvents = HcmCompanyEvent::whereDate('end_date', '>=', $todayStr)
+            ->orderBy('start_date', 'asc')
+            ->limit(5)
+            ->get();
+
+        $legalEntities = HcmMasterOption::getOptions('legal_entities');
+
+        return Inertia::render('Hcm/Dashboard/Index', [
+            'today' => $todayStr,
+            'moduleTotals' => $moduleTotals,
+            'legalEntities' => $legalEntities,
+            'probationAlerts' => $probationAlerts,
+            'contractAlerts' => $contractAlerts,
+            'unexcusedAbsenceAlerts' => $unexcusedAbsenceAlerts,
+            'absenceAlertActive' => $absenceAlertActive,
+            'overtimeReminder' => $overtimeReminder,
+            'payrollCutoffReminder' => $payrollCutoffReminder,
+            'pendingLeaves' => $pendingLeaves,
+            'activeLeavesToday' => $activeLeavesToday,
+            'birthdayAlerts' => $birthdayAlerts,
+            'anniversaryAlerts' => $anniversaryAlerts,
+            'upcomingEvents' => $upcomingEvents,
+            'daysToCutoff' => $daysToCutoff,
+        ]);
+    }
+
+    /**
+     * Hitung total metrik dari seluruh modul kepegawaian.
+     */
+    private function getModuleTotals(
+        Collection $allEmployees,
+        Collection $activeEmployees,
+        Carbon $today,
+        string $todayStr,
+        string $startOfMonth,
+        string $endOfMonth,
+        string $startOfYear
+    ): array {
+        return [
             // 1. Modul Karyawan & Magang
             'employees' => [
                 'total_all' => $allEmployees->count(),
@@ -119,9 +169,14 @@ class HcmDashboardController extends Controller
                 'holidays' => HcmCompanyEvent::where('event_type', 'Libur Nasional')->whereYear('start_date', $today->year)->count(),
             ],
         ];
+    }
 
-        // === 1. PERINGATAN PROBATION H-7 (Masa Percobaan 3 Bulan) ===
-        $probationAlerts = $activeEmployees->filter(function ($emp) use ($today) {
+    /**
+     * Peringatan Probation H-7 (Masa Percobaan 3 Bulan).
+     */
+    private function getProbationAlerts(Collection $activeEmployees, Carbon $today): Collection
+    {
+        return $activeEmployees->filter(function ($emp) use ($today) {
             if (!$emp->join_date) return false;
             if ($emp->employment_status === 'Probation' || $emp->job_level === 'Trainee') {
                 $probEnd = Carbon::parse($emp->join_date)->addMonths(3);
@@ -142,12 +197,17 @@ class HcmDashboardController extends Controller
                 'urgency' => ($diff <= 3) ? 'critical' : 'warning',
             ];
         })->sortBy('days_remaining')->values();
+    }
 
-        // === 2. PERINGATAN HABIS KONTRAK PKWT H-30 ===
-        $contractAlerts = HcmContract::where('review_status', 'Aktif')
+    /**
+     * Peringatan Habis Kontrak PKWT H-30.
+     */
+    private function getContractAlerts(Carbon $today, string $todayStr): Collection
+    {
+        return HcmContract::where('review_status', 'Aktif')
             ->whereDate('end_date', '>=', $todayStr)
             ->whereDate('end_date', '<=', $today->copy()->addDays(30)->toDateString())
-            ->with('employee:id,employee_code,name,department,position')
+            ->with('employee:id,employee_code,name,department,division')
             ->orderBy('end_date', 'asc')
             ->get()
             ->map(function ($c) use ($today) {
@@ -165,12 +225,17 @@ class HcmDashboardController extends Controller
                     'urgency' => ($diff <= 7) ? 'critical' : 'warning',
                 ];
             });
+    }
 
-        // === 3. REKAP IZIN & CUTI HARI INI (Scheduled Leave Alert) ===
-        $activeLeavesToday = HcmLeaveRequest::where('status', 'APPROVED')
+    /**
+     * Rekap Cuti & Izin Aktif Hari Ini.
+     */
+    private function getActiveLeavesToday(string $todayStr): Collection
+    {
+        return HcmLeaveRequest::where('status', 'APPROVED')
             ->whereDate('start_date', '<=', $todayStr)
             ->whereDate('end_date', '>=', $todayStr)
-            ->with('employee:id,employee_code,name,department,position')
+            ->with('employee:id,employee_code,name,department,division')
             ->get()
             ->map(function ($l) {
                 return [
@@ -179,7 +244,7 @@ class HcmDashboardController extends Controller
                     'employee_name' => $l->employee?->name,
                     'employee_code' => $l->employee?->employee_code,
                     'department' => $l->employee?->department,
-                    'position' => $l->employee?->position,
+                    'division' => $l->employee?->division,
                     'leave_type' => $l->leave_type,
                     'reason' => $l->reason,
                     'start_date' => $l->start_date ? Carbon::parse($l->start_date)->format('d M Y') : '-',
@@ -187,8 +252,13 @@ class HcmDashboardController extends Controller
                     'applied_at' => $l->created_at ? $l->created_at->format('d M Y') : '-',
                 ];
             });
+    }
 
-        // === 4. PERINGATAN ABSENSI (Unexcused Absence / Mangkir Hari Ini) ===
+    /**
+     * Peringatan Absensi (Unexcused Absence / Mangkir Hari Ini).
+     */
+    private function getUnexcusedAbsenceAlerts(Collection $activeEmployees, string $todayStr): array
+    {
         $todayAttendances = HcmAttendance::whereDate('attendance_date', $todayStr)->get()->keyBy('employee_id');
         $activeLeavesEmpIds = HcmLeaveRequest::where('status', 'APPROVED')
             ->whereDate('start_date', '<=', $todayStr)
@@ -196,15 +266,13 @@ class HcmDashboardController extends Controller
             ->pluck('employee_id')
             ->all();
 
-        // Karyawan dengan pengajuan izin/cuti hari ini yang DITOLAK.
         $rejectedLeaveEmpIds = HcmLeaveRequest::where('status', 'REJECTED')
             ->whereDate('start_date', '<=', $todayStr)
             ->whereDate('end_date', '>=', $todayStr)
             ->pluck('employee_id')
             ->all();
 
-        // Alert mangkir baru aktif setelah pukul 08:30 WIB.
-        $absenceAlertActive = now()->greaterThanOrEqualTo(\Carbon\Carbon::parse($todayStr)->setTime(8, 30));
+        $absenceAlertActive = now()->greaterThanOrEqualTo(Carbon::parse($todayStr)->setTime(8, 30));
 
         $unexcusedAbsenceAlerts = $absenceAlertActive
             ? $activeEmployees->filter(function ($emp) use ($todayAttendances, $activeLeavesEmpIds) {
@@ -213,7 +281,7 @@ class HcmDashboardController extends Controller
                 }
                 $att = $todayAttendances->get($emp->id);
                 if (!$att) {
-                    return true; // Belum clock-in tanpa keterangan
+                    return true;
                 }
                 return $att->attendance_category === 'Alpha/Mangkir';
             })->map(function ($emp) use ($todayAttendances, $rejectedLeaveEmpIds) {
@@ -228,13 +296,20 @@ class HcmDashboardController extends Controller
                     'nickname' => $emp->nickname,
                     'employee_code' => $emp->employee_code,
                     'department' => $emp->department,
-                    'position' => $emp->position,
+                    'division' => $emp->division,
                     'status' => $status,
                 ];
             })->values()
             : collect();
 
-        // === 5. PENGINGAT VALIDASI LEMBUR MINGGUAN (Jumat/Sabtu Alert) ===
+        return [$unexcusedAbsenceAlerts, $absenceAlertActive];
+    }
+
+    /**
+     * Pengingat Validasi Lembur Mingguan (Jumat/Sabtu Alert).
+     */
+    private function getOvertimeReminder(Carbon $today): array
+    {
         $isFriday = $today->isFriday();
         $isSaturday = $today->isSaturday();
         $draftOvertimeBatches = HcmOvertimeBatch::where('status', 'DRAFT')
@@ -242,7 +317,7 @@ class HcmDashboardController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $overtimeReminder = [
+        return [
             'is_weekend_cutoff' => ($isFriday || $isSaturday),
             'is_saturday' => $isSaturday,
             'draft_batches_count' => $draftOvertimeBatches->count(),
@@ -256,8 +331,13 @@ class HcmDashboardController extends Controller
                 'items_count' => $draftOvertimeBatches->first()->overtimes_count,
             ] : null,
         ];
+    }
 
-        // === 6. PENGINGAT CUT-OFF & REKAP ABSENSI BULANAN (H-3 Cut-Off Payroll) ===
+    /**
+     * Pengingat Cut-Off & Rekap Absensi Bulanan (H-3 Cut-Off Payroll).
+     */
+    private function getPayrollCutoffReminder(Carbon $today): array
+    {
         $cutoffDay = (int) SystemSetting::get('hcm_payroll', 'cutoff_day', 25);
         $currentCutoff = Carbon::create($today->year, $today->month, min($cutoffDay, 28));
         if ($today->day > $cutoffDay) {
@@ -268,7 +348,7 @@ class HcmDashboardController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $payrollCutoffReminder = [
+        $reminder = [
             'days_to_cutoff' => $daysToCutoff,
             'cutoff_date' => $currentCutoff->format('d M Y'),
             'is_cutoff_window' => ($daysToCutoff <= 3 && $daysToCutoff >= 0),
@@ -283,9 +363,16 @@ class HcmDashboardController extends Controller
             ] : null,
         ];
 
-        // === 7. PENDING APPROVALS (Cuti / Izin Menunggu HR) ===
-        $pendingLeaves = HcmLeaveRequest::whereIn('status', ['PENDING', 'PENDING_REVIEW'])
-            ->with('employee:id,employee_code,name,department,position')
+        return [$reminder, $daysToCutoff];
+    }
+
+    /**
+     * Ambil 5 Pengajuan Cuti / Izin Menunggu Review HR.
+     */
+    private function getPendingLeaves(): Collection
+    {
+        return HcmLeaveRequest::whereIn('status', ['PENDING', 'PENDING_REVIEW'])
+            ->with('employee:id,employee_code,name,department,division')
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get()
@@ -295,7 +382,8 @@ class HcmDashboardController extends Controller
                     'employee_id' => $l->employee_id,
                     'employee_name' => $l->employee?->name,
                     'department' => $l->employee?->department,
-                    'position' => $l->employee?->position,
+                    'division' => $l->employee?->division,
+                    'position' => $l->employee?->division,
                     'leave_type' => $l->leave_type,
                     'start_date' => $l->start_date ? Carbon::parse($l->start_date)->format('d M Y') : '-',
                     'end_date' => $l->end_date ? Carbon::parse($l->end_date)->format('d M Y') : '-',
@@ -304,9 +392,14 @@ class HcmDashboardController extends Controller
                     'applied_at' => $l->created_at ? $l->created_at->format('d M Y') : '-',
                 ];
             });
+    }
 
-        // === 8. ULANG TAHUN H-3 DINAMIS ===
-        $birthdayAlerts = $activeEmployees->filter(function ($emp) use ($today) {
+    /**
+     * Alert Ulang Tahun H-3 Dinamis.
+     */
+    private function getBirthdayAlerts(Collection $activeEmployees, Carbon $today): Collection
+    {
+        return $activeEmployees->filter(function ($emp) use ($today) {
             if (!$emp->birth_date) return false;
             $bdate = Carbon::parse($emp->birth_date);
             $thisYearBday = Carbon::create($today->year, $bdate->month, $bdate->day);
@@ -334,9 +427,14 @@ class HcmDashboardController extends Controller
                 'days_remaining' => $diff,
             ];
         })->values();
+    }
 
-        // === 9. WORK ANNIVERSARY H-7 DINAMIS ===
-        $anniversaryAlerts = $activeEmployees->filter(function ($emp) use ($today) {
+    /**
+     * Alert Work Anniversary H-7 Dinamis.
+     */
+    private function getAnniversaryAlerts(Collection $activeEmployees, Carbon $today): Collection
+    {
+        return $activeEmployees->filter(function ($emp) use ($today) {
             if (!$emp->join_date) return false;
             $jdate = Carbon::parse($emp->join_date);
             if ($jdate->isSameYear($today)) return false;
@@ -367,31 +465,5 @@ class HcmDashboardController extends Controller
                 'days_remaining' => $diff,
             ];
         })->values();
-
-        // === 10. ACARA TERDEKAT DARI MODUL KALENDER ACARA ===
-        $upcomingEvents = HcmCompanyEvent::whereDate('end_date', '>=', $todayStr)
-            ->orderBy('start_date', 'asc')
-            ->limit(5)
-            ->get();
-
-        $legalEntities = HcmMasterOption::getOptions('legal_entities');
-
-        return Inertia::render('Hcm/Dashboard/Index', [
-            'today' => $todayStr,
-            'moduleTotals' => $moduleTotals,
-            'legalEntities' => $legalEntities,
-            'probationAlerts' => $probationAlerts,
-            'contractAlerts' => $contractAlerts,
-            'unexcusedAbsenceAlerts' => $unexcusedAbsenceAlerts,
-            'absenceAlertActive' => $absenceAlertActive,
-            'overtimeReminder' => $overtimeReminder,
-            'payrollCutoffReminder' => $payrollCutoffReminder,
-            'pendingLeaves' => $pendingLeaves,
-            'activeLeavesToday' => $activeLeavesToday,
-            'birthdayAlerts' => $birthdayAlerts,
-            'anniversaryAlerts' => $anniversaryAlerts,
-            'upcomingEvents' => $upcomingEvents,
-            'daysToCutoff' => $daysToCutoff,
-        ]);
     }
 }

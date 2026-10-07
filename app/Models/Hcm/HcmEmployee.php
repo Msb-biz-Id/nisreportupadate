@@ -2,6 +2,7 @@
 
 namespace App\Models\Hcm;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,7 @@ class HcmEmployee extends Model
         'name',
         'nickname',
         'department',
+        'division',
         'position',
         'job_level',
         'employment_status',
@@ -40,6 +42,7 @@ class HcmEmployee extends Model
         'bank_name',
         'email',
         'join_date',
+        'original_join_date',
         'is_active',
         'photo',
         'photo_url',
@@ -49,6 +52,7 @@ class HcmEmployee extends Model
     protected $casts = [
         'birth_date' => 'date',
         'join_date' => 'date',
+        'original_join_date' => 'date',
         'is_active' => 'boolean',
     ];
 
@@ -57,6 +61,8 @@ class HcmEmployee extends Model
         'photo_base64',
         'is_intern',
         'is_regular',
+        'tenure_months',
+        'tenure_bucket',
     ];
 
     /**
@@ -122,6 +128,102 @@ class HcmEmployee extends Model
     public function getIsRegularAttribute(): bool
     {
         return ($this->employee_category ?? 'REGULAR') === 'REGULAR' && $this->job_level !== 'Magang';
+    }
+
+    /**
+     * Masa kerja kumulatif permanen dalam bulan (dihitung dari original_join_date).
+     */
+    public function getTenureMonthsAttribute(): int
+    {
+        $startDate = $this->original_join_date ?: $this->join_date;
+        if (!$startDate) {
+            return 0;
+        }
+
+        $start = $startDate instanceof \DateTimeInterface
+            ? Carbon::instance($startDate)
+            : Carbon::parse((string) $startDate);
+
+        return (int) $start->diffInMonths(Carbon::now());
+    }
+
+    /**
+     * Pengelompokan loyalitas masa kerja (Tenure Buckets).
+     */
+    public function getTenureBucketAttribute(): string
+    {
+        $startDate = $this->original_join_date ?: $this->join_date;
+        if (!$startDate) {
+            return 'Kurang dari 1 Tahun';
+        }
+
+        $months = $this->tenure_months;
+
+        if ($months >= 36) {
+            return 'Kelompok 3+ Tahun';
+        } elseif ($months >= 24) {
+            return 'Kelompok 2 Tahun';
+        } elseif ($months >= 12) {
+            return 'Kelompok 1 Tahun';
+        }
+
+        return 'Kurang dari 1 Tahun';
+    }
+
+    /**
+     * Scope filter berdasarkan tenure bucket.
+     */
+    public function scopeTenureBucket(Builder $query, string $bucket): Builder
+    {
+        $now = Carbon::now();
+
+        return match ($bucket) {
+            '1_year', '1_tahun', 'Kelompok 1 Tahun' => $query->where(function ($q) use ($now) {
+                $q->where(function ($sub) use ($now) {
+                    $sub->whereNotNull('original_join_date')
+                        ->where('original_join_date', '<=', $now->copy()->subMonths(12)->toDateString())
+                        ->where('original_join_date', '>', $now->copy()->subMonths(24)->toDateString());
+                })->orWhere(function ($sub) use ($now) {
+                    $sub->whereNull('original_join_date')
+                        ->whereNotNull('join_date')
+                        ->where('join_date', '<=', $now->copy()->subMonths(12)->toDateString())
+                        ->where('join_date', '>', $now->copy()->subMonths(24)->toDateString());
+                });
+            }),
+            '2_years', '2_tahun', 'Kelompok 2 Tahun' => $query->where(function ($q) use ($now) {
+                $q->where(function ($sub) use ($now) {
+                    $sub->whereNotNull('original_join_date')
+                        ->where('original_join_date', '<=', $now->copy()->subMonths(24)->toDateString())
+                        ->where('original_join_date', '>', $now->copy()->subMonths(36)->toDateString());
+                })->orWhere(function ($sub) use ($now) {
+                    $sub->whereNull('original_join_date')
+                        ->whereNotNull('join_date')
+                        ->where('join_date', '<=', $now->copy()->subMonths(24)->toDateString())
+                        ->where('join_date', '>', $now->copy()->subMonths(36)->toDateString());
+                });
+            }),
+            '3_years', '3_tahun', 'Kelompok 3+ Tahun', 'Kelompok 3 Tahun / Seterusnya' => $query->where(function ($q) use ($now) {
+                $q->where(function ($sub) use ($now) {
+                    $sub->whereNotNull('original_join_date')
+                        ->where('original_join_date', '<=', $now->copy()->subMonths(36)->toDateString());
+                })->orWhere(function ($sub) use ($now) {
+                    $sub->whereNull('original_join_date')
+                        ->whereNotNull('join_date')
+                        ->where('join_date', '<=', $now->copy()->subMonths(36)->toDateString());
+                });
+            }),
+            '<1_year', '<1_tahun', 'Kurang dari 1 Tahun' => $query->where(function ($q) use ($now) {
+                $q->where(function ($sub) use ($now) {
+                    $sub->whereNotNull('original_join_date')
+                        ->where('original_join_date', '>', $now->copy()->subMonths(12)->toDateString());
+                })->orWhere(function ($sub) use ($now) {
+                    $sub->whereNull('original_join_date')
+                        ->whereNotNull('join_date')
+                        ->where('join_date', '>', $now->copy()->subMonths(12)->toDateString());
+                });
+            }),
+            default => $query,
+        };
     }
 
     /**
@@ -259,4 +361,29 @@ class HcmEmployee extends Model
     {
         return $this->hasMany(HcmEmployeeReward::class, 'employee_id')->orderBy('reward_year', 'desc');
     }
+
+    /**
+     * Riwayat izin keluar kantor (Gate Pass).
+     */
+    public function exitPermits(): HasMany
+    {
+        return $this->hasMany(HcmOfficeExitPermit::class, 'employee_id')->orderBy('permit_date', 'desc')->orderBy('exit_time', 'desc');
+    }
+
+    /**
+     * Riwayat penyesuaian dan pemotongan gaji bulanan.
+     */
+    public function salaryDeductions(): HasMany
+    {
+        return $this->hasMany(HcmSalaryDeduction::class, 'employee_id')->orderBy('effective_payroll_month', 'desc');
+    }
+
+    /**
+     * Riwayat slip dan item penggajian (Unified Payroll).
+     */
+    public function payrollItems(): HasMany
+    {
+        return $this->hasMany(HcmPayrollItem::class, 'employee_id')->orderBy('id', 'desc');
+    }
 }
+

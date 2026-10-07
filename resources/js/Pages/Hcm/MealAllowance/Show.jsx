@@ -21,6 +21,7 @@ import {
     HelpCircle,
     Printer,
     FileSpreadsheet,
+    FileText,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent } from '@/Components/ui/card';
@@ -448,7 +449,8 @@ export default function MealAllowanceShow({ batch, settings }) {
                                     <TableHead className="min-w-[110px] text-center text-xs font-bold">Status Hold</TableHead>
                                     <TableHead className="min-w-[100px] text-center text-xs font-bold">Bonus</TableHead>
                                     <TableHead className="min-w-[130px] text-right text-xs font-bold">Total Diterima</TableHead>
-                                    <TableHead className="min-w-[160px] text-xs font-bold">Catatan Kedisiplinan</TableHead>
+                                    <TableHead className="min-w-[150px] text-xs font-bold">Catatan Kedisiplinan</TableHead>
+                                    <TableHead className="w-[80px] text-center text-xs font-bold">Slip</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -562,11 +564,24 @@ export default function MealAllowanceShow({ batch, settings }) {
                                                     '-'
                                                 )}
                                             </TableCell>
+
+                                            <TableCell className="text-center">
+                                                <a
+                                                    href={route('hcm.meal-allowance.items.pdf', item.id)}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded border border-emerald-200 transition"
+                                                    title="Cetak Slip Uang Makan"
+                                                >
+                                                    <FileText className="w-3.5 h-3.5" />
+                                                    <span>Slip</span>
+                                                </a>
+                                            </TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={13} className="text-center py-8 text-zinc-400 text-xs">
+                                        <TableCell colSpan={14} className="text-center py-8 text-zinc-400 text-xs">
                                             Tidak ada data karyawan yang cocok dengan kriteria filter.
                                         </TableCell>
                                     </TableRow>

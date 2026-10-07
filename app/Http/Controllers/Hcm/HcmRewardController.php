@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Services\ActivityLogger;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -32,7 +33,7 @@ class HcmRewardController extends Controller
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
         $rewards = HcmEmployeeReward::with([
-            'employee:id,employee_code,name,nickname,department,position',
+            'employee:id,employee_code,name,nickname,department,division',
             'creator:id,name',
         ])
             ->when($escapedSearch, function ($q, $term) {
@@ -62,12 +63,12 @@ class HcmRewardController extends Controller
 
         // Daftar Karyawan Aktif untuk SearchableSelect
         $employees = HcmEmployee::where('is_active', true)
-            ->select('id', 'employee_code', 'name', 'department', 'position')
+            ->select('id', 'employee_code', 'name', 'department', 'division')
             ->orderBy('name')
             ->get();
 
-        // Opsi Status Distribusi
-        $distributionStatuses = [
+        // Opsi Status Distribusi Dinamis dari Master Data (Zero Hardcode)
+        $distributionStatuses = HcmMasterOption::getOptions('status_penyaluran_reward') ?: [
             'Belum Diterima',
             'Sudah Diterima (Serah Terima Langsung)',
             'Sudah Ditransfer',
@@ -146,7 +147,7 @@ class HcmRewardController extends Controller
 
         HcmEmployeeReward::create([
             'employee_id' => $validated['employee_id'],
-            'position' => $employee?->position,
+            'position' => $employee?->division ?: $employee?->position,
             'reward_name' => $validated['reward_name'],
             'reward_year' => $validated['reward_year'],
             'distribution_status' => $validated['distribution_status'],

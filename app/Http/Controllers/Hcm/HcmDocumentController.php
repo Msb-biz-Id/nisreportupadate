@@ -56,11 +56,12 @@ class HcmDocumentController extends Controller
             'total_actual_budget' => (float) HcmInternalDocument::sum('actual_budget'),
         ];
 
-        // Ambil Departemen / Divisi dinamis dari Master Data
-        $departments = HcmMasterOption::getOptions('divisi') ?: [
-            'Keuangan',
+        // Ambil Departemen resmi dari Master Data
+        $departments = HcmMasterOption::getOptions('departemen') ?: HcmMasterOption::getOptions('departments') ?: HcmMasterOption::getOptions('divisi') ?: [
+            'Finance & Accounting',
             'Human Capital Management',
-            'Marketing',
+            'Brand & Marketing',
+            'Support & Control Produksi',
             'Produksi',
             'Media Internal',
             'Media Eksternal',

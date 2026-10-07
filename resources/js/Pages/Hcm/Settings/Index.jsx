@@ -98,6 +98,16 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
         cutoff_day: payroll.cutoff_day ?? 25,
     });
 
+    // Form 4: Distribusi Slip & Notifikasi Email Otomatis (Delay Setor Bank BRI)
+    const payrollForm = useForm({
+        cutoff_day: payroll.cutoff_day ?? 25,
+        auto_send_slip_email: Boolean(payroll.auto_send_slip_email),
+        slip_email_delay_minutes: payroll.slip_email_delay_minutes ?? 60,
+        send_salary_slip_email: payroll.send_salary_slip_email ?? true,
+        send_meal_slip_email: payroll.send_meal_slip_email ?? true,
+        send_overtime_slip_email: payroll.send_overtime_slip_email ?? true,
+    });
+
     // Interactive Simulator State for Overtime
     const [simHours, setSimHours] = useState(2.5);
     const [simIsWeekend, setSimIsWeekend] = useState(false);
@@ -211,6 +221,13 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
     const submitMeal = (e) => {
         e.preventDefault();
         mealForm.post(route('hcm.settings.meal-allowance.update'), {
+            preserveScroll: true,
+        });
+    };
+
+    const submitPayroll = (e) => {
+        e.preventDefault();
+        payrollForm.post(route('hcm.settings.payroll.update'), {
             preserveScroll: true,
         });
     };
@@ -336,7 +353,20 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                         }`}
                     >
                         <UtensilsCrossed className="h-4 w-4" />
-                        Uang Makan & Cut-Off Payroll
+                        Aturan Uang Makan
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('payroll')}
+                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+                            activeTab === 'payroll'
+                                ? 'border-red-600 text-red-600 dark:border-red-500 dark:text-red-400'
+                                : 'border-transparent text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
+                        }`}
+                    >
+                        <Mail className="h-4 w-4" />
+                        Distribusi Slip & Email BRI
                     </button>
 
                     <button
@@ -1302,6 +1332,260 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                                 >
                                     <Save className="h-4 w-4 mr-2" />
                                     {mealForm.processing ? 'Menyimpan...' : 'Simpan Uang Makan & Cut-Off'}
+                                </Button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+
+                {/* TAB: DISTRIBUSI SLIP & NOTIFIKASI EMAIL OTOMATIS (DELAY SETOR BRI) */}
+                {activeTab === 'payroll' && (
+                    <div className="max-w-4xl space-y-6">
+                        <form onSubmit={submitPayroll} className="space-y-6">
+                            {/* CARD 1: SAKLAR OTOMASI PENGIRIMAN EMAIL */}
+                            <Card className="border-l-4 border-l-red-600">
+                                <CardHeader>
+                                    <div className="flex items-center justify-between">
+                                        <div className="space-y-1">
+                                            <CardTitle className="text-base flex items-center gap-2">
+                                                <Mail className="h-5 w-5 text-red-600" />
+                                                Pengiriman Otomatis Slip ke Email Karyawan
+                                            </CardTitle>
+                                            <CardDescription>
+                                                Kirimkan slip digital resmi (PDF terlampir) ke alamat email masing-masing karyawan secara terjadwal setelah approval Keuangan.
+                                            </CardDescription>
+                                        </div>
+                                        <Badge
+                                            className={
+                                                payrollForm.data.auto_send_slip_email
+                                                    ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border-emerald-200'
+                                                    : 'bg-zinc-500/10 text-zinc-600 border-zinc-200'
+                                            }
+                                        >
+                                            {payrollForm.data.auto_send_slip_email ? 'Otomasi Aktif' : 'Otomasi Nonaktif'}
+                                        </Badge>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="flex items-start gap-3 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50">
+                                        <input
+                                            type="checkbox"
+                                            id="auto_send_slip_email"
+                                            checked={payrollForm.data.auto_send_slip_email}
+                                            onChange={(e) => payrollForm.setData('auto_send_slip_email', e.target.checked)}
+                                            className="h-5 w-5 rounded border-zinc-300 text-red-600 focus:ring-red-500 mt-0.5 cursor-pointer"
+                                        />
+                                        <div className="space-y-1 cursor-pointer" onClick={() => payrollForm.setData('auto_send_slip_email', !payrollForm.data.auto_send_slip_email)}>
+                                            <Label htmlFor="auto_send_slip_email" className="font-bold text-sm cursor-pointer text-zinc-900 dark:text-zinc-100">
+                                                Aktifkan Pengiriman Slip Otomatis Setelah Double Sign-Off Keuangan
+                                            </Label>
+                                            <p className="text-xs text-zinc-500 leading-relaxed">
+                                                Ketika staf Keuangan menyetujui pencairan batch (status <code className="bg-zinc-200 dark:bg-zinc-800 px-1 py-0.5 rounded text-[11px]">PAID_COMPLETED</code>), sistem akan memproses antrean email secara otomatis ke email pribadi masing-masing karyawan yang terdaftar.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* CARD 2: JEDA WAKTU PENGIRIMAN (SETOR BRI DELAY) */}
+                            <Card className={!payrollForm.data.auto_send_slip_email ? 'opacity-60 pointer-events-none' : ''}>
+                                <CardHeader>
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <Clock className="h-4 w-4 text-amber-600" />
+                                        Selang Waktu Tunda Pengiriman (Delay Penyetoran Bank BRI)
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Atur jeda waktu tunda sebelum slip email dikirim ke karyawan agar Tim Keuangan memiliki waktu yang cukup untuk menyetorkan dana ke Bank BRI.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-xl flex items-start gap-3">
+                                        <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                                        <div className="text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                                            <p className="font-semibold">
+                                                Mengapa Selang Waktu Penyetoran Diperlukan?
+                                            </p>
+                                            <p className="leading-relaxed opacity-90">
+                                                Setelah Keuangan melakukan persetujuan (sign-off), staf keuangan biasanya memerlukan waktu perjalanan/antrean untuk <strong>setor tunai fisik</strong> atau <strong>pemrosesan transfer massal ke Bank BRI</strong>. Dengan jeda waktu ini, slip tidak langsung sampai ke karyawan secara instan, mencegah karyawan bertanya sebelum uangnya masuk ke rekening.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3 pt-2">
+                                        <div className="flex items-center gap-4">
+                                            <div className="max-w-xs space-y-1.5 flex-1">
+                                                <Label htmlFor="slip_email_delay_minutes">Jeda Waktu Penundaan (Menit) *</Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        id="slip_email_delay_minutes"
+                                                        type="number"
+                                                        min="0"
+                                                        max="1440"
+                                                        value={payrollForm.data.slip_email_delay_minutes}
+                                                        onChange={(e) => payrollForm.setData('slip_email_delay_minutes', parseInt(e.target.value) || 0)}
+                                                        className="pr-16 font-mono font-bold text-base"
+                                                        required
+                                                    />
+                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400 font-medium">
+                                                        Menit
+                                                    </div>
+                                                </div>
+                                                {payrollForm.errors.slip_email_delay_minutes && (
+                                                    <p className="text-xs text-red-500">{payrollForm.errors.slip_email_delay_minutes}</p>
+                                                )}
+                                            </div>
+
+                                            <div className="p-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl flex-1 text-center">
+                                                <div className="text-[11px] text-zinc-400">Estimasi Tiba di Email Karyawan:</div>
+                                                <div className="text-base font-bold text-zinc-800 dark:text-zinc-200 mt-0.5">
+                                                    {payrollForm.data.slip_email_delay_minutes === 0 ? (
+                                                        <span className="text-emerald-600">Langsung Terkirim Seketika</span>
+                                                    ) : payrollForm.data.slip_email_delay_minutes < 60 ? (
+                                                        `+ ${payrollForm.data.slip_email_delay_minutes} Menit setelah Approve`
+                                                    ) : (
+                                                        `+ ${(payrollForm.data.slip_email_delay_minutes / 60).toFixed(1)} Jam setelah Keuangan Setor`
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Preset Tombol Cepat */}
+                                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                                            <span className="text-xs text-zinc-400 mr-1">Pilihan Cepat:</span>
+                                            {[
+                                                { label: '0 Menit (Langsung)', val: 0 },
+                                                { label: '30 Menit', val: 30 },
+                                                { label: '60 Menit (1 Jam)', val: 60 },
+                                                { label: '120 Menit (2 Jam - Rekomendasi BRI)', val: 120 },
+                                                { label: '240 Menit (4 Jam)', val: 240 },
+                                            ].map((preset) => (
+                                                <button
+                                                    key={preset.val}
+                                                    type="button"
+                                                    onClick={() => payrollForm.setData('slip_email_delay_minutes', preset.val)}
+                                                    className={`px-2.5 py-1 text-xs rounded-lg border transition ${
+                                                        payrollForm.data.slip_email_delay_minutes === preset.val
+                                                            ? 'bg-amber-600 text-white border-amber-600 font-semibold'
+                                                            : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100'
+                                                    }`}
+                                                >
+                                                    {preset.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* CARD 3: PILIHAN JENIS SLIP YANG DIKIRIMKAN OTOMATIS */}
+                            <Card className={!payrollForm.data.auto_send_slip_email ? 'opacity-60 pointer-events-none' : ''}>
+                                <CardHeader>
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <FileText className="h-4 w-4 text-blue-600" />
+                                        Jenis Slip yang Masuk Jadwal Pengiriman Otomatis
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Pilih tipe dokumen slip apa saja yang akan diproses pengirimannya ke email karyawan.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    {/* 1. Slip Gaji */}
+                                    <label className="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 cursor-pointer transition">
+                                        <input
+                                            type="checkbox"
+                                            checked={payrollForm.data.send_salary_slip_email}
+                                            onChange={(e) => payrollForm.setData('send_salary_slip_email', e.target.checked)}
+                                            className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-500 mt-0.5 cursor-pointer"
+                                        />
+                                        <div className="space-y-0.5">
+                                            <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                                <span>Slip Gaji Bulanan (Official Payroll Slip)</span>
+                                                <Badge variant="outline" className="text-[10px] bg-red-50 text-red-700 border-red-200">Gaji Pokok & Tunjangan</Badge>
+                                            </div>
+                                            <p className="text-xs text-zinc-500">
+                                                Slip gaji lengkap mencakup rincian take-home pay, potongan, terbilang, dan QR verifikasi resmi saat penggajian bulanan cair.
+                                            </p>
+                                        </div>
+                                    </label>
+
+                                    {/* 2. Slip Uang Makan */}
+                                    <label className="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 cursor-pointer transition">
+                                        <input
+                                            type="checkbox"
+                                            checked={payrollForm.data.send_meal_slip_email}
+                                            onChange={(e) => payrollForm.setData('send_meal_slip_email', e.target.checked)}
+                                            className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 mt-0.5 cursor-pointer"
+                                        />
+                                        <div className="space-y-0.5">
+                                            <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                                <span>Slip Uang Makan Bulanan (Meal Allowance Slip)</span>
+                                                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">Presensi & Uang Makan</Badge>
+                                            </div>
+                                            <p className="text-xs text-zinc-500">
+                                                Slip individual memuat rekap hari hadir, potongan mangkir/setengah hari, penambahan hold, dan nominal transfer bersih ke rekening Bank BRI.
+                                            </p>
+                                        </div>
+                                    </label>
+
+                                    {/* 3. Slip Lembur */}
+                                    <label className="flex items-start gap-3 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 cursor-pointer transition">
+                                        <input
+                                            type="checkbox"
+                                            checked={payrollForm.data.send_overtime_slip_email}
+                                            onChange={(e) => payrollForm.setData('send_overtime_slip_email', e.target.checked)}
+                                            className="h-4 w-4 rounded border-zinc-300 text-orange-600 focus:ring-orange-500 mt-0.5 cursor-pointer"
+                                        />
+                                        <div className="space-y-0.5">
+                                            <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                                <span>Slip Upah Lembur Mingguan (Overtime Slip)</span>
+                                                <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200">Lembur & Jam Kerja</Badge>
+                                            </div>
+                                            <p className="text-xs text-zinc-500">
+                                                Slip rincian tanggal pelaksanaan lembur, jam kerja, tarif dasar (Rp 10.000 / Rp 15.000), total jam, dan total upah lembur yang dibayarkan.
+                                            </p>
+                                        </div>
+                                    </label>
+                                </CardContent>
+                            </Card>
+
+                            {/* CARD 4: SIKLUS CUT-OFF */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <Calendar className="h-4 w-4 text-zinc-600" />
+                                        Tanggal Cut-Off Siklus Penggajian
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Batas akhir penghitungan absensi bulanan sebelum proses penghitungan penggajian dimulai.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="max-w-xs space-y-1.5">
+                                        <Label htmlFor="payroll_cutoff_day">Tanggal Cut-Off Bulanan (1 - 31) *</Label>
+                                        <Input
+                                            id="payroll_cutoff_day"
+                                            type="number"
+                                            min="1"
+                                            max="31"
+                                            value={payrollForm.data.cutoff_day}
+                                            onChange={(e) => payrollForm.setData('cutoff_day', parseInt(e.target.value) || 25)}
+                                            required
+                                        />
+                                        <p className="text-[11px] text-zinc-400">
+                                            Contoh: Tanggal 25 berarti periode payroll dihitung dari tanggal 26 bulan lalu s/d tanggal 25 bulan berjalan.
+                                        </p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <div className="flex justify-end">
+                                <Button
+                                    type="submit"
+                                    disabled={payrollForm.processing}
+                                    className="bg-red-600 hover:bg-red-700 text-white min-w-44 shadow-sm"
+                                >
+                                    <Save className="h-4 w-4 mr-2" />
+                                    {payrollForm.processing ? 'Menyimpan...' : 'Simpan Pengaturan Distribusi Slip'}
                                 </Button>
                             </div>
                         </form>

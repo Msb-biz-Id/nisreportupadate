@@ -34,7 +34,7 @@ class HcmLeaveRequestController extends Controller
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
         $query = HcmLeaveRequest::with([
-            'employee:id,employee_code,name,nickname,department,position',
+            'employee:id,employee_code,name,nickname,department,division',
             'reviewer:id,name',
             'creator:id,name',
         ])
@@ -68,7 +68,7 @@ class HcmLeaveRequestController extends Controller
 
         // Daftar karyawan aktif untuk dropdown form pengajuan
         $employees = HcmEmployee::where('is_active', true)
-            ->select('id', 'employee_code', 'name', 'department', 'position')
+            ->select('id', 'employee_code', 'name', 'department', 'division')
             ->orderBy('name')
             ->get();
 
@@ -81,7 +81,10 @@ class HcmLeaveRequestController extends Controller
             ],
             'metrics' => $metrics,
             'employees' => $employees,
-            'leaveTypes' => [
+            'leaveTypes' => HcmMasterOption::getOptions('kategori_kehadiran') ? array_values(array_filter(
+                HcmMasterOption::getOptions('kategori_kehadiran'),
+                fn ($t) => !in_array($t, ['Hadir', 'Terlambat', 'Pulang Cepat', 'Alpha/Mangkir'])
+            )) : [
                 'Cuti Tahunan',
                 'Izin',
                 'Sakit',
@@ -182,7 +185,7 @@ class HcmLeaveRequestController extends Controller
                         'employee_id' => $leaveRequest->employee_id,
                     ],
                     [
-                        'position' => $employee?->position,
+                        'position' => $employee?->division ?: $employee?->position,
                         'attendance_category' => $attendanceCategory,
                         'clock_in' => null,
                         'clock_out' => null,

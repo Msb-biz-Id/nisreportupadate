@@ -62,6 +62,8 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
     const [activeCategory, setActiveCategory] = useState(filters.category || 'regular');
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [selectedDepartment, setSelectedDepartment] = useState(filters.department || 'all');
+    const [selectedDivision, setSelectedDivision] = useState(filters.division || 'all');
+    const [selectedTenureBucket, setSelectedTenureBucket] = useState(filters.tenure_bucket || 'all');
     const [selectedJobLevel, setSelectedJobLevel] = useState(filters.job_level || 'all');
     const [selectedStatus, setSelectedStatus] = useState(filters.status || 'all');
     const [selectedSchool, setSelectedSchool] = useState(filters.school || 'all');
@@ -81,12 +83,21 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
     const educationOptions = useMemo(() => toOptions(dropdowns.educations?.length ? dropdowns.educations : ['SD / Sederajat', 'SMP / Sederajat', 'SMA / SMK / Sederajat', 'Diploma 3 (D3)', 'Strata 1 (S1)', 'Strata 2 (S2)']), [dropdowns.educations]);
     const bankOptions = useMemo(() => toOptions(dropdowns.banks?.length ? dropdowns.banks : ['Bank BRI', 'Bank Mandiri', 'Bank BCA', 'Bank BNI', 'BSI', 'Tunai / Kas']), [dropdowns.banks]);
 
+    // Opsi divisi dinamis tergantung departemen yang dipilih
+    const availableDivisions = useMemo(() => {
+        if (selectedDepartment && selectedDepartment !== 'all' && dropdowns.department_division_map?.[selectedDepartment]) {
+            return dropdowns.department_division_map[selectedDepartment];
+        }
+        return dropdowns.divisions || [];
+    }, [selectedDepartment, dropdowns.department_division_map, dropdowns.divisions]);
+
     // Form Tambah Karyawan Baru
     const createForm = useForm({
         employee_category: filters.category === 'intern' ? 'INTERN' : 'REGULAR',
         name: '',
         nickname: '',
         department: dropdowns.departments?.[0] || 'Produksi',
+        division: '',
         position: dropdowns.positions?.[0] || '',
         job_level: dropdowns.job_levels?.[0] || 'Kontrak',
         employment_status: dropdowns.employment_statuses?.[0] || 'PKWT',
@@ -107,6 +118,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
         bank_name: 'Bank BRI',
         email: '',
         join_date: new Date().toISOString().split('T')[0],
+        original_join_date: new Date().toISOString().split('T')[0],
         notes: '',
         photo: null,
         // Field Magang
@@ -135,6 +147,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
         name: '',
         nickname: '',
         department: '',
+        division: '',
         position: '',
         job_level: '',
         employment_status: '',
@@ -155,6 +168,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
         bank_name: 'Bank BRI',
         email: '',
         join_date: '',
+        original_join_date: '',
         notes: '',
         photo: null,
         remove_photo: false,
@@ -173,12 +187,23 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
     });
 
     // Filter submit handler
-    const applyFilters = (dept = selectedDepartment, level = selectedJobLevel, stat = selectedStatus, search = searchTerm, cat = activeCategory, sch = selectedSchool) => {
+    const applyFilters = (
+        dept = selectedDepartment,
+        div = selectedDivision,
+        tenure = selectedTenureBucket,
+        level = selectedJobLevel,
+        stat = selectedStatus,
+        search = searchTerm,
+        cat = activeCategory,
+        sch = selectedSchool
+    ) => {
         router.get(
             route('hcm.employees.index'),
             {
                 category: cat,
                 department: dept,
+                division: div,
+                tenure_bucket: tenure,
                 job_level: level,
                 status: stat,
                 search: search,
@@ -193,7 +218,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
 
     const handleCategoryChange = (cat) => {
         setActiveCategory(cat);
-        applyFilters(selectedDepartment, selectedJobLevel, selectedStatus, searchTerm, cat, selectedSchool);
+        applyFilters(selectedDepartment, selectedDivision, selectedTenureBucket, selectedJobLevel, selectedStatus, searchTerm, cat, selectedSchool);
     };
 
     const handleSearchSubmit = (e) => {
@@ -227,6 +252,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
             name: emp.name || '',
             nickname: emp.nickname || '',
             department: emp.department || '',
+            division: emp.division || '',
             position: emp.position || '',
             job_level: emp.job_level || '',
             employment_status: emp.employment_status || '',
@@ -247,6 +273,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
             bank_name: emp.bank_name || 'Bank BRI',
             email: emp.email || '',
             join_date: emp.join_date ? emp.join_date.split('T')[0] : '',
+            original_join_date: emp.original_join_date ? emp.original_join_date.split('T')[0] : (emp.join_date ? emp.join_date.split('T')[0] : ''),
             notes: emp.notes || '',
             photo: null,
             remove_photo: false,
@@ -609,18 +636,38 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                             <div className="flex flex-wrap items-center gap-2">
                                 {activeCategory === 'regular' ? (
                                     <>
-                                        {/* Filter Divisi */}
-                                        <div className="w-[150px]">
+                                        {/* Filter Departemen */}
+                                        <div className="w-[155px]">
                                             <SearchableSelect
                                                 value={selectedDepartment}
                                                 onValueChange={(val) => {
                                                     const finalVal = val || 'all';
                                                     setSelectedDepartment(finalVal);
-                                                    applyFilters(finalVal, selectedJobLevel, selectedStatus, searchTerm, activeCategory, selectedSchool);
+                                                    setSelectedDivision('all');
+                                                    applyFilters(finalVal, 'all', selectedTenureBucket, selectedJobLevel, selectedStatus, searchTerm, activeCategory, selectedSchool);
+                                                }}
+                                                options={[
+                                                    { value: 'all', label: 'Semua Departemen' },
+                                                    ...toOptions(dropdowns.departments),
+                                                ]}
+                                                placeholder="Pilih Departemen"
+                                                clearable={false}
+                                                className="text-xs h-9"
+                                            />
+                                        </div>
+
+                                        {/* Filter Divisi (Dependent) */}
+                                        <div className="w-[145px]">
+                                            <SearchableSelect
+                                                value={selectedDivision}
+                                                onValueChange={(val) => {
+                                                    const finalVal = val || 'all';
+                                                    setSelectedDivision(finalVal);
+                                                    applyFilters(selectedDepartment, finalVal, selectedTenureBucket, selectedJobLevel, selectedStatus, searchTerm, activeCategory, selectedSchool);
                                                 }}
                                                 options={[
                                                     { value: 'all', label: 'Semua Divisi' },
-                                                    ...toOptions(dropdowns.departments),
+                                                    ...toOptions(availableDivisions),
                                                 ]}
                                                 placeholder="Pilih Divisi"
                                                 clearable={false}
@@ -628,14 +675,38 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                                             />
                                         </div>
 
+                                        {/* Filter Pengelompokan Masa Kerja (Tenure Bucket) */}
+                                        <div className="w-[160px]">
+                                            <SearchableSelect
+                                                value={selectedTenureBucket}
+                                                onValueChange={(val) => {
+                                                    const finalVal = val || 'all';
+                                                    setSelectedTenureBucket(finalVal);
+                                                    applyFilters(selectedDepartment, selectedDivision, finalVal, selectedJobLevel, selectedStatus, searchTerm, activeCategory, selectedSchool);
+                                                }}
+                                                options={[
+                                                    { value: 'all', label: 'Semua Masa Kerja' },
+                                                    ...(dropdowns.tenure_buckets || [
+                                                        { value: '<1_year', label: 'Kurang dari 1 Tahun' },
+                                                        { value: '1_year', label: 'Kelompok 1 Tahun' },
+                                                        { value: '2_years', label: 'Kelompok 2 Tahun' },
+                                                        { value: '3_years', label: 'Kelompok 3+ Tahun' },
+                                                    ]),
+                                                ]}
+                                                placeholder="Pilih Masa Kerja"
+                                                clearable={false}
+                                                className="text-xs h-9"
+                                            />
+                                        </div>
+
                                         {/* Filter Level/Jenjang */}
-                                        <div className="w-[140px]">
+                                        <div className="w-[130px]">
                                             <SearchableSelect
                                                 value={selectedJobLevel}
                                                 onValueChange={(val) => {
                                                     const finalVal = val || 'all';
                                                     setSelectedJobLevel(finalVal);
-                                                    applyFilters(selectedDepartment, finalVal, selectedStatus, searchTerm, activeCategory, selectedSchool);
+                                                    applyFilters(selectedDepartment, selectedDivision, selectedTenureBucket, finalVal, selectedStatus, searchTerm, activeCategory, selectedSchool);
                                                 }}
                                                 options={[
                                                     { value: 'all', label: 'Semua Level' },
@@ -655,7 +726,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                                             onValueChange={(val) => {
                                                 const finalVal = val || 'all';
                                                 setSelectedSchool(finalVal);
-                                                applyFilters(selectedDepartment, selectedJobLevel, selectedStatus, searchTerm, activeCategory, finalVal);
+                                                applyFilters(selectedDepartment, selectedDivision, selectedTenureBucket, selectedJobLevel, selectedStatus, searchTerm, activeCategory, finalVal);
                                             }}
                                             options={[
                                                 { value: 'all', label: 'Semua Sekolah SMK' },
@@ -669,13 +740,13 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                                 )}
 
                                 {/* Filter Status Aktif */}
-                                <div className="w-[130px]">
+                                <div className="w-[125px]">
                                     <SearchableSelect
                                         value={selectedStatus}
                                         onValueChange={(val) => {
                                             const finalVal = val || 'all';
                                             setSelectedStatus(finalVal);
-                                            applyFilters(selectedDepartment, selectedJobLevel, finalVal, searchTerm, activeCategory, selectedSchool);
+                                            applyFilters(selectedDepartment, selectedDivision, selectedTenureBucket, selectedJobLevel, finalVal, searchTerm, activeCategory, selectedSchool);
                                         }}
                                         options={[
                                             { value: 'all', label: 'Semua Status' },
@@ -704,7 +775,8 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                                 <TableRow>
                                     <TableHead className="w-[45px] text-center font-bold">No</TableHead>
                                     <TableHead className="min-w-[200px] font-bold">Karyawan & Identitas</TableHead>
-                                    <TableHead className="min-w-[150px] font-bold">Divisi & Posisi</TableHead>
+                                    <TableHead className="min-w-[170px] font-bold">Departemen & Divisi</TableHead>
+                                    <TableHead className="min-w-[150px] font-bold">Masa Kerja (Loyalitas)</TableHead>
                                     <TableHead className="min-w-[130px] font-bold">Jenjang & Entitas</TableHead>
                                     <TableHead className="min-w-[150px] font-bold">Kontak & NIK KTP</TableHead>
                                     <TableHead className="min-w-[150px] font-bold">Rekening & BPJS</TableHead>
@@ -774,13 +846,30 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                                                     </div>
                                                 </TableCell>
 
-                                                {/* Divisi & Posisi */}
+                                                {/* Departemen & Divisi */}
                                                 <TableCell>
                                                     <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                                                        {emp.position}
+                                                        {emp.division || emp.department}
                                                     </div>
                                                     <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                                                        {emp.department}
+                                                        Departemen {emp.department}
+                                                    </div>
+                                                </TableCell>
+
+                                                {/* Masa Kerja & Tenure Bucket */}
+                                                <TableCell>
+                                                    <div className="flex flex-col gap-0.5 items-start">
+                                                        <Badge variant="outline" className={`text-[10px] px-2 py-0 font-medium ${
+                                                            (emp.tenure_months ?? 0) >= 36 ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' :
+                                                            (emp.tenure_months ?? 0) >= 24 ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' :
+                                                            (emp.tenure_months ?? 0) >= 12 ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' :
+                                                            'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800'
+                                                        }`}>
+                                                            {emp.tenure_bucket || 'Kurang dari 1 Tahun'}
+                                                        </Badge>
+                                                        <span className="text-[11px] text-zinc-400 font-mono">
+                                                            {emp.tenure_months ?? 0} bln (sejak {emp.original_join_date ? new Date(emp.original_join_date).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }) : '-'})
+                                                        </span>
                                                     </div>
                                                 </TableCell>
 
@@ -1255,29 +1344,46 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                         <div className="space-y-3 pt-2 border-t border-zinc-200 dark:border-zinc-800">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 text-[11px]">2</span>
-                                Posisi & Penempatan Organisasi
+                                Departemen & Divisi Kerja
                             </h3>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                                 <div className="space-y-1">
-                                    <Label className="text-xs font-medium">Divisi Kerja *</Label>
+                                    <Label className="text-xs font-medium">Departemen *</Label>
                                     <SearchableSelect
                                         value={createForm.data.department}
-                                        onValueChange={(val) => createForm.setData('department', val)}
+                                        onValueChange={(val) => {
+                                            createForm.setData('department', val);
+                                            const divs = dropdowns.department_division_map?.[val];
+                                            if (divs && divs.length > 0) {
+                                                createForm.setData('division', divs[0]);
+                                                createForm.setData('position', divs[0]);
+                                            } else {
+                                                createForm.setData('division', '');
+                                                createForm.setData('position', val);
+                                            }
+                                        }}
                                         options={toOptions(dropdowns.departments)}
-                                        placeholder="Pilih / Cari Divisi..."
+                                        placeholder="Pilih Departemen..."
                                         clearable={false}
                                         className="text-xs"
                                     />
                                 </div>
 
                                 <div className="space-y-1">
-                                    <Label className="text-xs font-medium">Posisi / Jabatan *</Label>
+                                    <Label className="text-xs font-medium">Divisi Kerja *</Label>
                                     <SearchableSelect
-                                        value={createForm.data.position}
-                                        onValueChange={(val) => createForm.setData('position', val)}
-                                        options={toOptions(dropdowns.positions)}
-                                        placeholder="Pilih / Cari Posisi..."
+                                        value={createForm.data.division}
+                                        onValueChange={(val) => {
+                                            createForm.setData('division', val);
+                                            createForm.setData('position', val);
+                                        }}
+                                        options={toOptions(
+                                            createForm.data.department && dropdowns.department_division_map?.[createForm.data.department]
+                                                ? dropdowns.department_division_map[createForm.data.department]
+                                                : dropdowns.divisions
+                                        )}
+                                        placeholder="Pilih / Cari Divisi..."
                                         clearable={false}
                                         className="text-xs"
                                     />
@@ -1331,6 +1437,16 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                                         value={createForm.data.join_date}
                                         onChange={(e) => createForm.setData('join_date', e.target.value)}
                                     />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-medium">Anchor Masa Kerja Permanen</Label>
+                                    <Input
+                                        type="date"
+                                        value={createForm.data.original_join_date}
+                                        onChange={(e) => createForm.setData('original_join_date', e.target.value)}
+                                    />
+                                    <p className="text-[10px] text-zinc-400">Anchor tanggal awal bergabung untuk akumulasi masa kerja/loyalitas.</p>
                                 </div>
                             </div>
                         </div>
@@ -1803,33 +1919,50 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                             </div>
                         </div>
 
-                        {/* Seksi 2: Posisi & Penempatan Organisasi */}
+                        {/* Seksi 2: Departemen & Divisi Kerja */}
                         <div className="space-y-3 pt-2 border-t border-zinc-200 dark:border-zinc-800">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 text-[11px]">2</span>
-                                Posisi & Penempatan Organisasi
+                                Departemen & Divisi Kerja
                             </h3>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                                 <div className="space-y-1">
-                                    <Label className="text-xs font-medium">Divisi Kerja *</Label>
+                                    <Label className="text-xs font-medium">Departemen *</Label>
                                     <SearchableSelect
                                         value={editForm.data.department}
-                                        onValueChange={(val) => editForm.setData('department', val)}
+                                        onValueChange={(val) => {
+                                            editForm.setData('department', val);
+                                            const divs = dropdowns.department_division_map?.[val];
+                                            if (divs && divs.length > 0) {
+                                                editForm.setData('division', divs[0]);
+                                                editForm.setData('position', divs[0]);
+                                            } else {
+                                                editForm.setData('division', '');
+                                                editForm.setData('position', val);
+                                            }
+                                        }}
                                         options={toOptions(dropdowns.departments)}
-                                        placeholder="Pilih / Cari Divisi..."
+                                        placeholder="Pilih Departemen..."
                                         clearable={false}
                                         className="text-xs"
                                     />
                                 </div>
 
                                 <div className="space-y-1">
-                                    <Label className="text-xs font-medium">Posisi / Jabatan *</Label>
+                                    <Label className="text-xs font-medium">Divisi Kerja *</Label>
                                     <SearchableSelect
-                                        value={editForm.data.position}
-                                        onValueChange={(val) => editForm.setData('position', val)}
-                                        options={toOptions(dropdowns.positions)}
-                                        placeholder="Pilih / Cari Posisi..."
+                                        value={editForm.data.division}
+                                        onValueChange={(val) => {
+                                            editForm.setData('division', val);
+                                            editForm.setData('position', val);
+                                        }}
+                                        options={toOptions(
+                                            editForm.data.department && dropdowns.department_division_map?.[editForm.data.department]
+                                                ? dropdowns.department_division_map[editForm.data.department]
+                                                : dropdowns.divisions
+                                        )}
+                                        placeholder="Pilih / Cari Divisi..."
                                         clearable={false}
                                         className="text-xs"
                                     />
@@ -1883,6 +2016,16 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                                         value={editForm.data.join_date}
                                         onChange={(e) => editForm.setData('join_date', e.target.value)}
                                     />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-medium">Anchor Masa Kerja Permanen</Label>
+                                    <Input
+                                        type="date"
+                                        value={editForm.data.original_join_date}
+                                        onChange={(e) => editForm.setData('original_join_date', e.target.value)}
+                                    />
+                                    <p className="text-[10px] text-zinc-400">Anchor tanggal awal bergabung untuk akumulasi masa kerja/loyalitas.</p>
                                 </div>
                             </div>
                         </div>

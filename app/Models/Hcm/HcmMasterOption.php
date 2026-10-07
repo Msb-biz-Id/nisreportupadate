@@ -15,6 +15,7 @@ class HcmMasterOption extends Model
     protected $fillable = [
         'uuid',
         'category_id',
+        'parent_id',
         'name',
         'code',
         'order_index',
@@ -50,6 +51,7 @@ class HcmMasterOption extends Model
     {
         return [
             'category_id' => 'integer',
+            'parent_id' => 'integer',
             'is_active' => 'boolean',
             'order_index' => 'integer',
         ];
@@ -58,6 +60,16 @@ class HcmMasterOption extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(HcmMasterCategory::class, 'category_id');
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    public function children(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id')->orderBy('order_index');
     }
 
     /**
@@ -71,12 +83,15 @@ class HcmMasterOption extends Model
         $codes = is_array($categoryCodes) ? $categoryCodes : [$categoryCodes];
 
         $synonyms = [
-            'department' => ['divisi', 'department', 'departments'],
-            'departments' => ['divisi', 'department', 'departments'],
-            'divisi' => ['divisi', 'department', 'departments'],
-            'position' => ['posisi', 'position', 'positions'],
-            'positions' => ['posisi', 'position', 'positions'],
-            'posisi' => ['posisi', 'position', 'positions'],
+            'department' => ['departemen', 'department', 'departments'],
+            'departments' => ['departemen', 'department', 'departments'],
+            'departemen' => ['departemen', 'department', 'departments'],
+            'divisi' => ['divisi', 'division', 'divisions'],
+            'division' => ['divisi', 'division', 'divisions'],
+            'divisions' => ['divisi', 'division', 'divisions'],
+            'position' => ['divisi', 'division', 'divisions'],
+            'positions' => ['divisi', 'division', 'divisions'],
+            'posisi' => ['divisi', 'division', 'divisions'],
             'job_level' => ['job_level', 'job_levels', 'level_jabatan'],
             'job_levels' => ['job_level', 'job_levels', 'level_jabatan'],
             'employment_status' => ['status_ketenagakerjaan', 'employment_status', 'employment_statuses'],
@@ -103,6 +118,9 @@ class HcmMasterOption extends Model
             'shirt_size' => ['ukuran_baju_seragam', 'shirt_size', 'shirt_sizes'],
             'shirt_sizes' => ['ukuran_baju_seragam', 'shirt_size', 'shirt_sizes'],
             'ukuran_baju_seragam' => ['ukuran_baju_seragam', 'shirt_size', 'shirt_sizes'],
+            'bank' => ['nama_bank', 'bank', 'banks'],
+            'banks' => ['nama_bank', 'bank', 'banks'],
+            'nama_bank' => ['nama_bank', 'bank', 'banks'],
         ];
 
         $expandedCodes = [];
@@ -133,7 +151,7 @@ class HcmMasterOption extends Model
             ->where('hcm_master_options.is_active', true)
             ->orderBy('hcm_master_options.order_index')
             ->orderBy('hcm_master_options.name')
-            ->get(['hcm_master_options.name', 'hcm_master_categories.code as cat_code'])
+            ->get(['hcm_master_options.id', 'hcm_master_options.name', 'hcm_master_options.code', 'hcm_master_options.parent_id', 'hcm_master_categories.code as cat_code'])
             ->groupBy('cat_code');
 
         $pick = function (...$keys) use ($all) {
@@ -145,10 +163,32 @@ class HcmMasterOption extends Model
             return [];
         };
 
+        // Query dinamis Departemen & Divisi langsung dari database (Zero Hardcode)
+        $deptCategory = HcmMasterCategory::whereIn('code', ['departemen', 'department', 'departments'])->first();
+        $departments = $deptCategory
+            ? $deptCategory->options()->where('is_active', true)->orderBy('order_index')->pluck('name')->toArray()
+            : $pick('departemen', 'department', 'divisi');
+
+        $divCategory = HcmMasterCategory::whereIn('code', ['divisi', 'division', 'divisions'])->first();
+        $divisionOptions = $divCategory
+            ? $divCategory->options()->with('parent')->where('is_active', true)->orderBy('order_index')->get()
+            : collect();
+
+        $divisions = $divisionOptions->pluck('name')->unique()->values()->toArray();
+
+        $departmentDivisionMap = [];
+        foreach ($divisionOptions as $divOpt) {
+            $parentDeptName = $divOpt->parent?->name;
+            if ($parentDeptName) {
+                $departmentDivisionMap[$parentDeptName][] = $divOpt->name;
+            }
+        }
+
         return [
-            'departments' => $pick('divisi', 'department', 'departments'),
+            'departments' => $departments,
+            'divisions' => $divisions,
+            'department_division_map' => $departmentDivisionMap,
             'job_levels' => $pick('job_level', 'job_levels'),
-            'positions' => $pick('posisi', 'position', 'positions'),
             'legal_entities' => $pick('entitas_cv', 'legal_entity', 'legal_entities'),
             'employment_statuses' => $pick('status_ketenagakerjaan', 'employment_status', 'employment_statuses'),
             'contract_reviews' => $pick('status_review_kontrak', 'status_kontrak', 'contract_reviews'),
@@ -157,24 +197,32 @@ class HcmMasterOption extends Model
             'educations' => $pick('pendidikan_terakhir', 'education', 'educations') ?: ['SD / Sederajat', 'SMP / Sederajat', 'SMA / SMK / Sederajat', 'Diploma 3 (D3)', 'Strata 1 (S1)', 'Strata 2 (S2)'],
             'marital_statuses' => $pick('status_pernikahan', 'marital_status', 'marital_statuses') ?: ['Belum Menikah', 'Menikah', 'Cerai Hidup', 'Cerai Mati'],
             'shirt_sizes' => $pick('ukuran_baju_seragam', 'shirt_size', 'shirt_sizes') ?: ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'],
+            'status_lampiran' => $pick('status_lampiran') ?: ['Terlampir', 'Tidak Terlampir'],
+            'kategori_potongan_gaji' => $pick('kategori_potongan_gaji') ?: ['Pelanggaran (Disciplinary Penalty)', 'Kelebihan Pengambilan Cuti (Leave Exceed)', 'Cuti Khusus Berjenjang (Maternity Leave)'],
             'notice_compliance' => $pick('kepatuhan_notice_period', 'notice_compliance', 'notice_periods'),
             'rights_status' => $pick('hak_karyawan', 'rights_status', 'employee_rights'),
             'asset_clearance' => $pick('pengembalian_aset_paklaring', 'asset_clearance'),
             'clearance_status' => $pick('status_clearance_sheet', 'clearance_status'),
-            'banks' => ['Bank BRI', 'Bank Mandiri', 'Bank BCA', 'Bank BNI', 'BSI', 'Bank Jateng', 'Tunai / Kas'],
+            'banks' => $pick('nama_bank', 'bank', 'banks') ?: ['Bank BRI', 'Bank Mandiri', 'Bank BCA', 'Bank BNI', 'Bank Syariah Indonesia (BSI)', 'Bank Jateng', 'Tunai / Kas Kantor'],
             'departments_with_codes' => self::getDepartmentsWithCodes(),
+            'tenure_buckets' => [
+                ['value' => '<1_year', 'label' => 'Kurang dari 1 Tahun (< 12 bln)'],
+                ['value' => '1_year', 'label' => 'Kelompok 1 Tahun (12 - 23 bln)'],
+                ['value' => '2_years', 'label' => 'Kelompok 2 Tahun (24 - 35 bln)'],
+                ['value' => '3_years', 'label' => 'Kelompok 3+ Tahun (>= 36 bln)'],
+            ],
         ];
     }
 
     /**
-     * Dapatkan daftar departemen/divisi beserta kode singkatannya (misal HCM, FIN, BRM, PRD).
+     * Dapatkan daftar departemen beserta kode singkatannya (misal FIN, HCM, BRM, PRD).
      *
      * @return array<int, array{name: string, code: string}>
      */
     public static function getDepartmentsWithCodes(): array
     {
         return self::join('hcm_master_categories', 'hcm_master_options.category_id', '=', 'hcm_master_categories.id')
-            ->whereIn('hcm_master_categories.code', ['divisi', 'department', 'departments'])
+            ->whereIn('hcm_master_categories.code', ['departemen', 'department', 'departments', 'divisi'])
             ->where('hcm_master_options.is_active', true)
             ->orderBy('hcm_master_options.order_index')
             ->orderBy('hcm_master_options.name')
@@ -199,7 +247,7 @@ class HcmMasterOption extends Model
         }
 
         $option = self::join('hcm_master_categories', 'hcm_master_options.category_id', '=', 'hcm_master_categories.id')
-            ->whereIn('hcm_master_categories.code', ['divisi', 'department', 'departments'])
+            ->whereIn('hcm_master_categories.code', ['departemen', 'department', 'departments', 'divisi'])
             ->where('hcm_master_options.name', $name)
             ->first(['hcm_master_options.code']);
 

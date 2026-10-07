@@ -38,10 +38,12 @@ class HcmMasterDataController extends Controller
         $statusFilter = $request->query('status', 'all');
 
         $options = [];
+        $departmentOptions = [];
         if ($selectedCategory) {
             $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
-            $optionsQuery = HcmMasterOption::where('category_id', $selectedCategory->id)
+            $optionsQuery = HcmMasterOption::with('parent')
+                ->where('category_id', $selectedCategory->id)
                 ->when($escapedSearch, function ($query, $term) {
                     $query->where(function ($q) use ($term) {
                         $q->where('name', 'like', "%{$term}%")
@@ -55,12 +57,23 @@ class HcmMasterDataController extends Controller
                 ->orderBy('id');
 
             $options = $optionsQuery->get();
+
+            if (in_array($selectedCategory->code, ['divisi', 'division'])) {
+                $deptCat = $categories->firstWhere('code', 'departemen') ?? HcmMasterCategory::whereIn('code', ['departemen', 'department'])->first();
+                if ($deptCat) {
+                    $departmentOptions = HcmMasterOption::where('category_id', $deptCat->id)
+                        ->where('is_active', true)
+                        ->orderBy('order_index')
+                        ->get(['id', 'name', 'code']);
+                }
+            }
         }
 
         return Inertia::render('Hcm/MasterData/Index', [
             'categories' => $categories,
             'selectedCategory' => $selectedCategory,
             'options' => $options,
+            'departmentOptions' => $departmentOptions,
             'filters' => [
                 'category' => $activeCategoryCode,
                 'search' => $search,
@@ -79,6 +92,7 @@ class HcmMasterDataController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'code' => ['nullable', 'string', 'max:100'],
+            'parent_id' => ['nullable', 'exists:hcm_master_options,id'],
             'order_index' => ['nullable', 'integer'],
             'description' => ['nullable', 'string', 'max:500'],
             'is_active' => ['nullable', 'boolean'],
@@ -92,6 +106,7 @@ class HcmMasterDataController extends Controller
 
         HcmMasterOption::create([
             'category_id' => $category->id,
+            'parent_id' => $validated['parent_id'] ?? null,
             'name' => trim($validated['name']),
             'code' => $code,
             'order_index' => $validated['order_index'] ?? ($maxOrder + 1),
@@ -112,6 +127,7 @@ class HcmMasterDataController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'code' => ['nullable', 'string', 'max:100'],
+            'parent_id' => ['nullable', 'exists:hcm_master_options,id'],
             'order_index' => ['nullable', 'integer'],
             'description' => ['nullable', 'string', 'max:500'],
             'is_active' => ['nullable', 'boolean'],
@@ -123,6 +139,7 @@ class HcmMasterDataController extends Controller
             : $option->code;
 
         $option->update([
+            'parent_id' => $validated['parent_id'] ?? $option->parent_id,
             'name' => trim($validated['name']),
             'code' => $code,
             'order_index' => $validated['order_index'] ?? $option->order_index,

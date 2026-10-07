@@ -15,9 +15,13 @@
         "normal": "noto_sans_kr_normal_f4d8c549cb39a96247f3816b7e653697"
     },
     "inter": {
-        "normal": "C:\\laragon\\www\\reportlaravel\\storage\\fonts\/inter_normal_7db5155348dffb481927b6617bac1016",
-        "600": "C:\\laragon\\www\\reportlaravel\\storage\\fonts\/inter_600_146ef6a918c6bc3a69af2b659110f65c",
-        "bold": "C:\\laragon\\www\\reportlaravel\\storage\\fonts\/inter_bold_146ef6a918c6bc3a69af2b659110f65c",
-        "800": "inter_800_146ef6a918c6bc3a69af2b659110f65c"
+        "normal": "D:\\AI\\Nisreport\\nisreportupadate\\storage\\fonts\/inter_normal_a461faff0e467572ed934e911be20fd5",
+        "600": "D:\\AI\\Nisreport\\nisreportupadate\\storage\\fonts\/inter_bold_3021c08ac039f5e4374817a28774a5d2",
+        "bold": "D:\\AI\\Nisreport\\nisreportupadate\\storage\\fonts\/inter_bold_3021c08ac039f5e4374817a28774a5d2",
+        "800": "D:\\AI\\Nisreport\\nisreportupadate\\storage\\fonts\/inter_bold_3021c08ac039f5e4374817a28774a5d2"
+    },
+    "noto sans sc": {
+        "normal": "D:\\AI\\Nisreport\\nisreportupadate\\storage\\fonts\/noto_sans_sc_normal_b44c7c869ea3f88a2adf9d078baa3d47",
+        "bold": "noto_sans_sc_bold_a4921097cc9cfb2df37a31faffd3c580"
     }
 }

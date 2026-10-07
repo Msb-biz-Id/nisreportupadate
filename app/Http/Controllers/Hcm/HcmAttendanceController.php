@@ -9,12 +9,14 @@ use App\Models\Hcm\HcmAttendance;
 use App\Models\Hcm\HcmEmployee;
 use App\Models\Hcm\HcmLeaveRequest;
 use App\Models\Hcm\HcmMasterOption;
+use App\Models\Hcm\HcmOfficeExitPermit;
 use App\Services\HcmAttendanceWaSummaryService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -42,8 +44,115 @@ class HcmAttendanceController extends Controller
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
-        // 1. Ambil seluruh karyawan aktif
-        $employeesQuery = HcmEmployee::where('is_active', true)
+        // 1. Ambil karyawan aktif sesuai kriteria
+        $employees = $this->getActiveEmployees($escapedSearch, $categoryFilter, $departmentFilter);
+
+        // 2. Data Matriks Kalender Bulanan (1 - 31 Hari)
+        [$daysList, $effectiveWorkDays, $startOfMonth, $endOfMonth] = $this->generateDaysList($selectedMonth);
+        $matrixEmployees = $this->getMonthlyMatrixEmployees($employees, $daysList, $startOfMonth, $endOfMonth, $effectiveWorkDays);
+
+        // 3. Data Rekap Multi-Bulan (Dossier Tracker Seluruh Bulan Sepanjang Tahun)
+        [$allMonthsInYear, $dossierEmployees] = $this->getDossierData($employees, $selectedYear);
+
+        // 4. Data Entri Harian (Tanggal terpilih)
+        [$dailyAttendances, $dailyMatrixData] = $this->getDailyMatrixData($employees, $selectedDate);
+
+        // 5. Data Izin Keluar Kantor (Gate Pass)
+        [$exitPermits, $gatepassMetrics] = $this->getGatePassData($selectedDate, $escapedSearch, $departmentFilter);
+
+        // 6. Metrik Global
+        $metrics = $this->buildIndexMetrics($employees->count(), $matrixEmployees, $effectiveWorkDays, $dailyAttendances, $gatepassMetrics);
+
+        // 7. Master data dropdowns
+        $departments = HcmMasterOption::getOptions('departemen') ?: HcmMasterOption::getOptions('departments');
+        $divisions = HcmMasterOption::getOptions('divisi');
+        $attachmentStatuses = HcmMasterOption::getOptions('status_lampiran') ?: ['Terlampir', 'Tidak Terlampir'];
+
+        $activeEmployeesForGatePass = $this->formatGatePassEmployees($employees);
+
+        return Inertia::render('Hcm/Attendance/Index', [
+            'activeTab' => $activeTab,
+            'selectedMonth' => $selectedMonth,
+            'selectedYear' => $selectedYear,
+            'selectedDate' => $selectedDate,
+            'daysList' => $daysList,
+            'matrixEmployees' => $matrixEmployees,
+            'dossierEmployees' => $dossierEmployees,
+            'allMonthsInYear' => $allMonthsInYear,
+            'dailyMatrixData' => $dailyMatrixData,
+            'exitPermits' => $exitPermits,
+            'departments' => $departments,
+            'divisions' => $divisions,
+            'attachmentStatuses' => $attachmentStatuses,
+            'activeEmployeesForGatePass' => $activeEmployeesForGatePass,
+            'metrics' => $metrics,
+            'filters' => [
+                'tab' => $activeTab,
+                'month' => $selectedMonth,
+                'year' => $selectedYear,
+                'date' => $selectedDate,
+                'category' => $categoryFilter,
+                'department' => $departmentFilter,
+                'search' => $search,
+            ],
+        ]);
+    }
+
+    /**
+     * Hitung agregasi metrik untuk tampilan index dashboard presensi.
+     */
+    private function buildIndexMetrics(
+        int $totalActive,
+        Collection $matrixEmployees,
+        int $effectiveWorkDays,
+        Collection $dailyAttendances,
+        array $gatepassMetrics
+    ): array {
+        $totalHadirBulan = (int) $matrixEmployees->sum(fn ($e) => $e['summary']['hadir']);
+        $totalTerlambatBulan = (int) $matrixEmployees->sum(fn ($e) => $e['summary']['terlambat']);
+        $totalIzinSakitCutiBulan = (int) $matrixEmployees->sum(fn ($e) => $e['summary']['izin'] + $e['summary']['sakit'] + $e['summary']['cuti']);
+        $totalAlphaBulan = (int) $matrixEmployees->sum(fn ($e) => $e['summary']['alpha']);
+
+        return [
+            'total_active' => $totalActive,
+            'monthly' => [
+                'total_hadir' => $totalHadirBulan,
+                'total_terlambat' => $totalTerlambatBulan,
+                'total_izin_sakit_cuti' => $totalIzinSakitCutiBulan,
+                'total_alpha' => $totalAlphaBulan,
+                'effective_work_days' => $effectiveWorkDays,
+            ],
+            'daily' => [
+                'hadir' => $dailyAttendances->where('attendance_category', 'Hadir')->count(),
+                'terlambat' => $dailyAttendances->where('attendance_category', 'Terlambat')->count(),
+                'cuti_izin_sakit' => $dailyAttendances->whereIn('attendance_category', ['Cuti', 'Izin', 'Sakit', 'Dinas Luar'])->count(),
+                'alpha' => $dailyAttendances->where('attendance_category', 'Alpha/Mangkir')->count(),
+                'belum_terabsen' => max(0, $totalActive - $dailyAttendances->count()),
+            ],
+            'gatepass' => $gatepassMetrics,
+        ];
+    }
+
+    /**
+     * Format list karyawan aktif untuk dropdown form Gate Pass.
+     */
+    private function formatGatePassEmployees(Collection $employees): array
+    {
+        return $employees->map(fn ($e) => [
+            'value' => $e->id,
+            'label' => "{$e->employee_code} - {$e->name} (" . ($e->division ? "{$e->division} • " : '') . "{$e->department})",
+            'name' => $e->name,
+            'department' => $e->department,
+            'division' => $e->division,
+        ])->values()->toArray();
+    }
+
+    /**
+     * Dapatkan daftar karyawan aktif berdasarkan filter.
+     */
+    private function getActiveEmployees(string $escapedSearch, string $categoryFilter, string $departmentFilter): Collection
+    {
+        return HcmEmployee::where('is_active', true)
             ->when($escapedSearch, function ($query, $term) {
                 $query->where(function ($q) use ($term) {
                     $q->where('name', 'like', "%{$term}%")
@@ -55,12 +164,15 @@ class HcmAttendanceController extends Controller
             ->when($categoryFilter === 'INTERN', fn ($q) => $q->interns())
             ->when($departmentFilter !== 'all', fn ($q) => $q->where('department', $departmentFilter))
             ->orderBy('department')
-            ->orderBy('name');
+            ->orderBy('name')
+            ->get();
+    }
 
-        $employees = $employeesQuery->get();
-        $employeeIds = $employees->pluck('id');
-
-        // 2. Data untuk Matriks Kalender Bulanan (1 - 31 Hari)
+    /**
+     * Susun daftar hari dan hari kerja efektif dalam bulan terpilih.
+     */
+    private function generateDaysList(string $selectedMonth): array
+    {
         $startOfMonth = Carbon::parse($selectedMonth . '-01')->startOfMonth();
         $endOfMonth = $startOfMonth->copy()->endOfMonth();
         $daysInMonth = $startOfMonth->daysInMonth;
@@ -80,14 +192,21 @@ class HcmAttendanceController extends Controller
                 'is_weekend' => $isWeekend,
             ];
         }
-        $effectiveWorkDays = max(1, $effectiveWorkDays);
 
-        // Ambil data presensi bulan terpilih
+        return [$daysList, max(1, $effectiveWorkDays), $startOfMonth, $endOfMonth];
+    }
+
+    /**
+     * Susun data matriks kalender bulanan (1-31 hari) per karyawan.
+     */
+    private function getMonthlyMatrixEmployees(Collection $employees, array $daysList, Carbon $startOfMonth, Carbon $endOfMonth, int $effectiveWorkDays): Collection
+    {
+        $employeeIds = $employees->pluck('id');
+
         $monthlyAttendances = HcmAttendance::whereBetween('attendance_date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
             ->whereIn('employee_id', $employeeIds)
             ->get();
 
-        // Ambil cuti/izin bulan terpilih
         $monthlyLeaves = HcmLeaveRequest::where('status', 'APPROVED')
             ->where(function ($q) use ($startOfMonth, $endOfMonth) {
                 $q->whereBetween('start_date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
@@ -100,7 +219,6 @@ class HcmAttendanceController extends Controller
             ->whereIn('employee_id', $employeeIds)
             ->get();
 
-        // Index presensi per employee_id dan tanggal day
         $attKeyed = [];
         foreach ($monthlyAttendances as $att) {
             $dayNum = (int) Carbon::parse($att->attendance_date)->format('j');
@@ -114,8 +232,7 @@ class HcmAttendanceController extends Controller
             ];
         }
 
-        // Susun matriks kalender bulanan per karyawan
-        $matrixEmployees = $employees->map(function ($emp) use ($daysList, $attKeyed, $monthlyLeaves, $effectiveWorkDays) {
+        return $employees->map(function ($emp) use ($daysList, $attKeyed, $monthlyLeaves, $effectiveWorkDays) {
             $daysData = [];
             $hadirCount = 0;
             $lateCount = 0;
@@ -172,8 +289,10 @@ class HcmAttendanceController extends Controller
                 'employee_code' => $emp->employee_code,
                 'name' => $emp->name,
                 'nickname' => $emp->nickname,
+                'employee_category' => $emp->employee_category,
                 'department' => $emp->department,
-                'position' => $emp->position,
+                'division' => $emp->division,
+                'position' => $emp->division,
                 'job_level' => $emp->job_level,
                 'days' => $daysData,
                 'summary' => [
@@ -188,13 +307,17 @@ class HcmAttendanceController extends Controller
                 ],
             ];
         });
+    }
 
-        // 3. Data Rekap Multi-Bulan (Dossier Tracker Seluruh Bulan Sepanjang Tahun)
-        // Menampilkan histori presensi multi-bulan sinkron dengan format Buku Profil Dossier PDF
+    /**
+     * Susun histori presensi multi-bulan dossier sepanjang tahun.
+     */
+    private function getDossierData(Collection $employees, int $selectedYear): array
+    {
+        $employeeIds = $employees->pluck('id');
         $yearStart = Carbon::create($selectedYear, 1, 1)->startOfYear();
         $yearEnd = Carbon::create($selectedYear, 12, 31)->endOfYear();
 
-        // Ambil agregasi per bulan dalam tahun tersebut
         $isSqlite = DB::connection()->getDriverName() === 'sqlite';
         $monthFormatExpr = $isSqlite ? "strftime('%Y-%m', attendance_date)" : "DATE_FORMAT(attendance_date, '%Y-%m')";
 
@@ -215,7 +338,6 @@ class HcmAttendanceController extends Controller
         ->get()
         ->groupBy('employee_id');
 
-        // Susun daftar 12 bulan nama Indonesia
         $monthNamesIndo = [
             1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
             5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
@@ -226,7 +348,6 @@ class HcmAttendanceController extends Controller
         $allMonthsInYear = [];
         for ($m = 1; $m <= 12; $m++) {
             $ym = sprintf('%04d-%02d', $selectedYear, $m);
-            // Hitung hari kerja standar bulan tersebut
             $mStart = Carbon::parse($ym . '-01');
             $wDays = 0;
             for ($day = 1; $day <= $mStart->daysInMonth; $day++) {
@@ -244,7 +365,6 @@ class HcmAttendanceController extends Controller
             ];
         }
 
-        // Susun data rekap dossier per karyawan
         $dossierEmployees = $employees->map(function ($emp) use ($annualAttendances, $allMonthsInYear) {
             $empMonthly = $annualAttendances->get($emp->id, collect())->keyBy('year_month');
 
@@ -302,7 +422,8 @@ class HcmAttendanceController extends Controller
                 'name' => $emp->name,
                 'nickname' => $emp->nickname,
                 'department' => $emp->department,
-                'position' => $emp->position,
+                'division' => $emp->division,
+                'position' => $emp->division,
                 'months' => $monthsSummary,
                 'annual_totals' => [
                     'hadir' => $totHadir,
@@ -316,7 +437,16 @@ class HcmAttendanceController extends Controller
             ];
         });
 
-        // 4. Data untuk Tab Entri Harian (Tanggal terpilih)
+        return [$allMonthsInYear, $dossierEmployees];
+    }
+
+    /**
+     * Susun baris entri harian untuk tanggal yang dipilih.
+     */
+    private function getDailyMatrixData(Collection $employees, string $selectedDate): array
+    {
+        $employeeIds = $employees->pluck('id');
+
         $dailyAttendances = HcmAttendance::whereDate('attendance_date', $selectedDate)
             ->whereIn('employee_id', $employeeIds)
             ->get()
@@ -340,7 +470,8 @@ class HcmAttendanceController extends Controller
                 'nickname' => $emp->nickname,
                 'employee_category' => $emp->employee_category,
                 'department' => $emp->department,
-                'position' => $emp->position,
+                'division' => $emp->division,
+                'position' => $emp->division,
                 'job_level' => $emp->job_level,
                 'attendance_id' => $att?->id,
                 'attendance_category' => $att?->attendance_category ?? ($leave ? $leave->leave_type : null),
@@ -353,57 +484,68 @@ class HcmAttendanceController extends Controller
             ];
         });
 
-        // 5. Metrik Global
-        $totalHadirBulan = $matrixEmployees->sum(fn ($e) => $e['summary']['hadir']);
-        $totalTerlambatBulan = $matrixEmployees->sum(fn ($e) => $e['summary']['terlambat']);
-        $totalIzinSakitCutiBulan = $matrixEmployees->sum(fn ($e) => $e['summary']['izin'] + $e['summary']['sakit'] + $e['summary']['cuti']);
-        $totalAlphaBulan = $matrixEmployees->sum(fn ($e) => $e['summary']['alpha']);
+        return [$dailyAttendances, $dailyMatrixData];
+    }
 
-        $metrics = [
-            'total_active' => $employees->count(),
-            'monthly' => [
-                'total_hadir' => $totalHadirBulan,
-                'total_terlambat' => $totalTerlambatBulan,
-                'total_izin_sakit_cuti' => $totalIzinSakitCutiBulan,
-                'total_alpha' => $totalAlphaBulan,
-                'effective_work_days' => $effectiveWorkDays,
-            ],
-            'daily' => [
-                'hadir' => $dailyAttendances->where('attendance_category', 'Hadir')->count(),
-                'terlambat' => $dailyAttendances->where('attendance_category', 'Terlambat')->count(),
-                'cuti_izin_sakit' => $dailyAttendances->whereIn('attendance_category', ['Cuti', 'Izin', 'Sakit', 'Dinas Luar'])->count(),
-                'alpha' => $dailyAttendances->where('attendance_category', 'Alpha/Mangkir')->count(),
-                'belum_terabsen' => max(0, $employees->count() - $dailyAttendances->count()),
-            ],
+    /**
+     * Dapatkan data perizinan keluar kantor (gate pass) untuk tanggal terpilih.
+     */
+    private function getGatePassData(string $selectedDate, string $escapedSearch, string $departmentFilter): array
+    {
+        $exitPermitsQuery = HcmOfficeExitPermit::with(['employee:id,employee_code,name,nickname,department,division,photo_url', 'creator:id,name'])
+            ->whereDate('permit_date', $selectedDate)
+            ->when($escapedSearch, function ($query, $term) {
+                $query->where(function ($q) use ($term) {
+                    $q->where('purpose', 'like', "%{$term}%")
+                      ->orWhere('notes', 'like', "%{$term}%")
+                      ->orWhereHas('employee', function ($eq) use ($term) {
+                          $eq->where('name', 'like', "%{$term}%")
+                             ->orWhere('nickname', 'like', "%{$term}%")
+                             ->orWhere('employee_code', 'like', "%{$term}%");
+                      });
+                });
+            })
+            ->when($departmentFilter !== 'all', function ($query) use ($departmentFilter) {
+                $query->whereHas('employee', fn ($q) => $q->where('department', $departmentFilter));
+            })
+            ->orderBy('exit_time', 'desc');
+
+        $exitPermits = $exitPermitsQuery->get()->map(function ($p) {
+            return [
+                'id' => $p->id,
+                'uuid' => $p->uuid,
+                'employee_id' => $p->employee_id,
+                'employee' => $p->employee ? [
+                    'id' => $p->employee->id,
+                    'employee_code' => $p->employee->employee_code,
+                    'name' => $p->employee->name,
+                    'nickname' => $p->employee->nickname,
+                    'department' => $p->employee->department,
+                    'division' => $p->employee->division,
+                    'photo_url' => $p->employee->photo_url,
+                ] : null,
+                'permit_date' => $p->permit_date->format('Y-m-d'),
+                'exit_time' => $p->exit_time,
+                'return_time' => $p->return_time,
+                'purpose' => $p->purpose,
+                'notes' => $p->notes,
+                'attachment_status' => $p->attachment_status,
+                'attachment_url' => $p->attachment_url,
+                'status' => $p->status,
+                'duration_text' => $p->duration_text,
+                'created_by_name' => $p->creator?->name,
+                'created_at' => $p->created_at->format('Y-m-d H:i'),
+            ];
+        });
+
+        $gatepassMetrics = [
+            'total' => $exitPermits->count(),
+            'outside' => $exitPermits->where('status', 'Masih di Luar')->count(),
+            'returned' => $exitPermits->where('status', 'Kembali')->count(),
+            'with_attachment' => $exitPermits->where('attachment_status', 'Terlampir')->count(),
         ];
 
-        // 6. Master data dropdowns
-        $departments = HcmMasterOption::getOptions('departments');
-        $positions = HcmMasterOption::getOptions('positions');
-
-        return Inertia::render('Hcm/Attendance/Index', [
-            'activeTab' => $activeTab,
-            'selectedMonth' => $selectedMonth,
-            'selectedYear' => $selectedYear,
-            'selectedDate' => $selectedDate,
-            'daysList' => $daysList,
-            'matrixEmployees' => $matrixEmployees,
-            'dossierEmployees' => $dossierEmployees,
-            'allMonthsInYear' => $allMonthsInYear,
-            'dailyMatrixData' => $dailyMatrixData,
-            'departments' => $departments,
-            'positions' => $positions,
-            'metrics' => $metrics,
-            'filters' => [
-                'tab' => $activeTab,
-                'month' => $selectedMonth,
-                'year' => $selectedYear,
-                'date' => $selectedDate,
-                'category' => $categoryFilter,
-                'department' => $departmentFilter,
-                'search' => $search,
-            ],
-        ]);
+        return [$exitPermits, $gatepassMetrics];
     }
 
     /**
@@ -503,7 +645,7 @@ class HcmAttendanceController extends Controller
                         'employee_id' => $emp->id,
                     ],
                     [
-                        'position' => $emp->position,
+                        'position' => $emp->division ?: $emp->position,
                         'attendance_category' => 'Hadir',
                         'clock_in' => '08:00:00',
                         'clock_out' => '17:00:00',
@@ -528,6 +670,7 @@ class HcmAttendanceController extends Controller
         $validated = $request->validate([
             'date' => ['required', 'date'],
             'department' => ['nullable', 'string'],
+            'division' => ['nullable', 'string'],
             'position' => ['nullable', 'string'],
             'attendance_category' => ['required', 'string', 'in:Hadir,Terlambat,Izin,Sakit,Alpha/Mangkir,Dinas Luar'],
             'clock_in' => ['nullable', 'string'],
@@ -538,7 +681,7 @@ class HcmAttendanceController extends Controller
 
         $date = $validated['date'];
         $department = $validated['department'] ?? 'all';
-        $position = $validated['position'] ?? 'all';
+        $division = $validated['division'] ?? ($validated['position'] ?? 'all');
         $category = $validated['attendance_category'];
         $clockIn = !empty($validated['clock_in']) ? Carbon::parse($validated['clock_in'])->format('H:i:s') : ($category === 'Hadir' ? '08:00:00' : null);
         $clockOut = !empty($validated['clock_out']) ? Carbon::parse($validated['clock_out'])->format('H:i:s') : ($category === 'Hadir' ? '17:00:00' : null);
@@ -548,10 +691,10 @@ class HcmAttendanceController extends Controller
 
         $affectedCount = 0;
 
-        DB::transaction(function () use ($date, $department, $position, $category, $clockIn, $clockOut, $notes, $override, $userId, &$affectedCount) {
+        DB::transaction(function () use ($date, $department, $division, $category, $clockIn, $clockOut, $notes, $override, $userId, &$affectedCount) {
             $employees = HcmEmployee::where('is_active', true)
                 ->when($department && $department !== 'all', fn ($q) => $q->where('department', $department))
-                ->when($position && $position !== 'all', fn ($q) => $q->where('position', $position))
+                ->when($division && $division !== 'all', fn ($q) => $q->where(fn ($sub) => $sub->where('division', $division)->orWhere('position', $division)))
                 ->get();
 
             // Cek cuti/izin aktif
@@ -584,7 +727,7 @@ class HcmAttendanceController extends Controller
                         'employee_id' => $emp->id,
                     ],
                     [
-                        'position' => $emp->position,
+                        'position' => $emp->division ?: $emp->position,
                         'attendance_category' => $category,
                         'clock_in' => in_array($category, ['Hadir', 'Terlambat']) ? $clockIn : null,
                         'clock_out' => in_array($category, ['Hadir', 'Terlambat']) ? $clockOut : null,
@@ -597,7 +740,7 @@ class HcmAttendanceController extends Controller
             }
         });
 
-        $targetDesc = ($department !== 'all' ? "Divisi {$department}" : "Semua Divisi") . ($position !== 'all' ? " / {$position}" : "");
+        $targetDesc = ($department !== 'all' ? "Departemen {$department}" : "Semua Departemen") . ($division !== 'all' ? " / {$division}" : "");
         return redirect()->back()->with('success', "Presensi massal ({$affectedCount} karyawan) untuk {$targetDesc} pada {$date} berhasil diset ({$category}).");
     }
 
@@ -608,175 +751,23 @@ class HcmAttendanceController extends Controller
     {
         Gate::authorize('hcm.manage-attendance');
 
-        $selectedMonth = $request->query('month', date('Y-m'));
-        $categoryFilter = $request->query('category', 'all');
-        $departmentFilter = $request->query('department', 'all');
-        $search = $request->query('search', '');
+        $selectedMonth = (string) $request->query('month', date('Y-m'));
+        $categoryFilter = (string) $request->query('category', 'all');
+        $departmentFilter = (string) $request->query('department', 'all');
+        $search = (string) $request->query('search', '');
+        $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
-        $startOfMonth = Carbon::parse($selectedMonth . '-01')->startOfMonth();
-        $endOfMonth = $startOfMonth->copy()->endOfMonth();
-        $daysInMonth = $startOfMonth->daysInMonth;
+        [$daysList, $effectiveWorkDays, $startOfMonth, $endOfMonth] = $this->generateDaysList($selectedMonth);
+        $employees = $this->getActiveEmployees($escapedSearch, $categoryFilter, $departmentFilter);
+        $matrixEmployees = $this->getMonthlyMatrixEmployees($employees, $daysList, $startOfMonth, $endOfMonth, $effectiveWorkDays);
 
-        // Susun daftar hari dalam bulan
-        $daysList = [];
-        for ($d = 1; $d <= $daysInMonth; $d++) {
-            $currentDate = $startOfMonth->copy()->day($d);
-            $daysList[] = [
-                'day' => $d,
-                'date' => $currentDate->toDateString(),
-                'day_name' => $currentDate->isoFormat('ddd'),
-                'is_weekend' => $currentDate->isWeekend(),
-            ];
-        }
+        $departments = HcmMasterOption::getOptions('departemen') ?: HcmMasterOption::getOptions('departments');
+        $divisions = HcmMasterOption::getOptions('divisi');
 
-        // Ambil karyawan aktif
-        $employees = HcmEmployee::where('is_active', true)
-            ->when($categoryFilter === 'REGULAR', fn ($q) => $q->regular())
-            ->when($categoryFilter === 'INTERN', fn ($q) => $q->interns())
-            ->when($departmentFilter !== 'all', fn ($q) => $q->where('department', $departmentFilter))
-            ->when($search, fn ($q) => $q->where(fn ($sub) => $sub->where('name', 'like', "%{$search}%")->orWhere('employee_code', 'like', "%{$search}%")))
-            ->orderBy('department')
-            ->orderBy('name')
-            ->get();
-
-        $employeeIds = $employees->pluck('id');
-
-        // Ambil seluruh record presensi bulan ini
-        $attendances = HcmAttendance::whereBetween('attendance_date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
-            ->whereIn('employee_id', $employeeIds)
-            ->get();
-
-        // Ambil cuti/izin yang disetujui dalam bulan ini
-        $approvedLeaves = HcmLeaveRequest::where('status', 'APPROVED')
-            ->where(function ($q) use ($startOfMonth, $endOfMonth) {
-                $q->whereBetween('start_date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
-                    ->orWhereBetween('end_date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
-                    ->orWhere(function ($sub) use ($startOfMonth, $endOfMonth) {
-                        $sub->where('start_date', '<=', $startOfMonth->toDateString())
-                            ->where('end_date', '>=', $endOfMonth->toDateString());
-                    });
-            })
-            ->whereIn('employee_id', $employeeIds)
-            ->get();
-
-        // Index presensi per employee_id dan tanggal
-        $attKeyed = [];
-        foreach ($attendances as $att) {
-            $dayNum = (int) Carbon::parse($att->attendance_date)->format('j');
-            $attKeyed[$att->employee_id][$dayNum] = [
-                'id' => $att->id,
-                'category' => $att->attendance_category,
-                'clock_in' => $att->clock_in ? substr($att->clock_in, 0, 5) : null,
-                'clock_out' => $att->clock_out ? substr($att->clock_out, 0, 5) : null,
-                'notes' => $att->notes,
-            ];
-        }
-
-        // Hitung hari kerja efektif bulan ini (tidak termasuk akhir pekan)
-        $effectiveWorkDays = 0;
-        foreach ($daysList as $d) {
-            if (!$d['is_weekend']) {
-                $effectiveWorkDays++;
-            }
-        }
-        $effectiveWorkDays = max(1, $effectiveWorkDays);
-
-        // Agregasi bulanan per karyawan
-        $matrixEmployees = $employees->map(function ($emp) use ($daysList, $attKeyed, $approvedLeaves, $effectiveWorkDays) {
-            $daysData = [];
-            $hadirCount = 0;
-            $lateCount = 0;
-            $izinCount = 0;
-            $sakitCount = 0;
-            $cutiCount = 0;
-            $alphaCount = 0;
-
-            // Cek leaves untuk karyawan ini
-            $empLeaves = $approvedLeaves->where('employee_id', $emp->id);
-
-            foreach ($daysList as $dayInfo) {
-                $dayNum = $dayInfo['day'];
-                $dateStr = $dayInfo['date'];
-
-                if (isset($attKeyed[$emp->id][$dayNum])) {
-                    $record = $attKeyed[$emp->id][$dayNum];
-                } else {
-                    // Cek apakah ada cuti/izin aktif di tanggal ini
-                    $matchingLeave = $empLeaves->first(function ($l) use ($dateStr) {
-                        return $l->start_date <= $dateStr && $l->end_date >= $dateStr;
-                    });
-
-                    if ($matchingLeave) {
-                        $record = [
-                            'id' => null,
-                            'category' => $matchingLeave->leave_type,
-                            'clock_in' => null,
-                            'clock_out' => null,
-                            'notes' => "Cuti/Izin: {$matchingLeave->reason}",
-                        ];
-                    } else {
-                        $record = null;
-                    }
-                }
-
-                $daysData[$dayNum] = $record;
-
-                if ($record) {
-                    $cat = $record['category'];
-                    if ($cat === 'Hadir') $hadirCount++;
-                    elseif ($cat === 'Terlambat') $lateCount++;
-                    elseif ($cat === 'Izin' || $cat === 'Dinas Luar') $izinCount++;
-                    elseif ($cat === 'Sakit') $sakitCount++;
-                    elseif (str_contains($cat, 'Cuti')) $cutiCount++;
-                    elseif ($cat === 'Alpha/Mangkir') $alphaCount++;
-                }
-            }
-
-            $totalAttended = $hadirCount + $lateCount;
-            $attendanceRate = round(($totalAttended / $effectiveWorkDays) * 100, 1);
-
-            return [
-                'employee_id' => $emp->id,
-                'employee_code' => $emp->employee_code,
-                'name' => $emp->name,
-                'employee_category' => $emp->employee_category,
-                'department' => $emp->department,
-                'position' => $emp->position,
-                'days' => $daysData,
-                'summary' => [
-                    'hadir' => $hadirCount,
-                    'terlambat' => $lateCount,
-                    'izin' => $izinCount,
-                    'sakit' => $sakitCount,
-                    'cuti' => $cutiCount,
-                    'alpha' => $alphaCount,
-                    'total_absen' => $totalAttended,
-                    'rate' => min(100, $attendanceRate),
-                ],
-            ];
-        });
-
-        // Master departments
-        $departments = HcmMasterOption::select('hcm_master_options.name')
-            ->join('hcm_master_categories', 'hcm_master_options.category_id', '=', 'hcm_master_categories.id')
-            ->where('hcm_master_categories.code', 'department')
-            ->where('hcm_master_options.is_active', true)
-            ->orderBy('hcm_master_options.order_index')
-            ->pluck('name');
-
-        // Master positions
-        $positions = HcmMasterOption::select('hcm_master_options.name')
-            ->join('hcm_master_categories', 'hcm_master_options.category_id', '=', 'hcm_master_categories.id')
-            ->where('hcm_master_categories.code', 'position')
-            ->where('hcm_master_options.is_active', true)
-            ->orderBy('hcm_master_options.order_index')
-            ->pluck('name');
-
-        // Metrik global bulan terpilih
-        $totalHadir = $matrixEmployees->sum(fn ($e) => $e['summary']['hadir']);
-        $totalTerlambat = $matrixEmployees->sum(fn ($e) => $e['summary']['terlambat']);
-        $totalIzinSakitCuti = $matrixEmployees->sum(fn ($e) => $e['summary']['izin'] + $e['summary']['sakit'] + $e['summary']['cuti']);
-        $totalAlpha = $matrixEmployees->sum(fn ($e) => $e['summary']['alpha']);
+        $totalHadir = (int) $matrixEmployees->sum(fn ($e) => $e['summary']['hadir']);
+        $totalTerlambat = (int) $matrixEmployees->sum(fn ($e) => $e['summary']['terlambat']);
+        $totalIzinSakitCuti = (int) $matrixEmployees->sum(fn ($e) => $e['summary']['izin'] + $e['summary']['sakit'] + $e['summary']['cuti']);
+        $totalAlpha = (int) $matrixEmployees->sum(fn ($e) => $e['summary']['alpha']);
 
         $metrics = [
             'total_karyawan' => $employees->count(),
@@ -792,7 +783,8 @@ class HcmAttendanceController extends Controller
             'daysList' => $daysList,
             'employees' => $matrixEmployees,
             'departments' => $departments,
-            'positions' => $positions,
+            'divisions' => $divisions,
+            'positions' => $divisions, // Backward compatibility
             'filters' => [
                 'month' => $selectedMonth,
                 'category' => $categoryFilter,
@@ -833,7 +825,7 @@ class HcmAttendanceController extends Controller
                 'employee_id' => $emp->id,
             ],
             [
-                'position' => $emp->position,
+                'position' => $emp->division ?: $emp->position,
                 'attendance_category' => $validated['attendance_category'],
                 'clock_in' => in_array($validated['attendance_category'], ['Hadir', 'Terlambat']) ? ($clockIn ?: '08:00:00') : null,
                 'clock_out' => in_array($validated['attendance_category'], ['Hadir', 'Terlambat']) ? ($clockOut ?: '17:00:00') : null,

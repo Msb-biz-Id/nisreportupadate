@@ -29,6 +29,11 @@ import {
     Download,
     UserCheck,
     GraduationCap,
+    DoorOpen,
+    Plus,
+    Trash2,
+    Paperclip,
+    Upload,
 } from 'lucide-react';
 import WhatsAppSummaryModal from './Components/WhatsAppSummaryModal';
 import AppLayout from '@/Layouts/AppLayout';
@@ -58,12 +63,16 @@ export default function AttendanceIndex({
     dossierEmployees = [],
     allMonthsInYear = [],
     dailyMatrixData = [],
+    exitPermits = [],
     departments = [],
+    divisions = [],
     positions = [],
+    attachmentStatuses = [],
+    activeEmployeesForGatePass = [],
     metrics = {},
     filters = {},
 }) {
-    // State Tab Navigasi ('matrix', 'dossier', 'daily')
+    // State Tab Navigasi ('matrix', 'dossier', 'daily', 'gatepass')
     const [currentTab, setCurrentTab] = useState(filters.tab || initialTab || 'matrix');
 
     // State Filter Matriks Bulanan
@@ -113,6 +122,98 @@ export default function AttendanceIndex({
         notes: '',
         override_existing: false,
     });
+
+    // State & Forms Izin Keluar Kantor (Gate Pass)
+    const [isCreateGatePassOpen, setIsCreateGatePassOpen] = useState(false);
+    const [editGatePassModal, setEditGatePassModal] = useState({ isOpen: false, permit: null });
+    const [returnModal, setReturnModal] = useState({ isOpen: false, permit: null, returnTime: '' });
+    const [deletePermitModal, setDeletePermitModal] = useState({ isOpen: false, permit: null });
+    const [gatepassStatusFilter, setGatepassStatusFilter] = useState('all');
+
+    const createGatePassForm = useForm({
+        employee_id: '',
+        permit_date: dailyDate,
+        exit_time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':'),
+        return_time: '',
+        purpose: '',
+        notes: '',
+        attachment_status: 'Tidak Terlampir',
+        file_attachment: null,
+    });
+
+    const editGatePassForm = useForm({
+        permit_date: '',
+        exit_time: '',
+        return_time: '',
+        purpose: '',
+        notes: '',
+        attachment_status: 'Tidak Terlampir',
+        status: 'Masih di Luar',
+        file_attachment: null,
+    });
+
+    const filteredExitPermits = useMemo(() => {
+        return (exitPermits || []).filter((p) => {
+            if (gatepassStatusFilter !== 'all' && p.status !== gatepassStatusFilter) {
+                return false;
+            }
+            if (searchTerm) {
+                const s = searchTerm.toLowerCase();
+                const matchEmp = p.employee?.name?.toLowerCase().includes(s) ||
+                    p.employee?.employee_code?.toLowerCase().includes(s);
+                const matchPurpose = p.purpose?.toLowerCase().includes(s) ||
+                    p.notes?.toLowerCase().includes(s);
+                if (!matchEmp && !matchPurpose) return false;
+            }
+            return true;
+        });
+    }, [exitPermits, gatepassStatusFilter, searchTerm]);
+
+    const handleCreateGatePassSubmit = (e) => {
+        e.preventDefault();
+        createGatePassForm.post(route('hcm.attendance.exit-permits.store'), {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                setIsCreateGatePassOpen(false);
+                createGatePassForm.reset();
+            },
+        });
+    };
+
+    const handleEditGatePassSubmit = (e) => {
+        e.preventDefault();
+        if (!editGatePassModal.permit) return;
+        editGatePassForm.put(route('hcm.attendance.exit-permits.update', editGatePassModal.permit.id), {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                setEditGatePassModal({ isOpen: false, permit: null });
+                editGatePassForm.reset();
+            },
+        });
+    };
+
+    const handleQuickReturnSubmit = (e) => {
+        e.preventDefault();
+        if (!returnModal.permit) return;
+        router.post(
+            route('hcm.attendance.exit-permits.return', returnModal.permit.id),
+            { return_time: returnModal.returnTime },
+            {
+                preserveScroll: true,
+                onSuccess: () => setReturnModal({ isOpen: false, permit: null, returnTime: '' }),
+            }
+        );
+    };
+
+    const handleDeletePermitSubmit = () => {
+        if (!deletePermitModal.permit) return;
+        router.delete(route('hcm.attendance.exit-permits.destroy', deletePermitModal.permit.id), {
+            preserveScroll: true,
+            onSuccess: () => setDeletePermitModal({ isOpen: false, permit: null }),
+        });
+    };
 
     // Sinkronisasi data rows entri harian
     useEffect(() => {
@@ -490,6 +591,27 @@ export default function AttendanceIndex({
                             <Clock className="h-3.5 w-3.5" />
                             Entri Harian & Shift
                         </button>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setCurrentTab('gatepass');
+                                applyFilters('gatepass');
+                            }}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                currentTab === 'gatepass'
+                                    ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                            }`}
+                        >
+                            <DoorOpen className="h-3.5 w-3.5" />
+                            <span>Izin Keluar (Gate Pass)</span>
+                            {metrics.gatepass?.outside > 0 && (
+                                <span className="flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                                    {metrics.gatepass.outside}
+                                </span>
+                            )}
+                        </button>
                     </div>
                 </div>
 
@@ -563,68 +685,102 @@ export default function AttendanceIndex({
 
                     <Card className="border-emerald-200 dark:border-emerald-900/40 shadow-xs bg-emerald-50/30 dark:bg-emerald-950/10">
                         <CardContent className="p-3.5">
-                            <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">Hadir Tepat</span>
+                            <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
+                                {currentTab === 'gatepass' ? 'Total Izin' : 'Hadir Tepat'}
+                            </span>
                             <div className="flex items-baseline justify-between mt-1">
                                 <span className="text-xl font-bold text-emerald-700 dark:text-emerald-300">
-                                    {currentTab === 'daily' ? metrics.daily?.hadir ?? 0 : metrics.monthly?.total_hadir ?? 0}
+                                    {currentTab === 'gatepass'
+                                        ? metrics.gatepass?.total ?? 0
+                                        : currentTab === 'daily'
+                                        ? metrics.daily?.hadir ?? 0
+                                        : metrics.monthly?.total_hadir ?? 0}
                                 </span>
-                                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                {currentTab === 'gatepass' ? <DoorOpen className="h-4 w-4 text-emerald-500" /> : <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
                             </div>
                             <span className="text-[10px] text-emerald-600/80 block mt-0.5">
-                                {currentTab === 'daily' ? 'Hari Ini' : `Bulan ${formatMonthIndo(currentMonth)}`}
+                                {currentTab === 'gatepass' ? 'Izin Hari Ini' : currentTab === 'daily' ? 'Hari Ini' : `Bulan ${formatMonthIndo(currentMonth)}`}
                             </span>
                         </CardContent>
                     </Card>
 
                     <Card className="border-amber-200 dark:border-amber-900/40 shadow-xs bg-amber-50/30 dark:bg-amber-950/10">
                         <CardContent className="p-3.5">
-                            <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider block">Terlambat</span>
+                            <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider block">
+                                {currentTab === 'gatepass' ? 'Masih di Luar' : 'Terlambat'}
+                            </span>
                             <div className="flex items-baseline justify-between mt-1">
                                 <span className="text-xl font-bold text-amber-700 dark:text-amber-300">
-                                    {currentTab === 'daily' ? metrics.daily?.terlambat ?? 0 : metrics.monthly?.total_terlambat ?? 0}
+                                    {currentTab === 'gatepass'
+                                        ? metrics.gatepass?.outside ?? 0
+                                        : currentTab === 'daily'
+                                        ? metrics.daily?.terlambat ?? 0
+                                        : metrics.monthly?.total_terlambat ?? 0}
                                 </span>
                                 <Clock className="h-4 w-4 text-amber-500" />
                             </div>
-                            <span className="text-[10px] text-amber-600/80 block mt-0.5">Potong Uang Makan</span>
+                            <span className="text-[10px] text-amber-600/80 block mt-0.5">
+                                {currentTab === 'gatepass' ? 'Belum Kembali' : 'Potong Uang Makan'}
+                            </span>
                         </CardContent>
                     </Card>
 
                     <Card className="border-sky-200 dark:border-sky-900/40 shadow-xs bg-sky-50/30 dark:bg-sky-950/10">
                         <CardContent className="p-3.5">
-                            <span className="text-[11px] font-semibold text-sky-700 dark:text-sky-400 uppercase tracking-wider block">Izin / Sakit / Cuti</span>
+                            <span className="text-[11px] font-semibold text-sky-700 dark:text-sky-400 uppercase tracking-wider block">
+                                {currentTab === 'gatepass' ? 'Sudah Kembali' : 'Izin / Sakit / Cuti'}
+                            </span>
                             <div className="flex items-baseline justify-between mt-1">
                                 <span className="text-xl font-bold text-sky-700 dark:text-sky-300">
-                                    {currentTab === 'daily' ? metrics.daily?.cuti_izin_sakit ?? 0 : metrics.monthly?.total_izin_sakit_cuti ?? 0}
+                                    {currentTab === 'gatepass'
+                                        ? metrics.gatepass?.returned ?? 0
+                                        : currentTab === 'daily'
+                                        ? metrics.daily?.cuti_izin_sakit ?? 0
+                                        : metrics.monthly?.total_izin_sakit_cuti ?? 0}
                                 </span>
-                                <AlertCircle className="h-4 w-4 text-sky-500" />
+                                {currentTab === 'gatepass' ? <CheckCircle2 className="h-4 w-4 text-sky-500" /> : <AlertCircle className="h-4 w-4 text-sky-500" />}
                             </div>
-                            <span className="text-[10px] text-sky-600/80 block mt-0.5">Tervalidasi Resmi</span>
+                            <span className="text-[10px] text-sky-600/80 block mt-0.5">
+                                {currentTab === 'gatepass' ? 'Telah Tiba di Kantor' : 'Tervalidasi Resmi'}
+                            </span>
                         </CardContent>
                     </Card>
 
                     <Card className="border-rose-200 dark:border-rose-900/40 shadow-xs bg-rose-50/30 dark:bg-rose-950/10">
                         <CardContent className="p-3.5">
-                            <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 uppercase tracking-wider block">Alpha / Mangkir</span>
+                            <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 uppercase tracking-wider block">
+                                {currentTab === 'gatepass' ? 'Ada Lampiran' : 'Alpha / Mangkir'}
+                            </span>
                             <div className="flex items-baseline justify-between mt-1">
                                 <span className="text-xl font-bold text-rose-700 dark:text-rose-300">
-                                    {currentTab === 'daily' ? metrics.daily?.alpha ?? 0 : metrics.monthly?.total_alpha ?? 0}
+                                    {currentTab === 'gatepass'
+                                        ? metrics.gatepass?.with_attachment ?? 0
+                                        : currentTab === 'daily'
+                                        ? metrics.daily?.alpha ?? 0
+                                        : metrics.monthly?.total_alpha ?? 0}
                                 </span>
-                                <ShieldAlert className="h-4 w-4 text-rose-500" />
+                                {currentTab === 'gatepass' ? <Paperclip className="h-4 w-4 text-rose-500" /> : <ShieldAlert className="h-4 w-4 text-rose-500" />}
                             </div>
-                            <span className="text-[10px] text-rose-600/80 block mt-0.5">Tanpa Keterangan</span>
+                            <span className="text-[10px] text-rose-600/80 block mt-0.5">
+                                {currentTab === 'gatepass' ? 'Bukti Foto / Surat' : 'Tanpa Keterangan'}
+                            </span>
                         </CardContent>
                     </Card>
 
                     <Card className="border-indigo-200 dark:border-indigo-900/40 shadow-xs bg-indigo-50/30 dark:bg-indigo-950/10">
                         <CardContent className="p-3.5">
-                            <span className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider block">Hari Kerja Efektif</span>
+                            <span className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider block">
+                                {currentTab === 'gatepass' ? 'Tanggal Izin' : 'Hari Kerja Efektif'}
+                            </span>
                             <div className="flex items-baseline justify-between mt-1">
-                                <span className="text-xl font-bold text-indigo-700 dark:text-indigo-300">
-                                    {metrics.monthly?.effective_work_days ?? 22} Hari
+                                <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300 font-mono">
+                                    {currentTab === 'gatepass' ? dailyDate : `${metrics.monthly?.effective_work_days ?? 22} Hari`}
                                 </span>
                                 <TrendingUp className="h-4 w-4 text-indigo-500" />
                             </div>
-                            <span className="text-[10px] text-indigo-600/80 block mt-0.5">Senin – Sabtu</span>
+                            <span className="text-[10px] text-indigo-600/80 block mt-0.5">
+                                {currentTab === 'gatepass' ? 'Periode Harian' : 'Senin – Sabtu'}
+                            </span>
                         </CardContent>
                     </Card>
                 </div>
@@ -816,14 +972,14 @@ export default function AttendanceIndex({
                                                         </div>
                                                     </td>
 
-                                                    {/* Divisi & Posisi */}
+                                                    {/* Departemen & Divisi */}
                                                     <td className="p-2 hidden md:table-cell text-zinc-500">
                                                         <div className="flex flex-col">
                                                             <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300 truncate max-w-[110px]">
                                                                 {emp.department || '-'}
                                                             </span>
                                                             <span className="text-[10px] text-zinc-400 truncate max-w-[110px]">
-                                                                {emp.position || '-'}
+                                                                {emp.division || '-'}
                                                             </span>
                                                         </div>
                                                     </td>
@@ -982,7 +1138,7 @@ export default function AttendanceIndex({
                                                         </Badge>
                                                     </div>
                                                     <span className="text-xs text-zinc-500">
-                                                        {emp.department} &bull; {emp.position}
+                                                        {emp.department} &bull; {emp.division || '-'}
                                                     </span>
                                                 </div>
                                             </div>
@@ -1269,7 +1425,7 @@ export default function AttendanceIndex({
                                     <thead>
                                         <tr className="bg-zinc-50 dark:bg-zinc-800/80 border-b border-zinc-200 dark:border-zinc-700 text-[11px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
                                             <th className="p-3 w-52">Karyawan</th>
-                                            <th className="p-3 w-36">Divisi & Posisi</th>
+                                            <th className="p-3 w-36">Departemen & Divisi</th>
                                             <th className="p-3 w-40">Status Presensi</th>
                                             <th className="p-3 w-28">Jam Masuk</th>
                                             <th className="p-3 w-28">Jam Keluar</th>
@@ -1303,7 +1459,7 @@ export default function AttendanceIndex({
                                                     </td>
                                                     <td className="p-2.5 text-zinc-600 dark:text-zinc-400">
                                                         <div>{row.department}</div>
-                                                        <div className="text-[10px] text-zinc-400">{row.position}</div>
+                                                        <div className="text-[10px] text-zinc-400">{row.division || '-'}</div>
                                                     </td>
                                                     <td className="p-2">
                                                         <select
@@ -1423,6 +1579,281 @@ export default function AttendanceIndex({
                         </Card>
                     </div>
                 )}
+
+                {/* ========================================================================= */}
+                {/* TAB 4: IZIN KELUAR KANTOR (GATE PASS)                                     */}
+                {/* ========================================================================= */}
+                {currentTab === 'gatepass' && (
+                    <div className="space-y-4">
+                        {/* Toolbar Filter & Tambah Izin Keluar */}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200/80 dark:border-zinc-800 shadow-xs">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="flex items-center gap-1.5">
+                                    <Calendar className="h-4 w-4 text-zinc-400" />
+                                    <Input
+                                        type="date"
+                                        value={dailyDate}
+                                        onChange={(e) => {
+                                            setDailyDate(e.target.value);
+                                            applyFilters('gatepass', currentMonth, currentYear, e.target.value);
+                                        }}
+                                        className="h-8 text-xs w-36 font-mono"
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                    <button
+                                        type="button"
+                                        onClick={() => setGatepassStatusFilter('all')}
+                                        className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
+                                            gatepassStatusFilter === 'all'
+                                                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs'
+                                                : 'text-zinc-500 hover:text-zinc-900'
+                                        }`}
+                                    >
+                                        Semua ({exitPermits.length})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setGatepassStatusFilter('Masih di Luar')}
+                                        className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+                                            gatepassStatusFilter === 'Masih di Luar'
+                                                ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 font-bold shadow-xs'
+                                                : 'text-zinc-500 hover:text-rose-600'
+                                        }`}
+                                    >
+                                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                        Masih di Luar ({metrics.gatepass?.outside ?? 0})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setGatepassStatusFilter('Kembali')}
+                                        className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
+                                            gatepassStatusFilter === 'Kembali'
+                                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 font-bold shadow-xs'
+                                                : 'text-zinc-500 hover:text-emerald-600'
+                                        }`}
+                                    >
+                                        Kembali ({metrics.gatepass?.returned ?? 0})
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    onClick={() => {
+                                        createGatePassForm.setData({
+                                            employee_id: '',
+                                            permit_date: dailyDate,
+                                            exit_time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':'),
+                                            return_time: '',
+                                            purpose: '',
+                                            notes: '',
+                                            attachment_status: 'Tidak Terlampir',
+                                            file_attachment: null,
+                                        });
+                                        setIsCreateGatePassOpen(true);
+                                    }}
+                                    size="sm"
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs shadow-xs"
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    Terbitkan Izin Keluar (Gate Pass)
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Tabel Log Izin Keluar Kantor */}
+                        <Card className="border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden bg-white dark:bg-zinc-900">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                    <thead className="bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-700 text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">
+                                        <tr>
+                                            <th className="p-3 w-12 text-center">No</th>
+                                            <th className="p-3 min-w-[200px]">Karyawan</th>
+                                            <th className="p-3 min-w-[140px]">Divisi & Departemen</th>
+                                            <th className="p-3 min-w-[150px]">Jam Keluar / Kembali</th>
+                                            <th className="p-3 min-w-[110px]">Durasi</th>
+                                            <th className="p-3 min-w-[180px]">Keperluan</th>
+                                            <th className="p-3 min-w-[130px]">Bukti Lampiran</th>
+                                            <th className="p-3 min-w-[130px]">Status</th>
+                                            <th className="p-3 w-28 text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
+                                        {filteredExitPermits.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={9} className="p-8 text-center text-zinc-400">
+                                                    <DoorOpen className="h-8 w-8 mx-auto text-zinc-300 dark:text-zinc-600 mb-2" />
+                                                    Tidak ada catatan izin keluar kantor pada tanggal terpilih ({dailyDate}).
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            filteredExitPermits.map((permit, idx) => (
+                                                <tr key={permit.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                                                    <td className="p-3 text-center text-zinc-400 font-mono">{idx + 1}</td>
+                                                    <td className="p-3">
+                                                        <div className="flex items-center gap-2.5">
+                                                            {permit.employee?.photo_url ? (
+                                                                <img
+                                                                    src={permit.employee.photo_url}
+                                                                    alt={permit.employee.name}
+                                                                    className="h-8 w-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
+                                                                />
+                                                            ) : (
+                                                                <div className="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold flex items-center justify-center shrink-0 text-xs">
+                                                                    {(permit.employee?.name || '?').charAt(0)}
+                                                                </div>
+                                                            )}
+                                                            <div className="min-w-0">
+                                                                <span className="font-semibold text-zinc-900 dark:text-zinc-100 block truncate">
+                                                                    {permit.employee?.name || '-'}
+                                                                </span>
+                                                                <span className="text-[10px] text-zinc-400 font-mono block">
+                                                                    {permit.employee?.employee_code || '-'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <div className="text-zinc-800 dark:text-zinc-200 font-medium">
+                                                            {permit.employee?.division || '-'}
+                                                        </div>
+                                                        <div className="text-[10px] text-zinc-400">
+                                                            {permit.employee?.department || '-'}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <div className="flex items-center gap-1.5 font-mono">
+                                                            <Badge variant="outline" className="text-xs bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
+                                                                {permit.exit_time}
+                                                            </Badge>
+                                                            <span className="text-zinc-400">&rarr;</span>
+                                                            {permit.return_time ? (
+                                                                <Badge variant="outline" className="text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
+                                                                    {permit.return_time}
+                                                                </Badge>
+                                                            ) : (
+                                                                <span className="text-[11px] text-rose-500 font-medium italic">
+                                                                    Belum Kembali
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-3">
+                                                        {permit.duration_text ? (
+                                                            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                                                                {permit.duration_text}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-zinc-400 text-[11px]">—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <span className="font-medium text-zinc-900 dark:text-zinc-100 block">
+                                                            {permit.purpose}
+                                                        </span>
+                                                        {permit.notes && (
+                                                            <span className="text-[11px] text-zinc-400 block mt-0.5 line-clamp-1">
+                                                                {permit.notes}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3">
+                                                        {permit.attachment_url ? (
+                                                            <a
+                                                                href={permit.attachment_url}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 hover:underline border border-emerald-200 dark:border-emerald-800"
+                                                            >
+                                                                <Paperclip className="h-3 w-3" />
+                                                                Lihat Berkas
+                                                            </a>
+                                                        ) : (
+                                                            <Badge variant="outline" className="text-[10px] text-zinc-400 border-zinc-200 dark:border-zinc-700">
+                                                                Tidak Ada
+                                                            </Badge>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3">
+                                                        {permit.status === 'Masih di Luar' ? (
+                                                            <Badge className="bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-800 text-[11px] gap-1 inline-flex items-center">
+                                                                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                                                Masih di Luar
+                                                            </Badge>
+                                                        ) : (
+                                                            <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 text-[11px] gap-1 inline-flex items-center">
+                                                                <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                                                Kembali
+                                                            </Badge>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3 text-center">
+                                                        <div className="flex items-center justify-center gap-1">
+                                                            {permit.status === 'Masih di Luar' && (
+                                                                <Button
+                                                                    type="button"
+                                                                    size="xs"
+                                                                    variant="outline"
+                                                                    onClick={() => {
+                                                                        setReturnModal({
+                                                                            isOpen: true,
+                                                                            permit,
+                                                                            returnTime: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':'),
+                                                                        });
+                                                                    }}
+                                                                    className="h-6 text-[11px] px-2 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
+                                                                    title="Tandai Sudah Kembali"
+                                                                >
+                                                                    <Check className="h-3 w-3 mr-1" />
+                                                                    Kembali
+                                                                </Button>
+                                                            )}
+                                                            <Button
+                                                                type="button"
+                                                                size="xs"
+                                                                variant="ghost"
+                                                                onClick={() => {
+                                                                    editGatePassForm.setData({
+                                                                        permit_date: permit.permit_date,
+                                                                        exit_time: permit.exit_time,
+                                                                        return_time: permit.return_time || '',
+                                                                        purpose: permit.purpose,
+                                                                        notes: permit.notes || '',
+                                                                        attachment_status: permit.attachment_status || 'Tidak Terlampir',
+                                                                        status: permit.status,
+                                                                        file_attachment: null,
+                                                                    });
+                                                                    setEditGatePassModal({ isOpen: true, permit });
+                                                                }}
+                                                                className="h-6 w-6 p-0 text-zinc-500 hover:text-zinc-800"
+                                                                title="Edit Izin Keluar"
+                                                            >
+                                                                <FileText className="h-3 w-3" />
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                size="xs"
+                                                                variant="ghost"
+                                                                onClick={() => setDeletePermitModal({ isOpen: true, permit })}
+                                                                className="h-6 w-6 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50"
+                                                                title="Hapus Izin Keluar"
+                                                            >
+                                                                <Trash2 className="h-3 w-3" />
+                                                            </Button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </Card>
+                    </div>
+                )}
             </div>
 
             {/* ========================================================================= */}
@@ -1524,7 +1955,7 @@ export default function AttendanceIndex({
                             Set Presensi Massal Per Divisi / Shift
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            Atur kehadiran massal untuk divisi atau posisi tertentu pada tanggal terpilih ({dailyDate}).
+                            Atur kehadiran massal untuk departemen atau divisi tertentu pada tanggal terpilih ({dailyDate}).
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1712,6 +2143,402 @@ export default function AttendanceIndex({
                             className="bg-emerald-600 hover:bg-emerald-700 text-white"
                         >
                             Ya, Set Semua Hadir
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ========================================================================= */}
+            {/* MODAL 5: TERBITKAN IZIN KELUAR KANTOR (GATE PASS)                         */}
+            {/* ========================================================================= */}
+            <Dialog open={isCreateGatePassOpen} onOpenChange={setIsCreateGatePassOpen}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="text-base flex items-center gap-2 text-indigo-600">
+                            <DoorOpen className="h-4 w-4" />
+                            Terbitkan Izin Keluar Kantor (Gate Pass)
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Pencatatan mobilitas keluar kantor/pabrik pada jam kerja beserta bukti lampiran resmi.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleCreateGatePassSubmit} className="space-y-3.5 pt-2">
+                        <div className="space-y-1">
+                            <Label className="text-xs font-medium">Pilih Karyawan *</Label>
+                            <SearchableSelect
+                                value={createGatePassForm.data.employee_id}
+                                onValueChange={(val) => createGatePassForm.setData('employee_id', val)}
+                                options={activeEmployeesForGatePass}
+                                placeholder="Cari NIK / Nama Karyawan..."
+                                clearable={false}
+                                className="text-xs"
+                            />
+                            {createGatePassForm.errors.employee_id && (
+                                <p className="text-[11px] text-rose-500">{createGatePassForm.errors.employee_id}</p>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Tanggal Izin *</Label>
+                                <Input
+                                    type="date"
+                                    required
+                                    value={createGatePassForm.data.permit_date}
+                                    onChange={(e) => createGatePassForm.setData('permit_date', e.target.value)}
+                                    className="h-8 text-xs font-mono"
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Jam Keluar *</Label>
+                                <Input
+                                    type="time"
+                                    required
+                                    value={createGatePassForm.data.exit_time}
+                                    onChange={(e) => createGatePassForm.setData('exit_time', e.target.value)}
+                                    className="h-8 text-xs font-mono"
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Perkiraan Kembali</Label>
+                                <Input
+                                    type="time"
+                                    value={createGatePassForm.data.return_time}
+                                    onChange={(e) => createGatePassForm.setData('return_time', e.target.value)}
+                                    className="h-8 text-xs font-mono"
+                                    placeholder="Opsional"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-xs font-medium">Keperluan Keluar *</Label>
+                            <Input
+                                required
+                                value={createGatePassForm.data.purpose}
+                                onChange={(e) => createGatePassForm.setData('purpose', e.target.value)}
+                                placeholder="Contoh: Urusan Bank Mandiri, Antar Dokumen ke Vendor, dll."
+                                className="h-8 text-xs"
+                            />
+                            {/* Preset Keperluan Cepat */}
+                            <div className="flex flex-wrap gap-1 pt-1">
+                                {[
+                                    'Urusan Bank',
+                                    'Dinas Lapangan / Vendor',
+                                    'Servis Kendaraan Dinas',
+                                    'Keperluan Pribadi / Keluarga',
+                                    'Pemeriksaan Medis / Dokter',
+                                ].map((preset) => (
+                                    <button
+                                        key={preset}
+                                        type="button"
+                                        onClick={() => createGatePassForm.setData('purpose', preset)}
+                                        className="text-[10px] px-2 py-0.5 rounded bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition"
+                                    >
+                                        + {preset}
+                                    </button>
+                                ))}
+                            </div>
+                            {createGatePassForm.errors.purpose && (
+                                <p className="text-[11px] text-rose-500">{createGatePassForm.errors.purpose}</p>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Status Lampiran Bukti</Label>
+                                <SearchableSelect
+                                    value={createGatePassForm.data.attachment_status}
+                                    onValueChange={(val) => createGatePassForm.setData('attachment_status', val)}
+                                    options={(attachmentStatuses || ['Terlampir', 'Tidak Terlampir']).map((s) => ({ value: s, label: s }))}
+                                    clearable={false}
+                                    className="text-xs"
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Unggah Berkas Lampiran (Foto/PDF)</Label>
+                                <Input
+                                    type="file"
+                                    accept="image/*,application/pdf"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        createGatePassForm.setData({
+                                            ...createGatePassForm.data,
+                                            file_attachment: file || null,
+                                            attachment_status: file ? 'Terlampir' : createGatePassForm.data.attachment_status,
+                                        });
+                                    }}
+                                    className="h-8 text-xs cursor-pointer"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-xs font-medium">Catatan / Keterangan Tambahan</Label>
+                            <Textarea
+                                rows={2}
+                                value={createGatePassForm.data.notes}
+                                onChange={(e) => createGatePassForm.setData('notes', e.target.value)}
+                                placeholder="Rincian tujuan, nomor kontak darurat, dsb..."
+                                className="text-xs"
+                            />
+                        </div>
+
+                        <DialogFooter className="gap-2 pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsCreateGatePassOpen(false)}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                size="sm"
+                                disabled={createGatePassForm.processing}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                            >
+                                {createGatePassForm.processing ? 'Menyimpan...' : 'Terbitkan Gate Pass'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* ========================================================================= */}
+            {/* MODAL 6: EDIT IZIN KELUAR KANTOR                                          */}
+            {/* ========================================================================= */}
+            <Dialog open={editGatePassModal.isOpen} onOpenChange={(open) => setEditGatePassModal((prev) => ({ ...prev, isOpen: open }))}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="text-base flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-indigo-600" />
+                            Edit Izin Keluar Kantor
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Karyawan: <strong>{editGatePassModal.permit?.employee?.name}</strong> ({editGatePassModal.permit?.employee?.employee_code})
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleEditGatePassSubmit} className="space-y-3.5 pt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Tanggal Izin *</Label>
+                                <Input
+                                    type="date"
+                                    required
+                                    value={editGatePassForm.data.permit_date}
+                                    onChange={(e) => editGatePassForm.setData('permit_date', e.target.value)}
+                                    className="h-8 text-xs font-mono"
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Jam Keluar *</Label>
+                                <Input
+                                    type="time"
+                                    required
+                                    value={editGatePassForm.data.exit_time}
+                                    onChange={(e) => editGatePassForm.setData('exit_time', e.target.value)}
+                                    className="h-8 text-xs font-mono"
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Jam Kembali</Label>
+                                <Input
+                                    type="time"
+                                    value={editGatePassForm.data.return_time}
+                                    onChange={(e) => editGatePassForm.setData('return_time', e.target.value)}
+                                    className="h-8 text-xs font-mono"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Keperluan Keluar *</Label>
+                                <Input
+                                    required
+                                    value={editGatePassForm.data.purpose}
+                                    onChange={(e) => editGatePassForm.setData('purpose', e.target.value)}
+                                    className="h-8 text-xs"
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Status Keberadaan *</Label>
+                                <SearchableSelect
+                                    value={editGatePassForm.data.status}
+                                    onValueChange={(val) => editGatePassForm.setData('status', val)}
+                                    options={[
+                                        { value: 'Masih di Luar', label: 'Masih di Luar' },
+                                        { value: 'Kembali', label: 'Kembali' },
+                                        { value: 'Dibatalkan', label: 'Dibatalkan' },
+                                    ]}
+                                    clearable={false}
+                                    className="text-xs"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Status Lampiran</Label>
+                                <SearchableSelect
+                                    value={editGatePassForm.data.attachment_status}
+                                    onValueChange={(val) => editGatePassForm.setData('attachment_status', val)}
+                                    options={(attachmentStatuses || ['Terlampir', 'Tidak Terlampir']).map((s) => ({ value: s, label: s }))}
+                                    clearable={false}
+                                    className="text-xs"
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Ganti Berkas Lampiran</Label>
+                                <Input
+                                    type="file"
+                                    accept="image/*,application/pdf"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        editGatePassForm.setData({
+                                            ...editGatePassForm.data,
+                                            file_attachment: file || null,
+                                            attachment_status: file ? 'Terlampir' : editGatePassForm.data.attachment_status,
+                                        });
+                                    }}
+                                    className="h-8 text-xs cursor-pointer"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-xs font-medium">Catatan / Keterangan</Label>
+                            <Textarea
+                                rows={2}
+                                value={editGatePassForm.data.notes}
+                                onChange={(e) => editGatePassForm.setData('notes', e.target.value)}
+                                className="text-xs"
+                            />
+                        </div>
+
+                        <DialogFooter className="gap-2 pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setEditGatePassModal({ isOpen: false, permit: null })}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                size="sm"
+                                disabled={editGatePassForm.processing}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                            >
+                                {editGatePassForm.processing ? 'Menyimpan...' : 'Simpan Perubahan'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* ========================================================================= */}
+            {/* MODAL 7: CEPAT TANDAI SUDAH KEMBALI                                       */}
+            {/* ========================================================================= */}
+            <Dialog open={returnModal.isOpen} onOpenChange={(open) => setReturnModal((prev) => ({ ...prev, isOpen: open }))}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="text-base flex items-center gap-2 text-emerald-600">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Konfirmasi Tiba di Kantor
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Tandai bahwa <strong>{returnModal.permit?.employee?.name}</strong> telah kembali ke pabrik/kantor.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleQuickReturnSubmit} className="space-y-3 pt-2">
+                        <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 text-xs space-y-1">
+                            <div className="flex justify-between">
+                                <span className="text-zinc-500">Jam Keluar:</span>
+                                <span className="font-mono font-semibold">{returnModal.permit?.exit_time}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-zinc-500">Keperluan:</span>
+                                <span className="font-medium text-right">{returnModal.permit?.purpose}</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-xs font-medium">Jam Kembali Aktual *</Label>
+                            <Input
+                                type="time"
+                                required
+                                value={returnModal.returnTime}
+                                onChange={(e) => setReturnModal((prev) => ({ ...prev, returnTime: e.target.value }))}
+                                className="h-8 text-xs font-mono"
+                            />
+                        </div>
+
+                        <DialogFooter className="gap-2 pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setReturnModal({ isOpen: false, permit: null, returnTime: '' })}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                                Konfirmasi Kembali
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* ========================================================================= */}
+            {/* MODAL 8: HAPUS IZIN KELUAR KANTOR                                         */}
+            {/* ========================================================================= */}
+            <Dialog open={deletePermitModal.isOpen} onOpenChange={(open) => setDeletePermitModal((prev) => ({ ...prev, isOpen: open }))}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="text-base flex items-center gap-2 text-rose-600">
+                            <Trash2 className="h-4 w-4" />
+                            Hapus Izin Keluar Kantor?
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Apakah Anda yakin ingin menghapus rekaman izin keluar untuk <strong>{deletePermitModal.permit?.employee?.name}</strong> pada pukul {deletePermitModal.permit?.exit_time}? Tindakan ini tidak dapat dibatalkan.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <DialogFooter className="gap-2 pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeletePermitModal({ isOpen: false, permit: null })}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleDeletePermitSubmit}
+                            className="bg-rose-600 hover:bg-rose-700 text-white"
+                        >
+                            Hapus
                         </Button>
                     </DialogFooter>
                 </DialogContent>

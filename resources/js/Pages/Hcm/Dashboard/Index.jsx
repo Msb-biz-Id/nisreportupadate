@@ -715,7 +715,7 @@ export default function HcmDashboardIndex({
                                                             {u.name}
                                                         </div>
                                                         <div className="text-[10px] text-zinc-500">
-                                                            {u.department} • {u.position}
+                                                            {u.department} • {u.division || '-'}
                                                         </div>
                                                     </div>
                                                     <Badge className="bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300 text-[10px] font-mono">
@@ -762,7 +762,7 @@ export default function HcmDashboardIndex({
                                                             <span className="font-mono text-blue-600 font-bold">{index + 1}.</span>
                                                             <span>{item.employee_name}</span>
                                                             <span className="text-[11px] font-normal text-zinc-500">
-                                                                ({item.department} – {item.position})
+                                                                ({item.department} – {item.division || '-'})
                                                             </span>
                                                         </div>
                                                         <div className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-1 flex items-center gap-2">

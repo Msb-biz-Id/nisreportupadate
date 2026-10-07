@@ -13,6 +13,7 @@ class HcmMealAllowanceItem extends Model
     protected $table = 'hcm_meal_allowance_items';
 
     protected $fillable = [
+        'uuid',
         'batch_id',
         'employee_id',
         'position',
@@ -31,6 +32,27 @@ class HcmMealAllowanceItem extends Model
         'bonus_eligible',
         'notes',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function ($model) {
+            if (empty($model->uuid)) {
+                $model->uuid = (string) \Illuminate\Support\Str::uuid();
+            }
+        });
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->where($field ?? 'uuid', $value)
+            ->orWhere('id', is_numeric($value) ? (int) $value : 0)
+            ->firstOrFail();
+    }
 
     protected $casts = [
         'base_allowance' => 'decimal:2',

@@ -569,7 +569,7 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
                                 <tr>
                                     <th className="py-3 px-3.5 font-semibold">Nama</th>
                                     <th className="py-3 px-3.5 font-semibold">Nama Panggil</th>
-                                    <th className="py-3 px-3.5 font-semibold">Posisi</th>
+                                    <th className="py-3 px-3.5 font-semibold">Departemen / Divisi</th>
                                     <th className="py-3 px-3.5 font-semibold">Status Ketenagakerjaan</th>
                                     <th className="py-3 px-3 font-semibold text-center">Kontrak Ke</th>
                                     <th className="py-3 px-3.5 font-semibold">No. Kontrak</th>
@@ -621,9 +621,10 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
                                                 {c.employee?.nickname || '-'}
                                             </td>
 
-                                            {/* 3. Posisi */}
-                                            <td className="py-3 px-3.5 text-zinc-800 dark:text-zinc-200">
-                                                {c.position || c.employee?.position || '-'}
+                                            {/* 3. Departemen / Divisi */}
+                                            <td className="py-3 px-3.5">
+                                                <div className="font-semibold text-zinc-800 dark:text-zinc-200">{c.employee?.department || '-'}</div>
+                                                <div className="text-[10px] text-zinc-400">{c.employee?.division || '-'}</div>
                                             </td>
 
                                             {/* 4. Status Ketenagakerjaan */}
@@ -876,12 +877,18 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
                             </div>
 
                             <div className="space-y-1">
-                                <Label className="text-xs font-medium">Posisi / Jabatan *</Label>
+                                <Label className="text-xs font-medium">Divisi Karyawan</Label>
                                 <SearchableSelect
-                                    value={form.data.position}
-                                    onValueChange={(val) => form.setData('position', val)}
-                                    options={toOptions(dropdowns.positions)}
-                                    placeholder="Pilih Posisi..."
+                                    value={form.data.division || form.data.position}
+                                    onValueChange={(val) => {
+                                        form.setData({
+                                            ...form.data,
+                                            division: val,
+                                            position: val,
+                                        });
+                                    }}
+                                    options={toOptions(dropdowns.divisions || dropdowns.positions)}
+                                    placeholder="Pilih Divisi..."
                                     clearable={false}
                                     className="text-xs"
                                 />

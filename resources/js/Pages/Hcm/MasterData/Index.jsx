@@ -56,6 +56,7 @@ export default function HcmMasterDataIndex({
     categories = [],
     selectedCategory,
     options = [],
+    departmentOptions = [],
     filters = {},
 }) {
     // State lokal untuk filter
@@ -73,6 +74,7 @@ export default function HcmMasterDataIndex({
     const form = useForm({
         name: '',
         code: '',
+        parent_id: '',
         order_index: 0,
         description: '',
         is_active: true,
@@ -150,6 +152,7 @@ export default function HcmMasterDataIndex({
         form.setData({
             name: '',
             code: '',
+            parent_id: '',
             order_index: nextOrder,
             description: '',
             is_active: true,
@@ -164,6 +167,7 @@ export default function HcmMasterDataIndex({
         form.setData({
             name: option.name,
             code: option.code || '',
+            parent_id: option.parent_id ? String(option.parent_id) : '',
             order_index: option.order_index || 0,
             description: option.description || '',
             is_active: Boolean(option.is_active),
@@ -412,6 +416,9 @@ export default function HcmMasterDataIndex({
                                                         </div>
                                                     </TableHead>
                                                     <TableHead className="font-bold">Nama / Label Data</TableHead>
+                                                    {['divisi', 'division'].includes(selectedCategory?.code) && (
+                                                        <TableHead className="font-bold">Departemen Induk</TableHead>
+                                                    )}
                                                     <TableHead className="font-bold">Kode Identifier</TableHead>
                                                     <TableHead className="font-bold">Keterangan</TableHead>
                                                     <TableHead className="w-28 text-center font-bold">Status Aktif</TableHead>
@@ -421,7 +428,7 @@ export default function HcmMasterDataIndex({
                                             <TableBody>
                                                 {options.length === 0 ? (
                                                     <TableRow>
-                                                        <TableCell colSpan={7} className="h-36 text-center">
+                                                        <TableCell colSpan={['divisi', 'division'].includes(selectedCategory?.code) ? 8 : 7} className="h-36 text-center">
                                                             <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
                                                                 <SelectedIcon className="h-8 w-8 text-muted-foreground/40" />
                                                                 <p className="text-sm font-medium">Belum ada data opsi yang ditemukan.</p>
@@ -464,6 +471,13 @@ export default function HcmMasterDataIndex({
                                                                     )}
                                                                 </div>
                                                             </TableCell>
+                                                            {['divisi', 'division'].includes(selectedCategory?.code) && (
+                                                                <TableCell>
+                                                                    <Badge variant="outline" className="text-[11px] font-normal text-indigo-700 bg-indigo-50/50 dark:text-indigo-300 dark:bg-indigo-950/30">
+                                                                        {opt.parent?.name || 'Belum Terhubung'}
+                                                                    </Badge>
+                                                                </TableCell>
+                                                            )}
                                                             <TableCell className="font-mono text-[11px] text-muted-foreground">
                                                                 {opt.code || '-'}
                                                             </TableCell>
@@ -550,6 +564,35 @@ export default function HcmMasterDataIndex({
                                     <p className="text-[11px] text-destructive">{form.errors.name}</p>
                                 )}
                             </div>
+
+                            {['divisi', 'division'].includes(selectedCategory?.code) && (
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="parent_id" className="text-xs font-semibold">
+                                        Departemen Induk <span className="text-destructive">*</span>
+                                    </Label>
+                                    <Select
+                                        value={form.data.parent_id ? String(form.data.parent_id) : 'none'}
+                                        onValueChange={(val) => form.setData('parent_id', val === 'none' ? '' : val)}
+                                    >
+                                        <SelectTrigger className="text-xs h-9">
+                                            <SelectValue placeholder="Pilih Departemen Induk..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none" className="text-xs text-muted-foreground">
+                                                -- Belum Ada Departemen --
+                                            </SelectItem>
+                                            {departmentOptions.map((dept) => (
+                                                <SelectItem key={dept.id} value={String(dept.id)} className="text-xs">
+                                                    {dept.name} ({dept.code})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {form.errors.parent_id && (
+                                        <p className="text-[11px] text-destructive">{form.errors.parent_id}</p>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1.5">

@@ -1067,47 +1067,47 @@ Untuk menjamin kapasitas disk hosting lokal tetap ringan (*0 MB Local Storage Wa
 
 Rencana aksi pelaksanaan disusun secara sistematis agar penambahan hierarki Departemen-Divisi dan modul Payroll terpadu terimplementasi secara kokoh tanpa mengganggu fungsi sistem yang sedang berjalan:
 
-### Fase 1: Struktur Organisasi Berjenjang & Master Data Sinkron
-- [ ] **Migrasi Kolom Organisasi & Integritas Masa Kerja**:
+### Fase 1: Struktur Organisasi Berjenjang & Master Data Sinkron (100% Selesai ✅)
+- [x] **Migrasi Kolom Organisasi & Integritas Masa Kerja**:
   - Tambahkan kolom `division` (varchar 100, nullable) pada tabel `hcm_employees`.
   - Tambahkan kolom `original_join_date` (date) pada tabel `hcm_employees` sebagai *immutable anchor* masa kerja kumulatif.
-- [ ] **Sinkronisasi Kode Departemen Baku & Opsi Master Data**:
+- [x] **Sinkronisasi Kode Departemen Baku & Opsi Master Data**:
   - Pastikan Kode Departemen Resmi NIS Group tetap menggunakan kode resmi: `FIN` (Finance & Accounting), `HCM` (Human Capital Management), `BRM` (Brand & Marketing), `SCP` (Support & Control Produksi), `PRD` (Produksi), `MIN` (Media Internal), `MEX` (Media Eksternal).
   - Seed master data baru pada `HcmMasterDataSeeder.php`:
     - `status_lampiran`: `Terlampir`, `Tidak Terlampir`.
     - `kategori_potongan_gaji`: `Pelanggaran`, `Kelebihan Pengambilan Cuti`, `Cuti Khusus Berjenjang`.
   - Perbarui relasi hierarkis Departemen $\rightarrow$ Divisi $\rightarrow$ Posisi pada formulir registrasi karyawan dan filter dashboard.
-- [ ] **Logika Pengelompokan Masa Kerja (Tenure Buckets)**:
+- [x] **Logika Pengelompokan Masa Kerja (Tenure Buckets)**:
   - Buat helper/accessor di model `HcmEmployee` untuk menghitung masa kerja kumulatif dari `original_join_date`:
     - **Kelompok 1 Tahun**: 12–23 bulan.
     - **Kelompok 2 Tahun**: 24–35 bulan.
     - **Kelompok 3 Tahun / Seterusnya**: $\ge 36$ bulan.
   - Tambahkan filter tenure bucket pada daftar karyawan dan kontrak.
 
-### Fase 2: Izin Keluar Kantor (Gate Pass) & Presensi
-- [ ] **Migrasi & Model Izin Keluar Kantor (`hcm_office_exit_permits`)**:
+### Fase 2: Izin Keluar Kantor (Gate Pass) & Presensi (100% Selesai ✅)
+- [x] **Migrasi & Model Izin Keluar Kantor (`hcm_office_exit_permits`)**:
   - Kolom: `employee_id`, `permit_date`, `position`, `exit_time`, `return_time`, `purpose`, `notes`, `attachment_status`, `attachment_url`, `status`.
-- [ ] **Controller & Komponen Antarmuka**:
+- [x] **Controller & Komponen Antarmuka**:
   - Buat controller `HcmOfficeExitPermitController` atau integrasikan ke `HcmAttendanceController`.
   - Buat tab / modal *"Izin Keluar Kantor (Gate Pass)"* pada halaman `/hcm/attendance` dengan status lampiran (`Terlampir` / `Tidak Terlampir`).
 
-### Fase 3: Evaluasi Kontrak, Kenaikan Gaji & Pemotongan Gaji Bulanan (Deductions)
-- [ ] **Engine Evaluasi Berkala & Contract Renewal**:
+### Fase 3: Evaluasi Kontrak, Kenaikan Gaji & Pemotongan Gaji Bulanan (Deductions) (100% Selesai ✅)
+- [x] **Engine Evaluasi Berkala & Contract Renewal**:
   - Form evaluasi berkala (siklus 6 bulan) dengan opsi keputusan: `Sedang Diajukan`, `Sudah Disetujui / ACC`, `Ditunda`, `Tidak Naik`.
   - Dukungan *custom milestone date* (tunda 3 bulan) tanpa merusak pengingat utama.
   - Workflow *Contract Renewal*: simpan kontrak lama ke arsip historis, perbarui masa berlaku baru, pertahankan `original_join_date`.
-- [ ] **Migrasi & Modul Pemotongan Gaji Bulanan (`hcm_salary_deductions`)**:
+- [x] **Migrasi & Modul Pemotongan Gaji Bulanan (`hcm_salary_deductions`)**:
   - Kolom: `employee_id`, `effective_payroll_month`, `deduction_category`, `calculation_type`, `percentage_rate`, `deduction_amount`, `notes`, `base_salary_snapshot`, `net_salary_snapshot`, `status`.
   - Formulir input HCM (*Monthly Salary Adjustment*) dengan opsi pemotongan disiplin, kelebihan cuti, dan potongan berjenjang (Maternity: 25%, 50%).
 
-### Fase 4: Engine Penggajian Terpadu & Multi-Level Grouping (Departemen $\rightarrow$ Divisi)
-- [ ] **Migrasi Tabel Payroll Terpadu**:
+### Fase 4: Engine Penggajian Terpadu & Multi-Level Grouping (Departemen $\rightarrow$ Divisi) (100% Selesai ✅)
+- [x] **Migrasi Tabel Payroll Terpadu**:
   - Buat tabel `hcm_payrolls` (Batch Penggajian): `period_code`, `work_period_month`, `payout_period_month`, `payout_date`, `total_employees`, `total_base_salary`, `total_meal_allowance`, `total_overtime_pay`, `total_adjustments`, `total_deductions`, `total_net_payout`, `status`, `hcm_signed_by`, `hcm_signed_at`, `finance_signed_by`, `finance_signed_at`, `payment_method`, `payment_proof_url`.
   - Buat tabel `hcm_payroll_items` (Rincian per Karyawan): `payroll_id`, `employee_id`, `department`, `division`, `position`, `job_level`, `bank_account_no`, `base_salary`, `meal_allowance`, `overtime_pay`, `increment_adjustment`, `penalty_deduction`, `leave_deduction`, `tiered_deduction`, `total_earnings`, `total_deductions`, `net_salary`, `slip_token`, `is_paid`.
-- [ ] **Backend Payroll Service & Logic Mundur Bulan**:
+- [x] **Backend Payroll Service & Logic Mundur Bulan**:
   - Tarik data periode kinerja (contoh: Kinerja 1–31 Oktober) untuk dibayarkan pada periode pencairan (November).
   - Agregasi otomatis: Gaji Pokok + Uang Makan (lolos audit absensi & hold rule $\ge 4\times$ telat) + Lembur Mingguan + Penyesuaian Kenaikan - Total Potongan Bulanan = Net Salary (Take-Home Pay).
-- [ ] **Antarmuka Rekapitulasi Penggajian Multi-Level Grouping (`/hcm/payroll`)**:
+- [x] **Antarmuka Rekapitulasi Penggajian Multi-Level Grouping (`/hcm/payroll`)**:
   - Tampilan ringkasan berjenjang:
     - **Header**: Total Anggaran Penggajian Perusahaan.
     - **Level 1**: Card / Accordion subtotal per **Departemen** (`[FIN]`, `[HCM]`, `[BRM]`, `[SCP]`, `[PRD]`, `[MIN]`, `[MEX]`).
@@ -1115,13 +1115,13 @@ Rencana aksi pelaksanaan disusun secara sistematis agar penambahan hierarki Depa
     - **Level 3**: Rincian gaji per karyawan beserta rekening Bank BRI.
   - Otorisasi Double Sign-Off: Tombol `[Approve & Sign Payroll HCM]` dan tombol `[Sign & Paid Keuangan]`.
 
-### Fase 5: Slip Gaji Digital Transparan (PDF) & Validasi Sistem
-- [ ] **Generator Slip Gaji Digital Transparan**:
+### Fase 5: Slip Gaji Digital Transparan (PDF) & Validasi Sistem (100% Selesai ✅)
+- [x] **Generator Slip Gaji Digital Transparan**:
   - Template PDF profesional via `barryvdh/laravel-dompdf` menampilkan rincian pendapatan, potongan itemized, alasan pemotongan, nomor rekening Bank BRI, watermark status `PAID`, dan verifikasi digital.
-- [ ] **Ekspor Laporan Finansial**:
+- [x] **Ekspor Laporan Finansial**:
   - Ekspor Excel rekapitulasi penggajian per Departemen & Divisi via `maatwebsite/excel`.
   - Ekspor format transfer massal bank (*payroll disbursement batch*).
-- [ ] **Testing Menyeluruh (Unit & Feature Test)**:
+- [x] **Testing Menyeluruh (Unit & Feature Test)**:
   - Uji kalkulasi take-home pay, aturan hold uang makan, formula lembur, potongan berjenjang cuti hamil, dan grouping Departemen-Divisi.
 
 ---

@@ -213,7 +213,16 @@ class IdealNotificationService
             $rolesToQuery[] = 'superadmin';
         }
 
-        $usersQuery = User::role($rolesToQuery);
+        try {
+            $existingRoles = \Spatie\Permission\Models\Role::whereIn('name', $rolesToQuery)->pluck('name')->toArray();
+            if (empty($existingRoles)) {
+                return [];
+            }
+            $usersQuery = User::role($existingRoles);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to query users by roles for notification {$eventKey}: " . $e->getMessage());
+            return [];
+        }
 
         // 4. Filter by Brand Access (unless superadmin, owner, keuangan, or produksi)
         if ($brandId) {

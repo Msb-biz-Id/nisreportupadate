@@ -62,32 +62,9 @@ class HcmRecruitmentController extends Controller
         ];
 
         // Ambil opsi master departemen, posisi, CV, & saluran rekrutmen
-        $departments = HcmMasterOption::getOptions('divisi') ?: [
-            'Keuangan',
-            'Human Capital Management',
-            'Marketing',
-            'Produksi',
-            'Media Internal',
-            'Media Eksternal',
-        ];
-
-        $positions = HcmMasterOption::getOptions('posisi') ?: [
-            'Staff',
-            'Operator',
-            'Jahit',
-            'Cutting',
-            'Finishing',
-            'Quality Control',
-            'Designer',
-            'Admin Produksi',
-        ];
-
-        $legalEntities = HcmMasterOption::getOptions('entitas_cv') ?: [
-            'CV Jersey Ekonomis',
-            'CV Apparel Allegiant',
-            'CV Bawang Merah',
-            'CV Bawang Putih',
-        ];
+        $departments = HcmMasterOption::getOptions('departemen') ?: HcmMasterOption::getOptions('divisi');
+        $divisions = HcmMasterOption::getOptions('divisi');
+        $legalEntities = HcmMasterOption::getOptions('entitas_cv');
 
         $channels = [
             'Instagram',
@@ -109,7 +86,8 @@ class HcmRecruitmentController extends Controller
             ],
             'metrics' => $metrics,
             'departments' => $departments,
-            'positions' => $positions,
+            'divisions' => $divisions,
+            'positions' => $divisions,
             'legalEntities' => $legalEntities,
             'channels' => $channels,
         ]);
@@ -351,10 +329,11 @@ class HcmRecruitmentController extends Controller
         }
 
         $validated = $request->validate([
-            'employment_status' => ['required', 'string', 'max:50'], // Probation, Kontrak (PKWT), Tetap (PKWTT), Magang
+            'employment_status' => ['required', 'string', 'max:50'],
             'job_level' => ['required', 'string', 'max:50'],
             'department' => ['required', 'string', 'max:100'],
-            'position' => ['required', 'string', 'max:100'],
+            'division' => ['nullable', 'string', 'max:100'],
+            'position' => ['nullable', 'string', 'max:100'],
             'join_date' => ['required', 'date'],
         ]);
 
@@ -363,6 +342,8 @@ class HcmRecruitmentController extends Controller
             $year = date('Y');
             $lastEmp = HcmEmployee::max('id') ?? 0;
             $code = 'EMP-' . $year . '-' . str_pad($lastEmp + 1, 3, '0', STR_PAD_LEFT);
+
+            $div = $validated['division'] ?? $validated['position'] ?? 'Umum';
 
             // Buat Record Karyawan Baru
             $employee = HcmEmployee::create([
@@ -380,10 +361,12 @@ class HcmRecruitmentController extends Controller
                 'marital_status' => $applicant->marital_status ?? 'Belum Menikah',
                 'shirt_size' => $applicant->shirt_size ?? 'L',
                 'department' => $validated['department'],
-                'position' => $validated['position'],
+                'division' => $div,
+                'position' => $div,
                 'job_level' => $validated['job_level'],
                 'employment_status' => $validated['employment_status'],
                 'join_date' => $validated['join_date'],
+                'original_join_date' => $validated['join_date'],
                 'is_active' => true,
                 'photo' => $applicant->photo,
                 'photo_url' => $applicant->photo_url,

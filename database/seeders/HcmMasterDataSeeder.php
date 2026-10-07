@@ -32,14 +32,14 @@ class HcmMasterDataSeeder extends Seeder
                 ],
             ],
             [
-                'code' => 'divisi',
-                'name' => 'Divisi',
+                'code' => 'departemen',
+                'name' => 'Departemen',
                 'group' => 'Kepegawaian & Struktur',
                 'icon' => 'Building2',
-                'description' => 'Divisi atau unit departemen kerja perusahaan',
+                'description' => 'Departemen resmi NIS Group',
                 'options' => [
-                    ['name' => 'Human Capital Management', 'code' => 'HCM'],
                     ['name' => 'Finance & Accounting', 'code' => 'FIN'],
+                    ['name' => 'Human Capital Management', 'code' => 'HCM'],
                     ['name' => 'Brand & Marketing', 'code' => 'BRM'],
                     ['name' => 'Support & Control Produksi', 'code' => 'SCP'],
                     ['name' => 'Produksi', 'code' => 'PRD'],
@@ -48,40 +48,49 @@ class HcmMasterDataSeeder extends Seeder
                 ],
             ],
             [
-                'code' => 'posisi',
-                'name' => 'Posisi / Jabatan',
+                'code' => 'divisi',
+                'name' => 'Divisi',
                 'group' => 'Kepegawaian & Struktur',
-                'icon' => 'BadgeCheck',
-                'description' => 'Posisi penugasan operasional dan staf kantor',
+                'icon' => 'Layers',
+                'description' => 'Divisi operasional di bawah naungan departemen',
                 'options' => [
-                    'Finance',
-                    'Accounting',
-                    'Purchasing',
-                    'Human Capital Management',
-                    'Admin HCM',
-                    'Marketing',
-                    'Admin Brand',
-                    'Designer',
-                    'Produksi',
-                    'Admin Produksi',
-                    'Setting Printing',
-                    'Potong Bahan',
-                    'Press Sublime',
-                    'Potong Pola',
-                    'Jahit',
-                    'Quality Control',
-                    'Finishing (Press)',
-                    'Finishing (Steam)',
-                    'Finishing (Packing)',
-                    'Operasional',
-                    'Media Internal',
-                    'Media Spesialist',
-                    'Publisher',
-                    'Editor',
-                    'Planner',
-                    'Media Eksternal',
-                    'Web Editor',
-                    'Web Developer',
+                    // Finance & Accounting
+                    ['name' => 'Finance', 'parent_name' => 'Finance & Accounting'],
+                    ['name' => 'Accounting', 'parent_name' => 'Finance & Accounting'],
+                    ['name' => 'Purchasing', 'parent_name' => 'Finance & Accounting'],
+                    // Human Capital Management
+                    ['name' => 'Human Capital Management', 'parent_name' => 'Human Capital Management'],
+                    ['name' => 'Admin HCM', 'parent_name' => 'Human Capital Management'],
+                    // Brand & Marketing
+                    ['name' => 'Marketing', 'parent_name' => 'Brand & Marketing'],
+                    ['name' => 'Admin Brand', 'parent_name' => 'Brand & Marketing'],
+                    ['name' => 'Designer', 'parent_name' => 'Brand & Marketing'],
+                    // Support & Control Produksi
+                    ['name' => 'Support & Control Produksi', 'parent_name' => 'Support & Control Produksi'],
+                    // Produksi
+                    ['name' => 'Produksi', 'parent_name' => 'Produksi'],
+                    ['name' => 'Admin Produksi', 'parent_name' => 'Produksi'],
+                    ['name' => 'Setting Printing', 'parent_name' => 'Produksi'],
+                    ['name' => 'Potong Bahan', 'parent_name' => 'Produksi'],
+                    ['name' => 'Press Sublime', 'parent_name' => 'Produksi'],
+                    ['name' => 'Potong Pola', 'parent_name' => 'Produksi'],
+                    ['name' => 'Jahit', 'parent_name' => 'Produksi'],
+                    ['name' => 'Quality Control', 'parent_name' => 'Produksi'],
+                    ['name' => 'Finishing (Press)', 'parent_name' => 'Produksi'],
+                    ['name' => 'Finishing (Steam)', 'parent_name' => 'Produksi'],
+                    ['name' => 'Finishing (Packing)', 'parent_name' => 'Produksi'],
+                    ['name' => 'Operasional', 'parent_name' => 'Produksi'],
+                    // Media Internal
+                    ['name' => 'Media Internal', 'parent_name' => 'Media Internal'],
+                    ['name' => 'Media Spesialist (Internal)', 'parent_name' => 'Media Internal', 'code' => 'MS_INT'],
+                    ['name' => 'Publisher', 'parent_name' => 'Media Internal'],
+                    ['name' => 'Editor', 'parent_name' => 'Media Internal'],
+                    ['name' => 'Planner', 'parent_name' => 'Media Internal'],
+                    // Media Eksternal
+                    ['name' => 'Media Eksternal', 'parent_name' => 'Media Eksternal'],
+                    ['name' => 'Media Spesialist (Eksternal)', 'parent_name' => 'Media Eksternal', 'code' => 'MS_EXT'],
+                    ['name' => 'Web Editor', 'parent_name' => 'Media Eksternal'],
+                    ['name' => 'Web Developer', 'parent_name' => 'Media Eksternal'],
                 ],
             ],
             [
@@ -153,6 +162,34 @@ class HcmMasterDataSeeder extends Seeder
                     'Berakhir / Expired',
                 ],
             ],
+            [
+                'code' => 'kategori_potongan_gaji',
+                'name' => 'Kategori Potongan Gaji',
+                'group' => 'Kontrak & Kompensasi',
+                'icon' => 'Receipt',
+                'description' => 'Kategori pemotongan gaji bulanan (Pelanggaran, Cuti, Berjenjang)',
+                'options' => [
+                    'Pelanggaran (Disciplinary Penalty)',
+                    'Kelebihan Pengambilan Cuti (Leave Exceed)',
+                    'Cuti Khusus Berjenjang (Maternity Leave)',
+                ],
+            ],
+            [
+                'code' => 'nama_bank',
+                'name' => 'Nama Bank / Kas Pembayaran',
+                'group' => 'Kontrak & Kompensasi',
+                'icon' => 'Landmark',
+                'description' => 'Daftar bank atau metode transfer payroll karyawan',
+                'options' => [
+                    'Bank BRI',
+                    'Bank Mandiri',
+                    'Bank BCA',
+                    'Bank BNI',
+                    'Bank Syariah Indonesia (BSI)',
+                    'Bank Jateng',
+                    'Tunai / Kas Kantor',
+                ],
+            ],
 
             // 3. Presensi & Operasional
             [
@@ -171,6 +208,17 @@ class HcmMasterDataSeeder extends Seeder
                     'Dinas Luar',
                     'Alpha/Mangkir',
                     'Libur/Cuti Bersama',
+                ],
+            ],
+            [
+                'code' => 'status_lampiran',
+                'name' => 'Status Lampiran',
+                'group' => 'Presensi & Operasional',
+                'icon' => 'Paperclip',
+                'description' => 'Status ketersediaan bukti lampiran perizinan atau berkas',
+                'options' => [
+                    'Terlampir',
+                    'Tidak Terlampir',
                 ],
             ],
             [
@@ -385,7 +433,16 @@ class HcmMasterDataSeeder extends Seeder
 
             foreach ($options as $optIndex => $optItem) {
                 $optName = is_array($optItem) ? $optItem['name'] : $optItem;
-                $optCode = is_array($optItem) ? $optItem['code'] : Str::slug($optName, '_');
+                $optCode = is_array($optItem) && isset($optItem['code']) ? $optItem['code'] : Str::slug($optName, '_');
+                $parentId = null;
+
+                if (is_array($optItem) && !empty($optItem['parent_name'])) {
+                    $deptCatId = HcmMasterCategory::where('code', 'departemen')->value('id');
+                    $parent = HcmMasterOption::where('category_id', $deptCatId)
+                        ->where('name', $optItem['parent_name'])
+                        ->first();
+                    $parentId = $parent?->id;
+                }
 
                 HcmMasterOption::updateOrCreate(
                     [
@@ -393,10 +450,74 @@ class HcmMasterDataSeeder extends Seeder
                         'name' => $optName,
                     ],
                     [
+                        'parent_id' => $parentId,
                         'code' => $optCode,
                         'order_index' => $optIndex + 1,
                         'is_active' => true,
                     ]
+                );
+            }
+        }
+
+        // Hapus kategori posisi lama jika masih ada (karena posisi sudah ditiadakan di HRIS)
+        $oldPosisi = HcmMasterCategory::where('code', 'posisi')->first();
+        if ($oldPosisi) {
+            $oldPosisi->delete();
+        }
+
+        // Inisialisasi Pengaturan Baku HCM di tabel system_settings (Zero Hardcoding)
+        $defaultSettings = [
+            'hcm_profile' => [
+                'company_name' => 'NISGroup',
+                'division_name' => 'Divisi Human Capital Management',
+                'company_tagline' => 'People, Culture & Organizational Development',
+                'company_address' => 'Klaten, Jawa Tengah',
+                'company_city' => 'Klaten',
+                'company_email' => 'hrd@nisgroup.co.id',
+                'company_phone' => '0812-3456-7890',
+                'company_website' => 'https://nisgroup.co.id',
+                'kop_header_line1' => 'DIVISI HUMAN CAPITAL & MANAJEMEN OPERASIONAL',
+                'kop_header_line2' => 'No. Izin KBLI 14111 / 14120 - Manajemen SDM Terpadu',
+                'document_footer_text' => 'Dokumen resmi diterbitkan otomatis oleh Sistem Kepegawaian terintegrasi.',
+                'document_footer_disclaimer' => 'Keabsahan dokumen dapat diverifikasi langsung melalui portal HCM atau QR code tertera.',
+                'signer_name' => 'Ahmad Fauzi, S.Psi., CHRP',
+                'signer_role' => 'Head of Human Capital Management',
+                'signer_nik' => 'HCM-2021-001',
+                'show_signature_on_pdf' => '1',
+                'show_stamp_on_pdf' => '1',
+            ],
+            'hcm_overtime' => [
+                'weekday_hourly_rate' => '10000',
+                'weekday_first_half_rate' => '5000',
+                'weekend_hourly_rate' => '15000',
+                'weekend_first_half_rate' => '10000',
+                'coa_code' => '5-50100',
+                'coa_name' => 'Beban Upah Lembur Karyawan Pabrik',
+            ],
+            'hcm_meal_allowance' => [
+                'monthly_rate' => '280000',
+                'alpha_deduction_rate' => '14000',
+                'half_day_deduction_rate' => '7000',
+                'max_late_tolerance' => '3',
+                'max_permit_bonus_limit' => '2',
+                'coa_code' => '5-50110',
+                'coa_name' => 'Beban Uang Makan Karyawan Pabrik',
+            ],
+            'hcm_payroll' => [
+                'cutoff_day' => '25',
+                'auto_send_slip_email' => '1',
+                'slip_email_delay_minutes' => '60',
+                'send_salary_slip_email' => '1',
+                'send_meal_slip_email' => '1',
+                'send_overtime_slip_email' => '1',
+            ],
+        ];
+
+        foreach ($defaultSettings as $group => $items) {
+            foreach ($items as $key => $value) {
+                \App\Models\Settings\SystemSetting::updateOrCreate(
+                    ['group' => $group, 'key' => $key],
+                    ['value' => $value, 'is_encrypted' => false]
                 );
             }
         }

@@ -301,6 +301,18 @@ function buildMenu(user, reportsList = []) {
                 icon: Wallet,
                 active: route().current('hcm.compensations.*'),
             });
+            hcmItems.push({
+                name: 'Potongan Gaji Bulanan',
+                href: route('hcm.salary-deductions.index'),
+                icon: Scissors,
+                active: route().current('hcm.salary-deductions.*'),
+            });
+            hcmItems.push({
+                name: 'Penggajian (Payroll)',
+                href: route('hcm.payroll.index'),
+                icon: Landmark,
+                active: route().current('hcm.payroll.*'),
+            });
         }
 
         // Presensi Harian (Matriks Absensi)

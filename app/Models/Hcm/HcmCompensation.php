@@ -29,6 +29,11 @@ class HcmCompensation extends Model
         'increment_2_amount',
         'increment_3_amount',
         'salary_status',
+        'planned_increment',
+        'decision_status',
+        'effective_date',
+        'custom_milestone_date',
+        'decision_notes',
     ];
 
     protected $casts = [
@@ -40,6 +45,9 @@ class HcmCompensation extends Model
         'increment_1_amount' => 'float',
         'increment_2_amount' => 'float',
         'increment_3_amount' => 'float',
+        'planned_increment' => 'float',
+        'effective_date' => 'date',
+        'custom_milestone_date' => 'date',
     ];
 
     protected static function booted(): void

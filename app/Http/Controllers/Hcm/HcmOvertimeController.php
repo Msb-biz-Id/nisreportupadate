@@ -8,6 +8,7 @@ use App\Models\Hcm\HcmEmployee;
 use App\Models\Hcm\HcmMasterOption;
 use App\Models\Hcm\HcmOvertime;
 use App\Models\Hcm\HcmOvertimeBatch;
+use App\Jobs\Hcm\SendHcmSlipEmailJob;
 use App\Models\Settings\SystemSetting;
 use App\Services\ActivityLogger;
 use App\Services\Notifications\IdealNotificationService;
@@ -153,7 +154,7 @@ class HcmOvertimeController extends Controller
         Gate::authorize('hcm.manage-overtime');
 
         $batch->load([
-            'overtimes.employee:id,employee_code,name,nickname,department,position',
+            'overtimes.employee:id,employee_code,name,nickname,department,division',
             'overtimes.creator:id,name',
             'hcmSigner:id,name',
             'financeSigner:id,name',
@@ -164,39 +165,14 @@ class HcmOvertimeController extends Controller
 
         // Ambil daftar karyawan aktif untuk Bulk Dispatcher
         $employees = HcmEmployee::where('is_active', true)
-            ->select('id', 'employee_code', 'name', 'department', 'position')
-            ->orderBy('position')
+            ->select('id', 'employee_code', 'name', 'department', 'division')
             ->orderBy('department')
+            ->orderBy('division')
             ->orderBy('name')
             ->get();
 
-        // Master posisi / jabatan kerja
-        $positions = HcmMasterOption::select('hcm_master_options.name')
-            ->join('hcm_master_categories', 'hcm_master_options.category_id', '=', 'hcm_master_categories.id')
-            ->where('hcm_master_categories.code', 'posisi')
-            ->where('hcm_master_options.is_active', true)
-            ->orderBy('hcm_master_options.order_index')
-            ->pluck('name')
-            ->all();
-
-        if (empty($positions)) {
-            $positions = HcmEmployee::whereNotNull('position')
-                ->where('position', '!=', '')
-                ->distinct()
-                ->orderBy('position')
-                ->pluck('position')
-                ->all();
-        }
-
-        // Master divisi kerja
-        $departments = HcmMasterOption::select('hcm_master_options.name')
-            ->join('hcm_master_categories', 'hcm_master_options.category_id', '=', 'hcm_master_categories.id')
-            ->where('hcm_master_categories.code', 'divisi')
-            ->where('hcm_master_options.is_active', true)
-            ->orderBy('hcm_master_options.order_index')
-            ->pluck('name')
-            ->all();
-
+        // Master departemen
+        $departments = HcmMasterOption::getOptions('departemen');
         if (empty($departments)) {
             $departments = HcmEmployee::whereNotNull('department')
                 ->where('department', '!=', '')
@@ -206,11 +182,22 @@ class HcmOvertimeController extends Controller
                 ->all();
         }
 
+        // Master divisi kerja
+        $divisions = HcmMasterOption::getOptions('divisi');
+        if (empty($divisions)) {
+            $divisions = HcmEmployee::whereNotNull('division')
+                ->where('division', '!=', '')
+                ->distinct()
+                ->orderBy('division')
+                ->pluck('division')
+                ->all();
+        }
+
         return Inertia::render('Hcm/Overtime/Show', [
             'batch' => $batch,
             'rates' => $rates,
             'employees' => $employees,
-            'positions' => $positions,
+            'divisions' => $divisions,
             'departments' => $departments,
         ]);
     }
@@ -230,8 +217,8 @@ class HcmOvertimeController extends Controller
 
         // Cut-off dibakukan: Sabtu 00:00 s.d. Jumat 23:59, pencairan Sabtu berikutnya.
         $payout = Carbon::parse($validated['payout_date'])->startOfDay();
-        if ($payout->dayOfWeek !== Carbon::SATURDAY) {
-            $payout = $payout->next(Carbon::SATURDAY);
+        if (!$payout->isSaturday()) {
+            $payout = $payout->next('Saturday');
         }
         $periodEnd = $payout->copy()->subDay();          // Jumat
         $periodStart = $periodEnd->copy()->subDays(6);   // Sabtu pekan sebelumnya
@@ -367,7 +354,7 @@ class HcmOvertimeController extends Controller
                     'batch_id' => $batch->id,
                     'overtime_date' => $validated['overtime_date'],
                     'employee_id' => $emp->id,
-                    'position' => $emp->position,
+                    'position' => $emp->division ?? $emp->department,
                     'day_type' => $validated['day_type'],
                     'duration_hours' => $validated['duration_hours'],
                     'hourly_rate' => $calc['hourly_rate'],
@@ -557,6 +544,27 @@ class HcmOvertimeController extends Controller
             'sound' => 'success-tada',
         ]);
 
+        // Distribusi Slip Lembur Otomatis ke Email Karyawan (dengan Jeda Waktu Setor BRI)
+        $autoSend = in_array(SystemSetting::get('hcm_payroll', 'auto_send_slip_email', '0'), ['1', 1, true, 'true'], true);
+        $sendOvertime = in_array(SystemSetting::get('hcm_payroll', 'send_overtime_slip_email', '1'), ['1', 1, true, 'true'], true);
+        $delayMinutes = (int) SystemSetting::get('hcm_payroll', 'slip_email_delay_minutes', 60);
+
+        if ($autoSend && $sendOvertime) {
+            $batch->load(['overtimes.employee']);
+            $employeeIds = $batch->overtimes->pluck('employee_id')->filter()->unique();
+            $dispatchedCount = 0;
+            foreach ($employeeIds as $empId) {
+                $employee = $batch->overtimes->firstWhere('employee_id', $empId)?->employee;
+                if (!empty($employee?->email)) {
+                    SendHcmSlipEmailJob::dispatch('overtime', $batch->id, $empId)->delay(now()->addMinutes($delayMinutes));
+                    $dispatchedCount++;
+                }
+            }
+            if ($dispatchedCount > 0) {
+                ActivityLogger::log('email', 'hcm', $batch, "Menjadwalkan pengiriman {$dispatchedCount} slip lembur ke email karyawan dengan jeda {$delayMinutes} menit.");
+            }
+        }
+
         return redirect()->back()->with('success', "Pencairan lembur {$batch->batch_code} berhasil disetujui & dicatat lunas oleh Keuangan.");
     }
 
@@ -567,7 +575,7 @@ class HcmOvertimeController extends Controller
     {
         Gate::authorize('hcm.manage-overtime');
 
-        $batch->load(['overtimes.employee:id,employee_code,name,department,position']);
+        $batch->load(['overtimes.employee:id,employee_code,name,department,division']);
 
         $filename = 'Rekap_Lembur_' . $batch->batch_code . '_' . now()->format('Ymd') . '.xlsx';
 

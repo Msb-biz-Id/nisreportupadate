@@ -134,4 +134,49 @@ class HcmPdfHelper
 
         return null;
     }
+
+    /**
+     * Konversi nominal angka rupiah menjadi teks terbilang bahasa Indonesia.
+     */
+    public static function terbilang(float|int $angka): string
+    {
+        $angka = abs((int) floor($angka));
+        if ($angka === 0) {
+            return 'Nol Rupiah';
+        }
+
+        $bilangan = [
+            '', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima',
+            'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas',
+        ];
+
+        $terbilangDasar = function ($n) use (&$terbilangDasar, $bilangan): string {
+            $n = (int) $n;
+            if ($n < 12) {
+                return $bilangan[$n];
+            } elseif ($n < 20) {
+                return $terbilangDasar($n - 10) . ' Belas';
+            } elseif ($n < 100) {
+                return $terbilangDasar((int) ($n / 10)) . ' Puluh ' . $terbilangDasar($n % 10);
+            } elseif ($n < 200) {
+                return 'Seratus ' . $terbilangDasar($n - 100);
+            } elseif ($n < 1000) {
+                return $terbilangDasar((int) ($n / 100)) . ' Ratus ' . $terbilangDasar($n % 100);
+            } elseif ($n < 2000) {
+                return 'Seribu ' . $terbilangDasar($n - 1000);
+            } elseif ($n < 1000000) {
+                return $terbilangDasar((int) ($n / 1000)) . ' Ribu ' . $terbilangDasar($n % 1000);
+            } elseif ($n < 1000000000) {
+                return $terbilangDasar((int) ($n / 1000000)) . ' Juta ' . $terbilangDasar($n % 1000000);
+            } elseif ($n < 1000000000000) {
+                return $terbilangDasar((int) ($n / 1000000000)) . ' Miliar ' . $terbilangDasar($n % 1000000000);
+            } elseif ($n < 1000000000000000) {
+                return $terbilangDasar((int) ($n / 1000000000000)) . ' Triliun ' . $terbilangDasar($n % 1000000000000);
+            }
+            return '';
+        };
+
+        $teks = trim(preg_replace('/\s+/', ' ', $terbilangDasar($angka)));
+        return $teks ? $teks . ' Rupiah' : 'Nol Rupiah';
+    }
 }

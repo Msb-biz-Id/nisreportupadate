@@ -52,6 +52,11 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::get('/karir', [\App\Http\Controllers\Hcm\HcmPublicCareerController::class, 'index'])->name('career.index');
     Route::get('/karir/{slug}', [\App\Http\Controllers\Hcm\HcmPublicCareerController::class, 'show'])->name('career.show');
     Route::post('/karir/{slug}/apply', [\App\Http\Controllers\Hcm\HcmPublicCareerController::class, 'apply'])->name('career.apply');
+
+    // Verifikasi Keabsahan Slip Gaji via QR Code Publik
+    Route::get('/hcm/payroll/slip/{token}', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'verifySlipToken'])->name('hcm.payroll.verify-slip');
+    Route::get('/hcm/meal-allowance/slip/{uuid}', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'verifyMealSlip'])->name('hcm.meal-allowance.verify-slip');
+    Route::get('/hcm/overtime/slip/{batch}/{employee}', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'verifyOvertimeSlip'])->name('hcm.overtime.verify-slip');
 });
 
 // Webhook Sidobe — public endpoint, no auth, CSRF excluded via VerifyCsrfToken
@@ -304,6 +309,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/{compensation}', [\App\Http\Controllers\Hcm\HcmCompensationController::class, 'update'])->name('update');
             Route::delete('/{compensation}', [\App\Http\Controllers\Hcm\HcmCompensationController::class, 'destroy'])->name('destroy');
             Route::post('/{compensation}/increment', [\App\Http\Controllers\Hcm\HcmCompensationController::class, 'storeIncrement'])->name('increment.store');
+            Route::put('/{compensation}/decision', [\App\Http\Controllers\Hcm\HcmCompensationController::class, 'updateDecision'])->name('decision.update');
+        });
+
+        // Pemotongan & Penyesuaian Gaji Bulanan (Modul 4 & Modul 6)
+        Route::prefix('salary-deductions')->name('salary-deductions.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Hcm\HcmSalaryDeductionController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\Hcm\HcmSalaryDeductionController::class, 'store'])->name('store');
+            Route::put('/{salaryDeduction}', [\App\Http\Controllers\Hcm\HcmSalaryDeductionController::class, 'update'])->name('update');
+            Route::delete('/{salaryDeduction}', [\App\Http\Controllers\Hcm\HcmSalaryDeductionController::class, 'destroy'])->name('destroy');
+        });
+
+        // Penggajian Terpadu (Unified Payroll Engine & Multi-Level Grouping)
+        Route::prefix('payroll')->name('payroll.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Hcm\HcmPayrollController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\Hcm\HcmPayrollController::class, 'store'])->name('store');
+            Route::get('/{payroll}', [\App\Http\Controllers\Hcm\HcmPayrollController::class, 'show'])->name('show');
+            Route::post('/{payroll}/sign-hcm', [\App\Http\Controllers\Hcm\HcmPayrollController::class, 'signHcm'])->name('sign-hcm');
+            Route::post('/{payroll}/sign-finance', [\App\Http\Controllers\Hcm\HcmPayrollController::class, 'signFinance'])->name('sign-finance');
+            Route::delete('/{payroll}', [\App\Http\Controllers\Hcm\HcmPayrollController::class, 'destroy'])->name('destroy');
+
+            // Ekspor Finansial Excel & PDF Resmi (Fase 5)
+            Route::get('/{payroll}/excel', [\App\Http\Controllers\Hcm\HcmPayrollController::class, 'exportBatchExcel'])->name('export');
+            Route::get('/{payroll}/pdf', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'payrollBatchSummaryPdf'])->name('batch-pdf');
+            Route::get('/items/{item}/pdf', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'payrollSlip'])->name('items.pdf');
         });
 
         // Presensi & Absensi Harian & Matriks Bulanan
@@ -317,6 +346,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/set-all-present', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'setAllPresent'])->name('set-all-present');
             Route::post('/set-bulk', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'setBulkAttendance'])->name('set-bulk');
             Route::post('/single-update', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'singleUpdate'])->name('single-update');
+
+            // Izin Keluar Kantor (Gate Pass)
+            Route::post('/exit-permits', [\App\Http\Controllers\Hcm\HcmOfficeExitPermitController::class, 'store'])->name('exit-permits.store');
+            Route::put('/exit-permits/{exitPermit}', [\App\Http\Controllers\Hcm\HcmOfficeExitPermitController::class, 'update'])->name('exit-permits.update');
+            Route::post('/exit-permits/{exitPermit}/return', [\App\Http\Controllers\Hcm\HcmOfficeExitPermitController::class, 'markReturned'])->name('exit-permits.return');
+            Route::delete('/exit-permits/{exitPermit}', [\App\Http\Controllers\Hcm\HcmOfficeExitPermitController::class, 'destroy'])->name('exit-permits.destroy');
         });
 
         // Pengajuan Cuti / Izin / Sakit
@@ -344,6 +379,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/settings', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'updateSettings'])->name('settings.update');
             // PDF
             Route::get('/batches/{batch}/pdf', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'overtimeVoucher'])->name('pdf');
+            Route::get('/batches/{batch}/employees/{employee}/pdf', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'overtimeSlip'])->name('employee-slip');
             Route::get('/batches/{batch}/excel', [\App\Http\Controllers\Hcm\HcmOvertimeController::class, 'exportBatchExcel'])->name('export');
         });
 
@@ -358,6 +394,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/settings', [\App\Http\Controllers\Hcm\HcmMealAllowanceController::class, 'updateSettings'])->name('settings.update');
             // PDF
             Route::get('/batches/{batch}/pdf', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'mealAllowanceReport'])->name('pdf');
+            Route::get('/items/{item}/pdf', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'mealAllowanceSlip'])->name('items.pdf');
             Route::get('/batches/{batch}/excel', [\App\Http\Controllers\Hcm\HcmMealAllowanceController::class, 'exportBatchExcel'])->name('export');
         });
 
@@ -434,6 +471,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/profile', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'updateProfile'])->name('profile.update');
             Route::post('/overtime', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'updateOvertime'])->name('overtime.update');
             Route::post('/meal-allowance', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'updateMealAllowance'])->name('meal-allowance.update');
+            Route::post('/payroll', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'updatePayroll'])->name('payroll.update');
             Route::post('/storage', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'updateStorage'])->name('storage.update');
             Route::post('/storage/test-connection', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'testStorageConnection'])->name('storage.test-connection');
         });

@@ -19,6 +19,7 @@ import {
     Check,
     Printer,
     FileSpreadsheet,
+    FileText,
     Eye,
     Pencil,
     Search,
@@ -56,12 +57,12 @@ export default function OvertimeShow({
     batch,
     rates,
     employees = [],
-    positions = [],
+    divisions = [],
     departments = [],
 }) {
     // State Filter untuk Employee Picker
-    const [filterPosition, setFilterPosition] = useState('all');
     const [filterDept, setFilterDept] = useState('all');
+    const [filterDivision, setFilterDivision] = useState('all');
     const [searchEmployee, setSearchEmployee] = useState('');
     const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
 
@@ -138,19 +139,20 @@ export default function OvertimeShow({
         ? editFirstHalfRate
         : Math.round(editItemForm.data.duration_hours * editRatePerHour);
 
-    // Filter daftar karyawan berdasarkan Posisi, Departemen, dan Search
+    // Filter daftar karyawan berdasarkan Departemen, Divisi, dan Search
     const filteredEmployees = useMemo(() => {
         return employees.filter((emp) => {
-            const matchPosition = filterPosition === 'all' || emp.position === filterPosition;
             const matchDept = filterDept === 'all' || emp.department === filterDept;
+            const matchDivision = filterDivision === 'all' || emp.division === filterDivision;
             const query = searchEmployee.toLowerCase().trim();
             const matchSearch = !query ||
                 (emp.name && emp.name.toLowerCase().includes(query)) ||
                 (emp.employee_code && emp.employee_code.toLowerCase().includes(query)) ||
-                (emp.position && emp.position.toLowerCase().includes(query));
-            return matchPosition && matchDept && matchSearch;
+                (emp.department && emp.department.toLowerCase().includes(query)) ||
+                (emp.division && emp.division.toLowerCase().includes(query));
+            return matchDept && matchDivision && matchSearch;
         });
-    }, [employees, filterPosition, filterDept, searchEmployee]);
+    }, [employees, filterDept, filterDivision, searchEmployee]);
 
     // Handle pilih semua / batalkan semua hasil filter
     const handleSelectAllFiltered = () => {
@@ -248,14 +250,14 @@ export default function OvertimeShow({
         });
     };
 
-    const positionOptions = [
-        { value: 'all', label: 'Semua Posisi / Jabatan' },
-        ...(positions || []).map((p) => ({ value: p, label: p })),
+    const departmentOptions = [
+        { value: 'all', label: 'Semua Departemen' },
+        ...(departments || []).map((d) => ({ value: d, label: d })),
     ];
 
-    const departmentOptions = [
+    const divisionOptions = [
         { value: 'all', label: 'Semua Divisi' },
-        ...(departments || []).map((d) => ({ value: d, label: d })),
+        ...(divisions || []).map((p) => ({ value: p, label: p })),
     ];
 
     const dayTypeOptions = [
@@ -561,24 +563,24 @@ export default function OvertimeShow({
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-2">
-                                        {/* Filter Posisi (Jabatan) */}
-                                        <div className="w-[180px]">
+                                        {/* Filter Departemen */}
+                                        <div className="w-[170px]">
                                             <SearchableSelect
-                                                value={filterPosition}
-                                                onValueChange={(val) => setFilterPosition(val)}
-                                                options={positionOptions}
-                                                placeholder="Filter Posisi..."
+                                                value={filterDept}
+                                                onValueChange={(val) => setFilterDept(val)}
+                                                options={departmentOptions}
+                                                placeholder="Filter Departemen..."
                                                 clearable={false}
                                                 className="h-8 text-xs"
                                             />
                                         </div>
 
                                         {/* Filter Divisi */}
-                                        <div className="w-[160px]">
+                                        <div className="w-[170px]">
                                             <SearchableSelect
-                                                value={filterDept}
-                                                onValueChange={(val) => setFilterDept(val)}
-                                                options={departmentOptions}
+                                                value={filterDivision}
+                                                onValueChange={(val) => setFilterDivision(val)}
+                                                options={divisionOptions}
                                                 placeholder="Filter Divisi..."
                                                 clearable={false}
                                                 className="h-8 text-xs"
@@ -647,7 +649,7 @@ export default function OvertimeShow({
                                             <TableRow>
                                                 <TableHead className="w-[45px] text-center text-xs">Pilih</TableHead>
                                                 <TableHead className="min-w-[180px] text-xs font-bold">Nama Karyawan</TableHead>
-                                                <TableHead className="min-w-[130px] text-xs font-bold">Posisi / Jabatan</TableHead>
+                                                <TableHead className="min-w-[130px] text-xs font-bold">Departemen</TableHead>
                                                 <TableHead className="min-w-[130px] text-xs font-bold">Divisi</TableHead>
                                                 <TableHead className="w-[100px] text-center text-xs font-bold">Status</TableHead>
                                             </TableRow>
@@ -682,13 +684,13 @@ export default function OvertimeShow({
                                                                     {emp.employee_code}
                                                                 </div>
                                                             </TableCell>
+                                                            <TableCell className="p-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                                                                {emp.department || '-'}
+                                                            </TableCell>
                                                             <TableCell className="p-2">
                                                                 <Badge variant="outline" className="text-[11px] font-normal border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
-                                                                    {emp.position || '-'}
+                                                                    {emp.division || '-'}
                                                                 </Badge>
-                                                            </TableCell>
-                                                            <TableCell className="p-2 text-xs text-zinc-600 dark:text-zinc-400">
-                                                                {emp.department || '-'}
                                                             </TableCell>
                                                             <TableCell className="text-center p-2">
                                                                 {isSelected ? (
@@ -705,7 +707,7 @@ export default function OvertimeShow({
                                             ) : (
                                                 <TableRow>
                                                     <TableCell colSpan={5} className="h-24 text-center text-xs text-zinc-400">
-                                                        Tidak ada karyawan yang sesuai dengan filter Posisi / Divisi / Pencarian.
+                                                        Tidak ada karyawan yang sesuai dengan filter Departemen / Divisi / Pencarian.
                                                     </TableCell>
                                                 </TableRow>
                                             )}
@@ -781,7 +783,7 @@ export default function OvertimeShow({
                                                     {item.employee?.name}
                                                 </div>
                                                 <div className="text-[10px] text-zinc-400">
-                                                    {item.employee?.employee_code} • {item.position || item.employee?.position || item.employee?.department}
+                                                    {item.employee?.employee_code} • {item.employee?.department || '-'} / {item.employee?.division || '-'}
                                                 </div>
                                             </TableCell>
 
@@ -820,6 +822,17 @@ export default function OvertimeShow({
 
                                             <TableCell className="text-right">
                                                 <div className="flex items-center justify-end gap-1">
+                                                    {/* AKSI: CETAK SLIP LEMBUR */}
+                                                    <a
+                                                        href={route('hcm.overtime.employee-slip', [batch.id, item.employee_id])}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="inline-flex items-center justify-center h-7 px-1.5 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/40 rounded transition"
+                                                        title="Cetak Slip Lembur Karyawan"
+                                                    >
+                                                        <FileText className="h-3.5 w-3.5" />
+                                                    </a>
+
                                                     {/* AKSI: LIHAT */}
                                                     <Button
                                                         size="sm"
@@ -895,12 +908,12 @@ export default function OvertimeShow({
                                     <span className="font-mono">{viewItemModal.item.employee?.employee_code || '-'}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-zinc-500">Posisi / Jabatan:</span>
-                                    <Badge variant="outline">{viewItemModal.item.position || viewItemModal.item.employee?.position || '-'}</Badge>
+                                    <span className="text-zinc-500">Departemen:</span>
+                                    <span>{viewItemModal.item.employee?.department || '-'}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-zinc-500">Divisi / Unit:</span>
-                                    <span>{viewItemModal.item.employee?.department || '-'}</span>
+                                    <span className="text-zinc-500">Divisi:</span>
+                                    <Badge variant="outline">{viewItemModal.item.employee?.division || '-'}</Badge>
                                 </div>
                             </div>
 

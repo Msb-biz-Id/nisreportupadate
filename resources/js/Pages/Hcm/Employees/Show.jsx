@@ -311,8 +311,8 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                             </div>
                             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate">
                                 {isIntern && employee.intern?.school_name
-                                    ? `${employee.intern.school_name} • Jurusan ${employee.intern.major || 'Umum'} • Divisi ${employee.department}`
-                                    : `${employee.position} • ${employee.department} • ${employee.legal_entity || 'NISGroup'}`}
+                                    ? `${employee.intern.school_name} • Jurusan ${employee.intern.major || 'Umum'} • Divisi ${employee.division || employee.department}`
+                                    : `${employee.division ? `${employee.division} • ` : ''}${employee.department} • ${employee.legal_entity || 'NISGroup'}`}
                             </p>
                         </div>
                     </div>
@@ -515,13 +515,32 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                     <span className="font-mono font-semibold">{employee.employee_code}</span>
                                 </div>
                                 <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800">
-                                    <span className="text-zinc-400">Divisi</span>
+                                    <span className="text-zinc-400">Departemen</span>
                                     <span className="font-medium">{employee.department}</span>
                                 </div>
                                 <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800">
-                                    <span className="text-zinc-400">Posisi</span>
-                                    <span className="font-medium">{employee.position}</span>
+                                    <span className="text-zinc-400">Divisi</span>
+                                    <span className="font-medium">{employee.division || '-'}</span>
                                 </div>
+                                <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800">
+                                    <span className="text-zinc-400">Masa Kerja (Tenure)</span>
+                                    <div className="text-right">
+                                        <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-300 text-[10px]">
+                                            {employee.tenure_bucket || `${employee.tenure_months || 0} bln`}
+                                        </Badge>
+                                        <span className="block text-[10px] text-zinc-400 mt-0.5">{employee.tenure_months || 0} bulan</span>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800">
+                                    <span className="text-zinc-400">Tgl Bergabung Terkini</span>
+                                    <span className="font-medium">{employee.join_date ? new Date(employee.join_date).toLocaleDateString('id-ID', { dateStyle: 'medium' }) : '-'}</span>
+                                </div>
+                                {employee.original_join_date && employee.original_join_date !== employee.join_date && (
+                                    <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800">
+                                        <span className="text-zinc-400">Anchor Masa Kerja</span>
+                                        <span className="font-medium text-indigo-600 dark:text-indigo-400">{new Date(employee.original_join_date).toLocaleDateString('id-ID', { dateStyle: 'medium' })}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800">
                                     <span className="text-zinc-400">Level / Jenjang</span>
                                     <Badge variant="outline" className="text-[11px]">{employee.job_level}</Badge>
@@ -771,7 +790,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                     <TableRow>
                                         <TableHead className="w-[80px] text-center font-bold">Urutan</TableHead>
                                         <TableHead className="min-w-[200px] font-bold">Nomor Kontrak</TableHead>
-                                        <TableHead className="min-w-[140px] font-bold">Status & Posisi</TableHead>
+                                        <TableHead className="min-w-[140px] font-bold">Status & Divisi</TableHead>
                                         <TableHead className="min-w-[140px] font-bold">Badan Usaha (CV)</TableHead>
                                         <TableHead className="min-w-[160px] font-bold">Periode Masa Berlaku</TableHead>
                                         <TableHead className="min-w-[120px] text-center font-bold">Sisa Masa Aktif</TableHead>
@@ -809,7 +828,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                                         {contract.employment_status}
                                                     </div>
                                                     <div className="text-[11px] text-zinc-500">
-                                                        {contract.position || employee.position}
+                                                        {employee.division || employee.department || '-'}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-xs text-zinc-700 dark:text-zinc-300">
@@ -1210,7 +1229,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                             <form onSubmit={handleOnboardingSubmit} className="space-y-4">
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                     <div className="space-y-1">
-                                        <Label className="text-xs font-medium">Posisi Saat Masuk</Label>
+                                        <Label className="text-xs font-medium">Divisi Saat Masuk</Label>
                                         <Input value={onboardingForm.data.position} onChange={(e) => onboardingForm.setData('position', e.target.value)} />
                                     </div>
                                     <div className="space-y-1">
@@ -1283,7 +1302,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                 <form onSubmit={handleOffboardingSubmit} className="space-y-4">
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                         <div className="space-y-1">
-                                            <Label className="text-xs font-medium">Posisi Terakhir</Label>
+                                            <Label className="text-xs font-medium">Divisi Terakhir</Label>
                                             <Input value={offboardingForm.data.position} onChange={(e) => offboardingForm.setData('position', e.target.value)} />
                                         </div>
                                         <div className="space-y-1">
@@ -1386,12 +1405,12 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="space-y-1">
-                                <Label className="text-xs font-medium">Posisi / Jabatan *</Label>
+                                <Label className="text-xs font-medium">Divisi *</Label>
                                 <SearchableSelect
                                     value={contractForm.data.position}
                                     onValueChange={(val) => contractForm.setData('position', val)}
-                                    options={toOptions(dropdowns.positions)}
-                                    placeholder="Pilih / Cari Posisi..."
+                                    options={toOptions(dropdowns.divisions || dropdowns.positions)}
+                                    placeholder="Pilih / Cari Divisi..."
                                     clearable={false}
                                     className="text-xs"
                                 />

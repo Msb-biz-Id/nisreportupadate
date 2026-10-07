@@ -8,6 +8,7 @@ use App\Models\Hcm\HcmAttendance;
 use App\Models\Hcm\HcmEmployee;
 use App\Models\Hcm\HcmMealAllowanceBatch;
 use App\Models\Hcm\HcmMealAllowanceItem;
+use App\Jobs\Hcm\SendHcmSlipEmailJob;
 use App\Models\Settings\SystemSetting;
 use App\Services\ActivityLogger;
 use App\Services\Notifications\IdealNotificationService;
@@ -95,7 +96,7 @@ class HcmMealAllowanceController extends Controller
         Gate::authorize('hcm.manage-meal-allowance');
 
         $batch->load([
-            'items.employee:id,employee_code,name,nickname,department,position',
+            'items.employee:id,employee_code,name,nickname,department,division',
             'hcmSigner:id,name',
             'financeSigner:id,name',
             'creator:id,name',
@@ -226,7 +227,7 @@ class HcmMealAllowanceController extends Controller
                 HcmMealAllowanceItem::create([
                     'batch_id' => $batch->id,
                     'employee_id' => $emp->id,
-                    'position' => $emp->position,
+                    'position' => $emp->division ?: $emp->position,
                     'department' => $emp->department,
                     'base_allowance' => $baseAllowance,
                     'present_days' => $presentCount,
@@ -252,7 +253,7 @@ class HcmMealAllowanceController extends Controller
         });
 
         if ($batch) {
-            ActivityLogger::log('generate', 'hcm', $batch, "Generate batch uang makan {$batchCode} untuk {$batch->total_employees} karyawan (Total: Rp " . number_format($batch->total_amount, 0, ',', '.') . ")");
+            ActivityLogger::log('generate', 'hcm', $batch, "Generate batch uang makan {$batchCode} untuk {$batch->total_employees} karyawan (Total: Rp " . number_format((float) ($batch->total_amount ?? 0), 0, ',', '.') . ")");
         }
 
         return redirect()->route('hcm.meal-allowance.index')->with('success', "Batch rekapitulasi uang makan {$batchCode} berhasil digenerate.");
@@ -343,6 +344,25 @@ class HcmMealAllowanceController extends Controller
             'emoji' => '✅',
             'sound' => 'success-tada',
         ]);
+
+        // Distribusi Slip Uang Makan Otomatis ke Email Karyawan (dengan Jeda Waktu Setor BRI)
+        $autoSend = in_array(SystemSetting::get('hcm_payroll', 'auto_send_slip_email', '0'), ['1', 1, true, 'true'], true);
+        $sendMeal = in_array(SystemSetting::get('hcm_payroll', 'send_meal_slip_email', '1'), ['1', 1, true, 'true'], true);
+        $delayMinutes = (int) SystemSetting::get('hcm_payroll', 'slip_email_delay_minutes', 60);
+
+        if ($autoSend && $sendMeal) {
+            $batch->load(['items.employee']);
+            $dispatchedCount = 0;
+            foreach ($batch->items as $item) {
+                if (!empty($item->employee?->email)) {
+                    SendHcmSlipEmailJob::dispatch('meal_allowance', $item->id)->delay(now()->addMinutes($delayMinutes));
+                    $dispatchedCount++;
+                }
+            }
+            if ($dispatchedCount > 0) {
+                ActivityLogger::log('email', 'hcm', $batch, "Menjadwalkan pengiriman {$dispatchedCount} slip uang makan ke email karyawan dengan jeda {$delayMinutes} menit.");
+            }
+        }
 
         return redirect()->back()->with('success', "Pencairan uang makan {$batch->batch_code} berhasil disetujui & dicatat lunas oleh Keuangan.");
     }

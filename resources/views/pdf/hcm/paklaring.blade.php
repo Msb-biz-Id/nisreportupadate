@@ -83,7 +83,7 @@
         <tr>
             <td class="label">Departemen / Divisi Terakhir</td>
             <td class="colon">:</td>
-            <td class="val">{{ $employee->department ?? '-' }}</td>
+            <td class="val">{{ $employee->department ? ($employee->department . ($employee->division ? ' — ' . $employee->division : '')) : '-' }}</td>
         </tr>
         <tr>
             <td class="label">Jabatan Terakhir</td>
