@@ -1,7 +1,7 @@
 # Rencana Pengembangan Sistem Purchasing & Asset Management NISGroup
 ## Dokumen Blueprint Teknis, Arsitektur Data, dan Alur Kerja Operasional
 
-Dokumen ini merupakan perencanaan teknis, arsitektur data, logika bisnis, matriks persetujuan (*approval matrix*), dan skema implementasi komprehensif untuk modul **Purchasing & Asset Management** pada platform NISReport. Seluruh isi dokumen ini disusun, diverifikasi, dan disinkronkan secara mendalam berdasarkan dekonstruksi 100% dari berkas **`Blueprint Website Purchasing NIS.xlsx`** (mencakup 7 lembar kerja resmi: *Dashboard*, *Database*, *DropDown*, *Alur & Validasi*, *Business Rules*, *Kode Barang*, dan *Kontak Suplier*).
+Dokumen ini merupakan perencanaan teknis, arsitektur data, logika bisnis, matriks persetujuan (*approval matrix*), dan skema implementasi komprehensif untuk modul **Purchasing & Asset Management** pada platform NISReport. Seluruh isi dokumen ini disusun, diverifikasi, dan disinkronkan secara mendalam berdasarkan dekonstruksi 100% dari berkas **`Blueprint Website Purchasing NIS.xlsx`** (mencakup 8 lembar kerja resmi: *Dashboard*, *Database*, *DropDown*, *Alur & Validasi*, *Business Rules*, *Kode Barang*, *Kontak Suplier*, dan *Struktur Fungsi Kerja*).
 
 ---
 
@@ -18,6 +18,7 @@ Tabel berikut menunjukkan keselarasan faktual antara dokumen Blueprint Excel res
 | **5** | **`Business Rules`** | • Pemisahan Capex vs Opex<br>• Filter Rekapitulasi Divisi & Lokasi Ruko<br>• Penyesuaian Nilai Sisa Buku (*Book Value*) & Pengurangan Unit Real-Time saat Aset Pensiun<br>• Formula Bahan Putih: $\text{Stok Akhir} = \text{Stok Awal} + \text{Masuk} - \text{Keluar}$<br>• Reorder Alert jika $\text{Stok Akhir} \le \text{Threshold}$<br>• Bahan Warna: Sekali habis tanpa rekap harian<br>• 4 Halaman Laporan Khusus Terpisah<br>• **Purchase History Search & Re-order Info** (Keyword matching & linked vendor) | **100% Cocok** | Diterapkan di layer Service (`PurchasingCalculationService` & `MaterialStockService`), Observer mutasi aset, modul pencarian katalog historis, serta 4 dedicated tab views. |
 | **6** | **`Kode Barang `** *(Baru)* | • Format Kode Aset: `[Kategori].[Dept].[Tahun3Digit].[Urut3Digit]` (Contoh: `IT.HCM.026.001`)<br>• Alur Pendaftaran Aset 2 Tahap (*Quick 2-Step Registration*)<br>• Mutasi Aset (Regenerasi kode & log riwayat audit kepemilikan)<br>• Tambah Master Kategori & Departemen Dinamis<br>• Search Box & Multi-Filter Aset<br>• *Smart Suggestion* (Rekomendasi kategori otomatis berbasis keyword)<br>• *Clickable Asset Code* (Modal popup detail riwayat aset & servis)<br>• Master 20 Kode Kategori Aset & 7 Kode Departemen Resmi | **100% Cocok** | Diterapkan pada `PurchasingAssetCodeService`, tabel `purchasing_asset_mutations`, kamus keyword `purchasing_asset_suggestions`, dan modal popup drawer detail aset di React. |
 | **7** | **`Kontak Suplier`** *(Baru)* | • Hak Akses CRUD Suplier Khusus Admin Purchasing<br>• Validasi Pencegahan Duplikasi Nama Perusahaan/Toko<br>• Relasi Foreign Key ke Pembelian & Pencatatan Aset<br>• Dukungan **Multi-PIC / Banyak Kontak per Suplier** (One-to-Many Contacts: Sales, Finance, PIC baru)<br>• Penanda **Kontak Utama (*Primary Contact*)**<br>• Fleksibilitas Update Nomor/Email PIC Kapan Saja | **100% Cocok** | Diterapkan pada tabel relasional `purchasing_vendors` & `purchasing_vendor_contacts`, form repeater multi-kontak di UI React, dan validasi Eloquent. |
+| **8** | **`Struktur Fungsi Kerja `** *(Baru)* | • Struktur Organisasi Resmi NIS Group (Hirarki Departemen $\rightarrow$ Divisi $\rightarrow$ Posisi Jabatan)<br>• 6 Entitas Departemen & Divisi Resmi: Finance, HCM, Marketing, Produksi, Media Internal, Media Eksternal<br>• Pemetaan 22 Posisi Fungsional Terikat per Divisi (Mengurai dekonstruksi 28 entri posisi pada sheet DropDown)<br>• Cascading Dropdown Dependency: Posisi pemohon terfilter otomatis sesuai divisi pemohon pada form pengadaan & alokasi aset | **100% Cocok** | Mengoptimalkan integrasi parent-child hierarchy pada modul HRIS (`hcm_master_options` dengan `parent_id`), memastikan keselarasan penuh pembebanan anggaran antar-divisi dan pengawasan aset. |
 
 ---
 
@@ -29,14 +30,25 @@ Modul Purchasing dirancang mandiri tanpa risiko merusak (*zero breaking changes*
    - Backend: `App\Http\Controllers\Purchasing\*`, `App\Models\Purchasing\*`, `App\Services\Purchasing\*`.
    - Frontend: `resources/js/Pages/Purchasing/*`.
    - Database: Menggunakan tabel baru berawalan `purchasing_*`. Tidak ada modifikasi skema (*alter table*) pada tabel-tabel milik modul lain (`hcm_*`, `orders`, `productions`, `invoices`, `refunds`, `users`).
-2. **Titik Temu ke Modul HRIS: Data Departemen/Divisi, Posisi & Karyawan (Single Source of Truth - Read-Only)**:
-   - Modul Purchasing **TIDAK MENGELOLA / TIDAK MEMBUAT MASTER DATA DEPARTEMEN & POSISI SENDIRI**. Seluruh data struktur organisasi dipusatkan di modul HRIS (*Single Source of Truth*).
-   - Modul Purchasing membaca langsung (*live read-only reference*) dari master data HRIS:
-     - **Departemen / Divisi & Kode Resmi**: Menarik daftar nama divisi beserta kode singkatannya (`HCM`, `FIN`, `BRM`, `SCP`, `PRD`, `MIN`, `MEX`) melalui `App\Models\Hcm\HcmMasterOption::getDepartmentsWithCodes()`.
-     - **Posisi**: Menarik 28 posisi operasional & staf kantor melalui `App\Models\Hcm\HcmMasterOption::getOptions('posisi')`.
-     - **Karyawan Pemohon**: Relasi opsional `requester_employee_id` ke `App\Models\Hcm\HcmEmployee`.
-   - Data pemohon pada transaksi disimpan dalam bentuk snapshot string (`position`, `department`) dan `requester_employee_id` agar data transaksi lampau tetap konsisten jika terjadi mutasi/promosi karyawan.
-   - **Perubahan & Penambahan Baru Terpusat di HRIS**: Jika perusahaan menambah divisi baru (misal *Research & Development* dengan kode `RND`) atau posisi baru, pengaturannya dilakukan langsung di menu **HRIS $\rightarrow$ Master Data**. Modul Purchasing otomatis menarik dan menampilkan data baru tersebut secara *real-time* tanpa perlu input ulang atau *hardcode*.
+2. **Titik Temu ke Modul HRIS: Sinkronisasi Departemen, Divisi, Posisi & Karyawan (Single Source of Truth - Read-Only)**:
+   - Modul Purchasing **TIDAK MENGELOLA / TIDAK MEMBUAT MASTER DATA DEPARTEMEN, DIVISI, POSISI, MAUPUN KARYAWAN SENDIRI**. Seluruh data struktur organisasi dan profil personal dipusatkan di modul HRIS (*Single Source of Truth*).
+   - **A. Sinkronisasi Departemen Resmi**:
+     - Modul Purchasing menarik daftar nama departemen beserta kode singkatannya (`FIN`, `HCM`, `BRM`, `SCP`, `PRD`, `MIN`, `MEX`) melalui query read-only: `App\Models\Hcm\HcmMasterOption::getDepartmentsWithCodes()`.
+     - Kode departemen ini menjadi komponen baku segmen ke-2 dalam standarisasi kodifikasi aset tetap `[Kategori].[Dept].[Tahun3Digit].[Urut3Digit]` (contoh: `IT.FIN.026.001`).
+     - *Zero Maintenance / Dynamic*: Jika admin HRIS menambahkan departemen baru di menu **HRIS $\rightarrow$ Master Data**, sistem Purchasing otomatis mengenali nama dan kode departemen tersebut secara instan tanpa perlu perubahan skema database atau *hardcoding*.
+   - **B. Sinkronisasi Divisi Operasional**:
+     - Modul Purchasing membaca hierarki divisi operasional di bawah naungan departemen terkait melalui relasi `parent_id` pada tabel `hcm_master_options`.
+     - Data pemetaan departemen-ke-divisi diperoleh secara dinamis dari `HcmMasterOption::getAllDropdowns()['department_division_map']`.
+   - **C. Sinkronisasi Posisi / Jabatan Fungsional (Cascading Form)**:
+     - Sesuai lembar kerja resmi *Struktur Fungsi Kerja* pada Excel Blueprint, posisi jabatan fungsional terikat secara hierarkis ke divisinya.
+     - Form pengadaan pada UI Purchasing menerapkan *cascading dependent dropdown*: saat pemohon memilih Departemen & Divisi, opsi Posisi otomatis tersaring secara reaktif (contoh: saat memilih Divisi Produksi, dropdown Posisi hanya menampilkan 11 posisi yang relevan seperti *Jahit*, *Potong Bahan*, *Setting Printing*, *QC*, dll.).
+   - **D. Sinkronisasi Data Karyawan Pemohon & Penanggung Jawab Aset**:
+     - **Pencarian Real-Time Karyawan Aktif**: Form transaksi pengadaan dan mutasi aset menyediakan *searchable select* karyawan aktif dari modul HRIS (`App\Models\Hcm\HcmEmployee::where('is_active', true)`). Pencarian dapat dilakukan berdasarkan nama lengkap, nama panggilan, atau NIK/kode karyawan.
+     - **Auto-Populate Profil**: Saat seorang karyawan dipilih sebagai pemohon (*requester*) atau pemegang aset (*asset custodian*), kolom Departemen, Divisi, dan Posisi pada formulir otomatis terisi (*auto-populated*) sesuai profil aktif karyawan tersebut di HRIS.
+     - **Strategi Persistensi Ganda (Foreign Key & Immutable Snapshot)**:
+       - *Foreign Key*: Menyimpan relasi referensial opsional `requester_employee_id` (pada PO) dan `pic_employee_id` (pada Aset) yang merujuk ke `hcm_employees.id`.
+       - *Immutable Data Snapshot*: Sistem juga menyimpan kolom teks statis `requester_name`, `department`, `division`, dan `position` pada saat transaksi disubmit.
+       - **Prinsip Audit Finansial (*Accounting Audit Integrity*)**: Jika di masa mendatang karyawan tersebut mengalami promosi jabatan, mutasi divisi, atau berhenti kerja (*resigned/offboarded*), riwayat transaksi pembelian dan pengeluaran kas lampau di pembukuan **TETAP KONSISTEN & TIDAK BERUBAH**.
 3. **Pemanfaatan Layanan Bersama (Shared Core Services)**:
    - **Audit Trail Terpusat**: Menggunakan `App\Services\ActivityLogger::log($action, 'purchasing', $model, $desc)`.
    - **Sistem Notifikasi Multi-Channel**: Menggunakan `App\Notifications\SystemEventNotification` (In-App database, WhatsApp, Telegram, Email, Sound Bell).
@@ -364,8 +376,11 @@ Berikut daftar lengkap seluruh opsi master data yang diekstrak secara faktual da
 ---
 
 ### C. Master Dropdown Operasional & Bisnis (Sheet DropDown)
-1. **Posisi (28 Opsi Terkoneksi HRIS)**:
-   `Finance`, `Accounting`, `Purchasing`, `Human Capital Management`, `Admin HCM`, `Marketing`, `Admin Brand`, `Designer`, `Produksi`, `Admin Produksi`, `Setting Printing`, `Potong Bahan`, `Press Sublime`, `Potong Pola`, `Jahit`, `Quality Control`, `Finishing (Press)`, `Finishing (Steam)`, `Finishing (Packing)`, `Operasional`, `Media Internal`, `Media Spesialist`, `Publisher`, `Editor`, `Planner`, `Media Eksternal`, `Web Editor`, `Web Developer`.
+1. **Posisi & Dekonstruksi Hirarki (Tersinkronisasi dengan Sheet Struktur Fungsi Kerja)**:
+   - Daftar pada sheet *DropDown* memuat 28 entri yang merupakan gabungan nama Divisi dan Jabatan Fungsional.
+   - Berdasarkan sheet *Struktur Fungsi Kerja*, entri tersebut didekonstruksi secara terstruktur menjadi:
+     - **6 Entitas Divisi/Departemen Induk**: `Finance`, `Human Capital Management`, `Marketing`, `Produksi`, `Media Internal`, `Media Eksternal`.
+     - **22 Jabatan Fungsional Spesifik**: `Accounting`, `Purchasing`, `Admin HCM`, `Admin Brand`, `Designer`, `Admin Produksi`, `Setting Printing`, `Potong Bahan`, `Press Sublime`, `Potong Pola`, `Jahit`, `Quality Control`, `Finishing (Press)`, `Finishing (Steam)`, `Finishing (Packing)`, `Operasional`, `Media Spesialist`, `Publisher`, `Editor`, `Planner`, `Web Editor`, `Web Developer`.
 2. **Lokasi Ruko / Gudang (5 Opsi)**:
    `Laras Liris`, `Walisongo`, `Artomoro`, `Green HCM`, `Green Admin`.
 3. **Kategori Item Pembelian (30 Opsi)**:
@@ -399,6 +414,25 @@ Berikut daftar lengkap seluruh opsi master data yang diekstrak secara faktual da
     - **Kemasan & Packing**: Plastik Polos, Plastik Packing Alle, Plastik Packing Drive, Kresek Packing Akhir, Kardus/Karton Packing, Box Packing, Stiker Allegiant, Tutup Kerah Allegiant/Drive, Woffin/Wishtag Allegiant, Tali Kolor, Karet Celana, Resleting Anti Air/Biasa/Jaket, Kain Keras, Mata Ayam, Lakban.
     - **ATK & Operasional Kantor**: Kertas & Media Cetak, Alat Tulis, Pengarsipan, Penjepit Kertas, Perekat & Pemotong, Penggaris, Spidol Warna, Sapu, Cikrak, Tempat Sampah, Kapur Barus, Tikar, Kursi Kerja, Lampu, Baterai, LPG, Kuota Internet, Langganan Software, Biaya Ongkos Kirim, Laundry, Lowongan Pekerjaan.
     - **Logo**: (Logo) PVC Holo, Flocktatami, HTL, DTF, Bordir, Rubber, PVC Biasa, Thick.
+
+---
+
+### D. Matriks Struktur Organisasi & Fungsi Kerja Resmi (Sheet Struktur Fungsi Kerja)
+
+Tabel berikut merupakan struktur resmi fungsional NIS Group berdasarkan lembar kerja *Struktur Fungsi Kerja* yang menjadi acuan pengelompokan pemohon (*requester*), penanggung jawab aset, dan relasi dependensi cascading form antar-divisi:
+
+| No | Departemen (Baris 2) | Divisi Resmi (Baris 3) | Kode Dept HRIS | Daftar Jabatan / Posisi Fungsional Terikat (Baris 4–14) |
+| :---: | :--- | :--- | :---: | :--- |
+| **1** | **Finance** | Finance | `FIN` | 1. Accounting<br>2. Purchasing |
+| **2** | **Human Capital Management** | HCM | `HCM` | 1. Admin HCM |
+| **3** | **Marketing** | Marketing | `BRM` | 1. Admin Brand<br>2. Designer |
+| **4** | **Produksi** | Produksi | `PRD` | 1. Admin Produksi<br>2. Setting Printing<br>3. Potong Bahan<br>4. Press Sublime<br>5. Potong Pola<br>6. Jahit<br>7. Quality Control<br>8. Finishing (Press)<br>9. Finishing (Steam)<br>10. Finishing (Packing)<br>11. Operasional |
+| **5** | **Media Internal** | Media Internal | `MIN` | 1. Media Spesialist<br>2. Publisher<br>3. Editor<br>4. Planner |
+| **6** | **Media Eksternal** | Media Eksternal | `MEX` | 1. Media Spesialist<br>2. Web Editor<br>3. Web Developer |
+
+> [!TIP]
+> **Cascading Dropdown Form Dependency**:
+> Pada formulir pengajuan pembelian (Opex & Capex) serta pendaftaran/mutasi aset, saat pengguna memilih Divisi Pemohon (misalnya: `Produksi`), dropdown Posisi secara otomatis menyaring hanya 11 posisi yang relevan di bawah Produksi. Pendekatan ini mencegah kesalahan input administratif (*human error*) dan menjaga konsistensi analitik pembebanan biaya per unit kerja.
 
 ---
 
@@ -470,9 +504,11 @@ CREATE TABLE `purchasing_orders` (
   `po_number` VARCHAR(50) UNIQUE NOT NULL, -- PO-202603-0001 (Route Binding)
   `transaction_date` DATE NOT NULL,
   `order_type` ENUM('OPEX', 'CAPEX') NOT NULL DEFAULT 'OPEX',
-  `requester_employee_id` BIGINT UNSIGNED NULL, -- Relasi opsional ke hcm_employees
-  `position` VARCHAR(100) NOT NULL, -- Snapshot posisi dari HRIS
-  `department` VARCHAR(100) NOT NULL, -- Snapshot divisi
+  `requester_employee_id` BIGINT UNSIGNED NULL, -- Relasi read-only ke hcm_employees.id
+  `requester_name` VARCHAR(150) NULL, -- Snapshot nama pemohon dari HRIS
+  `department` VARCHAR(100) NOT NULL, -- Snapshot nama departemen resmi dari HRIS
+  `division` VARCHAR(100) NULL, -- Snapshot divisi operasional dari HRIS
+  `position` VARCHAR(100) NOT NULL, -- Snapshot jabatan fungsional dari HRIS
   `location_id` BIGINT UNSIGNED NOT NULL,
   `vendor_id` BIGINT UNSIGNED NULL,
   `vendor_name_manual` VARCHAR(150) NULL,
@@ -502,7 +538,9 @@ CREATE TABLE `purchasing_orders` (
   `deleted_at` TIMESTAMP NULL,
   INDEX `idx_po_date_status` (`transaction_date`, `status`),
   INDEX `idx_po_type_dept` (`order_type`, `department`),
-  CONSTRAINT `fk_po_vendor` FOREIGN KEY (`vendor_id`) REFERENCES `purchasing_vendors` (`id`) ON DELETE SET NULL
+  INDEX `idx_po_requester` (`requester_employee_id`),
+  CONSTRAINT `fk_po_vendor` FOREIGN KEY (`vendor_id`) REFERENCES `purchasing_vendors` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_po_requester` FOREIGN KEY (`requester_employee_id`) REFERENCES `hcm_employees` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
@@ -544,14 +582,17 @@ CREATE TABLE `purchasing_assets` (
   `sequence_number` INT UNSIGNED NOT NULL, -- 1, 2, 3
   `registration_stage` ENUM('QUICK_REGISTERED', 'COMPLETED') NOT NULL DEFAULT 'QUICK_REGISTERED',
   `order_id` BIGINT UNSIGNED NULL,
+  `pic_employee_id` BIGINT UNSIGNED NULL, -- Relasi read-only ke hcm_employees.id (Pemegang/Penanggung Jawab Aset)
+  `pic_employee_name` VARCHAR(150) NULL, -- Snapshot nama pemegang aset fisik
   `asset_name` VARCHAR(150) NOT NULL,
   `asset_category_id` BIGINT UNSIGNED NOT NULL,
   `specification` TEXT NULL,
   `unit` VARCHAR(50) NOT NULL DEFAULT 'Unit',
   `quantity` INT UNSIGNED NOT NULL DEFAULT 1,
   `location_id` BIGINT UNSIGNED NOT NULL,
-  `department` VARCHAR(100) NOT NULL,
-  `position` VARCHAR(100) NOT NULL,
+  `department` VARCHAR(100) NOT NULL, -- Snapshot nama departemen dari HRIS
+  `division` VARCHAR(100) NULL, -- Snapshot divisi operasional dari HRIS
+  `position` VARCHAR(100) NOT NULL, -- Snapshot posisi/jabatan dari HRIS
   `vendor_id` BIGINT UNSIGNED NULL,
   `supplier_name` VARCHAR(150) NULL,
   `purchase_date` DATE NOT NULL,
@@ -568,8 +609,10 @@ CREATE TABLE `purchasing_assets` (
   `deleted_at` TIMESTAMP NULL,
   INDEX `idx_pa_code_lookup` (`category_code`, `department_code`, `year_code`),
   INDEX `idx_pa_status_loc` (`status`, `location_id`),
+  INDEX `idx_pa_pic_employee` (`pic_employee_id`),
   INDEX `idx_pa_warranty` (`warranty_expires_at`),
-  CONSTRAINT `fk_pa_vendor` FOREIGN KEY (`vendor_id`) REFERENCES `purchasing_vendors` (`id`) ON DELETE SET NULL
+  CONSTRAINT `fk_pa_vendor` FOREIGN KEY (`vendor_id`) REFERENCES `purchasing_vendors` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_pa_pic_employee` FOREIGN KEY (`pic_employee_id`) REFERENCES `hcm_employees` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
@@ -617,6 +660,10 @@ CREATE TABLE `purchasing_asset_retirements` (
   `uuid` CHAR(36) UNIQUE NOT NULL, -- Route Binding
   `asset_id` BIGINT UNSIGNED NOT NULL,
   `retired_at` DATE NOT NULL,
+  `department` VARCHAR(100) NOT NULL, -- Snapshot nama departemen dari HRIS saat pensiun
+  `division` VARCHAR(100) NULL, -- Snapshot divisi operasional
+  `position` VARCHAR(100) NOT NULL, -- Snapshot posisi pemegang aset saat pensiun (Kolom Posisi di Excel)
+  `location_id` BIGINT UNSIGNED NOT NULL, -- Lokasi ruko aset
   `retirement_reason` VARCHAR(150) NOT NULL,
   `final_condition` VARCHAR(150) NOT NULL,
   `disposal_method` VARCHAR(150) NOT NULL,
@@ -629,6 +676,8 @@ CREATE TABLE `purchasing_asset_retirements` (
   `created_by` BIGINT UNSIGNED NOT NULL,
   `created_at` TIMESTAMP NULL,
   `updated_at` TIMESTAMP NULL,
+  INDEX `idx_par_retired_at` (`retired_at`),
+  INDEX `idx_par_dept` (`department`),
   CONSTRAINT `fk_par_asset` FOREIGN KEY (`asset_id`) REFERENCES `purchasing_assets` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
@@ -660,6 +709,9 @@ CREATE TABLE `purchasing_material_usages` (
   `quantity_in` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   `quantity_out` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   `balance_stock` DECIMAL(12,2) NOT NULL,
+  `location_id` BIGINT UNSIGNED NULL, -- Lokasi ruko pemakaian (Laras Liris, Walisongo, dll.)
+  `department` VARCHAR(100) NULL, -- Departemen alokasi pemakaian (Produksi)
+  `division` VARCHAR(100) NULL, -- Divisi operasional (Setting Printing, Potong Bahan, dll.)
   `operator_name` VARCHAR(100) NULL,
   `production_ref` VARCHAR(100) NULL, -- No SPK/Batch
   `notes` TEXT NULL,
@@ -732,6 +784,55 @@ Mendaftarkan 7 event notifikasi purchasing ke konfigurasi sistem:
 
 ---
 
+### D. Protokol Sinkronisasi Lintas Modul: Integrasi Modul HRIS (Departemen, Divisi, dan Karyawan)
+
+Sistem memastikan interkoneksi mulus dan efisien antara Modul Purchasing dan Modul HRIS:
+
+```mermaid
+flowchart TD
+    subgraph Modul_HRIS["Modul HRIS (Single Source of Truth)"]
+        HMO_Dept["hcm_master_options\n(Kategori: departemen)\nKode: FIN, HCM, BRM, PRD, dll."]
+        HMO_Div["hcm_master_options\n(Kategori: divisi & parent_id)\nStruktur Fungsi Kerja"]
+        HE_Emp["hcm_employees\n(Data Karyawan Aktif,\nNIK, Kontak, Jabatan)"]
+    end
+
+    subgraph Modul_Purchasing["Modul Purchasing & Asset Management"]
+        Form_PO["Form Pengadaan Opex/Capex\n- Searchable Karyawan Pemohon\n- Auto-Populate Dept & Divisi\n- Cascading Jabatan Fungsional"]
+        Form_Asset["Registrasi & Mutasi Aset\n- Generate Kode [Kat].[Dept].[Thn].[No]\n- Pemegang Fisik (pic_employee_id)\n- Log Mutasi Departemen"]
+        DB_PO[("purchasing_orders\n- requester_employee_id\n- Snapshot: requester_name,\n  department, division, position")]
+        DB_Asset[("purchasing_assets\n- pic_employee_id\n- Snapshot: pic_employee_name,\n  department, division, position")]
+    end
+
+    HMO_Dept -.->|Read-Only Live Query| Form_PO
+    HMO_Dept -.->|Kode Singkatan Dept| Form_Asset
+    HMO_Div -.->|Cascading Opsi| Form_PO
+    HE_Emp -.->|Autocomplete Karyawan Aktif| Form_PO
+    HE_Emp -.->|Pilih Pemegang Aset| Form_Asset
+
+    Form_PO -->|Persistensi Data Transaksi| DB_PO
+    Form_Asset -->|Persistensi Inventaris Aset| DB_Asset
+```
+
+1. **Alur di Controller / Service Purchasing**:
+   ```php
+   // Mengambil data referensi organisasi dan karyawan dari HRIS (Read-Only)
+   $departmentsWithCodes = \App\Models\Hcm\HcmMasterOption::getDepartmentsWithCodes();
+   $dropdowns = \App\Models\Hcm\HcmMasterOption::getAllDropdowns();
+   $activeEmployees = \App\Models\Hcm\HcmEmployee::where('is_active', true)
+       ->select(['id', 'employee_code', 'name', 'department', 'division', 'position'])
+       ->orderBy('name')
+       ->get();
+   ```
+2. **Cascading Dropdown di Form React**:
+   - Pengguna dapat mengetik nama karyawan pemohon; sistem otomatis mengisi (*auto-populate*) field Departemen, Divisi, dan Posisi.
+   - Atau pengguna dapat memilih Departemen $\rightarrow$ Divisi $\rightarrow$ Posisi secara berjenjang, di mana daftar opsi posisi secara otomatis disaring berdasarkan divisi yang dipilih sesuai lembar kerja *Struktur Fungsi Kerja*.
+3. **Pemberian Identitas Aset**:
+   - Saat mendaftarkan aset tetap (misalnya laptop untuk staf HR), Purchasing memilih karyawan penerima (`pic_employee_id`).
+   - Sistem mencatat snapshot nama karyawan dan departemennya untuk kode aset unik (misal: `IT.HCM.026.001`).
+   - Jika karyawan dipindahkan atau aset dialihkan ke karyawan lain di divisi berbeda, modul Purchasing mencatat mutasi ke `purchasing_asset_mutations` dengan tetap menjaga riwayat pemegang sebelumnya.
+
+---
+
 ## 9. Roadmap Implementasi Bertahap
 
 ```
@@ -750,7 +851,7 @@ FASE 1: Fondasi Skema Database, Seeder RBAC, Direktori Suplier & Master Data (Mi
  │    ├── Master 20 Kode Kategori Aset resmi
  │    └── Kamus Smart Suggestion keywords
  ├── UI Master Data Dinamis (/purchasing/master-data) & Direktori Suplier (/purchasing/vendors)
- └── Service integrasi data HRIS (Read-Only: HcmMasterOption::getDepartmentsWithCodes() & getOptions('posisi'))
+ └── Service integrasi data HRIS (Read-Only: HcmMasterOption::getDepartmentsWithCodes(), cascading hirarki Struktur Fungsi Kerja & getOptions('posisi'))
 
 FASE 2: Pembelian Operasional Harian, Riwayat Katalog & Double Sign-Off (Minggu 2)
  ├── CRUD Pembelian Operasional Harian (Opex) & upload nota digital
@@ -800,6 +901,6 @@ FASE 5: Modul Material Khusus & Dedicated Views (Minggu 5)
 
 ## 10. Jaminan Keandalan & Kesimpulan
 
-1. **Kepatuhan 100% pada Blueprint Excel Terbaru**: Seluruh variabel, rumus, workflow approval, skema warna, 20 kategori aset, 7 kode departemen, aturan mutasi kode aset, registrasi 2 tahap, pencarian riwayat pembelian, direktori suplier Multi-PIC, dan kategori data dari `Blueprint Website Purchasing NIS.xlsx` (7 sheets) telah diakomodasi secara komprehensif tanpa ada yang terlewat atau berasumsi/berhalusinasi.
+1. **Kepatuhan 100% pada Blueprint Excel Terbaru**: Seluruh variabel, rumus, workflow approval, skema warna, 20 kategori aset, 7 kode departemen, aturan mutasi kode aset, registrasi 2 tahap, pencarian riwayat pembelian, direktori suplier Multi-PIC, struktur organisasi fungsi kerja, dan kategori data dari `Blueprint Website Purchasing NIS.xlsx` (8 sheets resmi) telah diakomodasi secara komprehensif tanpa ada yang terlewat atau berasumsi/berhalusinasi.
 2. **Kemandirian Modul**: Modul Purchasing berdiri kokoh di jalurnya sendiri tanpa merusak modul HRIS, Produksi, Reseller, ataupun Keuangan.
 3. **Koneksi Harmonis**: Modul ini mengambil referensi posisi secara dinamis dari HRIS, mencatat seluruh mutasi pada Audit Log terpusat, tunduk pada RBAC Spatie, dan mengirimkan peringatan darurat via saluran notifikasi terpadu NISReport.
