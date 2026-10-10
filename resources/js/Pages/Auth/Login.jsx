@@ -250,7 +250,8 @@ export default function Login({ status, canResetPassword, turnstile }) {
                             </div>
                         )}
 
-                        {/* Bantuan Login Cepat (Quick Fill) */}
+                        {/* Bantuan Login Cepat (Quick Fill) - Hidden sementara */}
+                        {false && (
                         <div className="mb-6 p-3.5 rounded-2xl bg-gradient-to-br from-indigo-50/90 via-slate-50 to-sky-50/60 border border-indigo-100 text-xs shadow-xs">
                             <div className="flex items-center justify-between mb-2">
                                 <span className="font-semibold text-indigo-950 flex items-center gap-1.5">
@@ -341,6 +342,7 @@ export default function Login({ status, canResetPassword, turnstile }) {
                                 </button>
                             </div>
                         </div>
+                        )}
 
                         <form onSubmit={submit} className="space-y-5">
                             {/* Email */}
