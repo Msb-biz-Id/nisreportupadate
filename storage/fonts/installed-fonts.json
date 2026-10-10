@@ -14,12 +14,7 @@
     "noto sans kr": {
         "normal": "noto_sans_kr_normal_67b9116d8b65e14c15e9d25df4d33340"
     },
-    "inter": {
-        "normal": "inter_normal_7db5155348dffb481927b6617bac1016",
-        "600": "inter_bold_146ef6a918c6bc3a69af2b659110f65c",
-        "bold": "inter_bold_146ef6a918c6bc3a69af2b659110f65c",
-        "800": "inter_bold_146ef6a918c6bc3a69af2b659110f65c"
-    },
+
     "noto sans sc": {
         "normal": "noto_sans_sc_normal_74fd5c575ea4074076448d274f9ced44",
         "bold": "noto_sans_sc_bold_e3402003541c1b926c13d55cb24cb1ae"
