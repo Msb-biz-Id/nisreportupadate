@@ -76,7 +76,7 @@ function getCalculatedSubtotal(item) {
     if (discountType === 'persen') {
         amount = raw * (discountValue / 100);
     } else if (discountType === 'nominal') {
-        amount = discountValue;
+        amount = qty * discountValue;
     }
     return Math.max(0, raw - amount);
 }
@@ -1212,7 +1212,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                             </Select>
                         </div>
                         <div>
-                            <FieldLabel>Nilai Diskon</FieldLabel>
+                            <FieldLabel>Nilai Diskon {item.discount_type === 'nominal' ? '(per Pcs)' : ''}</FieldLabel>
                             <Input 
                                 type="text" 
                                 inputMode="decimal"
@@ -1226,7 +1226,7 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                                     }
                                 }} 
                                 className="h-8 text-xs font-bold" 
-                                placeholder={item.discount_type === 'persen' ? '%' : 'Rp'}
+                                placeholder={item.discount_type === 'persen' ? '%' : 'Rp / pcs'}
                             />
                         </div>
                         <div className="flex items-end justify-end">
@@ -2268,7 +2268,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                                                 </span>
                                                                 {Number(item.discount_value) > 0 && (
                                                                     <span className="text-[10px] text-amber-600 font-medium">
-                                                                        Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : formatRupiah(Number(item.discount_value))}
+                                                                        Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(Number(item.discount_value))}/pcs`}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -2276,7 +2276,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                                                 {item.namesets.length} pcs — {formatRupiah(getCalculatedSubtotal(item))}
                                                                 {Number(item.discount_value) > 0 && (
                                                                     <span className="text-[10px] text-slate-400 block text-right font-normal">
-                                                                        (hemat {formatRupiah(item.discount_type === 'persen' ? (item.namesets.length * Number(item.harga_satuan) * Number(item.discount_value) / 100) : Number(item.discount_value))})
+                                                                        (hemat {formatRupiah(item.discount_type === 'persen' ? (item.namesets.length * Number(item.harga_satuan) * Number(item.discount_value) / 100) : (item.namesets.length * Number(item.discount_value)))})
                                                                     </span>
                                                                 )}
                                                             </span>
@@ -2299,7 +2299,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                                                 </span>
                                                                 {Number(item.discount_value) > 0 && (
                                                                     <span className="text-[10px] text-amber-600 font-medium">
-                                                                        Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : formatRupiah(Number(item.discount_value))}
+                                                                        Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(Number(item.discount_value))}/pcs`}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -2307,7 +2307,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                                                 {item.quantity} pcs — {formatRupiah(getCalculatedSubtotal(item))}
                                                                 {Number(item.discount_value) > 0 && (
                                                                     <span className="text-[10px] text-slate-400 block text-right font-normal">
-                                                                        (hemat {formatRupiah(item.discount_type === 'persen' ? (Number(item.quantity) * Number(item.harga_satuan) * Number(item.discount_value) / 100) : Number(item.discount_value))})
+                                                                        (hemat {formatRupiah(item.discount_type === 'persen' ? (Number(item.quantity) * Number(item.harga_satuan) * Number(item.discount_value) / 100) : (Number(item.quantity) * Number(item.discount_value)))})
                                                                     </span>
                                                                 )}
                                                             </span>
