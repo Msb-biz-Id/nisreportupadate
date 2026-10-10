@@ -1273,12 +1273,12 @@ class OrderLifecycleTest extends TestCase
             ])
             ->assertRedirect();
 
-        // Total Tagihan = (10 * 100,000 - 10%) + (2 * 200,000 - (2 * 50,000)) + (1 * 50,000 - 0)
-        // = (1,000,000 - 100,000) + (400,000 - 100,000) + 50,000 = 900,000 + 300,000 + 50,000 = 1,250,000
+        // Total Tagihan = (10 * 100,000 - 10%) + (2 * 200,000 - 50,000) + (1 * 50,000 - 0)
+        // = (1,000,000 - 100,000) + (400,000 - 50,000) + 50,000 = 900,000 + 350,000 + 50,000 = 1,300,000
         $this->assertDatabaseHas('orders', [
             'nama_po' => 'Discount PO Test',
             'status_po' => 'draft',
-            'total_tagihan' => 1250000
+            'total_tagihan' => 1300000
         ]);
 
         $order = Order::where('nama_po', 'Discount PO Test')->first();
@@ -1298,14 +1298,14 @@ class OrderLifecycleTest extends TestCase
             'nama_produk' => 'Jersey B',
             'discount_type' => 'nominal',
             'discount_value' => 50000,
-            'discount_amount' => 100000,
-            'subtotal' => 300000,
+            'discount_amount' => 50000,
+            'subtotal' => 350000,
         ]);
 
         // Verify Invoice & Invoice Items
         $this->assertDatabaseHas('invoices', [
             'order_id' => $order->id,
-            'total_tagihan' => 1250000,
+            'total_tagihan' => 1300000,
         ]);
 
         $invoice = $order->invoices()->first();
@@ -1324,8 +1324,8 @@ class OrderLifecycleTest extends TestCase
             'produk' => 'Jersey B',
             'discount_type' => 'nominal',
             'discount_value' => 50000,
-            'discount_amount' => 100000,
-            'subtotal' => 300000,
+            'discount_amount' => 50000,
+            'subtotal' => 350000,
         ]);
 
         // 2. Update Order items and verify discounts and subtotals recalculate and sync to invoice items
@@ -1355,18 +1355,18 @@ class OrderLifecycleTest extends TestCase
                         'quantity' => 2,
                         'harga_satuan' => 200000,
                         'discount_type' => 'nominal',
-                        'discount_value' => 100000, // increased discount to 100,000 per unit -> total discount: 200,000 -> subtotal: 200,000
+                        'discount_value' => 100000, // increased discount to 100,000 nominal -> subtotal: 300,000
                     ],
                     // jersey C removed, which is supported by syncItems delete logic
                 ],
             ])
             ->assertRedirect();
 
-        // New total tagihan: 800,000 + 200,000 = 1,000,000
+        // New total tagihan: 800,000 + 300,000 = 1,100,000
         $this->assertDatabaseHas('orders', [
             'id' => $order->id,
             'nama_po' => 'Discount PO Test Updated',
-            'total_tagihan' => 1000000,
+            'total_tagihan' => 1100000,
         ]);
 
         $this->assertDatabaseHas('order_items', [
@@ -1383,8 +1383,8 @@ class OrderLifecycleTest extends TestCase
             'nama_produk' => 'Jersey B',
             'discount_type' => 'nominal',
             'discount_value' => 100000,
-            'discount_amount' => 200000,
-            'subtotal' => 200000,
+            'discount_amount' => 100000,
+            'subtotal' => 300000,
         ]);
 
         $this->assertDatabaseHas('invoice_items', [
@@ -1401,8 +1401,8 @@ class OrderLifecycleTest extends TestCase
             'produk' => 'Jersey B',
             'discount_type' => 'nominal',
             'discount_value' => 100000,
-            'discount_amount' => 200000,
-            'subtotal' => 200000,
+            'discount_amount' => 100000,
+            'subtotal' => 300000,
         ]);
     }
 

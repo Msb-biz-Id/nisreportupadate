@@ -1824,7 +1824,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                     <span>Qty: <span className="font-mono font-semibold">{item.quantity}</span> × {formatRupiah(item.harga_satuan)}</span>
                                                     {Number(item.discount_value) > 0 && (
                                                         <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/10">
-                                                            Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : `${formatRupiah(Number(item.discount_value))}/pcs`}
+                                                            Diskon: {item.discount_type === 'persen' ? `${Number(item.discount_value)}%` : formatRupiah(Number(item.discount_value))}
                                                             <span>(-{formatRupiah(Number(item.discount_amount))})</span>
                                                         </span>
                                                     )}
