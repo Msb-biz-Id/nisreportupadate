@@ -19,6 +19,8 @@ class RolePermissionSeeder extends Seeder
         'supervisor',
         'admin_hcm',
         'staff_hcm',
+        'admin_purchasing',
+        'staff_purchasing',
     ];
 
     public function run(): void
@@ -60,6 +62,21 @@ class RolePermissionSeeder extends Seeder
             'hcm.manage-events',
             'hcm.export-reports',
             'hcm.manage-settings',
+
+            // Purchasing & Asset Management Permissions
+            'purchasing.view',
+            'purchasing.manage-orders',
+            'purchasing.approve-pic',
+            'purchasing.manage-payments',
+            'purchasing.manage-assets',
+            'purchasing.mutate-assets',
+            'purchasing.retire-assets',
+            'purchasing.manage-materials',
+            'purchasing.manage-vendors',
+            'purchasing.manage-master',
+            'purchasing.search-history',
+            'purchasing.export-reports',
+            'purchasing.approve-finance',
         ];
 
         foreach ($permissions as $perm) {
@@ -84,6 +101,9 @@ class RolePermissionSeeder extends Seeder
                 'tools.ai',
                 'hcm.view',
                 'hcm.export-reports',
+                'purchasing.view',
+                'purchasing.export-reports',
+                'purchasing.search-history',
             ],
             'admin_brand' => [
                 'master.brand', 'master.produk',
@@ -113,6 +133,7 @@ class RolePermissionSeeder extends Seeder
                 'dashboard.view-brand',
                 'hcm.manage-attendance',
                 'hcm.manage-overtime',
+                'purchasing.approve-pic',
             ],
             'admin_keuangan' => [
                 'order.view',
@@ -122,6 +143,9 @@ class RolePermissionSeeder extends Seeder
                 'dashboard.view-brand',
                 'hcm.manage-meal-allowance',
                 'hcm.manage-overtime',
+                'purchasing.view',
+                'purchasing.manage-payments',
+                'purchasing.approve-finance',
             ],
             'supervisor' => [
                 'order.view',
@@ -130,6 +154,8 @@ class RolePermissionSeeder extends Seeder
                 'dashboard.view-brand',
                 'report.view',
                 'hcm.view',
+                'purchasing.view',
+                'purchasing.approve-pic',
             ],
             'admin_hcm' => [
                 'brand.view',
@@ -153,6 +179,7 @@ class RolePermissionSeeder extends Seeder
                 'hcm.manage-events',
                 'hcm.export-reports',
                 'hcm.manage-settings',
+                'purchasing.approve-pic',
             ],
             'staff_hcm' => [
                 'brand.view',
@@ -169,6 +196,34 @@ class RolePermissionSeeder extends Seeder
                 'hcm.manage-agenda',
                 'hcm.manage-events',
                 'hcm.export-reports',
+            ],
+            'admin_purchasing' => [
+                'brand.view',
+                'dashboard.view-global',
+                'dashboard.view-brand',
+                'purchasing.view',
+                'purchasing.manage-orders',
+                'purchasing.approve-pic',
+                'purchasing.manage-payments',
+                'purchasing.manage-assets',
+                'purchasing.mutate-assets',
+                'purchasing.retire-assets',
+                'purchasing.manage-materials',
+                'purchasing.manage-vendors',
+                'purchasing.manage-master',
+                'purchasing.search-history',
+                'purchasing.export-reports',
+            ],
+            'staff_purchasing' => [
+                'brand.view',
+                'dashboard.view-brand',
+                'purchasing.view',
+                'purchasing.manage-orders',
+                'purchasing.manage-assets',
+                'purchasing.manage-materials',
+                'purchasing.manage-vendors',
+                'purchasing.search-history',
+                'purchasing.export-reports',
             ],
         ];
 

@@ -50,6 +50,7 @@ import {
     UserPlus,
     SlidersHorizontal,
     FileCheck,
+    ShoppingBag,
 } from 'lucide-react';
 import { cn, initials, roleLabel } from '@/lib/utils';
 import { Button } from '@/Components/ui/button';
@@ -447,6 +448,62 @@ function buildMenu(user, reportsList = []) {
 
         if (hcmItems.length) {
             sections.push({ title: 'Kepegawaian', items: hcmItems });
+        }
+    }
+
+    // Seksi Purchasing & Asset Management (Isolated)
+    const canAccessPurchasing = user?.is_superadmin || hasPermission(user, 'purchasing.view') || user?.roles?.includes('admin_purchasing') || user?.roles?.includes('staff_purchasing');
+    if (canAccessPurchasing) {
+        const purchasingItems = [];
+
+        // Dashboard & Alert Center (Fase 3)
+        purchasingItems.push({
+            name: 'Dashboard Purchasing',
+            href: route('purchasing.dashboard'),
+            icon: LayoutDashboard,
+            active: route().current('purchasing.dashboard'),
+        });
+
+        // Pembelian Operasional & Pengadaan (Fase 2)
+        purchasingItems.push({
+            name: 'Pembelian (PO)',
+            href: route('purchasing.orders.index'),
+            icon: ShoppingBag,
+            active: route().current('purchasing.orders.*'),
+        });
+
+        // Manajemen Aset Tetap & Inventaris (Fase 4)
+        if (user?.is_superadmin || hasPermission(user, 'purchasing.manage-assets') || user?.roles?.includes('admin_purchasing') || user?.roles?.includes('staff_purchasing')) {
+            purchasingItems.push({
+                name: 'Aset Tetap & Inventaris',
+                href: route('purchasing.assets.index'),
+                icon: Boxes,
+                active: route().current('purchasing.assets.*'),
+            });
+        }
+
+        // Direktori Supplier / Vendor (Fase 1)
+        if (user?.is_superadmin || hasPermission(user, 'purchasing.manage-vendors') || user?.roles?.includes('admin_purchasing') || user?.roles?.includes('staff_purchasing')) {
+            purchasingItems.push({
+                name: 'Direktori Supplier',
+                href: route('purchasing.vendors.index'),
+                icon: Building2,
+                active: route().current('purchasing.vendors.*'),
+            });
+        }
+
+        // Master Data Dinamis & Kode (Fase 1)
+        if (user?.is_superadmin || hasPermission(user, 'purchasing.manage-master') || user?.roles?.includes('admin_purchasing')) {
+            purchasingItems.push({
+                name: 'Master Data & Kode',
+                href: route('purchasing.master-data.index'),
+                icon: SlidersHorizontal,
+                active: route().current('purchasing.master-data.*'),
+            });
+        }
+
+        if (purchasingItems.length) {
+            sections.push({ title: 'Purchasing & Aset', items: purchasingItems });
         }
     }
 

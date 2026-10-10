@@ -486,6 +486,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/clear-all', [NotificationController::class, 'clearAll'])->name('clear-all');
         Route::delete('/{notification}', [NotificationController::class, 'destroy'])->name('destroy');
     });
+
+    // Modul Purchasing & Asset Management (Isolated)
+    require __DIR__ . '/purchasing.php';
 });
 
 Route::middleware('auth')->group(function () {
