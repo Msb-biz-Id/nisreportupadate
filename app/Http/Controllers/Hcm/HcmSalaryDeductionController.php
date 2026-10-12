@@ -210,4 +210,36 @@ class HcmSalaryDeductionController extends Controller
 
         return redirect()->back()->with('success', "Potongan gaji {$empName} berhasil dihapus.");
     }
+
+    /**
+     * Ambil seluruh riwayat pemotongan gaji untuk satu karyawan (Audit Trail Kontrak & Evaluasi Performa).
+     */
+    public function employeeHistory(HcmEmployee $employee): \Illuminate\Http\JsonResponse
+    {
+        Gate::authorize('hcm.manage-compensation');
+
+        $deductions = HcmSalaryDeduction::with(['creator:id,name'])
+            ->where('employee_id', $employee->id)
+            ->orderBy('effective_payroll_month', 'desc')
+            ->get();
+
+        $activeContract = $employee->activeContract;
+
+        return response()->json([
+            'employee' => [
+                'id' => $employee->id,
+                'name' => $employee->name,
+                'employee_code' => $employee->employee_code,
+                'department' => $employee->department,
+                'division' => $employee->division,
+                'position' => $employee->position,
+                'employment_status' => $employee->employment_status,
+                'contract_number' => $activeContract?->contract_number ?? '-',
+                'contract_sequence' => $activeContract?->contract_sequence ?? 1,
+            ],
+            'total_deductions_amount' => (float) $deductions->sum('deduction_amount'),
+            'total_records' => $deductions->count(),
+            'deductions' => $deductions,
+        ]);
+    }
 }

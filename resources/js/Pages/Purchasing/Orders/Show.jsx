@@ -18,6 +18,7 @@ import {
     DialogTitle,
 } from '@/Components/ui/dialog';
 import { Label } from '@/Components/ui/label';
+import { Input } from '@/Components/ui/input';
 import { Textarea } from '@/Components/ui/textarea';
 import {
     ArrowLeft,
@@ -27,6 +28,7 @@ import {
     Calendar,
     Clock,
     Download,
+    Upload,
     ExternalLink,
     FileText,
     Pencil,
@@ -42,6 +44,10 @@ import PaymentTermsDrawer from './Components/PaymentTermsDrawer';
 
 export default function Show({ order, auth }) {
     const [isTermsDrawerOpen, setIsTermsDrawerOpen] = useState(false);
+    const [isDisburseModalOpen, setIsDisburseModalOpen] = useState(false);
+    const [isRealizeModalOpen, setIsRealizeModalOpen] = useState(false);
+    const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
+
     const [actionModal, setActionModal] = useState({
         isOpen: false,
         action: '',
@@ -54,6 +60,54 @@ export default function Show({ order, auth }) {
         notes: '',
         rejection_reason: '',
     });
+
+    const disburseForm = useForm({
+        disbursed_amount: parseFloat(order.disbursed_amount || 0) > 0 ? parseFloat(order.disbursed_amount) : parseFloat(order.grand_total || 0),
+        disbursed_at: order.disbursed_at ? order.disbursed_at.split('T')[0] : new Date().toISOString().split('T')[0],
+        notes: '',
+    });
+
+    const realizeForm = useForm({
+        realized_amount: parseFloat(order.realized_amount || 0) > 0 ? parseFloat(order.realized_amount) : (parseFloat(order.disbursed_amount || 0) > 0 ? parseFloat(order.disbursed_amount) : parseFloat(order.grand_total || 0)),
+        realized_at: order.realized_at ? order.realized_at.split('T')[0] : new Date().toISOString().split('T')[0],
+        invoice_file: null,
+        notes: '',
+    });
+
+    const settleForm = useForm({
+        notes: '',
+    });
+
+    const handleDisburseSubmit = (e) => {
+        e.preventDefault();
+        disburseForm.post(route('purchasing.orders.disburse', order.po_number), {
+            onSuccess: () => {
+                setIsDisburseModalOpen(false);
+                disburseForm.reset();
+            },
+        });
+    };
+
+    const handleRealizeSubmit = (e) => {
+        e.preventDefault();
+        realizeForm.post(route('purchasing.orders.realize', order.po_number), {
+            forceFormData: true,
+            onSuccess: () => {
+                setIsRealizeModalOpen(false);
+                realizeForm.reset();
+            },
+        });
+    };
+
+    const handleSettleSubmit = (e) => {
+        e.preventDefault();
+        settleForm.post(route('purchasing.orders.settle', order.po_number), {
+            onSuccess: () => {
+                setIsSettleModalOpen(false);
+                settleForm.reset();
+            },
+        });
+    };
 
     const formatRupiah = (val) => {
         return new Intl.NumberFormat('id-ID', {
@@ -363,6 +417,193 @@ export default function Show({ order, auth }) {
                                         <p className="text-slate-400 italic">Menunggu otorisasi pencairan dana</p>
                                     )}
                                 </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Siklus 3 Pilar Rekam Waktu & Penyelesaian Sisa Belanja Operasional */}
+                <Card className="border-amber-200/80 dark:border-amber-900/60 shadow-xs overflow-hidden">
+                    <CardHeader className="pb-3 bg-amber-50/40 dark:bg-amber-950/20 border-b border-amber-100 dark:border-amber-900/40">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <CardTitle className="text-sm font-bold flex items-center gap-2 text-amber-950 dark:text-amber-200">
+                                <Wallet className="w-4 h-4 text-amber-600" />
+                                Rekam 3 Tanggal & Siklus Penyelesaian Sisa Belanja Operasional
+                            </CardTitle>
+                            <div className="flex items-center gap-2">
+                                {order.settlement_status === 'DISBURSED_PENDING_RECEIPT' && (
+                                    <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 font-bold text-xs">
+                                        Menunggu Bukti Belanja
+                                    </Badge>
+                                )}
+                                {order.settlement_status === 'REFUND_PENDING' && (
+                                    <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300 font-bold text-xs">
+                                        Wajib Setor Kembalian
+                                    </Badge>
+                                )}
+                                {order.settlement_status === 'REIMBURSE_PENDING' && (
+                                    <Badge variant="outline" className="bg-rose-100 text-rose-800 border-rose-300 font-bold text-xs">
+                                        Menunggu Cair Reimburse
+                                    </Badge>
+                                )}
+                                {order.settlement_status === 'SETTLED' && (
+                                    <Badge variant="outline" className="bg-slate-100 text-slate-800 border-slate-300 font-bold text-xs">
+                                        Selesai Penuh (Settled)
+                                    </Badge>
+                                )}
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-4 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            {/* Pilar 1: Pengajuan */}
+                            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 space-y-2">
+                                <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                                    <span>Pilar 1: Pengajuan</span>
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                                </div>
+                                <div>
+                                    <p className="text-[11px] text-slate-400">Tanggal Pengajuan:</p>
+                                    <p className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                                        {formatDate(order.transaction_date)}
+                                    </p>
+                                </div>
+                                <div className="pt-1 border-t border-slate-200/60 dark:border-slate-800">
+                                    <p className="text-[11px] text-slate-400">Estimasi Kebutuhan:</p>
+                                    <p className="text-sm font-bold font-mono text-slate-900 dark:text-slate-100">
+                                        {formatRupiah(order.grand_total)}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Pilar 2: Diterima (Pencairan Kas Bon) */}
+                            <div className={`p-3.5 rounded-xl border space-y-2 ${
+                                order.disbursed_at
+                                    ? 'border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20'
+                                    : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40'
+                            }`}>
+                                <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                                    <span>Pilar 2: Diterima (Kas Bon)</span>
+                                    {order.disbursed_at ? (
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                                    ) : (
+                                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                    )}
+                                </div>
+                                <div>
+                                    <p className="text-[11px] text-slate-400">Tanggal Diterima:</p>
+                                    <p className={`font-semibold text-xs ${order.disbursed_at ? 'text-blue-700 dark:text-blue-300' : 'text-slate-400 italic'}`}>
+                                        {order.disbursed_at ? formatDate(order.disbursed_at) : 'Belum Dicairkan'}
+                                    </p>
+                                </div>
+                                <div className="pt-1 border-t border-slate-200/60 dark:border-slate-800">
+                                    <p className="text-[11px] text-slate-400">Nominal Kas Bon Diterima:</p>
+                                    <p className="text-sm font-bold font-mono text-blue-700 dark:text-blue-300">
+                                        {formatRupiah(order.disbursed_amount || 0)}
+                                    </p>
+                                </div>
+                                {!order.disbursed_at && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setIsDisburseModalOpen(true)}
+                                        className="w-full text-xs h-7 mt-1 border-blue-300 text-blue-700 hover:bg-blue-50"
+                                    >
+                                        Catat Kas Bon Cair
+                                    </Button>
+                                )}
+                            </div>
+
+                            {/* Pilar 3: Realisasi Belanja & Struk Nota */}
+                            <div className={`p-3.5 rounded-xl border space-y-2 ${
+                                order.realized_at
+                                    ? 'border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 dark:bg-emerald-950/20'
+                                    : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40'
+                            }`}>
+                                <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                                    <span>Pilar 3: Realisasi Belanja</span>
+                                    {order.realized_at ? (
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                    ) : (
+                                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                    )}
+                                </div>
+                                <div>
+                                    <p className="text-[11px] text-slate-400">Tanggal Belanja Riil:</p>
+                                    <p className={`font-semibold text-xs ${order.realized_at ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-400 italic'}`}>
+                                        {order.realized_at ? formatDate(order.realized_at) : 'Belum Ada Nota'}
+                                    </p>
+                                </div>
+                                <div className="pt-1 border-t border-slate-200/60 dark:border-slate-800">
+                                    <p className="text-[11px] text-slate-400">Pengeluaran Riil Nota:</p>
+                                    <p className="text-sm font-bold font-mono text-slate-900 dark:text-slate-100">
+                                        {formatRupiah(order.realized_amount || 0)}
+                                    </p>
+                                </div>
+                                {order.invoice_file_path && (
+                                    <a
+                                        href={`/storage/${order.invoice_file_path}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1 text-[11px] text-emerald-700 hover:underline pt-0.5"
+                                    >
+                                        <FileText className="w-3 h-3" />
+                                        Lihat Nota Belanja Asli
+                                    </a>
+                                )}
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setIsRealizeModalOpen(true)}
+                                    className="w-full text-xs h-7 mt-1 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                                >
+                                    {order.realized_at ? 'Perbarui Nota' : 'Input Nota Belanja'}
+                                </Button>
+                            </div>
+
+                            {/* Pilar 4: Kalkulasi Sisa Uang & Status Settlement */}
+                            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2 shadow-xs">
+                                <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                                    <span>Pilar 4: Sisa Uang</span>
+                                    <Badge variant="secondary" className="text-[9px] px-1 py-0">
+                                        Kas Bon - Belanja
+                                    </Badge>
+                                </div>
+                                <div>
+                                    <p className="text-[11px] text-slate-400">Sisa Dana Kas Bon:</p>
+                                    <p className={`text-base font-bold font-mono ${
+                                        parseFloat(order.remaining_amount || 0) > 0
+                                            ? 'text-emerald-600 dark:text-emerald-400'
+                                            : parseFloat(order.remaining_amount || 0) < 0
+                                            ? 'text-rose-600 dark:text-rose-400'
+                                            : 'text-slate-700 dark:text-slate-300'
+                                    }`}>
+                                        {parseFloat(order.remaining_amount || 0) > 0 ? (
+                                            `+${formatRupiah(order.remaining_amount)}`
+                                        ) : parseFloat(order.remaining_amount || 0) < 0 ? (
+                                            `-${formatRupiah(Math.abs(order.remaining_amount))}`
+                                        ) : (
+                                            'Rp 0 (Pas)'
+                                        )}
+                                    </p>
+                                    <p className="text-[10px] text-slate-400 mt-0.5">
+                                        {parseFloat(order.remaining_amount || 0) > 0
+                                            ? 'Surplus (Wajib disetor ke Kas CV)'
+                                            : parseFloat(order.remaining_amount || 0) < 0
+                                            ? 'Defisit (Nombok, klaim reimburse)'
+                                            : 'Pengeluaran sama persis kas bon'}
+                                    </p>
+                                </div>
+
+                                {inArray(['REFUND_PENDING', 'REIMBURSE_PENDING'], order.settlement_status) && (
+                                    <Button
+                                        size="sm"
+                                        onClick={() => setIsSettleModalOpen(true)}
+                                        className="w-full text-xs h-7 mt-1 bg-amber-600 hover:bg-amber-700 text-white font-medium"
+                                    >
+                                        Validasi Selesai (Settle)
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </CardContent>
@@ -791,6 +1032,255 @@ export default function Show({ order, auth }) {
                                 }
                             >
                                 {processing ? 'Memproses...' : 'Konfirmasi & Terapkan'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Modal 1: Pencairan Kas Bon Pengajuan (Pilar 2) */}
+            <Dialog open={isDisburseModalOpen} onOpenChange={setIsDisburseModalOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-base font-bold flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                            <Wallet className="w-5 h-5 text-blue-600" />
+                            Pencairan Dana Kas Bon Operasional
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Catat tanggal dan nominal uang kas bon yang dicairkan Keuangan kepada tim Purchasing untuk belanja PO {order.po_number}.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleDisburseSubmit} className="space-y-4 my-2">
+                        <div>
+                            <Label htmlFor="disbursed_at" className="text-xs font-semibold">
+                                Tanggal Dana Dicairkan / Diterima *
+                            </Label>
+                            <Input
+                                id="disbursed_at"
+                                type="date"
+                                value={disburseForm.data.disbursed_at}
+                                onChange={(e) => disburseForm.setData('disbursed_at', e.target.value)}
+                                className="mt-1"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="disbursed_amount" className="text-xs font-semibold">
+                                Nominal Kas Bon Diterima (Rp) *
+                            </Label>
+                            <Input
+                                id="disbursed_amount"
+                                type="number"
+                                min="0"
+                                step="1000"
+                                value={disburseForm.data.disbursed_amount}
+                                onChange={(e) => disburseForm.setData('disbursed_amount', e.target.value)}
+                                className="mt-1 font-mono font-bold"
+                                required
+                            />
+                            <p className="text-[11px] text-slate-400 mt-1">
+                                Estimasi awal pengajuan: {formatRupiah(order.grand_total)}
+                            </p>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="disburse_notes" className="text-xs font-medium">Catatan Pencairan (Opsional)</Label>
+                            <Textarea
+                                id="disburse_notes"
+                                value={disburseForm.data.notes}
+                                onChange={(e) => disburseForm.setData('notes', e.target.value)}
+                                placeholder="Contoh: Dicairkan tunai dari Kasir CV CJE / Transfer via Bank..."
+                                rows={2}
+                                className="mt-1 text-xs"
+                            />
+                        </div>
+
+                        <DialogFooter className="gap-2 pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsDisburseModalOpen(false)}
+                                disabled={disburseForm.processing}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={disburseForm.processing}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                            >
+                                {disburseForm.processing ? 'Menyimpan...' : 'Simpan Pencairan Kas Bon'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Modal 2: Pelaporan Realisasi Belanja & Upload Nota (Pilar 3) */}
+            <Dialog open={isRealizeModalOpen} onOpenChange={setIsRealizeModalOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-base font-bold flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                            <FileText className="w-5 h-5 text-emerald-600" />
+                            Pelaporan Realisasi Belanja & Struk Nota
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Masukkan nominal riil pengeluaran sesuai struk/nota toko fisik dan unggah bukti nota asli.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleRealizeSubmit} className="space-y-4 my-2">
+                        <div>
+                            <Label htmlFor="realized_at" className="text-xs font-semibold">
+                                Tanggal Belanja Riil Sesuai Struk *
+                            </Label>
+                            <Input
+                                id="realized_at"
+                                type="date"
+                                value={realizeForm.data.realized_at}
+                                onChange={(e) => realizeForm.setData('realized_at', e.target.value)}
+                                className="mt-1"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="realized_amount" className="text-xs font-semibold">
+                                Total Pengeluaran Sesuai Struk/Nota (Rp) *
+                            </Label>
+                            <Input
+                                id="realized_amount"
+                                type="number"
+                                min="0"
+                                step="100"
+                                value={realizeForm.data.realized_amount}
+                                onChange={(e) => realizeForm.setData('realized_amount', e.target.value)}
+                                className="mt-1 font-mono font-bold"
+                                required
+                            />
+                            <div className="mt-1.5 p-2 rounded-lg bg-slate-50 dark:bg-slate-900 border text-[11px] space-y-0.5">
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500">Kas Bon Diterima:</span>
+                                    <span className="font-semibold">{formatRupiah(order.disbursed_amount || order.grand_total)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500">Estimasi Sisa Uang:</span>
+                                    <span className={`font-bold ${
+                                        ((order.disbursed_amount || order.grand_total) - parseFloat(realizeForm.data.realized_amount || 0)) > 0
+                                            ? 'text-emerald-600'
+                                            : ((order.disbursed_amount || order.grand_total) - parseFloat(realizeForm.data.realized_amount || 0)) < 0
+                                            ? 'text-rose-600'
+                                            : 'text-slate-700'
+                                    }`}>
+                                        {formatRupiah((order.disbursed_amount || order.grand_total) - parseFloat(realizeForm.data.realized_amount || 0))}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="invoice_file" className="text-xs font-semibold flex items-center gap-1.5">
+                                <Upload className="w-3.5 h-3.5 text-slate-500" />
+                                Unggah Foto / Berkas Struk Nota Belanja
+                            </Label>
+                            <Input
+                                id="invoice_file"
+                                type="file"
+                                accept="image/*,application/pdf"
+                                onChange={(e) => realizeForm.setData('invoice_file', e.target.files[0])}
+                                className="mt-1 text-xs"
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="realize_notes" className="text-xs font-medium">Catatan Belanja (Opsional)</Label>
+                            <Textarea
+                                id="realize_notes"
+                                value={realizeForm.data.notes}
+                                onChange={(e) => realizeForm.setData('notes', e.target.value)}
+                                placeholder="Contoh: Belanja di Toko Kurnia, harga diskon 5%..."
+                                rows={2}
+                                className="mt-1 text-xs"
+                            />
+                        </div>
+
+                        <DialogFooter className="gap-2 pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsRealizeModalOpen(false)}
+                                disabled={realizeForm.processing}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={realizeForm.processing}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                            >
+                                {realizeForm.processing ? 'Menyimpan...' : 'Simpan Realisasi & Nota'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Modal 3: Validasi Penyelesaian Sisa (Settlement) */}
+            <Dialog open={isSettleModalOpen} onOpenChange={setIsSettleModalOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-base font-bold flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                            <CheckCircle2 className="w-5 h-5 text-amber-600" />
+                            Validasi Penyelesaian Sisa Uang (Settlement)
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            {order.settlement_status === 'REFUND_PENDING'
+                                ? `Konfirmasi bahwa sisa uang kembalian sebesar ${formatRupiah(order.remaining_amount)} telah disetor staf Purchasing ke Kasir CV.`
+                                : `Konfirmasi bahwa kekurangan belanja sebesar ${formatRupiah(Math.abs(order.remaining_amount))} telah dicairkan oleh Keuangan ke staf pemohon.`}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleSettleSubmit} className="space-y-4 my-2">
+                        <div className="p-3 rounded-lg border bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40 text-xs space-y-1">
+                            <p className="font-semibold text-amber-900 dark:text-amber-200">
+                                {order.settlement_status === 'REFUND_PENDING'
+                                    ? `Uang Kembalian Wajib Masuk Kas: ${formatRupiah(order.remaining_amount)}`
+                                    : `Klaim Reimburse Wajib Keluar Kas: ${formatRupiah(Math.abs(order.remaining_amount))}`}
+                            </p>
+                            <p className="text-slate-500">
+                                Dengan menyetujui, status PO {order.po_number} akan diselesaikan penuh (SETTLED) dan status transaksi ditutup.
+                            </p>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="settle_notes" className="text-xs font-medium">Catatan Bukti Setor / Transfer (Opsional)</Label>
+                            <Textarea
+                                id="settle_notes"
+                                value={settleForm.data.notes}
+                                onChange={(e) => settleForm.setData('notes', e.target.value)}
+                                placeholder="Contoh: Diterima tunai oleh Kasir Ibu Fitri / Transfer balik ke Rekening CJE..."
+                                rows={2}
+                                className="mt-1 text-xs"
+                            />
+                        </div>
+
+                        <DialogFooter className="gap-2 pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsSettleModalOpen(false)}
+                                disabled={settleForm.processing}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={settleForm.processing}
+                                className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
+                            >
+                                {settleForm.processing ? 'Memproses...' : 'Tutup & Selesaikan Sisa'}
                             </Button>
                         </DialogFooter>
                     </form>

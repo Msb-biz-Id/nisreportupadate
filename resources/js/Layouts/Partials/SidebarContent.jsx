@@ -51,6 +51,7 @@ import {
     SlidersHorizontal,
     FileCheck,
     ShoppingBag,
+    BookOpen,
 } from 'lucide-react';
 import { cn, initials, roleLabel } from '@/lib/utils';
 import { Button } from '@/Components/ui/button';
@@ -323,6 +324,12 @@ function buildMenu(user, reportsList = []) {
                 href: route('hcm.attendance.index'),
                 icon: CalendarCheck,
                 active: route().current('hcm.attendance.*'),
+            });
+            hcmItems.push({
+                name: 'Shift & Roster',
+                href: route('hcm.shifts.index'),
+                icon: SlidersHorizontal,
+                active: route().current('hcm.shifts.*'),
             });
             hcmItems.push({
                 name: 'Cuti & Perizinan',

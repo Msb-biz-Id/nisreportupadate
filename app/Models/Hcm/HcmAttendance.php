@@ -18,6 +18,7 @@ class HcmAttendance extends Model
         'attendance_date',
         'employee_id',
         'position',
+        'shift_id',
         'attendance_category',
         'clock_in',
         'clock_out',
@@ -29,6 +30,9 @@ class HcmAttendance extends Model
 
     protected $casts = [
         'attendance_date' => 'date:Y-m-d',
+        'shift_id' => 'integer',
+        'employee_id' => 'integer',
+        'created_by' => 'integer',
     ];
 
     protected $appends = [
@@ -36,7 +40,8 @@ class HcmAttendance extends Model
     ];
 
     /**
-     * Hitung estimasi keterlambatan (menit) berdasarkan jam masuk vs standar 08:00.
+     * Hitung estimasi keterlambatan (menit) berdasarkan jam masuk shift kerja
+     * yang ditugaskan beserta toleransi menitnya (default 15 menit).
      */
     public function getLateMinutesAttribute(): int
     {
@@ -45,9 +50,25 @@ class HcmAttendance extends Model
         }
 
         $clockIn = \Carbon\Carbon::parse($this->clock_in);
-        $standard = \Carbon\Carbon::parse('08:00:00');
 
-        return $clockIn->gt($standard) ? $standard->diffInMinutes($clockIn) : 0;
+        // Ambil jam masuk & toleransi dari shift yang terikat, atau default 08:00:00
+        $shift = $this->shift;
+        $standardTimeStr = $shift && $shift->start_time ? $shift->start_time : '08:00:00';
+        $toleranceMinutes = $shift ? (int) $shift->late_tolerance_minutes : 15;
+
+        $standardStartTime = \Carbon\Carbon::parse($standardTimeStr);
+        $thresholdTime = (clone $standardStartTime)->addMinutes($toleranceMinutes);
+
+        // Jika melebihi batas jam masuk + toleransi, hitung keterlambatan dari jam masuk standar
+        return $clockIn->gt($thresholdTime) ? $standardStartTime->diffInMinutes($clockIn) : 0;
+    }
+
+    /**
+     * Relasi ke Master Shift Kerja.
+     */
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(HcmWorkShift::class, 'shift_id');
     }
 
     /**

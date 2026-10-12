@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Hcm;
 use App\Http\Controllers\Controller;
 use App\Models\Hcm\HcmAttendance;
 use App\Models\Hcm\HcmCompanyEvent;
+use App\Models\Hcm\HcmCompensation;
 use App\Models\Hcm\HcmContract;
 use App\Models\Hcm\HcmEmployee;
 use App\Models\Hcm\HcmEmployeeReward;
@@ -48,6 +49,7 @@ class HcmDashboardController extends Controller
         $moduleTotals = $this->getModuleTotals($allEmployees, $activeEmployees, $today, $todayStr, $startOfMonth, $endOfMonth, $startOfYear);
         $probationAlerts = $this->getProbationAlerts($activeEmployees, $today);
         $contractAlerts = $this->getContractAlerts($today, $todayStr);
+        $salaryEvaluationAlerts = $this->getSalaryEvaluationAlerts($today);
         $activeLeavesToday = $this->getActiveLeavesToday($todayStr);
         [$unexcusedAbsenceAlerts, $absenceAlertActive] = $this->getUnexcusedAbsenceAlerts($activeEmployees, $todayStr);
         $overtimeReminder = $this->getOvertimeReminder($today);
@@ -69,6 +71,7 @@ class HcmDashboardController extends Controller
             'legalEntities' => $legalEntities,
             'probationAlerts' => $probationAlerts,
             'contractAlerts' => $contractAlerts,
+            'salaryEvaluationAlerts' => $salaryEvaluationAlerts,
             'unexcusedAbsenceAlerts' => $unexcusedAbsenceAlerts,
             'absenceAlertActive' => $absenceAlertActive,
             'overtimeReminder' => $overtimeReminder,
@@ -465,5 +468,109 @@ class HcmDashboardController extends Controller
                 'days_remaining' => $diff,
             ];
         })->values();
+    }
+
+    /**
+     * Alert Jadwal Evaluasi Kenaikan Gaji Berkala (Milestone Siklus Kontrak / 6 Bulan).
+     */
+    private function getSalaryEvaluationAlerts(Carbon $today): Collection
+    {
+        return HcmCompensation::with([
+            'employee:id,employee_code,name,nickname,department,division,join_date,original_join_date,is_active',
+            'employee.activeContract:id,employee_id,contract_number,contract_sequence,start_date,end_date',
+        ])
+            ->whereHas('employee', fn ($q) => $q->where('is_active', true))
+            ->get()
+            ->filter(function ($comp) use ($today) {
+                // 1. Jika status sedang diajukan atau ditunda, selalu munculkan sebagai reminder aksi
+                if (in_array($comp->decision_status, ['Sedang Diajukan', 'Ditunda'])) {
+                    return true;
+                }
+
+                // 2. Jika ada custom milestone date (misal hasil keputusan tunda)
+                if ($comp->custom_milestone_date) {
+                    $customDate = Carbon::parse($comp->custom_milestone_date)->startOfDay();
+                    $diff = $today->diffInDays($customDate, false);
+                    return $diff <= 30 && $comp->decision_status !== 'Sudah Disetujui / ACC';
+                }
+
+                // 3. Hitung milestone siklus reguler (default 6 bulan)
+                $emp = $comp->employee;
+                if (!$emp) return false;
+
+                $anchorDate = null;
+                if ($emp->activeContract && $emp->activeContract->start_date) {
+                    $anchorDate = Carbon::parse($emp->activeContract->start_date);
+                } elseif ($emp->original_join_date) {
+                    $anchorDate = Carbon::parse($emp->original_join_date);
+                } elseif ($emp->join_date) {
+                    $anchorDate = Carbon::parse($emp->join_date);
+                }
+
+                if (!$anchorDate) return false;
+
+                $cycleMonths = (int) ($comp->evaluation_cycle_months ?: 6);
+                if ($cycleMonths <= 0) $cycleMonths = 6;
+
+                $monthsPassed = $anchorDate->diffInMonths($today);
+                $cycleStep = max(1, (int) round($monthsPassed / $cycleMonths));
+                $milestoneDate = $anchorDate->copy()->addMonths($cycleStep * $cycleMonths);
+
+                $diffDays = (int) $today->diffInDays($milestoneDate, false);
+
+                // Munculkan jika dalam window evaluasi (H-30 hari menuju milestone s.d. 30 hari sesudah milestone)
+                // dan belum berstatus ACC pada periode ini
+                if ($diffDays <= 30 && $diffDays >= -30) {
+                    return $comp->decision_status !== 'Sudah Disetujui / ACC';
+                }
+
+                return false;
+            })
+            ->map(function ($comp) use ($today) {
+                $emp = $comp->employee;
+                $activeContract = $emp?->activeContract;
+
+                $anchorDate = null;
+                if ($activeContract && $activeContract->start_date) {
+                    $anchorDate = Carbon::parse($activeContract->start_date);
+                } elseif ($emp?->original_join_date) {
+                    $anchorDate = Carbon::parse($emp->original_join_date);
+                } elseif ($emp?->join_date) {
+                    $anchorDate = Carbon::parse($emp->join_date);
+                }
+
+                $cycleMonths = (int) ($comp->evaluation_cycle_months ?: 6);
+                $monthsPassed = $anchorDate ? $anchorDate->diffInMonths($today) : 0;
+                $cycleStep = max(1, (int) round($monthsPassed / $cycleMonths));
+
+                $targetDate = $comp->custom_milestone_date
+                    ? Carbon::parse($comp->custom_milestone_date)
+                    : ($anchorDate ? $anchorDate->copy()->addMonths($cycleStep * $cycleMonths) : $today);
+
+                $diff = (int) $today->diffInDays($targetDate, false);
+
+                return [
+                    'compensation_id' => $comp->id,
+                    'compensation_uuid' => $comp->uuid,
+                    'employee_id' => $emp?->id,
+                    'employee_code' => $emp?->employee_code,
+                    'name' => $emp?->name,
+                    'nickname' => $emp?->nickname,
+                    'department' => $emp?->department,
+                    'division' => $emp?->division,
+                    'contract_number' => $comp->contract_number ?: $activeContract?->contract_number ?: '-',
+                    'contract_sequence' => $activeContract?->contract_sequence ? "Kontrak ke-{$activeContract->contract_sequence}" : ($comp->duration_text ?: 'PKWT'),
+                    'cycle_text' => "Bulan ke-" . ($cycleStep * $cycleMonths),
+                    'current_salary' => (float) $comp->current_salary,
+                    'planned_increment' => (float) ($comp->planned_increment ?? 0),
+                    'decision_status' => $comp->decision_status ?: 'Jadwal Evaluasi Masuk',
+                    'effective_date' => $comp->effective_date ? $comp->effective_date->format('Y-m-d') : null,
+                    'target_date' => $targetDate->format('Y-m-d'),
+                    'days_remaining' => $diff,
+                    'urgency' => ($diff <= 7 || in_array($comp->decision_status, ['Sedang Diajukan', 'Ditunda'])) ? 'critical' : 'warning',
+                ];
+            })
+            ->sortBy('days_remaining')
+            ->values();
     }
 }

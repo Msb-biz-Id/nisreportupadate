@@ -23,6 +23,9 @@ Route::prefix('purchasing')->name('purchasing.')->group(function () {
         Route::delete('/{order}', [\App\Http\Controllers\Purchasing\PurchasingOrderController::class, 'destroy'])->name('destroy');
         Route::post('/{order}/approve', [\App\Http\Controllers\Purchasing\PurchasingOrderController::class, 'approve'])->name('approve');
         Route::post('/{order}/payment-terms', [\App\Http\Controllers\Purchasing\PurchasingPaymentController::class, 'storeTerms'])->name('terms.store');
+        Route::post('/{order}/disburse', [\App\Http\Controllers\Purchasing\PurchasingOrderController::class, 'disburse'])->name('disburse');
+        Route::post('/{order}/realize', [\App\Http\Controllers\Purchasing\PurchasingOrderController::class, 'realize'])->name('realize');
+        Route::post('/{order}/settle', [\App\Http\Controllers\Purchasing\PurchasingOrderController::class, 'settle'])->name('settle');
     });
 
     // Pencairan Termin Pembayaran (TOP) oleh Keuangan

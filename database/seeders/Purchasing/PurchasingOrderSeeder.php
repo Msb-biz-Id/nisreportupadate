@@ -4,6 +4,7 @@ namespace Database\Seeders\Purchasing;
 
 use App\Models\Purchasing\PurchasingMasterOption;
 use App\Models\Purchasing\PurchasingOrder;
+use App\Models\Purchasing\PurchasingOrderItem;
 use App\Models\Purchasing\PurchasingPayment;
 use App\Models\Purchasing\PurchasingVendor;
 use Illuminate\Database\Seeder;
@@ -412,6 +413,25 @@ class PurchasingOrderSeeder extends Seeder
                 $oData
             );
 
+            // Buat PurchasingOrderItem utama
+            PurchasingOrderItem::updateOrCreate(
+                [
+                    'order_id' => $order->id,
+                    'order_index' => 1,
+                ],
+                [
+                    'uuid' => (string) Str::uuid(),
+                    'item_category_id' => $order->item_category_id,
+                    'item_name' => $order->item_name,
+                    'specification' => $order->specification,
+                    'unit' => $order->unit,
+                    'quantity' => $order->quantity,
+                    'unit_price' => $order->unit_price,
+                    'discount_amount' => $order->discount_amount,
+                    'subtotal' => $order->subtotal,
+                ]
+            );
+
             if (!empty($payments)) {
                 foreach ($payments as $pData) {
                     PurchasingPayment::firstOrCreate(
@@ -426,5 +446,60 @@ class PurchasingOrderSeeder extends Seeder
                 }
             }
         }
+
+        // Tambah contoh multi-item untuk PO-202603-0002 (Spanduk + X-Banner)
+        $poBanner = PurchasingOrder::where('po_number', 'PO-202603-0002')->first();
+        if ($poBanner) {
+            PurchasingOrderItem::updateOrCreate(
+                [
+                    'order_id' => $poBanner->id,
+                    'order_index' => 2,
+                ],
+                [
+                    'uuid' => (string) Str::uuid(),
+                    'item_category_id' => $poBanner->item_category_id,
+                    'item_name' => 'Standing X-Banner 60x160cm',
+                    'specification' => 'Rangka fiber hitam kokoh + cetak albatros doff laminasi',
+                    'unit' => 'Set',
+                    'quantity' => 1.00,
+                    'unit_price' => 85000.00,
+                    'discount_amount' => 0.00,
+                    'subtotal' => 85000.00,
+                ]
+            );
+        }
+
+        // Update realisasi penyelesaian operasional (Operational Settlement)
+        PurchasingOrder::where('po_number', 'PO-202603-0001')->update([
+            'disbursed_at' => '2026-03-17',
+            'disbursed_amount' => 100000.00,
+            'realized_at' => '2026-03-17',
+            'realized_amount' => 89000.00,
+            'remaining_amount' => 11000.00,
+            'settlement_status' => 'SETTLED',
+            'settlement_notes' => 'Kembalian Rp 11.000 telah disetorkan kembali ke bendahara kas kecil.',
+            'settled_at' => '2026-03-18 10:00:00',
+        ]);
+
+        PurchasingOrder::where('po_number', 'PO-202603-0002')->update([
+            'disbursed_at' => '2026-03-25',
+            'disbursed_amount' => 389000.00,
+            'realized_at' => '2026-03-25',
+            'realized_amount' => 389000.00,
+            'remaining_amount' => 0.00,
+            'settlement_status' => 'SETTLED',
+            'settlement_notes' => 'Realisasi pas sesuai kuitansi percetakan spanduk & standing banner.',
+            'settled_at' => '2026-03-25 16:30:00',
+        ]);
+
+        PurchasingOrder::where('po_number', 'PO-202603-0003')->update([
+            'disbursed_at' => '2026-03-30',
+            'disbursed_amount' => 100000.00,
+            'realized_at' => null,
+            'realized_amount' => 0.00,
+            'remaining_amount' => 100000.00,
+            'settlement_status' => 'DISBURSED_PENDING_RECEIPT',
+            'settlement_notes' => 'Kasbon Rp 100.000 telah diserahkan, nota berlangganan sedang diproses staff HCM.',
+        ]);
     }
 }

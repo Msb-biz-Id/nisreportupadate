@@ -264,7 +264,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Modul Kepegawaian (HCM)
     Route::prefix('hcm')->name('hcm.')->group(function () {
         // Command Center / Dashboard Kepegawaian (Fase 6)
-        Route::get('/', fn () => redirect()->route('hcm.dashboard.index'));
+        Route::get('/', fn() => redirect()->route('hcm.dashboard.index'));
         Route::get('/dashboard', [\App\Http\Controllers\Hcm\HcmDashboardController::class, 'index'])->name('dashboard.index');
 
         Route::prefix('master-data')->name('master-data.')->group(function () {
@@ -284,9 +284,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('/{employee}', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'destroy'])->name('destroy');
             Route::post('/{employee}/contracts', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'storeContract'])->name('contracts.store');
             Route::post('/{employee}/compensation-histories', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'storeCompensationHistory'])->name('compensation-histories.store');
-    Route::put('/{employee}/onboarding', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'updateOnboarding'])->name('onboarding.update');
-    Route::put('/{employee}/offboarding', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'updateOffboarding'])->name('offboarding.update');
-    Route::post('/{employee}/offboard', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'offboard'])->name('offboard');
+            Route::put('/{employee}/onboarding', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'updateOnboarding'])->name('onboarding.update');
+            Route::put('/{employee}/offboarding', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'updateOffboarding'])->name('offboarding.update');
+            Route::post('/{employee}/offboard', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'offboard'])->name('offboard');
             Route::post('/{employee}/photo', [\App\Http\Controllers\Hcm\HcmEmployeeController::class, 'updatePhoto'])->name('photo.update');
             // PDF
             Route::get('/{employee}/pdf/dossier', [\App\Http\Controllers\Hcm\HcmPdfController::class, 'employeeDossier'])->name('pdf.dossier');
@@ -316,6 +316,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('salary-deductions')->name('salary-deductions.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Hcm\HcmSalaryDeductionController::class, 'index'])->name('index');
             Route::post('/', [\App\Http\Controllers\Hcm\HcmSalaryDeductionController::class, 'store'])->name('store');
+            Route::get('/employee/{employee}/history', [\App\Http\Controllers\Hcm\HcmSalaryDeductionController::class, 'employeeHistory'])->name('employee-history');
             Route::put('/{salaryDeduction}', [\App\Http\Controllers\Hcm\HcmSalaryDeductionController::class, 'update'])->name('update');
             Route::delete('/{salaryDeduction}', [\App\Http\Controllers\Hcm\HcmSalaryDeductionController::class, 'destroy'])->name('destroy');
         });
@@ -352,6 +353,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/exit-permits/{exitPermit}', [\App\Http\Controllers\Hcm\HcmOfficeExitPermitController::class, 'update'])->name('exit-permits.update');
             Route::post('/exit-permits/{exitPermit}/return', [\App\Http\Controllers\Hcm\HcmOfficeExitPermitController::class, 'markReturned'])->name('exit-permits.return');
             Route::delete('/exit-permits/{exitPermit}', [\App\Http\Controllers\Hcm\HcmOfficeExitPermitController::class, 'destroy'])->name('exit-permits.destroy');
+        });
+
+        // Multi-Shift & Roster Management (Pondasi Jadwal)
+        Route::prefix('shifts')->name('shifts.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'store'])->name('store');
+            Route::put('/{shift}', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'update'])->name('update');
+            Route::delete('/{shift}', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'destroy'])->name('destroy');
+            Route::post('/{shift}/toggle-active', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'toggleActive'])->name('toggle-active');
+
+            // Penugasan Roster Jadwal
+            Route::post('/assign-bulk', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'assignBulkRoster'])->name('assign-bulk');
+            Route::post('/assign-single', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'assignSingleRoster'])->name('assign-single');
+            Route::post('/clear-roster', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'clearRoster'])->name('clear-roster');
+            Route::post('/set-default-shift', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'setDefaultShift'])->name('set-default');
         });
 
         // Pengajuan Cuti / Izin / Sakit
@@ -495,7 +511,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-
 });
 
 require __DIR__ . '/auth.php';

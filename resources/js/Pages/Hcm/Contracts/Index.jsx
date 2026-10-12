@@ -21,6 +21,8 @@ import {
     CheckCircle2,
     XCircle,
     UserCheck,
+    TrendingUp,
+    Banknote,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import UniversalDocumentViewer from '@/Components/Hcm/UniversalDocumentViewer';
@@ -39,6 +41,11 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/Components/ui/dialog';
+
+const rp = (val) => {
+    if (val === null || val === undefined || val === '') return '-';
+    return 'Rp ' + Number(val).toLocaleString('id-ID');
+};
 
 export default function ContractIndex({ contracts, filters, metrics, dropdowns }) {
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
@@ -59,6 +66,52 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
     const [isViewerOpen, setIsViewerOpen] = useState(false);
     const [viewingFileUrl, setViewingFileUrl] = useState(null);
     const [viewingFileName, setViewingFileName] = useState('');
+
+    // State Modal Keputusan Evaluasi Kenaikan Gaji
+    const [decisionModalOpen, setDecisionModalOpen] = useState(false);
+    const [selectedContractForDecision, setSelectedContractForDecision] = useState(null);
+    const decisionForm = useForm({
+        decision_status: 'Sedang Diajukan',
+        planned_increment: '',
+        effective_date: '',
+        custom_milestone_date: '',
+        decision_notes: '',
+        apply_immediately: false,
+    });
+
+    const handleOpenDecision = (c) => {
+        const comp = c.employee?.compensation;
+        if (!comp) {
+            if (confirm(`Data kompensasi untuk karyawan ${c.employee?.name} belum dicatat. Apakah Anda ingin membuka halaman Kompensasi untuk menambahkannya?`)) {
+                router.get(route('hcm.compensations.index'), { search: c.employee?.name });
+            }
+            return;
+        }
+        setSelectedContractForDecision(c);
+        decisionForm.setData({
+            decision_status: comp.decision_status || 'Sedang Diajukan',
+            planned_increment: comp.planned_increment ?? '',
+            effective_date: comp.effective_date ? String(comp.effective_date).slice(0, 10) : new Date().toISOString().split('T')[0],
+            custom_milestone_date: comp.custom_milestone_date ? String(comp.custom_milestone_date).slice(0, 10) : '',
+            decision_notes: comp.decision_notes || '',
+            apply_immediately: false,
+        });
+        setDecisionModalOpen(true);
+    };
+
+    const submitDecision = (e) => {
+        e.preventDefault();
+        const comp = selectedContractForDecision?.employee?.compensation;
+        if (!comp) return;
+        const key = comp.uuid || comp.id;
+        decisionForm.put(route('hcm.compensations.decision.update', key), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setDecisionModalOpen(false);
+                decisionForm.reset();
+            },
+        });
+    };
 
     const form = useForm({
         employee_id: '',
@@ -710,6 +763,15 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
                                             {/* 16. Aksi */}
                                             <td className="py-3 px-3.5 text-right sticky right-0 z-10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xs border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/90 transition-colors">
                                                 <div className="flex items-center justify-end gap-1.5">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenDecision(c)}
+                                                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition"
+                                                        title="Evaluasi Kenaikan Gaji Karyawan"
+                                                    >
+                                                        <TrendingUp className="h-3 w-3" />
+                                                        <span>Evaluasi Gaji</span>
+                                                    </button>
                                                     {c.file_contract_url ? (
                                                         <button
                                                             type="button"
@@ -1097,6 +1159,147 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
                 fileUrl={viewingFileUrl}
                 fileName={`Kontrak: ${viewingFileName}`}
             />
+
+            {/* MODAL KEPUTUSAN EVALUASI KENAIKAN GAJI BERKALA */}
+            <Dialog open={decisionModalOpen} onOpenChange={setDecisionModalOpen}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="text-base font-bold flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                            <TrendingUp className="h-4 w-4" />
+                            <span>Keputusan Evaluasi Kenaikan Gaji Berkala</span>
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Karyawan: <strong>{selectedContractForDecision?.employee?.name}</strong> ({selectedContractForDecision?.employee?.employee_code}) • {selectedContractForDecision?.employee?.department || '-'} / {selectedContractForDecision?.employee?.division || '-'}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={submitDecision} className="space-y-3.5">
+                        {/* Info Ringkas Masa Kerja & Gaji Berjalan */}
+                        <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/80 space-y-1.5 text-xs">
+                            <div className="flex justify-between text-zinc-600 dark:text-zinc-300">
+                                <span>No. Kontrak & Urutan:</span>
+                                <span className="font-semibold text-zinc-900 dark:text-zinc-100 font-mono">
+                                    {selectedContractForDecision?.contract_number} (Kontrak ke-{selectedContractForDecision?.contract_sequence || 1})
+                                </span>
+                            </div>
+                            <div className="flex justify-between text-zinc-600 dark:text-zinc-300">
+                                <span>Gaji Berjalan Saat Ini:</span>
+                                <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">
+                                    {rp(selectedContractForDecision?.employee?.compensation?.current_salary)}
+                                </span>
+                            </div>
+                            <div className="flex justify-between text-zinc-600 dark:text-zinc-300">
+                                <span>Siklus Review Standar:</span>
+                                <span className="font-semibold text-indigo-600">
+                                    Setiap {selectedContractForDecision?.employee?.compensation?.evaluation_cycle_months ?? 6} Bulan
+                                </span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <Label className="text-xs font-semibold">Status Keputusan Evaluasi *</Label>
+                            <SearchableSelect
+                                value={decisionForm.data.decision_status}
+                                onValueChange={(val) => decisionForm.setData('decision_status', val)}
+                                options={[
+                                    { label: 'Sedang Diajukan', value: 'Sedang Diajukan' },
+                                    { label: 'Sudah Disetujui / ACC', value: 'Sudah Disetujui / ACC' },
+                                    { label: 'Ditunda', value: 'Ditunda' },
+                                    { label: 'Tidak Naik', value: 'Tidak Naik' },
+                                ]}
+                                placeholder="Pilih Status Keputusan"
+                                className="mt-1 text-xs"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <Label className="text-xs font-semibold">Usulan / Nilai Kenaikan (Rp)</Label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    value={decisionForm.data.planned_increment}
+                                    onChange={(e) => decisionForm.setData('planned_increment', e.target.value)}
+                                    placeholder="Contoh: 200000"
+                                    className="mt-1 h-9 text-xs font-mono"
+                                />
+                            </div>
+
+                            <div>
+                                <Label className="text-xs font-semibold">Tanggal Efektif</Label>
+                                <Input
+                                    type="date"
+                                    value={decisionForm.data.effective_date}
+                                    onChange={(e) => decisionForm.setData('effective_date', e.target.value)}
+                                    className="mt-1 h-9 text-xs"
+                                />
+                            </div>
+                        </div>
+
+                        {decisionForm.data.decision_status === 'Ditunda' && (
+                            <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 space-y-1">
+                                <Label className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                                    Tanggal Review Baru (Custom Milestone) *
+                                </Label>
+                                <p className="text-[10px] text-amber-700 dark:text-amber-400">
+                                    Jadwal evaluasi khusus (misal tunda 3 bulan) tanpa merusak siklus tahunan masa kerja.
+                                </p>
+                                <Input
+                                    type="date"
+                                    value={decisionForm.data.custom_milestone_date}
+                                    onChange={(e) => decisionForm.setData('custom_milestone_date', e.target.value)}
+                                    className="h-8 text-xs bg-white dark:bg-zinc-900 mt-1"
+                                />
+                            </div>
+                        )}
+
+                        <div>
+                            <Label className="text-xs font-semibold">Catatan & Notula Hasil Evaluasi</Label>
+                            <Input
+                                value={decisionForm.data.decision_notes}
+                                onChange={(e) => decisionForm.setData('decision_notes', e.target.value)}
+                                placeholder="Alasan penundaan / persetujuan / catatan performa..."
+                                className="mt-1 h-9 text-xs"
+                            />
+                        </div>
+
+                        {decisionForm.data.decision_status === 'Sudah Disetujui / ACC' && (
+                            <div className="flex items-center gap-2 p-2 rounded bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40">
+                                <input
+                                    type="checkbox"
+                                    id="apply_immediately_contract"
+                                    checked={decisionForm.data.apply_immediately}
+                                    onChange={(e) => decisionForm.setData('apply_immediately', e.target.checked)}
+                                    className="rounded border-emerald-300 text-emerald-600 h-4 w-4"
+                                />
+                                <Label htmlFor="apply_immediately_contract" className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 cursor-pointer">
+                                    Langsung terapkan kenaikan ini ke Gaji Berjalan saat disimpan (Apply Increment)
+                                </Label>
+                            </div>
+                        )}
+
+                        <DialogFooter className="pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setDecisionModalOpen(false)}
+                                disabled={decisionForm.processing}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                size="sm"
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                disabled={decisionForm.processing}
+                            >
+                                {decisionForm.processing ? 'Menyimpan...' : 'Simpan Keputusan Evaluasi'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

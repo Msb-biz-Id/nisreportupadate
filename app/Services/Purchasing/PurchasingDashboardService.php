@@ -130,6 +130,57 @@ class PurchasingDashboardService
                 ];
             });
 
+        // D. Pengingat Sisa Uang & Nota Belanja Belum Diselesaikan (Operational Advances Settlement)
+        $threeDaysAgo = $today->copy()->subDays(3)->toDateString();
+        $unsettledProposals = PurchasingOrder::whereIn('settlement_status', ['DISBURSED_PENDING_RECEIPT', 'REFUND_PENDING', 'REIMBURSE_PENDING'])
+            ->with(['requester', 'location'])
+            ->orderByDesc('disbursed_at')
+            ->limit(10)
+            ->get()
+            ->map(function ($o) use ($today, $threeDaysAgo) {
+                $type = 'Belum Realisasi';
+                $badgeColor = 'amber';
+                $remainingText = 'Rp 0';
+                $alertMessage = 'Menunggu input realisasi nota fisik';
+
+                if ($o->settlement_status === 'DISBURSED_PENDING_RECEIPT') {
+                    $isOverdue = $o->disbursed_at && $o->disbursed_at->toDateString() <= $threeDaysAgo;
+                    $badgeColor = $isOverdue ? 'red' : 'amber';
+                    $type = $isOverdue ? 'Nota Terlambat (H+3)' : 'Nota Belum Diunggah';
+                    $alertMessage = $isOverdue ? 'Dana telah cair lebih dari 3 hari, segera laporkan nota belanja!' : 'Dana kas bon telah cair, segera belanjakan dan unggah nota';
+                } elseif ($o->settlement_status === 'REFUND_PENDING') {
+                    $badgeColor = 'emerald';
+                    $type = 'Sisa Kembalian';
+                    $remainingText = 'Rp ' . number_format((float) $o->remaining_amount, 0, ',', '.');
+                    $alertMessage = 'Terdapat sisa kembalian belanja yang wajib disetor ke Kas CV';
+                } elseif ($o->settlement_status === 'REIMBURSE_PENDING') {
+                    $badgeColor = 'rose';
+                    $type = 'Klaim Reimburse';
+                    $remainingText = 'Rp ' . number_format(abs((float) $o->remaining_amount), 0, ',', '.');
+                    $alertMessage = 'Staf menalangi kekurangan, menunggu pencairan reimburse dari Keuangan';
+                }
+
+                return [
+                    'id' => $o->id,
+                    'po_number' => $o->po_number,
+                    'item_name' => $o->item_name,
+                    'department' => $o->department,
+                    'requester_name' => $o->requester_name ?? 'Staf Purchasing',
+                    'disbursed_at' => $o->disbursed_at?->format('d M Y'),
+                    'disbursed_amount' => (float) $o->disbursed_amount,
+                    'realized_at' => $o->realized_at?->format('d M Y'),
+                    'realized_amount' => (float) $o->realized_amount,
+                    'remaining_amount' => (float) $o->remaining_amount,
+                    'remaining_text' => $remainingText,
+                    'settlement_status' => $o->settlement_status,
+                    'badge_type' => $type,
+                    'badge_color' => $badgeColor,
+                    'alert_message' => $alertMessage,
+                    'action_label' => 'Selesaikan Sekarang',
+                    'target_url' => route('purchasing.orders.show', $o->po_number),
+                ];
+            });
+
         // 3. KELOMPOK 2: UPCOMING SCHEDULES & MONITORING (Jadwal & Peringatan Mendatang)
         // A. Masa Garansi Aset Berakhir
         $warrantyExpiring = PurchasingAsset::where('status', 'ACTIVE')
@@ -247,12 +298,14 @@ class PurchasingDashboardService
                 'pending_finance_count' => $pendingFinanceCount,
                 'due_today_count' => $dueTodayCount,
                 'overdue_count' => $overdueCount,
+                'unsettled_proposals_count' => $unsettledProposals->count(),
             ],
             // 2 Kelompok Utama Dashboard Sesuai Alur Bisnis
             'urgent_actions' => [
                 'due_today' => $dueTodayList,
                 'overdue' => $overdueList,
                 'pending_approvals' => $pendingApprovals,
+                'unsettled_proposals' => $unsettledProposals,
             ],
             'upcoming_monitoring' => [
                 'warranty_expiring' => $warrantyExpiring,

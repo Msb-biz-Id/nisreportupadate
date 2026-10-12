@@ -406,7 +406,7 @@
                     <tr>
                         <td>
                             <strong>Penyesuaian Kenaikan Upah</strong>
-                            <span class="item-subtext">Evaluasi berkala disetujui</span>
+                            <span class="item-subtext">{{ $item->notes ?: 'Evaluasi performa berkala disetujui' }}</span>
                         </td>
                         <td class="amount">Rp {{ number_format($item->increment_adjustment, 0, ',', '.') }}</td>
                     </tr>

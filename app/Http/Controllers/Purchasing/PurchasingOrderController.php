@@ -38,6 +38,7 @@ class PurchasingOrderController extends Controller
 
         $search = $request->query('search');
         $status = $request->query('status');
+        $settlementStatus = $request->query('settlement_status');
         $orderType = $request->query('order_type');
         $department = $request->query('department');
         $locationId = $request->query('location_id');
@@ -52,6 +53,7 @@ class PurchasingOrderController extends Controller
                 'requester',
                 'picApprover',
                 'financeApprover',
+                'settledBy',
             ])
             ->when($search, function ($q, $s) {
                 $q->where(function ($sub) use ($s) {
@@ -70,6 +72,7 @@ class PurchasingOrderController extends Controller
                     $q->where('status', $st);
                 }
             })
+            ->when($settlementStatus, fn ($q, $ss) => $q->where('settlement_status', $ss))
             ->when($orderType, fn ($q, $ot) => $q->where('order_type', $ot))
             ->when($department, fn ($q, $dept) => $q->where('department', $dept))
             ->when($locationId, fn ($q, $loc) => $q->where('location_id', $loc))
@@ -122,6 +125,17 @@ class PurchasingOrderController extends Controller
         $overdueAmount = (float) PurchasingPayment::whereIn('status', ['OVERDUE', 'DUE_TODAY'])->sum('amount');
         $overdueCount = PurchasingPayment::whereIn('status', ['OVERDUE', 'DUE_TODAY'])->count();
 
+        // 5. Metrik Penyelesaian Sisa Belanja Operasional & Reminder Alert
+        $threeDaysAgo = \Carbon\Carbon::now()->subDays(3)->toDateString();
+        $pendingReceiptCount = PurchasingOrder::where('settlement_status', 'DISBURSED_PENDING_RECEIPT')->count();
+        $overdueReceiptCount = PurchasingOrder::where('settlement_status', 'DISBURSED_PENDING_RECEIPT')
+            ->whereDate('disbursed_at', '<=', $threeDaysAgo)
+            ->count();
+        $pendingRefundCount = PurchasingOrder::where('settlement_status', 'REFUND_PENDING')->count();
+        $pendingReimburseCount = PurchasingOrder::where('settlement_status', 'REIMBURSE_PENDING')->count();
+        $totalRefundAmount = (float) PurchasingOrder::where('settlement_status', 'REFUND_PENDING')->sum('remaining_amount');
+        $totalReimburseAmount = (float) abs((float) PurchasingOrder::where('settlement_status', 'REIMBURSE_PENDING')->sum('remaining_amount'));
+
         // Rekapitulasi metrik ringkas untuk header cards
         $metrics = [
             'total_orders' => PurchasingOrder::count(),
@@ -135,6 +149,14 @@ class PurchasingOrderController extends Controller
             'total_unpaid' => $totalUnpaid,
             'overdue_amount' => $overdueAmount,
             'overdue_count' => $overdueCount,
+            // Reminder Sisa Belanja Operasional
+            'pending_receipt_count' => $pendingReceiptCount,
+            'overdue_receipt_count' => $overdueReceiptCount,
+            'pending_refund_count' => $pendingRefundCount,
+            'pending_reimburse_count' => $pendingReimburseCount,
+            'total_refund_amount' => $totalRefundAmount,
+            'total_reimburse_amount' => $totalReimburseAmount,
+            'total_unsettled_proposals' => $pendingReceiptCount + $pendingRefundCount + $pendingReimburseCount,
         ];
 
         // Master dropdowns
@@ -151,6 +173,7 @@ class PurchasingOrderController extends Controller
             'filters' => [
                 'search' => $search,
                 'status' => $status,
+                'settlement_status' => $settlementStatus,
                 'order_type' => $orderType,
                 'department' => $department,
                 'location_id' => $locationId,
@@ -329,6 +352,76 @@ class PurchasingOrderController extends Controller
         }
 
         return back()->with('success', $message);
+    }
+
+    /**
+     * Pencairan Kas Bon Pengajuan oleh Keuangan (Pilar 2)
+     */
+    public function disburse(Request $request, PurchasingOrder $order): RedirectResponse
+    {
+        Gate::authorize('purchasing.manage-orders');
+
+        $validated = $request->validate([
+            'disbursed_amount' => ['required', 'numeric', 'min:0'],
+            'disbursed_at' => ['required', 'date'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $this->orderService->disburseFunds(
+            $order,
+            (float) $validated['disbursed_amount'],
+            $validated['disbursed_at'],
+            $request->user(),
+            $validated['notes'] ?? null
+        );
+
+        return back()->with('success', "Kas bon sebesar Rp " . number_format($validated['disbursed_amount'], 0, ',', '.') . " untuk {$order->po_number} berhasil dicatat.");
+    }
+
+    /**
+     * Pelaporan Realisasi Belanja & Upload Nota Asli (Pilar 3 & Hitung Sisa Uang)
+     */
+    public function realize(Request $request, PurchasingOrder $order): RedirectResponse
+    {
+        Gate::authorize('purchasing.manage-orders');
+
+        $validated = $request->validate([
+            'realized_amount' => ['required', 'numeric', 'min:0'],
+            'realized_at' => ['required', 'date'],
+            'invoice_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $this->orderService->recordRealization(
+            $order,
+            (float) $validated['realized_amount'],
+            $validated['realized_at'],
+            $request->file('invoice_file'),
+            $request->user(),
+            $validated['notes'] ?? null
+        );
+
+        return back()->with('success', "Realisasi belanja dan bukti nota untuk {$order->po_number} berhasil dicatat.");
+    }
+
+    /**
+     * Konfirmasi Penyelesaian Sisa (Settlement Sisa Kas Bon / Reimburse)
+     */
+    public function settle(Request $request, PurchasingOrder $order): RedirectResponse
+    {
+        Gate::authorize('purchasing.manage-orders');
+
+        $validated = $request->validate([
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $this->orderService->settleRemaining(
+            $order,
+            $request->user(),
+            $validated['notes'] ?? null
+        );
+
+        return back()->with('success', "Penyelesaian sisa dana untuk {$order->po_number} berhasil divalidasi.");
     }
 
     /**

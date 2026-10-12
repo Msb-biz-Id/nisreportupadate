@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -86,6 +87,7 @@ class HcmEmployee extends Model
         'photo',
         'photo_url',
         'notes',
+        'default_shift_id',
     ];
 
     protected $casts = [
@@ -423,6 +425,22 @@ class HcmEmployee extends Model
     public function payrollItems(): HasMany
     {
         return $this->hasMany(HcmPayrollItem::class, 'employee_id')->orderBy('id', 'desc');
+    }
+
+    /**
+     * Shift kerja default karyawan.
+     */
+    public function defaultShift(): BelongsTo
+    {
+        return $this->belongsTo(HcmWorkShift::class, 'default_shift_id');
+    }
+
+    /**
+     * Riwayat roster penugasan shift harian karyawan.
+     */
+    public function shiftRosters(): HasMany
+    {
+        return $this->hasMany(HcmShiftRoster::class, 'employee_id')->orderBy('roster_date', 'desc');
     }
 }
 

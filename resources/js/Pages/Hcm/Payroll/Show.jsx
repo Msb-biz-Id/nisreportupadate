@@ -434,6 +434,11 @@ export default function PayrollShow({
                                                                             <div className="text-[10px] font-mono text-zinc-400">
                                                                                 {emp?.employee_code || '-'}
                                                                             </div>
+                                                                            {item.notes && (
+                                                                                <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium truncate max-w-[220px]" title={item.notes}>
+                                                                                    💡 {item.notes}
+                                                                                </div>
+                                                                            )}
                                                                         </TableCell>
 
                                                                         <TableCell className="py-2.5 px-3 font-mono">
@@ -446,7 +451,12 @@ export default function PayrollShow({
                                                                         </TableCell>
 
                                                                         <TableCell className="py-2.5 px-3 text-right font-mono text-zinc-600 dark:text-zinc-400">
-                                                                            {rp(item.base_salary)}
+                                                                            <div>{rp(item.base_salary)}</div>
+                                                                            {item.increment_adjustment > 0 && (
+                                                                                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold" title={item.notes || 'Penyesuaian kenaikan gaji'}>
+                                                                                    + {rp(item.increment_adjustment)} (Adj)
+                                                                                </div>
+                                                                            )}
                                                                         </TableCell>
 
                                                                         <TableCell className="py-2.5 px-3 text-right font-mono text-zinc-600 dark:text-zinc-400">

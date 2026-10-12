@@ -315,33 +315,111 @@ export default function CompensationIndex({
         });
     };
 
+    const formatBerlaku = (dateStr) => {
+        if (!dateStr) return '-';
+        try {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return '-';
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+            const m = months[d.getMonth()];
+            const y = String(d.getFullYear()).slice(-2);
+            return `${m}-${y}`;
+        } catch {
+            return '-';
+        }
+    };
+
+    const getIncrementDate = (comp, num) => {
+        if (!comp) return '-';
+        if (comp.histories && comp.histories.length > 0) {
+            const sorted = [...comp.histories].sort((a, b) => new Date(a.effective_date) - new Date(b.effective_date));
+            if (sorted[num - 1]?.effective_date) {
+                return formatBerlaku(sorted[num - 1].effective_date);
+            }
+        }
+        if (comp.salary_increment_count === num && comp.effective_date) {
+            return formatBerlaku(comp.effective_date);
+        }
+        return '-';
+    };
+
     const getStatusBadge = (statusVal) => {
         if (!statusVal) return <Badge variant="outline">-</Badge>;
-        if (statusVal.includes('Telah berlaku') || statusVal.includes('Aktif')) {
+        const s = String(statusVal).toLowerCase();
+
+        // 1. Maroon: Penyesuaian honor telah berlaku dan diterima
+        if (s.includes('telah berlaku') || s.includes('diterima')) {
             return (
-                <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 gap-1 inline-flex items-center">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold bg-[#800020] text-white shadow-xs">
                     <CheckCircle2 className="h-3 w-3 shrink-0" />
-                    <span>Telah berlaku</span>
-                </Badge>
+                    <span>Penyesuaian honor telah berlaku dan diterima</span>
+                </span>
             );
         }
-        if (statusVal.includes('Sedang Diajukan') || statusVal.includes('Pending')) {
+        // 2. Yellow: Penyesuaian honor berlaku mulai bulan berjalan
+        if (s.includes('bulan berjalan') || s.includes('mulai bulan berjalan')) {
             return (
-                <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-300 gap-1 inline-flex items-center">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-bold bg-yellow-300 text-yellow-950 border border-yellow-400 shadow-xs">
                     <Clock className="h-3 w-3 shrink-0" />
-                    <span>{statusVal}</span>
-                </Badge>
+                    <span>Penyesuaian honor berlaku mulai bulan berjalan</span>
+                </span>
             );
         }
-        if (statusVal.includes('Draft')) {
+        // 3. Bright Green: Penyesuaian honor telah disetujui / ACC
+        if (s.includes('disetujui') || s.includes('acc')) {
             return (
-                <Badge className="bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-200 gap-1 inline-flex items-center">
-                    <FileText className="h-3 w-3 shrink-0" />
-                    <span>Draft</span>
-                </Badge>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-500 text-white shadow-xs">
+                    <CheckCircle2 className="h-3 w-3 shrink-0" />
+                    <span>Penyesuaian honor telah disetujui</span>
+                </span>
+            );
+        }
+        // 4. Cyan: Penyesuaian honor sedang dalam proses pengajuan
+        if (s.includes('proses pengajuan') || s.includes('sedang diajukan') || s.includes('pending')) {
+            return (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-bold bg-cyan-400 text-cyan-950 shadow-xs">
+                    <Clock className="h-3 w-3 shrink-0" />
+                    <span>Penyesuaian honor sedang dalam proses pengajuan</span>
+                </span>
+            );
+        }
+        // 5. Salmon / Red: Penyesuaian honor ditangguhkan sementara
+        if (s.includes('ditangguhkan') || s.includes('ditunda')) {
+            return (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-bold bg-rose-400 text-rose-950 shadow-xs">
+                    <AlertCircle className="h-3 w-3 shrink-0" />
+                    <span>Penyesuaian honor ditangguhkan sementara</span>
+                </span>
             );
         }
         return <Badge variant="outline">{statusVal}</Badge>;
+    };
+
+    const getSalaryCellClass = (statusVal) => {
+        if (!statusVal) return 'text-zinc-900 dark:text-zinc-100 font-bold';
+        const s = String(statusVal).toLowerCase();
+
+        // 1. Penyesuaian honor telah berlaku dan diterima (Maroon/Burgundy)
+        if (s.includes('telah berlaku') || s.includes('diterima')) {
+            return 'bg-[#800020] text-white font-bold rounded px-2 py-0.5 shadow-xs';
+        }
+        // 2. Penyesuaian honor berlaku mulai bulan berjalan (Kuning Terang NIS)
+        if (s.includes('bulan berjalan') || s.includes('mulai bulan berjalan')) {
+            return 'bg-[#ffff00] text-black font-extrabold rounded px-2 py-0.5 shadow-xs border border-yellow-500';
+        }
+        // 3. Penyesuaian honor telah disetujui (Cyan / Biru Langit NIS)
+        if (s.includes('disetujui') || s.includes('acc')) {
+            return 'bg-[#00e5ff] text-black font-extrabold rounded px-2 py-0.5 shadow-xs border border-cyan-400';
+        }
+        // 4. Penyesuaian honor sedang dalam proses pengajuan (Hijau Stabilo NIS)
+        if (s.includes('proses pengajuan') || s.includes('sedang diajukan') || s.includes('pending')) {
+            return 'bg-[#00e676] text-black font-extrabold rounded px-2 py-0.5 shadow-xs border border-green-600';
+        }
+        // 5. Penyesuaian honor ditangguhkan sementara (Merah Terang NIS)
+        if (s.includes('ditangguhkan') || s.includes('ditunda')) {
+            return 'bg-[#ff1744] text-white font-bold rounded px-2 py-0.5 shadow-xs';
+        }
+        return 'text-zinc-900 dark:text-zinc-100 font-bold';
     };
 
     const rows = compensations?.data || [];
@@ -656,7 +734,32 @@ export default function CompensationIndex({
                     </CardContent>
                 </Card>
 
-                {/* 15 Kolom Baku Excel Blueprint Row 23 + Kolom Aksi */}
+                {/* Legenda Warna Status Honor NIS Group */}
+                <div className="p-3 bg-zinc-900/95 dark:bg-zinc-950 text-white rounded-xl border border-zinc-800 shadow-xs mb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2.5 text-xs">
+                    <div className="flex items-center gap-2 font-bold text-zinc-200">
+                        <TrendingUp className="h-4 w-4 text-amber-400 shrink-0" />
+                        <span>Keterangan Status Honor (Aturan Siklus Payroll NIS Group):</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-semibold bg-[#800020] text-white shadow-xs">
+                            Penyesuaian honor telah berlaku dan diterima
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold bg-yellow-300 text-yellow-950 border border-yellow-400 shadow-xs">
+                            Penyesuaian honor berlaku mulai bulan berjalan
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold bg-emerald-500 text-white shadow-xs">
+                            Penyesuaian honor telah disetujui
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold bg-cyan-400 text-cyan-950 shadow-xs">
+                            Penyesuaian honor sedang dalam proses pengajuan
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold bg-rose-400 text-rose-950 shadow-xs">
+                            Penyesuaian honor ditangguhkan sementara
+                        </span>
+                    </div>
+                </div>
+
+                {/* Tabel Rekapitulasi Kompensasi Format Master NIS Group */}
                 <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs overflow-hidden">
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
@@ -670,13 +773,18 @@ export default function CompensationIndex({
                                         <th className="py-3 px-3">CV</th>
                                         <th className="py-3 px-3">No. Kontrak</th>
                                         <th className="py-3 px-3">Masa Kontrak</th>
+                                        <th className="py-3 px-3 text-center">Masa Kerja Kontrak Ke-</th>
                                         <th className="py-3 px-3 text-center">Bulan Mulai Trainee</th>
                                         <th className="py-3 px-3 text-center">Siklus Evaluasi (Bulan)</th>
                                         <th className="py-3 px-3 text-right">Honor Awal Kontrak (Rp)</th>
                                         <th className="py-3 px-3 text-right">Honor Saat Ini (Rp)</th>
                                         <th className="py-3 px-3 text-center">Total Kenaikan (Kali)</th>
-                                        <th className="py-3 px-3 text-right">Kenaikan 1</th>
-                                        <th className="py-3 px-3 text-right">Kenaikan 3</th>
+                                        <th className="py-3 px-3 text-right">Update Honor 1</th>
+                                        <th className="py-3 px-3 text-center">Berlaku 1</th>
+                                        <th className="py-3 px-3 text-right">Update Honor 2</th>
+                                        <th className="py-3 px-3 text-center">Berlaku 2</th>
+                                        <th className="py-3 px-3 text-right">Update Honor 3</th>
+                                        <th className="py-3 px-3 text-center">Berlaku 3</th>
                                         <th className="py-3 px-3 text-center">Status Pengajuan/Honor</th>
                                         <th className="py-3 px-3.5 text-right sticky right-0 z-20 bg-zinc-50/95 dark:bg-zinc-800/95 backdrop-blur-xs border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">
                                             Aksi
@@ -748,6 +856,21 @@ export default function CompensationIndex({
                                                         {c.duration_text || '1 Tahun'}
                                                     </td>
 
+                                                    {/* Masa Kerja Kontrak Ke- */}
+                                                    <td className="py-3 px-3 text-center">
+                                                        {emp?.activeContract?.contract_sequence ? (
+                                                            <Badge variant="outline" className="text-[10px] font-semibold bg-zinc-50 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
+                                                                Kontrak ke-{emp.activeContract.contract_sequence}
+                                                            </Badge>
+                                                        ) : (c.employment_status || emp?.employment_status || '').includes('Tetap') ? (
+                                                            <Badge variant="outline" className="text-[10px] font-semibold bg-purple-50 dark:bg-purple-950/40 border-purple-200 text-purple-700 dark:text-purple-300">
+                                                                Tetap (PKWTT)
+                                                            </Badge>
+                                                        ) : (
+                                                            <span className="text-zinc-400 font-mono text-[11px]">-</span>
+                                                        )}
+                                                    </td>
+
                                                     {/* 8. Bulan Mulai Trainee / Durasi Trainee */}
                                                     <td className="py-3 px-3 text-center font-mono text-zinc-700 dark:text-zinc-300">
                                                         {c.trainee_duration_months !== null && c.trainee_duration_months !== undefined
@@ -766,8 +889,10 @@ export default function CompensationIndex({
                                                     </td>
 
                                                     {/* 11. Honor Saat Ini (Rp) */}
-                                                    <td className="py-3 px-3 text-right font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                                                        {rp(c.current_salary)}
+                                                    <td className="py-2.5 px-3 text-right font-mono">
+                                                        <span className={`inline-block min-w-[95px] text-right ${getSalaryCellClass(c.salary_status)}`}>
+                                                            {rp(c.current_salary)}
+                                                        </span>
                                                     </td>
 
                                                     {/* 12. Total Kenaikan (Kali) */}
@@ -781,14 +906,28 @@ export default function CompensationIndex({
                                                         )}
                                                     </td>
 
-                                                    {/* 13. Kenaikan 1 */}
-                                                    <td className="py-3 px-3 text-right font-mono text-zinc-600 dark:text-zinc-400">
+                                                    {/* Update Honor 1 & Berlaku */}
+                                                    <td className="py-3 px-3 text-right font-mono text-zinc-700 dark:text-zinc-300 font-medium">
                                                         {c.increment_1_amount ? rp(c.increment_1_amount) : '-'}
                                                     </td>
+                                                    <td className="py-3 px-3 text-center font-mono text-zinc-600 dark:text-zinc-400">
+                                                        {c.increment_1_amount ? getIncrementDate(c, 1) : '-'}
+                                                    </td>
 
-                                                    {/* 14. Kenaikan 3 */}
-                                                    <td className="py-3 px-3 text-right font-mono text-zinc-600 dark:text-zinc-400">
+                                                    {/* Update Honor 2 & Berlaku */}
+                                                    <td className="py-3 px-3 text-right font-mono text-zinc-700 dark:text-zinc-300 font-medium">
+                                                        {c.increment_2_amount ? rp(c.increment_2_amount) : '-'}
+                                                    </td>
+                                                    <td className="py-3 px-3 text-center font-mono text-zinc-600 dark:text-zinc-400">
+                                                        {c.increment_2_amount ? getIncrementDate(c, 2) : '-'}
+                                                    </td>
+
+                                                    {/* Update Honor 3 & Berlaku */}
+                                                    <td className="py-3 px-3 text-right font-mono text-zinc-700 dark:text-zinc-300 font-medium">
                                                         {c.increment_3_amount ? rp(c.increment_3_amount) : '-'}
+                                                    </td>
+                                                    <td className="py-3 px-3 text-center font-mono text-zinc-600 dark:text-zinc-400">
+                                                        {c.increment_3_amount ? getIncrementDate(c, 3) : '-'}
                                                     </td>
 
                                                     {/* 15. Status Pengajuan / Keputusan Evaluasi */}
@@ -887,7 +1026,7 @@ export default function CompensationIndex({
                                         })
                                     ) : (
                                         <tr>
-                                            <td colSpan={16} className="text-center text-zinc-400 py-12">
+                                            <td colSpan={21} className="text-center text-zinc-400 py-12">
                                                 <div className="flex flex-col items-center justify-center gap-2">
                                                     <Banknote className="h-8 w-8 text-zinc-300" />
                                                     <p className="text-xs">Tidak ada data kompensasi yang sesuai dengan filter.</p>
@@ -905,6 +1044,19 @@ export default function CompensationIndex({
                                         </tr>
                                     )}
                                 </tbody>
+                                <tfoot className="bg-zinc-100 dark:bg-zinc-800/80 font-bold text-xs border-t-2 border-zinc-300 dark:border-zinc-700">
+                                    <tr>
+                                        <td colSpan={11} className="py-3 px-3 text-right uppercase tracking-wider font-extrabold text-zinc-700 dark:text-zinc-300">
+                                            Total Honorium Saat Ini:
+                                        </td>
+                                        <td className="py-3 px-3 text-right font-mono font-extrabold text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-100/60 dark:bg-emerald-950/60 border-l border-r border-emerald-300">
+                                            {rp(metrics.total_current)}
+                                        </td>
+                                        <td colSpan={9} className="py-3 px-3 text-zinc-400 font-normal">
+                                            (Akumulasi dari {metrics.total_employees ?? 0} Karyawan Aktif)
+                                        </td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                     </CardContent>

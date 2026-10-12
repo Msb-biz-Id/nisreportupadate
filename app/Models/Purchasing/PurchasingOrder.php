@@ -90,6 +90,15 @@ class PurchasingOrder extends Model
         'grand_total',
         'payment_type',
         'payment_mode',
+        'disbursed_at',
+        'disbursed_amount',
+        'realized_at',
+        'realized_amount',
+        'remaining_amount',
+        'settlement_status',
+        'settlement_notes',
+        'settled_at',
+        'settled_by',
         'invoice_number',
         'invoice_file_path',
         'status',
@@ -127,6 +136,12 @@ class PurchasingOrder extends Model
     {
         return [
             'transaction_date' => 'date',
+            'disbursed_at' => 'date',
+            'disbursed_amount' => 'decimal:2',
+            'realized_at' => 'date',
+            'realized_amount' => 'decimal:2',
+            'remaining_amount' => 'decimal:2',
+            'settled_at' => 'datetime',
             'quantity' => 'decimal:2',
             'unit_price' => 'decimal:2',
             'subtotal' => 'decimal:2',
@@ -172,6 +187,11 @@ class PurchasingOrder extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(\App\Models\User::class, 'created_by');
+    }
+
+    public function settledBy(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'settled_by');
     }
 
     public function payments(): HasMany

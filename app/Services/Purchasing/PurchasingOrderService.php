@@ -637,4 +637,131 @@ class PurchasingOrderService
             'notes' => "Otomatis dibuat dari Purchase Order {$order->po_number}",
         ], $user);
     }
+
+    /**
+     * Pencairan Kas Bon Operasional oleh Finance ke Tim Purchasing (Pilar 2)
+     */
+    public function disburseFunds(
+        PurchasingOrder $order,
+        float $amount,
+        ?string $disbursedAt,
+        User $user,
+        ?string $notes = null
+    ): PurchasingOrder {
+        return DB::transaction(function () use ($order, $amount, $disbursedAt, $user, $notes) {
+            $date = $disbursedAt ? Carbon::parse($disbursedAt)->toDateString() : Carbon::today()->toDateString();
+            $updatedNotes = $order->notes;
+            if ($notes) {
+                $updatedNotes = ($updatedNotes ? $updatedNotes . "\n" : '') . "[Kas Bon Diterima: {$notes}]";
+            }
+
+            $order->update([
+                'disbursed_at' => $date,
+                'disbursed_amount' => max(0, $amount),
+                'settlement_status' => 'DISBURSED_PENDING_RECEIPT',
+                'finance_approved_by' => $order->finance_approved_by ?? $user->id,
+                'finance_approved_at' => $order->finance_approved_at ?? Carbon::now(),
+                'notes' => $updatedNotes,
+            ]);
+
+            ActivityLogger::log('disburse', 'purchasing', $order, "Kas bon sebesar Rp " . number_format($amount, 0, ',', '.') . " diterima untuk PO {$order->po_number} pada {$date}");
+
+            return $order;
+        });
+    }
+
+    /**
+     * Pelaporan Realisasi Belanja & Upload Nota Asli (Pilar 3 & Hitung Sisa Uang)
+     */
+    public function recordRealization(
+        PurchasingOrder $order,
+        float $realizedAmount,
+        ?string $realizedAt,
+        ?UploadedFile $invoiceFile,
+        User $user,
+        ?string $notes = null
+    ): PurchasingOrder {
+        return DB::transaction(function () use ($order, $realizedAmount, $realizedAt, $invoiceFile, $user, $notes) {
+            $date = $realizedAt ? Carbon::parse($realizedAt)->toDateString() : Carbon::today()->toDateString();
+            
+            $invoiceFilePath = $order->invoice_file_path;
+            if ($invoiceFile && $invoiceFile->isValid()) {
+                if ($order->invoice_file_path && Storage::disk('public')->exists($order->invoice_file_path)) {
+                    Storage::disk('public')->delete($order->invoice_file_path);
+                }
+                $invoiceFilePath = $this->storeInvoiceFile($invoiceFile, $order->po_number);
+            }
+
+            $disbursed = (float) ($order->disbursed_amount > 0 ? $order->disbursed_amount : $order->grand_total);
+            // Sisa Uang = Kas Bon Diterima - Pengeluaran Riil Nota
+            $remaining = round($disbursed - $realizedAmount, 2);
+
+            $settlementStatus = 'SETTLED';
+            $settledAt = Carbon::now();
+            $settledBy = $user->id;
+
+            if ($remaining > 0) {
+                // Surplus: Staf Purchasing wajib menyetor sisa kembalian ke Kasir CV
+                $settlementStatus = 'REFUND_PENDING';
+                $settledAt = null;
+                $settledBy = null;
+            } elseif ($remaining < 0) {
+                // Defisit: Staf menalangi, Akunting wajib mencairkan reimburse kekurangan
+                $settlementStatus = 'REIMBURSE_PENDING';
+                $settledAt = null;
+                $settledBy = null;
+            }
+
+            $updatedNotes = $order->notes;
+            if ($notes) {
+                $updatedNotes = ($updatedNotes ? $updatedNotes . "\n" : '') . "[Realisasi Belanja: {$notes}]";
+            }
+
+            $order->update([
+                'realized_at' => $date,
+                'realized_amount' => max(0, $realizedAmount),
+                'remaining_amount' => $remaining,
+                'settlement_status' => $settlementStatus,
+                'settled_at' => $settledAt,
+                'settled_by' => $settledBy,
+                'invoice_file_path' => $invoiceFilePath,
+                'status' => $settlementStatus === 'SETTLED' ? 'PURCHASE_COMPLETED' : $order->status,
+                'notes' => $updatedNotes,
+            ]);
+
+            ActivityLogger::log('realize', 'purchasing', $order, "Realisasi belanja PO {$order->po_number} dicatat sebesar Rp " . number_format($realizedAmount, 0, ',', '.') . " (Sisa: Rp " . number_format($remaining, 0, ',', '.') . ", Status: {$settlementStatus})");
+
+            return $order;
+        });
+    }
+
+    /**
+     * Konfirmasi Penyelesaian Sisa Uang (Setor Kembalian / Pencairan Reimburse)
+     */
+    public function settleRemaining(
+        PurchasingOrder $order,
+        User $user,
+        ?string $notes = null
+    ): PurchasingOrder {
+        return DB::transaction(function () use ($order, $user, $notes) {
+            $updatedNotes = $order->notes;
+            if ($notes) {
+                $updatedNotes = ($updatedNotes ? $updatedNotes . "\n" : '') . "[Settlement Sisa: {$notes}]";
+            }
+
+            $order->update([
+                'settlement_status' => 'SETTLED',
+                'settled_at' => Carbon::now(),
+                'settled_by' => $user->id,
+                'status' => 'PURCHASE_COMPLETED',
+                'settlement_notes' => $notes,
+                'notes' => $updatedNotes,
+            ]);
+
+            ActivityLogger::log('settle', 'purchasing', $order, "Penyelesaian sisa dana PO {$order->po_number} berhasil divalidasi dan ditutup ({$notes})");
+
+            return $order;
+        });
+    }
 }
+

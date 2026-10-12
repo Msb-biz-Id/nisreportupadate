@@ -33,6 +33,8 @@ import {
     Calculator,
     Percent,
     RotateCcw,
+    History,
+    ExternalLink,
 } from 'lucide-react';
 
 const rp = (v) => {
@@ -55,7 +57,27 @@ export default function SalaryDeductionIndex({
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [historyModalOpen, setHistoryModalOpen] = useState(false);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyData, setHistoryData] = useState(null);
     const [selectedDeduction, setSelectedDeduction] = useState(null);
+
+    const handleOpenEmployeeHistory = async (employeeId) => {
+        if (!employeeId) return;
+        setHistoryLoading(true);
+        setHistoryModalOpen(true);
+        try {
+            const res = await fetch(route('hcm.salary-deductions.employee-history', employeeId));
+            if (res.ok) {
+                const data = await res.json();
+                setHistoryData(data);
+            }
+        } catch (err) {
+            console.error('Failed to load history', err);
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
 
     // Form Tambah
     const createForm = useForm({
@@ -335,6 +357,14 @@ export default function SalaryDeductionIndex({
                     <div className="flex items-center justify-end gap-1">
                         <button
                             type="button"
+                            onClick={() => handleOpenEmployeeHistory(item.employee_id)}
+                            className="p-1 rounded text-zinc-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition"
+                            title="Riwayat Pemotongan Kontrak (Audit Trail)"
+                        >
+                            <History className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                            type="button"
                             onClick={() => handleOpenEdit(item)}
                             className="p-1 rounded text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
                             title="Edit Pemotongan"
@@ -604,14 +634,26 @@ export default function SalaryDeductionIndex({
                                     <div className="flex gap-1">
                                         <button
                                             type="button"
-                                            onClick={() => createForm.setData('percentage_rate', '25')}
+                                            onClick={() => {
+                                                createForm.setData((prev) => ({
+                                                    ...prev,
+                                                    percentage_rate: '25',
+                                                    notes: prev.notes || 'Potongan cuti melahirkan bulan ke-1 sebesar 25%',
+                                                }));
+                                            }}
                                             className="px-2 py-0.5 text-[10px] rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-medium"
                                         >
                                             Preset 25% (Bulan 1)
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => createForm.setData('percentage_rate', '50')}
+                                            onClick={() => {
+                                                createForm.setData((prev) => ({
+                                                    ...prev,
+                                                    percentage_rate: '50',
+                                                    notes: prev.notes || 'Potongan cuti melahirkan bulan ke-2 sebesar 50%',
+                                                }));
+                                            }}
                                             className="px-2 py-0.5 text-[10px] rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-medium"
                                         >
                                             Preset 50% (Bulan 2)
@@ -853,6 +895,152 @@ export default function SalaryDeductionIndex({
                             className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold"
                         >
                             Hapus Sekarang
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            {/* Modal Riwayat Pemotongan Kontrak (Audit Trail) */}
+            <Dialog open={historyModalOpen} onOpenChange={setHistoryModalOpen}>
+                <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+                    <DialogHeader>
+                        <div className="flex items-center justify-between">
+                            <DialogTitle className="text-base font-bold flex items-center gap-2">
+                                <History className="h-4 w-4 text-blue-600" />
+                                <span>Riwayat Pemotongan Gaji (Audit Trail)</span>
+                            </DialogTitle>
+                            {historyData?.employee?.id && (
+                                <Link
+                                    href={`/hcm/employees/${historyData.employee.id}`}
+                                    className="text-xs text-blue-600 hover:underline flex items-center gap-1 font-medium mr-6"
+                                    target="_blank"
+                                >
+                                    <span>Buka Dossier 360</span>
+                                    <ExternalLink className="h-3 w-3" />
+                                </Link>
+                            )}
+                        </div>
+                        <DialogDescription className="text-xs">
+                            Rekapitulasi riwayat pemotongan gaji dan sanksi kedisiplinan karyawan selama masa kontrak kerja.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {historyLoading ? (
+                        <div className="py-12 text-center text-xs text-zinc-500">
+                            Memuat data riwayat pemotongan...
+                        </div>
+                    ) : historyData ? (
+                        <div className="space-y-4 overflow-y-auto pr-1">
+                            {/* Info Karyawan & Kontrak */}
+                            <div className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 grid grid-cols-2 gap-3 text-xs">
+                                <div>
+                                    <div className="text-[11px] text-zinc-400">Nama & NIK</div>
+                                    <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                                        {historyData.employee?.name} ({historyData.employee?.employee_code || '-'})
+                                    </div>
+                                    <div className="text-[11px] text-zinc-500">
+                                        {historyData.employee?.department} • {historyData.employee?.division || '-'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="text-[11px] text-zinc-400">Kontrak Aktif</div>
+                                    {historyData.active_contract ? (
+                                        <div>
+                                            <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                                                {historyData.active_contract.contract_number} ({historyData.active_contract.contract_type})
+                                            </div>
+                                            <div className="text-[11px] text-zinc-500">
+                                                Periode: {historyData.active_contract.start_date || '-'} s/d {historyData.active_contract.end_date || '-'}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-zinc-500 italic">Tidak ada kontrak aktif terdaftar</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Akumulasi Ringkasan */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 rounded-lg border border-rose-100 dark:border-rose-950/40 bg-rose-50/50 dark:bg-rose-950/20">
+                                    <div className="text-[11px] text-rose-700 dark:text-rose-400 font-medium">Total Akumulasi Pemotongan</div>
+                                    <div className="text-lg font-bold text-rose-600 dark:text-rose-400 font-mono">
+                                        {rp(historyData.total_deductions_amount)}
+                                    </div>
+                                </div>
+                                <div className="p-3 rounded-lg border border-blue-100 dark:border-blue-950/40 bg-blue-50/50 dark:bg-blue-950/20">
+                                    <div className="text-[11px] text-blue-700 dark:text-blue-400 font-medium">Frekuensi Pemotongan</div>
+                                    <div className="text-lg font-bold text-blue-600 dark:text-blue-400 font-mono">
+                                        {historyData.total_deductions_count} Kali
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Daftar Catatan */}
+                            <div>
+                                <h4 className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
+                                    Catatan Kronologis Pemotongan ({historyData.deductions?.length || 0})
+                                </h4>
+                                {historyData.deductions?.length === 0 ? (
+                                    <div className="py-6 text-center text-xs text-zinc-400 border rounded-lg border-dashed">
+                                        Belum ada riwayat pemotongan gaji untuk karyawan ini.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {historyData.deductions.map((item) => (
+                                            <div
+                                                key={item.id}
+                                                className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs space-y-1.5"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-zinc-800 dark:text-zinc-200 font-mono">
+                                                            {item.effective_payroll_month}
+                                                        </span>
+                                                        <Badge
+                                                            variant="outline"
+                                                            className="text-[10px] bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300"
+                                                        >
+                                                            {item.deduction_category}
+                                                        </Badge>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="font-bold font-mono text-rose-600 dark:text-rose-400 text-sm">
+                                                            -{rp(item.deduction_amount)}
+                                                        </span>
+                                                        {item.calculation_type === 'percent' && (
+                                                            <span className="text-[10px] text-zinc-400 ml-1">
+                                                                ({item.percentage_rate}%)
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="text-[11px] text-zinc-600 dark:text-zinc-300 italic">
+                                                    "{item.notes || 'Tanpa catatan'}"
+                                                </div>
+                                                <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                                                    <div>
+                                                        Gaji Pokok: {rp(item.base_salary_snapshot)} → Take Home: {rp(item.net_salary_snapshot)}
+                                                    </div>
+                                                    <div>
+                                                        Oleh: {item.creator_name} ({item.created_at})
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : null}
+
+                    <DialogFooter className="pt-3 border-t">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setHistoryModalOpen(false)}
+                            className="text-xs"
+                        >
+                            Tutup
                         </Button>
                     </DialogFooter>
                 </DialogContent>

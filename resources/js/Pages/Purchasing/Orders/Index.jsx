@@ -49,6 +49,7 @@ export default function Index({
 }) {
     const [search, setSearch] = useState(filters.search || '');
     const [status, setStatus] = useState(filters.status || 'all');
+    const [settlementStatus, setSettlementStatus] = useState(filters.settlement_status || 'all');
     const [orderType, setOrderType] = useState(filters.order_type || 'all');
     const [department, setDepartment] = useState(filters.department || 'all');
     const [locationId, setLocationId] = useState(filters.location_id ? String(filters.location_id) : 'all');
@@ -58,6 +59,7 @@ export default function Index({
         const queryParams = {
             search: search || undefined,
             status: status !== 'all' ? status : undefined,
+            settlement_status: settlementStatus !== 'all' ? settlementStatus : undefined,
             order_type: orderType !== 'all' ? orderType : undefined,
             department: department !== 'all' ? department : undefined,
             location_id: locationId !== 'all' ? locationId : undefined,
@@ -78,6 +80,7 @@ export default function Index({
     const resetFilters = () => {
         setSearch('');
         setStatus('all');
+        setSettlementStatus('all');
         setOrderType('all');
         setDepartment('all');
         setLocationId('all');
@@ -185,13 +188,13 @@ export default function Index({
         },
         {
             accessorKey: 'item_name',
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Barang / Jasa" />,
-            meta: { title: 'Barang / Jasa' },
-            size: 220,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Barang / Kebutuhan" />,
+            meta: { title: 'Barang' },
+            size: 200,
             cell: ({ row }) => {
                 const order = row.original;
                 return (
-                    <div className="w-[210px]">
+                    <div className="w-[190px]">
                         <p className="font-semibold text-slate-900 dark:text-slate-100 truncate text-xs" title={order.item_name}>
                             {order.item_name}
                         </p>
@@ -203,56 +206,105 @@ export default function Index({
             },
         },
         {
-            accessorKey: 'vendor_name',
-            id: 'vendor',
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Vendor & Kontak" />,
-            meta: { title: 'Vendor' },
-            size: 180,
+            accessorKey: 'dates_timeline',
+            header: () => <div className="text-left font-semibold text-xs">Rekam 3 Tanggal</div>,
+            meta: { title: '3 Tanggal' },
+            size: 190,
             cell: ({ row }) => {
-                const order = row.original;
-                const vendorName = order.vendor?.name || order.vendor_name_manual || '-';
-                const vendorPhone = order.vendor?.primary_contact?.phone || order.vendor?.phone;
-                const cleanPhone = getCleanPhone(vendorPhone);
+                const o = row.original;
                 return (
-                    <div className="w-[170px]">
-                        <p className="font-medium text-slate-800 dark:text-slate-200 truncate text-xs" title={vendorName}>
-                            {vendorName}
-                        </p>
-                        {cleanPhone ? (
-                            <a
-                                href={`https://wa.me/${cleanPhone}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-[11px] text-emerald-600 hover:underline mt-0.5 truncate"
-                            >
-                                <Phone className="w-3 h-3 shrink-0" />
-                                <span className="truncate">{vendorPhone}</span>
-                            </a>
-                        ) : (
-                            <span className="text-[11px] text-slate-400">-</span>
-                        )}
+                    <div className="w-[180px] space-y-1 text-[11px]">
+                        <div className="flex items-center justify-between gap-1 text-slate-600 dark:text-slate-300">
+                            <span className="text-slate-400 font-medium">1. Pengajuan:</span>
+                            <span className="font-semibold">{formatDate(o.transaction_date)}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-1">
+                            <span className="text-slate-400 font-medium">2. Diterima:</span>
+                            <span className={`font-semibold ${o.disbursed_at ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 italic'}`}>
+                                {o.disbursed_at ? formatDate(o.disbursed_at) : 'Belum cair'}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-1">
+                            <span className="text-slate-400 font-medium">3. Realisasi:</span>
+                            <span className={`font-semibold ${o.realized_at ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 italic'}`}>
+                                {o.realized_at ? formatDate(o.realized_at) : 'Belum ada nota'}
+                            </span>
+                        </div>
                     </div>
                 );
             },
         },
         {
-            accessorKey: 'grand_total',
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Nilai Grand Total" className="justify-end" />,
-            meta: { title: 'Grand Total' },
-            size: 140,
-            cell: ({ row }) => (
-                <div className="w-[130px] text-right font-mono font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm whitespace-nowrap">
-                    {formatRupiah(row.original.grand_total)}
-                </div>
-            ),
+            accessorKey: 'financial_settlement',
+            header: () => <div className="text-right font-semibold text-xs pr-1">Kas Bon & Realisasi</div>,
+            meta: { title: 'Kas Bon & Realisasi' },
+            size: 160,
+            cell: ({ row }) => {
+                const o = row.original;
+                return (
+                    <div className="w-[150px] text-right space-y-0.5 text-[11px] font-mono">
+                        <div className="flex items-center justify-between text-slate-500">
+                            <span className="font-sans text-[10px] text-slate-400">Pengajuan:</span>
+                            <span>{formatRupiah(o.grand_total)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
+                            <span className="font-sans text-[10px] text-slate-400">Diterima:</span>
+                            <span className="font-semibold">{formatRupiah(o.disbursed_amount || 0)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-800 dark:text-slate-200">
+                            <span className="font-sans text-[10px] text-slate-400">Realisasi:</span>
+                            <span className="font-semibold">{formatRupiah(o.realized_amount || 0)}</span>
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'remaining_amount',
+            header: () => <div className="text-right font-semibold text-xs pr-1">Sisa Uang & Status</div>,
+            meta: { title: 'Sisa Uang' },
+            size: 160,
+            cell: ({ row }) => {
+                const o = row.original;
+                const rem = parseFloat(o.remaining_amount || 0);
+                const status = o.settlement_status || 'NONE';
+
+                let badge = null;
+                if (status === 'DISBURSED_PENDING_RECEIPT') {
+                    badge = <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-[10px] px-1.5 py-0 font-medium">Nota Belum Diunggah</Badge>;
+                } else if (status === 'REFUND_PENDING') {
+                    badge = <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] px-1.5 py-0 font-semibold">Setor Kembalian</Badge>;
+                } else if (status === 'REIMBURSE_PENDING') {
+                    badge = <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-300 text-[10px] px-1.5 py-0 font-semibold">Klaim Reimburse</Badge>;
+                } else if (status === 'SETTLED') {
+                    badge = <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-300 text-[10px] px-1.5 py-0 font-medium">Selesai / Pas</Badge>;
+                } else {
+                    badge = <span className="text-[10px] text-slate-400">-</span>;
+                }
+
+                return (
+                    <div className="w-[150px] text-right space-y-1">
+                        <div className="font-mono font-bold text-xs whitespace-nowrap">
+                            {rem > 0 ? (
+                                <span className="text-emerald-600 dark:text-emerald-400">+{formatRupiah(rem)}</span>
+                            ) : rem < 0 ? (
+                                <span className="text-rose-600 dark:text-rose-400">-{formatRupiah(Math.abs(rem))}</span>
+                            ) : (
+                                <span className="text-slate-400">Rp 0</span>
+                            )}
+                        </div>
+                        <div>{badge}</div>
+                    </div>
+                );
+            },
         },
         {
             accessorKey: 'status',
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" className="justify-center" />,
-            meta: { title: 'Status' },
-            size: 140,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Approval" className="justify-center" />,
+            meta: { title: 'Approval' },
+            size: 130,
             cell: ({ row }) => (
-                <div className="w-[130px] text-center whitespace-nowrap">
+                <div className="w-[120px] text-center whitespace-nowrap">
                     {getStatusBadge(row.original.status)}
                 </div>
             ),
@@ -419,6 +471,66 @@ export default function Index({
                     </Card>
                 </div>
 
+                {/* Banner Pengingat Penyelesaian Sisa Belanja Operasional (Settlement Reminder) */}
+                {(metrics.total_unsettled_proposals || 0) > 0 && (
+                    <div className="rounded-xl border border-amber-300 bg-amber-50/70 dark:bg-amber-950/30 dark:border-amber-800/80 p-4 shadow-xs">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 shrink-0 mt-0.5">
+                                    <AlertTriangle className="w-5 h-5" />
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <h3 className="font-bold text-amber-900 dark:text-amber-200 text-sm">
+                                            Pengingat Penyelesaian Sisa Belanja & LPJ Operasional
+                                        </h3>
+                                        <Badge variant="outline" className="bg-amber-200/60 dark:bg-amber-900 text-amber-900 dark:text-amber-200 border-amber-400 font-bold text-[10px]">
+                                            {metrics.total_unsettled_proposals} Pengajuan Belum Tuntas
+                                        </Badge>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-amber-900/80 dark:text-amber-300/80">
+                                        <span>
+                                            • Nota Belum Diunggah: <strong>{metrics.pending_receipt_count || 0}</strong>
+                                            {(metrics.overdue_receipt_count || 0) > 0 && (
+                                                <span className="text-rose-600 font-bold ml-1">({metrics.overdue_receipt_count} Terlambat &gt; H+3)</span>
+                                            )}
+                                        </span>
+                                        <span>
+                                            • Sisa Kembalian Wajib Disetor: <strong>{metrics.pending_refund_count || 0} PO</strong> ({formatRupiah(metrics.total_refund_amount || 0)})
+                                        </span>
+                                        <span>
+                                            • Klaim Reimburse Kekurangan: <strong>{metrics.pending_reimburse_count || 0} PO</strong> ({formatRupiah(metrics.total_reimburse_amount || 0)})
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                        setSettlementStatus('DISBURSED_PENDING_RECEIPT');
+                                        handleFilterChange({ settlement_status: 'DISBURSED_PENDING_RECEIPT', page: 1 });
+                                    }}
+                                    className="bg-white dark:bg-slate-900 text-amber-900 dark:text-amber-200 border-amber-300 text-xs h-8"
+                                >
+                                    Cek Nota Belum Masuk
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={() => {
+                                        setSettlementStatus('REFUND_PENDING');
+                                        handleFilterChange({ settlement_status: 'REFUND_PENDING', page: 1 });
+                                    }}
+                                    className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 font-medium shadow-xs"
+                                >
+                                    Cek Sisa Kembalian
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* TanStack Table v9 - Order Pembelian */}
                 <DataTable
                     columns={columns}
@@ -444,13 +556,29 @@ export default function Index({
                                 }}
                                 className="h-8 text-xs rounded-lg border-slate-200 dark:border-slate-800 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-1 pl-2.5 pr-7"
                             >
-                                <option value="all">Semua Status</option>
+                                <option value="all">Semua Approval</option>
                                 <option value="pending_approval">Menunggu Persetujuan (Semua)</option>
                                 <option value="PENDING_PIC_CHECK">Menunggu PIC</option>
                                 <option value="APPROVED_BY_PIC">Menunggu Finance</option>
                                 <option value="DRAFT">Draft</option>
                                 <option value="PURCHASE_COMPLETED">Selesai</option>
                                 <option value="REJECTED">Ditolak</option>
+                            </select>
+
+                            {/* Filter Status Settlement / Sisa Uang */}
+                            <select
+                                value={settlementStatus}
+                                onChange={(e) => {
+                                    setSettlementStatus(e.target.value);
+                                    handleFilterChange({ settlement_status: e.target.value !== 'all' ? e.target.value : undefined, page: 1 });
+                                }}
+                                className="h-8 text-xs rounded-lg border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-slate-800 text-amber-900 dark:text-amber-200 font-medium py-1 pl-2.5 pr-7"
+                            >
+                                <option value="all">Semua Status Sisa</option>
+                                <option value="DISBURSED_PENDING_RECEIPT">Nota Belum Diunggah</option>
+                                <option value="REFUND_PENDING">Menunggu Setor Kembalian</option>
+                                <option value="REIMBURSE_PENDING">Menunggu Cair Reimburse</option>
+                                <option value="SETTLED">Selesai (Settled / Pas)</option>
                             </select>
 
                             {/* Filter Tipe Belanja */}

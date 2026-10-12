@@ -3,6 +3,7 @@
 namespace Database\Seeders\Purchasing;
 
 use App\Models\Purchasing\PurchasingAsset;
+use App\Models\Purchasing\PurchasingAssetMaintenance;
 use App\Models\Purchasing\PurchasingAssetMutation;
 use App\Models\Purchasing\PurchasingAssetRetirement;
 use App\Models\Purchasing\PurchasingMasterOption;
@@ -302,5 +303,63 @@ class PurchasingAssetSeeder extends Seeder
                 'notes' => 'Dijual ke pihak ketiga karena motor penggerak terbakar',
             ]
         );
+
+        // 8. Pemeliharaan & Servis Aset (Asset Maintenance Records)
+        $mesinPotong = PurchasingAsset::where('asset_code', 'MSN.PRD.026.001')->first();
+        if ($mesinPotong) {
+            PurchasingAssetMaintenance::firstOrCreate(
+                [
+                    'asset_id' => $mesinPotong->id,
+                    'maintenance_date' => '2026-06-10',
+                ],
+                [
+                    'uuid' => (string) Str::uuid(),
+                    'service_type' => 'Servis Berkala / Overhaul Pisau',
+                    'vendor_workshop' => 'Bengkel Teknik Presisi Solo',
+                    'issue_description' => 'Mata pisau tumpul dan belt penggerak bergetar saat motong kain tebal',
+                    'action_taken' => 'Penggantian mata pisau kaisar 10 inch, penyetelan timing belt, dan pelumasan bearing utama',
+                    'cost' => 350000.00,
+                    'status' => 'COMPLETED',
+                    'notes' => 'Selesai dalam 1 hari kerja, kondisi mesin kembali tajam dan stabil.',
+                ]
+            );
+
+            PurchasingAssetMaintenance::firstOrCreate(
+                [
+                    'asset_id' => $mesinPotong->id,
+                    'maintenance_date' => '2026-09-20',
+                ],
+                [
+                    'uuid' => (string) Str::uuid(),
+                    'service_type' => 'Perawatan Rutin & Kalibrasi',
+                    'vendor_workshop' => 'Tim Mekanik Internal NIS',
+                    'issue_description' => 'Pembersihan debu serat kain di ruang dinamo dan pelumasan oli mesin',
+                    'action_taken' => 'Bongkar cover pelindung, semprot angin kompresor, ganti oli pelumas putaran tinggi',
+                    'cost' => 75000.00,
+                    'status' => 'COMPLETED',
+                    'notes' => 'Dilakukan oleh tim teknisi internal pabrik.',
+                ]
+            );
+        }
+
+        $laptop = PurchasingAsset::where('asset_code', 'IT.FIN.026.002')->first();
+        if ($laptop) {
+            PurchasingAssetMaintenance::firstOrCreate(
+                [
+                    'asset_id' => $laptop->id,
+                    'maintenance_date' => '2026-08-15',
+                ],
+                [
+                    'uuid' => (string) Str::uuid(),
+                    'service_type' => 'Upgrade & Servis Hardware',
+                    'vendor_workshop' => 'Cyber Computer IT Solution',
+                    'issue_description' => 'Kipas pendingin laptop berisik dan RAM 8GB sering penuh saat olah data besar',
+                    'action_taken' => 'Pembersihan fan pendingin, repaste thermal paste Grizzly, penambahan RAM DDR4 16GB Kingston',
+                    'cost' => 650000.00,
+                    'status' => 'COMPLETED',
+                    'notes' => 'Kinerja laptop sangat lancar untuk operasional Finance & Payroll.',
+                ]
+            );
+        }
     }
 }

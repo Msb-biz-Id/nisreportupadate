@@ -403,6 +403,7 @@ export default function AttendanceIndex({
                 items: dailyRows.map((r) => ({
                     employee_id: r.employee_id,
                     position: r.position,
+                    shift_id: r.shift_id,
                     attendance_category: r.attendance_category,
                     clock_in: r.clock_in,
                     clock_out: r.clock_out,
@@ -612,6 +613,15 @@ export default function AttendanceIndex({
                                 </span>
                             )}
                         </button>
+
+                        <Link
+                            href={route('hcm.shifts.index')}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-xs"
+                            title="Buka Manajemen Multi-Shift & Roster Jadwal"
+                        >
+                            <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+                            <span>Roster & Shift</span>
+                        </Link>
                     </div>
                 </div>
 
@@ -1454,6 +1464,17 @@ export default function AttendanceIndex({
                                                                     Reguler
                                                                 </span>
                                                             )}
+                                                            <span
+                                                                className="px-1.5 py-0.5 rounded text-[9px] font-bold border shrink-0"
+                                                                style={{
+                                                                    backgroundColor: `${row.shift_color || '#2563eb'}18`,
+                                                                    borderColor: `${row.shift_color || '#2563eb'}40`,
+                                                                    color: row.shift_color || '#2563eb',
+                                                                }}
+                                                                title={`Shift: ${row.shift_name || 'Shift Reguler'} (${row.is_off_day ? 'Off' : `${row.clock_in || '08:00'} - ${row.clock_out || '17:00'}`})`}
+                                                            >
+                                                                {row.shift_code || 'REG'}
+                                                            </span>
                                                         </div>
                                                         <div className="text-[10px] text-zinc-400 font-mono">{row.employee_code}</div>
                                                     </td>

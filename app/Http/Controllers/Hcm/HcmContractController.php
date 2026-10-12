@@ -29,7 +29,10 @@ class HcmContractController extends Controller
         $reviewStatus = $request->input('review_status');
         $employmentStatus = $request->input('employment_status');
 
-        $query = HcmContract::with(['employee:id,name,nickname,employee_code,department,division,legal_entity,is_active,photo_url,join_date,original_join_date'])
+        $query = HcmContract::with([
+            'employee:id,name,nickname,employee_code,department,division,legal_entity,is_active,photo_url,join_date,original_join_date',
+            'employee.compensation',
+        ])
             ->orderByDesc('start_date');
 
         if ($search) {

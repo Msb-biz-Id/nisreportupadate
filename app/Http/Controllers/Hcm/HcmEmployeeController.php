@@ -348,6 +348,7 @@ class HcmEmployeeController extends Controller
             'leaveRequests' => fn ($q) => $q->orderBy('start_date', 'desc')->limit(10),
             'overtimes.batch' => fn ($q) => $q->orderBy('overtime_date', 'desc')->limit(20),
             'rewards' => fn ($q) => $q->orderByDesc('reward_year')->orderByDesc('id'),
+            'salaryDeductions.creator:id,name',
         ]);
 
         return Inertia::render('Hcm/Employees/Show', [
