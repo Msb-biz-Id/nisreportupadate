@@ -8,6 +8,31 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $employee_id
+ * @property string|null $contract_number
+ * @property int|null $contract_sequence
+ * @property string|null $employment_status
+ * @property string|null $position
+ * @property string|null $legal_entity
+ * @property string|null $duration_text
+ * @property string|null $trainee_start_month
+ * @property string|null $trainee_end_month
+ * @property string|null $contract_month
+ * @property int|null $start_year
+ * @property string|null $end_year
+ * @property Carbon|null $start_date
+ * @property Carbon|null $end_date
+ * @property string|null $review_status
+ * @property string|null $file_contract_url
+ * @property string|null $notes
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read int|null $days_remaining
+ * @property-read HcmEmployee|null $employee
+ */
 class HcmContract extends Model
 {
     use HasFactory;

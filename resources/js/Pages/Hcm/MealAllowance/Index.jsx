@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
     UtensilsCrossed,
     Calendar,
@@ -23,14 +23,7 @@ import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/Components/ui/table';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -78,12 +71,14 @@ export default function MealAllowanceIndex({
         });
     };
 
-    const handleApplyFilter = (newStatus = status, newSearch = search) => {
+    const handleApplyFilter = (newStatus = status, newSearch = search, page = 1, per_page = batches.per_page) => {
         router.get(
             route('hcm.meal-allowance.index'),
             {
                 status: newStatus,
                 search: newSearch,
+                page,
+                per_page,
             },
             {
                 preserveState: true,
@@ -131,6 +126,102 @@ export default function MealAllowanceIndex({
             icon: Lock,
         },
     };
+
+    const columns = useMemo(
+        () => [
+            {
+                accessorKey: 'batch_code',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Kode Batch" />,
+                cell: ({ row }) => (
+                    <span className="font-mono font-bold text-xs text-indigo-600 dark:text-indigo-400">
+                        {row.original.batch_code}
+                    </span>
+                ),
+                meta: { title: 'Kode Batch' },
+            },
+            {
+                id: 'period',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Periode Bulan" />,
+                cell: ({ row }) => (
+                    <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                        Bulan {row.original.period_month} / {row.original.period_year}
+                    </span>
+                ),
+                meta: { title: 'Periode Bulan' },
+            },
+            {
+                accessorKey: 'total_employees',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Staf Terhitung" className="justify-center" />,
+                cell: ({ row }) => (
+                    <div className="text-center">
+                        <Badge variant="outline" className="text-xs font-mono">
+                            {row.original.total_employees} Orang
+                        </Badge>
+                    </div>
+                ),
+                meta: { title: 'Staf Terhitung' },
+            },
+            {
+                accessorKey: 'total_amount',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Dana Dibayarkan" className="justify-end" />,
+                cell: ({ row }) => (
+                    <div className="text-right font-bold text-xs text-emerald-600 dark:text-emerald-400 font-mono">
+                        {formatRp(row.original.total_amount)}
+                    </div>
+                ),
+                meta: { title: 'Dana Dibayarkan' },
+            },
+            {
+                accessorKey: 'total_held_amount',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Dana Ditahan (HOLD)" className="justify-end" />,
+                cell: ({ row }) => (
+                    <div className="text-right font-mono text-xs text-rose-500 font-medium">
+                        {formatRp(row.original.total_held_amount)}
+                    </div>
+                ),
+                meta: { title: 'Dana Ditahan' },
+            },
+            {
+                accessorKey: 'status',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Status Sign-Off" className="justify-center" />,
+                cell: ({ row }) => {
+                    const b = row.original;
+                    const badgeConfig = STATUS_BADGES[b.status] || STATUS_BADGES.DRAFT;
+                    const BadgeIcon = badgeConfig.icon;
+                    return (
+                        <div className="text-center">
+                            <Badge className={`text-xs gap-1 py-0.5 ${badgeConfig.class}`}>
+                                <BadgeIcon className="h-3 w-3" />
+                                {badgeConfig.label}
+                            </Badge>
+                        </div>
+                    );
+                },
+                meta: { title: 'Status Sign-Off' },
+            },
+            {
+                id: 'actions',
+                header: () => <div className="text-center text-xs font-semibold">Aksi</div>,
+                cell: ({ row }) => {
+                    const b = row.original;
+                    return (
+                        <div className="text-center">
+                            <Link
+                                href={route('hcm.meal-allowance.show', b.batch_code || b.id)}
+                                className="inline-flex items-center gap-1 text-xs text-indigo-600 font-medium hover:underline"
+                            >
+                                Lembar Rekap
+                                <ArrowRight className="h-3.5 w-3.5" />
+                            </Link>
+                        </div>
+                    );
+                },
+                enableSorting: false,
+                meta: { title: 'Aksi' },
+            },
+        ],
+        []
+    );
 
     return (
         <AppLayout
@@ -237,124 +328,36 @@ export default function MealAllowanceIndex({
                     </div>
                 </Card>
 
-                {/* 3. Filter Bar */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm p-3">
-                    <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-[200px] w-full md:w-auto">
-                            <Label className="text-xs font-medium text-zinc-500 whitespace-nowrap">Status:</Label>
+                {/* 3. Tabel Batch Uang Makan Bulanan with DataTable */}
+                <DataTable
+                    columns={columns}
+                    data={batches.data || []}
+                    serverPagination={batches}
+                    onServerPageChange={(page) => handleApplyFilter(status, search, page)}
+                    onServerPerPageChange={(per_page) => handleApplyFilter(status, search, 1, per_page)}
+                    onServerSearchChange={(val) => {
+                        setSearch(val);
+                        handleApplyFilter(status, val, 1);
+                    }}
+                    searchValue={search}
+                    searchPlaceholder="Cari kode batch..."
+                    exportFileName={`Batch_Uang_Makan_${new Date().toISOString().slice(0, 10)}`}
+                    filterSlot={
+                        <div className="flex items-center gap-2 min-w-[200px]">
                             <SearchableSelect
                                 value={status}
                                 onValueChange={(val) => {
                                     setStatus(val);
-                                    handleApplyFilter(val, search);
+                                    handleApplyFilter(val, search, 1);
                                 }}
                                 options={statusOptions}
                                 placeholder="Pilih Status..."
                                 clearable={false}
-                                className="h-8 text-xs w-full md:w-[220px]"
+                                className="h-8 text-xs w-[220px]"
                             />
                         </div>
-
-                        <div className="relative w-full md:w-[260px]">
-                            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-400" />
-                            <Input
-                                placeholder="Cari kode batch..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        handleApplyFilter(status, search);
-                                    }
-                                }}
-                                className="h-8 pl-8 text-xs"
-                            />
-                        </div>
-                    </div>
-                </Card>
-
-                {/* 4. Tabel Batch Uang Makan Bulanan */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-zinc-50 dark:bg-zinc-800/50">
-                                <TableRow>
-                                    <TableHead className="min-w-[130px] text-xs font-bold">Kode Batch</TableHead>
-                                    <TableHead className="min-w-[130px] text-xs font-bold">Periode Bulan</TableHead>
-                                    <TableHead className="min-w-[120px] text-xs font-bold text-center">Staf Terhitung</TableHead>
-                                    <TableHead className="min-w-[140px] text-xs font-bold text-right">Dana Dibayarkan</TableHead>
-                                    <TableHead className="min-w-[140px] text-xs font-bold text-right">Dana Ditahan (HOLD)</TableHead>
-                                    <TableHead className="min-w-[160px] text-xs font-bold text-center">Status Sign-Off</TableHead>
-                                    <TableHead className="min-w-[120px] text-xs font-bold text-right">Aksi</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {batches.data && batches.data.length > 0 ? (
-                                    batches.data.map((b) => {
-                                        const badgeConfig = STATUS_BADGES[b.status] || STATUS_BADGES.DRAFT;
-                                        const BadgeIcon = badgeConfig.icon;
-
-                                        return (
-                                            <TableRow key={b.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                                                <TableCell>
-                                                    <span className="font-mono font-bold text-xs text-indigo-600 dark:text-indigo-400">
-                                                        {b.batch_code}
-                                                    </span>
-                                                </TableCell>
-
-                                                <TableCell>
-                                                    <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
-                                                        Bulan {b.period_month} / {b.period_year}
-                                                    </span>
-                                                </TableCell>
-
-                                                <TableCell className="text-center">
-                                                    <Badge variant="outline" className="text-xs font-mono">
-                                                        {b.total_employees} Orang
-                                                    </Badge>
-                                                </TableCell>
-
-                                                <TableCell className="text-right">
-                                                    <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400 font-mono">
-                                                        {formatRp(b.total_amount)}
-                                                    </span>
-                                                </TableCell>
-
-                                                <TableCell className="text-right">
-                                                    <span className="font-mono text-xs text-rose-500 font-medium">
-                                                        {formatRp(b.total_held_amount)}
-                                                    </span>
-                                                </TableCell>
-
-                                                <TableCell className="text-center">
-                                                    <Badge className={`text-xs gap-1 py-0.5 ${badgeConfig.class}`}>
-                                                        <BadgeIcon className="h-3 w-3" />
-                                                        {badgeConfig.label}
-                                                    </Badge>
-                                                </TableCell>
-
-                                                <TableCell className="text-right">
-                                                    <Link
-                                                        href={route('hcm.meal-allowance.show', b.batch_code || b.id)}
-                                                        className="inline-flex items-center gap-1 text-xs text-indigo-600 font-medium hover:underline"
-                                                    >
-                                                        Lembar Rekap
-                                                        <ArrowRight className="h-3.5 w-3.5" />
-                                                    </Link>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="h-32 text-center text-xs text-zinc-400">
-                                            Belum ada batch uang makan yang dibuat. Silakan klik tombol Generate di atas.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </Card>
+                    }
+                />
             </div>
 
             {/* MODAL 1: Generate Batch Uang Makan */}

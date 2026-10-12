@@ -9,6 +9,30 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property string $vendor_code
+ * @property string $name
+ * @property string|null $category
+ * @property string|null $item_category
+ * @property string|null $item_name
+ * @property string|null $specification
+ * @property string|null $address
+ * @property string|null $bank_name
+ * @property string|null $bank_account_no
+ * @property string|null $bank_account_holder
+ * @property int|null $default_top_days
+ * @property bool $is_active
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Purchasing\PurchasingVendorContact[] $contacts
+ * @property-read \App\Models\Purchasing\PurchasingVendorContact|null $primaryContact
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Purchasing\PurchasingOrder[] $orders
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Purchasing\PurchasingAsset[] $assets
+ */
 class PurchasingVendor extends Model
 {
     use HasFactory, SoftDeletes;

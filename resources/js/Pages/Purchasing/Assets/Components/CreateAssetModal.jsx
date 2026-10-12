@@ -7,6 +7,7 @@ export default function CreateAssetModal({
     onClose, 
     categories = [], 
     departments = [], 
+    departmentDivisionMap = {},
     employees = [], 
     locations = [], 
     units = [] 
@@ -57,13 +58,20 @@ export default function CreateAssetModal({
         return () => clearTimeout(timeout);
     }, [form.data.asset_name]);
 
+    // Opsi divisi dinamis terikat departemen terpilih
+    const availableDivisions = form.data.department && departmentDivisionMap[form.data.department]
+        ? departmentDivisionMap[form.data.department]
+        : Object.values(departmentDivisionMap).flat().filter((v, i, a) => a.indexOf(v) === i);
+
     const handleSelectDepartment = (e) => {
         const selectedDeptName = e.target.value;
         const found = departments.find(d => d.name === selectedDeptName);
+        const validDivs = selectedDeptName ? (departmentDivisionMap[selectedDeptName] || []) : [];
         form.setData({
             ...form.data,
             department: selectedDeptName,
-            department_code: found ? found.code : ''
+            department_code: found ? found.code : '',
+            division: validDivs.includes(form.data.division) ? form.data.division : '',
         });
     };
 
@@ -193,24 +201,63 @@ export default function CreateAssetModal({
                         </div>
                     </div>
 
-                    {/* Pemegang Fisik (Karyawan) & Lokasi */}
+                    {/* Divisi (Cascaded dari Departemen) & Pemegang Fisik */}
                     <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                Divisi Operasional (HRIS)
+                            </label>
+                            <select
+                                value={form.data.division}
+                                onChange={(e) => form.setData('division', e.target.value)}
+                                className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:ring-indigo-500"
+                            >
+                                <option value="">-- Pilih Divisi {form.data.department ? `(${form.data.department})` : ''} --</option>
+                                {availableDivisions.map((div, idx) => (
+                                    <option key={idx} value={div}>{div}</option>
+                                ))}
+                            </select>
+                        </div>
+
                         <div>
                             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                                 Pemegang Fisik (PIC Karyawan)
                             </label>
                             <select
                                 value={form.data.pic_employee_id}
-                                onChange={(e) => form.setData('pic_employee_id', e.target.value)}
+                                onChange={(e) => {
+                                    const empId = e.target.value;
+                                    const emp = employees.find(em => String(em.id) === String(empId));
+                                    if (emp) {
+                                        const foundDept = departments.find(d => d.name === emp.department);
+                                        form.setData({
+                                            ...form.data,
+                                            pic_employee_id: empId,
+                                            ...(emp.department ? {
+                                                department: emp.department,
+                                                department_code: foundDept ? foundDept.code : form.data.department_code,
+                                            } : {}),
+                                            ...(emp.division ? { division: emp.division } : {}),
+                                            ...(emp.position ? { position: emp.position } : {}),
+                                        });
+                                    } else {
+                                        form.setData('pic_employee_id', empId);
+                                    }
+                                }}
                                 className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800"
                             >
                                 <option value="">Pilih Karyawan HRIS</option>
                                 {employees.map((emp) => (
-                                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.department})</option>
+                                    <option key={emp.id} value={emp.id}>
+                                        {emp.name} ({emp.department || 'Umum'}{emp.division ? ` - ${emp.division}` : ''})
+                                    </option>
                                 ))}
                             </select>
                         </div>
+                    </div>
 
+                    {/* Lokasi Ruko & Satuan Barang */}
+                    <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                                 Lokasi Ruko / Gudang
@@ -221,9 +268,11 @@ export default function CreateAssetModal({
                                 className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800"
                             >
                                 <option value="">Pilih Lokasi</option>
-                                {locations.map((loc) => (
-                                    <option key={loc.id} value={loc.id}>{loc.name}</option>
-                                ))}
+                                {locations.map((loc, idx) => {
+                                    const id = typeof loc === 'object' ? loc.id : loc;
+                                    const name = typeof loc === 'object' ? loc.name : loc;
+                                    return <option key={id || idx} value={id}>{name}</option>;
+                                })}
                             </select>
                         </div>
                     </div>

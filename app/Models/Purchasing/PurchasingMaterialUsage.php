@@ -7,6 +7,27 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $material_stock_id
+ * @property \Illuminate\Support\Carbon|null $usage_date
+ * @property string $material_type
+ * @property string $material_name
+ * @property string $unit
+ * @property float $quantity_in
+ * @property float $quantity_out
+ * @property float $balance_stock
+ * @property int|null $location_id
+ * @property string|null $department
+ * @property string|null $division
+ * @property string|null $operator_name
+ * @property string|null $production_ref
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Purchasing\PurchasingMaterialStock|null $stock
+ */
 class PurchasingMaterialUsage extends Model
 {
     use HasFactory;

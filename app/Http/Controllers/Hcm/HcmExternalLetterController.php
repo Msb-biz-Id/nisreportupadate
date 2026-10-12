@@ -27,6 +27,8 @@ class HcmExternalLetterController extends Controller
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
+        $perPage = min(max((int) $request->query('per_page', 15), 5), 100);
+
         $letters = HcmExternalLetter::with('creator:id,name')
             ->when($escapedSearch, fn ($q, $t) => $q->where(fn ($sub) =>
                 $sub->where('subject', 'like', "%{$t}%")
@@ -39,7 +41,7 @@ class HcmExternalLetterController extends Controller
             ->when($yearFilter !== 'all', fn ($q) => $q->whereYear('letter_date', (int) $yearFilter))
             ->orderBy('letter_date', 'desc')
             ->orderBy('id', 'desc')
-            ->paginate(12)
+            ->paginate($perPage)
             ->withQueryString();
 
         $metrics = [
@@ -54,6 +56,7 @@ class HcmExternalLetterController extends Controller
                 'direction' => $directionFilter,
                 'search' => $search,
                 'year' => $yearFilter,
+                'per_page' => $perPage,
             ],
             'metrics' => $metrics,
         ]);

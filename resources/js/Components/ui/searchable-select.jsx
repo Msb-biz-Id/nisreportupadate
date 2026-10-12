@@ -52,9 +52,9 @@ export function SearchableSelect({ value, onValueChange, onChange, options = [],
                 type="button"
                 disabled={disabled}
                 onClick={() => !disabled && setOpen((o) => !o)}
-                className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-8 w-full items-center justify-between gap-1.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-xs ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
             >
-                <span className={cn('truncate', !selected && 'text-muted-foreground')}>
+                <span className={cn('whitespace-nowrap', !selected && 'text-muted-foreground')}>
                     {selected ? selected.label : placeholder}
                 </span>
                 <span className="flex shrink-0 items-center gap-1 pl-1">
@@ -69,30 +69,30 @@ export function SearchableSelect({ value, onValueChange, onChange, options = [],
             </button>
 
             {open && (
-                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
-                    <div className="flex items-center border-b px-2">
-                        <Search className="mr-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <div className="absolute z-50 mt-1 min-w-full w-max max-w-[360px] rounded-md border border-slate-200 dark:border-slate-800 bg-popover shadow-lg overflow-hidden">
+                    <div className="flex items-center border-b border-slate-100 dark:border-slate-800 px-2">
+                        <Search className="mr-1.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <input
                             ref={inputRef}
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder="Cari..."
-                            className="flex h-8 w-full bg-transparent py-1 text-sm outline-none placeholder:text-muted-foreground"
+                            className="flex h-8 w-full bg-transparent py-1 text-xs outline-none placeholder:text-muted-foreground"
                         />
                     </div>
-                    <div className="max-h-56 overflow-y-auto p-1">
+                    <div className="max-h-60 overflow-y-auto p-1">
                         {filtered.length === 0 ? (
-                            <p className="py-6 text-center text-sm text-muted-foreground">Tidak ditemukan.</p>
+                            <p className="py-4 text-center text-xs text-muted-foreground">Tidak ditemukan.</p>
                         ) : (
                             filtered.map((o) => (
                                 <button
                                     key={o.value}
                                     type="button"
                                     onClick={() => select(o.value)}
-                                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                                    className="flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground text-left"
                                 >
-                                    <Check className={cn('h-3.5 w-3.5 shrink-0', value === o.value ? 'opacity-100' : 'opacity-0')} />
-                                    <span className="truncate">{o.label}</span>
+                                    <Check className={cn('h-3.5 w-3.5 shrink-0', value === o.value ? 'opacity-100 text-indigo-600' : 'opacity-0')} />
+                                    <span className="whitespace-nowrap">{o.label}</span>
                                 </button>
                             ))
                         )}

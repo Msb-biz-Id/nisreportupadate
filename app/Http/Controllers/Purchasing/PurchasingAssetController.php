@@ -36,6 +36,9 @@ class PurchasingAssetController extends Controller
             'mutations' => function ($q) {
                 $q->with('picUser:id,name')->orderByDesc('mutation_date');
             },
+            'maintenances' => function ($q) {
+                $q->with('performedBy:id,name')->orderByDesc('maintenance_date');
+            },
             'retirement.financeApprover:id,name',
             'retirement.creator:id,name',
         ]);
@@ -67,7 +70,8 @@ class PurchasingAssetController extends Controller
             $query->where('registration_stage', $request->registration_stage);
         }
 
-        $assets = $query->orderByDesc('id')->paginate(15)->withQueryString();
+        $perPage = min(max((int) $request->query('per_page', 15), 5), 200);
+        $assets = $query->orderByDesc('id')->paginate($perPage)->withQueryString();
 
         // Agregasi metrik hero
         $stats = [
@@ -75,16 +79,17 @@ class PurchasingAssetController extends Controller
             'active_assets' => PurchasingAsset::where('status', 'ACTIVE')->count(),
             'quick_registered' => PurchasingAsset::where('registration_stage', 'QUICK_REGISTERED')->where('status', 'ACTIVE')->count(),
             'retired_assets' => PurchasingAsset::where('status', 'RETIRED')->count(),
-            'total_acquisition_cost' => (float) PurchasingAsset::sum('acquisition_cost'),
+            'total_acquisition_cost' => (float) PurchasingAsset::where('status', 'ACTIVE')->sum('acquisition_cost'),
+            'total_book_value' => (float) PurchasingAsset::where('status', 'ACTIVE')->sum('acquisition_cost'),
         ];
 
         // Opsi-opsi master data pendukung
-        $assetCategories = PurchasingMasterOption::getOptions('asset_category');
-        $locations = PurchasingMasterOption::getOptions('location');
-        $units = PurchasingMasterOption::getOptions('asset_unit');
-        $retirementReasons = PurchasingMasterOption::getOptions('retirement_reason');
-        $finalConditions = PurchasingMasterOption::getOptions('final_condition');
-        $disposalMethods = PurchasingMasterOption::getOptions('disposal_method');
+        $assetCategories = PurchasingMasterOption::getCategoryModels('asset_category');
+        $locations = PurchasingMasterOption::getCategoryModels('location');
+        $units = PurchasingMasterOption::getCategoryModels('asset_unit');
+        $retirementReasons = PurchasingMasterOption::getCategoryModels('retirement_reason');
+        $finalConditions = PurchasingMasterOption::getCategoryModels('final_condition');
+        $disposalMethods = PurchasingMasterOption::getCategoryModels('disposal_method');
         $hrisData = $this->hrisService->getHrisReferences();
         $employees = $this->hrisService->getActiveEmployees();
 
@@ -100,7 +105,9 @@ class PurchasingAssetController extends Controller
                 'final_conditions' => $finalConditions,
                 'disposal_methods' => $disposalMethods,
                 'departments' => $hrisData['departments_with_codes'],
-                'division_position_map' => $hrisData['division_position_map'],
+                'department_division_map' => $hrisData['department_division_map'] ?? [],
+                'divisions' => $hrisData['divisions'] ?? [],
+                'division_position_map' => $hrisData['division_position_map'] ?? [],
                 'employees' => $employees,
             ],
         ]);
@@ -117,9 +124,9 @@ class PurchasingAssetController extends Controller
     }
 
     /**
-     * Dapatkan detail aset lengkap (bisa diakses via drawer / dialog).
+     * Dapatkan detail aset lengkap (bisa diakses via drawer / dialog maupun direct link).
      */
-    public function show(PurchasingAsset $asset): JsonResponse
+    public function show(Request $request, PurchasingAsset $asset): JsonResponse|RedirectResponse
     {
         $asset->load([
             'picEmployee:id,uuid,employee_code,name,department,division,position',
@@ -128,13 +135,52 @@ class PurchasingAssetController extends Controller
             'mutations' => function ($q) {
                 $q->with('picUser:id,name')->orderByDesc('mutation_date');
             },
+            'maintenances' => function ($q) {
+                $q->with('performedBy:id,name')->orderByDesc('maintenance_date');
+            },
             'retirement.financeApprover:id,name',
             'retirement.creator:id,name',
         ]);
 
-        return response()->json([
-            'asset' => $asset,
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'asset' => $asset,
+            ]);
+        }
+
+        return redirect()->route('purchasing.assets.index', [
+            'search' => $asset->asset_code,
+            'open_asset' => $asset->asset_code,
         ]);
+    }
+
+    /**
+     * Catat riwayat servis atau perbaikan aset (Maintenance Log).
+     */
+    public function storeMaintenance(Request $request, PurchasingAsset $asset): RedirectResponse
+    {
+        $validated = $request->validate([
+            'maintenance_date' => 'required|date',
+            'service_type' => 'required|string|max:100',
+            'vendor_workshop' => 'nullable|string|max:150',
+            'issue_description' => 'required|string',
+            'action_taken' => 'nullable|string',
+            'cost' => 'nullable|numeric|min:0',
+            'status' => 'required|in:IN_PROGRESS,COMPLETED',
+            'notes' => 'nullable|string',
+        ]);
+
+        $validated['performed_by_user_id'] = $request->user()?->id;
+
+        $asset->maintenances()->create($validated);
+
+        if ($validated['status'] === 'IN_PROGRESS') {
+            $asset->update(['status' => 'MAINTENANCE']);
+        } elseif ($asset->status === 'MAINTENANCE' && $validated['status'] === 'COMPLETED') {
+            $asset->update(['status' => 'ACTIVE']);
+        }
+
+        return redirect()->back()->with('success', "Catatan riwayat servis untuk aset {$asset->asset_code} berhasil disimpan.");
     }
 
     /**

@@ -23,6 +23,7 @@ import {
     User,
     Clock,
     FileText,
+    RotateCcw,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
@@ -57,6 +58,7 @@ import {
 } from '@/Components/ui/select';
 import { SearchableSelect } from '@/Components/ui/searchable-select';
 import OffboardEmployeeDialog from '@/Components/Hcm/OffboardEmployeeDialog';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 
 export default function EmployeeIndex({ employees, filters, metrics, dropdowns, schools = [] }) {
     const [activeCategory, setActiveCategory] = useState(filters.category || 'regular');
@@ -195,7 +197,9 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
         stat = selectedStatus,
         search = searchTerm,
         cat = activeCategory,
-        sch = selectedSchool
+        sch = selectedSchool,
+        page = undefined,
+        per_page = undefined
     ) => {
         router.get(
             route('hcm.employees.index'),
@@ -208,6 +212,8 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                 status: stat,
                 search: search,
                 school: sch,
+                page: page,
+                per_page: per_page,
             },
             {
                 preserveState: true,
@@ -350,6 +356,390 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
         const diffTime = end.setHours(0, 0, 0, 0) - now.setHours(0, 0, 0, 0);
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     };
+
+    // Definisi Kolom TanStack Table v9 untuk Karyawan Regular
+    const regularColumns = useMemo(() => [
+        {
+            accessorKey: 'name',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Karyawan & Identitas" />,
+            meta: { title: 'Karyawan' },
+            cell: ({ row }) => {
+                const emp = row.original;
+                return (
+                    <div className="flex items-center gap-2.5">
+                        {emp.photo_url ? (
+                            <img
+                                src={emp.photo_url}
+                                alt={emp.name}
+                                className="h-9 w-9 shrink-0 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-xs"
+                            />
+                        ) : (
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 text-white font-bold text-xs shadow-xs">
+                                {emp.name.charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                        <div>
+                            <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                                <span>{emp.name}</span>
+                                {emp.nickname && (
+                                    <span className="text-xs text-zinc-400 font-normal">
+                                        ({emp.nickname})
+                                    </span>
+                                )}
+                            </div>
+                            <div className="text-[11px] font-mono text-zinc-400 mt-0.5">
+                                {emp.employee_code}
+                            </div>
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'department',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Departemen & Divisi" />,
+            meta: { title: 'Departemen & Divisi' },
+            cell: ({ row }) => {
+                const emp = row.original;
+                return (
+                    <div>
+                        <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                            {emp.division || emp.department}
+                        </div>
+                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                            Departemen {emp.department}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'tenure_bucket',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Masa Kerja (Loyalitas)" />,
+            meta: { title: 'Masa Kerja' },
+            cell: ({ row }) => {
+                const emp = row.original;
+                return (
+                    <div className="flex flex-col gap-0.5 items-start">
+                        <Badge variant="outline" className={`text-[10px] px-2 py-0 font-medium ${
+                            (emp.tenure_months ?? 0) >= 36 ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' :
+                            (emp.tenure_months ?? 0) >= 24 ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' :
+                            (emp.tenure_months ?? 0) >= 12 ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' :
+                            'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800'
+                        }`}>
+                            {emp.tenure_bucket || 'Kurang dari 1 Tahun'}
+                        </Badge>
+                        <span className="text-[11px] text-zinc-400 font-mono">
+                            {emp.tenure_months ?? 0} bln (sejak {emp.original_join_date ? new Date(emp.original_join_date).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }) : '-'})
+                        </span>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'job_level',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jenjang & Entitas" />,
+            meta: { title: 'Jenjang' },
+            cell: ({ row }) => {
+                const emp = row.original;
+                return (
+                    <div className="flex flex-col gap-1 items-start">
+                        <Badge variant="outline" className={`text-[10px] px-2 py-0 font-medium ${getJobLevelBadge(emp.job_level)}`}>
+                            {emp.job_level}
+                        </Badge>
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                            {emp.legal_entity || emp.employment_status}
+                        </span>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'phone_number',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kontak & NIK KTP" />,
+            meta: { title: 'Kontak' },
+            cell: ({ row }) => {
+                const emp = row.original;
+                return (
+                    <div>
+                        <div className="text-xs font-mono text-zinc-800 dark:text-zinc-200">
+                            {emp.phone_number}
+                        </div>
+                        <div className="text-[11px] font-mono text-zinc-400 mt-0.5">
+                            NIK: {emp.nik_ktp}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'bank_account_no',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Rekening & BPJS" />,
+            meta: { title: 'Rekening' },
+            cell: ({ row }) => {
+                const emp = row.original;
+                return (
+                    <div>
+                        <div className="text-xs text-zinc-800 dark:text-zinc-200">
+                            {emp.bank_name ? `${emp.bank_name}: ` : ''}{emp.bank_account_no || '-'}
+                        </div>
+                        <div className="text-[11px] text-zinc-400 mt-0.5">
+                            BPJS: {emp.bpjs_kesehatan_no || emp.bpjs_ketenagakerjaan_no ? 'Terdaftar' : 'Belum Ada'}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'shirt_size',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Seragam" className="justify-center" />,
+            meta: { title: 'Seragam' },
+            cell: ({ row }) => (
+                <div className="text-center">
+                    <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                        {row.original.shirt_size || '-'}
+                    </span>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'is_active',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status Aktif" className="justify-center" />,
+            meta: { title: 'Status' },
+            cell: ({ row }) => {
+                const emp = row.original;
+                return (
+                    <div className="flex items-center justify-center gap-1.5">
+                        <Switch
+                            checked={emp.is_active}
+                            onCheckedChange={() => handleToggleStatus(emp)}
+                        />
+                        <span className={`text-[11px] font-medium ${emp.is_active ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'}`}>
+                            {emp.is_active ? 'Aktif' : 'Off'}
+                        </span>
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-center">Aksi</div>,
+            cell: ({ row }) => {
+                const emp = row.original;
+                return (
+                    <div className="flex items-center justify-center gap-1">
+                        <Link
+                            href={route('hcm.employees.show', emp.employee_code || emp.id)}
+                            className="inline-flex items-center justify-center h-7 px-2 rounded-md text-[11px] font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 dark:text-indigo-300 transition-colors"
+                            title="Lihat Profil Dossier 360°"
+                        >
+                            <Eye className="h-3 w-3 mr-1" />
+                            Profil
+                        </Link>
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+                            onClick={() => openEditModal(emp)}
+                            title="Edit Data"
+                        >
+                            <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                            onClick={() => {
+                                setTargetEmployee(emp);
+                                setIsDeleteModalOpen(true);
+                            }}
+                            title="Hapus Karyawan"
+                        >
+                            <Trash2 className="h-3 w-3" />
+                        </Button>
+                    </div>
+                );
+            },
+        },
+    ], [handleToggleStatus, openEditModal]);
+
+    // Definisi Kolom TanStack Table v9 untuk Peserta Magang SMK
+    const internColumns = useMemo(() => [
+        {
+            accessorKey: 'name',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama & Kode" />,
+            meta: { title: 'Nama' },
+            cell: ({ row }) => {
+                const emp = row.original;
+                return (
+                    <div className="flex items-center gap-2">
+                        {emp.photo_url ? (
+                            <img
+                                src={emp.photo_url}
+                                alt={emp.name}
+                                className="h-8 w-8 shrink-0 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-xs"
+                            />
+                        ) : (
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-teal-500 to-emerald-500 text-white font-bold text-xs shadow-xs">
+                                {emp.name.charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                        <div className="min-w-0">
+                            <div className="font-semibold text-zinc-900 dark:text-zinc-100">{emp.name}</div>
+                            <div className="text-[10px] font-mono text-zinc-400">{emp.employee_code}</div>
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'nickname',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama Panggil" />,
+            meta: { title: 'Nama Panggil' },
+            cell: ({ row }) => <span className="font-medium text-zinc-800 dark:text-zinc-200">{row.original.nickname || '-'}</span>,
+        },
+        {
+            accessorKey: 'school_name',
+            id: 'school_name',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama Sekolah" />,
+            meta: { title: 'Sekolah' },
+            cell: ({ row }) => (
+                <span className="font-medium text-indigo-700 dark:text-indigo-300">
+                    {row.original.intern?.school_name || '-'}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'class',
+            id: 'class',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kelas" className="justify-center" />,
+            meta: { title: 'Kelas' },
+            cell: ({ row }) => <div className="text-center font-medium text-zinc-800 dark:text-zinc-200">{row.original.intern?.class || '-'}</div>,
+        },
+        {
+            accessorKey: 'major',
+            id: 'major',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jurusan" />,
+            meta: { title: 'Jurusan' },
+            cell: ({ row }) => <span className="text-zinc-700 dark:text-zinc-300">{row.original.intern?.major || '-'}</span>,
+        },
+        {
+            accessorKey: 'nis',
+            id: 'nis',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="NIS" />,
+            meta: { title: 'NIS' },
+            cell: ({ row }) => <span className="font-mono text-zinc-800 dark:text-zinc-200">{row.original.intern?.nis || '-'}</span>,
+        },
+        {
+            accessorKey: 'student_phone',
+            id: 'student_phone',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="No HP" />,
+            meta: { title: 'No HP' },
+            cell: ({ row }) => {
+                const emp = row.original;
+                return <span className="font-mono text-zinc-700 dark:text-zinc-300">{emp.intern?.student_phone || emp.phone_number || '-'}</span>;
+            },
+        },
+        {
+            accessorKey: 'start_date',
+            id: 'start_date',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Bergabung" />,
+            meta: { title: 'Tgl Bergabung' },
+            cell: ({ row }) => {
+                const emp = row.original;
+                return (
+                    <span className="font-mono text-zinc-700 dark:text-zinc-300">
+                        {emp.intern?.start_date ? new Date(emp.intern.start_date).toLocaleDateString('id-ID') : (emp.join_date ? new Date(emp.join_date).toLocaleDateString('id-ID') : '-')}
+                    </span>
+                );
+            },
+        },
+        {
+            accessorKey: 'end_date',
+            id: 'end_date',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Berakhir" />,
+            meta: { title: 'Tgl Berakhir' },
+            cell: ({ row }) => (
+                <span className="font-mono text-zinc-700 dark:text-zinc-300">
+                    {row.original.intern?.end_date ? new Date(row.original.intern.end_date).toLocaleDateString('id-ID') : '-'}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'duration_text',
+            id: 'duration_text',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Durasi" />,
+            meta: { title: 'Durasi' },
+            cell: ({ row }) => <span className="text-zinc-700 dark:text-zinc-300">{row.original.intern?.duration_text || '-'}</span>,
+        },
+        {
+            accessorKey: 'mentor_teacher_name',
+            id: 'mentor_teacher_name',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Guru Pendamping" />,
+            meta: { title: 'Guru Pendamping' },
+            cell: ({ row }) => <span className="text-zinc-800 dark:text-zinc-200">{row.original.intern?.mentor_teacher_name || '-'}</span>,
+        },
+        {
+            accessorKey: 'mentor_teacher_phone',
+            id: 'mentor_teacher_phone',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="No HP Guru" />,
+            meta: { title: 'No HP Guru' },
+            cell: ({ row }) => <span className="font-mono text-zinc-700 dark:text-zinc-300">{row.original.intern?.mentor_teacher_phone || '-'}</span>,
+        },
+        {
+            accessorKey: 'address',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Alamat" />,
+            meta: { title: 'Alamat' },
+            cell: ({ row }) => {
+                const emp = row.original;
+                return (
+                    <div className="text-zinc-600 dark:text-zinc-400 max-w-[200px] truncate" title={emp.intern?.student_address || emp.address || ''}>
+                        {emp.intern?.student_address || emp.address || '-'}
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-center">Aksi</div>,
+            cell: ({ row }) => {
+                const emp = row.original;
+                return (
+                    <div className="flex items-center justify-center gap-1">
+                        <Link
+                            href={route('hcm.employees.show', emp.employee_code || emp.id)}
+                            className="inline-flex items-center justify-center h-7 px-2 rounded-md text-[11px] font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 dark:text-indigo-300 transition-colors"
+                            title="Lihat Profil Dossier Magang"
+                        >
+                            <Eye className="h-3 w-3 mr-1" />
+                            Profil
+                        </Link>
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+                            onClick={() => openEditModal(emp)}
+                            title="Edit Data Siswa"
+                        >
+                            <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                            onClick={() => {
+                                setTargetEmployee(emp);
+                                setIsDeleteModalOpen(true);
+                            }}
+                            title="Hapus Siswa Magang"
+                        >
+                            <Trash2 className="h-3 w-3" />
+                        </Button>
+                    </div>
+                );
+            },
+        },
+    ], [openEditModal]);
 
     return (
         <AppLayout
@@ -615,520 +1005,179 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                     </div>
                 )}
 
-                {/* 2. Filter Bar Terintegrasi Sesuai Tab Aktif */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <CardContent className="p-3.5">
-                        <form onSubmit={handleSearchSubmit} className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
-                            <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                                <Input
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder={
-                                        activeCategory === 'intern'
-                                            ? 'Cari nama siswa, NIS, nama sekolah SMK, jurusan...'
-                                            : 'Cari nama karyawan, NIK, nama panggilan, nomor HP...'
-                                    }
-                                    className="pl-9 h-9 text-xs"
+                {/* 2. TanStack Table v9 - Master Data Karyawan dengan Sticky Filter & Pagination */}
+                <DataTable
+                    columns={activeCategory === 'regular' ? regularColumns : internColumns}
+                    data={employees.data || []}
+                    serverPagination={employees}
+                    onServerPageChange={(page) => applyFilters(undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, page)}
+                    onServerPerPageChange={(per_page) => applyFilters(undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, 1, per_page)}
+                    onServerSearchChange={(val) => {
+                        setSearchTerm(val);
+                        applyFilters(undefined, undefined, undefined, undefined, undefined, val, undefined, undefined, 1);
+                    }}
+                    searchValue={searchTerm}
+                    searchPlaceholder={activeCategory === 'regular' ? 'Cari nama, NIK, kode, panggilan...' : 'Cari nama siswa, NIS, sekolah, jurusan...'}
+                    exportFileName={`hcm_karyawan_${activeCategory}`}
+                    filterSlot={
+                        <div className="flex flex-wrap items-center gap-2">
+                            {activeCategory === 'regular' ? (
+                                <>
+                                    {/* Filter Departemen */}
+                                    <div className="min-w-[170px] w-auto">
+                                        <SearchableSelect
+                                            value={selectedDepartment}
+                                            onValueChange={(val) => {
+                                                const finalVal = val || 'all';
+                                                setSelectedDepartment(finalVal);
+                                                setSelectedDivision('all');
+                                                applyFilters(finalVal, 'all', selectedTenureBucket, selectedJobLevel, selectedStatus, searchTerm, activeCategory, selectedSchool, 1);
+                                            }}
+                                            options={[
+                                                { value: 'all', label: 'Semua Departemen' },
+                                                ...toOptions(dropdowns.departments),
+                                            ]}
+                                            placeholder="Departemen"
+                                            clearable={false}
+                                            className="text-xs h-8"
+                                        />
+                                    </div>
+
+                                    {/* Filter Divisi */}
+                                    <div className="min-w-[150px] w-auto">
+                                        <SearchableSelect
+                                            value={selectedDivision}
+                                            onValueChange={(val) => {
+                                                const finalVal = val || 'all';
+                                                setSelectedDivision(finalVal);
+                                                applyFilters(selectedDepartment, finalVal, selectedTenureBucket, selectedJobLevel, selectedStatus, searchTerm, activeCategory, selectedSchool, 1);
+                                            }}
+                                            options={[
+                                                { value: 'all', label: 'Semua Divisi' },
+                                                ...toOptions(availableDivisions),
+                                            ]}
+                                            placeholder="Divisi"
+                                            clearable={false}
+                                            className="text-xs h-8"
+                                        />
+                                    </div>
+
+                                    {/* Filter Masa Kerja */}
+                                    <div className="min-w-[170px] w-auto">
+                                        <SearchableSelect
+                                            value={selectedTenureBucket}
+                                            onValueChange={(val) => {
+                                                const finalVal = val || 'all';
+                                                setSelectedTenureBucket(finalVal);
+                                                applyFilters(selectedDepartment, selectedDivision, finalVal, selectedJobLevel, selectedStatus, searchTerm, activeCategory, selectedSchool, 1);
+                                            }}
+                                            options={[
+                                                { value: 'all', label: 'Semua Masa Kerja' },
+                                                ...(dropdowns.tenure_buckets || [
+                                                    { value: '<1_year', label: '< 1 Tahun' },
+                                                    { value: '1_year', label: '1 Tahun' },
+                                                    { value: '2_years', label: '2 Tahun' },
+                                                    { value: '3_years', label: '3+ Tahun' },
+                                                ]),
+                                            ]}
+                                            placeholder="Masa Kerja"
+                                            clearable={false}
+                                            className="text-xs h-8"
+                                        />
+                                    </div>
+
+                                    {/* Filter Jenjang */}
+                                    <div className="min-w-[145px] w-auto">
+                                        <SearchableSelect
+                                            value={selectedJobLevel}
+                                            onValueChange={(val) => {
+                                                const finalVal = val || 'all';
+                                                setSelectedJobLevel(finalVal);
+                                                applyFilters(selectedDepartment, selectedDivision, selectedTenureBucket, finalVal, selectedStatus, searchTerm, activeCategory, selectedSchool, 1);
+                                            }}
+                                            options={[
+                                                { value: 'all', label: 'Semua Level' },
+                                                ...toOptions(dropdowns.job_levels?.filter((l) => l !== 'Magang')),
+                                            ]}
+                                            placeholder="Jenjang"
+                                            clearable={false}
+                                            className="text-xs h-8"
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                /* Filter Sekolah SMK */
+                                <div className="min-w-[185px] w-auto">
+                                    <SearchableSelect
+                                        value={selectedSchool}
+                                        onValueChange={(val) => {
+                                            const finalVal = val || 'all';
+                                            setSelectedSchool(finalVal);
+                                            applyFilters(selectedDepartment, selectedDivision, selectedTenureBucket, selectedJobLevel, selectedStatus, searchTerm, activeCategory, finalVal, 1);
+                                        }}
+                                        options={[
+                                            { value: 'all', label: 'Semua Sekolah SMK' },
+                                            ...schools.map((sch) => ({ value: sch, label: sch })),
+                                        ]}
+                                        placeholder="Sekolah SMK"
+                                        clearable={false}
+                                        className="text-xs h-8"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Filter Status Aktif */}
+                            <div className="min-w-[145px] w-auto">
+                                <SearchableSelect
+                                    value={selectedStatus}
+                                    onValueChange={(val) => {
+                                        const finalVal = val || 'all';
+                                        setSelectedStatus(finalVal);
+                                        applyFilters(selectedDepartment, selectedDivision, selectedTenureBucket, selectedJobLevel, finalVal, searchTerm, activeCategory, selectedSchool, 1);
+                                    }}
+                                    options={[
+                                        { value: 'all', label: 'Semua Status' },
+                                        { value: 'active', label: 'Aktif Saja' },
+                                        { value: 'inactive', label: 'Non-Aktif' },
+                                    ]}
+                                    placeholder="Status"
+                                    clearable={false}
+                                    className="text-xs h-8"
                                 />
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-2">
-                                {activeCategory === 'regular' ? (
-                                    <>
-                                        {/* Filter Departemen */}
-                                        <div className="w-[155px]">
-                                            <SearchableSelect
-                                                value={selectedDepartment}
-                                                onValueChange={(val) => {
-                                                    const finalVal = val || 'all';
-                                                    setSelectedDepartment(finalVal);
-                                                    setSelectedDivision('all');
-                                                    applyFilters(finalVal, 'all', selectedTenureBucket, selectedJobLevel, selectedStatus, searchTerm, activeCategory, selectedSchool);
-                                                }}
-                                                options={[
-                                                    { value: 'all', label: 'Semua Departemen' },
-                                                    ...toOptions(dropdowns.departments),
-                                                ]}
-                                                placeholder="Pilih Departemen"
-                                                clearable={false}
-                                                className="text-xs h-9"
-                                            />
-                                        </div>
-
-                                        {/* Filter Divisi (Dependent) */}
-                                        <div className="w-[145px]">
-                                            <SearchableSelect
-                                                value={selectedDivision}
-                                                onValueChange={(val) => {
-                                                    const finalVal = val || 'all';
-                                                    setSelectedDivision(finalVal);
-                                                    applyFilters(selectedDepartment, finalVal, selectedTenureBucket, selectedJobLevel, selectedStatus, searchTerm, activeCategory, selectedSchool);
-                                                }}
-                                                options={[
-                                                    { value: 'all', label: 'Semua Divisi' },
-                                                    ...toOptions(availableDivisions),
-                                                ]}
-                                                placeholder="Pilih Divisi"
-                                                clearable={false}
-                                                className="text-xs h-9"
-                                            />
-                                        </div>
-
-                                        {/* Filter Pengelompokan Masa Kerja (Tenure Bucket) */}
-                                        <div className="w-[160px]">
-                                            <SearchableSelect
-                                                value={selectedTenureBucket}
-                                                onValueChange={(val) => {
-                                                    const finalVal = val || 'all';
-                                                    setSelectedTenureBucket(finalVal);
-                                                    applyFilters(selectedDepartment, selectedDivision, finalVal, selectedJobLevel, selectedStatus, searchTerm, activeCategory, selectedSchool);
-                                                }}
-                                                options={[
-                                                    { value: 'all', label: 'Semua Masa Kerja' },
-                                                    ...(dropdowns.tenure_buckets || [
-                                                        { value: '<1_year', label: 'Kurang dari 1 Tahun' },
-                                                        { value: '1_year', label: 'Kelompok 1 Tahun' },
-                                                        { value: '2_years', label: 'Kelompok 2 Tahun' },
-                                                        { value: '3_years', label: 'Kelompok 3+ Tahun' },
-                                                    ]),
-                                                ]}
-                                                placeholder="Pilih Masa Kerja"
-                                                clearable={false}
-                                                className="text-xs h-9"
-                                            />
-                                        </div>
-
-                                        {/* Filter Level/Jenjang */}
-                                        <div className="w-[130px]">
-                                            <SearchableSelect
-                                                value={selectedJobLevel}
-                                                onValueChange={(val) => {
-                                                    const finalVal = val || 'all';
-                                                    setSelectedJobLevel(finalVal);
-                                                    applyFilters(selectedDepartment, selectedDivision, selectedTenureBucket, finalVal, selectedStatus, searchTerm, activeCategory, selectedSchool);
-                                                }}
-                                                options={[
-                                                    { value: 'all', label: 'Semua Level' },
-                                                    ...toOptions(dropdowns.job_levels?.filter((l) => l !== 'Magang')),
-                                                ]}
-                                                placeholder="Pilih Level"
-                                                clearable={false}
-                                                className="text-xs h-9"
-                                            />
-                                        </div>
-                                    </>
-                                ) : (
-                                    /* Filter Sekolah SMK (Khusus Peserta Magang) */
-                                    <div className="w-[200px]">
-                                        <SearchableSelect
-                                            value={selectedSchool}
-                                            onValueChange={(val) => {
-                                                const finalVal = val || 'all';
-                                                setSelectedSchool(finalVal);
-                                                applyFilters(selectedDepartment, selectedDivision, selectedTenureBucket, selectedJobLevel, selectedStatus, searchTerm, activeCategory, finalVal);
-                                            }}
-                                            options={[
-                                                { value: 'all', label: 'Semua Sekolah SMK' },
-                                                ...schools.map((sch) => ({ value: sch, label: sch })),
-                                            ]}
-                                            placeholder="Pilih Sekolah"
-                                            clearable={false}
-                                            className="text-xs h-9"
-                                        />
-                                    </div>
-                                )}
-
-                                {/* Filter Status Aktif */}
-                                <div className="w-[125px]">
-                                    <SearchableSelect
-                                        value={selectedStatus}
-                                        onValueChange={(val) => {
-                                            const finalVal = val || 'all';
-                                            setSelectedStatus(finalVal);
-                                            applyFilters(selectedDepartment, selectedDivision, selectedTenureBucket, selectedJobLevel, finalVal, searchTerm, activeCategory, selectedSchool);
-                                        }}
-                                        options={[
-                                            { value: 'all', label: 'Semua Status' },
-                                            { value: 'active', label: 'Aktif Saja' },
-                                            { value: 'inactive', label: 'Non-Aktif' },
-                                        ]}
-                                        placeholder="Pilih Status"
-                                        clearable={false}
-                                        className="text-xs h-9"
-                                    />
-                                </div>
-
-                                <Button type="submit" variant="secondary" size="sm" className="h-9 text-xs px-3">
-                                    Cari
+                            {/* Tombol Reset Jika Ada Filter Aktif */}
+                            {(selectedDepartment !== 'all' ||
+                                selectedDivision !== 'all' ||
+                                selectedTenureBucket !== 'all' ||
+                                selectedJobLevel !== 'all' ||
+                                selectedStatus !== 'all' ||
+                                selectedSchool !== 'all' ||
+                                Boolean(searchTerm)) && (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        setSelectedDepartment('all');
+                                        setSelectedDivision('all');
+                                        setSelectedTenureBucket('all');
+                                        setSelectedJobLevel('all');
+                                        setSelectedStatus('all');
+                                        setSelectedSchool('all');
+                                        setSearchTerm('');
+                                        applyFilters('all', 'all', 'all', 'all', 'all', '', activeCategory, 'all', 1);
+                                    }}
+                                    className="h-8 px-2 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 gap-1"
+                                    title="Reset Semua Filter"
+                                >
+                                    <RotateCcw className="h-3 w-3" />
+                                    <span>Reset</span>
                                 </Button>
-                            </div>
-                        </form>
-                    </CardContent>
-                </Card>
-
-                {/* 3. Tabel Data Tersegmentasi */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs overflow-hidden">
-                    <Table>
-                        <TableHeader className="bg-zinc-50 dark:bg-zinc-800/50">
-                            {activeCategory === 'regular' ? (
-                                <TableRow>
-                                    <TableHead className="w-[45px] text-center font-bold">No</TableHead>
-                                    <TableHead className="min-w-[200px] font-bold">Karyawan & Identitas</TableHead>
-                                    <TableHead className="min-w-[170px] font-bold">Departemen & Divisi</TableHead>
-                                    <TableHead className="min-w-[150px] font-bold">Masa Kerja (Loyalitas)</TableHead>
-                                    <TableHead className="min-w-[130px] font-bold">Jenjang & Entitas</TableHead>
-                                    <TableHead className="min-w-[150px] font-bold">Kontak & NIK KTP</TableHead>
-                                    <TableHead className="min-w-[150px] font-bold">Rekening & BPJS</TableHead>
-                                    <TableHead className="w-[80px] text-center font-bold">Seragam</TableHead>
-                                    <TableHead className="min-w-[100px] text-center font-bold">Status Aktif</TableHead>
-                                    <TableHead className="w-[150px] text-center font-bold">Aksi</TableHead>
-                                </TableRow>
-                            ) : (
-                                <TableRow>
-                                    <TableHead className="w-[45px] text-center font-bold">No</TableHead>
-                                    <TableHead className="min-w-[180px] font-bold">Nama</TableHead>
-                                    <TableHead className="min-w-[120px] font-bold">Nama Panggil</TableHead>
-                                    <TableHead className="min-w-[180px] font-bold">Nama Sekolah</TableHead>
-                                    <TableHead className="min-w-[80px] font-bold text-center">Kelas</TableHead>
-                                    <TableHead className="min-w-[140px] font-bold">Jurusan</TableHead>
-                                    <TableHead className="min-w-[130px] font-bold">No. Induk Siswa (NIS)</TableHead>
-                                    <TableHead className="min-w-[120px] font-bold">No HP</TableHead>
-                                    <TableHead className="min-w-[120px] font-bold">Tanggal Bergabung</TableHead>
-                                    <TableHead className="min-w-[120px] font-bold">Tanggal Berakhir</TableHead>
-                                    <TableHead className="min-w-[100px] font-bold">Durasi Magang</TableHead>
-                                    <TableHead className="min-w-[150px] font-bold">Guru Pendamping</TableHead>
-                                    <TableHead className="min-w-[140px] font-bold">No HP Guru Pendamping</TableHead>
-                                    <TableHead className="min-w-[200px] font-bold">Alamat</TableHead>
-                                    <TableHead className="w-[130px] text-center font-bold sticky right-0 bg-zinc-50/95 dark:bg-zinc-800/95 backdrop-blur-xs shadow-xs">Aksi</TableHead>
-                                </TableRow>
                             )}
-                        </TableHeader>
-                        <TableBody>
-                            {employees.data && employees.data.length > 0 ? (
-                                employees.data.map((emp, index) => {
-                                    const internDays = emp.intern?.end_date ? getInternDaysRemaining(emp.intern.end_date) : null;
-
-                                    if (activeCategory === 'regular') {
-                                        return (
-                                            <TableRow key={emp.id} className="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/50 transition-colors">
-                                                <TableCell className="text-center font-medium text-xs text-zinc-500">
-                                                    {employees.from + index}
-                                                </TableCell>
-
-                                                {/* Karyawan & Identitas */}
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2.5">
-                                                        {emp.photo_url ? (
-                                                            <img
-                                                                src={emp.photo_url}
-                                                                alt={emp.name}
-                                                                className="h-9 w-9 shrink-0 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-xs"
-                                                            />
-                                                        ) : (
-                                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 text-white font-bold text-xs shadow-xs">
-                                                                {emp.name.charAt(0).toUpperCase()}
-                                                            </div>
-                                                        )}
-                                                        <div>
-                                                            <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                                                                <span>{emp.name}</span>
-                                                                {emp.nickname && (
-                                                                    <span className="text-xs text-zinc-400 font-normal">
-                                                                        ({emp.nickname})
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <div className="text-[11px] font-mono text-zinc-400 mt-0.5">
-                                                                {emp.employee_code}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Departemen & Divisi */}
-                                                <TableCell>
-                                                    <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                                                        {emp.division || emp.department}
-                                                    </div>
-                                                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                                                        Departemen {emp.department}
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Masa Kerja & Tenure Bucket */}
-                                                <TableCell>
-                                                    <div className="flex flex-col gap-0.5 items-start">
-                                                        <Badge variant="outline" className={`text-[10px] px-2 py-0 font-medium ${
-                                                            (emp.tenure_months ?? 0) >= 36 ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' :
-                                                            (emp.tenure_months ?? 0) >= 24 ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' :
-                                                            (emp.tenure_months ?? 0) >= 12 ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' :
-                                                            'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800'
-                                                        }`}>
-                                                            {emp.tenure_bucket || 'Kurang dari 1 Tahun'}
-                                                        </Badge>
-                                                        <span className="text-[11px] text-zinc-400 font-mono">
-                                                            {emp.tenure_months ?? 0} bln (sejak {emp.original_join_date ? new Date(emp.original_join_date).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }) : '-'})
-                                                        </span>
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Jenjang & Entitas */}
-                                                <TableCell>
-                                                    <div className="flex flex-col gap-1 items-start">
-                                                        <Badge variant="outline" className={`text-[10px] px-2 py-0 font-medium ${getJobLevelBadge(emp.job_level)}`}>
-                                                            {emp.job_level}
-                                                        </Badge>
-                                                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                                                            {emp.legal_entity || emp.employment_status}
-                                                        </span>
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Kontak & NIK */}
-                                                <TableCell>
-                                                    <div className="text-xs font-mono text-zinc-800 dark:text-zinc-200">
-                                                        {emp.phone_number}
-                                                    </div>
-                                                    <div className="text-[11px] font-mono text-zinc-400 mt-0.5">
-                                                        NIK: {emp.nik_ktp}
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Rekening & BPJS */}
-                                                <TableCell>
-                                                    <div className="text-xs text-zinc-800 dark:text-zinc-200">
-                                                        {emp.bank_name ? `${emp.bank_name}: ` : ''}{emp.bank_account_no || '-'}
-                                                    </div>
-                                                    <div className="text-[11px] text-zinc-400 mt-0.5">
-                                                        BPJS: {emp.bpjs_kesehatan_no || emp.bpjs_ketenagakerjaan_no ? 'Terdaftar' : 'Belum Ada'}
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Ukuran Seragam */}
-                                                <TableCell className="text-center">
-                                                    <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                                                        {emp.shirt_size || '-'}
-                                                    </span>
-                                                </TableCell>
-
-                                                {/* Switch Toggle Status Aktif */}
-                                                <TableCell className="text-center">
-                                                    <div className="inline-flex items-center gap-1.5">
-                                                        <Switch
-                                                            checked={emp.is_active}
-                                                            onCheckedChange={() => handleToggleStatus(emp)}
-                                                        />
-                                                        <span className={`text-[11px] font-medium ${emp.is_active ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'}`}>
-                                                            {emp.is_active ? 'Aktif' : 'Off'}
-                                                        </span>
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Tombol Aksi */}
-                                                <TableCell className="text-center">
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <Link
-                                                            href={route('hcm.employees.show', emp.employee_code || emp.id)}
-                                                            className="inline-flex items-center justify-center h-7 px-2 rounded-md text-[11px] font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 dark:text-indigo-300 transition-colors"
-                                                            title="Lihat Profil Dossier 360°"
-                                                        >
-                                                            <Eye className="h-3 w-3 mr-1" />
-                                                            Profil
-                                                        </Link>
-
-                                                        <Button
-                                                            size="icon"
-                                                            variant="ghost"
-                                                            className="h-7 w-7 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
-                                                            onClick={() => openEditModal(emp)}
-                                                            title="Edit Data"
-                                                        >
-                                                            <Pencil className="h-3 w-3" />
-                                                        </Button>
-
-                                                        <Button
-                                                            size="icon"
-                                                            variant="ghost"
-                                                            className="h-7 w-7 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                                                            onClick={() => {
-                                                                setTargetEmployee(emp);
-                                                                setIsDeleteModalOpen(true);
-                                                            }}
-                                                            title="Hapus Karyawan"
-                                                        >
-                                                            <Trash2 className="h-3 w-3" />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    } else {
-                                        // Tab Peserta Magang SMK - 13 Kolom Sesuai Excel Sheet Database Row 9
-                                        return (
-                                            <TableRow key={emp.id} className="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/50 transition-colors">
-                                                <TableCell className="text-center font-medium text-xs text-zinc-500">
-                                                    {employees.from + index}
-                                                </TableCell>
-
-                                                {/* 1. Nama */}
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        {emp.photo_url ? (
-                                                            <img
-                                                                src={emp.photo_url}
-                                                                alt={emp.name}
-                                                                className="h-8 w-8 shrink-0 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-xs"
-                                                            />
-                                                        ) : (
-                                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-teal-500 to-emerald-500 text-white font-bold text-xs shadow-xs">
-                                                                {emp.name.charAt(0).toUpperCase()}
-                                                            </div>
-                                                        )}
-                                                        <div className="min-w-0">
-                                                            <div className="font-semibold text-zinc-900 dark:text-zinc-100">{emp.name}</div>
-                                                            <div className="text-[10px] font-mono text-zinc-400">{emp.employee_code}</div>
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* 2. Nama Panggil */}
-                                                <TableCell className="font-medium text-zinc-800 dark:text-zinc-200">
-                                                    {emp.nickname || '-'}
-                                                </TableCell>
-
-                                                {/* 3. Nama Sekolah */}
-                                                <TableCell className="font-medium text-indigo-700 dark:text-indigo-300">
-                                                    {emp.intern?.school_name || '-'}
-                                                </TableCell>
-
-                                                {/* 4. Kelas */}
-                                                <TableCell className="text-center font-medium text-zinc-800 dark:text-zinc-200">
-                                                    {emp.intern?.class || '-'}
-                                                </TableCell>
-
-                                                {/* 5. Jurusan */}
-                                                <TableCell className="text-zinc-700 dark:text-zinc-300">
-                                                    {emp.intern?.major || '-'}
-                                                </TableCell>
-
-                                                {/* 6. No. Induk Siswa (NIS) */}
-                                                <TableCell className="font-mono text-zinc-800 dark:text-zinc-200">
-                                                    {emp.intern?.nis || '-'}
-                                                </TableCell>
-
-                                                {/* 7. No HP */}
-                                                <TableCell className="font-mono text-zinc-700 dark:text-zinc-300">
-                                                    {emp.intern?.student_phone || emp.phone_number || '-'}
-                                                </TableCell>
-
-                                                {/* 8. Tanggal Bergabung */}
-                                                <TableCell className="font-mono text-zinc-700 dark:text-zinc-300">
-                                                    {emp.intern?.start_date ? new Date(emp.intern.start_date).toLocaleDateString('id-ID') : (emp.join_date ? new Date(emp.join_date).toLocaleDateString('id-ID') : '-')}
-                                                </TableCell>
-
-                                                {/* 9. Tanggal Berakhir */}
-                                                <TableCell className="font-mono text-zinc-700 dark:text-zinc-300">
-                                                    {emp.intern?.end_date ? new Date(emp.intern.end_date).toLocaleDateString('id-ID') : '-'}
-                                                </TableCell>
-
-                                                {/* 10. Durasi Magang */}
-                                                <TableCell className="text-zinc-700 dark:text-zinc-300">
-                                                    {emp.intern?.duration_text || '-'}
-                                                </TableCell>
-
-                                                {/* 11. Guru Pendamping */}
-                                                <TableCell className="text-zinc-800 dark:text-zinc-200">
-                                                    {emp.intern?.mentor_teacher_name || '-'}
-                                                </TableCell>
-
-                                                {/* 12. No HP Guru Pendamping */}
-                                                <TableCell className="font-mono text-zinc-700 dark:text-zinc-300">
-                                                    {emp.intern?.mentor_teacher_phone || '-'}
-                                                </TableCell>
-
-                                                {/* 13. Alamat */}
-                                                <TableCell className="text-zinc-600 dark:text-zinc-400 max-w-[250px] truncate" title={emp.intern?.student_address || emp.address || ''}>
-                                                    {emp.intern?.student_address || emp.address || '-'}
-                                                </TableCell>
-
-                                                {/* Aksi */}
-                                                <TableCell className="text-center sticky right-0 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xs shadow-xs">
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <Link
-                                                            href={route('hcm.employees.show', emp.employee_code || emp.id)}
-                                                            className="inline-flex items-center justify-center h-7 px-2 rounded-md text-[11px] font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 dark:text-indigo-300 transition-colors"
-                                                            title="Lihat Profil Dossier Magang"
-                                                        >
-                                                            <Eye className="h-3 w-3 mr-1" />
-                                                            Profil
-                                                        </Link>
-
-                                                        <Button
-                                                            size="icon"
-                                                            variant="ghost"
-                                                            className="h-7 w-7 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
-                                                            onClick={() => openEditModal(emp)}
-                                                            title="Edit Data Siswa"
-                                                        >
-                                                            <Pencil className="h-3 w-3" />
-                                                        </Button>
-
-                                                        <Button
-                                                            size="icon"
-                                                            variant="ghost"
-                                                            className="h-7 w-7 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                                                            onClick={() => {
-                                                                setTargetEmployee(emp);
-                                                                setIsDeleteModalOpen(true);
-                                                            }}
-                                                            title="Hapus Siswa Magang"
-                                                        >
-                                                            <Trash2 className="h-3 w-3" />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    }
-                                })
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={activeCategory === 'regular' ? 9 : 15} className="h-32 text-center text-zinc-500 dark:text-zinc-400">
-                                        {activeCategory === 'intern'
-                                            ? 'Tidak ada data peserta magang SMK yang cocok dengan kriteria filter.'
-                                            : 'Tidak ada data karyawan yang cocok dengan kriteria filter.'}
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-
-                    {/* Pagination Bar */}
-                    {employees.links && employees.links.length > 3 && (
-                        <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
-                            <div>
-                                Menampilkan {employees.from || 0} - {employees.to || 0} dari {employees.total || 0} data
-                            </div>
-                            <div className="flex gap-1">
-                                {employees.links.map((link, idx) => (
-                                    <Link
-                                        key={idx}
-                                        href={link.url || '#'}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                        className={`px-3 py-1 rounded text-xs transition-colors ${
-                                            link.active
-                                                ? 'bg-indigo-600 text-white font-medium'
-                                                : link.url
-                                                ? 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
-                                                : 'text-zinc-300 dark:text-zinc-600 cursor-not-allowed'
-                                        }`}
-                                    />
-                                ))}
-                            </div>
                         </div>
-                    )}
-                </Card>
+                    }
+                />
             </div>
 
             {/* MODAL 1: Tambah Tenaga Kerja Baru */}

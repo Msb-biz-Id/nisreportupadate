@@ -1,5 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { DataTable } from '@/Components/DataTable/DataTable';
+import { DataTableColumnHeader } from '@/Components/DataTable/DataTableColumnHeader';
 import {
     Building2,
     Plus,
@@ -264,6 +266,177 @@ export default function PurchasingVendorsIndex({
         return `https://wa.me/${cleaned}`;
     }
 
+    const applyFilters = (newSearch = search, newCat = categoryFilter, newStat = statusFilter, page = 1, per_page = vendors.per_page || 15) => {
+        router.get(
+            route('purchasing.vendors.index'),
+            {
+                search: newSearch || undefined,
+                category: newCat === 'all' ? undefined : newCat,
+                status: newStat === 'all' ? undefined : newStat,
+                page,
+                per_page,
+            },
+            { preserveState: true, replace: true }
+        );
+    };
+
+    const columns = useMemo(() => [
+        {
+            accessorKey: 'vendor_code',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kode" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                    {row.original.vendor_code}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'name',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama Perusahaan / Toko" />,
+            cell: ({ row }) => {
+                const item = row.original;
+                return (
+                    <div>
+                        <div className="font-medium text-xs text-foreground">{item.name}</div>
+                        {item.bank_name && (
+                            <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <CreditCard className="h-3 w-3" />
+                                {item.bank_name}: {item.bank_account_no} (a.n {item.bank_account_holder})
+                            </div>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'category',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kategori & Pasokan" />,
+            cell: ({ row }) => {
+                const item = row.original;
+                return (
+                    <div>
+                        <Badge variant="outline" className="text-[10px] font-normal mb-0.5">
+                            {item.category}
+                        </Badge>
+                        {(item.item_name || item.item_category) && (
+                            <div className="text-[11px] text-muted-foreground line-clamp-1">
+                                {item.item_name || item.item_category}
+                            </div>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'contacts',
+            header: 'Kontak Utama (PIC)',
+            cell: ({ row }) => {
+                const item = row.original;
+                const primary = item.primary_contact || (item.contacts && item.contacts[0]);
+                if (!primary) {
+                    return <span className="text-xs text-muted-foreground italic">Belum ada PIC</span>;
+                }
+                return (
+                    <div>
+                        <div className="flex items-center gap-1 text-xs font-medium text-foreground">
+                            <Star className="h-3 w-3 fill-emerald-600 text-emerald-600" />
+                            <span>{primary.pic_name}</span>
+                            {primary.role_title && (
+                                <span className="text-[11px] text-muted-foreground">({primary.role_title})</span>
+                            )}
+                        </div>
+                        <a
+                            href={formatWhatsAppUrl(primary.phone)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400 hover:underline font-mono mt-0.5"
+                        >
+                            <MessageCircle className="h-3 w-3" />
+                            {primary.phone}
+                        </a>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'default_top_days',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Termin (TOP)" className="justify-center" />,
+            cell: ({ row }) => {
+                const item = row.original;
+                return (
+                    <div className="text-center">
+                        {item.default_top_days > 0 ? (
+                            <Badge variant="secondary" className="text-[10px] font-mono">
+                                {item.default_top_days} Hari
+                            </Badge>
+                        ) : (
+                            <span className="text-muted-foreground text-[11px]">Tunai</span>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'is_active',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" className="justify-center" />,
+            cell: ({ row }) => {
+                const item = row.original;
+                return (
+                    <div className="text-center">
+                        {item.is_active ? (
+                            <Badge className="bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-400 border-emerald-500/30 text-[10px] py-0 px-1.5">
+                                Aktif
+                            </Badge>
+                        ) : (
+                            <Badge variant="outline" className="text-muted-foreground text-[10px] py-0 px-1.5">
+                                Non-aktif
+                            </Badge>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-center">Aksi</div>,
+            cell: ({ row }) => {
+                const item = row.original;
+                return (
+                    <div className="flex items-center justify-center gap-1">
+                        <Button
+                            variant="outline"
+                            size="xs"
+                            className="h-7 text-[11px] gap-1 px-2 border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                            onClick={() => openContactsDrawer(item)}
+                            title="Kelola Banyak PIC"
+                        >
+                            <Users className="h-3.5 w-3.5" />
+                            <span>{item.contacts?.length || 0} PIC</span>
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            onClick={() => openEditModal(item)}
+                            title="Edit Supplier"
+                        >
+                            <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => confirmDelete(item)}
+                            title="Hapus Supplier"
+                        >
+                            <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                    </div>
+                );
+            },
+        },
+    ], [openContactsDrawer, openEditModal, confirmDelete]);
+
     return (
         <AppLayout>
             <Head title="Direktori Supplier & Multi-PIC" />
@@ -294,196 +467,61 @@ export default function PurchasingVendorsIndex({
                     </Button>
                 </div>
 
-                {/* Filters & Search */}
-                <Card className="shadow-sm border-border/80">
-                    <CardContent className="p-4">
-                        <form onSubmit={handleFilterSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-                            <div className="relative sm:col-span-2">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    type="search"
-                                    placeholder="Cari kode vendor, nama perusahaan, item, atau nama PIC..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="pl-8 text-xs h-9"
-                                />
-                            </div>
+                {/* TanStack Table v9 - Direktori Supplier */}
+                <DataTable
+                    columns={columns}
+                    data={vendors.data || []}
+                    serverPagination={vendors}
+                    onServerPageChange={(page) => applyFilters(undefined, undefined, undefined, page)}
+                    onServerPerPageChange={(per_page) => applyFilters(undefined, undefined, undefined, 1, per_page)}
+                    onServerSearchChange={(val) => {
+                        setSearch(val);
+                        applyFilters(val, undefined, undefined, 1);
+                    }}
+                    searchValue={search}
+                    searchPlaceholder="Cari kode vendor, nama supplier, item, PIC..."
+                    filterSlot={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Select
+                                value={categoryFilter}
+                                onValueChange={(val) => {
+                                    setCategoryFilter(val);
+                                    applyFilters(undefined, val, undefined, 1);
+                                }}
+                            >
+                                <SelectTrigger className="h-9 w-44 text-xs">
+                                    <SelectValue placeholder="Semua Kategori" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Semua Kategori</SelectItem>
+                                    {vendorCategories.map((cat, idx) => (
+                                        <SelectItem key={idx} value={cat}>
+                                            {cat}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
 
-                            <div>
-                                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                                    <SelectTrigger className="h-9 text-xs">
-                                        <SelectValue placeholder="Semua Kategori" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Semua Kategori</SelectItem>
-                                        {vendorCategories.map((cat, idx) => (
-                                            <SelectItem key={idx} value={cat}>
-                                                {cat}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="flex gap-2">
-                                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                    <SelectTrigger className="h-9 text-xs">
-                                        <SelectValue placeholder="Semua Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Semua Status</SelectItem>
-                                        <SelectItem value="active">Aktif Saja</SelectItem>
-                                        <SelectItem value="inactive">Non-aktif Saja</SelectItem>
-                                    </SelectContent>
-                                </Select>
-
-                                <Button type="submit" variant="secondary" size="sm" className="h-9 px-4 shrink-0">
-                                    Filter
-                                </Button>
-                            </div>
-                        </form>
-                    </CardContent>
-                </Card>
-
-                {/* Vendor Directory Table */}
-                <Card className="shadow-sm border-border/80">
-                    <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-muted/30">
-                                        <TableHead className="w-24 text-xs font-mono">Kode</TableHead>
-                                        <TableHead className="text-xs">Nama Perusahaan / Toko</TableHead>
-                                        <TableHead className="text-xs">Kategori & Pasokan</TableHead>
-                                        <TableHead className="text-xs">Kontak Utama (PIC)</TableHead>
-                                        <TableHead className="w-24 text-center text-xs">Termin (TOP)</TableHead>
-                                        <TableHead className="w-24 text-center text-xs">Status</TableHead>
-                                        <TableHead className="w-32 text-right text-xs pr-4">Aksi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {vendors.data?.length > 0 ? (
-                                        vendors.data.map((item) => {
-                                            const primary = item.primary_contact || (item.contacts && item.contacts[0]);
-
-                                            return (
-                                                <TableRow key={item.uuid} className="hover:bg-muted/20">
-                                                    <TableCell className="font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                                                        {item.vendor_code}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="font-medium text-xs text-foreground">
-                                                            {item.name}
-                                                        </div>
-                                                        {item.bank_name && (
-                                                            <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                                                                <CreditCard className="h-3 w-3" />
-                                                                {item.bank_name}: {item.bank_account_no} (a.n {item.bank_account_holder})
-                                                            </div>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline" className="text-[10px] font-normal mb-0.5">
-                                                            {item.category}
-                                                        </Badge>
-                                                        {(item.item_name || item.item_category) && (
-                                                            <div className="text-[11px] text-muted-foreground line-clamp-1">
-                                                                {item.item_name || item.item_category}
-                                                            </div>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {primary ? (
-                                                            <div>
-                                                                <div className="flex items-center gap-1 text-xs font-medium text-foreground">
-                                                                    <Star className="h-3 w-3 fill-emerald-600 text-emerald-600" />
-                                                                    <span>{primary.pic_name}</span>
-                                                                    {primary.role_title && (
-                                                                        <span className="text-[11px] text-muted-foreground">({primary.role_title})</span>
-                                                                    )}
-                                                                </div>
-                                                                <a
-                                                                    href={formatWhatsAppUrl(primary.phone)}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="inline-flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400 hover:underline font-mono mt-0.5"
-                                                                >
-                                                                    <MessageCircle className="h-3 w-3" />
-                                                                    {primary.phone}
-                                                                </a>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-xs text-muted-foreground italic">Belum ada PIC</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-center text-xs">
-                                                        {item.default_top_days > 0 ? (
-                                                            <Badge variant="secondary" className="text-[10px] font-mono">
-                                                                {item.default_top_days} Hari
-                                                            </Badge>
-                                                        ) : (
-                                                            <span className="text-muted-foreground text-[11px]">Tunai</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-center">
-                                                        {item.is_active ? (
-                                                            <Badge className="bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-400 border-emerald-500/30 text-[10px] py-0 px-1.5">
-                                                                Aktif
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge variant="outline" className="text-muted-foreground text-[10px] py-0 px-1.5">
-                                                                Non-aktif
-                                                            </Badge>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-right pr-4">
-                                                        <div className="flex items-center justify-end gap-1">
-                                                            <Button
-                                                                variant="outline"
-                                                                size="xs"
-                                                                className="h-7 text-[11px] gap-1 px-2 border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                                                                onClick={() => openContactsDrawer(item)}
-                                                                title="Kelola Banyak PIC"
-                                                            >
-                                                                <Users className="h-3.5 w-3.5" />
-                                                                <span>{item.contacts?.length || 0} PIC</span>
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                                onClick={() => openEditModal(item)}
-                                                            >
-                                                                <Pencil className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                                                onClick={() => confirmDelete(item)}
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                                                <div className="flex flex-col items-center justify-center gap-1.5">
-                                                    <Building2 className="h-6 w-6 text-muted-foreground/60" />
-                                                    <span className="text-xs">Belum ada data supplier yang terdaftar.</span>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
+                            <Select
+                                value={statusFilter}
+                                onValueChange={(val) => {
+                                    setStatusFilter(val);
+                                    applyFilters(undefined, undefined, val, 1);
+                                }}
+                            >
+                                <SelectTrigger className="h-9 w-36 text-xs">
+                                    <SelectValue placeholder="Semua Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Semua Status</SelectItem>
+                                    <SelectItem value="active">Aktif Saja</SelectItem>
+                                    <SelectItem value="inactive">Non-aktif Saja</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
-                    </CardContent>
-                </Card>
+                    }
+                    exportFileName="purchasing_vendors"
+                />
             </div>
 
             {/* Modal Create / Edit Vendor */}

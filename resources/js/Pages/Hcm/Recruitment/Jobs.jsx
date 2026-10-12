@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
     Briefcase,
     Plus,
@@ -28,14 +28,7 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
 import { Textarea } from '@/Components/ui/textarea';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/Components/ui/table';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -88,13 +81,15 @@ export default function JobsIndex({
         is_active: true,
     });
 
-    const handleFilterChange = (newSearch, newStatus, newDept) => {
+    const handleFilterChange = (newSearch, newStatus, newDept, page = 1, per_page = jobs.per_page) => {
         router.get(
             route('hcm.recruitment.jobs.index'),
             {
                 search: newSearch,
                 status: newStatus,
                 department: newDept,
+                page,
+                per_page,
             },
             {
                 preserveState: true,
@@ -235,6 +230,202 @@ export default function JobsIndex({
         );
     };
 
+    const columns = useMemo(
+        () => [
+            {
+                id: 'no',
+                header: () => <div className="text-center w-8">No</div>,
+                cell: ({ row }) => (
+                    <div className="text-center text-xs text-zinc-400 font-mono">
+                        {(jobs.current_page - 1) * jobs.per_page + row.index + 1}
+                    </div>
+                ),
+                size: 50,
+                enableSorting: false,
+                meta: { title: 'No' },
+            },
+            {
+                accessorKey: 'title',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Posisi & Judul Loker" />,
+                cell: ({ row }) => {
+                    const job = row.original;
+                    return (
+                        <div className="min-w-[190px]">
+                            <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
+                                {job.title}
+                            </div>
+                            <div className="text-[10px] text-zinc-400 mt-0.5">
+                                {job.job_code ? <span className="font-mono text-indigo-600 font-semibold">{job.job_code} • </span> : ''}
+                                {job.job_type} • Min. {job.min_education}
+                            </div>
+                        </div>
+                    );
+                },
+                meta: { title: 'Posisi & Judul Loker' },
+            },
+            {
+                accessorKey: 'department',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Divisi & Entitas" />,
+                cell: ({ row }) => {
+                    const job = row.original;
+                    return (
+                        <div className="min-w-[130px]">
+                            <div className="text-xs text-zinc-800 dark:text-zinc-200 font-medium">
+                                {job.department}
+                            </div>
+                            <div className="text-[10px] text-zinc-500 flex items-center gap-1 mt-0.5">
+                                <Building2 className="w-3 h-3 text-zinc-400" />
+                                {job.legal_entity || 'NISGroup'}
+                            </div>
+                        </div>
+                    );
+                },
+                meta: { title: 'Divisi & Entitas' },
+            },
+            {
+                accessorKey: 'quota',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Kuota" className="justify-center" />,
+                cell: ({ row }) => {
+                    const job = row.original;
+                    return (
+                        <div className="text-center text-xs font-mono font-semibold">
+                            <span className="text-indigo-600">{job.fulfilled_count || 0}</span> / {job.quota} Org
+                        </div>
+                    );
+                },
+                meta: { title: 'Kuota' },
+            },
+            {
+                accessorKey: 'applicants_count',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Pelamar" className="justify-center" />,
+                cell: ({ row }) => {
+                    const job = row.original;
+                    return (
+                        <div className="text-center">
+                            <Link
+                                href={route('hcm.recruitment.applicants.index', { job_id: job.slug })}
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-bold font-mono text-xs hover:underline"
+                                title="Lihat pelamar posisi ini"
+                            >
+                                <Users className="w-3 h-3" />
+                                {job.applicants_count || 0}
+                            </Link>
+                        </div>
+                    );
+                },
+                meta: { title: 'Pelamar' },
+            },
+            {
+                accessorKey: 'deadline',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Batas Lamaran" />,
+                cell: ({ row }) => {
+                    const job = row.original;
+                    return (
+                        <div className="text-xs font-mono text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+                            {job.deadline ? <div>{job.deadline}</div> : <span className="text-zinc-400 italic">Terbuka</span>}
+                        </div>
+                    );
+                },
+                meta: { title: 'Batas Lamaran' },
+            },
+            {
+                accessorKey: 'status',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Status" className="justify-center" />,
+                cell: ({ row }) => {
+                    const job = row.original;
+                    return (
+                        <div className="text-center">
+                            {getJobStatusBadge(job.status, job.is_active)}
+                        </div>
+                    );
+                },
+                meta: { title: 'Status' },
+            },
+            {
+                id: 'public_link',
+                header: () => <div className="text-xs font-semibold">Tautan Publik</div>,
+                cell: ({ row }) => {
+                    const job = row.original;
+                    return (
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCopyLink(job)}
+                                className="h-7 text-[11px] gap-1 px-2 text-zinc-700 hover:text-indigo-600 border-zinc-200 shadow-xs"
+                                title="Salin link pendaftaran pelamar mandiri"
+                            >
+                                {copiedSlug === job.slug ? (
+                                    <>
+                                        <Check className="w-3 h-3 text-emerald-600" />
+                                        <span className="text-emerald-600 font-semibold">Tersalin!</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Copy className="w-3 h-3" />
+                                        <span>Salin Link</span>
+                                    </>
+                                )}
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-zinc-500 hover:text-indigo-600"
+                                onClick={() => setQrJob(job)}
+                                title="Unduh QR Code pendaftaran"
+                            >
+                                <QrCode className="w-3.5 h-3.5" />
+                            </Button>
+                            <a
+                                href={getJobLink(job)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1 text-zinc-400 hover:text-zinc-700"
+                                title="Buka Form Publik di Tab Baru"
+                            >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                        </div>
+                    );
+                },
+                enableSorting: false,
+                meta: { title: 'Tautan Publik' },
+            },
+            {
+                id: 'actions',
+                header: () => <div className="text-center text-xs font-semibold">Aksi</div>,
+                cell: ({ row }) => {
+                    const job = row.original;
+                    return (
+                        <div className="flex items-center justify-center gap-1">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-zinc-500 hover:text-indigo-600"
+                                onClick={() => openEditModal(job)}
+                                title="Edit Loker"
+                            >
+                                <Edit2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-zinc-500 hover:text-rose-600"
+                                onClick={() => handleDelete(job)}
+                                title="Hapus Loker"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                        </div>
+                    );
+                },
+                enableSorting: false,
+                meta: { title: 'Aksi' },
+            },
+        ],
+        [jobs.current_page, jobs.per_page, copiedSlug]
+    );
+
     return (
         <AppLayout
             header={
@@ -331,31 +522,28 @@ export default function JobsIndex({
                     </Card>
                 </div>
 
-                {/* 2. Filter & Pencarian */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <CardContent className="p-3.5 flex flex-col md:flex-row items-center justify-between gap-3">
-                        <div className="relative w-full md:w-80">
-                            <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-2.5" />
-                            <Input
-                                placeholder="Cari posisi / judul loker..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        handleFilterChange(search, statusFilter, deptFilter);
-                                    }
-                                }}
-                                className="pl-9 text-xs h-8"
-                            />
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                            <div className="w-full sm:w-44">
+                {/* 2. Master Lowongan Kerja DataTable */}
+                <DataTable
+                    columns={columns}
+                    data={jobs.data || []}
+                    serverPagination={jobs}
+                    onServerPageChange={(page) => handleFilterChange(search, statusFilter, deptFilter, page)}
+                    onServerPerPageChange={(per_page) => handleFilterChange(search, statusFilter, deptFilter, 1, per_page)}
+                    onServerSearchChange={(val) => {
+                        setSearch(val);
+                        handleFilterChange(val, statusFilter, deptFilter, 1);
+                    }}
+                    searchValue={search}
+                    searchPlaceholder="Cari posisi, judul loker, divisi..."
+                    exportFileName={`Daftar_Loker_${new Date().toISOString().slice(0, 10)}`}
+                    filterSlot={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="min-w-[150px] w-auto">
                                 <SearchableSelect
                                     value={statusFilter}
                                     onValueChange={(val) => {
                                         setStatusFilter(val);
-                                        handleFilterChange(search, val, deptFilter);
+                                        handleFilterChange(search, val, deptFilter, 1);
                                     }}
                                     options={[
                                         { label: 'Semua Status', value: 'all' },
@@ -363,206 +551,28 @@ export default function JobsIndex({
                                         { label: 'Nonaktif / Tutup', value: 'inactive' },
                                     ]}
                                     placeholder="Status Loker"
-                                    className="text-xs"
+                                    className="text-xs h-8"
                                 />
                             </div>
 
-                            <div className="w-full sm:w-52">
+                            <div className="min-w-[170px] w-auto">
                                 <SearchableSelect
                                     value={deptFilter}
                                     onValueChange={(val) => {
                                         setDeptFilter(val);
-                                        handleFilterChange(search, statusFilter, val);
+                                        handleFilterChange(search, statusFilter, val, 1);
                                     }}
                                     options={[
                                         { label: 'Semua Departemen', value: 'all' },
                                         ...departments.map((d) => ({ label: d, value: d })),
                                     ]}
                                     placeholder="Departemen"
-                                    className="text-xs"
+                                    className="text-xs h-8"
                                 />
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
-
-                {/* 3. Tabel Daftar Lowongan Kerja */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-zinc-50 dark:bg-zinc-800/50">
-                                <TableRow>
-                                    <TableHead className="w-[50px] text-center text-xs font-semibold">No</TableHead>
-                                    <TableHead className="min-w-[200px] text-xs font-semibold">Posisi & Judul Loker</TableHead>
-                                    <TableHead className="min-w-[140px] text-xs font-semibold">Divisi & Entitas CV</TableHead>
-                                    <TableHead className="min-w-[80px] text-center text-xs font-semibold">Kuota</TableHead>
-                                    <TableHead className="min-w-[90px] text-center text-xs font-semibold">Pelamar</TableHead>
-                                    <TableHead className="min-w-[110px] text-xs font-semibold">Batas Lamaran</TableHead>
-                                    <TableHead className="min-w-[100px] text-center text-xs font-semibold">Status</TableHead>
-                                    <TableHead className="min-w-[160px] text-xs font-semibold">Tautan Pendaftaran Publik</TableHead>
-                                    <TableHead className="w-[80px] text-right text-xs font-semibold">Aksi</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {jobs.data && jobs.data.length > 0 ? (
-                                    jobs.data.map((job, idx) => (
-                                        <TableRow key={job.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                                            <TableCell className="text-center text-xs text-zinc-400 font-mono">
-                                                {(jobs.current_page - 1) * jobs.per_page + idx + 1}
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
-                                                    {job.title}
-                                                </div>
-                                                <div className="text-[10px] text-zinc-400 mt-0.5">
-                                                    {job.job_code ? <span className="font-mono text-indigo-600 font-semibold">{job.job_code} • </span> : ''}
-                                                    {job.job_type} • Min. {job.min_education}
-                                                </div>
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <div className="text-xs text-zinc-800 dark:text-zinc-200 font-medium">
-                                                    {job.department}
-                                                </div>
-                                                <div className="text-[10px] text-zinc-500 flex items-center gap-1 mt-0.5">
-                                                    <Building2 className="w-3 h-3 text-zinc-400" />
-                                                    {job.legal_entity || 'NISGroup'}
-                                                </div>
-                                            </TableCell>
-
-                                            <TableCell className="text-center text-xs font-mono font-semibold">
-                                                <span className="text-indigo-600">{job.fulfilled_count || 0}</span> / {job.quota} Org
-                                            </TableCell>
-
-                                            <TableCell className="text-center">
-                                                <Link
-                                                    href={route('hcm.recruitment.applicants.index', { job_id: job.slug })}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-bold font-mono text-xs hover:underline"
-                                                    title="Lihat pelamar posisi ini"
-                                                >
-                                                    <Users className="w-3 h-3" />
-                                                    {job.applicants_count || 0}
-                                                </Link>
-                                            </TableCell>
-
-                                            <TableCell className="text-xs font-mono text-zinc-600 dark:text-zinc-400">
-                                                {job.deadline ? (
-                                                    <div>{job.deadline}</div>
-                                                ) : (
-                                                    <span className="text-zinc-400 italic">Terbuka</span>
-                                                )}
-                                            </TableCell>
-
-                                            <TableCell className="text-center">
-                                                {getJobStatusBadge(job.status, job.is_active)}
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <div className="flex items-center gap-1.5">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => handleCopyLink(job)}
-                                                        className="h-7 text-[11px] gap-1 px-2 text-zinc-700 hover:text-indigo-600 border-zinc-200 shadow-xs"
-                                                        title="Salin link pendaftaran pelamar mandiri"
-                                                    >
-                                                        {copiedSlug === job.slug ? (
-                                                            <>
-                                                                <Check className="w-3 h-3 text-emerald-600" />
-                                                                <span className="text-emerald-600 font-semibold">Tersalin!</span>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Copy className="w-3 h-3" />
-                                                                <span>Salin Link</span>
-                                                            </>
-                                                        )}
-                                                    </Button>
-
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 text-zinc-500 hover:text-indigo-600"
-                                                        onClick={() => setQrJob(job)}
-                                                        title="Unduh QR Code pendaftaran"
-                                                    >
-                                                        <QrCode className="w-3.5 h-3.5" />
-                                                    </Button>
-
-                                                    <a
-                                                        href={getJobLink(job)}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="p-1 text-zinc-400 hover:text-zinc-700"
-                                                        title="Buka Form Publik di Tab Baru"
-                                                    >
-                                                        <ExternalLink className="w-3.5 h-3.5" />
-                                                    </a>
-                                                </div>
-                                            </TableCell>
-
-                                            <TableCell className="text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 text-zinc-500 hover:text-indigo-600"
-                                                        onClick={() => openEditModal(job)}
-                                                        title="Edit Loker"
-                                                    >
-                                                        <Edit2 className="w-3.5 h-3.5" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 text-zinc-500 hover:text-rose-600"
-                                                        onClick={() => handleDelete(job)}
-                                                        title="Hapus Loker"
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={9} className="text-center py-12 text-zinc-400 text-xs">
-                                            Belum ada lowongan kerja yang terdaftar.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-
-                    {/* Pagination */}
-                    {jobs.links && jobs.links.length > 3 && (
-                        <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-500">
-                            <div>
-                                Menampilkan {jobs.from || 0} - {jobs.to || 0} dari {jobs.total || 0} lowongan
-                            </div>
-                            <div className="flex items-center gap-1">
-                                {jobs.links.map((link, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => link.url && router.get(link.url)}
-                                        disabled={!link.url}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                        className={`px-2.5 py-1 text-xs rounded border ${
-                                            link.active
-                                                ? 'bg-indigo-600 text-white border-indigo-600 font-semibold'
-                                                : link.url
-                                                ? 'hover:bg-zinc-100 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800'
-                                                : 'text-zinc-400 border-transparent opacity-50 cursor-not-allowed'
-                                        }`}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </Card>
+                    }
+                />
             </div>
 
             {/* Modal Tambah / Edit Lowongan Kerja */}

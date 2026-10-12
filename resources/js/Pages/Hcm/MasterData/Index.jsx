@@ -22,14 +22,8 @@ import { Label } from '@/Components/ui/label';
 import { Textarea } from '@/Components/ui/textarea';
 import { Switch } from '@/Components/ui/switch';
 import { Badge } from '@/Components/ui/badge';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/Components/ui/table';
+import { DataTable } from '@/Components/DataTable/DataTable';
+import { DataTableColumnHeader } from '@/Components/DataTable/DataTableColumnHeader';
 import {
     Dialog,
     DialogContent,
@@ -227,7 +221,128 @@ export default function HcmMasterDataIndex({
         });
     }
 
+    const isDivision = ['divisi', 'division'].includes(selectedCategory?.code);
     const SelectedIcon = resolveIcon(selectedCategory?.icon);
+
+    const optionColumns = useMemo(() => {
+        const cols = [
+            {
+                accessorKey: 'order_index',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Urutan" />,
+                cell: ({ row }) => (
+                    <Badge variant="outline" className="px-1.5 py-0 text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
+                        {row.original.order_index}
+                    </Badge>
+                ),
+            },
+            {
+                accessorKey: 'name',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Nama / Label Data" />,
+                cell: ({ row }) => (
+                    <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-xs text-zinc-900 dark:text-zinc-100">{row.original.name}</span>
+                        {row.original.is_active ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                        ) : (
+                            <XCircle className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                        )}
+                    </div>
+                ),
+            },
+        ];
+
+        if (isDivision) {
+            cols.push({
+                id: 'parent_dept',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Departemen Induk" />,
+                cell: ({ row }) => (
+                    <Badge variant="outline" className="text-[11px] font-normal text-indigo-700 bg-indigo-50/50 dark:text-indigo-300 dark:bg-indigo-950/30">
+                        {row.original.parent?.name || 'Belum Terhubung'}
+                    </Badge>
+                ),
+            });
+        }
+
+        cols.push(
+            {
+                accessorKey: 'code',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Kode Identifier" />,
+                cell: ({ row }) => (
+                    <span className="font-mono text-[11px] text-zinc-500">{row.original.code || '-'}</span>
+                ),
+            },
+            {
+                accessorKey: 'description',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Keterangan" />,
+                cell: ({ row }) => (
+                    <span className="text-xs text-zinc-500 max-w-xs truncate block">{row.original.description || '-'}</span>
+                ),
+            },
+            {
+                accessorKey: 'is_active',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Status" className="text-center w-28" />,
+                cell: ({ row }) => (
+                    <div className="flex items-center justify-center">
+                        <Switch
+                            checked={Boolean(row.original.is_active)}
+                            onCheckedChange={() => handleToggleActive(row.original)}
+                            title={row.original.is_active ? 'Klik untuk non-aktifkan' : 'Klik untuk aktifkan'}
+                        />
+                    </div>
+                ),
+            },
+            {
+                id: 'actions',
+                header: () => <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Aksi</span>,
+                cell: ({ row }) => {
+                    const opt = row.original;
+                    return (
+                        <div className="flex items-center justify-end gap-1">
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                                onClick={() => openEditDialog(opt)}
+                                title="Edit Data Opsi"
+                            >
+                                <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400"
+                                onClick={() => confirmDelete(opt)}
+                                title="Hapus Data Opsi"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                        </div>
+                    );
+                },
+            }
+        );
+
+        return cols;
+    }, [isDivision, selectedCategory]);
+
+    const filterSlot = (
+        <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span>Status:</span>
+            </div>
+            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+                <SelectTrigger className="w-[130px] h-8 text-xs">
+                    <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all" className="text-xs">Semua Data</SelectItem>
+                    <SelectItem value="active" className="text-xs">Hanya Aktif</SelectItem>
+                    <SelectItem value="inactive" className="text-xs">Non-Aktif</SelectItem>
+                </SelectContent>
+            </Select>
+        </div>
+    );
 
     return (
         <AppLayout title="Master Data Kepegawaian">
@@ -369,158 +484,20 @@ export default function HcmMasterDataIndex({
                                             </Badge>
                                         </div>
                                     </div>
-
-                                    {/* Action & Filter Bar */}
-                                    <div className="mt-4 pt-3 border-t flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-                                        <form onSubmit={handleOptionSearchSubmit} className="relative flex-1">
-                                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                            <Input
-                                                type="text"
-                                                placeholder={`Cari data dalam ${selectedCategory.name}...`}
-                                                value={optionSearch}
-                                                onChange={(e) => setOptionSearch(e.target.value)}
-                                                className="pl-8 text-xs h-9"
-                                            />
-                                        </form>
-
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                                <SlidersHorizontal className="h-3.5 w-3.5" />
-                                                <span>Status:</span>
-                                            </div>
-                                            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                                                <SelectTrigger className="w-[140px] h-9 text-xs">
-                                                    <SelectValue placeholder="Status" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="all" className="text-xs">Semua Data</SelectItem>
-                                                    <SelectItem value="active" className="text-xs">Hanya Aktif</SelectItem>
-                                                    <SelectItem value="inactive" className="text-xs">Non-Aktif</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
                                 </CardHeader>
 
-                                {/* Tabel Opsi Data */}
+                                {/* Tabel Opsi Data via DataTable */}
                                 <CardContent className="p-0">
-                                    <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow className="bg-muted/40 text-xs">
-                                                    <TableHead className="w-12 text-center font-bold">No</TableHead>
-                                                    <TableHead className="w-20 font-bold">
-                                                        <div className="flex items-center gap-1">
-                                                            <ArrowUpDown className="h-3 w-3" />
-                                                            <span>Urutan</span>
-                                                        </div>
-                                                    </TableHead>
-                                                    <TableHead className="font-bold">Nama / Label Data</TableHead>
-                                                    {['divisi', 'division'].includes(selectedCategory?.code) && (
-                                                        <TableHead className="font-bold">Departemen Induk</TableHead>
-                                                    )}
-                                                    <TableHead className="font-bold">Kode Identifier</TableHead>
-                                                    <TableHead className="font-bold">Keterangan</TableHead>
-                                                    <TableHead className="w-28 text-center font-bold">Status Aktif</TableHead>
-                                                    <TableHead className="w-24 text-right font-bold pr-4">Aksi</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {options.length === 0 ? (
-                                                    <TableRow>
-                                                        <TableCell colSpan={['divisi', 'division'].includes(selectedCategory?.code) ? 8 : 7} className="h-36 text-center">
-                                                            <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                                                                <SelectedIcon className="h-8 w-8 text-muted-foreground/40" />
-                                                                <p className="text-sm font-medium">Belum ada data opsi yang ditemukan.</p>
-                                                                <p className="text-xs">Klik tombol tambah data untuk memasukkan opsi baru ke kategori ini.</p>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={openCreateDialog}
-                                                                    className="mt-1"
-                                                                >
-                                                                    <Plus className="h-3.5 w-3.5 mr-1" />
-                                                                    Tambah Opsi Sekarang
-                                                                </Button>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ) : (
-                                                    options.map((opt, idx) => (
-                                                        <TableRow
-                                                            key={opt.id}
-                                                            className={`text-xs hover:bg-muted/30 transition-colors ${
-                                                                !opt.is_active ? 'opacity-60 bg-muted/10' : ''
-                                                            }`}
-                                                        >
-                                                            <TableCell className="text-center font-mono text-muted-foreground">
-                                                                {idx + 1}
-                                                            </TableCell>
-                                                            <TableCell className="font-mono text-muted-foreground">
-                                                                <Badge variant="outline" className="px-1.5 py-0 text-[11px]">
-                                                                    {opt.order_index}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell className="font-medium text-foreground">
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span>{opt.name}</span>
-                                                                    {opt.is_active ? (
-                                                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                                                                    ) : (
-                                                                        <XCircle className="h-3.5 w-3.5 text-muted-foreground" />
-                                                                    )}
-                                                                </div>
-                                                            </TableCell>
-                                                            {['divisi', 'division'].includes(selectedCategory?.code) && (
-                                                                <TableCell>
-                                                                    <Badge variant="outline" className="text-[11px] font-normal text-indigo-700 bg-indigo-50/50 dark:text-indigo-300 dark:bg-indigo-950/30">
-                                                                        {opt.parent?.name || 'Belum Terhubung'}
-                                                                    </Badge>
-                                                                </TableCell>
-                                                            )}
-                                                            <TableCell className="font-mono text-[11px] text-muted-foreground">
-                                                                {opt.code || '-'}
-                                                            </TableCell>
-                                                            <TableCell className="text-muted-foreground max-w-xs truncate">
-                                                                {opt.description || '-'}
-                                                            </TableCell>
-                                                            <TableCell className="text-center">
-                                                                <div className="flex items-center justify-center">
-                                                                    <Switch
-                                                                        checked={Boolean(opt.is_active)}
-                                                                        onCheckedChange={() => handleToggleActive(opt)}
-                                                                        title={opt.is_active ? 'Klik untuk non-aktifkan' : 'Klik untuk aktifkan'}
-                                                                    />
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="text-right pr-4">
-                                                                <div className="flex items-center justify-end gap-1">
-                                                                    <Button
-                                                                        size="icon"
-                                                                        variant="ghost"
-                                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                                        onClick={() => openEditDialog(opt)}
-                                                                        title="Edit Data Opsi"
-                                                                    >
-                                                                        <Pencil className="h-3.5 w-3.5" />
-                                                                    </Button>
-                                                                    <Button
-                                                                        size="icon"
-                                                                        variant="ghost"
-                                                                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                                                        onClick={() => confirmDelete(opt)}
-                                                                        title="Hapus Data Opsi"
-                                                                    >
-                                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                                    </Button>
-                                                                </div>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))
-                                                )}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
+                                    <DataTable
+                                        columns={optionColumns}
+                                        data={options}
+                                        searchPlaceholder={`Cari data dalam ${selectedCategory.name}...`}
+                                        filterSlot={filterSlot}
+                                        enableColumnVisibility={true}
+                                        enableExport={true}
+                                        exportFilename={`master_${selectedCategory.code}_${new Date().toISOString().slice(0, 10)}`}
+                                        exportTitle={`Master Data - ${selectedCategory.name}`}
+                                    />
                                 </CardContent>
                             </Card>
                         ) : (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import UniversalDocumentViewer from '@/Components/Hcm/UniversalDocumentViewer';
@@ -8,14 +8,8 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
 import { Textarea } from '@/Components/ui/textarea';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/Components/ui/table';
+import { DataTable } from '@/Components/DataTable/DataTable';
+import { DataTableColumnHeader } from '@/Components/DataTable/DataTableColumnHeader';
 import {
     Dialog,
     DialogContent,
@@ -43,6 +37,7 @@ import {
     BookOpen,
     Upload,
     Eye,
+    RotateCcw,
 } from 'lucide-react';
 
 export default function LetterIndex({ auth, letters, filters, metrics, letterTypes }) {
@@ -70,21 +65,30 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
         notes: '',
     });
 
-    const handleFilter = (typeVal = selectedType, yearVal = selectedYear) => {
+    const handleFilter = (typeVal = selectedType, yearVal = selectedYear, searchVal = search, page = 1, perPage = letters?.per_page || 12) => {
         router.get(
             route('hcm.letters.index'),
             {
-                search,
+                search: searchVal,
                 type: typeVal,
                 year: yearVal,
+                page,
+                per_page: perPage,
             },
             { preserveState: true }
         );
     };
 
-    const handleSearchSubmit = (e) => {
-        e.preventDefault();
-        handleFilter();
+    const handleReset = () => {
+        const curYear = new Date().getFullYear().toString();
+        setSearch('');
+        setSelectedType('all');
+        setSelectedYear(curYear);
+        router.get(
+            route('hcm.letters.index'),
+            { search: '', type: 'all', year: curYear, page: 1, per_page: letters?.per_page || 12 },
+            { preserveState: true }
+        );
     };
 
     const openCreateModal = () => {
@@ -189,6 +193,160 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
         }
     };
 
+    const columns = useMemo(() => [
+        {
+            accessorKey: 'agenda_number',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="No. Agenda" />,
+            cell: ({ row }) => (
+                <span className="font-mono font-bold text-xs text-indigo-600 dark:text-indigo-400">
+                    {row.original.agenda_number}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'letter_type',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jenis" />,
+            cell: ({ row }) => getTypeBadge(row.original.letter_type),
+        },
+        {
+            id: 'subject',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nomor Surat & Perihal" />,
+            cell: ({ row }) => {
+                const letter = row.original;
+                return (
+                    <div>
+                        <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
+                            {letter.subject}
+                        </div>
+                        <div className="text-[11px] font-mono text-zinc-500 mt-0.5">
+                            No: {letter.letter_number}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'parties',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Pengirim & Penerima" />,
+            cell: ({ row }) => {
+                const letter = row.original;
+                return (
+                    <div>
+                        <div className="text-xs text-zinc-800 dark:text-zinc-200">
+                            <span className="text-zinc-400 text-[10px]">Dari:</span> {letter.sender}
+                        </div>
+                        <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
+                            <span className="text-zinc-400 text-[10px]">Kpd:</span> {letter.recipient}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'dates',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tanggal" />,
+            cell: ({ row }) => {
+                const letter = row.original;
+                return (
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                        <div>{letter.letter_date}</div>
+                        {letter.received_or_sent_date && (
+                            <div className="text-[10px] text-zinc-400">
+                                Tercatat: {letter.received_or_sent_date}
+                            </div>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'disposition_status',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Disposisi" />,
+            cell: ({ row }) => (
+                <span className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                    {row.original.disposition_status || '-'}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'physical_location',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Lokasi Fisik" />,
+            cell: ({ row }) => (
+                <div className="flex items-center gap-1 text-[11px] text-zinc-600 dark:text-zinc-400">
+                    <MapPin className="w-3 h-3 text-zinc-400 shrink-0" />
+                    <span className="truncate max-w-[120px]">{row.original.physical_location || '-'}</span>
+                </div>
+            ),
+        },
+        {
+            id: 'file',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Berkas" className="justify-center" />,
+            cell: ({ row }) => {
+                const letter = row.original;
+                return letter.file_url ? (
+                    <div className="flex items-center justify-center gap-1">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                const isPdf = letter.file_url.toLowerCase().endsWith('.pdf') || letter.file_url.includes('.pdf');
+                                setPreviewFile({
+                                    url: letter.file_url,
+                                    name: `Surat ${letter.agenda_number} - ${letter.subject}`,
+                                    isPdf: isPdf,
+                                });
+                            }}
+                            className="h-6 text-[10px] px-1.5 gap-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+                        >
+                            <Eye className="h-3 w-3" />
+                            Lihat
+                        </Button>
+                        <a
+                            href={letter.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-zinc-400 hover:text-zinc-600 p-0.5"
+                            title="Buka Tab Baru"
+                        >
+                            <ExternalLink className="h-3 w-3" />
+                        </a>
+                    </div>
+                ) : (
+                    <span className="text-[11px] text-zinc-400 italic">Belum ada</span>
+                );
+            },
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Aksi</div>,
+            cell: ({ row }) => {
+                const letter = row.original;
+                return (
+                    <div className="flex items-center justify-end gap-1">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditModal(letter)}
+                            className="h-7 w-7 p-0 text-zinc-500 hover:text-indigo-600"
+                            title="Edit Surat"
+                        >
+                            <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(letter)}
+                            className="h-7 w-7 p-0 text-zinc-500 hover:text-rose-600"
+                            title="Hapus Surat"
+                        >
+                            <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                    </div>
+                );
+            },
+        },
+    ], []);
+
     return (
         <AppLayout
             header={
@@ -267,216 +425,69 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
                     </Card>
                 </div>
 
-                {/* 2. Filter & Pencarian */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <CardContent className="p-3.5 flex flex-col md:flex-row items-center justify-between gap-3">
-                        <form onSubmit={handleSearchSubmit} className="relative w-full md:w-80">
-                            <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-2.5" />
-                            <Input
-                                type="text"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Cari perihal, nomor surat, instansi..."
-                                className="pl-9 h-8 text-xs"
+                {/* 2. Tabel Agenda Persuratan with DataTable */}
+                <DataTable
+                    columns={columns}
+                    data={letters.data || []}
+                    serverPagination={letters}
+                    onServerPageChange={(page) => handleFilter(selectedType, selectedYear, search, page)}
+                    onServerPerPageChange={(per_page) => handleFilter(selectedType, selectedYear, search, 1, per_page)}
+                    onServerSearchChange={(val) => {
+                        setSearch(val);
+                        handleFilter(selectedType, selectedYear, val, 1);
+                    }}
+                    searchValue={search}
+                    searchPlaceholder="Cari perihal, nomor surat, instansi..."
+                    exportFileName={`Agenda_Persuratan_${new Date().toISOString().slice(0, 10)}`}
+                    filterSlot={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <SearchableSelect
+                                options={[
+                                    { value: 'all', label: 'Semua Jenis Surat' },
+                                    { value: 'SURAT_MASUK', label: 'Surat Masuk' },
+                                    { value: 'SURAT_KELUAR', label: 'Surat Keluar' },
+                                    { value: 'INTERNAL_MEMO', label: 'Internal Memo' },
+                                    { value: 'SK_DIREKSI', label: 'SK Direksi' },
+                                ]}
+                                value={selectedType}
+                                onValueChange={(val) => {
+                                    setSelectedType(val);
+                                    handleFilter(val, selectedYear, search, 1);
+                                }}
+                                placeholder="Jenis Surat"
+                                clearable={false}
+                                className="h-8 text-xs w-[170px]"
                             />
-                        </form>
-
-                        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                            <div className="w-full sm:w-56">
-                                <SearchableSelect
-                                    options={[
-                                        { value: 'all', label: 'Semua Jenis Surat' },
-                                        { value: 'SURAT_MASUK', label: 'Surat Masuk' },
-                                        { value: 'SURAT_KELUAR', label: 'Surat Keluar' },
-                                        { value: 'INTERNAL_MEMO', label: 'Internal Memo' },
-                                        { value: 'SK_DIREKSI', label: 'SK Direksi' },
-                                    ]}
-                                    value={selectedType}
-                                    onChange={(val) => {
-                                        setSelectedType(val);
-                                        handleFilter(val, selectedYear);
-                                    }}
-                                    placeholder="Jenis Surat"
-                                    className="w-full text-xs"
-                                />
-                            </div>
-
-                            <div className="w-full sm:w-36">
-                                <SearchableSelect
-                                    options={[
-                                        { value: '2026', label: 'Tahun 2026' },
-                                        { value: '2025', label: 'Tahun 2025' },
-                                        { value: '2024', label: 'Tahun 2024' },
-                                    ]}
-                                    value={selectedYear}
-                                    onChange={(val) => {
-                                        setSelectedYear(val);
-                                        handleFilter(selectedType, val);
-                                    }}
-                                    placeholder="Tahun"
-                                    className="w-full text-xs"
-                                />
-                            </div>
+                            <SearchableSelect
+                                options={[
+                                    { value: '2026', label: 'Tahun 2026' },
+                                    { value: '2025', label: 'Tahun 2025' },
+                                    { value: '2024', label: 'Tahun 2024' },
+                                ]}
+                                value={selectedYear}
+                                onValueChange={(val) => {
+                                    setSelectedYear(val);
+                                    handleFilter(selectedType, val, search, 1);
+                                }}
+                                placeholder="Tahun"
+                                clearable={false}
+                                className="h-8 text-xs w-[120px]"
+                            />
+                            {(selectedType !== 'all' || search !== '') && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleReset}
+                                    className="h-8 text-xs text-zinc-500 hover:text-rose-600 gap-1 px-2"
+                                    title="Reset filter"
+                                >
+                                    <RotateCcw className="h-3 w-3" />
+                                    <span>Reset</span>
+                                </Button>
+                            )}
                         </div>
-                    </CardContent>
-                </Card>
-
-                {/* 3. Tabel Agenda Persuratan */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-zinc-50/75 dark:bg-zinc-800/50">
-                                    <TableHead className="w-28 text-xs">No. Agenda</TableHead>
-                                    <TableHead className="w-32 text-xs">Jenis</TableHead>
-                                    <TableHead className="text-xs">Nomor Surat & Perihal</TableHead>
-                                    <TableHead className="text-xs">Pengirim & Penerima</TableHead>
-                                    <TableHead className="w-28 text-xs">Tanggal</TableHead>
-                                    <TableHead className="w-36 text-xs">Disposisi</TableHead>
-                                    <TableHead className="w-32 text-xs">Lokasi Fisik</TableHead>
-                                    <TableHead className="w-24 text-center text-xs">Berkas</TableHead>
-                                    <TableHead className="w-24 text-right text-xs">Aksi</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {letters.data && letters.data.length > 0 ? (
-                                    letters.data.map((letter) => (
-                                        <TableRow key={letter.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                                            <TableCell className="font-mono font-bold text-xs text-indigo-600 dark:text-indigo-400">
-                                                {letter.agenda_number}
-                                            </TableCell>
-                                            <TableCell>
-                                                {getTypeBadge(letter.letter_type)}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
-                                                    {letter.subject}
-                                                </div>
-                                                <div className="text-[11px] font-mono text-zinc-500 mt-0.5">
-                                                    No: {letter.letter_number}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="text-xs text-zinc-800 dark:text-zinc-200">
-                                                    <span className="text-zinc-400 text-[10px]">Dari:</span> {letter.sender}
-                                                </div>
-                                                <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-                                                    <span className="text-zinc-400 text-[10px]">Kpd:</span> {letter.recipient}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-xs text-zinc-600 dark:text-zinc-400">
-                                                <div>{letter.letter_date}</div>
-                                                {letter.received_or_sent_date && (
-                                                    <div className="text-[10px] text-zinc-400">
-                                                        Tercatat: {letter.received_or_sent_date}
-                                                    </div>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className="text-[11px] text-zinc-600 dark:text-zinc-400">
-                                                    {letter.disposition_status || '-'}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-1 text-[11px] text-zinc-600 dark:text-zinc-400">
-                                                    <MapPin className="w-3 h-3 text-zinc-400 shrink-0" />
-                                                    <span className="truncate max-w-[120px]">{letter.physical_location || '-'}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                {letter.file_url ? (
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => {
-                                                                const isPdf = letter.file_url.toLowerCase().endsWith('.pdf') || letter.file_url.includes('.pdf');
-                                                                setPreviewFile({
-                                                                    url: letter.file_url,
-                                                                    name: `Surat ${letter.agenda_number} - ${letter.subject}`,
-                                                                    isPdf: isPdf,
-                                                                });
-                                                            }}
-                                                            className="h-6 text-[10px] px-1.5 gap-1 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-                                                        >
-                                                            <Eye className="h-3 w-3" />
-                                                            Lihat
-                                                        </Button>
-                                                        <a
-                                                            href={letter.file_url}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-zinc-400 hover:text-zinc-600 p-0.5"
-                                                            title="Buka Tab Baru"
-                                                        >
-                                                            <ExternalLink className="h-3 w-3" />
-                                                        </a>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-[11px] text-zinc-400 italic">Belum ada</span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => openEditModal(letter)}
-                                                        className="h-7 w-7 p-0 text-zinc-500 hover:text-indigo-600"
-                                                        title="Edit Surat"
-                                                    >
-                                                        <Edit2 className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => handleDelete(letter)}
-                                                        className="h-7 w-7 p-0 text-zinc-500 hover:text-rose-600"
-                                                        title="Hapus Surat"
-                                                    >
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={8} className="h-32 text-center text-xs text-zinc-400">
-                                            Belum ada catatan agenda surat untuk kriteria pencarian ini.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-
-                    {/* Pagination */}
-                    {letters.links && letters.links.length > 3 && (
-                        <div className="p-3 border-t border-zinc-200/80 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-500">
-                            <div>
-                                Menampilkan {letters.from || 0} - {letters.to || 0} dari {letters.total || 0} surat
-                            </div>
-                            <div className="flex items-center gap-1">
-                                {letters.links.map((link, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => link.url && router.get(link.url)}
-                                        disabled={!link.url}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                        className={`px-2.5 py-1 text-xs rounded border ${
-                                            link.active
-                                                ? 'bg-indigo-600 text-white border-indigo-600 font-semibold'
-                                                : link.url
-                                                ? 'hover:bg-zinc-100 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800'
-                                                : 'text-zinc-400 border-transparent opacity-50 cursor-not-allowed'
-                                        }`}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </Card>
+                    }
+                />
             </div>
 
             {/* MODAL 1: Catat / Edit Surat Agenda */}

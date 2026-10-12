@@ -106,7 +106,8 @@ class HcmOvertimeController extends Controller
             ->orderBy('period_start', 'desc')
             ->orderBy('id', 'desc');
 
-        $batches = $batchesQuery->paginate(12)->withQueryString();
+        $perPage = min(max((int) $request->query('per_page', 12), 5), 100);
+        $batches = $batchesQuery->paginate($perPage)->withQueryString();
 
         $rates = self::getDynamicRates();
 

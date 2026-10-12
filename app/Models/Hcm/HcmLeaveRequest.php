@@ -3,11 +3,33 @@
 namespace App\Models\Hcm;
 
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $employee_id
+ * @property string $leave_type
+ * @property Carbon|null $start_date
+ * @property Carbon|null $end_date
+ * @property int $total_days
+ * @property string|null $reason
+ * @property string|null $attachment_url
+ * @property string $status
+ * @property int|null $reviewed_by
+ * @property Carbon|null $reviewed_at
+ * @property string|null $rejection_reason
+ * @property int|null $created_by
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read HcmEmployee|null $employee
+ * @property-read User|null $reviewer
+ * @property-read User|null $creator
+ */
 class HcmLeaveRequest extends Model
 {
     use HasFactory;

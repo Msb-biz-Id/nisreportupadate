@@ -11,6 +11,47 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property string $asset_code
+ * @property string|null $category_code
+ * @property string|null $department_code
+ * @property string|null $year_code
+ * @property int|null $sequence_number
+ * @property string $registration_stage
+ * @property int|null $order_id
+ * @property int|null $pic_employee_id
+ * @property string|null $pic_employee_name
+ * @property string $asset_name
+ * @property int|null $asset_category_id
+ * @property string|null $specification
+ * @property string|null $unit
+ * @property int $quantity
+ * @property int|null $location_id
+ * @property string|null $department
+ * @property string|null $division
+ * @property string|null $position
+ * @property int|null $vendor_id
+ * @property string|null $supplier_name
+ * @property \Illuminate\Support\Carbon|null $purchase_date
+ * @property \Illuminate\Support\Carbon|null $received_date
+ * @property float|null $acquisition_cost
+ * @property string|null $warranty_duration
+ * @property \Illuminate\Support\Carbon|null $warranty_expires_at
+ * @property string|null $serial_number
+ * @property string|null $barcode_qr_code
+ * @property string $status
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property-read \App\Models\Purchasing\PurchasingOrder|null $order
+ * @property-read \App\Models\Purchasing\PurchasingVendor|null $vendor
+ * @property-read \App\Models\Hcm\HcmEmployee|null $picEmployee
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Purchasing\PurchasingAssetMutation[] $mutations
+ * @property-read \App\Models\Purchasing\PurchasingAssetRetirement|null $retirement
+ */
 class PurchasingAsset extends Model
 {
     use HasFactory, SoftDeletes;
@@ -107,5 +148,15 @@ class PurchasingAsset extends Model
     public function retirement(): HasOne
     {
         return $this->hasOne(PurchasingAssetRetirement::class, 'asset_id');
+    }
+
+    public function maintenances(): HasMany
+    {
+        return $this->hasMany(PurchasingAssetMaintenance::class, 'asset_id')->orderByDesc('maintenance_date');
+    }
+
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(PurchasingMasterOption::class, 'location_id');
     }
 }

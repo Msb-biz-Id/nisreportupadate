@@ -40,6 +40,8 @@ import {
     AlertCircle,
     ArrowRight,
     FileSpreadsheet,
+    Copy,
+    Check,
 } from 'lucide-react';
 
 const rp = (v) => {
@@ -55,6 +57,27 @@ export default function PayrollIndex({
 }) {
     const [search, setSearch] = useState(filters.search || '');
     const [status, setStatus] = useState(filters.status || 'all');
+    const [copied, setCopied] = useState(false);
+
+    const handleCopyPayrollTable = () => {
+        if (rows.length === 0) return;
+        const headers = ['Kode Periode', 'Bulan Kinerja', 'Bulan Pencairan', 'Headcount', 'Gaji Pokok', 'Uang Makan', 'Upah Lembur', 'Potongan', 'Net Kas', 'Status'];
+        const body = rows.map((p) => [
+            p.period_code || '',
+            p.work_period_month || '',
+            p.payout_period_month || '',
+            `${p.total_employees} org`,
+            rp(p.total_base_salary),
+            rp(p.total_meal_allowance),
+            rp(p.total_overtime),
+            rp(p.total_deductions),
+            rp(p.total_net_payout),
+            p.status || '',
+        ].join('\t')).join('\n');
+        navigator.clipboard.writeText(`${headers.join('\t')}\n${body}`);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     // Modals
     const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -241,52 +264,76 @@ export default function PayrollIndex({
                     </Card>
                 </div>
 
-                {/* Toolbar Filter */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <CardContent className="p-3.5">
-                        <form onSubmit={handleFilterSubmit} className="flex flex-col sm:flex-row items-center gap-2.5">
-                            <div className="relative flex-1 w-full">
-                                <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
-                                <Input
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    placeholder="Cari kode periode (PAY-...), bulan, atau catatan..."
-                                    className="pl-9 h-9 text-xs"
-                                />
-                            </div>
+                {/* Toolbar Filter Sticky Top */}
+                <Card className="sticky top-0 z-30 border border-zinc-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md shadow-xs">
+                    <CardContent className="p-3">
+                        <form onSubmit={handleFilterSubmit} className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                            <div className="flex flex-1 items-center gap-2 w-full">
+                                <div className="relative flex-1 w-full max-w-md">
+                                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
+                                    <Input
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        placeholder="Cari kode periode (PAY-...), bulan, atau catatan..."
+                                        className="pl-9 h-8 text-xs"
+                                    />
+                                </div>
 
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <SearchableSelect
-                                    value={status}
-                                    onValueChange={(val) => setStatus(val)}
-                                    options={[
-                                        { label: 'Semua Status Batch', value: 'all' },
-                                        { label: 'Draf HCM (Belum Disetujui)', value: 'DRAFT_HCM' },
-                                        { label: 'Disetujui HCM (Menunggu Finance)', value: 'APPROVED_BY_HCM' },
-                                        { label: 'Selesai Dicairkan (PAID_COMPLETED)', value: 'PAID_COMPLETED' },
-                                    ]}
-                                    placeholder="Status Batch"
-                                    className="w-full sm:w-56 text-xs"
-                                />
+                                <div className="w-56">
+                                    <SearchableSelect
+                                        value={status}
+                                        onValueChange={(val) => {
+                                            setStatus(val);
+                                            router.get(route('hcm.payroll.index'), { search, status: val }, { preserveState: true });
+                                        }}
+                                        options={[
+                                            { label: 'Semua Status Batch', value: 'all' },
+                                            { label: 'Draf HCM (Belum Disetujui)', value: 'DRAFT_HCM' },
+                                            { label: 'Disetujui HCM (Menunggu Finance)', value: 'APPROVED_BY_HCM' },
+                                            { label: 'Selesai Dicairkan (PAID_COMPLETED)', value: 'PAID_COMPLETED' },
+                                        ]}
+                                        placeholder="Status Batch"
+                                        className="w-full text-xs h-8"
+                                    />
+                                </div>
 
                                 <Button
                                     type="submit"
                                     size="sm"
-                                    className="h-9 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1 shrink-0"
+                                    className="h-8 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1 shrink-0"
                                 >
                                     <Search className="h-3.5 w-3.5" />
                                     <span>Filter</span>
                                 </Button>
 
+                                {(search || status !== 'all') && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleReset}
+                                        className="h-8 px-2.5 text-xs text-zinc-500 hover:text-zinc-800 gap-1 shrink-0"
+                                        title="Reset Filter"
+                                    >
+                                        <RotateCcw className="h-3.5 w-3.5" />
+                                    </Button>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                                 <Button
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={handleReset}
-                                    className="h-9 px-2.5 text-xs text-zinc-500 hover:text-zinc-800 gap-1 shrink-0"
-                                    title="Reset Filter"
+                                    onClick={handleCopyPayrollTable}
+                                    className="h-8 gap-1.5 border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 text-xs font-semibold"
                                 >
-                                    <RotateCcw className="h-3.5 w-3.5" />
+                                    {copied ? (
+                                        <Check className="h-3.5 w-3.5 text-emerald-600 animate-in zoom-in" />
+                                    ) : (
+                                        <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                                    )}
+                                    <span>{copied ? 'Tersalin!' : 'Salin ke Excel'}</span>
                                 </Button>
                             </div>
                         </form>
@@ -310,7 +357,7 @@ export default function PayrollIndex({
                                         <TableHead className="py-3 px-3 text-right text-rose-600">Total Potongan</TableHead>
                                         <TableHead className="py-3 px-3 text-right font-bold text-emerald-600">Total Net Kas</TableHead>
                                         <TableHead className="py-3 px-3 text-center">Status Otorisasi</TableHead>
-                                        <TableHead className="py-3 px-3 text-right sticky right-0 bg-zinc-50/95 dark:bg-zinc-800/95">Aksi</TableHead>
+                                        <TableHead className="py-3 px-3 text-right sticky right-0 z-20 bg-zinc-50/95 dark:bg-zinc-800/95 backdrop-blur-xs border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody className="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
@@ -363,7 +410,7 @@ export default function PayrollIndex({
                                                         {getStatusBadge(p.status)}
                                                     </TableCell>
 
-                                                    <TableCell className="py-3 px-3 text-right sticky right-0 bg-white/95 dark:bg-zinc-900/95">
+                                                    <TableCell className="py-3 px-3 text-right sticky right-0 z-10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xs border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/90 transition-colors">
                                                         <div className="flex items-center justify-end gap-1.5">
                                                             <a
                                                                 href={route('hcm.payroll.export', code)}
@@ -410,6 +457,33 @@ export default function PayrollIndex({
                                 </TableBody>
                             </Table>
                         </div>
+
+                        {/* Sticky Bottom Pagination Bar */}
+                        {payrolls?.links && (
+                            <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs sticky bottom-0 z-20 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md shadow-[0_-4px_16px_-2px_rgba(0,0,0,0.08)]">
+                                <span className="text-zinc-500">
+                                    Menampilkan <strong>{payrolls.from || 0}</strong>–<strong>{payrolls.to || 0}</strong> dari{' '}
+                                    <strong>{payrolls.total || 0}</strong> batch periode
+                                </span>
+                                <div className="flex gap-1">
+                                    {payrolls.links.map((link, idx) => (
+                                        <button
+                                            key={idx}
+                                            disabled={!link.url || link.active}
+                                            onClick={() => link.url && router.visit(link.url, { preserveState: true })}
+                                            dangerouslySetInnerHTML={{ __html: link.label }}
+                                            className={`px-2.5 py-1 rounded text-xs transition ${
+                                                link.active
+                                                    ? 'bg-indigo-600 text-white font-bold'
+                                                    : link.url
+                                                    ? 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700'
+                                                    : 'text-zinc-400 opacity-50 cursor-not-allowed'
+                                            }`}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>

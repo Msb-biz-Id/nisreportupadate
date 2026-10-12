@@ -28,7 +28,7 @@ Route::prefix('purchasing')->name('purchasing.')->group(function () {
     // Pencairan Termin Pembayaran (TOP) oleh Keuangan
     Route::post('/payments/{payment}/pay', [\App\Http\Controllers\Purchasing\PurchasingPaymentController::class, 'pay'])->name('payments.pay');
 
-    // Master Data & Dropdowns Dinamis
+    // Master Data & Dropdowns Dinamis (Dikelola penuh via tabel purchasing_master_options)
     Route::prefix('master-data')->name('master-data.')->group(function () {
         Route::get('/', [PurchasingMasterOptionController::class, 'index'])->name('index');
         Route::post('/', [PurchasingMasterOptionController::class, 'store'])->name('store');
@@ -57,5 +57,22 @@ Route::prefix('purchasing')->name('purchasing.')->group(function () {
         Route::match(['put', 'post'], '/{asset}', [\App\Http\Controllers\Purchasing\PurchasingAssetController::class, 'update'])->name('update');
         Route::post('/{asset}/mutate', [\App\Http\Controllers\Purchasing\PurchasingAssetController::class, 'mutate'])->name('mutate');
         Route::post('/{asset}/retire', [\App\Http\Controllers\Purchasing\PurchasingAssetController::class, 'retire'])->name('retire');
+        Route::post('/{asset}/maintenances', [\App\Http\Controllers\Purchasing\PurchasingAssetController::class, 'storeMaintenance'])->name('maintenances.store');
+    });
+
+    // Fase 5: Inventaris Material Khusus & Dedicated Views (Kain Putih, Kain Warna, Kertas, Tinta)
+    Route::prefix('materials')->name('materials.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Purchasing\PurchasingMaterialController::class, 'index'])->name('index');
+        Route::post('/stocks', [\App\Http\Controllers\Purchasing\PurchasingMaterialController::class, 'storeStock'])->name('stocks.store');
+        Route::put('/stocks/{stock}', [\App\Http\Controllers\Purchasing\PurchasingMaterialController::class, 'updateStock'])->name('stocks.update');
+        Route::post('/transactions', [\App\Http\Controllers\Purchasing\PurchasingMaterialController::class, 'storeTransaction'])->name('transactions.store');
+        Route::delete('/transactions/{usage}', [\App\Http\Controllers\Purchasing\PurchasingMaterialController::class, 'destroyTransaction'])->name('transactions.destroy');
+    });
+
+    // Fase 5: Laporan Performa Pengadaan, Rekapitulasi Biaya Divisi & Ekspor Resmi
+    Route::prefix('reports')->name('reports.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Purchasing\PurchasingReportController::class, 'index'])->name('index');
+        Route::get('/export/excel', [\App\Http\Controllers\Purchasing\PurchasingReportController::class, 'exportExcel'])->name('export.excel');
+        Route::get('/export/pdf', [\App\Http\Controllers\Purchasing\PurchasingReportController::class, 'exportPdf'])->name('export.pdf');
     });
 });

@@ -79,7 +79,8 @@ class HcmEmployeeController extends Controller
             ->when($statusFilter === 'inactive', fn ($q) => $q->where('is_active', false))
             ->orderBy('id', 'desc');
 
-        $employees = $employeesQuery->paginate(15)->withQueryString();
+        $perPage = min(max((int) $request->query('per_page', 15), 5), 200);
+        $employees = $employeesQuery->paginate($perPage)->withQueryString();
 
         // Dropdown dinamis dari master data
         $dropdowns = HcmMasterOption::getAllDropdowns();

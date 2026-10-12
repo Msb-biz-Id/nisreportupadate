@@ -6,6 +6,22 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $category_id
+ * @property int|null $parent_id
+ * @property string $name
+ * @property string|null $code
+ * @property int $order_index
+ * @property string|null $description
+ * @property bool $is_active
+ * @property \Carbon\Carbon|null $created_at
+ * @property \Carbon\Carbon|null $updated_at
+ * @property-read \App\Models\Hcm\HcmMasterCategory|null $category
+ * @property-read \App\Models\Hcm\HcmMasterOption|null $parent
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Hcm\HcmMasterOption[] $children
+ */
 class HcmMasterOption extends Model
 {
     use HasFactory;
@@ -215,14 +231,53 @@ class HcmMasterOption extends Model
     }
 
     /**
-     * Dapatkan daftar departemen beserta kode singkatannya (misal FIN, HCM, BRM, PRD).
+     * Dapatkan peta hirarki Departemen -> Divisi resmi dari HRIS.
+     *
+     * @return array<string, array<string>>
+     */
+    public static function getDepartmentDivisionsMap(): array
+    {
+        $divCategory = HcmMasterCategory::whereIn('code', ['divisi', 'division', 'divisions'])->first();
+        if (!$divCategory) {
+            return [];
+        }
+
+        $divisionOptions = $divCategory->options()
+            ->with('parent')
+            ->where('is_active', true)
+            ->orderBy('order_index')
+            ->orderBy('name')
+            ->get();
+
+        $map = [];
+        foreach ($divisionOptions as $divOpt) {
+            $parentName = $divOpt->parent?->name;
+            if ($parentName) {
+                $map[$parentName][] = $divOpt->name;
+            }
+        }
+
+        // Alias penamaan fleksibel agar kompatibel dengan varian nama departemen di modul lain
+        if (isset($map['Finance & Accounting']) && !isset($map['Finance'])) {
+            $map['Finance'] = $map['Finance & Accounting'];
+        }
+        if (isset($map['Brand & Marketing']) && !isset($map['Marketing'])) {
+            $map['Marketing'] = $map['Brand & Marketing'];
+        }
+
+        return $map;
+    }
+
+    /**
+     * Dapatkan daftar departemen murni beserta kode singkatannya (FIN, HCM, BRM, PRD, SCP, MIN, MEX).
+     * TIDAK mencampur divisi ke dalam departemen.
      *
      * @return array<int, array{name: string, code: string}>
      */
     public static function getDepartmentsWithCodes(): array
     {
         return self::join('hcm_master_categories', 'hcm_master_options.category_id', '=', 'hcm_master_categories.id')
-            ->whereIn('hcm_master_categories.code', ['departemen', 'department', 'departments', 'divisi'])
+            ->whereIn('hcm_master_categories.code', ['departemen', 'department', 'departments'])
             ->where('hcm_master_options.is_active', true)
             ->orderBy('hcm_master_options.order_index')
             ->orderBy('hcm_master_options.name')
@@ -238,7 +293,7 @@ class HcmMasterOption extends Model
     }
 
     /**
-     * Dapatkan kode departemen berdasarkan nama departemen.
+     * Dapatkan kode departemen resmi berdasarkan nama departemen.
      */
     public static function getDepartmentCodeByName(?string $name): ?string
     {
@@ -246,9 +301,33 @@ class HcmMasterOption extends Model
             return null;
         }
 
+        $clean = trim($name);
+
+        // Kamus alias nama baku departemen
+        $aliases = [
+            'FINANCE' => 'FIN',
+            'FINANCE & ACCOUNTING' => 'FIN',
+            'KEUANGAN' => 'FIN',
+            'HUMAN CAPITAL MANAGEMENT' => 'HCM',
+            'HUMAN CAPITAL' => 'HCM',
+            'HRD' => 'HCM',
+            'SDM' => 'HCM',
+            'BRAND & MARKETING' => 'BRM',
+            'MARKETING' => 'BRM',
+            'SUPPORT & CONTROL PRODUKSI' => 'SCP',
+            'PRODUKSI' => 'PRD',
+            'MEDIA INTERNAL' => 'MIN',
+            'MEDIA EKSTERNAL' => 'MEX',
+        ];
+
+        $upper = strtoupper($clean);
+        if (isset($aliases[$upper])) {
+            return $aliases[$upper];
+        }
+
         $option = self::join('hcm_master_categories', 'hcm_master_options.category_id', '=', 'hcm_master_categories.id')
-            ->whereIn('hcm_master_categories.code', ['departemen', 'department', 'departments', 'divisi'])
-            ->where('hcm_master_options.name', $name)
+            ->whereIn('hcm_master_categories.code', ['departemen', 'department', 'departments'])
+            ->where('hcm_master_options.name', $clean)
             ->first(['hcm_master_options.code']);
 
         return $option?->code ? strtoupper($option->code) : null;

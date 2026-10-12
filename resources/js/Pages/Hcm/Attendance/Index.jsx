@@ -1678,7 +1678,7 @@ export default function AttendanceIndex({
                                             <th className="p-3 min-w-[180px]">Keperluan</th>
                                             <th className="p-3 min-w-[130px]">Bukti Lampiran</th>
                                             <th className="p-3 min-w-[130px]">Status</th>
-                                            <th className="p-3 w-28 text-center">Aksi</th>
+                                            <th className="p-3 w-28 text-center sticky right-0 z-20 bg-zinc-50/95 dark:bg-zinc-800/95 backdrop-blur-xs border-l border-zinc-200 dark:border-zinc-700 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
@@ -1790,7 +1790,7 @@ export default function AttendanceIndex({
                                                             </Badge>
                                                         )}
                                                     </td>
-                                                    <td className="p-3 text-center">
+                                                    <td className="p-3 text-center sticky right-0 z-10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xs border-l border-zinc-200 dark:border-zinc-700 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/90 transition-colors">
                                                         <div className="flex items-center justify-center gap-1">
                                                             {permit.status === 'Masih di Luar' && (
                                                                 <Button

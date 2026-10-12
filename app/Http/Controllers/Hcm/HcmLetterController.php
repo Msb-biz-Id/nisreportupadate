@@ -27,7 +27,7 @@ class HcmLetterController extends Controller
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
-        $letters = HcmAgendaLetter::with('creator:id,name')
+        $lettersQuery = HcmAgendaLetter::with('creator:id,name')
             ->when($escapedSearch, fn ($q, $t) => $q->where(fn ($sub) =>
                 $sub->where('subject', 'like', "%{$t}%")
                     ->orWhere('letter_number', 'like', "%{$t}%")
@@ -38,9 +38,10 @@ class HcmLetterController extends Controller
             ->when($typeFilter !== 'all', fn ($q) => $q->where('letter_type', $typeFilter))
             ->when($yearFilter !== 'all', fn ($q) => $q->whereYear('letter_date', (int) $yearFilter))
             ->orderBy('letter_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->paginate(12)
-            ->withQueryString();
+            ->orderBy('id', 'desc');
+
+        $perPage = min(max((int) $request->query('per_page', 12), 5), 100);
+        $letters = $lettersQuery->paginate($perPage)->withQueryString();
 
         $metrics = [
             'total_letters' => HcmAgendaLetter::count(),

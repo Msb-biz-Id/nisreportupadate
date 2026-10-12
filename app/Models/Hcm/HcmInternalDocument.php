@@ -3,10 +3,32 @@
 namespace App\Models\Hcm;
 
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property string $document_code
+ * @property string $title
+ * @property string|null $document_stage
+ * @property string|null $category
+ * @property string|null $department
+ * @property string|null $revision_number
+ * @property float|null $proposed_budget
+ * @property float|null $actual_budget
+ * @property Carbon|null $effective_date
+ * @property Carbon|null $submission_date
+ * @property Carbon|null $approval_date
+ * @property string $status
+ * @property string|null $file_url
+ * @property string|null $description
+ * @property int|null $created_by
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read User|null $creator
+ */
 class HcmInternalDocument extends Model
 {
     use HasFactory;

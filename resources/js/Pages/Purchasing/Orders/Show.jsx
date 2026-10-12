@@ -36,6 +36,7 @@ import {
     Trash2,
     UserCheck,
     Wallet,
+    Box,
 } from 'lucide-react';
 import PaymentTermsDrawer from './Components/PaymentTermsDrawer';
 
@@ -154,6 +155,14 @@ export default function Show({ order, auth }) {
         return arr.indexOf(val) !== -1;
     }
 
+    const isSplitPayment = order.payment_mode === 'SPLIT';
+    const isFullyPaid = inArray(['PAID_COMPLETED', 'PURCHASE_COMPLETED'], order.status) ||
+        (order.payments && order.payments.length > 0 && order.payments.every((p) => p.status === 'PAID'));
+    const isTermsLocked = isFullyPaid ||
+        inArray(['APPROVED_BY_PIC', 'PAID_COMPLETED', 'PURCHASE_COMPLETED'], order.status) ||
+        (order.payments && order.payments.some((p) => p.status === 'PAID')) ||
+        (!isSplitPayment);
+
     return (
         <AppLayout>
             <Head title={`Purchase Order ${order.po_number}`} />
@@ -173,8 +182,15 @@ export default function Show({ order, auth }) {
                                     {order.po_number}
                                 </h1>
                                 {getStatusBadge(order.status)}
-                                <Badge variant="outline" className="font-semibold text-xs">
-                                    {order.order_type}
+                                <Badge
+                                    variant="outline"
+                                    className={`font-semibold text-xs ${
+                                        order.order_type === 'CAPEX'
+                                            ? 'border-purple-300 text-purple-700 bg-purple-50/50 dark:border-purple-800 dark:text-purple-300'
+                                            : 'border-slate-300 text-slate-700 bg-slate-50 dark:border-slate-700 dark:text-slate-300'
+                                    }`}
+                                >
+                                    {order.order_type === 'CAPEX' ? 'Aset Tetap' : 'Operasional'}
                                 </Badge>
                             </div>
                             <p className="text-xs text-slate-500 mt-0.5">
@@ -193,20 +209,29 @@ export default function Show({ order, auth }) {
                             </Link>
                         )}
 
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsTermsDrawerOpen(true)}
-                            className="gap-1.5 border-purple-200 text-purple-600 hover:bg-purple-50 dark:border-purple-900 dark:text-purple-400"
-                        >
-                            <Wallet className="w-3.5 h-3.5" />
-                            Termin (TOP)
-                            {order.payments && order.payments.length > 0 && (
-                                <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">
-                                    {order.payments.length}
-                                </Badge>
-                            )}
-                        </Button>
+                        {isSplitPayment && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsTermsDrawerOpen(true)}
+                                className={`gap-1.5 ${
+                                    isFullyPaid
+                                        ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400'
+                                        : 'border-purple-200 text-purple-600 hover:bg-purple-50 dark:border-purple-900 dark:text-purple-400'
+                                }`}
+                            >
+                                <Wallet className="w-3.5 h-3.5" />
+                                {isFullyPaid ? 'Riwayat Termin (Lunas)' : 'Termin (TOP)'}
+                                {order.payments && order.payments.length > 0 && (
+                                    <Badge
+                                        variant={isFullyPaid ? 'default' : 'secondary'}
+                                        className={`ml-1 text-[10px] px-1.5 py-0 ${isFullyPaid ? 'bg-emerald-600 text-white' : ''}`}
+                                    >
+                                        {isFullyPaid ? 'Lunas' : order.payments.length}
+                                    </Badge>
+                                )}
+                            </Button>
+                        )}
 
                         <Button
                             variant="outline"
@@ -418,47 +443,150 @@ export default function Show({ order, auth }) {
                     </Card>
                 </div>
 
+                {/* Aset Terdaftar (Capex) dengan Clickable Asset Code */}
+                {order.assets && order.assets.length > 0 && (
+                    <Card className="border-indigo-200 dark:border-indigo-900 bg-indigo-50/20 dark:bg-indigo-950/20">
+                        <CardHeader className="pb-2.5 flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-indigo-950 dark:text-indigo-200">
+                                    <Box className="w-4 h-4 text-indigo-600" />
+                                    Aset Terdaftar dari PO Ini ({order.assets.length} Unit Aset)
+                                </CardTitle>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    Klik kode aset untuk melihat spesifikasi lengkap, riwayat mutasi, dan log servis.
+                                </p>
+                            </div>
+                            <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-700 bg-indigo-50 font-semibold">
+                                Capex Registered
+                            </Badge>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                {order.assets.map((ast) => (
+                                    <Link
+                                        key={ast.id}
+                                        href={route('purchasing.assets.show', ast.asset_code)}
+                                        className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-indigo-100 dark:border-indigo-800 hover:border-indigo-300 hover:shadow-xs transition-all block group"
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:underline flex items-center gap-1">
+                                                {ast.asset_code}
+                                                <ExternalLink className="w-3 h-3 text-indigo-400 group-hover:text-indigo-600" />
+                                            </span>
+                                            <Badge
+                                                variant="outline"
+                                                className={`text-[10px] px-1.5 py-0 ${
+                                                    ast.status === 'ACTIVE'
+                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                        : ast.status === 'MAINTENANCE'
+                                                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                                                }`}
+                                            >
+                                                {ast.status}
+                                            </Badge>
+                                        </div>
+                                        <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-1.5 truncate">
+                                            {ast.asset_name}
+                                        </p>
+                                        <div className="text-[11px] text-slate-500 mt-0.5 flex justify-between">
+                                            <span>{ast.department}</span>
+                                            <span className="font-mono text-slate-400">{ast.serial_number ? `SN: ${ast.serial_number}` : '-'}</span>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {/* Rincian Item Barang & Kalkulasi Angka */}
                 <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-amber-600" />
-                            Rincian Barang & Biaya Pengadaan
-                        </CardTitle>
+                    <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-blue-600" />
+                                Rincian Barang / Jasa & Nilai Pengadaan
+                            </CardTitle>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                {order.items && order.items.length > 0
+                                    ? `Total ${order.items.length} item barang / jasa terdaftar pada PO ini`
+                                    : '1 item barang / jasa terdaftar'}
+                            </p>
+                        </div>
+
+                        <Badge variant="outline" className="text-xs font-medium">
+                            {order.payment_mode === 'SPLIT' ? 'Pembayaran Bertahap (Split TOP)' : '1 Kali Pembayaran (Lunas)'}
+                        </Badge>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
                             <table className="w-full text-xs text-left">
                                 <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 border-b border-slate-200 dark:border-slate-800">
                                     <tr>
-                                        <th className="p-3 font-semibold">Nama Barang / Jasa</th>
+                                        <th className="p-3 font-semibold w-10 text-center">No</th>
+                                        <th className="p-3 font-semibold">Nama Barang / Jasa & Spesifikasi</th>
                                         <th className="p-3 font-semibold">Kategori</th>
                                         <th className="p-3 font-semibold text-center">Kuantitas</th>
                                         <th className="p-3 font-semibold text-right">Harga Satuan</th>
-                                        <th className="p-3 font-semibold text-right">Total Subtotal</th>
+                                        <th className="p-3 font-semibold text-right">Diskon</th>
+                                        <th className="p-3 font-semibold text-right">Subtotal</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr className="border-b border-slate-100 dark:border-slate-800">
-                                        <td className="p-3">
-                                            <p className="font-semibold text-slate-900 dark:text-slate-100">{order.item_name}</p>
-                                            {order.specification && (
-                                                <p className="text-[11px] text-slate-400 mt-0.5">{order.specification}</p>
-                                            )}
-                                        </td>
-                                        <td className="p-3 text-slate-500">
-                                            {order.item_category?.name || '-'}
-                                        </td>
-                                        <td className="p-3 text-center font-mono font-medium">
-                                            {parseFloat(order.quantity)} {order.unit}
-                                        </td>
-                                        <td className="p-3 text-right font-mono">
-                                            {formatRupiah(order.unit_price)}
-                                        </td>
-                                        <td className="p-3 text-right font-mono font-semibold text-slate-900 dark:text-slate-100">
-                                            {formatRupiah(order.subtotal)}
-                                        </td>
-                                    </tr>
+                                    {order.items && order.items.length > 0 ? (
+                                        order.items.map((it, idx) => (
+                                            <tr key={it.id || idx} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50">
+                                                <td className="p-3 text-center text-slate-400 font-mono font-medium">{idx + 1}</td>
+                                                <td className="p-3">
+                                                    <p className="font-semibold text-slate-900 dark:text-slate-100">{it.item_name}</p>
+                                                    {it.specification && (
+                                                        <p className="text-[11px] text-slate-400 mt-0.5">{it.specification}</p>
+                                                    )}
+                                                </td>
+                                                <td className="p-3 text-slate-500">
+                                                    {it.item_category?.name || '-'}
+                                                </td>
+                                                <td className="p-3 text-center font-mono font-medium">
+                                                    {parseFloat(it.quantity)} {it.unit}
+                                                </td>
+                                                <td className="p-3 text-right font-mono">
+                                                    {formatRupiah(it.unit_price)}
+                                                </td>
+                                                <td className="p-3 text-right font-mono text-rose-500">
+                                                    {parseFloat(it.discount_amount) > 0 ? `-${formatRupiah(it.discount_amount)}` : '-'}
+                                                </td>
+                                                <td className="p-3 text-right font-mono font-semibold text-slate-900 dark:text-slate-100">
+                                                    {formatRupiah(it.subtotal)}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr className="border-b border-slate-100 dark:border-slate-800">
+                                            <td className="p-3 text-center text-slate-400 font-mono">1</td>
+                                            <td className="p-3">
+                                                <p className="font-semibold text-slate-900 dark:text-slate-100">{order.item_name}</p>
+                                                {order.specification && (
+                                                    <p className="text-[11px] text-slate-400 mt-0.5">{order.specification}</p>
+                                                )}
+                                            </td>
+                                            <td className="p-3 text-slate-500">
+                                                {order.item_category?.name || '-'}
+                                            </td>
+                                            <td className="p-3 text-center font-mono font-medium">
+                                                {parseFloat(order.quantity)} {order.unit}
+                                            </td>
+                                            <td className="p-3 text-right font-mono">
+                                                {formatRupiah(order.unit_price)}
+                                            </td>
+                                            <td className="p-3 text-right font-mono text-rose-500">
+                                                {parseFloat(order.discount_amount) > 0 ? `-${formatRupiah(order.discount_amount)}` : '-'}
+                                            </td>
+                                            <td className="p-3 text-right font-mono font-semibold text-slate-900 dark:text-slate-100">
+                                                {formatRupiah(order.subtotal)}
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -473,7 +601,7 @@ export default function Show({ order, auth }) {
 
                             <div className="w-full sm:w-80 space-y-2 text-xs">
                                 <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                    <span>Subtotal:</span>
+                                    <span>Subtotal Item:</span>
                                     <span className="font-mono">{formatRupiah(order.subtotal)}</span>
                                 </div>
                                 {parseFloat(order.discount_amount) > 0 && (
@@ -502,6 +630,68 @@ export default function Show({ order, auth }) {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Jadwal Termin Pembayaran Live Display (HANYA untuk SPLIT) */}
+                        {isSplitPayment && order.payments && order.payments.length > 0 ? (
+                            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                        <Wallet className="w-3.5 h-3.5 text-indigo-600" />
+                                        {isFullyPaid ? 'Riwayat Pembayaran Termin (Lunas 100%)' : `Jadwal Termin Pembayaran (${order.payments.length} Termin)`}
+                                    </h4>
+                                    <span className={`text-[11px] font-medium ${isFullyPaid ? 'text-emerald-600' : 'text-slate-500'}`}>
+                                        {isFullyPaid ? 'Semua Termin Selesai Terbayar' : 'Semua Termin Tersinkronisasi 100%'}
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                    {order.payments.map((p, pIdx) => (
+                                        <div
+                                            key={p.id || pIdx}
+                                            className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 text-xs space-y-1.5"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                                                    {p.term_name || `Termin ${p.term_step}`}
+                                                </span>
+                                                <Badge
+                                                    variant="outline"
+                                                    className={
+                                                        p.status === 'PAID'
+                                                            ? 'bg-emerald-50 text-emerald-600 border-emerald-300'
+                                                            : 'bg-indigo-50 text-indigo-600 border-indigo-300'
+                                                    }
+                                                >
+                                                    {p.status === 'PAID' ? 'LUNAS' : `${p.term_percentage ? `${p.term_percentage}%` : 'TERJADWAL'}`}
+                                                </Badge>
+                                            </div>
+                                            <div className="text-sm font-bold font-mono text-indigo-600 dark:text-indigo-400">
+                                                {formatRupiah(p.amount)}
+                                            </div>
+                                            <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                                                <Calendar className="w-3 h-3" />
+                                                Jatuh Tempo: {formatDate(p.due_date)}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : !isSplitPayment ? (
+                            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-2">
+                                    <ShieldCheck className={`w-4 h-4 ${isFullyPaid ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                                        Skema Pembayaran: 1 Kali Pembayaran Langsung ({order.payment_type || 'Transfer Bank'})
+                                    </span>
+                                </div>
+                                <Badge
+                                    variant={isFullyPaid ? 'default' : 'secondary'}
+                                    className={isFullyPaid ? 'bg-emerald-600 text-white text-xs' : 'text-xs'}
+                                >
+                                    {isFullyPaid ? 'Lunas 100%' : 'Menunggu Otorisasi Finance'}
+                                </Badge>
+                            </div>
+                        ) : null}
                     </CardContent>
                 </Card>
 
@@ -612,7 +802,7 @@ export default function Show({ order, auth }) {
                 isOpen={isTermsDrawerOpen}
                 onClose={() => setIsTermsDrawerOpen(false)}
                 order={order}
-                canManageTerms={auth?.user?.is_superadmin || auth?.user?.permissions?.includes('purchasing.manage-orders') || auth?.user?.roles?.includes('admin_purchasing')}
+                canManageTerms={isSplitPayment && !isTermsLocked && (auth?.user?.is_superadmin || auth?.user?.permissions?.includes('purchasing.manage-orders') || auth?.user?.roles?.includes('admin_purchasing'))}
                 canDisbursePayment={auth?.user?.is_superadmin || auth?.user?.permissions?.includes('purchasing.approve-finance') || auth?.user?.roles?.includes('admin_keuangan')}
             />
         </AppLayout>

@@ -7,6 +7,7 @@ export default function MutateAssetModal({
     isOpen, 
     onClose, 
     departments = [], 
+    departmentDivisionMap = {},
     employees = [],
     locations = []
 }) {
@@ -78,7 +79,15 @@ export default function MutateAssetModal({
                             <select
                                 required
                                 value={form.data.to_department}
-                                onChange={(e) => form.setData('to_department', e.target.value)}
+                                onChange={(e) => {
+                                    const nextDept = e.target.value;
+                                    const validDivs = nextDept ? (departmentDivisionMap[nextDept] || []) : [];
+                                    form.setData({
+                                        ...form.data,
+                                        to_department: nextDept,
+                                        to_division: validDivs.includes(form.data.to_division) ? form.data.to_division : '',
+                                    });
+                                }}
                                 className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:ring-indigo-500"
                             >
                                 <option value="">Pilih Departemen</option>
@@ -97,14 +106,29 @@ export default function MutateAssetModal({
                     {/* Divisi & Posisi Baru (Opsional) */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Divisi Baru</label>
-                            <input
-                                type="text"
-                                placeholder="Misal: Operasional"
-                                value={form.data.to_division}
-                                onChange={(e) => form.setData('to_division', e.target.value)}
-                                className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800"
-                            />
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                Divisi Baru (HRIS)
+                            </label>
+                            {form.data.to_department && departmentDivisionMap[form.data.to_department]?.length > 0 ? (
+                                <select
+                                    value={form.data.to_division}
+                                    onChange={(e) => form.setData('to_division', e.target.value)}
+                                    className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+                                >
+                                    <option value="">-- Pilih Divisi ({form.data.to_department}) --</option>
+                                    {departmentDivisionMap[form.data.to_department].map((div, idx) => (
+                                        <option key={idx} value={div}>{div}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <input
+                                    type="text"
+                                    placeholder="Misal: Operasional"
+                                    value={form.data.to_division}
+                                    onChange={(e) => form.setData('to_division', e.target.value)}
+                                    className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+                                />
+                            )}
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Posisi / Jabatan Baru</label>
@@ -155,9 +179,11 @@ export default function MutateAssetModal({
                                 className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800"
                             >
                                 <option value="">Pilih Lokasi</option>
-                                {locations.map((loc) => (
-                                    <option key={loc.id} value={loc.id}>{loc.name}</option>
-                                ))}
+                                {locations.map((loc, idx) => {
+                                    const id = typeof loc === 'object' ? loc.id : loc;
+                                    const name = typeof loc === 'object' ? loc.name : loc;
+                                    return <option key={id || idx} value={id}>{name}</option>;
+                                })}
                             </select>
                         </div>
                     </div>

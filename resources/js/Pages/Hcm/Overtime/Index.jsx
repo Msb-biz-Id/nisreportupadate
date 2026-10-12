@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
     Clock,
     Calendar,
@@ -28,14 +28,8 @@ import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/Components/ui/table';
+import { DataTable } from '@/Components/DataTable/DataTable';
+import { DataTableColumnHeader } from '@/Components/DataTable/DataTableColumnHeader';
 import {
     Dialog,
     DialogContent,
@@ -127,7 +121,7 @@ export default function OvertimeIndex({
         });
     };
 
-    const handleApplyFilter = (newStatus = status, newSearch = search, newMonth = month, newYear = year) => {
+    const handleApplyFilter = (newStatus = status, newSearch = search, newMonth = month, newYear = year, page = 1, perPage = batches?.per_page || 12) => {
         router.get(
             route('hcm.overtime.index'),
             {
@@ -135,6 +129,8 @@ export default function OvertimeIndex({
                 search: newSearch,
                 month: newMonth,
                 year: newYear,
+                page,
+                per_page: perPage,
             },
             {
                 preserveState: true,
@@ -150,7 +146,7 @@ export default function OvertimeIndex({
         setYear('all');
         router.get(
             route('hcm.overtime.index'),
-            { status: 'all', search: '', month: 'all', year: 'all' },
+            { status: 'all', search: '', month: 'all', year: 'all', page: 1, per_page: batches?.per_page || 12 },
             { preserveState: true, preserveScroll: true }
         );
     };
@@ -205,6 +201,130 @@ export default function OvertimeIndex({
             icon: Lock,
         },
     };
+
+    const columns = useMemo(() => [
+        {
+            accessorKey: 'batch_code',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kode Batch" />,
+            cell: ({ row }) => (
+                <Link
+                    href={route('hcm.overtime.show', row.original.batch_code || row.original.id)}
+                    className="font-mono font-bold text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                    {row.original.batch_code}
+                </Link>
+            ),
+        },
+        {
+            id: 'period',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Periode Cut-Off" />,
+            cell: ({ row }) => (
+                <div className="text-xs font-mono font-medium text-zinc-700 dark:text-zinc-300">
+                    {row.original.period_start} s.d. {row.original.period_end}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'payout_date',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jadwal Cair" />,
+            cell: ({ row }) => (
+                <span className="text-xs font-mono text-zinc-600 dark:text-zinc-400">
+                    {row.original.payout_date}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'total_hours',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Total Jam" className="justify-center" />,
+            cell: ({ row }) => (
+                <div className="text-center">
+                    <Badge variant="outline" className="text-xs font-mono">
+                        {parseFloat(row.original.total_hours || 0).toFixed(1)} Jam
+                    </Badge>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'total_amount',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Total Nominal" className="justify-end" />,
+            cell: ({ row }) => (
+                <div className="text-right">
+                    <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 font-mono">
+                        {formatRp(row.original.total_amount)}
+                    </span>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'status',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status Sign-Off" className="justify-center" />,
+            cell: ({ row }) => {
+                const b = row.original;
+                const badgeConfig = STATUS_BADGES[b.status] || STATUS_BADGES.DRAFT;
+                const BadgeIcon = badgeConfig.icon;
+                return (
+                    <div className="flex flex-col items-center">
+                        <Badge className={`text-xs gap-1 py-0.5 ${badgeConfig.class}`}>
+                            <BadgeIcon className="h-3 w-3" />
+                            {badgeConfig.label}
+                        </Badge>
+                        {b.hcm_signer && (
+                            <div className="text-[10px] text-zinc-400 mt-0.5">
+                                Sign HCM: {b.hcm_signer.name}
+                            </div>
+                        )}
+                        {b.finance_signer && (
+                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                                Paid: {b.finance_signer.name}
+                            </div>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Aksi</div>,
+            cell: ({ row }) => {
+                const b = row.original;
+                const isDraft = b.status === 'DRAFT';
+                return (
+                    <div className="flex items-center justify-end gap-1.5">
+                        <Link
+                            href={route('hcm.overtime.show', b.batch_code || b.id)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-md border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 transition"
+                            title="Buka Lembar Kerja"
+                        >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>Lihat</span>
+                        </Link>
+                        {isDraft && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openEditModal(b)}
+                                className="h-7 px-2 text-xs text-zinc-700 hover:text-amber-600 hover:border-amber-300 dark:text-zinc-300"
+                                title="Edit Batch"
+                            >
+                                <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                        )}
+                        {isDraft && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setDeleteBatchModal({ isOpen: true, batch: b })}
+                                className="h-7 px-2 text-xs text-zinc-500 hover:text-rose-600 hover:border-rose-300 dark:text-zinc-400"
+                                title="Hapus Batch"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                        )}
+                    </div>
+                );
+            },
+        },
+    ], [STATUS_BADGES]);
 
     return (
         <AppLayout
@@ -309,58 +429,55 @@ export default function OvertimeIndex({
                     </div>
                 </Card>
 
-                {/* 3. Filter Bar (Status, Bulan, Tahun, Pencarian) */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm p-3">
-                    <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+                {/* 3. Tabel Batch Lembur Mingguan with DataTable */}
+                <DataTable
+                    columns={columns}
+                    data={batches.data || []}
+                    serverPagination={batches}
+                    onServerPageChange={(page) => handleApplyFilter(status, search, month, year, page)}
+                    onServerPerPageChange={(per_page) => handleApplyFilter(status, search, month, year, 1, per_page)}
+                    onServerSearchChange={(val) => {
+                        setSearch(val);
+                        handleApplyFilter(status, val, month, year, 1);
+                    }}
+                    searchValue={search}
+                    searchPlaceholder="Cari kode batch..."
+                    exportFileName={`Batch_Lembur_${new Date().toISOString().slice(0, 10)}`}
+                    filterSlot={
                         <div className="flex flex-wrap items-center gap-2">
-                            {/* Filter Status */}
-                            <div className="flex items-center gap-1.5">
-                                <Label className="text-xs font-medium text-zinc-500 whitespace-nowrap">Status:</Label>
-                                <SearchableSelect
-                                    value={status}
-                                    onValueChange={(val) => {
-                                        setStatus(val);
-                                        handleApplyFilter(val, search, month, year);
-                                    }}
-                                    options={statusOptions}
-                                    placeholder="Status..."
-                                    clearable={false}
-                                    className="h-8 text-xs w-[170px]"
-                                />
-                            </div>
-
-                            {/* Filter Bulan */}
-                            <div className="flex items-center gap-1.5">
-                                <Label className="text-xs font-medium text-zinc-500 whitespace-nowrap">Bulan:</Label>
-                                <SearchableSelect
-                                    value={month}
-                                    onValueChange={(val) => {
-                                        setMonth(val);
-                                        handleApplyFilter(status, search, val, year);
-                                    }}
-                                    options={monthOptions}
-                                    placeholder="Bulan..."
-                                    clearable={false}
-                                    className="h-8 text-xs w-[140px]"
-                                />
-                            </div>
-
-                            {/* Filter Tahun */}
-                            <div className="flex items-center gap-1.5">
-                                <Label className="text-xs font-medium text-zinc-500 whitespace-nowrap">Tahun:</Label>
-                                <SearchableSelect
-                                    value={year}
-                                    onValueChange={(val) => {
-                                        setYear(val);
-                                        handleApplyFilter(status, search, month, val);
-                                    }}
-                                    options={yearOptions}
-                                    placeholder="Tahun..."
-                                    clearable={false}
-                                    className="h-8 text-xs w-[110px]"
-                                />
-                            </div>
-
+                            <SearchableSelect
+                                value={status}
+                                onValueChange={(val) => {
+                                    setStatus(val);
+                                    handleApplyFilter(val, search, month, year, 1);
+                                }}
+                                options={statusOptions}
+                                placeholder="Status..."
+                                clearable={false}
+                                className="h-8 text-xs min-w-[175px] w-auto"
+                            />
+                            <SearchableSelect
+                                value={month}
+                                onValueChange={(val) => {
+                                    setMonth(val);
+                                    handleApplyFilter(status, search, val, year, 1);
+                                }}
+                                options={monthOptions}
+                                placeholder="Bulan..."
+                                clearable={false}
+                                className="h-8 text-xs min-w-[140px] w-auto"
+                            />
+                            <SearchableSelect
+                                value={year}
+                                onValueChange={(val) => {
+                                    setYear(val);
+                                    handleApplyFilter(status, search, month, val, 1);
+                                }}
+                                options={yearOptions}
+                                placeholder="Tahun..."
+                                clearable={false}
+                                className="h-8 text-xs min-w-[110px] w-auto"
+                            />
                             {isFiltered && (
                                 <Button
                                     variant="ghost"
@@ -374,149 +491,8 @@ export default function OvertimeIndex({
                                 </Button>
                             )}
                         </div>
-
-                        {/* Search Input */}
-                        <div className="relative w-full lg:w-[240px]">
-                            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-400" />
-                            <Input
-                                placeholder="Cari kode batch..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        handleApplyFilter(status, search, month, year);
-                                    }
-                                }}
-                                className="h-8 pl-8 text-xs"
-                            />
-                        </div>
-                    </div>
-                </Card>
-
-                {/* 4. Tabel Batch Lembur Mingguan */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-zinc-50 dark:bg-zinc-800/50">
-                                <TableRow>
-                                    <TableHead className="min-w-[130px] text-xs font-bold">Kode Batch</TableHead>
-                                    <TableHead className="min-w-[170px] text-xs font-bold">Periode Cut-Off (Sabtu - Jumat)</TableHead>
-                                    <TableHead className="min-w-[110px] text-xs font-bold">Jadwal Cair</TableHead>
-                                    <TableHead className="min-w-[90px] text-xs font-bold text-center">Total Jam</TableHead>
-                                    <TableHead className="min-w-[130px] text-xs font-bold text-right">Total Nominal</TableHead>
-                                    <TableHead className="min-w-[160px] text-xs font-bold text-center">Status Sign-Off</TableHead>
-                                    <TableHead className="min-w-[150px] text-xs font-bold text-right">Aksi</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {batches.data && batches.data.length > 0 ? (
-                                    batches.data.map((b) => {
-                                        const badgeConfig = STATUS_BADGES[b.status] || STATUS_BADGES.DRAFT;
-                                        const BadgeIcon = badgeConfig.icon;
-                                        const isDraft = b.status === 'DRAFT';
-
-                                        return (
-                                            <TableRow key={b.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                                                <TableCell>
-                                                    <span className="font-mono font-bold text-xs text-indigo-600 dark:text-indigo-400">
-                                                        {b.batch_code}
-                                                    </span>
-                                                </TableCell>
-
-                                                <TableCell>
-                                                    <div className="text-xs font-mono font-medium text-zinc-700 dark:text-zinc-300">
-                                                        {b.period_start} s.d. {b.period_end}
-                                                    </div>
-                                                </TableCell>
-
-                                                <TableCell>
-                                                    <span className="text-xs font-mono text-zinc-600 dark:text-zinc-400">
-                                                        {b.payout_date}
-                                                    </span>
-                                                </TableCell>
-
-                                                <TableCell className="text-center">
-                                                    <Badge variant="outline" className="text-xs font-mono">
-                                                        {parseFloat(b.total_hours).toFixed(1)} Jam
-                                                    </Badge>
-                                                </TableCell>
-
-                                                <TableCell className="text-right">
-                                                    <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 font-mono">
-                                                        {formatRp(b.total_amount)}
-                                                    </span>
-                                                </TableCell>
-
-                                                <TableCell className="text-center">
-                                                    <Badge className={`text-xs gap-1 py-0.5 ${badgeConfig.class}`}>
-                                                        <BadgeIcon className="h-3 w-3" />
-                                                        {badgeConfig.label}
-                                                    </Badge>
-                                                    {b.hcm_signer && (
-                                                        <div className="text-[10px] text-zinc-400 mt-0.5">
-                                                            Sign HCM: {b.hcm_signer.name}
-                                                        </div>
-                                                    )}
-                                                    {b.finance_signer && (
-                                                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                                                            Paid: {b.finance_signer.name}
-                                                        </div>
-                                                    )}
-                                                </TableCell>
-
-                                                <TableCell className="text-right">
-                                                    <div className="flex items-center justify-end gap-1.5">
-                                                        {/* AKSI: LIHAT / BUKA */}
-                                                        <Link
-                                                            href={route('hcm.overtime.show', b.batch_code || b.id)}
-                                                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-md border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 transition"
-                                                            title="Buka Lembar Kerja"
-                                                        >
-                                                            <Eye className="h-3.5 w-3.5" />
-                                                            <span>Lihat</span>
-                                                        </Link>
-
-                                                        {/* AKSI: EDIT (Hanya jika DRAFT) */}
-                                                        {isDraft && (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => openEditModal(b)}
-                                                                className="h-7 px-2 text-xs text-zinc-700 hover:text-amber-600 hover:border-amber-300 dark:text-zinc-300"
-                                                                title="Edit Batch"
-                                                            >
-                                                                <Pencil className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        )}
-
-                                                        {/* AKSI: HAPUS (Hanya jika DRAFT) */}
-                                                        {isDraft && (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => setDeleteBatchModal({ isOpen: true, batch: b })}
-                                                                className="h-7 px-2 text-xs text-zinc-500 hover:text-rose-600 hover:border-rose-300 dark:text-zinc-400"
-                                                                title="Hapus Batch"
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="h-32 text-center text-xs text-zinc-400">
-                                            Tidak ada batch lembur mingguan yang sesuai dengan filter.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </Card>
+                    }
+                />
             </div>
 
             {/* MODAL 1: Buat Batch Mingguan Baru */}

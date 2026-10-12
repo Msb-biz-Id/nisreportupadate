@@ -207,15 +207,15 @@ export default function PurchasingMasterDataIndex({
                 </div>
 
                 {/* Main Content: Vertical Tabs & Options Table */}
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-                    {/* Vertical Sidebar Tabs */}
-                    <Card className="lg:col-span-1 shadow-sm border-border/80">
-                        <CardHeader className="pb-3 border-b border-border/50 bg-muted/20">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-4 items-start">
+                    {/* Vertical Sidebar Tabs (Sticky) */}
+                    <Card className="lg:col-span-1 shadow-sm border-border/80 lg:sticky lg:top-20 max-h-[calc(100vh-6rem)] flex flex-col">
+                        <CardHeader className="pb-3 border-b border-border/50 bg-muted/20 shrink-0">
                             <CardTitle className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                                 Kategori Master Data
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-2 space-y-1">
+                        <CardContent className="p-2 space-y-1 overflow-y-auto max-h-[calc(100vh-10rem)] scrollbar-thin">
                             {CATEGORY_TABS.map((tab) => {
                                 const IconComponent = tab.icon;
                                 const isActive = activeCategory === tab.key;

@@ -53,19 +53,22 @@ class HcmMealAllowanceController extends Controller
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
-        $batches = HcmMealAllowanceBatch::with([
-            'hcmSigner:id,name',
-            'financeSigner:id,name',
-            'creator:id,name',
-        ])
-            ->when($escapedSearch, function ($q, $term) {
-                $q->where('batch_code', 'like', "%{$term}%");
-            })
-            ->when($statusFilter !== 'all', fn ($q) => $q->where('status', $statusFilter))
-            ->orderBy('period_year', 'desc')
-            ->orderBy('period_month', 'desc')
-            ->paginate(12)
-            ->withQueryString();
+            $perPage = (int) $request->query('per_page', 12);
+            $perPage = in_array($perPage, [10, 12, 20, 25, 50, 100]) ? $perPage : 12;
+
+            $batches = HcmMealAllowanceBatch::with([
+                'hcmSigner:id,name',
+                'financeSigner:id,name',
+                'creator:id,name',
+            ])
+                ->when($escapedSearch, function ($q, $term) {
+                    $q->where('batch_code', 'like', "%{$term}%");
+                })
+                ->when($statusFilter !== 'all', fn ($q) => $q->where('status', $statusFilter))
+                ->orderBy('period_year', 'desc')
+                ->orderBy('period_month', 'desc')
+                ->paginate($perPage)
+                ->withQueryString();
 
         $settings = self::getDynamicSettings();
 

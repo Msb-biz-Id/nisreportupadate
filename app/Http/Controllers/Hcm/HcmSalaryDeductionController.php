@@ -47,7 +47,8 @@ class HcmSalaryDeductionController extends Controller
             ->when($category !== 'all', fn($q) => $q->where('deduction_category', $category))
             ->orderBy('id', 'desc');
 
-        $deductions = $query->paginate(20)->withQueryString();
+        $perPage = min(max((int) $request->input('per_page', 20), 5), 100);
+        $deductions = $query->paginate($perPage)->withQueryString();
 
         // Rekapitulasi metrik bulan berjalan
         $monthQuery = HcmSalaryDeduction::where('effective_payroll_month', $selectedMonth);

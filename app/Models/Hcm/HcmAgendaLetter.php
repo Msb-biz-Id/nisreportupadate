@@ -3,10 +3,31 @@
 namespace App\Models\Hcm;
 
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property string $letter_type
+ * @property string $agenda_number
+ * @property string|null $letter_number
+ * @property Carbon|null $letter_date
+ * @property Carbon|null $received_or_sent_date
+ * @property string|null $sender
+ * @property string|null $recipient
+ * @property string $subject
+ * @property string|null $category
+ * @property string|null $disposition_status
+ * @property string|null $file_url
+ * @property string|null $physical_location
+ * @property string|null $notes
+ * @property int|null $created_by
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read User|null $creator
+ */
 class HcmAgendaLetter extends Model
 {
     use HasFactory;

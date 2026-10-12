@@ -921,6 +921,34 @@ class HcmEmployeeSeeder extends Seeder
 
             unset($data['contract'], $data['compensation'], $data['intern'], $data['offboarding']);
 
+            if (empty($data['division'])) {
+                $posMap = [
+                    'PIC Produksi' => 'Produksi',
+                    'Potong Bahan' => 'Potong Bahan',
+                    'Jahit' => 'Jahit',
+                    'Setting Printing' => 'Setting Printing',
+                    'Quality Control' => 'Quality Control',
+                    'Finishing (Packing)' => 'Finishing (Packing)',
+                    'Press Sublime' => 'Press Sublime',
+                    'Finishing (Steam)' => 'Finishing (Steam)',
+                    'Finance' => 'Finance',
+                    'Accounting' => 'Accounting',
+                    'Purchasing' => 'Purchasing',
+                    'Admin HCM' => 'Admin HCM',
+                    'Designer' => 'Designer',
+                    'Admin Brand' => 'Admin Brand',
+                    'Web Developer' => 'Web Developer',
+                    'Editor' => 'Editor',
+                    'Publisher' => 'Publisher',
+                    'Planner' => 'Planner',
+                ];
+                $data['division'] = $posMap[$data['position']] ?? ($data['department'] ?? 'Umum');
+            }
+
+            if (($data['department'] ?? '') === 'Keuangan') {
+                $data['department'] = 'Finance & Accounting';
+            }
+
             $employee = HcmEmployee::updateOrCreate(
                 ['nik_ktp' => $data['nik_ktp']],
                 $data

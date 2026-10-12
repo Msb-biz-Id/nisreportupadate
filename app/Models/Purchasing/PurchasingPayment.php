@@ -7,6 +7,27 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $order_id
+ * @property string|null $invoice_number
+ * @property int $term_step
+ * @property string|null $term_name
+ * @property float|null $term_percentage
+ * @property float $amount
+ * @property \Illuminate\Support\Carbon|null $due_date
+ * @property string $status
+ * @property \Illuminate\Support\Carbon|null $paid_at
+ * @property string|null $payment_method
+ * @property string|null $receipt_file_path
+ * @property int|null $verified_by
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Purchasing\PurchasingOrder|null $order
+ * @property-read \App\Models\User|null $verifier
+ */
 class PurchasingPayment extends Model
 {
     use HasFactory;

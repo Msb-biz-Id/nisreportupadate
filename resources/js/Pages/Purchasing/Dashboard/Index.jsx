@@ -40,11 +40,21 @@ import {
     Wallet,
     Boxes,
     FileText,
+    Eye,
+    AlertOctagon,
+    Info,
+    Archive,
+    Flame,
+    ShieldAlert,
+    RefreshCw,
+    ShoppingCart,
 } from 'lucide-react';
 import PurchaseHistoryModal from '../Orders/Components/PurchaseHistoryModal';
 
 export default function Index({
     metrics = {},
+    urgentActions = {},
+    upcomingMonitoring = {},
     alerts = {},
     upcomingPayments = [],
     auth,
@@ -135,33 +145,18 @@ export default function Index({
 
             <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
                 {/* Header Page & Quick Actions */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                                <LayoutDashboard className="w-6 h-6 text-blue-600" />
-                                Dashboard Purchasing & Pengadaan
-                            </h1>
-                            <Badge variant="outline" className="bg-blue-50/50 text-blue-700 border-blue-200 dark:border-blue-900 text-xs font-semibold">
-                                5-Tier Alert Center
-                            </Badge>
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1">
-                            Pusat kendali pengadaan operasional, termin pembayaran (TOP), jatuh tempo, dan pemantauan aset perusahaan.
+                        <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                            <LayoutDashboard className="w-5 h-5 text-blue-600" />
+                            Dashboard Purchasing
+                        </h1>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                            Ringkasan pengadaan operasional, termin pembayaran, dan pemantauan stok.
                         </p>
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsHistoryModalOpen(true)}
-                            className="gap-1.5 border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-400 text-xs"
-                        >
-                            <History className="w-3.5 h-3.5" />
-                            Cari Riwayat Harga
-                        </Button>
-
                         <Link href={route('purchasing.vendors.index')}>
                             <Button variant="outline" size="sm" className="gap-1.5 text-xs">
                                 <Building2 className="w-3.5 h-3.5" />
@@ -183,13 +178,15 @@ export default function Index({
                     <Card className="border-slate-200 dark:border-slate-800">
                         <CardContent className="p-4 flex items-center justify-between">
                             <div className="space-y-1">
-                                <p className="text-xs text-slate-500 font-medium">Realisasi Opex Bulan Ini</p>
+                                <p className="text-xs text-slate-500 font-medium">Realisasi Belanja Bulan Ini</p>
                                 <p className="text-xl font-bold text-slate-900 dark:text-slate-100 font-mono">
-                                    {formatRupiah(metrics.monthly_opex || 0)}
+                                    {formatRupiah((metrics.monthly_opex || 0) + (metrics.monthly_capex || 0))}
                                 </p>
-                                <p className="text-[10px] text-slate-400">
-                                    Capex: {formatRupiah(metrics.monthly_capex || 0)}
-                                </p>
+                                <div className="text-[10px] text-slate-400 space-x-1.5">
+                                    <span>Operasional: <strong className="text-slate-600 dark:text-slate-300 font-semibold">{formatRupiah(metrics.monthly_opex || 0)}</strong></span>
+                                    <span>•</span>
+                                    <span>Aset: <strong className="text-slate-600 dark:text-slate-300 font-semibold">{formatRupiah(metrics.monthly_capex || 0)}</strong></span>
+                                </div>
                             </div>
                             <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600">
                                 <DollarSign className="w-5 h-5" />
@@ -256,149 +253,378 @@ export default function Index({
                     </Card>
                 </div>
 
-                {/* THE 5-TIER COLOR CODING ALERT CENTER */}
-                <Card className="border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                    <CardHeader className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div>
-                                <CardTitle className="text-base font-bold flex items-center gap-2">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
-                                    Alert Center Berbasis 5 Skema Warna
-                                </CardTitle>
-                                <CardDescription className="text-xs">
-                                    Peringatan dini multi-skema otomatis berdasarkan tanggal jatuh tempo, status approval, dan stok.
-                                </CardDescription>
+                {/* 1. URGENT & ACTION NEEDED (Butuh Tindakan Immediate) */}
+                <Card className="border-rose-200 dark:border-rose-900/50 shadow-sm overflow-hidden bg-rose-50/20 dark:bg-rose-950/10">
+                    <CardHeader className="p-4 sm:p-5 border-b border-rose-100 dark:border-rose-900/40 bg-white/70 dark:bg-slate-900/70">
+                        <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-lg bg-rose-100 dark:bg-rose-900/50 text-rose-600">
+                                <Flame className="w-4 h-4" />
                             </div>
-
-                            {/* 5-Color Filter Tabs */}
-                            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-                                <Button
-                                    size="sm"
-                                    variant={activeAlertTab === 'red' ? 'default' : 'outline'}
-                                    onClick={() => setActiveAlertTab('red')}
-                                    className={`h-7 text-xs gap-1.5 ${
-                                        activeAlertTab === 'red'
-                                            ? 'bg-red-600 hover:bg-red-700 text-white'
-                                            : 'border-red-200 text-red-600 dark:border-red-900'
-                                    }`}
-                                >
-                                    🔴 Red ({redCount})
-                                </Button>
-
-                                <Button
-                                    size="sm"
-                                    variant={activeAlertTab === 'amber' ? 'default' : 'outline'}
-                                    onClick={() => setActiveAlertTab('amber')}
-                                    className={`h-7 text-xs gap-1.5 ${
-                                        activeAlertTab === 'amber'
-                                            ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                                            : 'border-amber-200 text-amber-600 dark:border-amber-900'
-                                    }`}
-                                >
-                                    🟡 Amber ({amberCount})
-                                </Button>
-
-                                <Button
-                                    size="sm"
-                                    variant={activeAlertTab === 'blue' ? 'default' : 'outline'}
-                                    onClick={() => setActiveAlertTab('blue')}
-                                    className={`h-7 text-xs gap-1.5 ${
-                                        activeAlertTab === 'blue'
-                                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                                            : 'border-blue-200 text-blue-600 dark:border-blue-900'
-                                    }`}
-                                >
-                                    🔵 Blue ({blueCount})
-                                </Button>
-
-                                <Button
-                                    size="sm"
-                                    variant={activeAlertTab === 'green' ? 'default' : 'outline'}
-                                    onClick={() => setActiveAlertTab('green')}
-                                    className={`h-7 text-xs gap-1.5 ${
-                                        activeAlertTab === 'green'
-                                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                            : 'border-emerald-200 text-emerald-600 dark:border-emerald-900'
-                                    }`}
-                                >
-                                    🟢 Green ({greenCount})
-                                </Button>
-
-                                <Button
-                                    size="sm"
-                                    variant={activeAlertTab === 'grey' ? 'default' : 'outline'}
-                                    onClick={() => setActiveAlertTab('grey')}
-                                    className={`h-7 text-xs gap-1.5 ${
-                                        activeAlertTab === 'grey'
-                                            ? 'bg-slate-700 hover:bg-slate-800 text-white'
-                                            : 'border-slate-200 text-slate-600 dark:border-slate-800'
-                                    }`}
-                                >
-                                    ⚪ Grey ({greyCount})
-                                </Button>
+                            <div>
+                                <CardTitle className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                    1. Urgent & Action Needed (Butuh Tindakan Immediate)
+                                </CardTitle>
+                                <CardDescription className="text-xs text-slate-500 mt-0.5">
+                                    Prioritas tinggi: Tagihan jatuh tempo hari ini, pembayaran terlambat, dan pengajuan menunggu persetujuan.
+                                </CardDescription>
                             </div>
                         </div>
                     </CardHeader>
 
                     <CardContent className="p-4 sm:p-5">
-                        {/* Render active alert items */}
-                        {alerts[activeAlertTab]?.length === 0 ? (
-                            <div className="text-center py-12 text-slate-400">
-                                <CheckCircle2 className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-700 mb-2" />
-                                <p className="text-xs font-medium">Tidak ada pemberitahuan pada skema ini saat ini.</p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                {alerts[activeAlertTab]?.map((item, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:shadow-sm transition-all flex flex-col justify-between gap-3 text-xs"
-                                    >
-                                        <div className="space-y-1">
-                                            <div className="flex items-center justify-between">
-                                                <span className="font-semibold text-slate-900 dark:text-slate-100">
-                                                    {item.title}
-                                                </span>
-                                                {item.amount && (
-                                                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                                                        {formatRupiah(item.amount)}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <p className="text-[11px] text-slate-500">
-                                                {item.subtitle}
-                                            </p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* A. Pending Pembayaran (TOP Hari Ini) */}
+                            <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-white dark:bg-slate-900 flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                                        <div className="flex items-center gap-1.5">
+                                            <Wallet className="w-4 h-4 text-rose-600" />
+                                            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                                A. Tagihan Jatuh Tempo Hari Ini
+                                            </h4>
                                         </div>
-
-                                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px]">
-                                            <span className="text-slate-400">{item.created_at || '-'}</span>
-                                            {item.target_url && (
-                                                <Link
-                                                    href={item.target_url}
-                                                    className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"
-                                                >
-                                                    Lihat Dokumen
-                                                    <ArrowUpRight className="w-3 h-3" />
-                                                </Link>
-                                            )}
-                                        </div>
+                                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 font-bold">
+                                            {(urgentActions.due_today || []).length}
+                                        </Badge>
                                     </div>
-                                ))}
+
+                                    <div className="mt-3 space-y-2.5">
+                                        {(urgentActions.due_today || []).length === 0 ? (
+                                            <p className="text-xs text-slate-400 py-4 text-center italic">
+                                                Tidak ada tagihan jatuh tempo hari ini.
+                                            </p>
+                                        ) : (
+                                            (urgentActions.due_today || []).map((item, idx) => (
+                                                <div key={idx} className="p-2.5 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 text-xs space-y-1.5">
+                                                    <div className="flex items-center justify-between gap-1">
+                                                        <span className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                                                            {item.item_name}
+                                                        </span>
+                                                        <span className="font-mono font-bold text-rose-600 shrink-0">
+                                                            {formatRupiah(item.amount)}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-500">
+                                                        {item.vendor_name} • {item.term_name}
+                                                    </p>
+                                                    <div className="flex items-center justify-between pt-1">
+                                                        <span className="text-[10px] text-rose-600 font-medium">Jatuh tempo hari ini</span>
+                                                        <Link href={item.target_url}>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-6 text-[11px] px-2.5 border-rose-300 text-rose-700 hover:bg-rose-50"
+                                                            >
+                                                                Lihat Detail
+                                                            </Button>
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                        )}
+
+                            {/* B. Tagihan Terlambat (Overdue Payments) */}
+                            <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-white dark:bg-slate-900 flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                                        <div className="flex items-center gap-1.5">
+                                            <AlertTriangle className="w-4 h-4 text-rose-600" />
+                                            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                                B. Tagihan Terlambat (Overdue)
+                                            </h4>
+                                        </div>
+                                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 font-bold">
+                                            {(urgentActions.overdue || []).length}
+                                        </Badge>
+                                    </div>
+
+                                    <div className="mt-3 space-y-2.5">
+                                        {(urgentActions.overdue || []).length === 0 ? (
+                                            <p className="text-xs text-slate-400 py-4 text-center italic">
+                                                Tidak ada tagihan yang melewati batas tempo.
+                                            </p>
+                                        ) : (
+                                            (urgentActions.overdue || []).map((item, idx) => (
+                                                <div key={idx} className="p-2.5 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 text-xs space-y-1.5">
+                                                    <div className="flex items-center justify-between gap-1">
+                                                        <span className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                                                            {item.invoice_number || item.po_number}
+                                                        </span>
+                                                        <span className="font-mono font-bold text-rose-600 shrink-0">
+                                                            {formatRupiah(item.amount)}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-500">
+                                                        {item.vendor_name} ({item.item_name})
+                                                    </p>
+                                                    <div className="flex items-center justify-between pt-1">
+                                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-rose-300 text-rose-700 bg-rose-100/60 font-semibold">
+                                                            {item.days_late} Hari Terlambat • Perlu Segera Dilunasi
+                                                        </Badge>
+                                                        <Link href={item.target_url}>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-6 text-[11px] px-2.5 border-rose-300 text-rose-700 hover:bg-rose-50"
+                                                            >
+                                                                Lihat Detail
+                                                            </Button>
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* C. Pending Approvals (Menunggu Persetujuan) */}
+                            <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-slate-900 flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                                        <div className="flex items-center gap-1.5">
+                                            <Clock className="w-4 h-4 text-amber-600" />
+                                            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                                C. Pending Approvals (Menunggu)
+                                            </h4>
+                                        </div>
+                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-amber-50 text-amber-700 border-amber-300 font-bold">
+                                            {(urgentActions.pending_approvals || []).length}
+                                        </Badge>
+                                    </div>
+
+                                    <div className="mt-3 space-y-2.5">
+                                        {(urgentActions.pending_approvals || []).length === 0 ? (
+                                            <p className="text-xs text-slate-400 py-4 text-center italic">
+                                                Tidak ada pengajuan yang menunggu persetujuan.
+                                            </p>
+                                        ) : (
+                                            (urgentActions.pending_approvals || []).map((item, idx) => (
+                                                <div key={idx} className="p-2.5 rounded-lg bg-amber-50/40 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 text-xs space-y-1.5">
+                                                    <div className="flex items-center justify-between gap-1">
+                                                        <span className="font-mono font-bold text-blue-600">
+                                                            {item.po_number}
+                                                        </span>
+                                                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200 shrink-0">
+                                                            {formatRupiah(item.grand_total)}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium truncate">
+                                                        {item.item_name}
+                                                    </p>
+                                                    <p className="text-[10px] text-slate-400">
+                                                        {item.requester_name} • {item.department}
+                                                    </p>
+                                                    <div className="flex items-center justify-between pt-1">
+                                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50">
+                                                            {item.stage_label}
+                                                        </Badge>
+                                                        <Link href={item.target_url}>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-6 text-[11px] px-2.5 border-blue-200 text-blue-700 hover:bg-blue-50"
+                                                            >
+                                                                Review & Setujui
+                                                            </Button>
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
 
-                {/* TABEL TAGIHAN TOP JATUH TEMPO MENDATANG */}
+                {/* 2. UPCOMING SCHEDULES & MONITORING (Jadwal & Peringatan Mendatang) */}
+                <Card className="border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden bg-slate-50/30 dark:bg-slate-900/20">
+                    <CardHeader className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70">
+                        <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600">
+                                <Calendar className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                    2. Upcoming Schedules & Monitoring (Jadwal & Peringatan Mendatang)
+                                </CardTitle>
+                                <CardDescription className="text-xs text-slate-500 mt-0.5">
+                                    Pantauan preventif: Masa garansi aset, jatuh tempo langganan software/kontrak, dan batas kritis stok material.
+                                </CardDescription>
+                            </div>
+                        </div>
+                    </CardHeader>
+
+                    <CardContent className="p-4 sm:p-5">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* A. Masa Garansi Aset Berakhir */}
+                            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                                        <div className="flex items-center gap-1.5">
+                                            <ShieldAlert className="w-4 h-4 text-amber-500" />
+                                            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                                A. Masa Garansi Aset Berakhir
+                                            </h4>
+                                        </div>
+                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-bold">
+                                            {(upcomingMonitoring.warranty_expiring || []).length}
+                                        </Badge>
+                                    </div>
+
+                                    <div className="mt-3 space-y-2.5">
+                                        {(upcomingMonitoring.warranty_expiring || []).length === 0 ? (
+                                            <p className="text-xs text-slate-400 py-4 text-center italic">
+                                                Semua garansi aset masih dalam masa aman.
+                                            </p>
+                                        ) : (
+                                            (upcomingMonitoring.warranty_expiring || []).map((item, idx) => (
+                                                <div key={idx} className="p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/60 text-xs space-y-1.5">
+                                                    <div className="flex items-center justify-between gap-1">
+                                                        <Link
+                                                            href={item.target_url}
+                                                            className="font-mono font-bold text-blue-600 hover:underline"
+                                                        >
+                                                            {item.asset_code}
+                                                        </Link>
+                                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50">
+                                                            {item.days_left} Hari Lagi
+                                                        </Badge>
+                                                    </div>
+                                                    <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                                                        {item.asset_name}
+                                                    </p>
+                                                    <p className="text-[11px] text-slate-400">
+                                                        {item.department} ({item.location_name}) • Habis: {item.expiry_date}
+                                                    </p>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* B. Perpanjangan Langganan / Kontrak Berakhir */}
+                            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                                        <div className="flex items-center gap-1.5">
+                                            <RefreshCw className="w-4 h-4 text-purple-500" />
+                                            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                                B. Langganan / Kontrak Berakhir
+                                            </h4>
+                                        </div>
+                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-bold">
+                                            {(upcomingMonitoring.subscriptions || []).length}
+                                        </Badge>
+                                    </div>
+
+                                    <div className="mt-3 space-y-2.5">
+                                        {(upcomingMonitoring.subscriptions || []).length === 0 ? (
+                                            <p className="text-xs text-slate-400 py-4 text-center italic">
+                                                Tidak ada langganan/kontrak yang segera berakhir.
+                                            </p>
+                                        ) : (
+                                            (upcomingMonitoring.subscriptions || []).map((item, idx) => (
+                                                <div key={idx} className="p-2.5 rounded-lg border border-purple-100 dark:border-purple-900/30 bg-purple-50/30 dark:bg-purple-950/20 text-xs space-y-1.5">
+                                                    <div className="flex items-center justify-between gap-1">
+                                                        <span className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                                                            {item.item_name}
+                                                        </span>
+                                                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200 shrink-0">
+                                                            {formatRupiah(item.grand_total)}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-500">
+                                                        {item.vendor_name} ({item.department}) • Siklus {item.expiry_date}
+                                                    </p>
+                                                    <div className="flex items-center justify-between pt-1">
+                                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-purple-200 text-purple-700 bg-purple-50">
+                                                            {item.decision_note}
+                                                        </Badge>
+                                                        <Link href={item.target_url}>
+                                                            <Button variant="ghost" size="sm" className="h-6 text-[11px] text-blue-600">
+                                                                Detail
+                                                            </Button>
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* C. Stok Bahan Baku Kritis (Minimum Stock Alert) */}
+                            <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-white dark:bg-slate-900 flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                                        <div className="flex items-center gap-1.5">
+                                            <Boxes className="w-4 h-4 text-rose-600" />
+                                            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                                C. Stok Bahan Baku Kritis
+                                            </h4>
+                                        </div>
+                                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 font-bold">
+                                            {(upcomingMonitoring.critical_stocks || []).length}
+                                        </Badge>
+                                    </div>
+
+                                    <div className="mt-3 space-y-2.5">
+                                        {(upcomingMonitoring.critical_stocks || []).length === 0 ? (
+                                            <p className="text-xs text-slate-400 py-4 text-center italic">
+                                                Semua stok material dalam batas aman.
+                                            </p>
+                                        ) : (
+                                            (upcomingMonitoring.critical_stocks || []).map((item, idx) => (
+                                                <div key={idx} className="p-2.5 rounded-lg bg-rose-50/40 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 text-xs space-y-1.5">
+                                                    <div className="flex items-center justify-between gap-1">
+                                                        <span className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                                                            {item.name}
+                                                        </span>
+                                                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                                                            Kritis
+                                                        </Badge>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-500">
+                                                        <span className="font-bold text-rose-600">Sisa {item.current_stock} {item.unit}</span> (Batas Min: {item.minimum_threshold} {item.unit})
+                                                    </p>
+                                                    <div className="flex items-center justify-end pt-1">
+                                                        <Link href={item.target_url}>
+                                                            <Button
+                                                                size="sm"
+                                                                className="h-6 text-[11px] px-2.5 bg-rose-600 hover:bg-rose-700 text-white gap-1"
+                                                            >
+                                                                <ShoppingCart className="w-3 h-3" />
+                                                                Segera Beli
+                                                            </Button>
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* TABEL TAGIHAN TOP JATUH TEMPO */}
                 <Card className="border-slate-200 dark:border-slate-800 overflow-hidden">
                     <CardHeader className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex flex-row items-center justify-between">
                         <div>
-                            <CardTitle className="text-base font-bold flex items-center gap-2">
+                            <CardTitle className="text-sm font-semibold flex items-center gap-2">
                                 <Wallet className="w-4 h-4 text-purple-600" />
-                                Tagihan Termin (TOP) Jatuh Tempo Terdekat
+                                Tagihan Termin (TOP) Jatuh Tempo
                             </CardTitle>
-                            <CardDescription className="text-xs">
-                                10 cicilan pembayaran supplier terdekat yang memerlukan pencairan oleh Keuangan.
+                            <CardDescription className="text-xs text-slate-500 mt-0.5">
+                                Daftar pembayaran termin terdekat yang perlu diproses.
                             </CardDescription>
                         </div>
 
@@ -419,7 +645,7 @@ export default function Index({
                                     <th className="p-3.5 font-semibold">Jatuh Tempo</th>
                                     <th className="p-3.5 font-semibold text-right">Nominal Tagihan</th>
                                     <th className="p-3.5 font-semibold text-center">Status</th>
-                                    <th className="p-3.5 font-semibold text-right">Aksi</th>
+                                    <th className="p-3.5 font-semibold text-right pr-4">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -440,7 +666,7 @@ export default function Index({
                                         const cleanPhone = getCleanPhone(p.vendor_phone);
 
                                         return (
-                                            <tr key={p.uuid} className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors">
+                                            <tr key={p.uuid} className="group hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors">
                                                 <td className="p-3.5">
                                                     <Link
                                                         href={route('purchasing.orders.show', p.po_number)}
@@ -485,17 +711,29 @@ export default function Index({
                                                     {getPaymentBadge(p.status)}
                                                 </td>
 
-                                                <td className="p-3.5 text-right">
-                                                    {canDisbursePayment && (
-                                                        <Button
-                                                            size="sm"
-                                                            onClick={() => openPayModal(p)}
-                                                            className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                                        >
-                                                            <ShieldCheck className="w-3 h-3" />
-                                                            Bayar
-                                                        </Button>
-                                                    )}
+                                                <td className="p-3.5 text-right pr-4">
+                                                    <div className="flex items-center justify-end gap-1.5">
+                                                        <Link href={route('purchasing.orders.show', p.po_number)}>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-7 text-xs gap-1 border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:text-slate-300"
+                                                            >
+                                                                <Eye className="w-3 h-3" />
+                                                                Detail
+                                                            </Button>
+                                                        </Link>
+                                                        {canDisbursePayment && (
+                                                            <Button
+                                                                size="sm"
+                                                                onClick={() => openPayModal(p)}
+                                                                className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                            >
+                                                                <ShieldCheck className="w-3 h-3" />
+                                                                Bayar
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );

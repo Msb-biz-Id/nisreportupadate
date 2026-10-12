@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
     Users,
     Search,
@@ -35,14 +35,7 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
 import { Textarea } from '@/Components/ui/textarea';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/Components/ui/table';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -108,7 +101,7 @@ export default function ApplicantsIndex({
     });
     const [editingInterview, setEditingInterview] = useState(null);
 
-    const handleFilterChange = (newSearch, newStatus, newJob, newBlacklist) => {
+    const handleFilterChange = (newSearch, newStatus, newJob, newBlacklist, page = 1, per_page = applicants.per_page) => {
         router.get(
             route('hcm.recruitment.applicants.index'),
             {
@@ -116,6 +109,8 @@ export default function ApplicantsIndex({
                 status: newStatus,
                 job_id: newJob,
                 blacklist: newBlacklist,
+                page,
+                per_page,
             },
             {
                 preserveState: true,
@@ -297,6 +292,442 @@ export default function ApplicantsIndex({
         return `https://wa.me/${clean}`;
     };
 
+    const columnsPipeline = useMemo(
+        () => [
+            {
+                accessorKey: 'apply_date',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Tgl Apply" />,
+                cell: ({ row }) => (
+                    <span className="text-xs font-mono text-zinc-500 whitespace-nowrap">
+                        {row.original.apply_date || row.original.created_at?.slice(0, 10) || '-'}
+                    </span>
+                ),
+                meta: { title: 'Tgl Apply' },
+            },
+            {
+                accessorKey: 'name',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Nama Pelamar" />,
+                cell: ({ row }) => {
+                    const app = row.original;
+                    return (
+                        <div className="min-w-[160px]">
+                            <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
+                                {app.name}
+                            </div>
+                            <div className="text-[10px] text-zinc-400 font-mono">
+                                {app.applicant_code} • {app.job_posting?.title || 'Umum'}
+                            </div>
+                        </div>
+                    );
+                },
+                meta: { title: 'Nama Pelamar' },
+            },
+            {
+                accessorKey: 'phone_number',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="No HP / WA" />,
+                cell: ({ row }) => {
+                    const app = row.original;
+                    return (
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="font-mono text-xs text-zinc-700 dark:text-zinc-300">
+                                {app.phone_number || '-'}
+                            </span>
+                            {app.phone_number && (
+                                <a
+                                    href={getWaLink(app.phone_number)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                                    title="Chat WhatsApp langsung"
+                                >
+                                    <MessageCircle className="w-3 h-3" />
+                                </a>
+                            )}
+                        </div>
+                    );
+                },
+                meta: { title: 'No HP / WA' },
+            },
+            {
+                accessorKey: 'status',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Status Talent" className="justify-center" />,
+                cell: ({ row }) => {
+                    const app = row.original;
+                    return (
+                        <div className="text-center">
+                            <button
+                                onClick={() => openStatusModal(app)}
+                                className="hover:opacity-80 transition"
+                                title="Klik untuk ubah status"
+                            >
+                                {getStatusBadge(app.status)}
+                            </button>
+                        </div>
+                    );
+                },
+                meta: { title: 'Status Talent' },
+            },
+            {
+                accessorKey: 'invitation_status',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Status Undangan" className="justify-center" />,
+                cell: ({ row }) => (
+                    <div className="text-center">
+                        <Badge variant="outline" className="text-[10px]">
+                            {row.original.invitation_status || 'Belum Diundang'}
+                        </Badge>
+                    </div>
+                ),
+                meta: { title: 'Status Undangan' },
+            },
+            {
+                accessorKey: 'interview_result',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Hasil Interview" className="justify-center" />,
+                cell: ({ row }) => {
+                    const res = row.original.interview_result;
+                    if (!res) return <div className="text-center text-zinc-400 text-xs">-</div>;
+                    return (
+                        <div className="text-center">
+                            <Badge
+                                className={`text-[10px] ${
+                                    res === 'Disarankan Diterima'
+                                        ? 'bg-emerald-500/10 text-emerald-700 border-emerald-200'
+                                        : res === 'Dipertimbangkan'
+                                        ? 'bg-amber-500/10 text-amber-700 border-amber-200'
+                                        : 'bg-rose-500/10 text-rose-700 border-rose-200'
+                                }`}
+                            >
+                                {res}
+                            </Badge>
+                        </div>
+                    );
+                },
+                meta: { title: 'Hasil Interview' },
+            },
+            {
+                accessorKey: 'onboarding_attendance',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Kehadiran Kerja" className="justify-center" />,
+                cell: ({ row }) => {
+                    const att = row.original.onboarding_attendance;
+                    return (
+                        <div className="text-center">
+                            {att === 'Hadir' ? (
+                                <Badge className="bg-emerald-500/10 text-emerald-700 text-[10px]">Hadir</Badge>
+                            ) : att === 'Tidak Hadir' ? (
+                                <Badge className="bg-rose-500/10 text-rose-700 text-[10px]">Tidak Hadir</Badge>
+                            ) : (
+                                <span className="text-zinc-400 text-xs">-</span>
+                            )}
+                        </div>
+                    );
+                },
+                meta: { title: 'Kehadiran Kerja' },
+            },
+            {
+                accessorKey: 'is_blacklisted',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Blacklist" className="justify-center" />,
+                cell: ({ row }) => (
+                    <div className="text-center">
+                        {row.original.is_blacklisted ? (
+                            <Badge className="bg-rose-600 text-white font-bold text-[10px] gap-1 shadow-xs">
+                                <ShieldAlert className="w-3 h-3" />
+                                Blacklist
+                            </Badge>
+                        ) : (
+                            <span className="text-zinc-400 text-xs">Tidak</span>
+                        )}
+                    </div>
+                ),
+                meta: { title: 'Blacklist' },
+            },
+            {
+                accessorKey: 'hcm_notes',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Catatan HCM" />,
+                cell: ({ row }) => (
+                    <div className="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-2 max-w-[200px]">
+                        {row.original.hcm_notes || row.original.rejection_reason || '-'}
+                    </div>
+                ),
+                meta: { title: 'Catatan HCM' },
+            },
+            {
+                id: 'actions',
+                header: () => <div className="text-center text-xs font-semibold">Aksi</div>,
+                cell: ({ row }) => {
+                    const app = row.original;
+                    return (
+                        <div className="flex items-center justify-center gap-1">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-zinc-500 hover:text-indigo-600"
+                                onClick={() => openDetailModal(app)}
+                                title="Detail Berkas & Wawancara"
+                            >
+                                <Eye className="w-3.5 h-3.5" />
+                            </Button>
+                            {app.converted_employee ? (
+                                <Link
+                                    href={route(
+                                        'hcm.employees.show',
+                                        app.converted_employee.employee_code || app.converted_employee.id
+                                    )}
+                                    className="p-1 rounded text-purple-600 hover:bg-purple-50"
+                                    title={`Lihat Karyawan: ${app.converted_employee.employee_code}`}
+                                >
+                                    <CheckCircle2 className="w-4 h-4" />
+                                </Link>
+                            ) : (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                                    onClick={() => openConvertModal(app)}
+                                    title="1-Klik Konversi Karyawan"
+                                >
+                                    <Rocket className="w-3.5 h-3.5" />
+                                </Button>
+                            )}
+                        </div>
+                    );
+                },
+                enableSorting: false,
+                meta: { title: 'Aksi' },
+            },
+        ],
+        []
+    );
+
+    const columnsInterviews = useMemo(
+        () => [
+            {
+                accessorKey: 'apply_date',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Tgl Apply" />,
+                cell: ({ row }) => (
+                    <span className="text-xs font-mono text-zinc-500 whitespace-nowrap">
+                        {row.original.apply_date || row.original.created_at?.slice(0, 10) || '-'}
+                    </span>
+                ),
+                meta: { title: 'Tgl Apply' },
+            },
+            {
+                accessorKey: 'name',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Nama Pelamar" />,
+                cell: ({ row }) => {
+                    const app = row.original;
+                    return (
+                        <div className="min-w-[150px]">
+                            <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
+                                {app.name}
+                            </div>
+                            <div className="text-[10px] text-zinc-400 font-mono">
+                                {app.applicant_code}
+                            </div>
+                        </div>
+                    );
+                },
+                meta: { title: 'Nama Pelamar' },
+            },
+            {
+                id: 'age',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Umur" className="justify-center" />,
+                cell: ({ row }) => {
+                    const app = row.original;
+                    const latestIv = app.interviews?.[0] || {};
+                    const age =
+                        latestIv.age ||
+                        (app.birth_date
+                            ? Math.floor((new Date() - new Date(app.birth_date)) / 31557600000)
+                            : '-');
+                    return <div className="text-center text-xs font-mono">{age} Thn</div>;
+                },
+                meta: { title: 'Umur' },
+            },
+            {
+                id: 'marital_status',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Status Nikah" />,
+                cell: ({ row }) => {
+                    const app = row.original;
+                    const latestIv = app.interviews?.[0] || {};
+                    return (
+                        <div className="text-xs text-zinc-600 whitespace-nowrap">
+                            {latestIv.marital_status || app.marital_status || 'Belum Menikah'}
+                        </div>
+                    );
+                },
+                meta: { title: 'Status Nikah' },
+            },
+            {
+                id: 'education',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Pendidikan" />,
+                cell: ({ row }) => {
+                    const app = row.original;
+                    const latestIv = app.interviews?.[0] || {};
+                    return (
+                        <div className="text-xs text-zinc-700 whitespace-nowrap">
+                            {latestIv.education || app.education || '-'}
+                        </div>
+                    );
+                },
+                meta: { title: 'Pendidikan' },
+            },
+            {
+                id: 'last_experience',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Pengalaman Terakhir" />,
+                cell: ({ row }) => {
+                    const app = row.original;
+                    const latestIv = app.interviews?.[0] || {};
+                    return (
+                        <div className="text-xs text-zinc-600 max-w-[150px] truncate" title={latestIv.last_experience || app.experience_summary}>
+                            {latestIv.last_experience || app.experience_summary || 'Fresh Graduate'}
+                        </div>
+                    );
+                },
+                meta: { title: 'Pengalaman Terakhir' },
+            },
+            {
+                id: 'daily_activity',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Kegiatan Saat Ini" />,
+                cell: ({ row }) => {
+                    const app = row.original;
+                    const latestIv = app.interviews?.[0] || {};
+                    return (
+                        <div className="text-xs text-zinc-600 max-w-[140px] truncate" title={latestIv.daily_activity}>
+                            {latestIv.daily_activity || 'Mencari Kerja'}
+                        </div>
+                    );
+                },
+                meta: { title: 'Kegiatan Saat Ini' },
+            },
+            {
+                id: 'core_skills',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Skill Utama" />,
+                cell: ({ row }) => {
+                    const app = row.original;
+                    const latestIv = app.interviews?.[0] || {};
+                    return (
+                        <div className="text-xs text-zinc-700 max-w-[140px] truncate" title={latestIv.core_skills || app.skills}>
+                            {latestIv.core_skills || app.skills || '-'}
+                        </div>
+                    );
+                },
+                meta: { title: 'Skill Utama' },
+            },
+            {
+                accessorKey: 'expected_salary',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Ekspektasi Gaji" />,
+                cell: ({ row }) => {
+                    const val = row.original.expected_salary;
+                    return (
+                        <div className="text-xs font-semibold text-emerald-600 whitespace-nowrap">
+                            {val ? `Rp ${Number(val).toLocaleString('id-ID')}` : '-'}
+                        </div>
+                    );
+                },
+                meta: { title: 'Ekspektasi Gaji' },
+            },
+            {
+                id: 'offering_status',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Offering Response" className="justify-center" />,
+                cell: ({ row }) => {
+                    const latestIv = row.original.interviews?.[0] || {};
+                    const st = latestIv.offering_status;
+                    if (!st) return <div className="text-center text-zinc-400 text-xs">Pending</div>;
+                    return (
+                        <div className="text-center">
+                            <Badge
+                                className={`text-[10px] ${
+                                    st === 'Diterima (Join)'
+                                        ? 'bg-emerald-500/10 text-emerald-700 border-emerald-200'
+                                        : st === 'Dipertimbangkan Kembali'
+                                        ? 'bg-amber-500/10 text-amber-700 border-amber-200'
+                                        : 'bg-rose-500/10 text-rose-700 border-rose-200'
+                                }`}
+                            >
+                                {st}
+                            </Badge>
+                        </div>
+                    );
+                },
+                meta: { title: 'Offering Response' },
+            },
+            {
+                id: 'interview_decision',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Keputusan" className="justify-center" />,
+                cell: ({ row }) => {
+                    const app = row.original;
+                    const latestIv = app.interviews?.[0] || {};
+                    return (
+                        <div className="text-center">
+                            <Badge variant="outline" className="text-[10px]">
+                                {latestIv.interview_decision || app.interview_result || 'Pending'}
+                            </Badge>
+                        </div>
+                    );
+                },
+                meta: { title: 'Keputusan' },
+            },
+            {
+                id: 'offering_notes',
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Catatan Kandidat" />,
+                cell: ({ row }) => {
+                    const app = row.original;
+                    const latestIv = app.interviews?.[0] || {};
+                    return (
+                        <div className="text-[11px] text-zinc-600 line-clamp-2 max-w-[180px]">
+                            {latestIv.offering_notes || app.hcm_notes || '-'}
+                        </div>
+                    );
+                },
+                meta: { title: 'Catatan Kandidat' },
+            },
+            {
+                id: 'actions',
+                header: () => <div className="text-center text-xs font-semibold">Aksi</div>,
+                cell: ({ row }) => {
+                    const app = row.original;
+                    return (
+                        <div className="flex items-center justify-center gap-1">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-zinc-500 hover:text-indigo-600"
+                                onClick={() => openDetailModal(app)}
+                                title="Detail Berkas & Wawancara"
+                            >
+                                <Eye className="w-3.5 h-3.5" />
+                            </Button>
+                            {app.converted_employee ? (
+                                <Link
+                                    href={route(
+                                        'hcm.employees.show',
+                                        app.converted_employee.employee_code || app.converted_employee.id
+                                    )}
+                                    className="p-1 rounded text-purple-600 hover:bg-purple-50"
+                                    title={`Lihat Karyawan: ${app.converted_employee.employee_code}`}
+                                >
+                                    <CheckCircle2 className="w-4 h-4" />
+                                </Link>
+                            ) : (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                                    onClick={() => openConvertModal(app)}
+                                    title="1-Klik Konversi Karyawan"
+                                >
+                                    <Rocket className="w-3.5 h-3.5" />
+                                </Button>
+                            )}
+                        </div>
+                    );
+                },
+                enableSorting: false,
+                meta: { title: 'Aksi' },
+            },
+        ],
+        []
+    );
+
     return (
         <AppLayout
             header={
@@ -379,442 +810,118 @@ export default function ApplicantsIndex({
                     </Card>
                 </div>
 
-                {/* 2. Filter Toolbar & Tab Selector Sesuai Blueprint */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <CardContent className="p-3.5 space-y-3">
-                        <div className="flex flex-col lg:flex-row items-center justify-between gap-3">
-                            {/* Search */}
-                            <div className="relative w-full lg:w-72">
-                                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-2.5" />
-                                <Input
-                                    placeholder="Cari nama, kode, no. WhatsApp..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            handleFilterChange(search, statusFilter, jobFilter, blacklistFilter);
-                                        }
+                {/* 2. Tab Switcher */}
+                <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-1">
+                    <button
+                        onClick={() => setActiveTab('pipeline')}
+                        className={`pb-2 px-3 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 ${
+                            activeTab === 'pipeline'
+                                ? 'border-indigo-600 text-indigo-600'
+                                : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
+                        }`}
+                    >
+                        <Users className="w-3.5 h-3.5" />
+                        Tabel 1: Pipeline Pelamar (Talent Pool)
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('interviews')}
+                        className={`pb-2 px-3 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 ${
+                            activeTab === 'interviews'
+                                ? 'border-indigo-600 text-indigo-600'
+                                : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
+                        }`}
+                    >
+                        <FileText className="w-3.5 h-3.5" />
+                        Tabel 2: Rekap Hasil Wawancara & Evaluasi
+                    </button>
+                </div>
+
+                {/* 3. DataTable Pelamar */}
+                <DataTable
+                    columns={activeTab === 'pipeline' ? columnsPipeline : columnsInterviews}
+                    data={applicants.data || []}
+                    serverPagination={applicants}
+                    onServerPageChange={(page) => handleFilterChange(search, statusFilter, jobFilter, blacklistFilter, page)}
+                    onServerPerPageChange={(per_page) => handleFilterChange(search, statusFilter, jobFilter, blacklistFilter, 1, per_page)}
+                    onServerSearchChange={(val) => {
+                        setSearch(val);
+                        handleFilterChange(val, statusFilter, jobFilter, blacklistFilter, 1);
+                    }}
+                    searchValue={search}
+                    searchPlaceholder="Cari nama, kode registrasi, no. WhatsApp..."
+                    exportFileName={`Pelamar_${activeTab === 'pipeline' ? 'Pipeline' : 'Wawancara'}_${new Date().toISOString().slice(0, 10)}`}
+                    filterSlot={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="min-w-[190px] w-auto">
+                                <SearchableSelect
+                                    value={jobFilter}
+                                    onValueChange={(val) => {
+                                        setJobFilter(val);
+                                        handleFilterChange(search, statusFilter, val, blacklistFilter, 1);
                                     }}
-                                    className="pl-9 text-xs h-8"
+                                    options={[
+                                        { label: 'Semua Lowongan Kerja', value: 'all' },
+                                        ...jobOptions.map((j) => ({
+                                            label: `${j.title} (${j.department})`,
+                                            value: j.slug,
+                                        })),
+                                    ]}
+                                    placeholder="Pilih Loker"
+                                    className="text-xs h-8"
                                 />
                             </div>
 
-                            {/* Dropdown Filters */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full lg:w-auto">
-                                <div className="w-full sm:w-56">
-                                    <SearchableSelect
-                                        value={jobFilter}
-                                        onValueChange={(val) => {
-                                            setJobFilter(val);
-                                            handleFilterChange(search, statusFilter, val, blacklistFilter);
-                                        }}
-                                        options={[
-                                            { label: 'Semua Lowongan Kerja', value: 'all' },
-                                            ...jobOptions.map((j) => ({
-                                                label: `${j.title} (${j.department})`,
-                                                value: j.slug,
-                                            })),
-                                        ]}
-                                        placeholder="Pilih Loker"
-                                        className="text-xs"
-                                    />
-                                </div>
-
-                                <div className="w-full sm:w-44">
-                                    <SearchableSelect
-                                        value={statusFilter}
-                                        onValueChange={(val) => {
-                                            setStatusFilter(val);
-                                            handleFilterChange(search, val, jobFilter, blacklistFilter);
-                                        }}
-                                        options={[
-                                            { label: 'Semua Status Tahapan', value: 'all' },
-                                            { label: 'Berkas Masuk (Submitted)', value: 'SUBMITTED' },
-                                            { label: 'Review Berkas (Screening)', value: 'SCREENING' },
-                                            { label: 'Wawancara (Interview)', value: 'INTERVIEW' },
-                                            { label: 'Diterima (Accepted)', value: 'ACCEPTED' },
-                                            { label: 'Ditolak (Rejected)', value: 'REJECTED' },
-                                        ]}
-                                        placeholder="Tahapan Seleksi"
-                                        className="text-xs"
-                                    />
-                                </div>
-
-                                <div className="w-full sm:w-40">
-                                    <SearchableSelect
-                                        value={blacklistFilter}
-                                        onValueChange={(val) => {
-                                            setBlacklistFilter(val);
-                                            handleFilterChange(search, statusFilter, jobFilter, val);
-                                        }}
-                                        options={[
-                                            { label: 'Semua Talent', value: 'all' },
-                                            { label: 'Bukan Blacklist', value: 'no' },
-                                            { label: '⚠️ Masuk Blacklist', value: 'yes' },
-                                        ]}
-                                        placeholder="Filter Blacklist"
-                                        className="text-xs"
-                                    />
-                                </div>
+                            <div className="min-w-[180px] w-auto">
+                                <SearchableSelect
+                                    value={statusFilter}
+                                    onValueChange={(val) => {
+                                        setStatusFilter(val);
+                                        handleFilterChange(search, val, jobFilter, blacklistFilter, 1);
+                                    }}
+                                    options={[
+                                        { label: 'Semua Status Tahapan', value: 'all' },
+                                        { label: 'Berkas Masuk (Submitted)', value: 'SUBMITTED' },
+                                        { label: 'Review Berkas (Screening)', value: 'SCREENING' },
+                                        { label: 'Wawancara (Interview)', value: 'INTERVIEW' },
+                                        { label: 'Diterima (Accepted)', value: 'ACCEPTED' },
+                                        { label: 'Ditolak (Rejected)', value: 'REJECTED' },
+                                    ]}
+                                    placeholder="Tahapan Seleksi"
+                                    className="text-xs h-8"
+                                />
                             </div>
-                        </div>
 
-                        {/* Reset Filter Banner */}
-                        {isFiltered && (
-                            <div className="flex items-center justify-between pt-1 border-t border-zinc-100 dark:border-zinc-800 text-xs">
-                                <span className="text-zinc-500 text-[11px]">Filter aktif diterapkan.</span>
+                            <div className="min-w-[150px] w-auto">
+                                <SearchableSelect
+                                    value={blacklistFilter}
+                                    onValueChange={(val) => {
+                                        setBlacklistFilter(val);
+                                        handleFilterChange(search, statusFilter, jobFilter, val, 1);
+                                    }}
+                                    options={[
+                                        { label: 'Semua Talent', value: 'all' },
+                                        { label: 'Bukan Blacklist', value: 'no' },
+                                        { label: '⚠️ Masuk Blacklist', value: 'yes' },
+                                    ]}
+                                    placeholder="Filter Blacklist"
+                                    className="text-xs h-8"
+                                />
+                            </div>
+
+                            {isFiltered && (
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={handleResetFilters}
-                                    className="h-6 text-[11px] text-zinc-500 hover:text-zinc-900 gap-1 px-2"
+                                    className="h-8 text-xs text-zinc-500 hover:text-zinc-900 gap-1 px-2"
                                 >
-                                    <RotateCcw className="h-3 w-3" />
-                                    Reset Filter
+                                    <RotateCcw className="h-3.5 w-3.5" />
+                                    Reset
                                 </Button>
-                            </div>
-                        )}
-
-                        {/* View Switcher Tabs (Blueprint Sheet Database Baris 64 & Baris 69) */}
-                        <div className="flex border-b border-zinc-200 dark:border-zinc-800 pt-1">
-                            <button
-                                onClick={() => setActiveTab('pipeline')}
-                                className={`pb-2 px-3 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 ${
-                                    activeTab === 'pipeline'
-                                        ? 'border-indigo-600 text-indigo-600'
-                                        : 'border-transparent text-zinc-500 hover:text-zinc-900'
-                                }`}
-                            >
-                                <Users className="w-3.5 h-3.5" />
-                                Tabel 1: Pipeline Pelamar (Database Talent Pool)
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('interviews')}
-                                className={`pb-2 px-3 text-xs font-semibold border-b-2 transition flex items-center gap-1.5 ${
-                                    activeTab === 'interviews'
-                                        ? 'border-indigo-600 text-indigo-600'
-                                        : 'border-transparent text-zinc-500 hover:text-zinc-900'
-                                }`}
-                            >
-                                <FileText className="w-3.5 h-3.5" />
-                                Tabel 2: Rekap Hasil Wawancara & Evaluasi Kandidat
-                            </button>
+                            )}
                         </div>
-                    </CardContent>
-                </Card>
-
-                {/* 3. TABEL VIEW 1: Pipeline Pelamar (Blueprint Baris 64) */}
-                {activeTab === 'pipeline' && (
-                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader className="bg-zinc-50 dark:bg-zinc-800/50">
-                                    <TableRow>
-                                        <TableHead className="w-[85px] text-xs font-semibold">Tgl Apply</TableHead>
-                                        <TableHead className="min-w-[170px] text-xs font-semibold">Nama Pelamar</TableHead>
-                                        <TableHead className="min-w-[140px] text-xs font-semibold">No HP / WA</TableHead>
-                                        <TableHead className="min-w-[130px] text-center text-xs font-semibold">Status Talent</TableHead>
-                                        <TableHead className="min-w-[120px] text-center text-xs font-semibold">Status Undangan</TableHead>
-                                        <TableHead className="min-w-[130px] text-center text-xs font-semibold">Hasil Interview</TableHead>
-                                        <TableHead className="min-w-[110px] text-center text-xs font-semibold">Kehadiran Kerja</TableHead>
-                                        <TableHead className="w-[100px] text-center text-xs font-semibold">Blacklist</TableHead>
-                                        <TableHead className="min-w-[160px] text-xs font-semibold">Catatan HCM</TableHead>
-                                        <TableHead className="w-[110px] text-center text-xs font-semibold">Aksi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {applicants.data && applicants.data.length > 0 ? (
-                                        applicants.data.map((app) => (
-                                            <TableRow key={app.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                                                {/* Tanggal Apply */}
-                                                <TableCell className="text-xs font-mono text-zinc-500">
-                                                    {app.apply_date || app.created_at?.slice(0, 10) || '-'}
-                                                </TableCell>
-
-                                                {/* Nama Pelamar */}
-                                                <TableCell>
-                                                    <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
-                                                        {app.name}
-                                                    </div>
-                                                    <div className="text-[10px] text-zinc-400 font-mono">
-                                                        {app.applicant_code} • {app.job_posting?.title || 'Umum'}
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* No HP / WhatsApp Langsung */}
-                                                <TableCell>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className="font-mono text-xs text-zinc-700 dark:text-zinc-300">
-                                                            {app.phone_number}
-                                                        </span>
-                                                        {app.phone_number && (
-                                                            <a
-                                                                href={getWaLink(app.phone_number)}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="p-1 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
-                                                                title="Chat WhatsApp langsung"
-                                                            >
-                                                                <MessageCircle className="w-3 h-3" />
-                                                            </a>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Status Talent Pool (Pipeline) */}
-                                                <TableCell className="text-center">
-                                                    <button
-                                                        onClick={() => openStatusModal(app)}
-                                                        className="hover:opacity-80 transition"
-                                                        title="Klik untuk ubah status"
-                                                    >
-                                                        {getStatusBadge(app.status)}
-                                                    </button>
-                                                </TableCell>
-
-                                                {/* Status Undangan */}
-                                                <TableCell className="text-center">
-                                                    <Badge variant="outline" className="text-[10px]">
-                                                        {app.invitation_status || 'Belum Diundang'}
-                                                    </Badge>
-                                                </TableCell>
-
-                                                {/* Hasil Interview */}
-                                                <TableCell className="text-center">
-                                                    {app.interview_result ? (
-                                                        <Badge
-                                                            className={`text-[10px] ${
-                                                                app.interview_result === 'Disarankan Diterima'
-                                                                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-200'
-                                                                    : app.interview_result === 'Dipertimbangkan'
-                                                                    ? 'bg-amber-500/10 text-amber-700 border-amber-200'
-                                                                    : 'bg-rose-500/10 text-rose-700 border-rose-200'
-                                                            }`}
-                                                        >
-                                                            {app.interview_result}
-                                                        </Badge>
-                                                    ) : (
-                                                        <span className="text-zinc-400 text-xs">-</span>
-                                                    )}
-                                                </TableCell>
-
-                                                {/* Status Kehadiran Onboarding */}
-                                                <TableCell className="text-center">
-                                                    {app.onboarding_attendance === 'Hadir' ? (
-                                                        <Badge className="bg-emerald-500/10 text-emerald-700 text-[10px]">Hadir</Badge>
-                                                    ) : app.onboarding_attendance === 'Tidak Hadir' ? (
-                                                        <Badge className="bg-rose-500/10 text-rose-700 text-[10px]">Tidak Hadir</Badge>
-                                                    ) : (
-                                                        <span className="text-zinc-400 text-xs">-</span>
-                                                    )}
-                                                </TableCell>
-
-                                                {/* Status Blacklist */}
-                                                <TableCell className="text-center">
-                                                    {app.is_blacklisted ? (
-                                                        <Badge className="bg-rose-600 text-white font-bold text-[10px] gap-1 shadow-xs">
-                                                            <ShieldAlert className="w-3 h-3" />
-                                                            Blacklist
-                                                        </Badge>
-                                                    ) : (
-                                                        <span className="text-zinc-400 text-xs">Tidak</span>
-                                                    )}
-                                                </TableCell>
-
-                                                {/* Alasan Detail / Catatan HCM */}
-                                                <TableCell>
-                                                    <div className="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-2 max-w-[200px]">
-                                                        {app.hcm_notes || app.rejection_reason || '-'}
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Aksi */}
-                                                <TableCell className="text-center">
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-7 w-7 text-zinc-500 hover:text-indigo-600"
-                                                            onClick={() => openDetailModal(app)}
-                                                            title="Detail Berkas & Wawancara"
-                                                        >
-                                                            <Eye className="w-3.5 h-3.5" />
-                                                        </Button>
-
-                                                        {app.converted_employee ? (
-                                                            <Link
-                                                                href={route(
-                                                                    'hcm.employees.show',
-                                                                    app.converted_employee.employee_code || app.converted_employee.id
-                                                                )}
-                                                                className="p-1 rounded text-purple-600 hover:bg-purple-50"
-                                                                title={`Lihat Karyawan: ${app.converted_employee.employee_code}`}
-                                                            >
-                                                                <CheckCircle2 className="w-4 h-4" />
-                                                            </Link>
-                                                        ) : (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-7 w-7 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                                                                onClick={() => openConvertModal(app)}
-                                                                title="1-Klik Konversi Karyawan"
-                                                            >
-                                                                <Rocket className="w-3.5 h-3.5" />
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={10} className="text-center py-12 text-zinc-400 text-xs">
-                                                Belum ada data pelamar yang sesuai dengan kriteria filter.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-
-                        {/* Pagination */}
-                        {applicants.links && applicants.links.length > 3 && (
-                            <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-500">
-                                <div>
-                                    Menampilkan {applicants.from || 0} - {applicants.to || 0} dari {applicants.total || 0} pelamar
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    {applicants.links.map((link, idx) => (
-                                        <button
-                                            key={idx}
-                                            onClick={() => link.url && router.get(link.url)}
-                                            disabled={!link.url}
-                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                            className={`px-2.5 py-1 text-xs rounded border ${
-                                                link.active
-                                                    ? 'bg-indigo-600 text-white border-indigo-600 font-semibold'
-                                                    : link.url
-                                                    ? 'hover:bg-zinc-100 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800'
-                                                    : 'text-zinc-400 border-transparent opacity-50 cursor-not-allowed'
-                                            }`}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </Card>
-                )}
-
-                {/* 4. TABEL VIEW 2: Rekap Hasil Wawancara Kandidat (Blueprint Baris 69) */}
-                {activeTab === 'interviews' && (
-                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader className="bg-zinc-50 dark:bg-zinc-800/50">
-                                    <TableRow>
-                                        <TableHead className="w-[85px] text-xs font-semibold">Tgl Apply</TableHead>
-                                        <TableHead className="min-w-[150px] text-xs font-semibold">Nama Pelamar</TableHead>
-                                        <TableHead className="w-[60px] text-center text-xs font-semibold">Umur</TableHead>
-                                        <TableHead className="min-w-[110px] text-xs font-semibold">Status Nikah</TableHead>
-                                        <TableHead className="min-w-[120px] text-xs font-semibold">Pendidikan</TableHead>
-                                        <TableHead className="min-w-[150px] text-xs font-semibold">Pengalaman Terakhir</TableHead>
-                                        <TableHead className="min-w-[130px] text-xs font-semibold">Kegiatan Saat Ini</TableHead>
-                                        <TableHead className="min-w-[140px] text-xs font-semibold">Skill Utama</TableHead>
-                                        <TableHead className="min-w-[120px] text-xs font-semibold">Ekspektasi Gaji</TableHead>
-                                        <TableHead className="min-w-[130px] text-center text-xs font-semibold">Offering Response</TableHead>
-                                        <TableHead className="min-w-[100px] text-center text-xs font-semibold">Keputusan</TableHead>
-                                        <TableHead className="min-w-[160px] text-xs font-semibold">Catatan Kandidat</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {applicants.data && applicants.data.length > 0 ? (
-                                        applicants.data.map((app) => {
-                                            const latestIv = app.interviews?.[0] || {};
-                                            const age =
-                                                latestIv.age ||
-                                                (app.birth_date
-                                                    ? Math.floor((new Date() - new Date(app.birth_date)) / 31557600000)
-                                                    : '-');
-
-                                            return (
-                                                <TableRow key={app.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                                                    <TableCell className="text-xs font-mono text-zinc-500">
-                                                        {app.apply_date || app.created_at?.slice(0, 10) || '-'}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
-                                                            {app.name}
-                                                        </div>
-                                                        <div className="text-[10px] text-zinc-400 font-mono">
-                                                            {app.applicant_code}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-center text-xs font-mono">
-                                                        {age} Thn
-                                                    </TableCell>
-                                                    <TableCell className="text-xs text-zinc-600">
-                                                        {latestIv.marital_status || app.marital_status || 'Belum Menikah'}
-                                                    </TableCell>
-                                                    <TableCell className="text-xs text-zinc-700">
-                                                        {latestIv.education || app.education || '-'}
-                                                    </TableCell>
-                                                    <TableCell className="text-xs text-zinc-600 max-w-[150px] truncate">
-                                                        {latestIv.last_experience || app.experience_summary || 'Fresh Graduate'}
-                                                    </TableCell>
-                                                    <TableCell className="text-xs text-zinc-600">
-                                                        {latestIv.daily_activity || 'Mencari Kerja'}
-                                                    </TableCell>
-                                                    <TableCell className="text-xs text-zinc-700 max-w-[140px] truncate">
-                                                        {latestIv.core_skills || app.skills || '-'}
-                                                    </TableCell>
-                                                    <TableCell className="text-xs font-semibold text-emerald-600">
-                                                        {app.expected_salary
-                                                            ? `Rp ${Number(app.expected_salary).toLocaleString('id-ID')}`
-                                                            : '-'}
-                                                    </TableCell>
-                                                    <TableCell className="text-center">
-                                                        {latestIv.offering_status ? (
-                                                            <Badge
-                                                                className={`text-[10px] ${
-                                                                    latestIv.offering_status === 'Diterima (Join)'
-                                                                        ? 'bg-emerald-500/10 text-emerald-700 border-emerald-200'
-                                                                        : latestIv.offering_status === 'Dipertimbangkan Kembali'
-                                                                        ? 'bg-amber-500/10 text-amber-700 border-amber-200'
-                                                                        : 'bg-rose-500/10 text-rose-700 border-rose-200'
-                                                                }`}
-                                                            >
-                                                                {latestIv.offering_status}
-                                                            </Badge>
-                                                        ) : (
-                                                            <span className="text-zinc-400 text-xs">Pending</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-center">
-                                                        <Badge variant="outline" className="text-[10px]">
-                                                            {latestIv.interview_decision || app.interview_result || 'Pending'}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="text-[11px] text-zinc-600 line-clamp-2 max-w-[180px]">
-                                                            {latestIv.offering_notes || app.hcm_notes || '-'}
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={12} className="text-center py-12 text-zinc-400 text-xs">
-                                                Belum ada rekap hasil wawancara kandidat.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </Card>
-                )}
+                    }
+                />
             </div>
 
             {/* MODAL 1: Detail Berkas & Rekap Wawancara Pelamar */}

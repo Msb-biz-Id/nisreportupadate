@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { 
@@ -17,10 +17,9 @@ import {
     ArrowRightLeft, 
     Trash2, 
     QrCode, 
-    ChevronLeft, 
-    ChevronRight,
     RefreshCw
 } from 'lucide-react';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import AssetDetailDrawer from './Components/AssetDetailDrawer';
 import CreateAssetModal from './Components/CreateAssetModal';
 import MutateAssetModal from './Components/MutateAssetModal';
@@ -43,6 +42,18 @@ export default function PurchasingAssetsIndex({
     const [selectedAssetForDrawer, setSelectedAssetForDrawer] = useState(null);
     const [selectedAssetForMutate, setSelectedAssetForMutate] = useState(null);
     const [selectedAssetForRetire, setSelectedAssetForRetire] = useState(null);
+
+    // Auto open drawer jika URL menyertakan open_asset
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const openCode = params.get('open_asset');
+        if (openCode && assets.data) {
+            const found = assets.data.find((a) => a.asset_code === openCode);
+            if (found) {
+                setSelectedAssetForDrawer(found);
+            }
+        }
+    }, [assets.data]);
 
     const handleFilter = (newFilters = {}) => {
         router.get(
@@ -75,6 +86,169 @@ export default function PurchasingAssetsIndex({
             maximumFractionDigits: 0
         }).format(val || 0);
     };
+
+    // Definisi Kolom TanStack Table v9
+    const columns = useMemo(() => [
+        {
+            accessorKey: 'asset_code',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kode Aset" />,
+            meta: { title: 'Kode Aset' },
+            cell: ({ row }) => {
+                const asset = row.original;
+                return (
+                    <div>
+                        <button
+                            onClick={() => setSelectedAssetForDrawer(asset)}
+                            className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:underline flex items-center gap-1.5 group"
+                        >
+                            <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-900 group-hover:bg-indigo-100 transition-colors">
+                                {asset.asset_code}
+                            </span>
+                        </button>
+                        {asset.mutations?.length > 0 && (
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-1">
+                                <History className="w-3 h-3" /> Dimutasi {asset.mutations.length}x
+                            </span>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'asset_name',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama Barang & Detail" />,
+            meta: { title: 'Nama Barang' },
+            cell: ({ row }) => {
+                const asset = row.original;
+                return (
+                    <div>
+                        <div className="font-semibold text-slate-900 dark:text-slate-100">
+                            {asset.asset_name}
+                        </div>
+                        <div className="text-[11px] text-slate-500 line-clamp-1 max-w-xs">
+                            {asset.specification || 'Belum ada spesifikasi'}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                            SN: {asset.serial_number || '-'} • {asset.quantity} {asset.unit}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'category_code',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kategori" />,
+            meta: { title: 'Kategori' },
+            cell: ({ row }) => (
+                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    {row.original.category_code}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'department',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Departemen & PIC" />,
+            meta: { title: 'Departemen' },
+            cell: ({ row }) => {
+                const asset = row.original;
+                return (
+                    <div>
+                        <div className="font-medium text-slate-800 dark:text-slate-200">
+                            {asset.department}
+                        </div>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                            <User className="w-3 h-3 text-slate-400" />
+                            {asset.pic_employee?.name || asset.pic_employee_name || 'Belum ada PIC'}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'acquisition_cost',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nilai Perolehan" />,
+            meta: { title: 'Nilai Perolehan' },
+            cell: ({ row }) => {
+                const asset = row.original;
+                return (
+                    <div>
+                        <div className="font-semibold text-slate-800 dark:text-slate-200">
+                            {formatRupiah(asset.acquisition_cost)}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                            {asset.purchase_date || '-'}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'status',
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tahap & Status" />,
+            meta: { title: 'Status' },
+            cell: ({ row }) => {
+                const asset = row.original;
+                return (
+                    <div className="flex flex-col gap-1 items-start">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                            asset.status === 'ACTIVE'
+                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 border border-emerald-200'
+                                : asset.status === 'MAINTENANCE'
+                                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400 border border-blue-200'
+                                : 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-400 border border-rose-200'
+                        }`}>
+                            {asset.status}
+                        </span>
+
+                        <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${
+                            asset.registration_stage === 'COMPLETED'
+                                ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/40'
+                                : 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60'
+                        }`}>
+                            {asset.registration_stage === 'COMPLETED' ? 'Lengkap (Deep)' : 'Quick (Perlu Lengkapi)'}
+                        </span>
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Aksi</div>,
+            cell: ({ row }) => {
+                const asset = row.original;
+                return (
+                    <div className="flex items-center justify-end gap-1">
+                        <button
+                            onClick={() => setSelectedAssetForDrawer(asset)}
+                            title="Buka Detail Aset"
+                            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                        >
+                            <Eye className="w-4 h-4" />
+                        </button>
+                        {asset.status !== 'RETIRED' && (
+                            <>
+                                <button
+                                    onClick={() => setSelectedAssetForMutate(asset)}
+                                    title="Mutasi Departemen"
+                                    className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                                >
+                                    <ArrowRightLeft className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setSelectedAssetForRetire(asset)}
+                                    title="Pensiunkan Aset (Retire)"
+                                    className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </>
+                        )}
+                    </div>
+                );
+            },
+        },
+    ], [setSelectedAssetForDrawer, setSelectedAssetForMutate, setSelectedAssetForRetire]);
+
 
     return (
         <AppLayout title="Inventaris Aset Tetap">
@@ -144,262 +318,97 @@ export default function PurchasingAssetsIndex({
                     </div>
                 </div>
 
-                {/* Filter and Search Bar */}
-                <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                        <div className="md:col-span-4 relative">
-                            <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                            <input
-                                type="text"
-                                placeholder="Cari nama barang, kode aset, no seri, atau PIC..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleFilter({ search })}
-                                className="w-full pl-9 text-xs rounded-xl border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:ring-indigo-500"
-                            />
-                        </div>
-
-                        <div className="md:col-span-2">
+                {/* TanStack Table v9 - Inventaris Aset Tetap */}
+                <DataTable
+                    columns={columns}
+                    data={assets.data || []}
+                    serverPagination={assets}
+                    onServerPageChange={(page) => handleFilter({ page })}
+                    onServerPerPageChange={(per_page) => handleFilter({ per_page, page: 1 })}
+                    onServerSearchChange={(val) => {
+                        setSearch(val);
+                        handleFilter({ search: val, page: 1 });
+                    }}
+                    searchValue={search}
+                    searchPlaceholder="Cari kode aset, nama barang, nomor seri, PIC..."
+                    exportFileName="inventaris_aset_nis"
+                    filterSlot={
+                        <div className="flex flex-wrap items-center gap-2">
                             <select
                                 value={categoryFilter}
                                 onChange={(e) => {
                                     setCategoryFilter(e.target.value);
-                                    handleFilter({ category_code: e.target.value });
+                                    handleFilter({ category_code: e.target.value, page: 1 });
                                 }}
-                                className="w-full text-xs rounded-xl border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:ring-indigo-500"
+                                className="h-8 text-xs rounded-lg border-slate-200 dark:border-slate-800 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-1 pl-2.5 pr-7"
                             >
                                 <option value="">Semua Kategori</option>
-                                {masterOptions.categories?.map((c) => (
-                                    <option key={c.id} value={c.code}>[{c.code}] {c.name}</option>
-                                ))}
+                                {masterOptions.categories?.map((c, idx) => {
+                                    const code = typeof c === 'object' ? c.code : c;
+                                    const name = typeof c === 'object' ? c.name : c;
+                                    const id = typeof c === 'object' ? c.id : idx;
+                                    return (
+                                        <option key={id} value={code}>
+                                            [{code}] {name}
+                                        </option>
+                                    );
+                                })}
                             </select>
-                        </div>
 
-                        <div className="md:col-span-2">
                             <select
                                 value={deptFilter}
                                 onChange={(e) => {
                                     setDeptFilter(e.target.value);
-                                    handleFilter({ department: e.target.value });
+                                    handleFilter({ department: e.target.value, page: 1 });
                                 }}
-                                className="w-full text-xs rounded-xl border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:ring-indigo-500"
+                                className="h-8 text-xs rounded-lg border-slate-200 dark:border-slate-800 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-1 pl-2.5 pr-7"
                             >
-                                <option value="">Semua Departemen</option>
+                                <option value="">Semua Dept</option>
                                 {masterOptions.departments?.map((d, idx) => (
                                     <option key={idx} value={d.name}>{d.name} ({d.code})</option>
                                 ))}
                             </select>
-                        </div>
 
-                        <div className="md:col-span-2">
                             <select
                                 value={statusFilter}
                                 onChange={(e) => {
                                     setStatusFilter(e.target.value);
-                                    handleFilter({ status: e.target.value });
+                                    handleFilter({ status: e.target.value, page: 1 });
                                 }}
-                                className="w-full text-xs rounded-xl border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:ring-indigo-500"
+                                className="h-8 text-xs rounded-lg border-slate-200 dark:border-slate-800 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-1 pl-2.5 pr-7"
                             >
                                 <option value="">Semua Status</option>
                                 <option value="ACTIVE">ACTIVE</option>
                                 <option value="MAINTENANCE">MAINTENANCE</option>
                                 <option value="RETIRED">RETIRED</option>
                             </select>
-                        </div>
 
-                        <div className="md:col-span-2 flex items-center gap-2">
                             <select
                                 value={stageFilter}
                                 onChange={(e) => {
                                     setStageFilter(e.target.value);
-                                    handleFilter({ registration_stage: e.target.value });
+                                    handleFilter({ registration_stage: e.target.value, page: 1 });
                                 }}
-                                className="w-full text-xs rounded-xl border-slate-300 dark:border-slate-700 dark:bg-slate-800 focus:ring-indigo-500"
+                                className="h-8 text-xs rounded-lg border-slate-200 dark:border-slate-800 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-1 pl-2.5 pr-7"
                             >
                                 <option value="">Semua Tahap</option>
                                 <option value="QUICK_REGISTERED">Quick Registered</option>
                                 <option value="COMPLETED">Completed (Deep)</option>
                             </select>
 
-                            <button
-                                onClick={handleResetFilter}
-                                title="Reset Filter"
-                                className="p-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            >
-                                <RefreshCw className="w-4 h-4" />
-                            </button>
+                            {(categoryFilter || deptFilter || statusFilter || stageFilter || search) && (
+                                <button
+                                    onClick={handleResetFilter}
+                                    title="Reset Filter"
+                                    className="h-8 px-2.5 text-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 font-medium rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors flex items-center gap-1 border border-rose-200 dark:border-rose-900"
+                                >
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                    Reset
+                                </button>
+                            )}
                         </div>
-                    </div>
-                </div>
-
-                {/* Table Inventaris */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-800/50 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                                    <th className="py-3.5 px-4">Kode Aset</th>
-                                    <th className="py-3.5 px-4">Nama Barang & Detail</th>
-                                    <th className="py-3.5 px-4">Kategori</th>
-                                    <th className="py-3.5 px-4">Departemen & PIC</th>
-                                    <th className="py-3.5 px-4">Nilai Perolehan</th>
-                                    <th className="py-3.5 px-4">Tahap & Status</th>
-                                    <th className="py-3.5 px-4 text-right">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
-                                {assets.data?.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={7} className="text-center py-12 text-slate-400">
-                                            <Box className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                                            Tidak ada aset yang sesuai dengan kriteria pencarian.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    assets.data?.map((asset) => (
-                                        <tr key={asset.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                                            {/* Clickable Asset Code */}
-                                            <td className="py-3.5 px-4">
-                                                <button
-                                                    onClick={() => setSelectedAssetForDrawer(asset)}
-                                                    className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:underline flex items-center gap-1.5 group"
-                                                >
-                                                    <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-900 group-hover:bg-indigo-100 transition-colors">
-                                                        {asset.asset_code}
-                                                    </span>
-                                                </button>
-                                                {asset.mutations?.length > 0 && (
-                                                    <span className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-1">
-                                                        <History className="w-3 h-3" /> Dimutasi {asset.mutations.length}x
-                                                    </span>
-                                                )}
-                                            </td>
-
-                                            {/* Nama Barang & Spesifikasi */}
-                                            <td className="py-3.5 px-4">
-                                                <div className="font-semibold text-slate-900 dark:text-slate-100">
-                                                    {asset.asset_name}
-                                                </div>
-                                                <div className="text-[11px] text-slate-500 line-clamp-1 max-w-xs">
-                                                    {asset.specification || 'Belum ada spesifikasi'}
-                                                </div>
-                                                <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
-                                                    SN: {asset.serial_number || '-'} • {asset.quantity} {asset.unit}
-                                                </div>
-                                            </td>
-
-                                            {/* Kategori */}
-                                            <td className="py-3.5 px-4">
-                                                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                                                    {asset.category_code}
-                                                </span>
-                                            </td>
-
-                                            {/* Departemen & PIC */}
-                                            <td className="py-3.5 px-4">
-                                                <div className="font-medium text-slate-800 dark:text-slate-200">
-                                                    {asset.department}
-                                                </div>
-                                                <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                                                    <User className="w-3 h-3 text-slate-400" />
-                                                    {asset.pic_employee?.name || asset.pic_employee_name || 'Belum ada PIC'}
-                                                </div>
-                                            </td>
-
-                                            {/* Nilai Perolehan */}
-                                            <td className="py-3.5 px-4">
-                                                <div className="font-semibold text-slate-800 dark:text-slate-200">
-                                                    {formatRupiah(asset.acquisition_cost)}
-                                                </div>
-                                                <div className="text-[10px] text-slate-400">
-                                                    {asset.purchase_date}
-                                                </div>
-                                            </td>
-
-                                            {/* Tahap & Status */}
-                                            <td className="py-3.5 px-4">
-                                                <div className="flex flex-col gap-1 items-start">
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                                                        asset.status === 'ACTIVE'
-                                                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 border border-emerald-200'
-                                                            : asset.status === 'MAINTENANCE'
-                                                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400 border border-blue-200'
-                                                            : 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-400 border border-rose-200'
-                                                    }`}>
-                                                        {asset.status}
-                                                    </span>
-
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${
-                                                        asset.registration_stage === 'COMPLETED'
-                                                            ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/40'
-                                                            : 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60'
-                                                    }`}>
-                                                        {asset.registration_stage === 'COMPLETED' ? 'Lengkap (Deep)' : 'Quick (Perlu Lengkapi)'}
-                                                    </span>
-                                                </div>
-                                            </td>
-
-                                            {/* Aksi */}
-                                            <td className="py-3.5 px-4 text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <button
-                                                        onClick={() => setSelectedAssetForDrawer(asset)}
-                                                        title="Buka Detail Aset"
-                                                        className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    {asset.status !== 'RETIRED' && (
-                                                        <>
-                                                            <button
-                                                                onClick={() => setSelectedAssetForMutate(asset)}
-                                                                title="Mutasi Departemen"
-                                                                className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                                                            >
-                                                                <ArrowRightLeft className="w-4 h-4" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setSelectedAssetForRetire(asset)}
-                                                                title="Pensiunkan Aset (Retire)"
-                                                                className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Pagination */}
-                    {assets.links?.length > 3 && (
-                        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
-                            <div>
-                                Menampilkan <span className="font-semibold text-slate-700 dark:text-slate-300">{assets.from || 0}</span> s.d. <span className="font-semibold text-slate-700 dark:text-slate-300">{assets.to || 0}</span> dari total <span className="font-semibold text-slate-700 dark:text-slate-300">{assets.total || 0}</span> aset
-                            </div>
-                            <div className="flex gap-1">
-                                {assets.links.map((link, idx) => (
-                                    <button
-                                        key={idx}
-                                        disabled={!link.url}
-                                        onClick={() => router.get(link.url, {}, { preserveState: true })}
-                                        className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                                            link.active
-                                                ? 'bg-indigo-600 text-white'
-                                                : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 disabled:opacity-30'
-                                        }`}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
+                    }
+                />
             </div>
 
             {/* Drawers and Modals */}
@@ -418,6 +427,7 @@ export default function PurchasingAssetsIndex({
                 onClose={() => setIsCreateOpen(false)}
                 categories={masterOptions.categories}
                 departments={masterOptions.departments}
+                departmentDivisionMap={masterOptions.department_division_map}
                 employees={masterOptions.employees}
                 locations={masterOptions.locations}
                 units={masterOptions.units}
@@ -428,6 +438,7 @@ export default function PurchasingAssetsIndex({
                 isOpen={!!selectedAssetForMutate}
                 onClose={() => setSelectedAssetForMutate(null)}
                 departments={masterOptions.departments}
+                departmentDivisionMap={masterOptions.department_division_map}
                 employees={masterOptions.employees}
                 locations={masterOptions.locations}
             />

@@ -482,6 +482,22 @@ function buildMenu(user, reportsList = []) {
             });
         }
 
+        // Inventaris Material Khusus (Fase 5) - Ringkas tanpa sub-menu
+        purchasingItems.push({
+            name: 'Inventaris Material',
+            href: route('purchasing.materials.index'),
+            icon: Layers,
+            active: route().current('purchasing.materials.*'),
+        });
+
+        // Laporan Rekapitulasi & Analitik (Fase 5)
+        purchasingItems.push({
+            name: 'Laporan Pengadaan',
+            href: route('purchasing.reports.index'),
+            icon: BarChart3,
+            active: route().current('purchasing.reports.*'),
+        });
+
         // Direktori Supplier / Vendor (Fase 1)
         if (user?.is_superadmin || hasPermission(user, 'purchasing.manage-vendors') || user?.roles?.includes('admin_purchasing') || user?.roles?.includes('staff_purchasing')) {
             purchasingItems.push({

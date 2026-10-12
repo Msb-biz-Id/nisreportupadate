@@ -25,9 +25,14 @@ class DatabaseSeeder extends Seeder
             HcmMealAllowanceAndRewardSeeder::class,
             HcmRecruitmentAndDocumentSeeder::class,
             HcmCompanyEventSeeder::class,
+            \Database\Seeders\Purchasing\PurchasingUserSeeder::class,
             \Database\Seeders\Purchasing\PurchasingMasterOptionSeeder::class,
             \Database\Seeders\Purchasing\PurchasingAssetCategorySeeder::class,
             \Database\Seeders\Purchasing\PurchasingAssetSuggestionSeeder::class,
+            \Database\Seeders\Purchasing\PurchasingVendorSeeder::class,
+            \Database\Seeders\Purchasing\PurchasingOrderSeeder::class,
+            \Database\Seeders\Purchasing\PurchasingAssetSeeder::class,
+            \Database\Seeders\Purchasing\PurchasingMaterialStockSeeder::class,
             // MultiFontTestSeeder::class,
         ]);
     }

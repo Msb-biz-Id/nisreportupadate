@@ -45,7 +45,7 @@ class PurchasingVendorController extends Controller
             ->when($category, fn ($q, $c) => $q->where('category', $c))
             ->when($status !== null && $status !== '', fn ($q) => $q->where('is_active', $status === 'active' || $status === '1'))
             ->orderBy('name')
-            ->paginate(20)
+            ->paginate((int) $request->query('per_page', 15))
             ->withQueryString();
 
         $vendorCategories = PurchasingMasterOption::getOptions('vendor_type');
