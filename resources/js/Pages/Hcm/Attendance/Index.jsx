@@ -67,8 +67,10 @@ export default function AttendanceIndex({
     departments = [],
     divisions = [],
     positions = [],
+    shifts = [],
     attachmentStatuses = [],
     activeEmployeesForGatePass = [],
+    activeEmployeesForBulk = [],
     metrics = {},
     filters = {},
 }) {
@@ -111,11 +113,12 @@ export default function AttendanceIndex({
         notes: '',
     });
 
-    // Form Bulk Shift
+    // Form Bulk Shift / Absensi Massal
     const bulkShiftForm = useForm({
         date: dailyDate,
         department: 'all',
-        position: 'all',
+        division: 'all',
+        shift_id: '',
         attendance_category: 'Hadir',
         clock_in: '08:00',
         clock_out: '17:00',
@@ -279,9 +282,62 @@ export default function AttendanceIndex({
     };
 
     const departmentOptions = [
-        { value: 'all', label: 'Semua Divisi' },
+        { value: 'all', label: 'Semua Departemen' },
         ...(departments || []).map((d) => ({ value: d, label: d })),
     ];
+
+    // Opsi divisi dinamis untuk Bulk Absen (menyaring divisi berdasarkan departemen yang dipilih)
+    const availableDivisionsForBulk = useMemo(() => {
+        const dept = bulkShiftForm.data.department;
+        if (!dept || dept === 'all') {
+            return [
+                { value: 'all', label: 'Semua Divisi' },
+                ...(divisions || []).map((d) => ({ value: d, label: d })),
+            ];
+        }
+        const matched = (activeEmployeesForBulk || [])
+            .filter((e) => e.department === dept && e.division)
+            .map((e) => e.division);
+        const uniqueMatched = Array.from(new Set(matched));
+        const list = uniqueMatched.length > 0 ? uniqueMatched : (divisions || []);
+        return [
+            { value: 'all', label: `Semua Divisi (${dept})` },
+            ...list.map((d) => ({ value: d, label: d })),
+        ];
+    }, [divisions, activeEmployeesForBulk, bulkShiftForm.data.department]);
+
+    // Estimasi jumlah karyawan yang akan diabsen pada modal bulk absen
+    const bulkTargetEmployeesCount = useMemo(() => {
+        const dept = bulkShiftForm.data.department;
+        const div = bulkShiftForm.data.division;
+        return (activeEmployeesForBulk || []).filter((emp) => {
+            const matchDept = dept === 'all' || emp.department === dept;
+            const matchDiv = div === 'all' || emp.division === div;
+            return matchDept && matchDiv;
+        }).length;
+    }, [activeEmployeesForBulk, bulkShiftForm.data.department, bulkShiftForm.data.division]);
+
+    // Handler memilih shift kerja pada modal bulk absen
+    const handleSelectShiftInBulk = (shiftId) => {
+        const shift = (shifts || []).find((s) => String(s.id) === String(shiftId));
+        if (shift) {
+            const startTime = shift.start_time ? shift.start_time.substring(0, 5) : '08:00';
+            const endTime = shift.end_time ? shift.end_time.substring(0, 5) : '17:00';
+            bulkShiftForm.setData({
+                ...bulkShiftForm.data,
+                shift_id: shift.id,
+                clock_in: shift.is_off_day ? '' : startTime,
+                clock_out: shift.is_off_day ? '' : endTime,
+                attendance_category: shift.is_off_day ? 'Libur/Cuti Bersama' : 'Hadir',
+                notes: `Shift: ${shift.name}`,
+            });
+        } else {
+            bulkShiftForm.setData({
+                ...bulkShiftForm.data,
+                shift_id: '',
+            });
+        }
+    };
 
     // Helper Badge Matriks Bulanan
     const getCategoryBadge = (record, isWeekend) => {
@@ -451,12 +507,13 @@ export default function AttendanceIndex({
 
     const handleBulkShiftSubmit = (e) => {
         e.preventDefault();
-        bulkShiftForm.setData('date', dailyDate);
-        bulkShiftForm.post(route('hcm.attendance.set-bulk'), {
+        bulkShiftForm.transform((data) => ({
+            ...data,
+            date: data.date || dailyDate,
+        })).post(route('hcm.attendance.set-bulk'), {
             preserveScroll: true,
             onSuccess: () => {
                 setIsBulkShiftModalOpen(false);
-                bulkShiftForm.reset();
             },
         });
     };
@@ -2036,34 +2093,83 @@ export default function AttendanceIndex({
                             </div>
                         </div>
 
+                        {/* Pilih Shift Kerja (Auto-fill jam) */}
+                        <div className="space-y-1">
+                            <Label className="text-xs font-medium">Pilih Shift Kerja (Opsional)</Label>
+                            <SearchableSelect
+                                value={String(bulkShiftForm.data.shift_id || '')}
+                                onValueChange={(val) => handleSelectShiftInBulk(val)}
+                                options={[
+                                    { value: '', label: '— Isi Manual (tanpa shift) —' },
+                                    ...(shifts || []).map((s) => ({
+                                        value: String(s.id),
+                                        label: `${s.name} (${s.start_time ? s.start_time.substring(0,5) : '?'} - ${s.end_time ? s.end_time.substring(0,5) : '?'})`,
+                                    })),
+                                ]}
+                                placeholder="Pilih shift untuk auto-isi jam..."
+                                clearable={false}
+                                className="h-8 text-xs"
+                            />
+                        </div>
+
+                        {/* Departemen & Divisi */}
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
-                                <Label className="text-xs font-medium">Divisi Target</Label>
+                                <Label className="text-xs font-medium">Departemen</Label>
                                 <SearchableSelect
                                     value={bulkShiftForm.data.department}
-                                    onValueChange={(val) => bulkShiftForm.setData('department', val)}
+                                    onValueChange={(val) => {
+                                        bulkShiftForm.setData({
+                                            ...bulkShiftForm.data,
+                                            department: val,
+                                            division: 'all',
+                                        });
+                                    }}
                                     options={departmentOptions}
-                                    placeholder="Semua Divisi"
+                                    placeholder="Semua Departemen"
                                     clearable={false}
                                     className="h-8 text-xs"
                                 />
                             </div>
 
                             <div className="space-y-1">
-                                <Label className="text-xs font-medium">Kategori</Label>
-                                <select
-                                    value={bulkShiftForm.data.attendance_category}
-                                    onChange={(e) => bulkShiftForm.setData('attendance_category', e.target.value)}
-                                    className="w-full h-8 text-xs rounded-md border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900"
-                                >
-                                    <option value="Hadir">Hadir</option>
-                                    <option value="Terlambat">Terlambat</option>
-                                    <option value="Izin">Izin</option>
-                                    <option value="Sakit">Sakit</option>
-                                    <option value="Dinas Luar">Dinas Luar</option>
-                                    <option value="Alpha/Mangkir">Alpha</option>
-                                </select>
+                                <Label className="text-xs font-medium">Divisi</Label>
+                                <SearchableSelect
+                                    value={bulkShiftForm.data.division}
+                                    onValueChange={(val) => bulkShiftForm.setData('division', val)}
+                                    options={availableDivisionsForBulk}
+                                    placeholder="Semua Divisi"
+                                    clearable={false}
+                                    className="h-8 text-xs"
+                                />
                             </div>
+                        </div>
+
+                        {/* Info jumlah karyawan yang akan terdampak */}
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700">
+                            <Users className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                            <p className="text-[11px] text-indigo-700 dark:text-indigo-300">
+                                Akan memproses <strong>{bulkTargetEmployeesCount}</strong> karyawan aktif sesuai filter departemen/divisi.
+                            </p>
+                        </div>
+
+                        {/* Kategori */}
+                        <div className="space-y-1">
+                            <Label className="text-xs font-medium">Kategori Kehadiran</Label>
+                            <select
+                                value={bulkShiftForm.data.attendance_category}
+                                onChange={(e) => bulkShiftForm.setData('attendance_category', e.target.value)}
+                                className="w-full h-8 text-xs rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2"
+                            >
+                                <option value="Hadir">Hadir</option>
+                                <option value="Terlambat">Terlambat</option>
+                                <option value="Izin">Izin</option>
+                                <option value="Sakit">Sakit</option>
+                                <option value="Cuti">Cuti</option>
+                                <option value="Dinas Luar">Dinas Luar</option>
+                                <option value="Libur/Cuti Bersama">Libur / Cuti Bersama</option>
+                                <option value="Alpha/Mangkir">Alpha / Mangkir</option>
+                            </select>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -2123,10 +2229,12 @@ export default function AttendanceIndex({
                             <Button
                                 type="submit"
                                 size="sm"
-                                disabled={bulkShiftForm.processing}
+                                disabled={bulkShiftForm.processing || bulkTargetEmployeesCount === 0}
                                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
                             >
-                                {bulkShiftForm.processing ? 'Menerapkan...' : 'Terapkan Shift'}
+                                {bulkShiftForm.processing
+                                    ? 'Menerapkan...'
+                                    : `Terapkan ke ${bulkTargetEmployeesCount} Karyawan`}
                             </Button>
                         </DialogFooter>
                     </form>
