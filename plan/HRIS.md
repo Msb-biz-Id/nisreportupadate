@@ -373,7 +373,7 @@ Pencatatan riwayat perjanjian kerja waktu tertentu (PKWT), perpanjangan (renewal
 | **Sisa Masa Kontrak (Hari)** | `days_remaining` | `virtual / calc` | Auto-calculated | `DATEDIFF(end_date, CURDATE())` |
 | **Status Review Kontrak** | `review_status` | `varchar(100)` | `required` | Dropdown Status Review (Aktif, Mendekati H-60, Wajib Review H-30, Masa Tenggang H-14, dll) |
 | **Pengelompokan Masa Kerja**| `tenure_bucket` | `virtual / calc` | Auto-calculated | **Kelompok 1 Tahun** (12-23 bln), **Kelompok 2 Tahun** (24-35 bln), **Kelompok 3 Tahun+** (36+ bln) |
-| **File Dokumen Digital** | `file_contract_url` | `varchar(255)` | `nullable` | Link Google Drive scan kontrak fisik |
+| **File Dokumen Digital** | `file_contract_url` | `varchar(255)` | `nullable` | Link penyimpanan server scan kontrak fisik |
 
 > **Aturan Contract Renewal Workflow**:
 > Ketika kontrak diperpanjang, nomor kontrak baru dan masa berlaku baru dicatat, kontrak lama diarsipkan ke tabel historis, namun **`original_join_date` tetap dipertahankan** agar rekam jejak loyalitas dan kenaikan upah kumulatif tidak hilang.
@@ -423,7 +423,7 @@ Pencatatan gaji/honor, evaluasi berkala kenaikan upah, dan perencanaan anggaran 
 | **Jam Keluar** | `clock_out` | `time` | `nullable` | Jam clock-out karyawan (shift default: 17:00) |
 | **Catatan / Alasan** | `notes` | `text` | `nullable` | Alasan terlambat/izin (e.g. Ban Bocor, Sakit) |
 | **Status Lampiran** | `attachment_status` | `varchar(30)` | `required` | Terlampir / Tidak Terlampir |
-| **File Bukti Lampiran** | `attachment_url` | `varchar(255)` | `nullable` | Link Google Drive surat dokter / surat izin |
+| **File Bukti Lampiran** | `attachment_url` | `varchar(255)` | `nullable` | Link penyimpanan server surat dokter / surat izin |
 
 #### 2. Tabel Pengajuan Cuti / Izin / Sakit (`hcm_leave_requests`)
 - `employee_id`, `leave_type` (Cuti Tahunan, Izin, Sakit, Dinas Luar).
@@ -448,7 +448,7 @@ Pencatatan izin meninggalkan area pabrik/kantor selama jam kerja (misal: servis 
 | **Keterangan / Keperluan** | `purpose` | `varchar(150)` | `required` | e.g. Ganti Oli, Pembuatan Rekening, Keperluan Dinas |
 | **Catatan / Alasan Detail** | `notes` | `text` | `nullable` | Keterangan tambahan atau catatan atasan |
 | **Status Lampiran** | `attachment_status` | `varchar(30)` | `required` | Pilihan: `Terlampir` / `Tidak Terlampir` |
-| **File Bukti Lampiran** | `attachment_url` | `varchar(255)` | `nullable` | Tautan scan/foto bukti urusan di Google Drive |
+| **File Bukti Lampiran** | `attachment_url` | `varchar(255)` | `nullable` | Tautan scan/foto bukti urusan di penyimpanan server |
 | **Status Approval** | `status` | `varchar(50)` | `default:APPROVED` | Status persetujuan: Disetujui Leader / HCM |
 
 ---
@@ -534,7 +534,7 @@ Mengintegrasikan seluruh komponen penggajian (Gaji Pokok, Tunjangan Uang Makan, 
 | **Disahkan Oleh Keuangan**| `finance_signed_by`| `foreignId` | `nullable, exists:users,id` | User Admin Keuangan yang memproses pencairan |
 | **Waktu Tanda Tangan Fin** | `finance_signed_at`| `timestamp` | `nullable` | Timestamp otorisasi [Sign & Paid] Keuangan |
 | **Metode Pembayaran** | `payment_method` | `varchar(50)` | `default:Bank Transfer BRI`| Pilihan: Transfer Bank BRI, Tunai / Kas Kecil |
-| **Bukti Transfer / Dokumen**| `payment_proof_url`| `varchar(255)`| `nullable, url` | Tautan bukti rekap transfer bank di Google Drive |
+| **Bukti Transfer / Dokumen**| `payment_proof_url`| `varchar(255)`| `nullable, url` | Tautan bukti rekap transfer bank di penyimpanan server |
 
 #### 2. Detail Rincian Gaji per Karyawan (`hcm_payroll_items`)
 | Label Kolom UI | Nama Kolom DB | Tipe Data | Validasi / Aturan | Keterangan & Kontrol UI |
@@ -577,7 +577,7 @@ Mencakup dokumen Pengajuan (RAB, Proposal) dan Realisasi (LPJ, Pembelian Aset).
 | **Status Dokumen** | `status` | `varchar(50)` | `required` | Berlaku, Selesai, Revisi, Dibatalkan |
 | **Anggaran Diajukan (Rp)** | `proposed_budget` | `decimal(15,2)` | `required, min:0` | Usulan anggaran dana |
 | **Realisasi Anggaran (Rp)**| `actual_budget` | `decimal(15,2)` | `nullable, min:0` | Serapan biaya riil (khusus tipe Realisasi) |
-| **Link File Digital (GDrive)**| `file_digital_url`| `varchar(255)` | `required, url` | Tautan Google Drive + Modal Preview In-App |
+| **Link File Digital**| `file_digital_url`| `varchar(255)` | `required, url` | Tautan penyimpanan server + Modal Preview In-App |
 
 ---
 
@@ -593,7 +593,7 @@ Mencatat surat-menyurat dengan instansi eksternal (BPJS-TK, Disnaker, Bank, Mitr
 | **Pengirim / Instansi** | `sender` | `varchar(150)` | `required` | e.g. BPJS Ketenagakerjaan, Dinas Tenaga Kerja |
 | **Penerima Intern / Tujuan**| `recipient` | `varchar(150)` | `required` | e.g. HCM Dept, Direksi |
 | **Perihal Dokumen** | `subject` | `text` | `required` | e.g. Undangan Sosialisasi Program JKP |
-| **Link File Scan (GDrive)** | `file_scan_url` | `varchar(255)` | `required, url` | Direct link scan berkas fisik di Google Drive |
+| **Link File Scan** | `file_scan_url` | `varchar(255)` | `required, url` | Direct link scan berkas fisik di penyimpanan server |
 
 ---
 
@@ -610,7 +610,7 @@ Buku registrasi penomoran surat resmi perusahaan agar tidak terjadi nomor surat 
 | **Perihal / Ringkasan** | `summary` | `text` | `required` | Ringkasan pokok isi surat |
 | **Tujuan / Dari** | `target_party` | `varchar(150)` | `required` | Pihak yang dituju atau pengirim surat |
 | **Status Disposisi** | `disposition_status`| `varchar(100)` | `required` | Selesai, Diteruskan ke HCM Manager, Menunggu Tindak Lanjut |
-| **Link Scan Surat (GDrive)**| `scan_url` | `varchar(255)` | `nullable, url` | Tautan arsip digital di Google Drive |
+| **Link Scan Surat**| `scan_url` | `varchar(255)` | `nullable, url` | Tautan arsip digital di penyimpanan server |
 
 ---
 
@@ -658,7 +658,7 @@ Halaman pendaftaran publik yang dapat diakses calon pelamar secara mandiri tanpa
 4. **Unggah Berkas Pendukung (Upload File)**:
    - Unggah Foto KTP / Pasfoto Digital (JPG/PNG)
    - Unggah Dokumen CV / Resume (PDF)
-   - *Catatan Sinkronisasi File*: File unggahan pelamar dialirkan langsung ke Google Drive subfolder `📁 Google Drive / NISGroup HCM / 05_Rekrutmen_Pelamar` sehingga disk hosting lokal tetap 0 MB.
+   - *Catatan Penyimpanan File*: File unggahan pelamar disimpan pada penyimpanan server (disk publik) subfolder `NISGroup HCM / 05_Rekrutmen_Pelamar`.
 
 ##### B. Field Internal yang Dikecualikan (TIDAK Diisi Pelamar):
 Demi kepraktisan dan perlindungan privasi kandidat sebelum diterima, field-field internal berikut **hanya diinput oleh Admin HCM pasca kandidat lolos & masuk tahap onboarding**:
@@ -738,7 +738,7 @@ Pencatatan apresiasi, bonus non-gaji, dan barang reward (seperti tiket liburan, 
 | **Tanggal Diterima** | `received_date` | `date` | `nullable, date` | Tanggal serah terima fisik/transfer reward |
 | **Status Dokumen** | `document_status` | `varchar(50)` | `nullable` | Status berita acara / tanda terima |
 | **Anggaran Diajukan (Rp)**| `budget_amount` | `decimal(15,2)` | `nullable` | Biaya reward |
-| **Link File Digital / Bukti** | `proof_url` | `varchar(255)` | `nullable, url` | Tautan foto dokumentasi penyerahan / berita acara di Google Drive |
+| **Link File Digital / Bukti** | `proof_url` | `varchar(255)` | `nullable, url` | Tautan foto dokumentasi penyerahan / berita acara di penyimpanan server |
 
 ---
 
@@ -756,7 +756,7 @@ Menampung agenda internal kantor, undangan sosial dari karyawan, dan hari libur 
 | **Target Peserta** | `target_audience` | `varchar(100)` | `default:Semua Tim` | Divisi sasaran acara |
 | **Pengingat (Reminder H-N)**| `reminder_days` | `integer` | `default:3` | Notifikasi H-3, H-1, Hari H |
 | **Berulang Tahunan?** | `is_annual_recurring`| `boolean` | `default:false` | True untuk HUT RI 17 Agustus |
-| **Lampiran / Undangan** | `invitation_file_url`| `varchar(255)` | `nullable, url` | Tautan scan kartu undangan fisik di Google Drive |
+| **Lampiran / Undangan** | `invitation_file_url`| `varchar(255)` | `nullable, url` | Tautan scan kartu undangan fisik di penyimpanan server |
 
 ---
 
@@ -1048,18 +1048,17 @@ Saat membuka profil detail karyawan (`/hcm/employees/{id}`), disajikan antarmuka
 
 ---
 
-### D. Mekanisme Sinkronisasi Google Drive & In-App PDF Viewer
-Untuk menjamin kapasitas disk hosting lokal tetap ringan (*0 MB Local Storage Waste*):
-1. **Auto-Stream ke Google Drive**:
-   - Setiap berkas yang diunggah (Kontrak PKWT, Bukti Sakit, RAB, Proposal, LPJ, Surat Eksternal) dialirkan langsung ke Google Drive perusahaan melalui API ke dalam subfolder terstruktur:
-     - `📁 Google Drive / NISGroup HCM / 01_Dokumen_Internal`
-     - `📁 Google Drive / NISGroup HCM / 02_Surat_Masuk_Keluar`
-     - `📁 Google Drive / NISGroup HCM / 03_Kontrak_PKWT`
-     - `📁 Google Drive / NISGroup HCM / 04_Surat_Dokter_Presensi`
-   - File temporer di server lokal langsung dihapus otomatis (*auto-unlink*).
+### D. Mekanisme Penyimpanan Dokumen Lokal & In-App PDF Viewer
+Seluruh berkas digital HCM disimpan pada penyimpanan publik server (disk `public`), tanpa layanan cloud eksternal.
+1. **Penyimpanan Lokal Terstruktur**:
+   - Setiap berkas yang diunggah (Kontrak PKWT, Bukti Sakit, RAB, Proposal, LPJ, Surat Eksternal) disimpan ke subfolder terstruktur di server:
+     - `01_Dokumen_Internal`
+     - `02_Surat_Masuk_Keluar`
+     - `03_Kontrak_PKWT`
+     - `04_Surat_Dokter_Presensi`
 2. **In-App PDF Viewer (Baca Langsung Tanpa Download)**:
-   - Pengguna dapat mengklik tombol **`[ 👁️ Lihat Dokumen ]`** untuk membuka Modal interaktif di dalam web (menggunakan Google Drive PDF Preview iframe) lengkap dengan fitur zoom, scroll, dan baca halaman penuh tanpa harus mengunduh file ke komputer lokal.
-   - Tersedia pula tombol sekunder **`[ ↗ Buka di Google Drive ]`** untuk membuka tautan asli di tab baru.
+   - Pengguna dapat mengklik tombol **`[ Lihat Dokumen ]`** untuk membuka Modal interaktif di dalam web (pratinjau PDF/gambar langsung dari berkas server) lengkap dengan fitur zoom, scroll, dan baca halaman penuh tanpa harus mengunduh file ke komputer lokal.
+   - Tersedia pula tombol sekunder **`[ Buka di Tab Baru ]`** untuk membuka berkas di tab browser baru.
 
 ---
 

@@ -6,7 +6,6 @@ import {
     DialogTitle,
 } from '@/Components/ui/dialog';
 import { Button } from '@/Components/ui/button';
-import { Badge } from '@/Components/ui/badge';
 import {
     ZoomIn,
     ZoomOut,
@@ -18,7 +17,6 @@ import {
     RefreshCw,
     FileText,
     Image as ImageIcon,
-    Cloud,
     AlertCircle,
     X,
 } from 'lucide-react';
@@ -54,50 +52,22 @@ export default function UniversalDocumentViewer({
                 embedUrl: '',
                 viewUrl: '',
                 downloadUrl: '',
-                isGoogleDrive: false,
                 isPdf: false,
                 isImage: false,
-                driveId: null,
             };
         }
 
         const rawUrl = String(fileUrl).trim();
-        let driveId = null;
-
-        // Cek format Google Drive
-        const gdriveRegex1 = /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/i;
-        const gdriveRegex2 = /[?&]id=([a-zA-Z0-9_-]+)/i;
-
-        const match1 = rawUrl.match(gdriveRegex1);
-        const match2 = rawUrl.match(gdriveRegex2);
-
-        if (match1 && match1[1]) {
-            driveId = match1[1];
-        } else if (rawUrl.includes('drive.google.com') && match2 && match2[1]) {
-            driveId = match2[1];
-        } else if (rawUrl.startsWith('gdrive:')) {
-            driveId = rawUrl.replace('gdrive:', '');
-        }
-
-        const isGoogleDrive = Boolean(driveId);
         const cleanLower = rawUrl.toLowerCase().split('?')[0];
 
-        let isPdf = fileType === 'pdf' || cleanLower.endsWith('.pdf') || rawUrl.includes('/pdf') || isGoogleDrive;
-        let isImage = fileType === 'image' || cleanLower.endsWith('.jpg') || cleanLower.endsWith('.jpeg') || cleanLower.endsWith('.png') || cleanLower.endsWith('.webp') || cleanLower.endsWith('.gif');
-
-        if (isImage) {
-            isPdf = false;
-        }
+        const isImage = fileType === 'image' || cleanLower.endsWith('.jpg') || cleanLower.endsWith('.jpeg') || cleanLower.endsWith('.png') || cleanLower.endsWith('.webp') || cleanLower.endsWith('.gif');
+        const isPdf = !isImage && (fileType === 'pdf' || cleanLower.endsWith('.pdf') || rawUrl.includes('/pdf'));
 
         let embedUrl = rawUrl;
-        let viewUrl = rawUrl;
-        let downloadUrl = rawUrl;
+        const viewUrl = rawUrl;
+        const downloadUrl = rawUrl;
 
-        if (isGoogleDrive && driveId) {
-            embedUrl = `https://drive.google.com/file/d/${driveId}/preview`;
-            viewUrl = `https://drive.google.com/file/d/${driveId}/view?usp=sharing`;
-            downloadUrl = `https://drive.google.com/uc?id=${driveId}&export=download`;
-        } else if (isPdf && !rawUrl.includes('#')) {
+        if (isPdf && !rawUrl.includes('#')) {
             embedUrl = `${rawUrl}#toolbar=1&navpanes=0`;
         }
 
@@ -105,10 +75,8 @@ export default function UniversalDocumentViewer({
             embedUrl,
             viewUrl,
             downloadUrl,
-            isGoogleDrive,
             isPdf,
             isImage,
-            driveId,
         };
     }, [fileUrl, fileType]);
 
@@ -151,9 +119,7 @@ export default function UniversalDocumentViewer({
                     {/* Judul & Tipe Berkas */}
                     <div className="flex items-center gap-2.5 min-w-0">
                         <div className="p-1.5 rounded bg-zinc-800 text-zinc-200">
-                            {parsedFile.isGoogleDrive ? (
-                                <Cloud className="h-4 w-4 text-emerald-400" />
-                            ) : parsedFile.isImage ? (
+                            {parsedFile.isImage ? (
                                 <ImageIcon className="h-4 w-4 text-blue-400" />
                             ) : (
                                 <FileText className="h-4 w-4 text-amber-400" />
@@ -164,11 +130,6 @@ export default function UniversalDocumentViewer({
                                 {fileName}
                             </h3>
                             <div className="flex items-center gap-2 mt-0.5 text-[11px] text-zinc-400">
-                                {parsedFile.isGoogleDrive && (
-                                    <Badge variant="outline" className="border-emerald-600/50 bg-emerald-950/40 text-emerald-300 text-[10px] px-1.5 py-0 font-normal">
-                                        Google Drive
-                                    </Badge>
-                                )}
                                 <span>{parsedFile.isImage ? 'Gambar Scan' : 'Dokumen PDF / Web'}</span>
                             </div>
                         </div>
@@ -215,7 +176,7 @@ export default function UniversalDocumentViewer({
                             </div>
                         )}
 
-                        {/* Buka di Tab Baru / Google Drive */}
+                        {/* Buka di Tab Baru */}
                         {parsedFile.viewUrl && (
                             <a
                                 href={parsedFile.viewUrl}
@@ -225,9 +186,7 @@ export default function UniversalDocumentViewer({
                                 title="Buka tautan asli di tab browser baru"
                             >
                                 <ExternalLink className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">
-                                    {parsedFile.isGoogleDrive ? 'Buka di Google Drive' : 'Tab Baru'}
-                                </span>
+                                <span className="hidden sm:inline">Tab Baru</span>
                             </a>
                         )}
 
@@ -291,7 +250,7 @@ export default function UniversalDocumentViewer({
                             <div>
                                 <h4 className="text-sm font-semibold text-zinc-200">Gagal Menampilkan Pratinjau</h4>
                                 <p className="text-xs text-zinc-400 mt-1">
-                                    Berkas mungkin memiliki proteksi akses privat atau browser memblokir frame embed Google.
+                                    Berkas mungkin memiliki proteksi akses privat sehingga pratinjau tidak dapat ditampilkan.
                                 </p>
                             </div>
                             <div className="flex gap-2">

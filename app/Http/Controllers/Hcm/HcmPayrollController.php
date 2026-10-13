@@ -12,7 +12,7 @@ use App\Models\Hcm\HcmPayroll;
 use App\Models\Hcm\HcmPayrollItem;
 use App\Models\Hcm\HcmSalaryDeduction;
 use App\Services\ActivityLogger;
-use App\Services\GoogleDriveSyncService;
+use App\Services\HcmFileStorageService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -349,7 +349,7 @@ class HcmPayrollController extends Controller
 
         $proofUrl = null;
         if ($request->hasFile('payment_proof')) {
-            $uploaded = GoogleDriveSyncService::uploadFile(
+            $uploaded = HcmFileStorageService::uploadFile(
                 $request->file('payment_proof'),
                 'HCM_PAYROLL_PROOFS'
             );

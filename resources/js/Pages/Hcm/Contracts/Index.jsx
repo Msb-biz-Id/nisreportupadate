@@ -1116,7 +1116,7 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
                                 className="text-xs file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                             />
                             <p className="text-[11px] text-zinc-500">
-                                Berkas akan disimpan secara aman dan otomatis disinkronkan ke Google Drive subfolder Kontrak PKWT.
+                                Berkas akan disimpan secara aman pada penyimpanan sistem.
                             </p>
                         </div>
 

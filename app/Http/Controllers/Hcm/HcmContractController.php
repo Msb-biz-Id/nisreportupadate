@@ -7,7 +7,7 @@ use App\Models\Hcm\HcmContract;
 use App\Models\Hcm\HcmEmployee;
 use App\Models\Hcm\HcmMasterOption;
 use App\Services\ActivityLogger;
-use App\Services\GoogleDriveSyncService;
+use App\Services\HcmFileStorageService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -170,9 +170,9 @@ class HcmContractController extends Controller
 
         $fileUrl = null;
         if ($request->hasFile('file_contract')) {
-            $uploaded = GoogleDriveSyncService::uploadFile(
+            $uploaded = HcmFileStorageService::uploadFile(
                 $request->file('file_contract'),
-                GoogleDriveSyncService::FOLDER_CONTRACTS
+                HcmFileStorageService::FOLDER_CONTRACTS
             );
             $fileUrl = $uploaded['url'];
         }
@@ -251,11 +251,11 @@ class HcmContractController extends Controller
         $fileUrl = $contract->file_contract_url;
         if ($request->hasFile('file_contract')) {
             if ($fileUrl) {
-                GoogleDriveSyncService::deleteFile($fileUrl);
+                HcmFileStorageService::deleteFile($fileUrl);
             }
-            $uploaded = GoogleDriveSyncService::uploadFile(
+            $uploaded = HcmFileStorageService::uploadFile(
                 $request->file('file_contract'),
-                GoogleDriveSyncService::FOLDER_CONTRACTS
+                HcmFileStorageService::FOLDER_CONTRACTS
             );
             $fileUrl = $uploaded['url'];
         }
@@ -299,12 +299,12 @@ class HcmContractController extends Controller
         ]);
 
         if ($contract->file_contract_url) {
-            GoogleDriveSyncService::deleteFile($contract->file_contract_url);
+            HcmFileStorageService::deleteFile($contract->file_contract_url);
         }
 
-        $uploaded = GoogleDriveSyncService::uploadFile(
+        $uploaded = HcmFileStorageService::uploadFile(
             $request->file('file_contract'),
-            GoogleDriveSyncService::FOLDER_CONTRACTS
+            HcmFileStorageService::FOLDER_CONTRACTS
         );
 
         $contract->update([
@@ -325,7 +325,7 @@ class HcmContractController extends Controller
 
         $num = $contract->contract_number;
         if ($contract->file_contract_url) {
-            GoogleDriveSyncService::deleteFile($contract->file_contract_url);
+            HcmFileStorageService::deleteFile($contract->file_contract_url);
         }
 
         $contract->delete();

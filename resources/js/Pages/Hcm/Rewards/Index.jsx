@@ -603,7 +603,7 @@ export default function RewardsIndex({
                                     <Input
                                         value={form.data.proof_url}
                                         onChange={(e) => form.setData('proof_url', e.target.value)}
-                                        placeholder="https://drive.google.com/..."
+                                        placeholder="https://..."
                                         className="text-xs"
                                     />
                                 </div>

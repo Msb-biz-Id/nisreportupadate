@@ -560,7 +560,7 @@ export default function LeavesIndex({
                                 className="text-xs file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 file:border-0 file:rounded file:px-2 file:py-1 hover:file:bg-indigo-100"
                             />
                             <p className="text-[10px] text-zinc-500">
-                                Format: PDF, PNG, JPG (Maks. 5MB). Otomatis diarsipkan ke sistem storage & sinkronisasi Google Drive.
+                                Format: PDF, PNG, JPG (Maks. 5MB). Otomatis diarsipkan ke penyimpanan sistem.
                             </p>
 
                             <div className="pt-1.5 border-t border-zinc-200/60 dark:border-zinc-800">
@@ -568,7 +568,7 @@ export default function LeavesIndex({
                                 <Input
                                     value={createForm.data.attachment_url}
                                     onChange={(e) => createForm.setData('attachment_url', e.target.value)}
-                                    placeholder="https://drive.google.com/..."
+                                    placeholder="https://..."
                                     className="text-xs h-7 mt-0.5"
                                 />
                             </div>

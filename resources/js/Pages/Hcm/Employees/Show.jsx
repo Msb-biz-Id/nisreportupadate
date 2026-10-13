@@ -1600,7 +1600,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                 className="text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                             />
                             <p className="text-[11px] text-zinc-500">
-                                Berkas kontrak fisik otomatis tersinkronisasi ke Google Drive subfolder Kontrak PKWT.
+                                Berkas kontrak fisik otomatis tersimpan ke penyimpanan sistem.
                             </p>
                         </div>
 

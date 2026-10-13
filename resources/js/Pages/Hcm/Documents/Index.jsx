@@ -843,7 +843,7 @@ export default function DocumentIndex({
                             />
                         </div>
 
-                        {/* Upload Berkas Fisik / Google Drive */}
+                        {/* Upload Berkas Fisik */}
                         <div className="space-y-1.5 p-3 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
                             <Label className="text-xs font-semibold flex items-center gap-1.5 text-zinc-800 dark:text-zinc-200">
                                 <Upload className="h-3.5 w-3.5 text-indigo-500" />
@@ -866,7 +866,7 @@ export default function DocumentIndex({
                                 </p>
                             )}
                             <p className="text-[10px] text-zinc-500">
-                                Berkas otomatis tersimpan di storage server & disinkronkan ke Google Drive folder <code>01_Dokumen_Internal</code>.
+                                Berkas otomatis tersimpan di penyimpanan server.
                             </p>
                         </div>
 

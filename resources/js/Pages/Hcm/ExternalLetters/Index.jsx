@@ -450,7 +450,7 @@ export default function ExternalLetterIndex({ letters, filters = {}, metrics = {
                                 onChange={(e) => e.target.files?.[0] && form.setData('file_upload', e.target.files[0])}
                                 className="text-xs file:text-xs"
                             />
-                            <p className="text-[10px] text-zinc-500">Berkas dialirkan ke Google Drive folder 02_Surat_Masuk_Keluar.</p>
+                            <p className="text-[10px] text-zinc-500">Berkas tersimpan di penyimpanan sistem.</p>
                         </div>
 
                         <DialogFooter className="pt-2 gap-2">

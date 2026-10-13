@@ -12,7 +12,7 @@ use App\Models\Hcm\HcmMasterOption;
 use App\Models\Hcm\HcmOffboarding;
 use App\Models\Hcm\HcmOnboarding;
 use App\Services\ActivityLogger;
-use App\Services\GoogleDriveSyncService;
+use App\Services\HcmFileStorageService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -524,9 +524,9 @@ class HcmEmployeeController extends Controller
 
         $fileUrl = $validated['file_contract_url'] ?? null;
         if ($request->hasFile('file_contract')) {
-            $uploaded = GoogleDriveSyncService::uploadFile(
+            $uploaded = HcmFileStorageService::uploadFile(
                 $request->file('file_contract'),
-                GoogleDriveSyncService::FOLDER_CONTRACTS
+                HcmFileStorageService::FOLDER_CONTRACTS
             );
             $fileUrl = $uploaded['url'];
         }

@@ -517,9 +517,9 @@ class HcmOvertimeController extends Controller
 
         $payoutProofUrl = $validated['payout_proof_url'] ?? null;
         if ($request->hasFile('payout_proof')) {
-            $uploaded = \App\Services\GoogleDriveSyncService::uploadFile(
+            $uploaded = \App\Services\HcmFileStorageService::uploadFile(
                 $request->file('payout_proof'),
-                \App\Services\GoogleDriveSyncService::FOLDER_DOCUMENTS
+                \App\Services\HcmFileStorageService::FOLDER_DOCUMENTS
             );
             $payoutProofUrl = $uploaded['url'];
         }

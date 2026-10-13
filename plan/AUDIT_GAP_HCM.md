@@ -150,8 +150,8 @@ Berikut adalah struktur data dan spesifikasi CRUD resmi yang telah diselaraskan 
       - *Kontrak Selesai & Tidak Diperpanjang*
       - *Pengangkatan Menjadi Karyawan Tetap (Converted to Permanent)*
 - **Alur CRUD**:
-  - **Create**: Modal penerbitan naskah kontrak baru; input nomor kontrak, urutan, durasi, tanggal mulai & berakhir, periode trainee, dan unggah berkas scan PDF fisik ke Google Drive/Storage.
+  - **Create**: Modal penerbitan naskah kontrak baru; input nomor kontrak, urutan, durasi, tanggal mulai & berakhir, periode trainee, dan unggah berkas scan PDF fisik ke penyimpanan server.
   - **Read**: Tabel monitoring naskah dengan visualisasi badge status review (Aman / H-60 / H-30 / H-14 / Expired), filter cepat per CV, dan tombol pembaca berkas digital (*Universal Document Viewer*).
   - **Update**: Perubahan durasi kontrak, adendum, update status review, dan perpanjangan naskah kontrak.
-  - **Upload Berkas**: Direct upload scan dokumen fisik dengan sinkronisasi cloud drive storage.
+  - **Upload Berkas**: Direct upload scan dokumen fisik ke penyimpanan server.
   - **Delete**: Hapus naskah kontrak dengan konfirmasi proteksi data.

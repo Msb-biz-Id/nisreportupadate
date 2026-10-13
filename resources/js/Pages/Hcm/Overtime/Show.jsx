@@ -1138,7 +1138,7 @@ export default function OvertimeShow({
                                 className="text-xs file:text-xs"
                             />
                             <p className="text-[10px] text-zinc-500">
-                                Tanda terima / slip transfer. Berkas dialirkan ke Google Drive; jika kosong, cukup catatan voucher.
+                                Tanda terima / slip transfer. Jika kosong, cukup catatan voucher.
                             </p>
                         </div>
 

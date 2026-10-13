@@ -155,9 +155,9 @@ class HcmDocumentController extends Controller
         ]);
 
         if ($request->hasFile('file_upload')) {
-            $uploaded = \App\Services\GoogleDriveSyncService::uploadFile(
+            $uploaded = \App\Services\HcmFileStorageService::uploadFile(
                 $request->file('file_upload'),
-                \App\Services\GoogleDriveSyncService::FOLDER_DOCUMENTS
+                \App\Services\HcmFileStorageService::FOLDER_DOCUMENTS
             );
             $validated['file_url'] = $uploaded['url'];
         }
@@ -197,9 +197,9 @@ class HcmDocumentController extends Controller
         ]);
 
         if ($request->hasFile('file_upload')) {
-            $uploaded = \App\Services\GoogleDriveSyncService::uploadFile(
+            $uploaded = \App\Services\HcmFileStorageService::uploadFile(
                 $request->file('file_upload'),
-                \App\Services\GoogleDriveSyncService::FOLDER_DOCUMENTS
+                \App\Services\HcmFileStorageService::FOLDER_DOCUMENTS
             );
             $validated['file_url'] = $uploaded['url'];
         }

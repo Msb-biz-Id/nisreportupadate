@@ -499,7 +499,7 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
                             {editingLetter ? 'Edit Data Agenda Surat' : 'Catat Surat Baru ke Buku Agenda'}
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            Isi lembar disposisi / agenda persuratan fisik dan digital yang otomatis tersinkronisasi ke Google Drive.
+                            Isi lembar disposisi / agenda persuratan fisik dan digital.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -617,7 +617,7 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
                             />
                         </div>
 
-                        {/* Upload Berkas Fisik ke Google Drive */}
+                        {/* Upload Berkas Fisik */}
                         <div className="space-y-1.5 p-3 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
                             <Label className="text-xs font-semibold flex items-center gap-1.5 text-zinc-800 dark:text-zinc-200">
                                 <Upload className="h-3.5 w-3.5 text-indigo-500" />
@@ -634,7 +634,7 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
                                 className="text-xs file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 file:border-0 file:rounded file:px-2 file:py-1 hover:file:bg-indigo-100"
                             />
                             <p className="text-[10px] text-zinc-500">
-                                Berkas otomatis tersimpan di storage lokal & Google Drive folder <code>02_Surat_Masuk_Keluar</code>.
+                                Berkas otomatis tersimpan di penyimpanan sistem.
                             </p>
 
                         </div>

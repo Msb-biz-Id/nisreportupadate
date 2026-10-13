@@ -116,9 +116,9 @@ class HcmLeaveRequestController extends Controller
 
         $attachmentUrl = $validated['attachment_url'] ?? null;
         if ($request->hasFile('attachment_file')) {
-            $uploaded = \App\Services\GoogleDriveSyncService::uploadFile(
+            $uploaded = \App\Services\HcmFileStorageService::uploadFile(
                 $request->file('attachment_file'),
-                \App\Services\GoogleDriveSyncService::FOLDER_ATTENDANCE
+                \App\Services\HcmFileStorageService::FOLDER_ATTENDANCE
             );
             $attachmentUrl = $uploaded['url'];
         }

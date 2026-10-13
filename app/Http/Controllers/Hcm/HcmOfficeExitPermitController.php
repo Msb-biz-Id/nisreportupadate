@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Hcm;
 use App\Http\Controllers\Controller;
 use App\Models\Hcm\HcmOfficeExitPermit;
 use App\Services\ActivityLogger;
-use App\Services\GoogleDriveSyncService;
+use App\Services\HcmFileStorageService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -38,9 +38,9 @@ class HcmOfficeExitPermitController extends Controller
         $fileUrl = $validated['attachment_url'] ?? null;
         if ($request->hasFile('file_attachment')) {
             try {
-                $uploaded = GoogleDriveSyncService::uploadFile(
+                $uploaded = HcmFileStorageService::uploadFile(
                     $request->file('file_attachment'),
-                    GoogleDriveSyncService::FOLDER_DOCUMENTS ?? 'hcm/gatepass'
+                    HcmFileStorageService::FOLDER_DOCUMENTS ?? 'hcm/gatepass'
                 );
                 $fileUrl = $uploaded['url'];
             } catch (\Throwable $e) {
@@ -97,9 +97,9 @@ class HcmOfficeExitPermitController extends Controller
         $fileUrl = $exitPermit->attachment_url;
         if ($request->hasFile('file_attachment')) {
             try {
-                $uploaded = GoogleDriveSyncService::uploadFile(
+                $uploaded = HcmFileStorageService::uploadFile(
                     $request->file('file_attachment'),
-                    GoogleDriveSyncService::FOLDER_DOCUMENTS ?? 'hcm/gatepass'
+                    HcmFileStorageService::FOLDER_DOCUMENTS ?? 'hcm/gatepass'
                 );
                 $fileUrl = $uploaded['url'];
             } catch (\Throwable $e) {

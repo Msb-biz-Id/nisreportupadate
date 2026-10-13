@@ -302,16 +302,16 @@ function CreateRefundDialog({ open, onOpenChange, jenisOptions }) {
                                 )}
                             </div>
 
-                            {/* Google Drive Link */}
+                            {/* Tautan Bukti */}
                             <div>
                                 <Label className="text-xs text-slate-600 flex items-center gap-1">
-                                    <Link2 className="h-3.5 w-3.5" /> Link Google Drive / URL Bukti
+                                    <Link2 className="h-3.5 w-3.5" /> Link Bukti / URL Bukti
                                 </Label>
                                 <Input
                                     value={data.bukti_link}
                                     onChange={(e) => setData('bukti_link', e.target.value)}
                                     className="mt-1.5 text-sm"
-                                    placeholder="https://drive.google.com/..."
+                                    placeholder="https://..."
                                 />
                                 {errors.bukti_link && <p className="text-xs text-destructive mt-1">{errors.bukti_link}</p>}
                             </div>

@@ -488,8 +488,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/overtime', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'updateOvertime'])->name('overtime.update');
             Route::post('/meal-allowance', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'updateMealAllowance'])->name('meal-allowance.update');
             Route::post('/payroll', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'updatePayroll'])->name('payroll.update');
-            Route::post('/storage', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'updateStorage'])->name('storage.update');
-            Route::post('/storage/test-connection', [\App\Http\Controllers\Hcm\HcmSettingController::class, 'testStorageConnection'])->name('storage.test-connection');
         });
     });
 

@@ -570,7 +570,7 @@ export default function HcmEventsIndex({
                                     <Input
                                         value={form.data.invitation_file_url}
                                         onChange={(e) => form.setData('invitation_file_url', e.target.value)}
-                                        placeholder="https://drive.google.com/..."
+                                        placeholder="https://..."
                                         className="text-xs"
                                     />
                                 </div>
