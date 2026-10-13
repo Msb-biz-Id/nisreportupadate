@@ -35,7 +35,7 @@ class HcmCompensationController extends Controller
 
         $query = HcmCompensation::with([
             'employee:id,employee_code,name,nickname,department,division,legal_entity,employment_status,is_active,photo_url,join_date,original_join_date',
-            'employee.activeContract:id,employee_id,contract_number,contract_sequence,duration_text,start_date,end_date',
+            'employee.activeContract',
             'histories' => fn($q) => $q->orderBy('effective_date', 'desc')->take(5),
         ])
             ->when($escapedSearch, function ($q, $term) {

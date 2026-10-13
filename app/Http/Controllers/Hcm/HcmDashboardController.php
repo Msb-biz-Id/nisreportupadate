@@ -477,7 +477,7 @@ class HcmDashboardController extends Controller
     {
         return HcmCompensation::with([
             'employee:id,employee_code,name,nickname,department,division,join_date,original_join_date,is_active',
-            'employee.activeContract:id,employee_id,contract_number,contract_sequence,start_date,end_date',
+            'employee.activeContract',
         ])
             ->whereHas('employee', fn ($q) => $q->where('is_active', true))
             ->get()
