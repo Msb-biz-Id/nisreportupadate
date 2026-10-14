@@ -229,6 +229,11 @@ export function POSiapDikirimWidget({ title = "📦 PO Siap Dikirim (Perlu Tinda
             <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
                     <span className="text-emerald-500 font-bold">📦</span> {title}
+                    {items?.length > 0 && (
+                        <Badge variant="outline" className="ml-1 text-[10px] font-bold">
+                            {items.length} PO
+                        </Badge>
+                    )}
                 </CardTitle>
                 <CardDescription>
                     PO dengan status <b>Siap Dikirim</b>. Harap verifikasi sisa pembayaran dan hubungi customer sebelum pengiriman dilakukan.
@@ -238,6 +243,7 @@ export function POSiapDikirimWidget({ title = "📦 PO Siap Dikirim (Perlu Tinda
                 {items.length === 0 ? (
                     <p className="py-6 text-center text-sm text-muted-foreground">Tidak ada PO siap dikirim saat ini.</p>
                 ) : (
+                    <div className="max-h-[70vh] overflow-y-auto pr-1">
                     <ul className="space-y-3">
                         {items.map((o) => (
                             <li key={o.id} className="group relative">
@@ -307,6 +313,7 @@ export function POSiapDikirimWidget({ title = "📦 PO Siap Dikirim (Perlu Tinda
                             </li>
                         ))}
                     </ul>
+                    </div>
                 )}
             </CardContent>
         </Card>

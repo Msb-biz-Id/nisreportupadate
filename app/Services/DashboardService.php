@@ -130,7 +130,7 @@ class DashboardService
                     'po_terlambat'                  => $this->poTerlambat($brandId, 5),
                     'trend_bulanan'                 => $this->trendBulanan($brandId),
                     'target_progress'               => $this->getTargetProgress($brandId),
-                    'po_siap_dikirim'               => $this->poSiapDikirim($brandId, 10),
+                    'po_siap_dikirim'               => $this->poSiapDikirim($brandId),
                     'dp_pending_list' => DesignDeposit::query()
                         ->when($brandId, $this->bf($brandId))
                         ->where('status', 'pending')
@@ -356,7 +356,7 @@ class DashboardService
                     'po_terbaru'        => $this->poTerbaru($brandId, 10),
                     'trend_bulanan'     => $this->trendBulanan($brandId),
                     'target_progress'   => $this->getTargetProgress($brandId ?: Brand::active()->pluck('id')->toArray()),
-                    'po_siap_dikirim'   => $this->poSiapDikirim($brandId, 10),
+                    'po_siap_dikirim'   => $this->poSiapDikirim($brandId),
                 ];
             },
             CacheService::TTL_SHORT
@@ -471,7 +471,7 @@ class DashboardService
             'deadline_mendekat'             => $this->deadlineMendekat($opBrandIds, 5),
             'po_terlambat'                  => $this->poTerlambat($opBrandIds, 5),
             'target_progress'               => $this->getTargetProgress($opBrandIds),
-            'po_siap_dikirim'               => $this->poSiapDikirim($opBrandIds, 10),
+            'po_siap_dikirim'               => $this->poSiapDikirim($opBrandIds),
             'current_brand_id'              => $filterBrand ?: 'all',
         ];
             },
@@ -1315,14 +1315,14 @@ class DashboardService
         ];
     }
 
-    private function poSiapDikirim(string|array|null $brandId, int $limit): array
+    private function poSiapDikirim(string|array|null $brandId, ?int $limit = null): array
     {
         return Order::query()
             ->when($brandId, $this->bf($brandId))
             ->where('status_po', 'siap_dikirim')
             ->with(['pelanggan:id,nama,nomor_hp', 'brand:id,nama_brand,kode', 'items', 'payments.masterJenisPembayaran'])
             ->orderByDesc('updated_at')
-            ->limit($limit)
+            ->when($limit, fn ($q) => $q->limit($limit))
             ->get()
             ->map(function (Order $o) {
                 $totalTagihan = $o->totalTagihan();
