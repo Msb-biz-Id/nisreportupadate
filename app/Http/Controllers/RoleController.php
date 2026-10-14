@@ -63,7 +63,7 @@ class RoleController extends Controller
                     'superadmin' => array_column($reports, 'slug'),
                     'owner' => array_column($reports, 'slug'),
                     'admin_brand' => [
-                        'analisis-marketing', 'penjualan-produk', 'pelanggan', 'wilayah',
+                        'penjualan-produk', 'pelanggan', 'wilayah',
                         'jenis-po', 'status-po', 'monitoring-deadline', 'rijek', 'comparison'
                     ],
                     'admin_reseller' => [

@@ -160,7 +160,6 @@ class User extends Authenticatable
         $defaults = [
             'owner' => array_merge(array_keys(\App\Support\ReportRegistry::all()), ['comparison']),
             'admin_brand' => [
-                'analisis-marketing',
                 'penjualan-produk',
                 'pelanggan',
                 'wilayah',
