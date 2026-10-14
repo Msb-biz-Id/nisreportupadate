@@ -293,6 +293,22 @@ Sesuai sheet *Business Rules* baris R27–R35:
    - Tepat satu kontak dalam daftar kontak suplier wajib ditandai sebagai **Kontak Utama (*Primary*)**.
    - Kontak utama ini yang akan ditampilkan pada dropdown pemesanan cepat dan detail order.
 
+### F. Geofence Lokasi Ruko/Gudang (Validasi Wilayah GPS)
+
+> Tujuan: memastikan aksi yang **wajib dilakukan secara fisik di lokasi** (mis. verifikasi penerimaan barang/gudang, registrasi aset fisik, inspeksi aset) benar-benar terjadi di dalam wilayah ruko/gudang terpilih. Di luar batas toleransi → **GAGAL**.
+
+1. **Master lokasi ber-koordinat**: setiap opsi `location`/`lokasi` pada `purchasing_master_options` menyimpan `latitude`, `longitude`, `radius_m` (batas toleransi meter), `address`, dan `maps_url`. Admin mengisi lewat **map picker** (Leaflet + OpenStreetMap, tanpa API key) + slider radius.
+2. **Perhitungan server-side**: jarak dihitung dengan rumus **Haversine** di server (bukan klien) → `distance_m`. Klien hanya mengirim `latitude, longitude, accuracy_m`.
+3. **Aturan keputusan**:
+   - `geofence_enabled = false` atau koordinat belum diisi → `SKIPPED` (lolos, tanpa validasi).
+   - Perangkat tidak mengirim GPS → `GAGAL` (alasan: lokasi tidak terdeteksi).
+   - `distance_m <= radius_m` → **LULUS**.
+   - `distance_m > radius_m` → **GAGAL** (`"Berada {distance_m} m dari {lokasi}, di luar toleransi {radius_m} m"`).
+4. **Titik penegakan (internal Purchasing)**: (a) **penyelesaian bukti / penerimaan barang**, (b) **registrasi aset fisik (Tahap 2 Deep Information)**; opsional (c) **pengajuan pembelian**.
+5. **Audit & block**: simpan `check_lat, check_lng, check_distance_m, location_check_status (LULUS/GAGAL/SKIPPED), location_checked_at, check_ip` pada order/aset terkait; catat via `ActivityLogger`. Status `GAGAL` **memblokir submit di server-side**, bukan sekadar peringatan UI.
+6. **Service**: `App\Services\Purchasing\LocationGeofenceService::check($location, $lat, $lng): array{status, distance_m, radius_m, reason}`.
+7. **Mandiri dari HCM**: master lokasi ini **milik Purchasing** (dimensi biaya & validasi fisik internal). HCM punya master lokasi **terpisah** (`hcm_locations`) untuk penempatan karyawan & geofence absensi (`plan/mobileapps.md` §6.4, §7.3). Keduanya **tidak saling bergantung**.
+
 ---
 
 ## 5. Sistem Alerting & Indikator Warna UX (Dashboard Blueprint)
@@ -445,16 +461,25 @@ Menampung opsi dropdown dinamis khusus purchasing (lokasi ruko, kategori item, s
 ```sql
 CREATE TABLE `purchasing_master_options` (
   `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `uuid` CHAR(36) UNIQUE NOT NULL,
   `category` VARCHAR(50) NOT NULL, -- location, item_category, unit, vendor_type, payment_type, asset_category, asset_unit, retirement_reason, final_condition, disposal_method, ink_variant
   `code` VARCHAR(50) NOT NULL,
   `name` VARCHAR(150) NOT NULL,
   `order_index` INT UNSIGNED DEFAULT 0,
   `is_active` BOOLEAN DEFAULT TRUE,
+  `address` VARCHAR(255) NULL,               -- Alamat fisik (hanya kategori location)
+  `latitude` DECIMAL(10,7) NULL,             -- Koordinat pusat lokasi (geofence)
+  `longitude` DECIMAL(10,7) NULL,
+  `radius_m` INT UNSIGNED NULL DEFAULT 100,  -- Batas toleransi wilayah (meter)
+  `maps_url` VARCHAR(500) NULL,              -- Tautan Google Maps / Plus Code
+  `geofence_enabled` BOOLEAN DEFAULT FALSE,  -- Aktifkan validasi wilayah GPS
   `created_at` TIMESTAMP NULL,
   `updated_at` TIMESTAMP NULL,
   INDEX `idx_pmo_category_active` (`category`, `is_active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
+
+> **Catatan**: kolom koordinat hanya bermakna untuk `category IN ('location','lokasi')`; kategori lain membiarkannya `NULL`. Skema `location_id` existing (FK ke `purchasing_master_options.id`) **tidak berubah** sehingga zero-code & backward-compatible. Bila lokasi kelak menjadi entitas first-class, opsi normalisasi ke tabel khusus `purchasing_locations` dapat dilakukan tanpa mengubah relasi (via view/alias).
 
 ### 2. `purchasing_vendors` & `purchasing_vendor_contacts` (Sheet Kontak Suplier)
 Direktori vendor/supplier dengan dukungan multi-PIC, validasi anti-duplikasi, dan primary contact:
