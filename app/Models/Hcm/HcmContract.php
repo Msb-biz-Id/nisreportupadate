@@ -61,8 +61,8 @@ class HcmContract extends Model
     ];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
+        'start_date' => 'date:Y-m-d',
+        'end_date' => 'date:Y-m-d',
         'contract_sequence' => 'integer',
         'start_year' => 'integer',
     ];

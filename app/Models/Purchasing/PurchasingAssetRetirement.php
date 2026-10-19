@@ -83,7 +83,7 @@ class PurchasingAssetRetirement extends Model
     protected function casts(): array
     {
         return [
-            'retired_at' => 'date',
+            'retired_at' => 'date:Y-m-d',
             'book_value' => 'decimal:2',
             'disposal_price' => 'decimal:2',
             'finance_approved_at' => 'datetime',

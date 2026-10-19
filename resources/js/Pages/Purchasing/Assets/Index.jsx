@@ -20,6 +20,7 @@ import {
     RefreshCw
 } from 'lucide-react';
 import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
+import { formatDate, formatRupiah } from '@/lib/utils';
 import AssetDetailDrawer from './Components/AssetDetailDrawer';
 import CreateAssetModal from './Components/CreateAssetModal';
 import MutateAssetModal from './Components/MutateAssetModal';
@@ -77,14 +78,6 @@ export default function PurchasingAssetsIndex({
         setStatusFilter('');
         setStageFilter('');
         router.get(route('purchasing.assets.index'), {}, { replace: true });
-    };
-
-    const formatRupiah = (val) => {
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            maximumFractionDigits: 0
-        }).format(val || 0);
     };
 
     // Definisi Kolom TanStack Table v9
@@ -176,7 +169,7 @@ export default function PurchasingAssetsIndex({
                             {formatRupiah(asset.acquisition_cost)}
                         </div>
                         <div className="text-[10px] text-slate-400">
-                            {asset.purchase_date || '-'}
+                            {formatDate(asset.purchase_date)}
                         </div>
                     </div>
                 );

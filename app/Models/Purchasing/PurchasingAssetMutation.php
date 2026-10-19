@@ -70,7 +70,7 @@ class PurchasingAssetMutation extends Model
     protected function casts(): array
     {
         return [
-            'mutation_date' => 'date',
+            'mutation_date' => 'date:Y-m-d',
         ];
     }
 

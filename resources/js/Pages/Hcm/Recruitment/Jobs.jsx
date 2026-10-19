@@ -833,8 +833,8 @@ export default function JobsIndex({
 
             {/* Modal QR Code Loker */}
             {qrJob && (
-                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-xs p-5 space-y-4 border border-zinc-200 dark:border-zinc-800 animate-in zoom-in-95 duration-150">
+                <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-xs p-5 space-y-4 border border-zinc-200 dark:border-zinc-800 animate-in fade-in duration-150">
                         <div className="flex items-center justify-between">
                             <div>
                                 <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">

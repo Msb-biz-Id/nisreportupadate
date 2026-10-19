@@ -69,6 +69,7 @@ Route::prefix('purchasing')->name('purchasing.')->group(function () {
         Route::post('/stocks', [\App\Http\Controllers\Purchasing\PurchasingMaterialController::class, 'storeStock'])->name('stocks.store');
         Route::put('/stocks/{stock}', [\App\Http\Controllers\Purchasing\PurchasingMaterialController::class, 'updateStock'])->name('stocks.update');
         Route::post('/transactions', [\App\Http\Controllers\Purchasing\PurchasingMaterialController::class, 'storeTransaction'])->name('transactions.store');
+        Route::post('/transactions/bulk', [\App\Http\Controllers\Purchasing\PurchasingMaterialController::class, 'storeBulkTransaction'])->name('transactions.bulkStore');
         Route::delete('/transactions/{usage}', [\App\Http\Controllers\Purchasing\PurchasingMaterialController::class, 'destroyTransaction'])->name('transactions.destroy');
     });
 

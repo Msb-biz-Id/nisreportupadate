@@ -265,7 +265,7 @@ export default function PayrollIndex({
                 </div>
 
                 {/* Toolbar Filter Sticky Top */}
-                <Card className="sticky top-0 z-30 border border-zinc-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md shadow-xs">
+                <Card className="sticky top-0 z-30 border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
                     <CardContent className="p-3">
                         <form onSubmit={handleFilterSubmit} className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
                             <div className="flex flex-1 items-center gap-2 w-full">
@@ -357,7 +357,7 @@ export default function PayrollIndex({
                                         <TableHead className="py-3 px-3 text-right text-rose-600">Total Potongan</TableHead>
                                         <TableHead className="py-3 px-3 text-right font-bold text-emerald-600">Total Net Kas</TableHead>
                                         <TableHead className="py-3 px-3 text-center">Status Otorisasi</TableHead>
-                                        <TableHead className="py-3 px-3 text-right sticky right-0 z-20 bg-zinc-50/95 dark:bg-zinc-800/95 backdrop-blur-xs border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">Aksi</TableHead>
+                                        <TableHead className="py-3 px-3 text-right sticky right-0 z-20 bg-zinc-50 dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody className="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
@@ -410,7 +410,7 @@ export default function PayrollIndex({
                                                         {getStatusBadge(p.status)}
                                                     </TableCell>
 
-                                                    <TableCell className="py-3 px-3 text-right sticky right-0 z-10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xs border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/90 transition-colors">
+                                                    <TableCell className="py-3 px-3 text-right sticky right-0 z-10 bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/90 transition-colors">
                                                         <div className="flex items-center justify-end gap-1.5">
                                                             <a
                                                                 href={route('hcm.payroll.export', code)}
@@ -460,7 +460,7 @@ export default function PayrollIndex({
 
                         {/* Sticky Bottom Pagination Bar */}
                         {payrolls?.links && (
-                            <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs sticky bottom-0 z-20 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md shadow-[0_-4px_16px_-2px_rgba(0,0,0,0.08)]">
+                            <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs sticky bottom-0 z-20 bg-white dark:bg-zinc-900 shadow-[0_-4px_16px_-2px_rgba(0,0,0,0.08)]">
                                 <span className="text-zinc-500">
                                     Menampilkan <strong>{payrolls.from || 0}</strong>–<strong>{payrolls.to || 0}</strong> dari{' '}
                                     <strong>{payrolls.total || 0}</strong> batch periode

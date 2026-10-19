@@ -78,8 +78,8 @@ class PurchasingPayment extends Model
             'term_step' => 'integer',
             'term_percentage' => 'decimal:2',
             'amount' => 'decimal:2',
-            'due_date' => 'date',
-            'paid_at' => 'date',
+            'due_date' => 'date:Y-m-d',
+            'paid_at' => 'date:Y-m-d',
         ];
     }
 

@@ -135,10 +135,10 @@ class PurchasingOrder extends Model
     protected function casts(): array
     {
         return [
-            'transaction_date' => 'date',
-            'disbursed_at' => 'date',
+            'transaction_date' => 'date:Y-m-d',
+            'disbursed_at' => 'date:Y-m-d',
             'disbursed_amount' => 'decimal:2',
-            'realized_at' => 'date',
+            'realized_at' => 'date:Y-m-d',
             'realized_amount' => 'decimal:2',
             'remaining_amount' => 'decimal:2',
             'settled_at' => 'datetime',

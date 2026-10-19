@@ -537,7 +537,7 @@ export default function Edit({
     const selectedVendor = vendors.find((v) => String(v.id) === String(data.vendor_id));
 
     return (
-        <AppLayout>
+        <AppLayout title={`Edit PO ${order.po_number || ''}`}>
             <Head title={`Edit Order ${order.po_number}`} />
 
             <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6">

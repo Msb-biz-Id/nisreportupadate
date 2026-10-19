@@ -657,7 +657,7 @@ export default function CompensationIndex({
                 </div>
 
                 {/* Filter Toolbar Sticky Top */}
-                <Card className="sticky top-0 z-30 border border-zinc-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md shadow-xs">
+                <Card className="sticky top-0 z-30 border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
                     <CardContent className="p-3.5">
                         <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row items-center gap-2.5">
                             <div className="relative flex-1 w-full">
@@ -786,7 +786,7 @@ export default function CompensationIndex({
                                         <th className="py-3 px-3 text-right">Update Honor 3</th>
                                         <th className="py-3 px-3 text-center">Berlaku 3</th>
                                         <th className="py-3 px-3 text-center">Status Pengajuan/Honor</th>
-                                        <th className="py-3 px-3.5 text-right sticky right-0 z-20 bg-zinc-50/95 dark:bg-zinc-800/95 backdrop-blur-xs border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">
+                                        <th className="py-3 px-3.5 text-right sticky right-0 z-20 bg-zinc-50 dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">
                                             Aksi
                                         </th>
                                     </tr>
@@ -953,7 +953,7 @@ export default function CompensationIndex({
                                                     </td>
 
                                                     {/* 16. Aksi */}
-                                                    <td className="py-3 px-3.5 text-right sticky right-0 z-10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xs border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/90 transition-colors">
+                                                    <td className="py-3 px-3.5 text-right sticky right-0 z-10 bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/90 transition-colors">
                                                         <div className="flex items-center justify-end gap-1">
                                                             <Button
                                                                 type="button"
@@ -1064,7 +1064,7 @@ export default function CompensationIndex({
 
                 {/* Pagination Sticky Bottom */}
                 {compensations?.links && compensations.links.length > 3 && (
-                    <div className="flex items-center justify-between p-3 border border-zinc-200 dark:border-zinc-800 rounded-xl sticky bottom-0 z-20 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md shadow-[0_-4px_16px_-2px_rgba(0,0,0,0.08)]">
+                    <div className="flex items-center justify-between p-3 border border-zinc-200 dark:border-zinc-800 rounded-xl sticky bottom-0 z-20 bg-white dark:bg-zinc-900 shadow-[0_-4px_16px_-2px_rgba(0,0,0,0.08)]">
                         <div className="text-xs text-zinc-500">
                             Menampilkan <strong>{compensations.from || 0}</strong> - <strong>{compensations.to || 0}</strong> dari{' '}
                             <strong>{compensations.total}</strong> karyawan

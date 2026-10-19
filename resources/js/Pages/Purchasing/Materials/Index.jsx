@@ -29,8 +29,10 @@ import { Badge } from '@/Components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { toast } from 'sonner';
+import { formatDate } from '@/lib/utils';
 import RecordTransactionModal from './Components/RecordTransactionModal';
 import CreateStockModal from './Components/CreateStockModal';
+import BulkTransactionModal from './Components/BulkTransactionModal';
 
 const MATERIAL_CATEGORIES = [
     { 
@@ -70,6 +72,8 @@ const MATERIAL_CATEGORIES = [
 export default function PurchasingMaterialsIndex({ 
     active_tab = 'KAIN_PUTIH', 
     stocks = [], 
+    all_stocks = [],
+    purchase_orders = [],
     usages = { data: [], links: [] }, 
     metrics = {}, 
     locations = [],
@@ -83,8 +87,17 @@ export default function PurchasingMaterialsIndex({
 
     // State Modals
     const [isTransactionOpen, setIsTransactionOpen] = useState(false);
+    const [isBulkOpen, setIsBulkOpen] = useState(false);
+    const [bulkInitialType, setBulkInitialType] = useState('OUT');
     const [isCreateStockOpen, setIsCreateStockOpen] = useState(false);
     const [editingStock, setEditingStock] = useState(null);
+    const [presetStockForModal, setPresetStockForModal] = useState(null);
+    const [presetTypeForModal, setPresetTypeForModal] = useState(null);
+
+    const handleOpenBulk = (type = 'OUT') => {
+        setBulkInitialType(type);
+        setIsBulkOpen(true);
+    };
 
     const activeMeta = MATERIAL_CATEGORIES.find(c => c.key === active_tab) || MATERIAL_CATEGORIES[0];
     const ActiveIcon = activeMeta.icon;
@@ -155,7 +168,7 @@ export default function PurchasingMaterialsIndex({
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
                         <Button 
                             variant="outline" 
                             size="sm" 
@@ -167,11 +180,32 @@ export default function PurchasingMaterialsIndex({
                         </Button>
                         <Button 
                             size="sm" 
-                            onClick={() => setIsTransactionOpen(true)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-sm"
+                            onClick={() => handleOpenBulk('IN')}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
                         >
-                            <SlidersHorizontal className="h-4 w-4 mr-1.5" />
-                            Catat Keluar / Masuk
+                            <ArrowDownLeft className="h-4 w-4" />
+                            Bulk Masuk (Penerimaan PO)
+                        </Button>
+                        <Button 
+                            size="sm" 
+                            onClick={() => handleOpenBulk('OUT')}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
+                        >
+                            <ArrowUpRight className="h-4 w-4" />
+                            Bulk Keluar (Pemakaian SPK)
+                        </Button>
+                        <Button 
+                            size="sm" 
+                            variant="secondary"
+                            onClick={() => {
+                                setPresetStockForModal(null);
+                                setPresetTypeForModal('OUT');
+                                setIsTransactionOpen(true);
+                            }}
+                            className="font-semibold text-xs border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+                        >
+                            <SlidersHorizontal className="h-4 w-4 mr-1.5 text-slate-500" />
+                            Catat 1 Item
                         </Button>
                     </div>
                 </div>
@@ -408,7 +442,33 @@ export default function PurchasingMaterialsIndex({
                                                             <CheckCircle2 className="h-3 w-3" /> Level Aman
                                                         </span>
                                                     )}
-                                                    <span className="text-slate-400">{item.usages_count} riwayat log</span>
+                                                    <span className="text-slate-400">{item.usages_count} log</span>
+                                                </div>
+
+                                                {/* Tombol Aksi Cepat Masuk / Keluar */}
+                                                <div className="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-end gap-1.5">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setPresetStockForModal(item);
+                                                            setPresetTypeForModal('IN');
+                                                            setIsTransactionOpen(true);
+                                                        }}
+                                                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition"
+                                                    >
+                                                        + Masuk
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setPresetStockForModal(item);
+                                                            setPresetTypeForModal('OUT');
+                                                            setIsTransactionOpen(true);
+                                                        }}
+                                                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition"
+                                                    >
+                                                        - Keluar
+                                                    </button>
                                                 </div>
                                             </div>
                                         );
@@ -492,7 +552,7 @@ export default function PurchasingMaterialsIndex({
                                                             {idx + 1}
                                                         </TableCell>
                                                         <TableCell className="font-mono text-xs text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                                                            {log.usage_date ? new Date(log.usage_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                                                            {formatDate(log.usage_date)}
                                                         </TableCell>
                                                         <TableCell>
                                                             {Number(log.quantity_in) > 0 ? (
@@ -593,12 +653,33 @@ export default function PurchasingMaterialsIndex({
                 activeTab={active_tab}
             />
 
-            {/* Modal Catat Transaksi In/Out */}
+            {/* Modal Catat Transaksi In/Out (Single Item) */}
             <RecordTransactionModal
                 isOpen={isTransactionOpen}
-                onClose={() => setIsTransactionOpen(false)}
+                onClose={() => {
+                    setIsTransactionOpen(false);
+                    setPresetStockForModal(null);
+                    setPresetTypeForModal(null);
+                }}
                 stocks={stocks}
+                allStocks={all_stocks}
+                purchaseOrders={purchase_orders}
+                presetStock={presetStockForModal}
+                presetType={presetTypeForModal}
+                onOpenBulk={(type) => handleOpenBulk(type || 'OUT')}
                 activeTab={active_tab}
+                locations={locations}
+                departments={departments}
+                divisions={divisions}
+            />
+
+            {/* Modal Catat Transaksi Massal (Bulk Inbound & Outbound) */}
+            <BulkTransactionModal
+                isOpen={isBulkOpen}
+                onClose={() => setIsBulkOpen(false)}
+                allStocks={all_stocks}
+                purchaseOrders={purchase_orders}
+                initialType={bulkInitialType}
                 locations={locations}
                 departments={departments}
                 divisions={divisions}

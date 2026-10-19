@@ -18,21 +18,44 @@ class UserSeeder extends Seeder
         $brandDrv = Brand::where(['kode' => 'DRV'])->first();
         $brandTelulas = Brand::where(['kode' => 'TLS'])->first();
 
-        $credentials = [];
+        // Normalisasi superadmin jika terdapat variasi casing (ITidwarehouse vs itidwarehouse)
+        $superUsers = User::whereRaw('LOWER(email) = ?', ['itidwarehouse@gmail.com'])->orderBy('id')->get();
+        if ($superUsers->count() > 1) {
+            $primarySuper = $superUsers->first();
+            $duplicates = $superUsers->slice(1);
+            foreach ($duplicates as $duplicate) {
+                \Illuminate\Support\Facades\DB::table('activity_logs')->where('user_id', $duplicate->id)->update(['user_id' => $primarySuper->id]);
+                \Illuminate\Support\Facades\DB::table('notifications')->where('notifiable_id', $duplicate->id)->where('notifiable_type', User::class)->update(['notifiable_id' => $primarySuper->id]);
+                $duplicate->delete();
+            }
+            $primarySuper->email = 'itidwarehouse@gmail.com';
+            $primarySuper->save();
+        }
+
+        $allBrands = Brand::all();
 
         // Helper to update/create user and track password
-        $seedUser = function(string $email, string $name, string $phone, array $roles, array $brands, string $roleLabel) use (&$credentials) {
-            $password = Str::random(12);
-            $user = User::updateOrCreate(
-                ['email' => $email],
-                [
+        $seedUser = function(string $email, string $name, string $phone, array $roles, $brands, string $roleLabel, string $password = 'password123') use (&$credentials) {
+            $user = User::whereRaw('LOWER(email) = ?', [strtolower($email)])->first();
+            if ($user) {
+                $user->update([
+                    'name' => $name,
+                    'email' => strtolower($email),
+                    'password' => Hash::make($password),
+                    'phone' => $phone,
+                    'is_active' => true,
+                    'email_verified_at' => $user->email_verified_at ?? now(),
+                ]);
+            } else {
+                $user = User::create([
+                    'email' => strtolower($email),
                     'name' => $name,
                     'password' => Hash::make($password),
                     'phone' => $phone,
                     'is_active' => true,
                     'email_verified_at' => now(),
-                ]
-            );
+                ]);
+            }
             $user->syncRoles($roles);
             
             $syncData = [];
@@ -45,13 +68,13 @@ class UserSeeder extends Seeder
                 }
             }
             if (!empty($syncData)) {
-                $user->brands()->syncWithoutDetaching($syncData);
+                $user->brands()->sync($syncData);
             }
 
             $credentials[] = [
                 'role' => $roleLabel,
                 'name' => $name,
-                'email' => $email,
+                'email' => strtolower($email),
                 'password' => $password,
             ];
 
@@ -59,7 +82,7 @@ class UserSeeder extends Seeder
         };
 
         // 1. Superadmin (akses semua brand)
-        $super = $seedUser('itidwarehouse@gmail.com', 'Super Administrator', '081111111111', ['superadmin'], [$brandAlg, $brandCrl, $brandDrv], 'Superadmin');
+        $super = $seedUser('itidwarehouse@gmail.com', 'Super Administrator', '081111111111', ['superadmin'], $allBrands, 'Superadmin');
 
         // 2. Owner
         $seedUser('owner@nisreport.local', 'Pemilik Bisnis', '081222222222', ['owner'], [$brandAlg, $brandCrl, $brandDrv], 'Owner');
@@ -105,6 +128,6 @@ class UserSeeder extends Seeder
         }
         
         file_put_contents($recapFile, $content);
-        $this->command->info("Kredensial baru telah diacak dan disimpan ke: " . $recapFile);
+        $this->command?->info("Kredensial dev disimpan ke: " . $recapFile);
     }
 }

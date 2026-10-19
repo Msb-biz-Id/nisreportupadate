@@ -46,8 +46,8 @@ class HcmCompensation extends Model
         'increment_2_amount' => 'float',
         'increment_3_amount' => 'float',
         'planned_increment' => 'float',
-        'effective_date' => 'date',
-        'custom_milestone_date' => 'date',
+        'effective_date' => 'date:Y-m-d',
+        'custom_milestone_date' => 'date:Y-m-d',
     ];
 
     protected static function booted(): void

@@ -76,7 +76,7 @@ class PurchasingMaterialUsage extends Model
     protected function casts(): array
     {
         return [
-            'usage_date' => 'date',
+            'usage_date' => 'date:Y-m-d',
             'quantity_in' => 'decimal:2',
             'quantity_out' => 'decimal:2',
             'balance_stock' => 'decimal:2',

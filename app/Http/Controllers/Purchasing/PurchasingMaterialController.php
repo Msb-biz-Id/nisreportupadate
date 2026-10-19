@@ -104,7 +104,7 @@ class PurchasingMaterialController extends Controller
             'total_purchase_cost' => $totalCostMonth,
         ];
 
-        // 4. Dropdowns Pembantu
+        // 4. Dropdowns Pembantu & Data Seluruh Kelompok (Untuk Bulk Outbound & Auto-fill PO)
         $locations = PurchasingMasterOption::getCategoryModels('location');
 
         $departments = class_exists(HcmMasterOption::class)
@@ -115,9 +115,68 @@ class PurchasingMaterialController extends Controller
             ? HcmMasterOption::getOptions('divisi')
             : [];
 
+        // Seluruh master item material lintas kelompok (agar bisa bulk keluar tanpa pindah tab)
+        $allStocks = PurchasingMaterialStock::orderBy('material_type')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($s) {
+                return [
+                    'id' => $s->id,
+                    'uuid' => $s->uuid,
+                    'code' => $s->code,
+                    'name' => $s->name,
+                    'material_type' => $s->material_type,
+                    'unit' => $s->unit,
+                    'minimum_threshold' => (float) $s->minimum_threshold,
+                    'current_stock' => (float) $s->current_stock,
+                    'is_critical' => (float) $s->current_stock <= (float) $s->minimum_threshold,
+                ];
+            });
+
+        // Daftar Pengajuan PO aktif untuk auto-tarik data transaksi masuk (Inbound)
+        $purchaseOrders = PurchasingOrder::with(['vendor:id,name', 'items:id,order_id,item_name,quantity,unit'])
+            ->whereNotIn('status', ['CANCELLED', 'REJECTED'])
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('id')
+            ->limit(80)
+            ->get(['id', 'uuid', 'po_number', 'item_name', 'quantity', 'unit', 'grand_total', 'location_id', 'department', 'division', 'status', 'transaction_date', 'vendor_id', 'notes'])
+            ->map(function ($po) {
+                // Kumpulkan line items (jika PO punya multiple items di tabel items)
+                $lineItems = $po->items && $po->items->count() > 0
+                    ? $po->items->map(fn($it) => [
+                        'item_name' => $it->item_name,
+                        'quantity' => (float) $it->quantity,
+                        'unit' => $it->unit,
+                    ])->values()->all()
+                    : [[
+                        'item_name' => $po->item_name,
+                        'quantity' => (float) $po->quantity,
+                        'unit' => $po->unit,
+                    ]];
+
+                return [
+                    'id' => $po->id,
+                    'po_number' => $po->po_number,
+                    'item_name' => $po->item_name,
+                    'quantity' => (float) $po->quantity,
+                    'unit' => $po->unit,
+                    'grand_total' => (float) $po->grand_total,
+                    'location_id' => $po->location_id ? (string) $po->location_id : '',
+                    'department' => $po->department ?? 'Produksi',
+                    'division' => $po->division ?? 'Potong Bahan',
+                    'status' => $po->status,
+                    'transaction_date' => $po->transaction_date ? (is_string($po->transaction_date) ? substr($po->transaction_date, 0, 10) : $po->transaction_date->format('Y-m-d')) : null,
+                    'vendor_name' => $po->vendor?->name ?? 'Vendor Supplier',
+                    'notes' => $po->notes ?? '',
+                    'items' => $lineItems,
+                ];
+            });
+
         return Inertia::render('Purchasing/Materials/Index', [
             'active_tab' => $activeTab,
             'stocks' => $stocks,
+            'all_stocks' => $allStocks,
+            'purchase_orders' => $purchaseOrders,
             'usages' => $usages,
             'metrics' => $metrics,
             'locations' => $locations,
@@ -269,6 +328,87 @@ class PurchasingMaterialController extends Controller
         });
 
         return back()->with('success', 'Transaksi keluar/masuk material berhasil dicatat dan saldo stok diperbarui.');
+    }
+
+    /**
+     * Catat transaksi Pemakaian / Pengeluaran secara massal (Bulk Record) lintas kelompok material tanpa harus pindah tab.
+     */
+    public function storeBulkTransaction(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'transaction_type' => ['required', 'in:IN,OUT'],
+            'usage_date' => ['required', 'date'],
+            'location_id' => ['nullable', 'integer'],
+            'department' => ['nullable', 'string', 'max:100'],
+            'division' => ['nullable', 'string', 'max:100'],
+            'operator_name' => ['nullable', 'string', 'max:100'],
+            'production_ref' => ['nullable', 'string', 'max:100'],
+            'general_notes' => ['nullable', 'string', 'max:500'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.material_stock_id' => ['required', 'exists:purchasing_material_stocks,id'],
+            'items.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'items.*.notes' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        DB::transaction(function () use ($validated) {
+            $type = $validated['transaction_type'];
+            $usageDate = $validated['usage_date'];
+            $locationId = $validated['location_id'] ?? null;
+            $department = $validated['department'] ?? 'Produksi';
+            $division = $validated['division'] ?? 'Produksi';
+            $operatorName = $validated['operator_name'] ?? (Auth::user()?->name ?? 'Admin Purchasing');
+            $prodRef = $validated['production_ref'] ?? null;
+            $generalNotes = $validated['general_notes'] ?? null;
+
+            $totalItems = count($validated['items']);
+            $materialNames = [];
+
+            foreach ($validated['items'] as $item) {
+                $stock = PurchasingMaterialStock::lockForUpdate()->findOrFail($item['material_stock_id']);
+                $qty = (float) $item['quantity'];
+
+                if ($type === 'IN') {
+                    $qtyIn = $qty;
+                    $qtyOut = 0;
+                    $newBalance = (float) $stock->current_stock + $qty;
+                } else {
+                    $qtyIn = 0;
+                    $qtyOut = $qty;
+                    $newBalance = max(0, (float) $stock->current_stock - $qty);
+                }
+
+                $stock->current_stock = $newBalance;
+                $stock->save();
+
+                $itemNotes = trim(($item['notes'] ?? '') . ($generalNotes ? ($item['notes'] ? " | {$generalNotes}" : $generalNotes) : ''));
+
+                PurchasingMaterialUsage::create([
+                    'uuid' => (string) Str::uuid(),
+                    'material_stock_id' => $stock->id,
+                    'usage_date' => $usageDate,
+                    'material_type' => $stock->material_type,
+                    'material_name' => $stock->name,
+                    'unit' => $stock->unit,
+                    'quantity_in' => $qtyIn,
+                    'quantity_out' => $qtyOut,
+                    'balance_stock' => $newBalance,
+                    'location_id' => $locationId,
+                    'department' => $department,
+                    'division' => $division,
+                    'operator_name' => $operatorName,
+                    'production_ref' => $prodRef,
+                    'notes' => $itemNotes ?: null,
+                ]);
+
+                $materialNames[] = "{$stock->name} ({$qty} {$stock->unit})";
+            }
+
+            $typeLabel = $type === 'IN' ? 'Barang Masuk (Bulk Inbound)' : 'Pemakaian Produksi (Bulk Outbound)';
+            $summary = implode(', ', $materialNames);
+            ActivityLogger::log('stock-update', 'purchasing', null, "Input {$typeLabel} untuk {$totalItems} item [Ref: {$prodRef}]: {$summary}");
+        });
+
+        return back()->with('success', 'Catatan transaksi massal (bulk) material berhasil disimpan dan saldo stok diperbarui.');
     }
 
     /**

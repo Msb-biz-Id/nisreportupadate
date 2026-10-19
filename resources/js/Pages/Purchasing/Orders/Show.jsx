@@ -39,6 +39,7 @@ import {
     UserCheck,
     Wallet,
     Box,
+    Calculator,
 } from 'lucide-react';
 import PaymentTermsDrawer from './Components/PaymentTermsDrawer';
 
@@ -422,7 +423,7 @@ export default function Show({ order, auth }) {
                     </CardContent>
                 </Card>
 
-                {/* Siklus 3 Pilar Rekam Waktu & Penyelesaian Sisa Belanja Operasional */}
+                {/* Rekam 3 Tanggal & Siklus Penyelesaian Sisa Belanja Operasional */}
                 <Card className="border-amber-200/80 dark:border-amber-900/60 shadow-xs overflow-hidden">
                     <CardHeader className="pb-3 bg-amber-50/40 dark:bg-amber-950/20 border-b border-amber-100 dark:border-amber-900/40">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -456,11 +457,16 @@ export default function Show({ order, auth }) {
                     </CardHeader>
                     <CardContent className="pt-4 space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            {/* Pilar 1: Pengajuan */}
+                            {/* 1. Tanggal Pengajuan */}
                             <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 space-y-2">
-                                <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-                                    <span>Pilar 1: Pengajuan</span>
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                                <div className="flex items-center justify-between text-xs font-medium">
+                                    <span className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                                        <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-[11px] font-bold flex items-center justify-center shrink-0">
+                                            1
+                                        </span>
+                                        Tanggal Pengajuan
+                                    </span>
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                                 </div>
                                 <div>
                                     <p className="text-[11px] text-slate-400">Tanggal Pengajuan:</p>
@@ -476,18 +482,27 @@ export default function Show({ order, auth }) {
                                 </div>
                             </div>
 
-                            {/* Pilar 2: Diterima (Pencairan Kas Bon) */}
+                            {/* 2. Kas Bon Diterima */}
                             <div className={`p-3.5 rounded-xl border space-y-2 ${
                                 order.disbursed_at
                                     ? 'border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20'
                                     : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40'
                             }`}>
-                                <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-                                    <span>Pilar 2: Diterima (Kas Bon)</span>
+                                <div className="flex items-center justify-between text-xs font-medium">
+                                    <span className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                                        <span className={`w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 ${
+                                            order.disbursed_at
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                        }`}>
+                                            2
+                                        </span>
+                                        Kas Bon Diterima
+                                    </span>
                                     {order.disbursed_at ? (
-                                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                                     ) : (
-                                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                        <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                     )}
                                 </div>
                                 <div>
@@ -514,18 +529,27 @@ export default function Show({ order, auth }) {
                                 )}
                             </div>
 
-                            {/* Pilar 3: Realisasi Belanja & Struk Nota */}
+                            {/* 3. Realisasi Belanja & Struk Nota */}
                             <div className={`p-3.5 rounded-xl border space-y-2 ${
                                 order.realized_at
                                     ? 'border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 dark:bg-emerald-950/20'
                                     : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40'
                             }`}>
-                                <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-                                    <span>Pilar 3: Realisasi Belanja</span>
+                                <div className="flex items-center justify-between text-xs font-medium">
+                                    <span className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                                        <span className={`w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 ${
+                                            order.realized_at
+                                                ? 'bg-emerald-600 text-white'
+                                                : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                        }`}>
+                                            3
+                                        </span>
+                                        Realisasi Belanja
+                                    </span>
                                     {order.realized_at ? (
-                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                                     ) : (
-                                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                        <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                     )}
                                 </div>
                                 <div>
@@ -561,10 +585,13 @@ export default function Show({ order, auth }) {
                                 </Button>
                             </div>
 
-                            {/* Pilar 4: Kalkulasi Sisa Uang & Status Settlement */}
+                            {/* Penyelesaian Sisa Kas Bon */}
                             <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2 shadow-xs">
-                                <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-                                    <span>Pilar 4: Sisa Uang</span>
+                                <div className="flex items-center justify-between text-xs font-medium">
+                                    <span className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                                        <Calculator className="w-4 h-4 text-amber-600 shrink-0" />
+                                        Penyelesaian Sisa Kas
+                                    </span>
                                     <Badge variant="secondary" className="text-[9px] px-1 py-0">
                                         Kas Bon - Belanja
                                     </Badge>
@@ -1038,7 +1065,7 @@ export default function Show({ order, auth }) {
                 </DialogContent>
             </Dialog>
 
-            {/* Modal 1: Pencairan Kas Bon Pengajuan (Pilar 2) */}
+            {/* Modal 1: Pencairan Kas Bon Pengajuan (Kas Bon Diterima) */}
             <Dialog open={isDisburseModalOpen} onOpenChange={setIsDisburseModalOpen}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
@@ -1118,7 +1145,7 @@ export default function Show({ order, auth }) {
                 </DialogContent>
             </Dialog>
 
-            {/* Modal 2: Pelaporan Realisasi Belanja & Upload Nota (Pilar 3) */}
+            {/* Modal 2: Pelaporan Realisasi Belanja & Upload Nota */}
             <Dialog open={isRealizeModalOpen} onOpenChange={setIsRealizeModalOpen}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>

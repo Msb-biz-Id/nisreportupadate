@@ -235,7 +235,7 @@ export default function UniversalDocumentViewer({
                 <div className="flex-1 w-full relative bg-zinc-950 flex items-center justify-center overflow-auto p-2">
                     {/* Loading State */}
                     {isLoading && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/80 z-20 backdrop-blur-[2px] text-zinc-400 gap-3">
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/90 z-20 text-zinc-400 gap-3">
                             <RefreshCw className="h-7 w-7 animate-spin text-red-500" />
                             <span className="text-xs tracking-wide">Memuat pratinjau dokumen...</span>
                         </div>

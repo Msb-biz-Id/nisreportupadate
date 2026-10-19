@@ -40,7 +40,7 @@ class PurchasingAssetMaintenance extends Model
     protected function casts(): array
     {
         return [
-            'maintenance_date' => 'date',
+            'maintenance_date' => 'date:Y-m-d',
             'cost' => 'decimal:2',
         ];
     }

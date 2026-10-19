@@ -633,8 +633,8 @@ export default function AppLayout({ title, header, children }) {
             </Sheet>
 
             <div className={cn("transition-all duration-300", isCollapsed ? "lg:pl-20" : "lg:pl-64")}>
-                {/* Top bar */}
-                <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur md:px-6">
+                {/* Top bar - Solid and opaque to prevent scroll-blur bleeding */}
+                <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs px-4 md:px-6">
                     <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)}>
                         <Menu className="h-5 w-5" />
                     </Button>

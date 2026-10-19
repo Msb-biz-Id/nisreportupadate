@@ -535,7 +535,7 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
                 </div>
 
                 {/* Filter Toolbar Sticky Top */}
-                <Card className="sticky top-0 z-30 border border-zinc-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md shadow-xs">
+                <Card className="sticky top-0 z-30 border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
                     <CardContent className="p-3.5">
                         <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row items-center gap-2.5">
                             <div className="relative flex-1 w-full">
@@ -635,7 +635,7 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
                                     <th className="py-3 px-3 font-semibold text-center">Tahun Berakhir Kontrak</th>
                                     <th className="py-3 px-3.5 font-semibold text-center">Sisa Masa Kontrak (Hari)</th>
                                     <th className="py-3 px-3.5 font-semibold">Status Review</th>
-                                    <th className="py-3 px-3.5 font-semibold text-right sticky right-0 z-20 bg-zinc-50/95 dark:bg-zinc-800/95 backdrop-blur-xs border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">Aksi</th>
+                                    <th className="py-3 px-3.5 font-semibold text-right sticky right-0 z-20 bg-zinc-50 dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -761,7 +761,7 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
                                             </td>
 
                                             {/* 16. Aksi */}
-                                            <td className="py-3 px-3.5 text-right sticky right-0 z-10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xs border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/90 transition-colors">
+                                            <td className="py-3 px-3.5 text-right sticky right-0 z-10 bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/90 transition-colors">
                                                 <div className="flex items-center justify-end gap-1.5">
                                                     <button
                                                         type="button"
@@ -833,7 +833,7 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
 
                     {/* Pagination Sticky Bottom */}
                     {contracts.links && contracts.links.length > 3 && (
-                        <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs sticky bottom-0 z-20 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md shadow-[0_-4px_16px_-2px_rgba(0,0,0,0.08)]">
+                        <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs sticky bottom-0 z-20 bg-white dark:bg-zinc-900 shadow-[0_-4px_16px_-2px_rgba(0,0,0,0.08)]">
                             <span className="text-zinc-500">
                                 Menampilkan {contracts.from || 0} - {contracts.to || 0} dari {contracts.total} berkas
                             </span>

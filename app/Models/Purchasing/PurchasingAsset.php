@@ -118,9 +118,9 @@ class PurchasingAsset extends Model
         return [
             'sequence_number' => 'integer',
             'quantity' => 'integer',
-            'purchase_date' => 'date',
-            'received_date' => 'date',
-            'warranty_expires_at' => 'date',
+            'purchase_date' => 'date:Y-m-d',
+            'received_date' => 'date:Y-m-d',
+            'warranty_expires_at' => 'date:Y-m-d',
             'acquisition_cost' => 'decimal:2',
         ];
     }

@@ -17,23 +17,52 @@ export function formatRupiah(value) {
 
 export function formatDate(value, opts = {}) {
     if (!value) return '-';
-    return new Intl.DateTimeFormat('id-ID', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        ...opts,
-    }).format(new Date(value));
+    try {
+        if (typeof value === 'string') {
+            const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (match) {
+                const year = parseInt(match[1], 10);
+                const month = parseInt(match[2], 10) - 1;
+                const day = parseInt(match[3], 10);
+                return new Intl.DateTimeFormat('id-ID', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                    ...opts,
+                }).format(new Date(year, month, day));
+            }
+        }
+        const d = new Date(value);
+        if (isNaN(d.getTime())) return String(value);
+        return new Intl.DateTimeFormat('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            ...opts,
+        }).format(d);
+    } catch (e) {
+        return String(value);
+    }
 }
 
-export function formatDateTime(value) {
+export function formatDateTime(value, opts = {}) {
     if (!value) return '-';
-    return new Intl.DateTimeFormat('id-ID', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    }).format(new Date(value));
+    try {
+        const d = new Date(value);
+        if (isNaN(d.getTime())) return String(value);
+        return new Intl.DateTimeFormat('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            ...opts,
+        }).format(d);
+    } catch (e) {
+        return String(value);
+    }
 }
 
 export function initials(name) {

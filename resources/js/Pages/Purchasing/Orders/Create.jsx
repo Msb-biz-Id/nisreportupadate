@@ -515,7 +515,7 @@ export default function Create({
     const selectedVendor = vendors.find((v) => String(v.id) === String(data.vendor_id));
 
     return (
-        <AppLayout>
+        <AppLayout title="Pengajuan Pembelian Operasional">
             <Head title="Ajukan Pembelian Baru (PO)" />
 
             <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6">

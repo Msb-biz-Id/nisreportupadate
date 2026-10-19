@@ -20,6 +20,7 @@ import {
     DollarSign,
     ExternalLink
 } from 'lucide-react';
+import { formatDate, formatDateTime, formatRupiah } from '@/lib/utils';
 
 export default function AssetDetailDrawer({ 
     asset, 
@@ -79,16 +80,8 @@ export default function AssetDetailDrawer({
         });
     };
 
-    const formatRupiah = (val) => {
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            maximumFractionDigits: 0
-        }).format(val || 0);
-    };
-
     return (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-sm flex justify-end transition-opacity duration-300">
+        <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 flex justify-end transition-opacity duration-300">
             <div className="w-full max-w-2xl bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-300">
                 {/* Header */}
                 <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-start justify-between">
@@ -262,7 +255,7 @@ export default function AssetDetailDrawer({
                                             <span className="text-[11px] text-slate-400">Berlaku Sampai:</span>
                                             <p className="text-xs font-medium text-slate-800 dark:text-slate-200 mt-0.5 flex items-center gap-1">
                                                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                                                {asset.warranty_expires_at || '-'}
+                                                {asset.warranty_expires_at ? formatDate(asset.warranty_expires_at) : '-'}
                                             </p>
                                         </div>
                                     </div>
@@ -280,7 +273,7 @@ export default function AssetDetailDrawer({
                                         <span className="text-[11px] text-slate-400">Tanggal Pembelian:</span>
                                         <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-0.5 flex items-center gap-1">
                                             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                                            {asset.purchase_date || '-'}
+                                            {asset.purchase_date ? formatDate(asset.purchase_date) : '-'}
                                         </p>
                                     </div>
                                     <div>
@@ -490,7 +483,10 @@ export default function AssetDetailDrawer({
                                                     <ArrowRight className="w-3.5 h-3.5 text-indigo-500" />
                                                     <span className="font-bold text-indigo-600 dark:text-indigo-400">{m.new_asset_code}</span>
                                                 </div>
-                                                <span className="text-[11px] text-slate-400">{m.mutation_date}</span>
+                                                <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
+                                                    <Calendar className="w-3 h-3 text-slate-400" />
+                                                    {formatDate(m.mutation_date, { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                </span>
                                             </div>
                                             <div className="text-xs text-slate-700 dark:text-slate-300">
                                                 Dipindah dari <span className="font-semibold">{m.from_department_name} ({m.from_department_code})</span> ke <span className="font-semibold text-emerald-600 dark:text-emerald-400">{m.to_department_name} ({m.to_department_code})</span>
@@ -518,7 +514,7 @@ export default function AssetDetailDrawer({
                                 <div className="grid grid-cols-2 gap-3 text-slate-700 dark:text-slate-300">
                                     <div>
                                         <span className="text-[11px] text-slate-400 block">Tanggal Pelepasan:</span>
-                                        <span className="font-semibold">{asset.retirement.retired_at}</span>
+                                        <span className="font-semibold">{formatDate(asset.retirement.retired_at, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                                     </div>
                                     <div>
                                         <span className="text-[11px] text-slate-400 block">Metode Pelepasan:</span>
@@ -697,7 +693,10 @@ export default function AssetDetailDrawer({
                                                         {m.service_type}
                                                     </span>
                                                 </div>
-                                                <span className="text-[11px] text-slate-400 font-mono">{m.maintenance_date}</span>
+                                                <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
+                                                    <Calendar className="w-3 h-3 text-slate-400" />
+                                                    {formatDate(m.maintenance_date, { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                </span>
                                             </div>
 
                                             <div className="text-xs space-y-1 text-slate-700 dark:text-slate-300">

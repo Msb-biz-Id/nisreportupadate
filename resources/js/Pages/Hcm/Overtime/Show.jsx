@@ -767,7 +767,7 @@ export default function OvertimeShow({
                                     <TableHead className="min-w-[110px] text-xs font-bold text-right">Tarif / Jam</TableHead>
                                     <TableHead className="min-w-[120px] text-xs font-bold text-right">Total Upah</TableHead>
                                     <TableHead className="min-w-[180px] text-xs font-bold">Tugas / Penugasan</TableHead>
-                                    <TableHead className="w-[120px] text-xs font-bold text-right sticky right-0 z-20 bg-zinc-50/95 dark:bg-zinc-800/95 backdrop-blur-xs border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">Aksi</TableHead>
+                                    <TableHead className="w-[120px] text-xs font-bold text-right sticky right-0 z-20 bg-zinc-50 dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">Aksi</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -820,7 +820,7 @@ export default function OvertimeShow({
                                                 {item.task_description || '-'}
                                             </TableCell>
 
-                                            <TableCell className="text-right sticky right-0 z-10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xs border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/90 transition-colors">
+                                            <TableCell className="text-right sticky right-0 z-10 bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/90 transition-colors">
                                                 <div className="flex items-center justify-end gap-1">
                                                     {/* AKSI: CETAK SLIP LEMBUR */}
                                                     <a
