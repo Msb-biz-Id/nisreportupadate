@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import {
     Card,
     CardContent,
@@ -217,6 +218,87 @@ export default function Show({ order, auth }) {
         inArray(['APPROVED_BY_PIC', 'PAID_COMPLETED', 'PURCHASE_COMPLETED'], order.status) ||
         (order.payments && order.payments.some((p) => p.status === 'PAID')) ||
         (!isSplitPayment);
+
+    const orderItems = order.items && order.items.length > 0
+        ? order.items
+        : [{
+            id: 'single',
+            item_name: order.item_name,
+            specification: order.specification,
+            item_category: order.item_category,
+            quantity: order.quantity,
+            unit: order.unit,
+            unit_price: order.unit_price,
+            discount_amount: order.discount_amount,
+            subtotal: order.subtotal,
+        }];
+
+    const itemColumns = useMemo(() => [
+        {
+            id: 'no',
+            meta: { title: 'No', cellClassName: 'text-center text-slate-400 font-mono font-medium' },
+            header: () => <div className="text-center">No</div>,
+            cell: ({ row }) => <span className="block text-center text-slate-400 font-mono font-medium">{row.index + 1}</span>,
+        },
+        {
+            accessorKey: 'item_name',
+            meta: { title: 'Nama Barang / Jasa & Spesifikasi' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama Barang / Jasa & Spesifikasi" />,
+            cell: ({ row }) => (
+                <div>
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">{row.original.item_name}</p>
+                    {row.original.specification && (
+                        <p className="text-[11px] text-slate-400 mt-0.5">{row.original.specification}</p>
+                    )}
+                </div>
+            ),
+        },
+        {
+            id: 'category',
+            accessorFn: (row) => row.item_category?.name || '',
+            meta: { title: 'Kategori', cellClassName: 'text-slate-500' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kategori" />,
+            cell: ({ row }) => <span className="text-slate-500">{row.original.item_category?.name || '-'}</span>,
+        },
+        {
+            id: 'quantity',
+            accessorFn: (row) => parseFloat(row.quantity) || 0,
+            meta: { title: 'Kuantitas', cellClassName: 'text-center font-mono font-medium' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kuantitas" className="justify-center" />,
+            cell: ({ row }) => (
+                <span className="font-mono font-medium">
+                    {parseFloat(row.original.quantity)} {row.original.unit}
+                </span>
+            ),
+        },
+        {
+            id: 'unit_price',
+            accessorFn: (row) => row.unit_price ?? 0,
+            meta: { title: 'Harga Satuan', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Harga Satuan" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono">{formatRupiah(row.original.unit_price)}</span>,
+        },
+        {
+            id: 'discount_amount',
+            accessorFn: (row) => row.discount_amount ?? 0,
+            meta: { title: 'Diskon', cellClassName: 'text-right font-mono text-rose-500' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Diskon" className="justify-end" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-rose-500">
+                    {parseFloat(row.original.discount_amount) > 0 ? `-${formatRupiah(row.original.discount_amount)}` : '-'}
+                </span>
+            ),
+        },
+        {
+            id: 'subtotal',
+            accessorFn: (row) => row.subtotal ?? 0,
+            meta: { title: 'Subtotal', cellClassName: 'text-right font-mono font-semibold' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Subtotal" className="justify-end" />,
+            cell: ({ row }) => (
+                <span className="font-mono font-semibold text-slate-900 dark:text-slate-100">{formatRupiah(row.original.subtotal)}</span>
+            ),
+        },
+    ], []);
 
     return (
         <AppLayout>
@@ -788,76 +870,15 @@ export default function Show({ order, auth }) {
                         </Badge>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                            <table className="w-full text-xs text-left">
-                                <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                                    <tr>
-                                        <th className="p-3 font-semibold w-10 text-center">No</th>
-                                        <th className="p-3 font-semibold">Nama Barang / Jasa & Spesifikasi</th>
-                                        <th className="p-3 font-semibold">Kategori</th>
-                                        <th className="p-3 font-semibold text-center">Kuantitas</th>
-                                        <th className="p-3 font-semibold text-right">Harga Satuan</th>
-                                        <th className="p-3 font-semibold text-right">Diskon</th>
-                                        <th className="p-3 font-semibold text-right">Subtotal</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {order.items && order.items.length > 0 ? (
-                                        order.items.map((it, idx) => (
-                                            <tr key={it.id || idx} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50">
-                                                <td className="p-3 text-center text-slate-400 font-mono font-medium">{idx + 1}</td>
-                                                <td className="p-3">
-                                                    <p className="font-semibold text-slate-900 dark:text-slate-100">{it.item_name}</p>
-                                                    {it.specification && (
-                                                        <p className="text-[11px] text-slate-400 mt-0.5">{it.specification}</p>
-                                                    )}
-                                                </td>
-                                                <td className="p-3 text-slate-500">
-                                                    {it.item_category?.name || '-'}
-                                                </td>
-                                                <td className="p-3 text-center font-mono font-medium">
-                                                    {parseFloat(it.quantity)} {it.unit}
-                                                </td>
-                                                <td className="p-3 text-right font-mono">
-                                                    {formatRupiah(it.unit_price)}
-                                                </td>
-                                                <td className="p-3 text-right font-mono text-rose-500">
-                                                    {parseFloat(it.discount_amount) > 0 ? `-${formatRupiah(it.discount_amount)}` : '-'}
-                                                </td>
-                                                <td className="p-3 text-right font-mono font-semibold text-slate-900 dark:text-slate-100">
-                                                    {formatRupiah(it.subtotal)}
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr className="border-b border-slate-100 dark:border-slate-800">
-                                            <td className="p-3 text-center text-slate-400 font-mono">1</td>
-                                            <td className="p-3">
-                                                <p className="font-semibold text-slate-900 dark:text-slate-100">{order.item_name}</p>
-                                                {order.specification && (
-                                                    <p className="text-[11px] text-slate-400 mt-0.5">{order.specification}</p>
-                                                )}
-                                            </td>
-                                            <td className="p-3 text-slate-500">
-                                                {order.item_category?.name || '-'}
-                                            </td>
-                                            <td className="p-3 text-center font-mono font-medium">
-                                                {parseFloat(order.quantity)} {order.unit}
-                                            </td>
-                                            <td className="p-3 text-right font-mono">
-                                                {formatRupiah(order.unit_price)}
-                                            </td>
-                                            <td className="p-3 text-right font-mono text-rose-500">
-                                                {parseFloat(order.discount_amount) > 0 ? `-${formatRupiah(order.discount_amount)}` : '-'}
-                                            </td>
-                                            <td className="p-3 text-right font-mono font-semibold text-slate-900 dark:text-slate-100">
-                                                {formatRupiah(order.subtotal)}
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                        
+                        <DataTable
+                            columns={itemColumns}
+                            data={orderItems}
+                            searchPlaceholder="Cari nama barang / jasa..."
+                            exportFileName={`Item_PO_${order.po_number}`}
+                            emptyMessage="Tidak ada item pada PO ini."
+                        />
+
 
                         {/* Breakdown Biaya Finansial */}
                         <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pt-2">

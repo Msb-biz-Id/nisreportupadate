@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import {
     Card,
     CardContent,
@@ -118,6 +119,190 @@ export default function ReportsIndex({
             maximumFractionDigits: 0,
         }).format(num || 0);
     };
+
+    const deptColumns = useMemo(() => [
+        {
+            accessorKey: 'department',
+            meta: { title: 'Departemen' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Departemen" />,
+            cell: ({ row }) => <span className="font-medium text-slate-800 dark:text-slate-200">{row.original.department}</span>,
+        },
+        {
+            accessorKey: 'total_opex',
+            meta: { title: 'Belanja Operasional', cellClassName: 'text-right font-mono text-xs' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Belanja Operasional" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-xs text-slate-600 dark:text-slate-300">{formatRupiah(row.original.total_opex)}</span>,
+        },
+        {
+            accessorKey: 'total_capex',
+            meta: { title: 'Pengadaan Aset', cellClassName: 'text-right font-mono text-xs' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Pengadaan Aset" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-xs text-purple-600 dark:text-purple-400">{formatRupiah(row.original.total_capex)}</span>,
+        },
+        {
+            accessorKey: 'total_spending',
+            meta: { title: 'Total Belanja', cellClassName: 'text-right font-mono text-xs font-bold' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Total Belanja" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100">{formatRupiah(row.original.total_spending)}</span>,
+        },
+        {
+            accessorKey: 'order_count',
+            meta: { title: 'Jumlah PO', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jumlah PO" className="justify-center" />,
+            cell: ({ row }) => <Badge variant="outline" className="text-xs font-semibold">{row.original.order_count} PO</Badge>,
+        },
+        {
+            id: 'percentage',
+            accessorFn: (row) => row.percentage ?? 0,
+            meta: { title: 'Porsi (%)', cellClassName: 'text-right' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Porsi (%)" className="justify-end" />,
+            cell: ({ row }) => (
+                <div className="flex items-center justify-end gap-2">
+                    <div className="w-16 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, row.original.percentage)}%` }} />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 min-w-8">{row.original.percentage}%</span>
+                </div>
+            ),
+        },
+    ], []);
+
+    const divColumns = useMemo(() => [
+        {
+            accessorKey: 'division',
+            meta: { title: 'Divisi' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Divisi" />,
+            cell: ({ row }) => <span className="font-medium text-slate-800 dark:text-slate-200">{row.original.division}</span>,
+        },
+        {
+            accessorKey: 'department',
+            meta: { title: 'Departemen Terkait' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Departemen Terkait" />,
+            cell: ({ row }) => <span className="text-slate-500">{row.original.department}</span>,
+        },
+        {
+            accessorKey: 'order_count',
+            meta: { title: 'Jumlah Transaksi', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jumlah Transaksi" className="justify-center" />,
+            cell: ({ row }) => <Badge variant="outline">{row.original.order_count} PO</Badge>,
+        },
+        {
+            accessorKey: 'total_spending',
+            meta: { title: 'Total Akumulasi Biaya', cellClassName: 'text-right font-mono text-xs font-bold' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Total Akumulasi Biaya" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100">{formatRupiah(row.original.total_spending)}</span>,
+        },
+    ], []);
+
+    const locColumns = useMemo(() => [
+        {
+            id: 'location_name',
+            accessorFn: (row) => row.location_name || '',
+            meta: { title: 'Lokasi Ruko' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Lokasi Ruko" />,
+            cell: ({ row }) => (
+                <span className="flex items-center gap-2 font-medium text-slate-800 dark:text-slate-200">
+                    <Store className="w-4 h-4 text-slate-400" />
+                    {row.original.location_name}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'order_count',
+            meta: { title: 'Jumlah Transaksi', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jumlah Transaksi" className="justify-center" />,
+            cell: ({ row }) => <Badge variant="outline">{row.original.order_count} PO</Badge>,
+        },
+        {
+            accessorKey: 'total_spending',
+            meta: { title: 'Total Akumulasi Belanja', cellClassName: 'text-right font-mono text-xs font-bold' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Total Akumulasi Belanja" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100">{formatRupiah(row.original.total_spending)}</span>,
+        },
+    ], []);
+
+    const vendorColumns = useMemo(() => [
+        {
+            id: 'rank',
+            meta: { title: '#', cellClassName: 'text-center w-12 text-xs font-bold text-slate-400' },
+            header: () => <div className="text-center">#</div>,
+            cell: ({ row }) => <span className="block text-center text-xs font-bold text-slate-400">{row.index + 1}</span>,
+        },
+        {
+            accessorKey: 'vendor_name',
+            meta: { title: 'Nama Vendor / Toko' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama Vendor / Toko" />,
+            cell: ({ row }) => <span className="font-medium text-slate-800 dark:text-slate-200">{row.original.vendor_name}</span>,
+        },
+        {
+            accessorKey: 'order_count',
+            meta: { title: 'Total PO', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Total PO" className="justify-center" />,
+            cell: ({ row }) => <Badge variant="outline">{row.original.order_count} PO</Badge>,
+        },
+        {
+            accessorKey: 'total_spending',
+            meta: { title: 'Total Transaksi', cellClassName: 'text-right font-mono text-xs font-bold' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Total Transaksi" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100">{formatRupiah(row.original.total_spending)}</span>,
+        },
+    ], []);
+
+    const recentColumns = useMemo(() => [
+        {
+            accessorKey: 'po_number',
+            meta: { title: 'Nomor PO' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nomor PO" />,
+            cell: ({ row }) => <span className="font-mono font-semibold text-xs text-slate-800 dark:text-slate-200">{row.original.po_number}</span>,
+        },
+        {
+            accessorKey: 'transaction_date',
+            meta: { title: 'Tanggal', cellClassName: 'text-xs text-slate-500' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tanggal" />,
+            cell: ({ row }) => <span className="text-xs text-slate-500">{row.original.transaction_date}</span>,
+        },
+        {
+            accessorKey: 'order_type',
+            meta: { title: 'Tipe', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tipe" className="justify-center" />,
+            cell: ({ row }) => (
+                <Badge
+                    variant="outline"
+                    className={`text-[10px] font-bold ${
+                        row.original.order_type === 'CAPEX'
+                            ? 'text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-950/40'
+                            : 'text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/40'
+                    }`}
+                >
+                    {row.original.order_type}
+                </Badge>
+            ),
+        },
+        {
+            id: 'requester',
+            accessorFn: (row) => row.department || '',
+            meta: { title: 'Departemen / Pemohon' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Departemen / Pemohon" />,
+            cell: ({ row }) => (
+                <div>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">{row.original.department}</span>
+                    <span className="text-slate-400 block text-[11px]">{row.original.requester_name || '-'}</span>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'vendor_name',
+            meta: { title: 'Vendor', cellClassName: 'text-xs text-slate-600 dark:text-slate-400' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Vendor" />,
+            cell: ({ row }) => <span className="text-xs text-slate-600 dark:text-slate-400">{row.original.vendor_name}</span>,
+        },
+        {
+            accessorKey: 'grand_total',
+            meta: { title: 'Grand Total', cellClassName: 'text-right font-mono text-xs font-bold' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Grand Total" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100">{formatRupiah(row.original.grand_total)}</span>,
+        },
+    ], []);
 
     return (
         <AppLayout>
@@ -453,64 +638,13 @@ export default function ReportsIndex({
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm">
-                                    <thead className="bg-slate-50 dark:bg-slate-900/60 text-xs text-slate-600 dark:text-slate-400 uppercase font-semibold">
-                                        <tr>
-                                            <th className="py-3 px-6">Departemen</th>
-                                            <th className="py-3 px-4 text-right">Belanja Operasional</th>
-                                            <th className="py-3 px-4 text-right">Pengadaan Aset</th>
-                                            <th className="py-3 px-4 text-right">Total Belanja</th>
-                                            <th className="py-3 px-4 text-center">Jumlah PO</th>
-                                            <th className="py-3 px-6 text-right">Porsi (%)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {dept_breakdown.length === 0 ? (
-                                            <tr>
-                                                <td colSpan="6" className="py-8 text-center text-slate-400">
-                                                    Tidak ada data transaksi pengadaan pada filter periode ini.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            dept_breakdown.map((row, idx) => (
-                                                <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/40">
-                                                    <td className="py-3.5 px-6 font-medium text-slate-800 dark:text-slate-200">
-                                                        {row.department}
-                                                    </td>
-                                                    <td className="py-3.5 px-4 text-right text-slate-600 dark:text-slate-300 font-mono text-xs">
-                                                        {formatRupiah(row.total_opex)}
-                                                    </td>
-                                                    <td className="py-3.5 px-4 text-right text-purple-600 dark:text-purple-400 font-mono text-xs">
-                                                        {formatRupiah(row.total_capex)}
-                                                    </td>
-                                                    <td className="py-3.5 px-4 text-right font-bold text-slate-900 dark:text-slate-100 font-mono text-xs">
-                                                        {formatRupiah(row.total_spending)}
-                                                    </td>
-                                                    <td className="py-3.5 px-4 text-center">
-                                                        <Badge variant="outline" className="text-xs font-semibold">
-                                                            {row.order_count} PO
-                                                        </Badge>
-                                                    </td>
-                                                    <td className="py-3.5 px-6 text-right">
-                                                        <div className="flex items-center justify-end gap-2">
-                                                            <div className="w-16 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                                                                <div
-                                                                    className="bg-emerald-500 h-full rounded-full"
-                                                                    style={{ width: `${Math.min(100, row.percentage)}%` }}
-                                                                ></div>
-                                                            </div>
-                                                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 min-w-8">
-                                                                {row.percentage}%
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <DataTable
+                                columns={deptColumns}
+                                data={dept_breakdown}
+                                searchPlaceholder="Cari departemen..."
+                                exportFileName={`Rekap_Departemen_${period}`}
+                                emptyMessage="Tidak ada data transaksi pengadaan pada filter periode ini."
+                            />
                         </CardContent>
                     </Card>
                 )}
@@ -527,44 +661,15 @@ export default function ReportsIndex({
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm">
-                                    <thead className="bg-slate-50 dark:bg-slate-900/60 text-xs text-slate-600 dark:text-slate-400 uppercase font-semibold">
-                                        <tr>
-                                            <th className="py-3 px-6">Divisi</th>
-                                            <th className="py-3 px-6">Departemen Terkait</th>
-                                            <th className="py-3 px-4 text-center">Jumlah Transaksi</th>
-                                            <th className="py-3 px-6 text-right">Total Akumulasi Biaya</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {div_breakdown.length === 0 ? (
-                                            <tr>
-                                                <td colSpan="4" className="py-8 text-center text-slate-400">
-                                                    Tidak ada data divisi pada periode ini.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            div_breakdown.map((row, idx) => (
-                                                <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/40">
-                                                    <td className="py-3.5 px-6 font-medium text-slate-800 dark:text-slate-200">
-                                                        {row.division}
-                                                    </td>
-                                                    <td className="py-3.5 px-6 text-slate-500">
-                                                        {row.department}
-                                                    </td>
-                                                    <td className="py-3.5 px-4 text-center">
-                                                        <Badge variant="outline">{row.order_count} PO</Badge>
-                                                    </td>
-                                                    <td className="py-3.5 px-6 text-right font-bold text-slate-900 dark:text-slate-100 font-mono text-xs">
-                                                        {formatRupiah(row.total_spending)}
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
+                            
+                        <DataTable
+                                columns={divColumns}
+                                data={div_breakdown}
+                                searchPlaceholder="Cari divisi..."
+                                exportFileName={`Rekap_Divisi_${period}`}
+                                emptyMessage="Tidak ada data divisi pada periode ini."
+                            />
+
                         </CardContent>
                     </Card>
                 )}
@@ -581,41 +686,15 @@ export default function ReportsIndex({
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm">
-                                    <thead className="bg-slate-50 dark:bg-slate-900/60 text-xs text-slate-600 dark:text-slate-400 uppercase font-semibold">
-                                        <tr>
-                                            <th className="py-3 px-6">Lokasi Ruko</th>
-                                            <th className="py-3 px-4 text-center">Jumlah Transaksi</th>
-                                            <th className="py-3 px-6 text-right">Total Akumulasi Belanja</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {loc_breakdown.length === 0 ? (
-                                            <tr>
-                                                <td colSpan="3" className="py-8 text-center text-slate-400">
-                                                    Tidak ada data lokasi pada periode ini.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            loc_breakdown.map((row, idx) => (
-                                                <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/40">
-                                                    <td className="py-3.5 px-6 font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                                                        <Store className="w-4 h-4 text-slate-400" />
-                                                        {row.location_name}
-                                                    </td>
-                                                    <td className="py-3.5 px-4 text-center">
-                                                        <Badge variant="outline">{row.order_count} PO</Badge>
-                                                    </td>
-                                                    <td className="py-3.5 px-6 text-right font-bold text-slate-900 dark:text-slate-100 font-mono text-xs">
-                                                        {formatRupiah(row.total_spending)}
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
+                            
+                            <DataTable
+                                columns={locColumns}
+                                data={loc_breakdown}
+                                searchPlaceholder="Cari lokasi ruko..."
+                                exportFileName={`Rekap_Lokasi_${period}`}
+                                emptyMessage="Tidak ada data lokasi pada periode ini."
+                            />
+
                         </CardContent>
                     </Card>
                 )}
@@ -632,44 +711,15 @@ export default function ReportsIndex({
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm">
-                                    <thead className="bg-slate-50 dark:bg-slate-900/60 text-xs text-slate-600 dark:text-slate-400 uppercase font-semibold">
-                                        <tr>
-                                            <th className="py-3 px-4 text-center w-12">#</th>
-                                            <th className="py-3 px-6">Nama Vendor / Toko</th>
-                                            <th className="py-3 px-4 text-center">Total PO</th>
-                                            <th className="py-3 px-6 text-right">Total Transaksi</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {top_vendors.length === 0 ? (
-                                            <tr>
-                                                <td colSpan="4" className="py-8 text-center text-slate-400">
-                                                    Tidak ada data vendor pada periode ini.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            top_vendors.map((row, idx) => (
-                                                <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/40">
-                                                    <td className="py-3.5 px-4 text-center font-bold text-slate-400">
-                                                        {idx + 1}
-                                                    </td>
-                                                    <td className="py-3.5 px-6 font-medium text-slate-800 dark:text-slate-200">
-                                                        {row.vendor_name}
-                                                    </td>
-                                                    <td className="py-3.5 px-4 text-center">
-                                                        <Badge variant="outline">{row.order_count} PO</Badge>
-                                                    </td>
-                                                    <td className="py-3.5 px-6 text-right font-bold text-slate-900 dark:text-slate-100 font-mono text-xs">
-                                                        {formatRupiah(row.total_spending)}
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
+                            
+                            <DataTable
+                                columns={vendorColumns}
+                                data={top_vendors}
+                                searchPlaceholder="Cari vendor / toko..."
+                                exportFileName={`Top_Vendor_${period}`}
+                                emptyMessage="Tidak ada data vendor pada periode ini."
+                            />
+
                         </CardContent>
                     </Card>
                 )}
@@ -686,66 +736,15 @@ export default function ReportsIndex({
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm">
-                                    <thead className="bg-slate-50 dark:bg-slate-900/60 text-xs text-slate-600 dark:text-slate-400 uppercase font-semibold">
-                                        <tr>
-                                            <th className="py-3 px-6">Nomor PO</th>
-                                            <th className="py-3 px-4">Tanggal</th>
-                                            <th className="py-3 px-4">Tipe</th>
-                                            <th className="py-3 px-4">Departemen / Pemohon</th>
-                                            <th className="py-3 px-4">Vendor</th>
-                                            <th className="py-3 px-6 text-right">Grand Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {recent_orders.length === 0 ? (
-                                            <tr>
-                                                <td colSpan="6" className="py-8 text-center text-slate-400">
-                                                    Tidak ada data transaksi.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            recent_orders.map((o) => (
-                                                <tr key={o.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/40">
-                                                    <td className="py-3.5 px-6 font-mono font-semibold text-xs text-slate-800 dark:text-slate-200">
-                                                        {o.po_number}
-                                                    </td>
-                                                    <td className="py-3.5 px-4 text-xs text-slate-500">
-                                                        {o.transaction_date}
-                                                    </td>
-                                                    <td className="py-3.5 px-4">
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={`text-[10px] font-bold ${
-                                                                o.order_type === 'CAPEX'
-                                                                    ? 'text-purple-600 border-purple-200 bg-purple-50 dark:bg-purple-950/40'
-                                                                    : 'text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/40'
-                                                            }`}
-                                                        >
-                                                            {o.order_type}
-                                                        </Badge>
-                                                    </td>
-                                                    <td className="py-3.5 px-4 text-xs">
-                                                        <span className="font-medium text-slate-700 dark:text-slate-300">
-                                                            {o.department}
-                                                        </span>
-                                                        <span className="text-slate-400 block text-[11px]">
-                                                            {o.requester_name || '-'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-3.5 px-4 text-xs text-slate-600 dark:text-slate-400">
-                                                        {o.vendor_name}
-                                                    </td>
-                                                    <td className="py-3.5 px-6 text-right font-mono font-bold text-xs text-slate-900 dark:text-slate-100">
-                                                        {formatRupiah(o.grand_total)}
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
+                            
+                            <DataTable
+                                columns={recentColumns}
+                                data={recent_orders}
+                                searchPlaceholder="Cari nomor PO, vendor, pemohon..."
+                                exportFileName={`Transaksi_Terbaru_${period}`}
+                                emptyMessage="Tidak ada data transaksi."
+                            />
+
                         </CardContent>
                     </Card>
                 )}

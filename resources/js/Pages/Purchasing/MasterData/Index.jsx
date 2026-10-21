@@ -27,14 +27,7 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
 import { Switch } from '@/Components/ui/switch';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/Components/ui/table';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -100,6 +93,19 @@ export default function PurchasingMasterDataIndex({
         router.get(
             route('purchasing.master-data.index'),
             { category: activeCategory, search },
+            { preserveState: true, replace: true }
+        );
+    }
+
+    function applyOptionFilter(category = activeCategory, s = search, page = 1, perPage = options?.per_page || 15) {
+        router.get(
+            route('purchasing.master-data.index'),
+            {
+                category,
+                search: s || undefined,
+                page: page > 1 ? page : undefined,
+                per_page: perPage,
+            },
             { preserveState: true, replace: true }
         );
     }
@@ -173,6 +179,86 @@ export default function PurchasingMasterDataIndex({
             },
         });
     }
+
+    const optionColumns = useMemo(() => [
+        {
+            id: 'no',
+            meta: { title: 'No', cellClassName: 'text-center text-xs text-muted-foreground' },
+            header: () => <div className="text-center">No</div>,
+            cell: ({ row }) => (
+                <span className="block text-center text-xs text-muted-foreground">
+                    {((options.current_page - 1) * options.per_page) + row.index + 1}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'name',
+            meta: { title: 'Nama Opsi' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama Opsi" />,
+            cell: ({ row }) => <span className="font-medium text-xs text-foreground">{row.original.name}</span>,
+        },
+        {
+            accessorKey: 'code',
+            meta: { title: 'Kode Sistem' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kode Sistem" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-xs text-muted-foreground">
+                    <span className="rounded bg-muted px-1.5 py-0.5">{row.original.code || '-'}</span>
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'order_index',
+            meta: { title: 'Urutan', cellClassName: 'text-center text-xs text-muted-foreground' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Urutan" className="justify-center" />,
+            cell: ({ row }) => <span className="block text-center text-xs text-muted-foreground">{row.original.order_index}</span>,
+        },
+        {
+            id: 'is_active',
+            accessorFn: (row) => (row.is_active ? 1 : 0),
+            meta: { title: 'Status', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" className="justify-center" />,
+            cell: ({ row }) => (
+                <button onClick={() => handleToggleActive(row.original)} className="inline-flex items-center gap-1.5 focus:outline-none">
+                    {row.original.is_active ? (
+                        <Badge className="bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-400 border-emerald-500/30 text-[11px] gap-1 py-0.5">
+                            <Check className="h-3 w-3" />
+                            Aktif
+                        </Badge>
+                    ) : (
+                        <Badge variant="outline" className="text-muted-foreground gap-1 text-[11px] py-0.5">
+                            <X className="h-3 w-3" />
+                            Non-aktif
+                        </Badge>
+                    )}
+                </button>
+            ),
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Aksi</div>,
+            cell: ({ row }) => (
+                <div className="flex items-center justify-end gap-1">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        onClick={() => openEditDialog(row.original)}
+                    >
+                        <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => confirmDelete(row.original)}
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                </div>
+            ),
+        },
+    ], []);
 
     return (
         <AppLayout>
@@ -336,123 +422,29 @@ export default function PurchasingMasterDataIndex({
                                 </Card>
                             </div>
                         ) : (
-                            /* Standard Purchasing Options Table */
-                            <Card className="shadow-sm border-border/80">
-                                <CardHeader className="p-4 border-b border-border/50">
-                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                        <div>
-                                            <CardTitle className="text-base font-semibold">
-                                                {activeTabMeta.label}
-                                            </CardTitle>
-                                            <CardDescription className="text-xs">
-                                                Daftar opsi aktif yang dapat dipilih oleh staf pada formulir pembelian dan aset.
-                                            </CardDescription>
-                                        </div>
-
-                                        <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 w-full sm:w-auto">
-                                            <div className="relative w-full sm:w-64">
-                                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                                <Input
-                                                    type="search"
-                                                    placeholder="Cari opsi atau kode..."
-                                                    value={search}
-                                                    onChange={(e) => setSearch(e.target.value)}
-                                                    className="pl-8 text-xs h-9"
-                                                />
-                                            </div>
-                                            <Button type="submit" variant="secondary" size="sm" className="h-9">
-                                                Cari
-                                            </Button>
-                                        </form>
-                                    </div>
-                                </CardHeader>
-
-                                <CardContent className="p-0">
-                                    <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow className="bg-muted/30">
-                                                    <TableHead className="w-12 text-center text-xs">No</TableHead>
-                                                    <TableHead className="text-xs">Nama Opsi</TableHead>
-                                                    <TableHead className="text-xs font-mono">Kode Sistem</TableHead>
-                                                    <TableHead className="w-24 text-center text-xs">Urutan</TableHead>
-                                                    <TableHead className="w-28 text-center text-xs">Status</TableHead>
-                                                    <TableHead className="w-24 text-right text-xs pr-4">Aksi</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {options.data?.length > 0 ? (
-                                                    options.data.map((item, idx) => (
-                                                        <TableRow key={item.uuid} className="hover:bg-muted/20">
-                                                            <TableCell className="text-center text-xs text-muted-foreground">
-                                                                {((options.current_page - 1) * options.per_page) + idx + 1}
-                                                            </TableCell>
-                                                            <TableCell className="font-medium text-xs text-foreground">
-                                                                {item.name}
-                                                            </TableCell>
-                                                            <TableCell className="font-mono text-xs text-muted-foreground">
-                                                                <span className="rounded bg-muted px-1.5 py-0.5">
-                                                                    {item.code || '-'}
-                                                                </span>
-                                                            </TableCell>
-                                                            <TableCell className="text-center text-xs text-muted-foreground">
-                                                                {item.order_index}
-                                                            </TableCell>
-                                                            <TableCell className="text-center">
-                                                                <button
-                                                                    onClick={() => handleToggleActive(item)}
-                                                                    className="inline-flex items-center gap-1.5 focus:outline-none"
-                                                                >
-                                                                    {item.is_active ? (
-                                                                        <Badge className="bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-400 border-emerald-500/30 text-[11px] gap-1 py-0.5">
-                                                                            <Check className="h-3 w-3" />
-                                                                            Aktif
-                                                                        </Badge>
-                                                                    ) : (
-                                                                        <Badge variant="outline" className="text-muted-foreground gap-1 text-[11px] py-0.5">
-                                                                            <X className="h-3 w-3" />
-                                                                            Non-aktif
-                                                                        </Badge>
-                                                                    )}
-                                                                </button>
-                                                            </TableCell>
-                                                            <TableCell className="text-right pr-4">
-                                                                <div className="flex items-center justify-end gap-1">
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                                        onClick={() => openEditDialog(item)}
-                                                                    >
-                                                                        <Pencil className="h-3.5 w-3.5" />
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                                                        onClick={() => confirmDelete(item)}
-                                                                    >
-                                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                                    </Button>
-                                                                </div>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))
-                                                ) : (
-                                                    <TableRow>
-                                                        <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                                                            <div className="flex flex-col items-center justify-center gap-1.5">
-                                                                <Package className="h-6 w-6 text-muted-foreground/60" />
-                                                                <span className="text-xs">Belum ada data opsi untuk kategori ini.</span>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                            <>
+                                <div className="mb-3">
+                                    <h3 className="text-base font-semibold text-foreground">{activeTabMeta.label}</h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        Daftar opsi aktif yang dapat dipilih oleh staf pada formulir pembelian dan aset.
+                                    </p>
+                                </div>
+                                <DataTable
+                                    columns={optionColumns}
+                                    data={options.data || []}
+                                    serverPagination={options}
+                                    onServerPageChange={(page) => applyOptionFilter(activeCategory, search, page)}
+                                    onServerPerPageChange={(per_page) => applyOptionFilter(activeCategory, search, 1, per_page)}
+                                    onServerSearchChange={(val) => {
+                                        setSearch(val);
+                                        applyOptionFilter(activeCategory, val, 1);
+                                    }}
+                                    searchValue={search}
+                                    searchPlaceholder="Cari opsi atau kode..."
+                                    exportFileName={`Master_Data_${activeCategory}`}
+                                    emptyMessage="Belum ada data opsi untuk kategori ini."
+                                />
+                            </>
                         )}
                     </div>
                 </div>

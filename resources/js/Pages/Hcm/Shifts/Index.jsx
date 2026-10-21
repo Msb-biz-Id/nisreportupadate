@@ -33,6 +33,7 @@ import { Badge } from '@/Components/ui/badge';
 import { Textarea } from '@/Components/ui/textarea';
 import { Switch } from '@/Components/ui/switch';
 import { SearchableSelect } from '@/Components/ui/searchable-select';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -291,6 +292,164 @@ export default function ShiftsIndex({
         const names = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
         return `${names[parseInt(month, 10)]} ${year}`;
     };
+
+    const shiftColumns = useMemo(() => [
+        {
+            id: 'shift_code',
+            accessorFn: (row) => row.shift_code || '',
+            meta: { title: 'Kode & Warna' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kode & Warna" />,
+            cell: ({ row }) => {
+                const shift = row.original;
+                return (
+                    <div className="inline-flex items-center gap-2">
+                        <span
+                            className="px-2.5 py-1 rounded-md text-xs font-bold border"
+                            style={{
+                                backgroundColor: `${shift.color_code}15`,
+                                borderColor: `${shift.color_code}40`,
+                                color: shift.color_code,
+                            }}
+                        >
+                            {shift.shift_code}
+                        </span>
+                        <span
+                            className="w-3 h-3 rounded-full border border-black/10 shrink-0"
+                            style={{ backgroundColor: shift.color_code }}
+                        />
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'name',
+            meta: { title: 'Nama Shift' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama Shift" />,
+            cell: ({ row }) => (
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">{row.original.name}</span>
+            ),
+        },
+        {
+            id: 'work_hours',
+            accessorFn: (row) => (row.is_off_day ? '' : `${row.start_time || ''}-${row.end_time || ''}`),
+            meta: { title: 'Jam Kerja' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jam Kerja" />,
+            cell: ({ row }) => {
+                const shift = row.original;
+                if (shift.is_off_day) {
+                    return <span className="text-zinc-400 italic">Libur / Tidak Bekerja</span>;
+                }
+                return (
+                    <div className="flex items-center gap-1.5 font-mono font-medium text-zinc-700 dark:text-zinc-300">
+                        <span>
+                            {shift.start_time?.substring(0, 5)} - {shift.end_time?.substring(0, 5)}
+                        </span>
+                        {shift.is_overnight && (
+                            <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-300">
+                                +1 Hari (Overnight)
+                            </Badge>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'late_tolerance',
+            accessorFn: (row) => (row.is_off_day ? '' : row.late_tolerance_minutes),
+            meta: { title: 'Toleransi Telat' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Toleransi Telat" />,
+            cell: ({ row }) => (
+                <span className="text-zinc-600 dark:text-zinc-300">
+                    {row.original.is_off_day ? '-' : `${row.original.late_tolerance_minutes} Menit`}
+                </span>
+            ),
+        },
+        {
+            id: 'shift_type',
+            accessorFn: (row) => (row.is_off_day ? 'Off' : 'Aktif'),
+            meta: { title: 'Tipe Shift' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tipe Shift" />,
+            cell: ({ row }) =>
+                row.original.is_off_day ? (
+                    <Badge variant="outline" className="bg-zinc-100 text-zinc-600 border-zinc-300">
+                        Hari Libur / Off
+                    </Badge>
+                ) : (
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300">
+                        Shift Kerja Aktif
+                    </Badge>
+                ),
+        },
+        {
+            accessorKey: 'description',
+            meta: { title: 'Deskripsi' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Deskripsi" />,
+            cell: ({ row }) => (
+                <span className="text-zinc-500 max-w-[240px] truncate inline-block align-middle">
+                    {row.original.description || '-'}
+                </span>
+            ),
+        },
+        {
+            id: 'is_active',
+            accessorFn: (row) => (row.is_active ? 1 : 0),
+            meta: { title: 'Status', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" className="justify-center" />,
+            cell: ({ row }) => {
+                const shift = row.original;
+                return (
+                    <button
+                        type="button"
+                        onClick={() => handleToggleActive(shift)}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold transition-colors ${
+                            shift.is_active
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400'
+                                : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
+                        }`}
+                    >
+                        {shift.is_active ? (
+                            <>
+                                <Check className="h-3 w-3" /> Aktif
+                            </>
+                        ) : (
+                            <>
+                                <X className="h-3 w-3" /> Nonaktif
+                            </>
+                        )}
+                    </button>
+                );
+            },
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Aksi</div>,
+            cell: ({ row }) => {
+                const shift = row.original;
+                return (
+                    <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenEditShift(shift)}
+                            className="h-7 w-7 text-zinc-500 hover:text-indigo-600"
+                            title="Edit Shift"
+                        >
+                            <Edit3 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteShift(shift)}
+                            className="h-7 w-7 text-zinc-500 hover:text-rose-600"
+                            title="Hapus Shift"
+                        >
+                            <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                    </div>
+                );
+            },
+        },
+    ], []);
 
     return (
         <AppLayout
@@ -725,139 +884,13 @@ export default function ShiftsIndex({
                                 Tambah Master Shift
                             </Button>
                         </div>
-
-                        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-xs text-left">
-                                    <thead className="bg-zinc-50 dark:bg-zinc-850 border-b border-zinc-200 dark:border-zinc-800 font-semibold text-zinc-700 dark:text-zinc-300">
-                                        <tr>
-                                            <th className="px-4 py-3">Kode & Warna</th>
-                                            <th className="px-4 py-3">Nama Shift</th>
-                                            <th className="px-4 py-3">Jam Kerja</th>
-                                            <th className="px-4 py-3">Toleransi Telat</th>
-                                            <th className="px-4 py-3">Tipe Shift</th>
-                                            <th className="px-4 py-3">Deskripsi</th>
-                                            <th className="px-4 py-3 text-center">Status</th>
-                                            <th className="px-4 py-3 text-right">Aksi</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                                        {shifts.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={8} className="py-8 text-center text-zinc-400">
-                                                    Belum ada master shift kerja.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            shifts.map((shift) => (
-                                                <tr
-                                                    key={shift.id}
-                                                    className="hover:bg-zinc-50 dark:hover:bg-zinc-850/50 transition-colors"
-                                                >
-                                                    <td className="px-4 py-3 font-semibold">
-                                                        <div className="inline-flex items-center gap-2">
-                                                            <span
-                                                                className="px-2.5 py-1 rounded-md text-xs font-bold border"
-                                                                style={{
-                                                                    backgroundColor: `${shift.color_code}15`,
-                                                                    borderColor: `${shift.color_code}40`,
-                                                                    color: shift.color_code,
-                                                                }}
-                                                            >
-                                                                {shift.shift_code}
-                                                            </span>
-                                                            <span
-                                                                className="w-3 h-3 rounded-full border border-black/10 shrink-0"
-                                                                style={{ backgroundColor: shift.color_code }}
-                                                            />
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3 font-bold text-zinc-900 dark:text-zinc-100">
-                                                        {shift.name}
-                                                    </td>
-                                                    <td className="px-4 py-3 font-mono font-medium text-zinc-700 dark:text-zinc-300">
-                                                        {shift.is_off_day ? (
-                                                            <span className="text-zinc-400 italic">Libur / Tidak Bekerja</span>
-                                                        ) : (
-                                                            <div className="flex items-center gap-1.5">
-                                                                <span>
-                                                                    {shift.start_time?.substring(0, 5)} - {shift.end_time?.substring(0, 5)}
-                                                                </span>
-                                                                {shift.is_overnight && (
-                                                                    <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-300">
-                                                                        +1 Hari (Overnight)
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">
-                                                        {shift.is_off_day ? '-' : `${shift.late_tolerance_minutes} Menit`}
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        {shift.is_off_day ? (
-                                                            <Badge variant="outline" className="bg-zinc-100 text-zinc-600 border-zinc-300">
-                                                                Hari Libur / Off
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300">
-                                                                Shift Kerja Aktif
-                                                            </Badge>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-zinc-500 max-w-[240px] truncate">
-                                                        {shift.description || '-'}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-center">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleToggleActive(shift)}
-                                                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold transition-colors ${
-                                                                shift.is_active
-                                                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400'
-                                                                    : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
-                                                            }`}
-                                                        >
-                                                            {shift.is_active ? (
-                                                                <>
-                                                                    <Check className="h-3 w-3" /> Aktif
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <X className="h-3 w-3" /> Nonaktif
-                                                                </>
-                                                            )}
-                                                        </button>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        <div className="flex items-center justify-end gap-1.5">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={() => handleOpenEditShift(shift)}
-                                                                className="h-7 w-7 text-zinc-500 hover:text-indigo-600"
-                                                                title="Edit Shift"
-                                                            >
-                                                                <Edit3 className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={() => handleDeleteShift(shift)}
-                                                                className="h-7 w-7 text-zinc-500 hover:text-rose-600"
-                                                                title="Hapus Shift"
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+<DataTable
+                            columns={shiftColumns}
+                            data={shifts}
+                            searchPlaceholder="Cari kode atau nama shift..."
+                            exportFileName={`Master_Shift_${new Date().toISOString().slice(0, 10)}`}
+                            emptyMessage="Belum ada master shift kerja."
+                        />
                     </div>
                 )}
             </div>

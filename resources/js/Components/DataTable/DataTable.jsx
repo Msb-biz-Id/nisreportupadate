@@ -15,6 +15,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
+    TableFooter,
 } from '@/Components/ui/table';
 import DataTableToolbar from './DataTableToolbar';
 import DataTablePagination from './DataTablePagination';
@@ -39,6 +40,8 @@ export function DataTable({
     emptyMessage = 'Tidak ada data ditemukan.',
     className = '',
     tableClassName = '',
+    rowClassName = null,
+    footerSlot = null,
 }) {
     const isServer = !!serverPagination;
 
@@ -125,8 +128,8 @@ export function DataTable({
 
     return (
         <div className={cn('space-y-0 w-full relative', className)}>
-            {/* Top Toolbar: Search, Filters, Excel Export, Column Visibility & Quick Pagination */}
-            <div className="bg-white dark:bg-zinc-900 px-3.5 py-2.5 rounded-t-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+            {/* Top Toolbar (sticky): Search, Filters, Excel Export, Column Visibility & Quick Pagination */}
+            <div className="sticky top-16 z-20 bg-white/95 dark:bg-zinc-900/95 backdrop-blur px-3.5 py-2.5 rounded-t-xl border border-slate-200 dark:border-slate-800 shadow-xs">
                 <DataTableToolbar
                     table={table}
                     searchValue={activeSearch}
@@ -160,8 +163,9 @@ export function DataTable({
                             {headerGroups.map((headerGroup) => (
                                 <TableRow key={headerGroup.id} className="hover:bg-transparent">
                                     {headerGroup.headers.map((header) => {
-                                        const isPinnedRight = header.column.columnDef.meta?.pinned === 'right';
-                                        const isPinnedLeft = header.column.columnDef.meta?.pinned === 'left';
+                                        const colId = header.column.id;
+                                        const isPinnedRight = header.column.columnDef.meta?.pinned === 'right' || colId === 'actions' || colId === 'action';
+                                        const isPinnedLeft = header.column.columnDef.meta?.pinned === 'left' || colId === 'select';
 
                                         return (
                                             <TableHead
@@ -195,11 +199,15 @@ export function DataTable({
                                     <TableRow
                                         key={row.id}
                                         data-state={row.getIsSelected() && 'selected'}
-                                        className="group border-b border-slate-100 dark:border-slate-800/80 transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/40"
+                                        className={cn(
+                                            'group border-b border-slate-100 dark:border-slate-800/80 transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/40',
+                                            typeof rowClassName === 'function' ? rowClassName(row.original) : ''
+                                        )}
                                     >
                                         {row.getVisibleCells().map((cell) => {
-                                            const isPinnedRight = cell.column.columnDef.meta?.pinned === 'right';
-                                            const isPinnedLeft = cell.column.columnDef.meta?.pinned === 'left';
+                                            const colId = cell.column.id;
+                                            const isPinnedRight = cell.column.columnDef.meta?.pinned === 'right' || colId === 'actions' || colId === 'action';
+                                            const isPinnedLeft = cell.column.columnDef.meta?.pinned === 'left' || colId === 'select';
 
                                             return (
                                                 <TableCell
@@ -241,11 +249,16 @@ export function DataTable({
                                 </TableRow>
                             )}
                         </TableBody>
+                        {footerSlot && (
+                            <TableFooter className="border-t-2 border-slate-200 dark:border-slate-800">
+                                {footerSlot}
+                            </TableFooter>
+                        )}
                     </Table>
             </div>
 
-            {/* Bottom Pagination Bar (Solid Attached Footer) */}
-            <div className="bg-white dark:bg-zinc-900 border-x border-b border-slate-200 dark:border-slate-800 px-3.5 py-2.5 rounded-b-xl shadow-xs">
+            {/* Bottom Pagination Bar (sticky footer: shown rows + pagination) */}
+            <div className="sticky bottom-0 z-20 bg-white/95 dark:bg-zinc-900/95 backdrop-blur border-x border-b border-slate-200 dark:border-slate-800 px-3.5 py-2.5 rounded-b-xl shadow-xs">
                 <DataTablePagination
                     table={table}
                     serverPagination={serverPagination}

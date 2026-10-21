@@ -1,16 +1,15 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import axios from 'axios';
 import { Search, Plus, CheckCircle2, XCircle, Receipt, Copy, Calendar, Paperclip, Link2, FileImage, X as XIcon, ExternalLink } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
-import StickyTableWrapper from '@/Components/StickyTableWrapper';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { Card, CardContent, CardHeader } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Textarea } from '@/Components/ui/textarea';
 import { Badge } from '@/Components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { formatDate, formatRupiah } from '@/lib/utils';
@@ -625,7 +624,6 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, ban
     const [startDate, setStartDate] = useState(filters?.start_date ?? '');
     const [endDate, setEndDate] = useState(filters?.end_date ?? '');
     const [perPage, setPerPage] = useState(filters?.per_page ?? 15);
-    const [copied, setCopied] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
     const [rejecting, setRejecting] = useState(null);
     const [publishing, setPublishing] = useState(null);
@@ -640,8 +638,11 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, ban
             start_date: overrides.hasOwnProperty('start_date') ? overrides.start_date : startDate,
             end_date: overrides.hasOwnProperty('end_date') ? overrides.end_date : endDate,
             per_page: overrides.hasOwnProperty('per_page') ? overrides.per_page : perPage,
+            page: overrides.hasOwnProperty('page') ? overrides.page : undefined,
         }, { preserveScroll: true, preserveState: true });
     }
+
+    const publish = (refund) => setPublishing(refund);
 
     const calculateDateRange = (preset) => {
         const today = new Date();
@@ -776,32 +777,90 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, ban
         return `${startDate ? formatDate(startDate) : ''} - ${endDate ? formatDate(endDate) : ''}`;
     };
 
-    const copyToClipboard = () => {
-        const headers = ['No Refund', 'No PO', 'Jenis Masalah', 'Nominal Refund', 'Diajukan Pada', 'Status', 'Bank Customer', 'Rekening Customer'];
-        const rows = (all_filtered_refunds || []).map(ref => {
-            return [
-                ref.refund_number || '',
-                ref.no_po || '',
-                ref.jenis_masalah || '',
-                ref.nominal_refund || '0',
-                ref.created_at || '',
-                ref.status || '',
-                ref.customer_bank_name || '',
-                ref.customer_bank_account || ''
-            ].join('\t');
-        });
-
-        const tsvContent = [headers.join('\t'), ...rows].join('\n');
-
-        navigator.clipboard.writeText(tsvContent).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        });
-    };
-
-    function publish(refund) {
-        setPublishing(refund);
-    }
+    const refundColumns = useMemo(() => [
+        {
+            id: 'refund_number',
+            accessorFn: (r) => r.refund_number || '',
+            meta: { title: 'No. Refund' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="No. Refund" />,
+            cell: ({ row }) => (
+                <button
+                    type="button"
+                    onClick={() => setSelectedRefund(row.original)}
+                    className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 hover:text-indigo-600 hover:underline"
+                >
+                    {row.original.refund_number}
+                </button>
+            ),
+        },
+        {
+            id: 'no_po',
+            accessorFn: (r) => r.order?.no_po || '',
+            meta: { title: 'No. PO', cellClassName: 'font-mono text-xs' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="No. PO" />,
+            cell: ({ row }) => <span className="font-mono text-xs">{row.original.order?.no_po}</span>,
+        },
+        {
+            id: 'jenis',
+            accessorFn: (r) => r.jenis_masalah || '',
+            meta: { title: 'Jenis' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jenis" />,
+            cell: ({ row }) => (
+                <Badge variant="outline" className="capitalize">{row.original.jenis_masalah?.replace(/_/g, ' ')}</Badge>
+            ),
+        },
+        {
+            id: 'nominal',
+            accessorFn: (r) => Number(r.nominal_refund) || 0,
+            meta: { title: 'Nominal', cellClassName: 'text-right font-mono text-xs font-bold text-slate-800' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nominal" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-100">{formatRupiah(row.original.nominal_refund)}</span>,
+        },
+        {
+            id: 'created_at',
+            accessorFn: (r) => r.created_at || '',
+            meta: { title: 'Diajukan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Diajukan" />,
+            cell: ({ row }) => (
+                <div className="text-xs">
+                    {row.original.creator?.name}
+                    <br />
+                    <span className="text-muted-foreground">{formatDate(row.original.created_at)}</span>
+                </div>
+            ),
+        },
+        {
+            id: 'status',
+            accessorFn: (r) => r.status || '',
+            meta: { title: 'Status' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+            cell: ({ row }) => <Badge variant={STATUS_VARIANT[row.original.status] ?? 'outline'}>{row.original.status}</Badge>,
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Aksi</div>,
+            cell: ({ row }) => {
+                const r = row.original;
+                return (
+                    <div className="flex justify-end gap-1.5">
+                        <Button size="sm" variant="outline" onClick={() => setSelectedRefund(r)}>
+                            Detail
+                        </Button>
+                        {can?.review && r.status === 'pending_review' && (
+                            <>
+                                <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50" onClick={() => publish(r)}>
+                                    <CheckCircle2 className="h-3.5 w-3.5" /> Terbitkan
+                                </Button>
+                                <Button size="sm" variant="outline" className="text-destructive border-destructive/20 hover:bg-destructive/5" onClick={() => setRejecting(r)}>
+                                    <XCircle className="h-3.5 w-3.5" /> Tolak
+                                </Button>
+                            </>
+                        )}
+                    </div>
+                );
+            },
+        },
+    ], [can?.review]);
 
     return (
         <AppLayout title="Refund Management">
@@ -823,255 +882,126 @@ export default function RefundIndex({ refunds, all_filtered_refunds, brands, ban
                         )}
                     </CardHeader>
                     <CardContent className="p-6 pt-0">
-                        <div className="mb-6 space-y-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-sm">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-                                {/* Search */}
-                                <div className="relative">
-                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                                    <Input 
-                                        placeholder="Cari no refund..." 
-                                        value={search} 
-                                        onChange={(e) => setSearch(e.target.value)} 
-                                        onKeyDown={(e) => e.key === 'Enter' && applyFilters()} 
-                                        className="pl-9 bg-slate-50 border-slate-200 focus:bg-white text-xs rounded-xl" 
-                                    />
-                                </div>
-
-                                {/* Brand Filter */}
-                                <Select value={brandId} onValueChange={(v) => { setBrandId(v); applyFilters({ brand_id: v }); }}>
-                                    <SelectTrigger className="bg-slate-50 border-slate-200 text-xs rounded-xl"><SelectValue placeholder="Pilih Brand" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Semua Brand</SelectItem>
-                                        {(brands || []).map((b) => (
-                                            <SelectItem key={b.id} value={b.id}>{b.nama_brand} ({b.kode})</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-
-                                {/* Status Filter */}
-                                <Select value={status} onValueChange={(v) => { setStatus(v); applyFilters({ status: v }); }}>
-                                    <SelectTrigger className="bg-slate-50 border-slate-200 text-xs rounded-xl"><SelectValue placeholder="Status" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Semua Status</SelectItem>
-                                        {statuses.map((s) => (<SelectItem key={s} value={s}>{s.toUpperCase()}</SelectItem>))}
-                                    </SelectContent>
-                                </Select>
-
-                                {/* Collapsible Date Toggle */}
-                                <Button 
-                                    type="button" 
-                                    variant={showDatePanel || startDate || endDate ? "secondary" : "outline"} 
-                                    onClick={() => setShowDatePanel(!showDatePanel)}
-                                    className="bg-slate-50 hover:bg-slate-100 border border-slate-200 flex justify-between items-center text-slate-700 font-medium w-full text-xs rounded-xl"
-                                >
-                                    <span className="flex items-center gap-2">
-                                        <Calendar className="h-4 w-4 text-slate-500" />
-                                        {getDateFilterLabel()}
-                                    </span>
-                                </Button>
-
-                                {/* Action Buttons (Terapkan & Reset) */}
-                                <div className="flex gap-2">
-                                    <Button className="flex-1 text-xs font-bold rounded-xl" onClick={() => applyFilters()}>Filter</Button>
-                                    <Button variant="outline" className="text-xs font-semibold rounded-xl border-slate-200" onClick={() => {
-                                        setSearch('');
-                                        setStatus('all');
-                                        setBrandId('all');
-                                        setStartDate('');
-                                        setEndDate('');
-                                        setShowDatePanel(false);
-                                        router.get(route('refunds.index'), {}, { preserveScroll: true });
-                                    }}>Reset</Button>
-                                </div>
-                            </div>
-
-                            {/* Collapsible Date Filter Panel */}
-                            {showDatePanel && (
-                                <div className="p-4 bg-white rounded-lg border border-slate-200/60 mt-2 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                        <div>
-                                            <span className="text-xs font-semibold text-slate-500 block mb-2">Pilih Cepat Rentang Tanggal</span>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {[
-                                                    { label: 'Bulan Ini', preset: 'this_month' },
-                                                    { label: 'Bulan Lalu', preset: 'last_month' },
-                                                    { label: '7 Hari Terakhir', preset: 'last_7' },
-                                                    { label: '30 Hari Terakhir', preset: 'last_30' },
-                                                    { label: 'Tahun Ini', preset: 'this_year' },
-                                                    { label: 'Hari Ini', preset: 'today' },
-                                                    { label: 'Kemarin', preset: 'yesterday' },
-                                                    { label: 'Semua', preset: 'all' },
-                                                ].map((opt) => (
-                                                    <button
-                                                        key={opt.preset}
-                                                        type="button"
-                                                        onClick={() => handlePresetClick(opt.preset)}
-                                                        className={`text-xs px-3 py-1.5 rounded-full border transition font-medium ${
-                                                            getActivePreset() === opt.preset
-                                                                ? 'bg-primary text-white border-primary shadow-sm'
-                                                                : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
-                                                        }`}
-                                                    >
-                                                        {opt.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-
-                                            <div className="mt-3 flex items-center gap-2">
-                                                <span className="text-xs text-slate-500 font-medium">Pilih Bulan Tertentu:</span>
-                                                <input
-                                                    type="month"
-                                                    onChange={(e) => handleSpecificMonthChange(e.target.value)}
-                                                    className="text-xs border rounded-md px-2.5 py-1 text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary shadow-sm font-medium"
-                                                />
-                                            </div>
+                        {/* Panel Filter Tanggal (collapsible) */}
+                        {showDatePanel && (
+                            <div className="mb-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <span className="text-xs font-semibold text-slate-500 block mb-2">Pilih Cepat Rentang Tanggal</span>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {[
+                                                { label: 'Bulan Ini', preset: 'this_month' },
+                                                { label: 'Bulan Lalu', preset: 'last_month' },
+                                                { label: '7 Hari Terakhir', preset: 'last_7' },
+                                                { label: '30 Hari Terakhir', preset: 'last_30' },
+                                                { label: 'Tahun Ini', preset: 'this_year' },
+                                                { label: 'Hari Ini', preset: 'today' },
+                                                { label: 'Kemarin', preset: 'yesterday' },
+                                                { label: 'Semua', preset: 'all' },
+                                            ].map((opt) => (
+                                                <button
+                                                    key={opt.preset}
+                                                    type="button"
+                                                    onClick={() => handlePresetClick(opt.preset)}
+                                                    className={`text-xs px-3 py-1.5 rounded-full border transition font-medium ${
+                                                        getActivePreset() === opt.preset
+                                                            ? 'bg-primary text-white border-primary shadow-sm'
+                                                            : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                                                    }`}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            ))}
                                         </div>
-                                        
-                                        <div className="border-t md:border-t-0 md:border-l border-dashed border-slate-200 pt-3 md:pt-0 md:pl-6">
-                                            <span className="text-xs font-semibold text-slate-500 block mb-2">Pilih Tanggal Manual</span>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="date"
-                                                    value={startDate}
-                                                    onChange={(e) => { setStartDate(e.target.value); applyFilters({ start_date: e.target.value }); }}
-                                                    className="text-xs border rounded-md px-3 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
-                                                />
-                                                <span className="text-slate-400 text-xs">s/d</span>
-                                                <input
-                                                    type="date"
-                                                    value={endDate}
-                                                    onChange={(e) => { setEndDate(e.target.value); applyFilters({ end_date: e.target.value }); }}
-                                                    className="text-xs border rounded-md px-3 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
-                                                />
-                                            </div>
+                                        <div className="mt-3 flex items-center gap-2">
+                                            <span className="text-xs text-slate-500 font-medium">Pilih Bulan Tertentu:</span>
+                                            <input
+                                                type="month"
+                                                onChange={(e) => handleSpecificMonthChange(e.target.value)}
+                                                className="text-xs border rounded-md px-2.5 py-1 text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary shadow-sm font-medium"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="border-t md:border-t-0 md:border-l border-dashed border-slate-200 pt-3 md:pt-0 md:pl-6">
+                                        <span className="text-xs font-semibold text-slate-500 block mb-2">Pilih Tanggal Manual</span>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="date"
+                                                value={startDate}
+                                                onChange={(e) => { setStartDate(e.target.value); applyFilters({ start_date: e.target.value, page: 1 }); }}
+                                                className="text-xs border rounded-md px-3 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                                            />
+                                            <span className="text-slate-400 text-xs">s/d</span>
+                                            <input
+                                                type="date"
+                                                value={endDate}
+                                                onChange={(e) => { setEndDate(e.target.value); applyFilters({ end_date: e.target.value, page: 1 }); }}
+                                                className="text-xs border rounded-md px-3 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                                            />
                                         </div>
                                     </div>
                                 </div>
-                            )}
+                            </div>
+                        )}
 
-                            <div className="flex flex-col lg:flex-row items-center justify-between gap-4 pt-3 border-t border-slate-100">
-                                {/* Active Filters indicator */}
-                                <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground w-full lg:w-auto">
-                                    {(search || (status && status !== 'all') || (brandId && brandId !== 'all') || startDate || endDate) ? (
-                                        <>
-                                            <span className="font-semibold text-slate-500 mr-1">Filter Aktif:</span>
-                                            {search && <Badge variant="secondary" className="px-2 py-0.5">{search}</Badge>}
-                                            {brandId && brandId !== 'all' && (
-                                                <Badge variant="secondary" className="px-2 py-0.5">
-                                                    {brands.find(b => String(b.id) === String(brandId))?.nama_brand ?? 'Brand'}
-                                                </Badge>
-                                            )}
-                                            {status && status !== 'all' && <Badge variant="secondary" className="px-2 py-0.5">{status.toUpperCase()}</Badge>}
-                                            {(startDate || endDate) && <Badge variant="secondary" className="px-2 py-0.5">{getDateFilterLabel()}</Badge>}
-                                        </>
-                                    ) : (
-                                        <span className="text-slate-400">Menampilkan semua data tanpa filter.</span>
+                        <DataTable
+                            columns={refundColumns}
+                            data={refunds.data || []}
+                            serverPagination={refunds}
+                            searchValue={search}
+                            onServerSearchChange={(val) => { setSearch(val); applyFilters({ q: val, page: 1 }); }}
+                            onServerPageChange={(page) => applyFilters({ page })}
+                            onServerPerPageChange={(per_page) => applyFilters({ per_page, page: 1 })}
+                            searchPlaceholder="Cari no refund, no PO..."
+                            exportFileName={`Refund_${new Date().toISOString().slice(0, 10)}`}
+                            emptyMessage="Belum ada refund."
+                            filterSlot={
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Select value={brandId} onValueChange={(v) => { setBrandId(v); applyFilters({ brand_id: v, page: 1 }); }}>
+                                        <SelectTrigger className="h-8 w-44 text-xs bg-background"><SelectValue placeholder="Pilih Brand" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Semua Brand</SelectItem>
+                                            {(brands || []).map((b) => (
+                                                <SelectItem key={b.id} value={b.id}>{b.nama_brand} ({b.kode})</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Select value={status} onValueChange={(v) => { setStatus(v); applyFilters({ status: v, page: 1 }); }}>
+                                        <SelectTrigger className="h-8 w-40 text-xs bg-background"><SelectValue placeholder="Status" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Semua Status</SelectItem>
+                                            {statuses.map((s) => (<SelectItem key={s} value={s}>{s.toUpperCase()}</SelectItem>))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant={showDatePanel || startDate || endDate ? 'secondary' : 'outline'}
+                                        onClick={() => setShowDatePanel(!showDatePanel)}
+                                        className="h-8 text-xs gap-1.5"
+                                    >
+                                        <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                                        {getDateFilterLabel()}
+                                    </Button>
+                                    {(search || (status && status !== 'all') || (brandId && brandId !== 'all') || startDate || endDate) && (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-8 text-xs text-slate-500 gap-1"
+                                            onClick={() => {
+                                                setSearch(''); setStatus('all'); setBrandId('all'); setStartDate(''); setEndDate(''); setShowDatePanel(false);
+                                                router.get(route('refunds.index'), {}, { preserveScroll: true });
+                                            }}
+                                        >
+                                            <XIcon className="h-3.5 w-3.5" />
+                                            Reset
+                                        </Button>
                                     )}
                                 </div>
-
-                                {/* Export to Excel Button */}
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={copyToClipboard}
-                                    disabled={!all_filtered_refunds || all_filtered_refunds.length === 0}
-                                    className="w-full lg:w-auto flex items-center justify-center gap-1.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 rounded-xl"
-                                >
-                                    {copied ? (
-                                        <>
-                                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                                            Berhasil Disalin to Excel
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Copy className="h-3.5 w-3.5" />
-                                            Salin {all_filtered_refunds?.length || 0} Data Refund (Excel)
-                                        </>
-                                    )}
-                                </Button>
-                            </div>
-                        </div>
-
-                        <StickyTableWrapper maxHeight="calc(100vh - 280px)">
-                            <Table className="min-w-[1000px] border-collapse">
-                                <TableHeader className="bg-slate-50">
-                                    <TableRow>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">No. Refund</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">No. PO</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Jenis</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right">Nominal</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Diajukan</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Status</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right">Aksi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {refunds.data.length === 0 && (
-                                        <TableRow>
-                                            <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                                                Belum ada refund.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                    {refunds.data.map((r) => (
-                                        <TableRow key={r.id} className="cursor-pointer hover:bg-slate-50/50" onClick={() => setSelectedRefund(r)}>
-                                            <TableCell className="font-mono text-xs font-semibold">{r.refund_number}</TableCell>
-                                            <TableCell className="font-mono text-xs">{r.order?.no_po}</TableCell>
-                                            <TableCell><Badge variant="outline" className="capitalize">{r.jenis_masalah?.replace(/_/g, ' ')}</Badge></TableCell>
-                                            <TableCell className="text-right font-mono text-xs font-bold text-slate-800">{formatRupiah(r.nominal_refund)}</TableCell>
-                                            <TableCell className="text-xs">
-                                                {r.creator?.name}<br />
-                                                <span className="text-muted-foreground">{formatDate(r.created_at)}</span>
-                                            </TableCell>
-                                            <TableCell><Badge variant={STATUS_VARIANT[r.status] ?? 'outline'}>{r.status}</Badge></TableCell>
-                                            <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                                                <div className="flex justify-end gap-1.5">
-                                                    <Button size="sm" variant="outline" onClick={() => setSelectedRefund(r)}>
-                                                        Detail
-                                                    </Button>
-                                                    {can?.review && r.status === 'pending_review' && (
-                                                        <>
-                                                            <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50" onClick={() => publish(r)}>
-                                                                <CheckCircle2 className="h-3.5 w-3.5" /> Terbitkan
-                                                            </Button>
-                                                            <Button size="sm" variant="outline" className="text-destructive border-destructive/20 hover:bg-destructive/5" onClick={() => setRejecting(r)}>
-                                                                <XCircle className="h-3.5 w-3.5" /> Tolak
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </StickyTableWrapper>
+                            }
+                        />
                     </CardContent>
-
-                    {/* Pagination bar */}
-                    <div className="border-t px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-muted-foreground">
-                        <span>
-                            {refunds.total > 0
-                                ? `Menampilkan ${refunds.from ?? 0}–${refunds.to ?? 0} dari ${refunds.total} refund`
-                                : '0 refund ditemukan'}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                            <span>Tampilkan:</span>
-                            <select
-                                value={perPage}
-                                onChange={(e) => {
-                                    const val = Number(e.target.value);
-                                    setPerPage(val);
-                                    applyFilters({ per_page: val });
-                                }}
-                                className="h-7 rounded border border-slate-200 bg-white px-2 py-0 text-xs font-medium text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                            >
-                                {[10, 15, 25, 50, 100].map(n => (
-                                    <option key={n} value={n}>{n} data</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
                 </Card>
             </div>
 

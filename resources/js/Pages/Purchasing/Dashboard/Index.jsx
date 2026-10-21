@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import {
@@ -50,6 +50,7 @@ import {
     ShoppingCart,
 } from 'lucide-react';
 import PurchaseHistoryModal from '../Orders/Components/PurchaseHistoryModal';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 
 export default function Index({
     metrics = {},
@@ -138,6 +139,107 @@ export default function Index({
     const blueCount = alerts.blue?.length || 0;
     const greenCount = alerts.green?.length || 0;
     const greyCount = alerts.grey?.length || 0;
+
+    const paymentColumns = useMemo(() => [
+        {
+            id: 'po',
+            accessorFn: (row) => row.po_number || '',
+            meta: { title: 'No. PO & Termin' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="No. PO & Termin" />,
+            cell: ({ row }) => (
+                <div>
+                    <Link
+                        href={route('purchasing.orders.show', row.original.po_number)}
+                        className="font-mono font-bold text-blue-600 hover:underline block"
+                    >
+                        {row.original.po_number}
+                    </Link>
+                    <span className="text-[11px] text-slate-500 font-medium">{row.original.term_name}</span>
+                </div>
+            ),
+        },
+        {
+            id: 'vendor',
+            accessorFn: (row) => row.vendor_name || '',
+            meta: { title: 'Vendor & Kontak WA' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Vendor & Kontak WA" />,
+            cell: ({ row }) => {
+                const p = row.original;
+                const cleanPhone = getCleanPhone(p.vendor_phone);
+                return (
+                    <div>
+                        <p className="font-semibold text-slate-800 dark:text-slate-200">{p.vendor_name}</p>
+                        {cleanPhone && (
+                            <a
+                                href={`https://wa.me/${cleanPhone}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] text-emerald-600 hover:underline mt-0.5"
+                            >
+                                <Phone className="w-3 h-3" />
+                                {p.vendor_phone}
+                            </a>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'due_date',
+            accessorFn: (row) => row.due_date || '',
+            meta: { title: 'Jatuh Tempo' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jatuh Tempo" />,
+            cell: ({ row }) => (
+                <span className="flex items-center gap-1 text-slate-600 dark:text-slate-400">
+                    <Calendar className="w-3.5 h-3.5" />
+                    {formatDate(row.original.due_date)}
+                </span>
+            ),
+        },
+        {
+            id: 'amount',
+            accessorFn: (row) => row.amount ?? 0,
+            meta: { title: 'Nominal Tagihan', cellClassName: 'text-right font-mono font-bold' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nominal Tagihan" className="justify-end" />,
+            cell: ({ row }) => (
+                <span className="font-mono font-bold text-slate-900 dark:text-slate-100 text-sm">{formatRupiah(row.original.amount)}</span>
+            ),
+        },
+        {
+            accessorKey: 'status',
+            meta: { title: 'Status', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" className="justify-center" />,
+            cell: ({ row }) => getPaymentBadge(row.original.status),
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Aksi</div>,
+            cell: ({ row }) => (
+                <div className="flex items-center justify-end gap-1.5">
+                    <Link href={route('purchasing.orders.show', row.original.po_number)}>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs gap-1 border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:text-slate-300"
+                        >
+                            <Eye className="w-3 h-3" />
+                            Detail
+                        </Button>
+                    </Link>
+                    {canDisbursePayment && (
+                        <Button
+                            size="sm"
+                            onClick={() => openPayModal(row.original)}
+                            className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                            <ShieldCheck className="w-3 h-3" />
+                            Bayar
+                        </Button>
+                    )}
+                </div>
+            ),
+        },
+    ], []);
 
     return (
         <AppLayout>
@@ -636,112 +738,14 @@ export default function Index({
                         </Link>
                     </CardHeader>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-xs text-left">
-                            <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider text-[11px]">
-                                <tr>
-                                    <th className="p-3.5 font-semibold">No. PO & Termin</th>
-                                    <th className="p-3.5 font-semibold">Vendor & Kontak WA</th>
-                                    <th className="p-3.5 font-semibold">Jatuh Tempo</th>
-                                    <th className="p-3.5 font-semibold text-right">Nominal Tagihan</th>
-                                    <th className="p-3.5 font-semibold text-center">Status</th>
-                                    <th className="p-3.5 font-semibold text-right pr-4">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {upcomingPayments.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={6} className="text-center py-12 text-slate-400">
-                                            <CheckCircle2 className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-700 mb-2" />
-                                            <p className="font-semibold text-slate-700 dark:text-slate-300 text-xs">
-                                                Tidak Ada Tagihan Jatuh Tempo Aktif
-                                            </p>
-                                            <p className="text-[11px] text-slate-400 mt-0.5">
-                                                Semua cicilan termin supplier telah diselesaikan atau belum jatuh tempo.
-                                            </p>
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    upcomingPayments.map((p) => {
-                                        const cleanPhone = getCleanPhone(p.vendor_phone);
+                    <DataTable
+                        columns={paymentColumns}
+                        data={upcomingPayments}
+                        searchPlaceholder="Cari No. PO, vendor, termin..."
+                        exportFileName={`Tagihan_Jatuh_Tempo_${new Date().toISOString().slice(0, 10)}`}
+                        emptyMessage="Tidak ada tagihan jatuh tempo aktif."
+                    />
 
-                                        return (
-                                            <tr key={p.uuid} className="group hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors">
-                                                <td className="p-3.5">
-                                                    <Link
-                                                        href={route('purchasing.orders.show', p.po_number)}
-                                                        className="font-mono font-bold text-blue-600 hover:underline block"
-                                                    >
-                                                        {p.po_number}
-                                                    </Link>
-                                                    <span className="text-[11px] text-slate-500 font-medium">
-                                                        {p.term_name}
-                                                    </span>
-                                                </td>
-
-                                                <td className="p-3.5">
-                                                    <p className="font-semibold text-slate-800 dark:text-slate-200">
-                                                        {p.vendor_name}
-                                                    </p>
-                                                    {cleanPhone && (
-                                                        <a
-                                                            href={`https://wa.me/${cleanPhone}`}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="inline-flex items-center gap-1 text-[11px] text-emerald-600 hover:underline mt-0.5"
-                                                        >
-                                                            <Phone className="w-3 h-3" />
-                                                            {p.vendor_phone}
-                                                        </a>
-                                                    )}
-                                                </td>
-
-                                                <td className="p-3.5">
-                                                    <span className="flex items-center gap-1 text-slate-600 dark:text-slate-400">
-                                                        <Calendar className="w-3.5 h-3.5" />
-                                                        {formatDate(p.due_date)}
-                                                    </span>
-                                                </td>
-
-                                                <td className="p-3.5 text-right font-mono font-bold text-slate-900 dark:text-slate-100 text-sm">
-                                                    {formatRupiah(p.amount)}
-                                                </td>
-
-                                                <td className="p-3.5 text-center">
-                                                    {getPaymentBadge(p.status)}
-                                                </td>
-
-                                                <td className="p-3.5 text-right pr-4">
-                                                    <div className="flex items-center justify-end gap-1.5">
-                                                        <Link href={route('purchasing.orders.show', p.po_number)}>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                className="h-7 text-xs gap-1 border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:text-slate-300"
-                                                            >
-                                                                <Eye className="w-3 h-3" />
-                                                                Detail
-                                                            </Button>
-                                                        </Link>
-                                                        {canDisbursePayment && (
-                                                            <Button
-                                                                size="sm"
-                                                                onClick={() => openPayModal(p)}
-                                                                className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                                            >
-                                                                <ShieldCheck className="w-3 h-3" />
-                                                                Bayar
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
                 </Card>
             </div>
 

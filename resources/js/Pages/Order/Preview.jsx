@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     Package, User, MapPin, CalendarClock, Pencil, Send, RotateCw, Trash2, Lock, Unlock,
     CreditCard, ListChecks, AlertTriangle, Receipt, FileText, ExternalLink, CheckCircle2, XCircle, Eye,
@@ -11,12 +11,14 @@ import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Separator } from '@/Components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/Components/ui/sheet';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/Components/ui/dropdown-menu';
 import { Label } from '@/Components/ui/label';
 import { Textarea } from '@/Components/ui/textarea';
 import { Input } from '@/Components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { formatDate, formatDateTime, formatRupiah, renderFormattedText } from '@/lib/utils';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 
 const STATUS_LABEL = {
     draft: { label: 'Draft', variant: 'outline' },
@@ -382,12 +384,12 @@ function AddPaymentDialog({ order, open, onOpenChange, banks, jenis_pembayarans 
     const selectedJp = jenis_pembayarans.find(jp => String(jp.id) === String(data.master_jenis_pembayaran_id));
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+        <Sheet open={open} onOpenChange={onOpenChange}>
+            <SheetContent side="right" className="w-full sm:max-w-md">
                 <form onSubmit={submit}>
-                    <DialogHeader>
-                        <DialogTitle>Tambah Pembayaran</DialogTitle>
-                    </DialogHeader>
+                    <SheetHeader>
+                        <SheetTitle>Tambah Pembayaran</SheetTitle>
+                    </SheetHeader>
                     <div className="grid grid-cols-1 gap-3 py-4 sm:grid-cols-2">
                         <div>
                             <Label>Tipe</Label>
@@ -457,13 +459,13 @@ function AddPaymentDialog({ order, open, onOpenChange, banks, jenis_pembayarans 
                             <Textarea value={data.notes} onChange={(e) => setData('notes', e.target.value)} rows={2} className="mt-1.5" />
                         </div>
                     </div>
-                    <DialogFooter>
+                    <div className="flex flex-wrap justify-end gap-2 pt-4 border-t mt-4">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
                         <Button type="submit" disabled={processing}>Simpan</Button>
-                    </DialogFooter>
+                    </div>
                 </form>
-            </DialogContent>
-        </Dialog>
+            </SheetContent>
+        </Sheet>
     );
 }
 
@@ -505,12 +507,12 @@ function EditPaymentDialog({ payment, open, onOpenChange, banks, jenis_pembayara
     const selectedJp = jenis_pembayarans.find(jp => String(jp.id) === String(data.master_jenis_pembayaran_id));
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+        <Sheet open={open} onOpenChange={onOpenChange}>
+            <SheetContent side="right" className="w-full sm:max-w-md">
                 <form onSubmit={submit}>
-                    <DialogHeader>
-                        <DialogTitle>Edit Pembayaran</DialogTitle>
-                    </DialogHeader>
+                    <SheetHeader>
+                        <SheetTitle>Edit Pembayaran</SheetTitle>
+                    </SheetHeader>
                     <div className="grid grid-cols-1 gap-3 py-4 sm:grid-cols-2">
                         <div>
                             <Label>Tipe</Label>
@@ -587,13 +589,13 @@ function EditPaymentDialog({ payment, open, onOpenChange, banks, jenis_pembayara
                             {errors.change_reason && <p className="text-xs text-destructive">{errors.change_reason}</p>}
                         </div>
                     </div>
-                    <DialogFooter>
+                    <div className="flex flex-wrap justify-end gap-2 pt-4 border-t mt-4">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
                         <Button type="submit" disabled={processing}>Simpan Perubahan</Button>
-                    </DialogFooter>
+                    </div>
                 </form>
-            </DialogContent>
-        </Dialog>
+            </SheetContent>
+        </Sheet>
     );
 }
 
@@ -654,12 +656,12 @@ function UpdateShippingDialog({ order, open, onOpenChange, ekspedisis = [] }) {
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+        <Sheet open={open} onOpenChange={onOpenChange}>
+            <SheetContent side="right" className="w-full sm:max-w-md">
                 <form onSubmit={submit}>
-                    <DialogHeader>
-                        <DialogTitle>Edit Informasi Pengiriman</DialogTitle>
-                    </DialogHeader>
+                    <SheetHeader>
+                        <SheetTitle>Edit Informasi Pengiriman</SheetTitle>
+                    </SheetHeader>
                     <div className="space-y-3 py-4">
                         <div>
                             <Label>Ekspedisi</Label>
@@ -680,13 +682,13 @@ function UpdateShippingDialog({ order, open, onOpenChange, ekspedisis = [] }) {
                             {errors.no_resi && <p className="text-xs text-destructive">{errors.no_resi}</p>}
                         </div>
                     </div>
-                    <DialogFooter>
+                    <div className="flex flex-wrap justify-end gap-2 pt-4 border-t mt-4">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
                         <Button type="submit" disabled={processing}>Simpan</Button>
-                    </DialogFooter>
+                    </div>
                 </form>
-            </DialogContent>
-        </Dialog>
+            </SheetContent>
+        </Sheet>
     );
 }
 
@@ -711,16 +713,17 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
     const [openCompare, setOpenCompare] = useState(false);
     const [selectedV1, setSelectedV1] = useState('');
     const [selectedV2, setSelectedV2] = useState('');
+    const [activeSection, setActiveSection] = useState('ringkasan');
     const [collapsedSections, setCollapsedSections] = useState({
-        pelanggan: true,
-        timeline: true,
-        pembayaran: true,
-        changeLog: true,
-        versionHistory: true,
-        detailPo: true,
-        items: true,
-        progress: true,
-        rijekRefund: true,
+        pelanggan: false,
+        timeline: false,
+        pembayaran: false,
+        changeLog: false,
+        versionHistory: false,
+        detailPo: false,
+        items: false,
+        progress: false,
+        rijekRefund: false,
     });
 
     const copyToClipboard = () => {
@@ -831,6 +834,118 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
     }
 
 
+    const rijekColumns = useMemo(() => [
+        {
+            id: 'tahapan',
+            accessorFn: (r) => r.progress?.nama_progress || '',
+            meta: { title: 'Tahapan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tahapan" />,
+            cell: ({ row }) => <span className="font-medium">{row.original.progress?.nama_progress ?? '—'}</span>,
+        },
+        {
+            id: 'jenis',
+            accessorFn: (r) => `${r.jenis ?? ''} ${r.tingkat ?? ''}`,
+            meta: { title: 'Jenis / Tingkat' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jenis / Tingkat" />,
+            cell: ({ row }) => (
+                <div className="flex items-center gap-1">
+                    <span className="capitalize">{row.original.jenis}</span>
+                    <Badge
+                        variant={row.original.tingkat === 'berat' ? 'destructive' : row.original.tingkat === 'sedang' ? 'warning' : 'outline'}
+                        className="text-[9px] py-0 px-1 font-semibold uppercase"
+                    >
+                        {row.original.tingkat}
+                    </Badge>
+                </div>
+            ),
+        },
+        {
+            id: 'jumlah',
+            accessorFn: (r) => Number(r.jumlah) || 0,
+            meta: { title: 'Jumlah', cellClassName: 'text-right font-mono font-semibold text-amber-600' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jumlah" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono font-semibold text-amber-600">{row.original.jumlah} pcs</span>,
+        },
+        {
+            id: 'kendala',
+            accessorFn: (r) => r.kendala || '',
+            meta: { title: 'Kendala' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kendala" />,
+            cell: ({ row }) => (
+                <span className="text-muted-foreground max-w-[150px] truncate inline-block align-middle" title={row.original.kendala}>
+                    {row.original.kendala}
+                </span>
+            ),
+        },
+        {
+            id: 'penanganan',
+            accessorFn: (r) => r.penanganan || '',
+            meta: { title: 'Penanganan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Penanganan" />,
+            cell: ({ row }) => (
+                <span className="text-muted-foreground max-w-[150px] truncate inline-block align-middle" title={row.original.penanganan}>
+                    {row.original.penanganan || '—'}
+                </span>
+            ),
+        },
+    ], []);
+
+    const refundColumns = useMemo(() => [
+        {
+            id: 'refund_number',
+            accessorFn: (r) => r.refund_number || '',
+            meta: { title: 'No Refund', cellClassName: 'font-mono font-medium' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="No Refund" />,
+            cell: ({ row }) => <span className="font-mono font-medium">{row.original.refund_number}</span>,
+        },
+        {
+            id: 'jenis_masalah',
+            accessorFn: (r) => r.jenis_masalah?.replace('_', ' ') || '',
+            meta: { title: 'Jenis Masalah' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jenis Masalah" />,
+            cell: ({ row }) => <span className="capitalize">{row.original.jenis_masalah?.replace('_', ' ') || '—'}</span>,
+        },
+        {
+            id: 'alasan',
+            accessorFn: (r) => r.alasan || '',
+            meta: { title: 'Alasan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Alasan" />,
+            cell: ({ row }) => (
+                <span className="text-muted-foreground max-w-[150px] truncate inline-block align-middle" title={row.original.alasan}>
+                    {row.original.alasan}
+                </span>
+            ),
+        },
+        {
+            id: 'jumlah_item',
+            accessorFn: (r) => Number(r.jumlah_item) || 0,
+            meta: { title: 'Qty Item', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Qty Item" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono">{row.original.jumlah_item} pcs</span>,
+        },
+        {
+            id: 'nominal_refund',
+            accessorFn: (r) => Number(r.nominal_refund) || 0,
+            meta: { title: 'Nominal', cellClassName: 'text-right font-mono font-semibold text-emerald-600' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nominal" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono font-semibold text-emerald-600">{formatRupiah(row.original.nominal_refund)}</span>,
+        },
+        {
+            id: 'status',
+            accessorFn: (r) => r.status || '',
+            meta: { title: 'Status' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+            cell: ({ row }) => (
+                <Badge
+                    variant={row.original.status === 'published' ? 'success' : row.original.status === 'rejected' ? 'destructive' : 'warning'}
+                    className="text-[9px] py-0 px-1 font-semibold uppercase"
+                >
+                    {row.original.status}
+                </Badge>
+            ),
+        },
+    ], []);
+
     return (
         <AppLayout title={`Preview ${order.no_po}`}>
             <Head title={`PO ${order.no_po}`} />
@@ -839,7 +954,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                 {/* Header */}
                 <Card>
                     <CardHeader>
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex flex-col gap-3">
                             <div>
                                 <div className="flex flex-wrap items-center gap-2">
                                     <h2 className="text-2xl font-bold font-mono">{order.no_po}</h2>
@@ -885,7 +1000,53 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     </Button>
                                 </div>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
+
+                            {/* KPI Strip */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full border-t border-slate-100 pt-3">
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Total Tagihan</p>
+                                    <p className="text-sm font-mono font-bold text-slate-800">{formatRupiah(totalTagihan)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Terbayar</p>
+                                    <p className="text-sm font-mono font-bold text-emerald-600">{formatRupiah(totalPaid)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Sisa Tagihan</p>
+                                    <p className="text-sm font-mono font-bold text-destructive">{formatRupiah(sisaTagihan)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">DP {Math.round(minDpPercentage * 100)}%</p>
+                                    <p className={`text-sm font-mono font-bold ${isDpSufficient ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                        {totalTagihan > 0 ? Math.round((totalPaid / totalTagihan) * 100) : 0}%
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </CardHeader>
+                </Card>
+
+                {/* Action Bar + Section Nav (Sticky) */}
+                <div className="sticky top-16 z-20 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur px-3 py-2 shadow-sm flex flex-wrap items-center gap-2">
+                    <nav className="flex items-center gap-1 overflow-x-auto">
+                        {[
+                            { key: 'ringkasan', label: 'Ringkasan' },
+                            { key: 'item', label: 'Item Produk' },
+                            { key: 'pembayaran', label: 'Pembayaran' },
+                            { key: 'produksi', label: 'Produksi' },
+                        ].map((t) => (
+                            <button
+                                key={t.key}
+                                type="button"
+                                onClick={() => setActiveSection(t.key)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${activeSection === t.key ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                            >
+                                {t.label}
+                            </button>
+                        ))}
+                    </nav>
+
+<div className="flex flex-wrap items-center gap-2 ml-auto">
                                 {/* 1. Primary Workflow Action (Standout) */}
                                 {can?.publish && (
                                     <Button
@@ -1049,9 +1210,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
-                        </div>
-                    </CardHeader>
-                </Card>
+                </div>
 
                 {/* Banners for Unlock/Relock Approval Requests */}
                 {(order.lock_status?.unlock_requested_by || order.lock_status?.unlockRequestedBy) && (
@@ -1210,9 +1369,10 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                     </Button>
                 </div>
 
-                {/* Info Grid */}
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                    <div className="lg:col-span-2 space-y-4">
+                {/* Ringkasan */}
+                <div className="grid grid-cols-1 gap-4">
+                    {activeSection === 'ringkasan' && (
+                    <div className="space-y-4">
                         {/* Row 1: Pelanggan & Timeline */}
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 items-start">
                             {/* Pelanggan */}
@@ -1514,9 +1674,11 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                             })()}
                         </div>
                     </div>
+                    )}
 
                     {/* Pembayaran */}
-                    <div className="lg:col-span-1">
+                    {activeSection === 'pembayaran' && (
+                    <div className="space-y-4">
                         <Card className="border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
                             <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3 cursor-pointer select-none" onClick={() => toggleSection('pembayaran')}>
                                 <div className="flex items-center justify-between">
@@ -1748,9 +1910,11 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                             )}
                         </Card>
                     </div>
+                    )}
                 </div>
 
                 {/* Items */}
+                {activeSection === 'item' && (
                 <Card>
                     <CardHeader className="cursor-pointer select-none" onClick={() => toggleSection('items')}>
                         <div className="flex items-center justify-between">
@@ -1960,7 +2124,11 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                         </CardContent>
                     )}
                 </Card>
+                )}
 
+                {/* Produksi */}
+                {activeSection === 'produksi' && (
+                <>
                 {/* Progress Timeline */}
                 {order.progress_details?.length > 0 && (
                     <Card>
@@ -2061,35 +2229,13 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     Rincian Rijek Produksi ({(order.rijeks ?? []).length})
                                 </h4>
                                 {order.rijeks?.length > 0 ? (
-                                    <div className="overflow-x-auto rounded-md border">
-                                        <table className="w-full text-left text-xs">
-                                            <thead>
-                                                <tr className="bg-muted/50 border-b text-muted-foreground">
-                                                    <th className="p-2">Tahapan</th>
-                                                    <th className="p-2">Jenis / Tingkat</th>
-                                                    <th className="p-2 text-right">Jumlah</th>
-                                                    <th className="p-2">Kendala</th>
-                                                    <th className="p-2">Penanganan</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {order.rijeks.map((r) => (
-                                                    <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
-                                                        <td className="p-2 font-medium">{r.progress?.nama_progress ?? '—'}</td>
-                                                        <td className="p-2">
-                                                            <span className="capitalize">{r.jenis}</span>
-                                                            <Badge variant={r.tingkat === 'berat' ? 'destructive' : r.tingkat === 'sedang' ? 'warning' : 'outline'} className="ml-1 text-[9px] py-0 px-1 font-semibold uppercase">
-                                                                {r.tingkat}
-                                                            </Badge>
-                                                        </td>
-                                                        <td className="p-2 text-right font-mono font-semibold text-amber-600">{r.jumlah} pcs</td>
-                                                        <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.kendala}>{r.kendala}</td>
-                                                        <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.penanganan}>{r.penanganan || '—'}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
+<DataTable
+                                        columns={rijekColumns}
+                                        data={order.rijeks ?? []}
+                                        searchPlaceholder="Cari tahapan, kendala..."
+                                        exportFileName={`Rijek_${order.no_po}`}
+                                        emptyMessage="Belum ada rijek tercatat pada PO ini."
+                                    />
                                 ) : (
                                     <p className="text-xs text-muted-foreground italic pl-1">Belum ada rijek tercatat pada PO ini.</p>
                                 )}
@@ -2101,36 +2247,13 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                     Rincian Refund Dana ({(order.refunds ?? []).length})
                                 </h4>
                                 {order.refunds?.length > 0 ? (
-                                    <div className="overflow-x-auto rounded-md border">
-                                        <table className="w-full text-left text-xs">
-                                            <thead>
-                                                <tr className="bg-muted/50 border-b text-muted-foreground">
-                                                    <th className="p-2">No Refund</th>
-                                                    <th className="p-2">Jenis Masalah</th>
-                                                    <th className="p-2">Alasan</th>
-                                                    <th className="p-2 text-right">Qty Item</th>
-                                                    <th className="p-2 text-right">Nominal</th>
-                                                    <th className="p-2">Status</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {order.refunds.map((r) => (
-                                                    <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
-                                                        <td className="p-2 font-mono font-medium">{r.refund_number}</td>
-                                                        <td className="p-2 capitalize">{r.jenis_masalah?.replace('_', ' ') || '—'}</td>
-                                                        <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.alasan}>{r.alasan}</td>
-                                                        <td className="p-2 text-right font-mono">{r.jumlah_item} pcs</td>
-                                                        <td className="p-2 text-right font-mono font-semibold text-emerald-600">{formatRupiah(r.nominal_refund)}</td>
-                                                        <td className="p-2">
-                                                            <Badge variant={r.status === 'published' ? 'success' : r.status === 'rejected' ? 'destructive' : 'warning'} className="text-[9px] py-0 px-1 font-semibold uppercase">
-                                                                {r.status}
-                                                            </Badge>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
+<DataTable
+                                        columns={refundColumns}
+                                        data={order.refunds ?? []}
+                                        searchPlaceholder="Cari no refund, jenis..."
+                                        exportFileName={`Refund_${order.no_po}`}
+                                        emptyMessage="Belum ada pengajuan refund pada PO ini."
+                                    />
                                 ) : (
                                     <p className="text-xs text-muted-foreground italic pl-1">Belum ada pengajuan refund pada PO ini.</p>
                                 )}
@@ -2138,6 +2261,8 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                         </CardContent>
                     )}
                 </Card>
+                </>
+                )}
             </div>
 
             <UnlockDialog order={order} open={openUnlock} onOpenChange={setOpenUnlock} canUnlock={can?.unlock} />

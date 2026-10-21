@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Head, router, Link } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { 
@@ -27,7 +27,7 @@ import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Badge } from '@/Components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils';
 import RecordTransactionModal from './Components/RecordTransactionModal';
@@ -113,11 +113,17 @@ export default function PurchasingMaterialsIndex({
 
     const handleFilter = (e) => {
         e.preventDefault();
+        applyUsageFilter(search, dateFrom, dateTo, 1);
+    };
+
+    const applyUsageFilter = (s = search, df = dateFrom, dt = dateTo, page = 1, perPage = usages?.per_page || 15) => {
         router.get(route('purchasing.materials.index'), {
             tab: active_tab,
-            search,
-            date_from: dateFrom,
-            date_to: dateTo,
+            search: s || undefined,
+            date_from: df || undefined,
+            date_to: dt || undefined,
+            page: page > 1 ? page : undefined,
+            per_page: perPage,
         }, { preserveState: true, replace: true });
     };
 
@@ -127,6 +133,132 @@ export default function PurchasingMaterialsIndex({
         setDateTo('');
         router.get(route('purchasing.materials.index'), { tab: active_tab });
     };
+
+    const usageColumns = useMemo(() => [
+        {
+            id: 'no',
+            meta: { title: 'No', cellClassName: 'text-center font-mono text-xs' },
+            header: () => <div className="text-center">No</div>,
+            cell: ({ row }) => <span className="block text-center font-mono text-xs text-slate-400">{row.index + 1}</span>,
+        },
+        {
+            id: 'usage_date',
+            accessorFn: (row) => row.usage_date || '',
+            meta: { title: 'Tanggal', cellClassName: 'font-mono whitespace-nowrap' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tanggal" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-xs text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    {formatDate(row.original.usage_date)}
+                </span>
+            ),
+        },
+        {
+            id: 'type',
+            accessorFn: (row) => (Number(row.quantity_in) > 0 ? 'MASUK' : 'KELUAR'),
+            meta: { title: 'Jenis' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jenis" />,
+            cell: ({ row }) =>
+                Number(row.original.quantity_in) > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        <ArrowDownLeft className="h-3 w-3" /> MASUK
+                    </span>
+                ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                        <ArrowUpRight className="h-3 w-3" /> KELUAR
+                    </span>
+                ),
+        },
+        {
+            id: 'material_name',
+            accessorFn: (row) => row.material_name || '',
+            meta: { title: 'Nama Material' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama Material" />,
+            cell: ({ row }) => (
+                <div>
+                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100 block">{row.original.material_name}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{row.original.stock?.code}</span>
+                </div>
+            ),
+        },
+        {
+            id: 'quantity',
+            accessorFn: (row) => (Number(row.quantity_in) > 0 ? row.quantity_in : row.quantity_out),
+            meta: { title: 'Kuantitas', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kuantitas" className="justify-end" />,
+            cell: ({ row }) =>
+                Number(row.original.quantity_in) > 0 ? (
+                    <span className="font-mono font-bold text-xs whitespace-nowrap text-emerald-600 dark:text-emerald-400">
+                        +{Number(row.original.quantity_in).toLocaleString()} {row.original.unit}
+                    </span>
+                ) : (
+                    <span className="font-mono font-bold text-xs whitespace-nowrap text-rose-600 dark:text-rose-400">
+                        -{Number(row.original.quantity_out).toLocaleString()} {row.original.unit}
+                    </span>
+                ),
+        },
+        {
+            id: 'balance_stock',
+            accessorFn: (row) => row.balance_stock ?? 0,
+            meta: { title: 'Saldo Akhir', cellClassName: 'text-right font-mono font-bold whitespace-nowrap' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Saldo Akhir" className="justify-end" />,
+            cell: ({ row }) => (
+                <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                    {Number(row.original.balance_stock).toLocaleString()} {row.original.unit}
+                </span>
+            ),
+        },
+        {
+            id: 'division',
+            accessorFn: (row) => row.division || row.department || '',
+            meta: { title: 'Divisi / Lokasi' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Divisi / Lokasi" />,
+            cell: ({ row }) => (
+                <span className="font-semibold text-xs text-slate-700 dark:text-slate-300">
+                    {row.original.division || row.original.department || '-'}
+                </span>
+            ),
+        },
+        {
+            id: 'operator',
+            accessorFn: (row) => row.operator_name || '',
+            meta: { title: 'Operator & SPK' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Operator & SPK" />,
+            cell: ({ row }) => (
+                <div>
+                    <div className="font-medium text-xs text-slate-800 dark:text-slate-200">{row.original.operator_name || '-'}</div>
+                    {row.original.production_ref && (
+                        <span className="inline-block font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.2 rounded mt-0.5">
+                            {row.original.production_ref}
+                        </span>
+                    )}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'notes',
+            meta: { title: 'Catatan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Catatan" />,
+            cell: ({ row }) => (
+                <span className="text-xs text-slate-500 max-w-[180px] truncate inline-block align-middle" title={row.original.notes}>
+                    {row.original.notes || '—'}
+                </span>
+            ),
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Aksi</div>,
+            cell: ({ row }) => (
+                <button
+                    type="button"
+                    onClick={() => handleDeleteTransaction(row.original.id, row.original.material_name)}
+                    className="text-slate-400 hover:text-rose-600 p-1 rounded transition"
+                    title="Batalkan & Hapus Catatan"
+                >
+                    <Trash2 className="h-3.5 w-3.5" />
+                </button>
+            ),
+        },
+    ], []);
 
     const handleDeleteTransaction = (usageId, matName) => {
         if (!confirm(`Batalkan catatan transaksi untuk "${matName}"? Saldo stok fisik akan dikembalikan secara otomatis.`)) {
@@ -477,170 +609,44 @@ export default function PurchasingMaterialsIndex({
                             </CardContent>
                         </Card>
 
-                        {/* Filter & Riwayat Log Transaksi Harian */}
-                        <Card className="shadow-xs border-slate-200 dark:border-slate-800">
-                            <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                    <div>
-                                        <CardTitle className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide flex items-center gap-2">
-                                            <History className="h-4 w-4 text-slate-500" />
-                                            Riwayat Log Transaksi Masuk & Keluar
-                                        </CardTitle>
-                                        <CardDescription className="text-xs">
-                                            Catatan kronologis penerimaan barang dan pemakaian produksi.
-                                        </CardDescription>
-                                    </div>
-
-                                    {/* Search & Date Filter Form */}
-                                    <form onSubmit={handleFilter} className="flex flex-wrap items-center gap-2">
-                                        <div className="relative">
-                                            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                                            <Input 
-                                                type="text" 
-                                                placeholder="Cari SPK, nama, operator..." 
-                                                value={search}
-                                                onChange={(e) => setSearch(e.target.value)}
-                                                className="h-8 pl-8 text-xs w-44"
-                                            />
-                                        </div>
-                                        <Input 
-                                            type="date" 
-                                            value={dateFrom} 
-                                            onChange={(e) => setDateFrom(e.target.value)} 
-                                            className="h-8 text-xs w-32" 
-                                        />
-                                        <span className="text-slate-400 text-xs">s/d</span>
-                                        <Input 
-                                            type="date" 
-                                            value={dateTo} 
-                                            onChange={(e) => setDateTo(e.target.value)} 
-                                            className="h-8 text-xs w-32" 
-                                        />
-                                        <Button type="submit" size="sm" variant="secondary" className="h-8 text-xs font-bold">
-                                            Filter
+                        {/* Riwayat Log Transaksi Masuk & Keluar - DataTable */}
+                        <div className="mb-2">
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide flex items-center gap-2">
+                                <History className="h-4 w-4 text-slate-500" />
+                                Riwayat Log Transaksi Masuk &amp; Keluar
+                            </h3>
+                            <p className="text-xs text-slate-500">Catatan kronologis penerimaan barang dan pemakaian produksi.</p>
+                        </div>
+                        <DataTable
+                            columns={usageColumns}
+                            data={usages.data || []}
+                            serverPagination={usages}
+                            onServerPageChange={(page) => applyUsageFilter(search, dateFrom, dateTo, page)}
+                            onServerPerPageChange={(per_page) => applyUsageFilter(search, dateFrom, dateTo, 1, per_page)}
+                            onServerSearchChange={(val) => {
+                                setSearch(val);
+                                applyUsageFilter(val, dateFrom, dateTo, 1);
+                            }}
+                            searchValue={search}
+                            searchPlaceholder="Cari SPK, nama, operator..."
+                            exportFileName={`Log_Material_${new Date().toISOString().slice(0, 10)}`}
+                            emptyMessage="Belum ada catatan transaksi material pada periode ini."
+                            filterSlot={
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 text-xs w-32" />
+                                    <span className="text-slate-400 text-xs">s/d</span>
+                                    <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 text-xs w-32" />
+                                    <Button type="button" size="sm" variant="secondary" className="h-8 text-xs font-bold" onClick={() => applyUsageFilter(search, dateFrom, dateTo, 1)}>
+                                        Filter
+                                    </Button>
+                                    {(search || dateFrom || dateTo) && (
+                                        <Button type="button" size="sm" variant="ghost" onClick={handleResetFilter} className="h-8 text-xs text-slate-500">
+                                            Reset
                                         </Button>
-                                        {(search || dateFrom || dateTo) && (
-                                            <Button type="button" size="sm" variant="ghost" onClick={handleResetFilter} className="h-8 text-xs text-slate-500">
-                                                Reset
-                                            </Button>
-                                        )}
-                                    </form>
+                                    )}
                                 </div>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader className="bg-slate-50 dark:bg-slate-900/60">
-                                            <TableRow>
-                                                <TableHead className="w-10 text-center font-bold text-xs uppercase">No</TableHead>
-                                                <TableHead className="font-bold text-xs uppercase">Tanggal</TableHead>
-                                                <TableHead className="font-bold text-xs uppercase">Jenis</TableHead>
-                                                <TableHead className="font-bold text-xs uppercase">Nama Material</TableHead>
-                                                <TableHead className="text-right font-bold text-xs uppercase">Kuantitas</TableHead>
-                                                <TableHead className="text-right font-bold text-xs uppercase">Saldo Akhir</TableHead>
-                                                <TableHead className="font-bold text-xs uppercase">Divisi / Lokasi</TableHead>
-                                                <TableHead className="font-bold text-xs uppercase">Operator & SPK</TableHead>
-                                                <TableHead className="font-bold text-xs uppercase">Catatan</TableHead>
-                                                <TableHead className="w-10 text-center font-bold text-xs uppercase sticky right-0 z-20 bg-slate-50 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800">Aksi</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {usages.data && usages.data.length > 0 ? (
-                                                usages.data.map((log, idx) => (
-                                                    <TableRow key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50">
-                                                        <TableCell className="text-center font-mono text-xs text-slate-400">
-                                                            {idx + 1}
-                                                        </TableCell>
-                                                        <TableCell className="font-mono text-xs text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                                                            {formatDate(log.usage_date)}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {Number(log.quantity_in) > 0 ? (
-                                                                <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                                                    <ArrowDownLeft className="h-3 w-3" /> MASUK
-                                                                </span>
-                                                            ) : (
-                                                                <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
-                                                                    <ArrowUpRight className="h-3 w-3" /> KELUAR
-                                                                </span>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <span className="font-bold text-xs text-slate-900 dark:text-slate-100 block">{log.material_name}</span>
-                                                            <span className="text-[10px] text-slate-400 font-mono">{log.stock?.code}</span>
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-mono font-bold text-xs whitespace-nowrap">
-                                                            {Number(log.quantity_in) > 0 ? (
-                                                                <span className="text-emerald-600 dark:text-emerald-400">+{Number(log.quantity_in).toLocaleString()} {log.unit}</span>
-                                                            ) : (
-                                                                <span className="text-rose-600 dark:text-rose-400">-{Number(log.quantity_out).toLocaleString()} {log.unit}</span>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-mono font-bold text-xs text-slate-800 dark:text-slate-200">
-                                                            {Number(log.balance_stock).toLocaleString()} {log.unit}
-                                                        </TableCell>
-                                                        <TableCell className="text-xs">
-                                                            <div className="font-semibold text-slate-700 dark:text-slate-300">{log.division || log.department || '-'}</div>
-                                                        </TableCell>
-                                                        <TableCell className="text-xs">
-                                                            <div className="font-medium text-slate-800 dark:text-slate-200">{log.operator_name || '-'}</div>
-                                                            {log.production_ref && (
-                                                                <span className="inline-block font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.2 rounded mt-0.5">
-                                                                    {log.production_ref}
-                                                                </span>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-xs text-slate-500 max-w-[180px] truncate" title={log.notes}>
-                                                            {log.notes || '—'}
-                                                        </TableCell>
-                                                        <TableCell className="text-center sticky right-0 z-10 bg-white/95 dark:bg-slate-900/95 border-l border-slate-200 dark:border-slate-800">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleDeleteTransaction(log.id, log.material_name)}
-                                                                className="text-slate-400 hover:text-rose-600 p-1 rounded transition"
-                                                                title="Batalkan & Hapus Catatan"
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))
-                                            ) : (
-                                                <TableRow>
-                                                    <TableCell colSpan={10} className="text-center py-10 text-slate-400 text-xs">
-                                                        Belum ada catatan transaksi material pada periode ini.
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-
-                                {/* Pagination */}
-                                {usages.links && usages.links.length > 3 && (
-                                    <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 p-3">
-                                        <span className="text-xs text-slate-400">
-                                            Menampilkan {usages.from || 0} - {usages.to || 0} dari {usages.total || 0} catatan
-                                        </span>
-                                        <div className="flex items-center gap-1">
-                                            {usages.links.map((link, i) => (
-                                                <Link
-                                                    key={i}
-                                                    href={link.url || '#'}
-                                                    preserveScroll
-                                                    dangerouslySetInnerHTML={{ __html: link.label }}
-                                                    className={`px-2.5 py-1 text-xs rounded-lg font-bold transition ${
-                                                        link.active
-                                                            ? 'bg-indigo-600 text-white'
-                                                            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
-                                                    } ${!link.url ? 'opacity-40 pointer-events-none' : ''}`}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                            }
+                        />
                     </div>
                 </div>
             </div>

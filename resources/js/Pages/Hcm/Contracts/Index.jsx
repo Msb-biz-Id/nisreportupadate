@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     FileCheck,
     Calendar,
@@ -33,6 +33,7 @@ import { Label } from '@/Components/ui/label';
 import { Textarea } from '@/Components/ui/textarea';
 import { Badge } from '@/Components/ui/badge';
 import { SearchableSelect } from '@/Components/ui/searchable-select';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -133,7 +134,7 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
         notes: '',
     });
 
-    const applyFilters = (search = searchTerm, entity = selectedEntity, rev = selectedReviewStatus, stat = selectedStatus) => {
+    const applyFilters = (search = searchTerm, entity = selectedEntity, rev = selectedReviewStatus, stat = selectedStatus, page = 1, perPage = contracts?.per_page || 15) => {
         router.get(
             route('hcm.contracts.index'),
             {
@@ -141,14 +142,11 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
                 legal_entity: entity !== 'all' ? entity : undefined,
                 review_status: rev !== 'all' ? rev : undefined,
                 employment_status: stat !== 'all' ? stat : undefined,
+                page: page > 1 ? page : undefined,
+                per_page: perPage,
             },
             { preserveState: true, replace: true }
         );
-    };
-
-    const handleSearchSubmit = (e) => {
-        e.preventDefault();
-        applyFilters(searchTerm);
     };
 
     const openCreateModal = () => {
@@ -318,6 +316,238 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
         }
         return <Badge variant="outline">{status}</Badge>;
     };
+
+    const columns = useMemo(() => [
+        {
+            id: 'employee',
+            accessorFn: (row) => row.employee?.name || '',
+            meta: { title: 'Nama' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama" />,
+            cell: ({ row }) => {
+                const c = row.original;
+                return (
+                    <div className="flex items-center gap-2">
+                        {c.employee?.photo_url ? (
+                            <img
+                                src={c.employee.photo_url}
+                                alt={c.employee.name}
+                                className="w-7 h-7 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
+                            />
+                        ) : (
+                            <div className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-bold flex items-center justify-center text-xs shrink-0">
+                                {c.employee?.name?.charAt(0) || 'E'}
+                            </div>
+                        )}
+                        <div className="min-w-0">
+                            <div className="font-semibold text-zinc-900 dark:text-zinc-100">{c.employee?.name || '-'}</div>
+                            <div className="text-[10px] font-mono text-zinc-400">{c.employee?.employee_code || '-'}</div>
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'nickname',
+            accessorFn: (row) => row.employee?.nickname || '',
+            meta: { title: 'Nama Panggil' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama Panggil" />,
+            cell: ({ row }) => (
+                <span className="font-medium text-zinc-800 dark:text-zinc-200">{row.original.employee?.nickname || '-'}</span>
+            ),
+        },
+        {
+            id: 'department',
+            accessorFn: (row) => row.employee?.department || '',
+            meta: { title: 'Departemen / Divisi' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Departemen / Divisi" />,
+            cell: ({ row }) => (
+                <div>
+                    <div className="font-semibold text-zinc-800 dark:text-zinc-200">{row.original.employee?.department || '-'}</div>
+                    <div className="text-[10px] text-zinc-400">{row.original.employee?.division || '-'}</div>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'employment_status',
+            meta: { title: 'Status Ketenagakerjaan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status Ketenagakerjaan" />,
+            cell: ({ row }) => (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/60 dark:border-zinc-700/60">
+                    {row.original.employment_status || '-'}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'contract_sequence',
+            meta: { title: 'Kontrak Ke', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kontrak Ke" className="justify-center" />,
+            cell: ({ row }) => (
+                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                    {row.original.contract_sequence ?? '-'}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'contract_number',
+            meta: { title: 'No. Kontrak' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="No. Kontrak" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100">{row.original.contract_number}</span>
+            ),
+        },
+        {
+            accessorKey: 'legal_entity',
+            meta: { title: 'CV' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="CV" />,
+            cell: ({ row }) => <span className="font-medium text-zinc-800 dark:text-zinc-200">{row.original.legal_entity || '-'}</span>,
+        },
+        {
+            accessorKey: 'duration_text',
+            meta: { title: 'Masa Kontrak' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Masa Kontrak" />,
+            cell: ({ row }) => <span className="text-zinc-700 dark:text-zinc-300">{row.original.duration_text || '-'}</span>,
+        },
+        {
+            accessorKey: 'trainee_start_month',
+            meta: { title: 'Bulan Mulai Trainee' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Bulan Mulai Trainee" />,
+            cell: ({ row }) => <span className="text-zinc-600 dark:text-zinc-400">{row.original.trainee_start_month || '-'}</span>,
+        },
+        {
+            accessorKey: 'trainee_end_month',
+            meta: { title: 'Bulan Berakhir Trainee' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Bulan Berakhir Trainee" />,
+            cell: ({ row }) => <span className="text-zinc-600 dark:text-zinc-400">{row.original.trainee_end_month || '-'}</span>,
+        },
+        {
+            id: 'contract_month',
+            accessorFn: (row) => row.contract_month || row.start_date || '',
+            meta: { title: 'Bulan Kontrak' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Bulan Kontrak" />,
+            cell: ({ row }) => (
+                <span className="text-zinc-700 dark:text-zinc-300">
+                    {row.original.contract_month || (row.original.start_date ? new Date(row.original.start_date).toLocaleDateString('id-ID', { month: 'long' }) : '-')}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'start_year',
+            meta: { title: 'Tahun Mulai Kontrak', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tahun Mulai Kontrak" className="justify-center" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-zinc-700 dark:text-zinc-300">
+                    {row.original.start_year || (row.original.start_date ? new Date(row.original.start_date).getFullYear() : '-')}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'end_year',
+            meta: { title: 'Tahun Berakhir Kontrak', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tahun Berakhir Kontrak" className="justify-center" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-zinc-700 dark:text-zinc-300">
+                    {row.original.end_year || (row.original.end_date ? new Date(row.original.end_date).getFullYear() : '-')}
+                </span>
+            ),
+        },
+        {
+            id: 'days_remaining',
+            accessorFn: (row) => (row.days_remaining === null || row.days_remaining === undefined ? null : row.days_remaining),
+            meta: { title: 'Sisa Masa Kontrak (Hari)', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Sisa Masa Kontrak (Hari)" className="justify-center" />,
+            cell: ({ row }) => {
+                const d = row.original.days_remaining;
+                if (d === null || d === undefined) {
+                    return <span className="text-zinc-400 italic">Tetap</span>;
+                }
+                const cls =
+                    d < 0
+                        ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900'
+                        : d <= 14
+                        ? 'bg-rose-500 text-white animate-pulse'
+                        : d <= 30
+                        ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800';
+                return <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${cls}`}>{d} Hari</span>;
+            },
+        },
+        {
+            accessorKey: 'review_status',
+            meta: { title: 'Status Review' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status Review" />,
+            cell: ({ row }) => getReviewBadge(row.original.review_status, row.original.days_remaining),
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Aksi</div>,
+            cell: ({ row }) => {
+                const c = row.original;
+                return (
+                    <div className="flex items-center justify-end gap-1.5">
+                        <button
+                            type="button"
+                            onClick={() => handleOpenDecision(c)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition"
+                            title="Evaluasi Kenaikan Gaji Karyawan"
+                        >
+                            <TrendingUp className="h-3 w-3" />
+                            <span>Evaluasi Gaji</span>
+                        </button>
+                        {c.file_contract_url ? (
+                            <button
+                                type="button"
+                                onClick={() => openDocumentViewer(c.file_contract_url, `Kontrak ${c.contract_number}`)}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 transition"
+                                title="Lihat Berkas Digital"
+                            >
+                                <Eye className="h-3 w-3" />
+                                <span>Berkas</span>
+                            </button>
+                        ) : (
+                            <label
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium text-zinc-500 hover:text-zinc-800 border border-dashed border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition"
+                                title="Upload Berkas Scan Kontrak Fisik"
+                            >
+                                <Upload className="h-3 w-3" />
+                                <span>Upload</span>
+                                <input
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        if (e.target.files?.[0]) {
+                                            const formData = new FormData();
+                                            formData.append('file_contract', e.target.files[0]);
+                                            router.post(route('hcm.contracts.upload', c.uuid || c.id), formData, {
+                                                forceFormData: true,
+                                                preserveScroll: true,
+                                            });
+                                        }
+                                    }}
+                                />
+                            </label>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => openEditModal(c)}
+                            className="p-1 rounded text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                            title="Edit Data Kontrak"
+                        >
+                            <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleDelete(c)}
+                            className="p-1 rounded text-zinc-500 hover:text-rose-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                            title="Hapus Kontrak"
+                        >
+                            <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
+                );
+            },
+        },
+    ], []);
 
     return (
         <AppLayout
@@ -534,329 +764,77 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
                     </button>
                 </div>
 
-                {/* Filter Toolbar Sticky Top */}
-                <Card className="sticky top-0 z-30 border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <CardContent className="p-3.5">
-                        <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row items-center gap-2.5">
-                            <div className="relative flex-1 w-full">
-                                <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
-                                <Input
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="Cari no kontrak, nama karyawan, nama panggil, NIK..."
-                                    className="pl-9 h-9 text-xs"
-                                />
-                            </div>
 
-                            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                                <SearchableSelect
-                                    value={selectedEntity}
-                                    onValueChange={(val) => {
-                                        setSelectedEntity(val);
-                                        applyFilters(searchTerm, val, selectedReviewStatus, selectedStatus);
+                {/* Tabel Kontrak - DataTable (sticky filter, sticky footer pagination, kolom aksi pin kanan) */}
+                <DataTable
+                    columns={columns}
+                    data={contracts.data || []}
+                    serverPagination={contracts}
+                    onServerPageChange={(page) => applyFilters(searchTerm, selectedEntity, selectedReviewStatus, selectedStatus, page)}
+                    onServerPerPageChange={(per_page) => applyFilters(searchTerm, selectedEntity, selectedReviewStatus, selectedStatus, 1, per_page)}
+                    onServerSearchChange={(val) => {
+                        setSearchTerm(val);
+                        applyFilters(val, selectedEntity, selectedReviewStatus, selectedStatus, 1);
+                    }}
+                    searchValue={searchTerm}
+                    searchPlaceholder="Cari no kontrak, nama karyawan, nama panggil, NIK..."
+                    exportFileName={`Kontrak_Karyawan_${new Date().toISOString().slice(0, 10)}`}
+                    filterSlot={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <SearchableSelect
+                                value={selectedEntity}
+                                onValueChange={(val) => {
+                                    setSelectedEntity(val);
+                                    applyFilters(searchTerm, val, selectedReviewStatus, selectedStatus, 1);
+                                }}
+                                options={[{ label: 'Semua Badan Usaha (CV)', value: 'all' }, ...toOptions(dropdowns.legal_entities)]}
+                                placeholder="Semua CV"
+                                className="h-8 w-44 text-xs"
+                                clearable={false}
+                            />
+                            <SearchableSelect
+                                value={selectedStatus}
+                                onValueChange={(val) => {
+                                    setSelectedStatus(val);
+                                    applyFilters(searchTerm, selectedEntity, selectedReviewStatus, val, 1);
+                                }}
+                                options={[{ label: 'Semua Status Kontrak', value: 'all' }, ...toOptions(dropdowns.employment_statuses)]}
+                                placeholder="Status Kontrak"
+                                className="h-8 w-44 text-xs"
+                                clearable={false}
+                            />
+                            <SearchableSelect
+                                value={selectedReviewStatus}
+                                onValueChange={(val) => {
+                                    setSelectedReviewStatus(val);
+                                    applyFilters(searchTerm, selectedEntity, val, selectedStatus, 1);
+                                }}
+                                options={[{ label: 'Semua Status Review', value: 'all' }, ...toOptions(dropdowns.review_statuses)]}
+                                placeholder="Status Review"
+                                className="h-8 w-44 text-xs"
+                                clearable={false}
+                            />
+                            {(searchTerm || selectedEntity !== 'all' || selectedReviewStatus !== 'all' || selectedStatus !== 'all') && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        setSearchTerm('');
+                                        setSelectedEntity('all');
+                                        setSelectedReviewStatus('all');
+                                        setSelectedStatus('all');
+                                        router.get(route('hcm.contracts.index'), {}, { preserveState: true, replace: true });
                                     }}
-                                    options={[{ label: 'Semua Badan Usaha (CV)', value: 'all' }, ...toOptions(dropdowns.legal_entities)]}
-                                    placeholder="Semua CV"
-                                    className="h-9 w-44 text-xs"
-                                    clearable={false}
-                                />
-
-                                {/* Filter Status Kontrak (Status Ketenagakerjaan) */}
-                                <SearchableSelect
-                                    value={selectedStatus}
-                                    onValueChange={(val) => {
-                                        setSelectedStatus(val);
-                                        applyFilters(searchTerm, selectedEntity, selectedReviewStatus, val);
-                                    }}
-                                    options={[{ label: 'Semua Status Kontrak', value: 'all' }, ...toOptions(dropdowns.employment_statuses)]}
-                                    placeholder="Status Kontrak"
-                                    className="h-9 w-44 text-xs"
-                                    clearable={false}
-                                />
-
-                                <SearchableSelect
-                                    value={selectedReviewStatus}
-                                    onValueChange={(val) => {
-                                        setSelectedReviewStatus(val);
-                                        applyFilters(searchTerm, selectedEntity, val, selectedStatus);
-                                    }}
-                                    options={[{ label: 'Semua Status Review', value: 'all' }, ...toOptions(dropdowns.review_statuses)]}
-                                    placeholder="Status Review"
-                                    className="h-9 w-44 text-xs"
-                                    clearable={false}
-                                />
-
-                                <Button type="submit" variant="secondary" size="sm" className="h-9 text-xs gap-1.5">
-                                    <Filter className="h-3.5 w-3.5" />
-                                    Filter
+                                    className="h-8 text-xs gap-1 text-zinc-500 hover:text-rose-600 hover:border-rose-200"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                    Reset
                                 </Button>
-
-                                {(searchTerm || selectedEntity !== 'all' || selectedReviewStatus !== 'all' || selectedStatus !== 'all') && (
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                            setSearchTerm('');
-                                            setSelectedEntity('all');
-                                            setSelectedReviewStatus('all');
-                                            setSelectedStatus('all');
-                                            router.get(route('hcm.contracts.index'), {}, { preserveState: true, replace: true });
-                                        }}
-                                        className="h-9 text-xs gap-1 text-zinc-500 hover:text-rose-600 hover:border-rose-200"
-                                    >
-                                        <X className="h-3.5 w-3.5" />
-                                        Reset
-                                    </Button>
-                                )}
-                            </div>
-                        </form>
-                    </CardContent>
-                </Card>
-
-                {/* Tabel Kontrak - 15 Kolom Sesuai Blueprint Database Row 16 */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-xs text-left whitespace-nowrap">
-                            <thead className="bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400">
-                                <tr>
-                                    <th className="py-3 px-3.5 font-semibold">Nama</th>
-                                    <th className="py-3 px-3.5 font-semibold">Nama Panggil</th>
-                                    <th className="py-3 px-3.5 font-semibold">Departemen / Divisi</th>
-                                    <th className="py-3 px-3.5 font-semibold">Status Ketenagakerjaan</th>
-                                    <th className="py-3 px-3 font-semibold text-center">Kontrak Ke</th>
-                                    <th className="py-3 px-3.5 font-semibold">No. Kontrak</th>
-                                    <th className="py-3 px-3.5 font-semibold">CV</th>
-                                    <th className="py-3 px-3.5 font-semibold">Masa Kontrak</th>
-                                    <th className="py-3 px-3 font-semibold">Bulan Mulai Trainee</th>
-                                    <th className="py-3 px-3 font-semibold">Bulan Berakhir Trainee</th>
-                                    <th className="py-3 px-3 font-semibold">Bulan Kontrak</th>
-                                    <th className="py-3 px-3 font-semibold text-center">Tahun Mulai Kontrak</th>
-                                    <th className="py-3 px-3 font-semibold text-center">Tahun Berakhir Kontrak</th>
-                                    <th className="py-3 px-3.5 font-semibold text-center">Sisa Masa Kontrak (Hari)</th>
-                                    <th className="py-3 px-3.5 font-semibold">Status Review</th>
-                                    <th className="py-3 px-3.5 font-semibold text-right sticky right-0 z-20 bg-zinc-50 dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                                {contracts.data.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={16} className="py-12 text-center text-zinc-400">
-                                            Tidak ada data naskah kontrak kerja yang sesuai dengan filter.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    contracts.data.map((c) => (
-                                        <tr key={c.id} className="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40 transition">
-                                            {/* 1. Nama */}
-                                            <td className="py-3 px-3.5">
-                                                <div className="flex items-center gap-2">
-                                                    {c.employee?.photo_url ? (
-                                                        <img
-                                                            src={c.employee.photo_url}
-                                                            alt={c.employee.name}
-                                                            className="w-7 h-7 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-bold flex items-center justify-center text-xs shrink-0">
-                                                            {c.employee?.name?.charAt(0) || 'E'}
-                                                        </div>
-                                                    )}
-                                                    <div className="min-w-0">
-                                                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">{c.employee?.name || '-'}</div>
-                                                        <div className="text-[10px] font-mono text-zinc-400">{c.employee?.employee_code || '-'}</div>
-                                                    </div>
-                                                </div>
-                                            </td>
-
-                                            {/* 2. Nama Panggil */}
-                                            <td className="py-3 px-3.5 font-medium text-zinc-800 dark:text-zinc-200">
-                                                {c.employee?.nickname || '-'}
-                                            </td>
-
-                                            {/* 3. Departemen / Divisi */}
-                                            <td className="py-3 px-3.5">
-                                                <div className="font-semibold text-zinc-800 dark:text-zinc-200">{c.employee?.department || '-'}</div>
-                                                <div className="text-[10px] text-zinc-400">{c.employee?.division || '-'}</div>
-                                            </td>
-
-                                            {/* 4. Status Ketenagakerjaan */}
-                                            <td className="py-3 px-3.5">
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/60 dark:border-zinc-700/60">
-                                                    {c.employment_status || '-'}
-                                                </span>
-                                            </td>
-
-                                            {/* 5. Kontrak Ke */}
-                                            <td className="py-3 px-3 text-center">
-                                                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                                                    {c.contract_sequence !== null && c.contract_sequence !== undefined ? c.contract_sequence : '-'}
-                                                </span>
-                                            </td>
-
-                                            {/* 6. No. Kontrak */}
-                                            <td className="py-3 px-3.5 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                                                {c.contract_number}
-                                            </td>
-
-                                            {/* 7. CV */}
-                                            <td className="py-3 px-3.5 font-medium text-zinc-800 dark:text-zinc-200">
-                                                {c.legal_entity || '-'}
-                                            </td>
-
-                                            {/* 8. Masa Kontrak */}
-                                            <td className="py-3 px-3.5 text-zinc-700 dark:text-zinc-300">
-                                                {c.duration_text || '-'}
-                                            </td>
-
-                                            {/* 9. Bulan Mulai Trainee */}
-                                            <td className="py-3 px-3 text-zinc-600 dark:text-zinc-400">
-                                                {c.trainee_start_month || '-'}
-                                            </td>
-
-                                            {/* 10. Bulan Berakhir Trainee */}
-                                            <td className="py-3 px-3 text-zinc-600 dark:text-zinc-400">
-                                                {c.trainee_end_month || '-'}
-                                            </td>
-
-                                            {/* 11. Bulan Kontrak */}
-                                            <td className="py-3 px-3 text-zinc-700 dark:text-zinc-300">
-                                                {c.contract_month || (c.start_date ? new Date(c.start_date).toLocaleDateString('id-ID', { month: 'long' }) : '-')}
-                                            </td>
-
-                                            {/* 12. Tahun Mulai Kontrak */}
-                                            <td className="py-3 px-3 text-center font-mono text-zinc-700 dark:text-zinc-300">
-                                                {c.start_year || (c.start_date ? new Date(c.start_date).getFullYear() : '-')}
-                                            </td>
-
-                                            {/* 13. Tahun Berakhir Kontrak */}
-                                            <td className="py-3 px-3 text-center font-mono text-zinc-700 dark:text-zinc-300">
-                                                {c.end_year || (c.end_date ? new Date(c.end_date).getFullYear() : '-')}
-                                            </td>
-
-                                            {/* 14. Sisa Masa Kontrak (Hari) */}
-                                            <td className="py-3 px-3.5 text-center">
-                                                {c.days_remaining !== null && c.days_remaining !== undefined ? (
-                                                    <span
-                                                        className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
-                                                            c.days_remaining < 0
-                                                                ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900'
-                                                                : c.days_remaining <= 14
-                                                                ? 'bg-rose-500 text-white animate-pulse'
-                                                                : c.days_remaining <= 30
-                                                                ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
-                                                                : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                                                        }`}
-                                                    >
-                                                        {c.days_remaining} Hari
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-zinc-400 italic">Tetap</span>
-                                                )}
-                                            </td>
-
-                                            {/* 15. Status Review */}
-                                            <td className="py-3 px-3.5">
-                                                {getReviewBadge(c.review_status, c.days_remaining)}
-                                            </td>
-
-                                            {/* 16. Aksi */}
-                                            <td className="py-3 px-3.5 text-right sticky right-0 z-10 bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/90 transition-colors">
-                                                <div className="flex items-center justify-end gap-1.5">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleOpenDecision(c)}
-                                                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition"
-                                                        title="Evaluasi Kenaikan Gaji Karyawan"
-                                                    >
-                                                        <TrendingUp className="h-3 w-3" />
-                                                        <span>Evaluasi Gaji</span>
-                                                    </button>
-                                                    {c.file_contract_url ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => openDocumentViewer(c.file_contract_url, `Kontrak ${c.contract_number}`)}
-                                                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 transition"
-                                                            title="Lihat Berkas Digital"
-                                                        >
-                                                            <Eye className="h-3 w-3" />
-                                                            <span>Berkas</span>
-                                                        </button>
-                                                    ) : (
-                                                        <label
-                                                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium text-zinc-500 hover:text-zinc-800 border border-dashed border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition"
-                                                            title="Upload Berkas Scan Kontrak Fisik"
-                                                        >
-                                                            <Upload className="h-3 w-3" />
-                                                            <span>Upload</span>
-                                                            <input
-                                                                type="file"
-                                                                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                                                                className="hidden"
-                                                                onChange={(e) => {
-                                                                    if (e.target.files?.[0]) {
-                                                                        const formData = new FormData();
-                                                                        formData.append('file_contract', e.target.files[0]);
-                                                                        router.post(route('hcm.contracts.upload', c.uuid || c.id), formData, {
-                                                                            forceFormData: true,
-                                                                            preserveScroll: true,
-                                                                        });
-                                                                    }
-                                                                }}
-                                                            />
-                                                        </label>
-                                                    )}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => openEditModal(c)}
-                                                        className="p-1 rounded text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                                                        title="Edit Data Kontrak"
-                                                    >
-                                                        <Edit2 className="h-3.5 w-3.5" />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDelete(c)}
-                                                        className="p-1 rounded text-zinc-500 hover:text-rose-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                                                        title="Hapus Kontrak"
-                                                    >
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Pagination Sticky Bottom */}
-                    {contracts.links && contracts.links.length > 3 && (
-                        <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs sticky bottom-0 z-20 bg-white dark:bg-zinc-900 shadow-[0_-4px_16px_-2px_rgba(0,0,0,0.08)]">
-                            <span className="text-zinc-500">
-                                Menampilkan {contracts.from || 0} - {contracts.to || 0} dari {contracts.total} berkas
-                            </span>
-                            <div className="flex gap-1">
-                                {contracts.links.map((link, idx) => (
-                                    <button
-                                        key={idx}
-                                        disabled={!link.url || link.active}
-                                        onClick={() => link.url && router.visit(link.url, { preserveState: true })}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                        className={`px-2.5 py-1 rounded text-xs transition ${
-                                            link.active
-                                                ? 'bg-indigo-600 text-white font-bold'
-                                                : link.url
-                                                ? 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700'
-                                                : 'text-zinc-400 opacity-50 cursor-not-allowed'
-                                        }`}
-                                    />
-                                ))}
-                            </div>
+                            )}
                         </div>
-                    )}
-                </Card>
+                    }
+                />
             </div>
 
             {/* MODAL FORM: Tambah / Edit Kontrak */}

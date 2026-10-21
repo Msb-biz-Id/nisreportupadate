@@ -44,6 +44,7 @@ import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
 import { Textarea } from '@/Components/ui/textarea';
 import { SearchableSelect } from '@/Components/ui/searchable-select';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -571,6 +572,359 @@ export default function AttendanceIndex({
             return true;
         });
     }, [dailyRows, searchTerm, dailyStatusFilter]);
+
+    const dailyColumns = useMemo(() => [
+        {
+            id: 'employee',
+            accessorFn: (row) => row.name || '',
+            meta: { title: 'Karyawan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Karyawan" />,
+            cell: ({ row }) => {
+                const r = row.original;
+                return (
+                    <div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-zinc-900 dark:text-zinc-100">{r.name}</span>
+                            {r.employee_category === 'INTERN' ? (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 shrink-0">
+                                    Magang SMK
+                                </span>
+                            ) : (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 shrink-0">
+                                    Reguler
+                                </span>
+                            )}
+                            <span
+                                className="px-1.5 py-0.5 rounded text-[9px] font-bold border shrink-0"
+                                style={{
+                                    backgroundColor: `${r.shift_color || '#2563eb'}18`,
+                                    borderColor: `${r.shift_color || '#2563eb'}40`,
+                                    color: r.shift_color || '#2563eb',
+                                }}
+                                title={`Shift: ${r.shift_name || 'Shift Reguler'} (${r.is_off_day ? 'Off' : `${r.clock_in || '08:00'} - ${r.clock_out || '17:00'}`})`}
+                            >
+                                {r.shift_code || 'REG'}
+                            </span>
+                        </div>
+                        <div className="text-[10px] text-zinc-400 font-mono">{r.employee_code}</div>
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'department',
+            accessorFn: (row) => row.department || '',
+            meta: { title: 'Departemen & Divisi' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Departemen & Divisi" />,
+            cell: ({ row }) => (
+                <div className="text-zinc-600 dark:text-zinc-400">
+                    <div>{row.original.department}</div>
+                    <div className="text-[10px] text-zinc-400">{row.original.division || '-'}</div>
+                </div>
+            ),
+        },
+        {
+            id: 'attendance_category',
+            accessorFn: (row) => row.attendance_category || '',
+            meta: { title: 'Status Presensi' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status Presensi" />,
+            cell: ({ row }) => {
+                const r = row.original;
+                const quick = [
+                    { key: 'Hadir', label: 'H', title: 'Set Hadir (08:00 - 17:00)', active: 'bg-emerald-600 text-white shadow-xs', idle: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 hover:bg-emerald-200' },
+                    { key: 'Terlambat', label: 'T', title: 'Set Terlambat (08:30 - 17:00)', active: 'bg-amber-600 text-white shadow-xs', idle: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 hover:bg-amber-200' },
+                    { key: 'Izin', label: 'I', title: 'Set Izin', active: 'bg-sky-600 text-white shadow-xs', idle: 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 hover:bg-sky-200' },
+                    { key: 'Sakit', label: 'S', title: 'Set Sakit', active: 'bg-purple-600 text-white shadow-xs', idle: 'bg-purple-100 text-purple-700 dark:bg-purple-950/50 hover:bg-purple-200' },
+                    { key: 'Alpha/Mangkir', label: 'A', title: 'Set Alpha / Mangkir', active: 'bg-rose-600 text-white shadow-xs', idle: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 hover:bg-rose-200' },
+                ];
+                return (
+                    <div>
+                        <select
+                            value={r.attendance_category || ''}
+                            onChange={(e) => handleDailyRowChange(r.employee_id, 'attendance_category', e.target.value)}
+                            className="w-full h-8 text-xs rounded-md border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                        >
+                            <option value="">-- Belum Diabsen --</option>
+                            <option value="Hadir">Hadir Tepat</option>
+                            <option value="Terlambat">Terlambat</option>
+                            <option value="Izin">Izin</option>
+                            <option value="Sakit">Sakit</option>
+                            <option value="Cuti">Cuti</option>
+                            <option value="Dinas Luar">Dinas Luar</option>
+                            <option value="Alpha/Mangkir">Alpha / Mangkir</option>
+                        </select>
+                        <div className="flex items-center gap-1 mt-1">
+                            {quick.map((q) => (
+                                <button
+                                    key={q.key}
+                                    type="button"
+                                    title={q.title}
+                                    onClick={() => handleQuickSetRowStatus(r.employee_id, q.key)}
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${r.attendance_category === q.key ? q.active : q.idle}`}
+                                >
+                                    {q.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'clock_in',
+            accessorFn: (row) => row.clock_in || '',
+            meta: { title: 'Jam Masuk' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jam Masuk" />,
+            cell: ({ row }) => (
+                <Input
+                    type="time"
+                    value={row.original.clock_in || ''}
+                    onChange={(e) => handleDailyRowChange(row.original.employee_id, 'clock_in', e.target.value)}
+                    className="h-8 text-xs font-mono"
+                />
+            ),
+        },
+        {
+            id: 'clock_out',
+            accessorFn: (row) => row.clock_out || '',
+            meta: { title: 'Jam Keluar' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jam Keluar" />,
+            cell: ({ row }) => (
+                <Input
+                    type="time"
+                    value={row.original.clock_out || ''}
+                    onChange={(e) => handleDailyRowChange(row.original.employee_id, 'clock_out', e.target.value)}
+                    className="h-8 text-xs font-mono"
+                />
+            ),
+        },
+        {
+            id: 'notes',
+            accessorFn: (row) => row.notes || '',
+            meta: { title: 'Catatan / Keterangan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Catatan / Keterangan" />,
+            cell: ({ row }) => (
+                <div>
+                    <Input
+                        value={row.original.notes || ''}
+                        onChange={(e) => handleDailyRowChange(row.original.employee_id, 'notes', e.target.value)}
+                        placeholder="Keterangan..."
+                        className="h-8 text-xs"
+                    />
+                    {row.original.has_active_leave && (
+                        <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium block mt-0.5">
+                            Cuti/Izin Resmi Terjadwal
+                        </span>
+                    )}
+                </div>
+            ),
+        },
+    ], []);
+
+    const exitPermitColumns = useMemo(() => [
+        {
+            id: 'no',
+            meta: { title: 'No', cellClassName: 'text-center text-zinc-400 font-mono' },
+            header: () => <div className="text-center">No</div>,
+            cell: ({ row }) => (
+                <span className="text-center block text-zinc-400 font-mono">{row.index + 1}</span>
+            ),
+        },
+        {
+            id: 'employee',
+            accessorFn: (row) => row.employee?.name || '',
+            meta: { title: 'Karyawan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Karyawan" />,
+            cell: ({ row }) => {
+                const permit = row.original;
+                return (
+                    <div className="flex items-center gap-2.5">
+                        {permit.employee?.photo_url ? (
+                            <img
+                                src={permit.employee.photo_url}
+                                alt={permit.employee.name}
+                                className="h-8 w-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
+                            />
+                        ) : (
+                            <div className="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold flex items-center justify-center shrink-0 text-xs">
+                                {(permit.employee?.name || '?').charAt(0)}
+                            </div>
+                        )}
+                        <div className="min-w-0">
+                            <span className="font-semibold text-zinc-900 dark:text-zinc-100 block truncate">
+                                {permit.employee?.name || '-'}
+                            </span>
+                            <span className="text-[10px] text-zinc-400 font-mono block">
+                                {permit.employee?.employee_code || '-'}
+                            </span>
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'division',
+            accessorFn: (row) => row.employee?.division || '',
+            meta: { title: 'Divisi & Departemen' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Divisi & Departemen" />,
+            cell: ({ row }) => (
+                <div>
+                    <div className="text-zinc-800 dark:text-zinc-200 font-medium">{row.original.employee?.division || '-'}</div>
+                    <div className="text-[10px] text-zinc-400">{row.original.employee?.department || '-'}</div>
+                </div>
+            ),
+        },
+        {
+            id: 'time',
+            accessorFn: (row) => row.exit_time || '',
+            meta: { title: 'Jam Keluar / Kembali' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jam Keluar / Kembali" />,
+            cell: ({ row }) => {
+                const permit = row.original;
+                return (
+                    <div className="flex items-center gap-1.5 font-mono">
+                        <Badge variant="outline" className="text-xs bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
+                            {permit.exit_time}
+                        </Badge>
+                        <span className="text-zinc-400">&rarr;</span>
+                        {permit.return_time ? (
+                            <Badge variant="outline" className="text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
+                                {permit.return_time}
+                            </Badge>
+                        ) : (
+                            <span className="text-[11px] text-rose-500 font-medium italic">Belum Kembali</span>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'duration',
+            accessorFn: (row) => row.duration_text || '',
+            meta: { title: 'Durasi' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Durasi" />,
+            cell: ({ row }) =>
+                row.original.duration_text ? (
+                    <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{row.original.duration_text}</span>
+                ) : (
+                    <span className="text-zinc-400 text-[11px]">&mdash;</span>
+                ),
+        },
+        {
+            accessorKey: 'purpose',
+            meta: { title: 'Keperluan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Keperluan" />,
+            cell: ({ row }) => (
+                <div>
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100 block">{row.original.purpose}</span>
+                    {row.original.notes && (
+                        <span className="text-[11px] text-zinc-400 block mt-0.5 line-clamp-1">{row.original.notes}</span>
+                    )}
+                </div>
+            ),
+        },
+        {
+            id: 'attachment',
+            accessorFn: (row) => row.attachment_url || '',
+            meta: { title: 'Bukti Lampiran' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Bukti Lampiran" />,
+            cell: ({ row }) =>
+                row.original.attachment_url ? (
+                    <a
+                        href={row.original.attachment_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 hover:underline border border-emerald-200 dark:border-emerald-800"
+                    >
+                        <Paperclip className="h-3 w-3" />
+                        Lihat Berkas
+                    </a>
+                ) : (
+                    <Badge variant="outline" className="text-[10px] text-zinc-400 border-zinc-200 dark:border-zinc-700">
+                        Tidak Ada
+                    </Badge>
+                ),
+        },
+        {
+            accessorKey: 'status',
+            meta: { title: 'Status' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+            cell: ({ row }) =>
+                row.original.status === 'Masih di Luar' ? (
+                    <Badge className="bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-800 text-[11px] gap-1 inline-flex items-center">
+                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                        Masih di Luar
+                    </Badge>
+                ) : (
+                    <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 text-[11px] gap-1 inline-flex items-center">
+                        <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                        Kembali
+                    </Badge>
+                ),
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Aksi</div>,
+            cell: ({ row }) => {
+                const permit = row.original;
+                return (
+                    <div className="flex items-center justify-end gap-1">
+                        {permit.status === 'Masih di Luar' && (
+                            <Button
+                                type="button"
+                                size="xs"
+                                variant="outline"
+                                onClick={() => {
+                                    setReturnModal({
+                                        isOpen: true,
+                                        permit,
+                                        returnTime: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':'),
+                                    });
+                                }}
+                                className="h-6 text-[11px] px-2 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
+                                title="Tandai Sudah Kembali"
+                            >
+                                <Check className="h-3 w-3 mr-1" />
+                                Kembali
+                            </Button>
+                        )}
+                        <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => {
+                                editGatePassForm.setData({
+                                    permit_date: permit.permit_date,
+                                    exit_time: permit.exit_time,
+                                    return_time: permit.return_time || '',
+                                    purpose: permit.purpose,
+                                    notes: permit.notes || '',
+                                    attachment_status: permit.attachment_status || 'Tidak Terlampir',
+                                    status: permit.status,
+                                    file_attachment: null,
+                                });
+                                setEditGatePassModal({ isOpen: true, permit });
+                            }}
+                            className="h-6 w-6 p-0 text-zinc-500 hover:text-zinc-800"
+                            title="Edit Izin Keluar"
+                        >
+                            <FileText className="h-3 w-3" />
+                        </Button>
+                        <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => setDeletePermitModal({ isOpen: true, permit })}
+                            className="h-6 w-6 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50"
+                            title="Hapus Izin Keluar"
+                        >
+                            <Trash2 className="h-3 w-3" />
+                        </Button>
+                    </div>
+                );
+            },
+        },
+    ], []);
 
     return (
         <AppLayout
@@ -1485,176 +1839,14 @@ export default function AttendanceIndex({
                             </button>
                         </div>
 
-                        {/* Tabel Input Harian */}
-                        <Card className="border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
-                            <div className="overflow-x-auto scrollbar-thin">
-                                <table className="w-full text-left text-xs border-collapse">
-                                    <thead>
-                                        <tr className="bg-zinc-50 dark:bg-zinc-800/80 border-b border-zinc-200 dark:border-zinc-700 text-[11px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
-                                            <th className="p-3 w-52">Karyawan</th>
-                                            <th className="p-3 w-36">Departemen & Divisi</th>
-                                            <th className="p-3 w-40">Status Presensi</th>
-                                            <th className="p-3 w-28">Jam Masuk</th>
-                                            <th className="p-3 w-28">Jam Keluar</th>
-                                            <th className="p-3">Catatan / Keterangan</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                                        {filteredDailyRows.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={6} className="p-8 text-center text-zinc-400">
-                                                    Tidak ada data personel yang cocok dengan filter.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            filteredDailyRows.map((row) => (
-                                                <tr key={row.employee_id} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30">
-                                                    <td className="p-2.5">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className="font-semibold text-zinc-900 dark:text-zinc-100">{row.name}</span>
-                                                            {row.employee_category === 'INTERN' ? (
-                                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 shrink-0">
-                                                                    Magang SMK
-                                                                </span>
-                                                            ) : (
-                                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 shrink-0">
-                                                                    Reguler
-                                                                </span>
-                                                            )}
-                                                            <span
-                                                                className="px-1.5 py-0.5 rounded text-[9px] font-bold border shrink-0"
-                                                                style={{
-                                                                    backgroundColor: `${row.shift_color || '#2563eb'}18`,
-                                                                    borderColor: `${row.shift_color || '#2563eb'}40`,
-                                                                    color: row.shift_color || '#2563eb',
-                                                                }}
-                                                                title={`Shift: ${row.shift_name || 'Shift Reguler'} (${row.is_off_day ? 'Off' : `${row.clock_in || '08:00'} - ${row.clock_out || '17:00'}`})`}
-                                                            >
-                                                                {row.shift_code || 'REG'}
-                                                            </span>
-                                                        </div>
-                                                        <div className="text-[10px] text-zinc-400 font-mono">{row.employee_code}</div>
-                                                    </td>
-                                                    <td className="p-2.5 text-zinc-600 dark:text-zinc-400">
-                                                        <div>{row.department}</div>
-                                                        <div className="text-[10px] text-zinc-400">{row.division || '-'}</div>
-                                                    </td>
-                                                    <td className="p-2">
-                                                        <select
-                                                            value={row.attendance_category || ''}
-                                                            onChange={(e) => handleDailyRowChange(row.employee_id, 'attendance_category', e.target.value)}
-                                                            className="w-full h-8 text-xs rounded-md border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
-                                                        >
-                                                            <option value="">-- Belum Diabsen --</option>
-                                                            <option value="Hadir">Hadir Tepat</option>
-                                                            <option value="Terlambat">Terlambat</option>
-                                                            <option value="Izin">Izin</option>
-                                                            <option value="Sakit">Sakit</option>
-                                                            <option value="Cuti">Cuti</option>
-                                                            <option value="Dinas Luar">Dinas Luar</option>
-                                                            <option value="Alpha/Mangkir">Alpha / Mangkir</option>
-                                                        </select>
-
-                                                        {/* Quick 1-Click Status Toggles */}
-                                                        <div className="flex items-center gap-1 mt-1">
-                                                            <button
-                                                                type="button"
-                                                                title="Set Hadir (08:00 - 17:00)"
-                                                                onClick={() => handleQuickSetRowStatus(row.employee_id, 'Hadir')}
-                                                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                                                    row.attendance_category === 'Hadir'
-                                                                        ? 'bg-emerald-600 text-white shadow-xs'
-                                                                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 hover:bg-emerald-200'
-                                                                }`}
-                                                            >
-                                                                H
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                title="Set Terlambat (08:30 - 17:00)"
-                                                                onClick={() => handleQuickSetRowStatus(row.employee_id, 'Terlambat')}
-                                                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                                                    row.attendance_category === 'Terlambat'
-                                                                        ? 'bg-amber-600 text-white shadow-xs'
-                                                                        : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 hover:bg-amber-200'
-                                                                }`}
-                                                            >
-                                                                T
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                title="Set Izin"
-                                                                onClick={() => handleQuickSetRowStatus(row.employee_id, 'Izin')}
-                                                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                                                    row.attendance_category === 'Izin'
-                                                                        ? 'bg-sky-600 text-white shadow-xs'
-                                                                        : 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 hover:bg-sky-200'
-                                                                }`}
-                                                            >
-                                                                I
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                title="Set Sakit"
-                                                                onClick={() => handleQuickSetRowStatus(row.employee_id, 'Sakit')}
-                                                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                                                    row.attendance_category === 'Sakit'
-                                                                        ? 'bg-purple-600 text-white shadow-xs'
-                                                                        : 'bg-purple-100 text-purple-700 dark:bg-purple-950/50 hover:bg-purple-200'
-                                                                }`}
-                                                            >
-                                                                S
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                title="Set Alpha / Mangkir"
-                                                                onClick={() => handleQuickSetRowStatus(row.employee_id, 'Alpha/Mangkir')}
-                                                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                                                    row.attendance_category === 'Alpha/Mangkir'
-                                                                        ? 'bg-rose-600 text-white shadow-xs'
-                                                                        : 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 hover:bg-rose-200'
-                                                                }`}
-                                                            >
-                                                                A
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-2">
-                                                        <Input
-                                                            type="time"
-                                                            value={row.clock_in || ''}
-                                                            onChange={(e) => handleDailyRowChange(row.employee_id, 'clock_in', e.target.value)}
-                                                            className="h-8 text-xs font-mono"
-                                                        />
-                                                    </td>
-                                                    <td className="p-2">
-                                                        <Input
-                                                            type="time"
-                                                            value={row.clock_out || ''}
-                                                            onChange={(e) => handleDailyRowChange(row.employee_id, 'clock_out', e.target.value)}
-                                                            className="h-8 text-xs font-mono"
-                                                        />
-                                                    </td>
-                                                    <td className="p-2">
-                                                        <Input
-                                                            value={row.notes || ''}
-                                                            onChange={(e) => handleDailyRowChange(row.employee_id, 'notes', e.target.value)}
-                                                            placeholder="Keterangan..."
-                                                            className="h-8 text-xs"
-                                                        />
-                                                        {row.has_active_leave && (
-                                                            <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium block mt-0.5">
-                                                                Cuti/Izin Resmi Terjadwal
-                                                            </span>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </Card>
+                        {/* Tabel Input Harian - DataTable (sticky filter, sticky footer, salin Excel) */}
+                        <DataTable
+                            columns={dailyColumns}
+                            data={filteredDailyRows}
+                            searchPlaceholder="Cari nama karyawan, NIK, departemen..."
+                            exportFileName={`Presensi_Harian_${dailyDate}`}
+                            emptyMessage="Tidak ada data personel yang cocok dengan filter."
+                        />
                     </div>
                 )}
 
@@ -1743,193 +1935,13 @@ export default function AttendanceIndex({
                         </div>
 
                         {/* Tabel Log Izin Keluar Kantor */}
-                        <Card className="border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden bg-white dark:bg-zinc-900">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-xs">
-                                    <thead className="bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-700 text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">
-                                        <tr>
-                                            <th className="p-3 w-12 text-center">No</th>
-                                            <th className="p-3 min-w-[200px]">Karyawan</th>
-                                            <th className="p-3 min-w-[140px]">Divisi & Departemen</th>
-                                            <th className="p-3 min-w-[150px]">Jam Keluar / Kembali</th>
-                                            <th className="p-3 min-w-[110px]">Durasi</th>
-                                            <th className="p-3 min-w-[180px]">Keperluan</th>
-                                            <th className="p-3 min-w-[130px]">Bukti Lampiran</th>
-                                            <th className="p-3 min-w-[130px]">Status</th>
-                                            <th className="p-3 w-28 text-center sticky right-0 z-20 bg-zinc-50 dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-700 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">Aksi</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
-                                        {filteredExitPermits.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={9} className="p-8 text-center text-zinc-400">
-                                                    <DoorOpen className="h-8 w-8 mx-auto text-zinc-300 dark:text-zinc-600 mb-2" />
-                                                    Tidak ada catatan izin keluar kantor pada tanggal terpilih ({dailyDate}).
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            filteredExitPermits.map((permit, idx) => (
-                                                <tr key={permit.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                                                    <td className="p-3 text-center text-zinc-400 font-mono">{idx + 1}</td>
-                                                    <td className="p-3">
-                                                        <div className="flex items-center gap-2.5">
-                                                            {permit.employee?.photo_url ? (
-                                                                <img
-                                                                    src={permit.employee.photo_url}
-                                                                    alt={permit.employee.name}
-                                                                    className="h-8 w-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
-                                                                />
-                                                            ) : (
-                                                                <div className="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold flex items-center justify-center shrink-0 text-xs">
-                                                                    {(permit.employee?.name || '?').charAt(0)}
-                                                                </div>
-                                                            )}
-                                                            <div className="min-w-0">
-                                                                <span className="font-semibold text-zinc-900 dark:text-zinc-100 block truncate">
-                                                                    {permit.employee?.name || '-'}
-                                                                </span>
-                                                                <span className="text-[10px] text-zinc-400 font-mono block">
-                                                                    {permit.employee?.employee_code || '-'}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-3">
-                                                        <div className="text-zinc-800 dark:text-zinc-200 font-medium">
-                                                            {permit.employee?.division || '-'}
-                                                        </div>
-                                                        <div className="text-[10px] text-zinc-400">
-                                                            {permit.employee?.department || '-'}
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-3">
-                                                        <div className="flex items-center gap-1.5 font-mono">
-                                                            <Badge variant="outline" className="text-xs bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
-                                                                {permit.exit_time}
-                                                            </Badge>
-                                                            <span className="text-zinc-400">&rarr;</span>
-                                                            {permit.return_time ? (
-                                                                <Badge variant="outline" className="text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
-                                                                    {permit.return_time}
-                                                                </Badge>
-                                                            ) : (
-                                                                <span className="text-[11px] text-rose-500 font-medium italic">
-                                                                    Belum Kembali
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="p-3">
-                                                        {permit.duration_text ? (
-                                                            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                                                                {permit.duration_text}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-zinc-400 text-[11px]">—</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="p-3">
-                                                        <span className="font-medium text-zinc-900 dark:text-zinc-100 block">
-                                                            {permit.purpose}
-                                                        </span>
-                                                        {permit.notes && (
-                                                            <span className="text-[11px] text-zinc-400 block mt-0.5 line-clamp-1">
-                                                                {permit.notes}
-                                                            </span>
-                                                        )}
-                                                    </td>
-                                                    <td className="p-3">
-                                                        {permit.attachment_url ? (
-                                                            <a
-                                                                href={permit.attachment_url}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 hover:underline border border-emerald-200 dark:border-emerald-800"
-                                                            >
-                                                                <Paperclip className="h-3 w-3" />
-                                                                Lihat Berkas
-                                                            </a>
-                                                        ) : (
-                                                            <Badge variant="outline" className="text-[10px] text-zinc-400 border-zinc-200 dark:border-zinc-700">
-                                                                Tidak Ada
-                                                            </Badge>
-                                                        )}
-                                                    </td>
-                                                    <td className="p-3">
-                                                        {permit.status === 'Masih di Luar' ? (
-                                                            <Badge className="bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-800 text-[11px] gap-1 inline-flex items-center">
-                                                                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
-                                                                Masih di Luar
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 text-[11px] gap-1 inline-flex items-center">
-                                                                <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                                                                Kembali
-                                                            </Badge>
-                                                        )}
-                                                    </td>
-                                                    <td className="p-3 text-center sticky right-0 z-10 bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-700 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/90 transition-colors">
-                                                        <div className="flex items-center justify-center gap-1">
-                                                            {permit.status === 'Masih di Luar' && (
-                                                                <Button
-                                                                    type="button"
-                                                                    size="xs"
-                                                                    variant="outline"
-                                                                    onClick={() => {
-                                                                        setReturnModal({
-                                                                            isOpen: true,
-                                                                            permit,
-                                                                            returnTime: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':'),
-                                                                        });
-                                                                    }}
-                                                                    className="h-6 text-[11px] px-2 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
-                                                                    title="Tandai Sudah Kembali"
-                                                                >
-                                                                    <Check className="h-3 w-3 mr-1" />
-                                                                    Kembali
-                                                                </Button>
-                                                            )}
-                                                            <Button
-                                                                type="button"
-                                                                size="xs"
-                                                                variant="ghost"
-                                                                onClick={() => {
-                                                                    editGatePassForm.setData({
-                                                                        permit_date: permit.permit_date,
-                                                                        exit_time: permit.exit_time,
-                                                                        return_time: permit.return_time || '',
-                                                                        purpose: permit.purpose,
-                                                                        notes: permit.notes || '',
-                                                                        attachment_status: permit.attachment_status || 'Tidak Terlampir',
-                                                                        status: permit.status,
-                                                                        file_attachment: null,
-                                                                    });
-                                                                    setEditGatePassModal({ isOpen: true, permit });
-                                                                }}
-                                                                className="h-6 w-6 p-0 text-zinc-500 hover:text-zinc-800"
-                                                                title="Edit Izin Keluar"
-                                                            >
-                                                                <FileText className="h-3 w-3" />
-                                                            </Button>
-                                                            <Button
-                                                                type="button"
-                                                                size="xs"
-                                                                variant="ghost"
-                                                                onClick={() => setDeletePermitModal({ isOpen: true, permit })}
-                                                                className="h-6 w-6 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50"
-                                                                title="Hapus Izin Keluar"
-                                                            >
-                                                                <Trash2 className="h-3 w-3" />
-                                                            </Button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </Card>
+<DataTable
+                            columns={exitPermitColumns}
+                            data={filteredExitPermits}
+                            searchPlaceholder="Cari karyawan, keperluan, status..."
+                            exportFileName={`Log_Izin_Keluar_${dailyDate}`}
+                            emptyMessage={`Tidak ada catatan izin keluar kantor pada tanggal terpilih (${dailyDate}).`}
+                        />
                     </div>
                 )}
             </div>

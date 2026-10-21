@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
     Search, Receipt, CheckCircle2, ExternalLink, Calendar, 
     ShieldCheck, Clock, Banknote, AlertTriangle, ArrowRight,
@@ -9,7 +9,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { formatDate, formatRupiah } from '@/lib/utils';
 
@@ -47,6 +47,84 @@ export default function InvoiceIndex({
 
     const totalPortfolio = Number(total_lunas) + Number(total_belum_lunas) + Number(total_tanda_jadi);
     const recoveryRate = totalPortfolio > 0 ? (Number(total_lunas) / totalPortfolio) * 100 : 0;
+
+    const invoiceColumns = (isPaid) => [
+        {
+            id: 'invoice_number',
+            accessorFn: (iv) => iv.invoice_number || '',
+            meta: { title: 'Invoice / PO' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Invoice / PO" />,
+            cell: ({ row }) => (
+                <div>
+                    <div className="font-mono font-bold text-slate-800 dark:text-slate-100">{row.original.invoice_number}</div>
+                    <div className="font-mono text-[10px] text-slate-400">PO: {row.original.order?.no_po ?? '—'}</div>
+                </div>
+            ),
+        },
+        {
+            id: 'pelanggan',
+            accessorFn: (iv) => iv.order?.pelanggan?.nama || '',
+            meta: { title: 'Pelanggan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Pelanggan" />,
+            cell: ({ row }) => <span className="font-semibold text-slate-700 dark:text-slate-300">{row.original.order?.pelanggan?.nama ?? '-'}</span>,
+        },
+        {
+            id: 'brand',
+            accessorFn: (iv) => iv.brand?.kode || '',
+            meta: { title: 'Brand' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Brand" />,
+            cell: ({ row }) => <Badge variant="outline" className="font-bold text-indigo-700 dark:text-indigo-300">{row.original.brand?.kode ?? '-'}</Badge>,
+        },
+        {
+            id: 'total_tagihan',
+            accessorFn: (iv) => Number(iv.total_tagihan) || 0,
+            meta: { title: 'Total Tagihan', cellClassName: 'text-right font-mono font-semibold' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Total Tagihan" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono font-semibold">{formatRupiah(row.original.total_tagihan)}</span>,
+        },
+        isPaid
+            ? {
+                id: 'realisasi',
+                accessorFn: (iv) => Number(iv.total_tagihan) || 0,
+                meta: { title: 'Realisasi', cellClassName: 'text-right font-mono font-bold text-emerald-600' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Realisasi" className="justify-end" />,
+                cell: ({ row }) => <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{formatRupiah(row.original.total_tagihan)}</span>,
+            }
+            : {
+                id: 'sisa_pembayaran',
+                accessorFn: (iv) => Number(iv.sisa_pembayaran) || 0,
+                meta: { title: 'Sisa', cellClassName: 'text-right font-mono font-bold text-orange-600' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Sisa" className="justify-end" />,
+                cell: ({ row }) => <span className="font-mono font-bold text-orange-600 dark:text-orange-400">{formatRupiah(row.original.sisa_pembayaran)}</span>,
+            },
+        {
+            id: 'status',
+            accessorFn: (iv) => (isPaid ? 'LUNAS' : iv.status),
+            meta: { title: 'Status' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+            cell: ({ row }) => (
+                isPaid
+                    ? <Badge variant="success">LUNAS</Badge>
+                    : <Badge variant={STATUS_VARIANT[row.original.status] ?? 'outline'}>{row.original.status}</Badge>
+            ),
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Detail</div>,
+            cell: ({ row }) => (
+                <div className="text-right">
+                    <Button asChild size="xs" variant="outline" className="text-[11px] py-0.5 h-7">
+                        <a href={route('invoice.public', row.original.invoice_number)} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-3 w-3 mr-1" /> View
+                        </a>
+                    </Button>
+                </div>
+            ),
+        },
+    ];
+
+    const unpaidColumns = useMemo(() => invoiceColumns(false), []);
+    const paidColumns = useMemo(() => invoiceColumns(true), []);
 
     return (
         <AppLayout title="Dashboard Keuangan">
@@ -328,93 +406,21 @@ export default function InvoiceIndex({
                         </CardHeader>
                         <CardContent className="p-0">
                             {activeTab === 'unpaid' ? (
-                                <Table>
-                                    <TableHeader className="bg-slate-50/50">
-                                        <TableRow>
-                                            <TableHead className="font-semibold text-xs text-slate-600">Invoice / PO</TableHead>
-                                            <TableHead className="font-semibold text-xs text-slate-600">Pelanggan</TableHead>
-                                            <TableHead className="font-semibold text-xs text-slate-600">Brand</TableHead>
-                                            <TableHead className="font-semibold text-xs text-slate-600 text-right">Total Tagihan</TableHead>
-                                            <TableHead className="font-semibold text-xs text-slate-600 text-right text-orange-600">Sisa</TableHead>
-                                            <TableHead className="font-semibold text-xs text-slate-600">Status</TableHead>
-                                            <TableHead className="font-semibold text-xs text-slate-600 text-right">Detail</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {unpaid_invoices.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground italic">
-                                                    Tidak ada invoice outstanding belum lunas.
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            unpaid_invoices.map((iv) => (
-                                                <TableRow key={iv.id} className="hover:bg-slate-50/30 text-xs">
-                                                    <TableCell className="font-medium">
-                                                        <div className="font-mono font-bold text-slate-800">{iv.invoice_number}</div>
-                                                        <div className="font-mono text-[10px] text-slate-400">PO: {iv.order?.no_po ?? '—'}</div>
-                                                    </TableCell>
-                                                    <TableCell className="font-semibold text-slate-700">{iv.order?.pelanggan?.nama ?? '-'}</TableCell>
-                                                    <TableCell><Badge variant="outline" className="font-bold text-indigo-700">{iv.brand?.kode ?? '-'}</Badge></TableCell>
-                                                    <TableCell className="text-right font-mono font-semibold">{formatRupiah(iv.total_tagihan)}</TableCell>
-                                                    <TableCell className="text-right font-mono font-bold text-orange-600">{formatRupiah(iv.sisa_pembayaran)}</TableCell>
-                                                    <TableCell><Badge variant={STATUS_VARIANT[iv.status] ?? 'outline'}>{iv.status}</Badge></TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button asChild size="xs" variant="outline" className="text-[11px] py-0.5 h-7">
-                                                            <a href={route('invoice.public', iv.invoice_number)} target="_blank" rel="noopener noreferrer">
-                                                                <ExternalLink className="h-3 w-3 mr-1" /> View
-                                                            </a>
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
+                                <DataTable
+                                    columns={unpaidColumns}
+                                    data={unpaid_invoices}
+                                    searchPlaceholder="Cari no invoice, PO, pelanggan..."
+                                    exportFileName={`Invoice_Belum_Lunas_${new Date().toISOString().slice(0, 10)}`}
+                                    emptyMessage="Tidak ada invoice outstanding belum lunas."
+                                />
                             ) : (
-                                <Table>
-                                    <TableHeader className="bg-slate-50/50">
-                                        <TableRow>
-                                            <TableHead className="font-semibold text-xs text-slate-600">Invoice / PO</TableHead>
-                                            <TableHead className="font-semibold text-xs text-slate-600">Pelanggan</TableHead>
-                                            <TableHead className="font-semibold text-xs text-slate-600">Brand</TableHead>
-                                            <TableHead className="font-semibold text-xs text-slate-600 text-right">Total Tagihan</TableHead>
-                                            <TableHead className="font-semibold text-xs text-slate-600 text-right text-emerald-600">Realisasi</TableHead>
-                                            <TableHead className="font-semibold text-xs text-slate-600">Status</TableHead>
-                                            <TableHead className="font-semibold text-xs text-slate-600 text-right">Detail</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {paid_invoices.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground italic">
-                                                    Belum ada invoice berstatus lunas.
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            paid_invoices.map((iv) => (
-                                                <TableRow key={iv.id} className="hover:bg-slate-50/30 text-xs">
-                                                    <TableCell className="font-medium">
-                                                        <div className="font-mono font-bold text-slate-800">{iv.invoice_number}</div>
-                                                        <div className="font-mono text-[10px] text-slate-400">PO: {iv.order?.no_po ?? '—'}</div>
-                                                    </TableCell>
-                                                    <TableCell className="font-semibold text-slate-700">{iv.order?.pelanggan?.nama ?? '-'}</TableCell>
-                                                    <TableCell><Badge variant="outline" className="font-bold text-indigo-700">{iv.brand?.kode ?? '-'}</Badge></TableCell>
-                                                    <TableCell className="text-right font-mono font-semibold">{formatRupiah(iv.total_tagihan)}</TableCell>
-                                                    <TableCell className="text-right font-mono font-bold text-emerald-600">{formatRupiah(iv.total_tagihan)}</TableCell>
-                                                    <TableCell><Badge variant="success">LUNAS</Badge></TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button asChild size="xs" variant="outline" className="text-[11px] py-0.5 h-7">
-                                                            <a href={route('invoice.public', iv.invoice_number)} target="_blank" rel="noopener noreferrer">
-                                                                <ExternalLink className="h-3 w-3 mr-1" /> View
-                                                            </a>
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
+                                <DataTable
+                                    columns={paidColumns}
+                                    data={paid_invoices}
+                                    searchPlaceholder="Cari no invoice, PO, pelanggan..."
+                                    exportFileName={`Invoice_Lunas_${new Date().toISOString().slice(0, 10)}`}
+                                    emptyMessage="Belum ada invoice berstatus lunas."
+                                />
                             )}
                         </CardContent>
                     </Card>

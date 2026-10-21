@@ -48,6 +48,7 @@ import {
     DialogTitle,
 } from '@/Components/ui/dialog';
 import { SearchableSelect } from '@/Components/ui/searchable-select';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 
 export default function MealAllowanceShow({ batch, settings }) {
     const [searchTerm, setSearchTerm] = useState('');
@@ -105,6 +106,170 @@ export default function MealAllowanceShow({ batch, settings }) {
             return matchesSearch && matchesDept && matchesStatus;
         });
     }, [batch.items, searchTerm, departmentFilter, statusFilter]);
+
+    const itemColumns = useMemo(() => [
+        {
+            id: 'no',
+            meta: { title: 'No', cellClassName: 'text-center text-zinc-400 font-mono' },
+            header: () => <div className="text-center">No</div>,
+            cell: ({ row }) => <span className="block text-center text-zinc-400 font-mono">{row.index + 1}</span>,
+        },
+        {
+            id: 'employee',
+            accessorFn: (row) => row.employee?.name || '',
+            meta: { title: 'Karyawan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Karyawan" />,
+            cell: ({ row }) => (
+                <div>
+                    <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">{row.original.employee?.name}</div>
+                    <div className="text-[10px] text-zinc-400">
+                        {row.original.employee?.employee_code} &bull; {row.original.employee?.department}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'present_days',
+            meta: { title: 'Hadir', cellClassName: 'text-center font-mono font-medium' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Hadir" className="justify-center" />,
+            cell: ({ row }) => <span className="font-mono font-medium">{row.original.present_days}</span>,
+        },
+        {
+            accessorKey: 'late_days',
+            meta: { title: 'Telat', cellClassName: 'text-center font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Telat" className="justify-center" />,
+            cell: ({ row }) =>
+                row.original.late_days > 0 ? (
+                    <span
+                        className={`inline-block px-1.5 py-0.5 rounded font-bold ${
+                            row.original.late_days >= 4
+                                ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400'
+                                : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400'
+                        }`}
+                    >
+                        {row.original.late_days}x
+                    </span>
+                ) : (
+                    <span className="text-zinc-400">0</span>
+                ),
+        },
+        {
+            accessorKey: 'half_days',
+            meta: { title: '½ Hari', cellClassName: 'text-center font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="½ Hari" className="justify-center" />,
+            cell: ({ row }) => <span className="font-mono text-zinc-600">{row.original.half_days || 0}</span>,
+        },
+        {
+            accessorKey: 'alpha_days',
+            meta: { title: 'Alpha', cellClassName: 'text-center font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Alpha" className="justify-center" />,
+            cell: ({ row }) =>
+                row.original.alpha_days > 0 ? (
+                    <span className="text-rose-600 font-bold">{row.original.alpha_days}</span>
+                ) : (
+                    <span className="text-zinc-400">0</span>
+                ),
+        },
+        {
+            accessorKey: 'permit_days',
+            meta: { title: 'Izin', cellClassName: 'text-center font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Izin" className="justify-center" />,
+            cell: ({ row }) =>
+                row.original.permit_days > 0 ? (
+                    <span className={row.original.permit_days > 2 ? 'text-amber-600 font-bold' : 'text-zinc-600'}>
+                        {row.original.permit_days}
+                    </span>
+                ) : (
+                    <span className="text-zinc-400">0</span>
+                ),
+        },
+        {
+            accessorKey: 'deduction_amount',
+            meta: { title: 'Potongan', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Potongan" className="justify-end" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-rose-600">
+                    {row.original.deduction_amount > 0 ? `-${formatRp(row.original.deduction_amount)}` : '-'}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'previous_hold_amount',
+            meta: { title: 'Tunggakan Lalu', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tunggakan Lalu" className="justify-end" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-emerald-600">
+                    {row.original.previous_hold_amount > 0 ? `+${formatRp(row.original.previous_hold_amount)}` : '-'}
+                </span>
+            ),
+        },
+        {
+            id: 'is_hold',
+            accessorFn: (row) => (row.is_hold ? 1 : 0),
+            meta: { title: 'Status Hold', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status Hold" className="justify-center" />,
+            cell: ({ row }) =>
+                row.original.is_hold ? (
+                    <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[10px] font-semibold">
+                        DITAHAN
+                    </Badge>
+                ) : (
+                    <Badge variant="outline" className="text-emerald-600 border-emerald-300 text-[10px]">
+                        CAIR
+                    </Badge>
+                ),
+        },
+        {
+            id: 'bonus_eligible',
+            accessorFn: (row) => (row.bonus_eligible ? 1 : 0),
+            meta: { title: 'Bonus', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Bonus" className="justify-center" />,
+            cell: ({ row }) =>
+                row.original.bonus_eligible ? (
+                    <span className="text-[11px] text-emerald-600 font-medium">Eligible</span>
+                ) : (
+                    <Badge variant="outline" className="border-rose-300 text-rose-600 text-[10px]">
+                        Hangus
+                    </Badge>
+                ),
+        },
+        {
+            accessorKey: 'payable_amount',
+            meta: { title: 'Total Diterima', cellClassName: 'text-right font-mono font-bold' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Total Diterima" className="justify-end" />,
+            cell: ({ row }) => (
+                <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">{formatRp(row.original.payable_amount)}</span>
+            ),
+        },
+        {
+            accessorKey: 'notes',
+            meta: { title: 'Catatan Kedisiplinan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Catatan Kedisiplinan" />,
+            cell: ({ row }) =>
+                row.original.notes ? (
+                    <span className="text-[11px] italic text-zinc-500">{row.original.notes}</span>
+                ) : (
+                    <span className="text-zinc-400">-</span>
+                ),
+        },
+        {
+            id: 'slip',
+            meta: { title: 'Slip', cellClassName: 'text-center' },
+            header: () => <div className="text-center">Slip</div>,
+            cell: ({ row }) => (
+                <a
+                    href={route('hcm.meal-allowance.items.pdf', row.original.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded border border-emerald-200 transition"
+                    title="Cetak Slip Uang Makan"
+                >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Slip</span>
+                </a>
+            ),
+        },
+    ], []);
 
     // Handle Sign HCM
     const handleSignHcm = () => {
@@ -432,165 +597,14 @@ export default function MealAllowanceShow({ batch, settings }) {
                     </div>
                 </div>
 
-                {/* 5. Tabel Lembar Rekapitulasi Uang Makan */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-zinc-50 dark:bg-zinc-800/50">
-                                <TableRow>
-                                    <TableHead className="w-[40px] text-center text-xs font-bold">No</TableHead>
-                                    <TableHead className="min-w-[190px] text-xs font-bold">Karyawan</TableHead>
-                                    <TableHead className="min-w-[70px] text-center text-xs font-bold">Hadir</TableHead>
-                                    <TableHead className="min-w-[70px] text-center text-xs font-bold">Telat</TableHead>
-                                    <TableHead className="min-w-[70px] text-center text-xs font-bold">½ Hari</TableHead>
-                                    <TableHead className="min-w-[70px] text-center text-xs font-bold">Alpha</TableHead>
-                                    <TableHead className="min-w-[70px] text-center text-xs font-bold">Izin</TableHead>
-                                    <TableHead className="min-w-[100px] text-right text-xs font-bold">Potongan</TableHead>
-                                    <TableHead className="min-w-[100px] text-right text-xs font-bold">Tunggakan Lalu</TableHead>
-                                    <TableHead className="min-w-[110px] text-center text-xs font-bold">Status Hold</TableHead>
-                                    <TableHead className="min-w-[100px] text-center text-xs font-bold">Bonus</TableHead>
-                                    <TableHead className="min-w-[130px] text-right text-xs font-bold">Total Diterima</TableHead>
-                                    <TableHead className="min-w-[150px] text-xs font-bold">Catatan Kedisiplinan</TableHead>
-                                    <TableHead className="w-[80px] text-center text-xs font-bold">Slip</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredItems.length > 0 ? (
-                                    filteredItems.map((item, idx) => (
-                                        <TableRow
-                                            key={item.id}
-                                            className={`hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 ${
-                                                item.is_hold ? 'bg-amber-50/30 dark:bg-amber-950/10' : ''
-                                            }`}
-                                        >
-                                            <TableCell className="text-center text-xs text-zinc-400 font-mono">
-                                                {idx + 1}
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
-                                                    {item.employee?.name}
-                                                </div>
-                                                <div className="text-[10px] text-zinc-400">
-                                                    {item.employee?.employee_code} • {item.employee?.department}
-                                                </div>
-                                            </TableCell>
-
-                                            <TableCell className="text-center text-xs font-mono font-medium">
-                                                {item.present_days}
-                                            </TableCell>
-
-                                            <TableCell className="text-center text-xs font-mono">
-                                                {item.late_days > 0 ? (
-                                                    <span
-                                                        className={`inline-block px-1.5 py-0.5 rounded font-bold ${
-                                                            item.late_days >= 4
-                                                                ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400'
-                                                                : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400'
-                                                        }`}
-                                                    >
-                                                        {item.late_days}x
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-zinc-400">0</span>
-                                                )}
-                                            </TableCell>
-
-                                            <TableCell className="text-center text-xs font-mono text-zinc-600">
-                                                {item.half_days || 0}
-                                            </TableCell>
-
-                                            <TableCell className="text-center text-xs font-mono">
-                                                {item.alpha_days > 0 ? (
-                                                    <span className="text-rose-600 font-bold">{item.alpha_days}</span>
-                                                ) : (
-                                                    <span className="text-zinc-400">0</span>
-                                                )}
-                                            </TableCell>
-
-                                            <TableCell className="text-center text-xs font-mono">
-                                                {item.permit_days > 0 ? (
-                                                    <span
-                                                        className={
-                                                            item.permit_days > 2
-                                                                ? 'text-amber-600 font-bold'
-                                                                : 'text-zinc-600'
-                                                        }
-                                                    >
-                                                        {item.permit_days}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-zinc-400">0</span>
-                                                )}
-                                            </TableCell>
-
-                                            <TableCell className="text-right text-xs font-mono text-rose-600">
-                                                {item.deduction_amount > 0 ? `-${formatRp(item.deduction_amount)}` : '-'}
-                                            </TableCell>
-
-                                            <TableCell className="text-right text-xs font-mono text-emerald-600">
-                                                {item.previous_hold_amount > 0 ? `+${formatRp(item.previous_hold_amount)}` : '-'}
-                                            </TableCell>
-
-                                            <TableCell className="text-center">
-                                                {item.is_hold ? (
-                                                    <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[10px] font-semibold">
-                                                        DITAHAN
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge variant="outline" className="text-emerald-600 border-emerald-300 text-[10px]">
-                                                        CAIR
-                                                    </Badge>
-                                                )}
-                                            </TableCell>
-
-                                            <TableCell className="text-center">
-                                                {item.bonus_eligible ? (
-                                                    <span className="text-[11px] text-emerald-600 font-medium">Eligible</span>
-                                                ) : (
-                                                    <Badge variant="outline" className="border-rose-300 text-rose-600 text-[10px]">
-                                                        Hangus
-                                                    </Badge>
-                                                )}
-                                            </TableCell>
-
-                                            <TableCell className="text-right text-xs font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                                                {formatRp(item.payable_amount)}
-                                            </TableCell>
-
-                                            <TableCell className="text-xs text-zinc-500">
-                                                {item.notes ? (
-                                                    <span className="text-[11px] italic">{item.notes}</span>
-                                                ) : (
-                                                    '-'
-                                                )}
-                                            </TableCell>
-
-                                            <TableCell className="text-center">
-                                                <a
-                                                    href={route('hcm.meal-allowance.items.pdf', item.id)}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded border border-emerald-200 transition"
-                                                    title="Cetak Slip Uang Makan"
-                                                >
-                                                    <FileText className="w-3.5 h-3.5" />
-                                                    <span>Slip</span>
-                                                </a>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={14} className="text-center py-8 text-zinc-400 text-xs">
-                                            Tidak ada data karyawan yang cocok dengan kriteria filter.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </Card>
+                {/* 5. Tabel Lembar Rekapitulasi Uang Makan - DataTable (sticky filter, sticky footer, salin Excel) */}
+                <DataTable
+                    columns={itemColumns}
+                    data={filteredItems}
+                    searchPlaceholder="Cari nama karyawan, NIK, departemen..."
+                    exportFileName={`Uang_Makan_${batch.batch_code || batch.id}`}
+                    emptyMessage="Tidak ada data karyawan yang cocok dengan kriteria filter."
+                />
 
                 {/* 6. Modal Sign-Off Keuangan */}
                 <Dialog open={isFinanceModalOpen} onOpenChange={setIsFinanceModalOpen}>

@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Pencil, Trash2, Search, Users as UsersIcon, KeyRound } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader } from '@/Components/ui/card';
@@ -9,6 +9,7 @@ import { Label } from '@/Components/ui/label';
 import { Switch } from '@/Components/ui/switch';
 import { Badge } from '@/Components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { formatDateTime, roleLabel, initials } from '@/lib/utils';
@@ -213,8 +214,90 @@ export default function UserIndex({ users, filters, rolesAvailable, brandsAvaila
             q: overrides.q ?? search,
             role: (overrides.role ?? roleFilter) === 'all' ? '' : (overrides.role ?? roleFilter),
             status: (overrides.status ?? statusFilter) === 'all' ? '' : (overrides.status ?? statusFilter),
+            page: overrides.page ?? undefined,
+            per_page: overrides.per_page ?? (users?.per_page ?? 15),
         }, { preserveScroll: true, preserveState: true });
     }
+
+    const userColumns = useMemo(() => [
+        {
+            id: 'user',
+            accessorFn: (u) => `${u.name || ''} ${u.email || ''}`,
+            meta: { title: 'User' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="User" />,
+            cell: ({ row }) => (
+                <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                        {initials(row.original.name)}
+                    </div>
+                    <div>
+                        <div className="font-medium leading-tight">{row.original.name}</div>
+                        <div className="text-xs text-muted-foreground">{row.original.email}</div>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            id: 'roles',
+            accessorFn: (u) => (u.roles ?? []).map((r) => roleLabel(r.name)).join(', '),
+            meta: { title: 'Role' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Role" />,
+            cell: ({ row }) => (
+                <div className="flex flex-wrap gap-1">
+                    {row.original.roles?.map((r) => (
+                        <Badge key={r.id} variant={r.name === 'superadmin' ? 'default' : 'secondary'}>
+                            {roleLabel(r.name)}
+                        </Badge>
+                    ))}
+                </div>
+            ),
+        },
+        {
+            id: 'brands',
+            accessorFn: (u) => (u.brands ?? []).map((b) => b.kode).join(', '),
+            meta: { title: 'Brand' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Brand" />,
+            cell: ({ row }) => (
+                <div className="flex flex-wrap gap-1">
+                    {row.original.brands?.map((b) => (
+                        <Badge key={b.id} variant="outline" className="text-xs">{b.kode}</Badge>
+                    ))}
+                </div>
+            ),
+        },
+        {
+            id: 'last_login_at',
+            accessorFn: (u) => u.last_login_at || '',
+            meta: { title: 'Login Terakhir', cellClassName: 'text-xs text-muted-foreground' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Login Terakhir" />,
+            cell: ({ row }) => (row.original.last_login_at ? formatDateTime(row.original.last_login_at) : 'Belum pernah'),
+        },
+        {
+            id: 'is_active',
+            accessorFn: (u) => (u.is_active ? 1 : 0),
+            meta: { title: 'Status' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+            cell: ({ row }) => <Badge variant={row.original.is_active ? 'success' : 'secondary'}>{row.original.is_active ? 'Aktif' : 'Non-Aktif'}</Badge>,
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Aksi</div>,
+            cell: ({ row }) => (
+                <div className="flex justify-end gap-1">
+                    {can?.update && (
+                        <Button size="icon" variant="ghost" title="Edit" onClick={() => openEdit(row.original)}>
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                    )}
+                    {can?.delete && (
+                        <Button size="icon" variant="ghost" title="Hapus" className="text-destructive hover:text-destructive" onClick={() => setConfirmDelete(row.original)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
+            ),
+        },
+    ], [can?.update, can?.delete]);
 
     function openCreate() {
         setEditing(null);
@@ -253,132 +336,40 @@ export default function UserIndex({ users, filters, rolesAvailable, brandsAvaila
                             </Button>
                         )}
                     </CardHeader>
-                    <CardContent className="pt-0">
-                        <div className="mb-4 flex flex-col gap-2 sm:flex-row">
-                            <div className="relative flex-1">
-                                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    placeholder="Cari nama atau email..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
-                                    className="pl-9"
-                                />
-                            </div>
-                            <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); applyFilters({ role: v }); }}>
-                                <SelectTrigger className="sm:w-44"><SelectValue placeholder="Role" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Semua Role</SelectItem>
-                                    {rolesAvailable.map((r) => (
-                                        <SelectItem key={r} value={r}>{roleLabel(r)}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); applyFilters({ status: v }); }}>
-                                <SelectTrigger className="sm:w-44"><SelectValue placeholder="Status" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Semua Status</SelectItem>
-                                    <SelectItem value="active">Aktif</SelectItem>
-                                    <SelectItem value="inactive">Non-Aktif</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <Button variant="outline" onClick={() => applyFilters()}>Terapkan</Button>
-                        </div>
-
-                        <div className="overflow-hidden rounded-lg border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>User</TableHead>
-                                        <TableHead>Role</TableHead>
-                                        <TableHead>Brand</TableHead>
-                                        <TableHead>Login Terakhir</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">Aksi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {users.data.length === 0 && (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                                                Tidak ada user yang cocok.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                    {users.data.map((u) => (
-                                        <TableRow key={u.id}>
-                                            <TableCell>
-                                                <div className="flex items-center gap-3">
-                                                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                                                        {initials(u.name)}
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-medium leading-tight">{u.name}</div>
-                                                        <div className="text-xs text-muted-foreground">{u.email}</div>
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-wrap gap-1">
-                                                    {u.roles?.map((r) => (
-                                                        <Badge key={r.id} variant={r.name === 'superadmin' ? 'default' : 'secondary'}>
-                                                            {roleLabel(r.name)}
-                                                        </Badge>
-                                                    ))}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-wrap gap-1">
-                                                    {u.brands?.map((b) => (
-                                                        <Badge key={b.id} variant="outline" className="text-xs">{b.kode}</Badge>
-                                                    ))}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-xs text-muted-foreground">
-                                                {u.last_login_at ? formatDateTime(u.last_login_at) : 'Belum pernah'}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant={u.is_active ? 'success' : 'secondary'}>{u.is_active ? 'Aktif' : 'Non-Aktif'}</Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="flex justify-end gap-1">
-                                                    {can?.update && (
-                                                        <Button size="icon" variant="ghost" title="Edit" onClick={() => openEdit(u)}>
-                                                            <Pencil className="h-4 w-4" />
-                                                        </Button>
-                                                    )}
-                                                    {can?.delete && (
-                                                        <Button size="icon" variant="ghost" title="Hapus" className="text-destructive hover:text-destructive" onClick={() => setConfirmDelete(u)}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-
-                        {users.last_page > 1 && (
-                            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
-                                <span className="text-muted-foreground">
-                                    Menampilkan {users.from ?? 0}–{users.to ?? 0} dari {users.total} data
-                                </span>
-                                <div className="flex gap-1">
-                                    {users.links.map((link, i) => (
-                                        <Button
-                                            key={i}
-                                            variant={link.active ? 'default' : 'outline'}
-                                            size="sm"
-                                            disabled={!link.url}
-                                            onClick={() => link.url && router.visit(link.url, { preserveScroll: true })}
-                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                        />
-                                    ))}
+                    <CardContent className="p-0">
+                        <DataTable
+                            columns={userColumns}
+                            data={users.data || []}
+                            serverPagination={users}
+                            searchValue={search}
+                            onServerSearchChange={(val) => { setSearch(val); applyFilters({ q: val, page: 1 }); }}
+                            onServerPageChange={(page) => applyFilters({ page })}
+                            onServerPerPageChange={(per_page) => applyFilters({ per_page, page: 1 })}
+                            searchPlaceholder="Cari nama atau email..."
+                            exportFileName={`Users_${new Date().toISOString().slice(0, 10)}`}
+                            emptyMessage="Tidak ada user yang cocok."
+                            filterSlot={
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); applyFilters({ role: v, page: 1 }); }}>
+                                        <SelectTrigger className="h-8 w-44 text-xs bg-background"><SelectValue placeholder="Role" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Semua Role</SelectItem>
+                                            {rolesAvailable.map((r) => (
+                                                <SelectItem key={r} value={r}>{roleLabel(r)}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); applyFilters({ status: v, page: 1 }); }}>
+                                        <SelectTrigger className="h-8 w-40 text-xs bg-background"><SelectValue placeholder="Status" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Semua Status</SelectItem>
+                                            <SelectItem value="active">Aktif</SelectItem>
+                                            <SelectItem value="inactive">Non-Aktif</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
-                            </div>
-                        )}
+                            }
+                        />
                     </CardContent>
                 </Card>
             </div>

@@ -60,7 +60,7 @@ export function DataTableToolbar({
         if (selected.length > 0) {
             return { rows: selected, isSelectedOnly: true };
         }
-        return { rows: table.getRowModel().rows, isSelectedOnly: false };
+        return { rows: table.getFilteredRowModel().rows, isSelectedOnly: false };
     };
 
     // 1. Ekspor / Salin ke Clipboard (TSV format untuk Excel & Google Sheets)
@@ -111,47 +111,55 @@ export function DataTableToolbar({
         }
     };
 
-    // 2. Unduh Berkas CSV
-    const handleDownloadCsv = () => {
+    // 2. Unduh Berkas Excel (.xls — HTML table ber-mime Excel, tanpa dependensi)
+    const handleDownloadExcel = () => {
         const columns = getExportableColumns();
-        const { rows, isSelectedOnly } = getTargetRows();
+        const { rows } = getTargetRows();
 
         if (rows.length === 0) {
             toast.error('Tidak ada data untuk diunduh.');
             return;
         }
 
-        const escapeCsv = (val) => {
-            if (val === null || val === undefined) return '""';
+        const escapeHtml = (val) => {
+            if (val === null || val === undefined) return '';
             const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
-            return `"${str.replace(/"/g, '""')}"`;
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
         };
 
-        const headerRow = columns
-            .map((col) => {
-                const header = col.columnDef.meta?.title || col.columnDef.header;
-                return escapeCsv(typeof header === 'string' ? header : col.id);
-            })
-            .join(',');
-
-        const bodyRows = rows.map((row) => {
-            return columns
-                .map((col) => escapeCsv(row.getValue(col.id)))
-                .join(',');
+        const headers = columns.map((col) => {
+            const header = col.columnDef.meta?.title || col.columnDef.header;
+            return typeof header === 'string' ? header : col.id;
         });
 
-        const csvContent = '\uFEFF' + `${headerRow}\n${bodyRows.join('\n')}`;
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const bodyRows = rows.map((row) => columns.map((col) => row.getValue(col.id)));
+
+        const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8">
+<style>
+th { background-color: #1e293b; color: #ffffff; font-weight: bold; border: 1px solid #cbd5e1; padding: 6px; text-align: left; }
+td { border: 1px solid #cbd5e1; padding: 4px; vertical-align: top; }
+</style></head>
+<body><table>
+<thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+<tbody>${bodyRows.map((r) => `<tr>${r.map((v) => `<td>${escapeHtml(v)}</td>`).join('')}</tr>`).join('')}</tbody>
+</table></body></html>`;
+
+        const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.setAttribute('href', url);
-        link.setAttribute('download', `${exportFileName}_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.setAttribute('download', `${exportFileName}_${new Date().toISOString().slice(0, 10)}.xls`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
 
-        toast.success(`File CSV berhasil diunduh (${rows.length} baris).`);
+        toast.success(`Berkas Excel (.xls) berhasil diunduh (${rows.length} baris).`);
     };
 
     const selectedCount = table.getFilteredSelectedRowModel().rows.length;
@@ -249,11 +257,11 @@ export function DataTableToolbar({
                                     <p className="text-[10px] text-slate-400">Siap tempel (Ctrl+V) di Excel / Sheets</p>
                                 </div>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleDownloadCsv} className="gap-2.5 cursor-pointer py-2">
+                            <DropdownMenuItem onClick={handleDownloadExcel} className="gap-2.5 cursor-pointer py-2">
                                 <Download className="h-3.5 w-3.5 text-emerald-600" />
                                 <div>
-                                    <p className="font-semibold text-slate-800 dark:text-slate-200">Unduh Berkas (.CSV / Excel)</p>
-                                    <p className="text-[10px] text-slate-400">Format kompatibel MS Excel</p>
+                                    <p className="font-semibold text-slate-800 dark:text-slate-200">Unduh Berkas Excel (.xls)</p>
+                                    <p className="text-[10px] text-slate-400">Format Excel langsung (tanpa CSV)</p>
                                 </div>
                             </DropdownMenuItem>
                         </DropdownMenuContent>

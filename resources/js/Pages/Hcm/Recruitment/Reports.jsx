@@ -372,6 +372,49 @@ export default function RecruitmentReports({
         []
     );
 
+    const channelColumns = useMemo(
+        () => [
+            {
+                accessorKey: 'channel',
+                meta: { title: 'Saluran / Sumber Kandidat' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Saluran / Sumber Kandidat" />,
+                cell: ({ row }) => (
+                    <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">{row.original.channel}</span>
+                ),
+            },
+            {
+                accessorKey: 'jobs',
+                meta: { title: 'Jumlah Loker', cellClassName: 'text-center' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Jumlah Loker" className="justify-center" />,
+                cell: ({ row }) => <span className="text-xs text-zinc-700 dark:text-zinc-300">{row.original.jobs}</span>,
+            },
+            {
+                accessorKey: 'applicants',
+                meta: { title: 'Total Pelamar', cellClassName: 'text-center' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Total Pelamar" className="justify-center" />,
+                cell: ({ row }) => <span className="text-xs text-zinc-700 dark:text-zinc-300">{row.original.applicants}</span>,
+            },
+            {
+                accessorKey: 'hired',
+                meta: { title: 'Diterima', cellClassName: 'text-center' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Diterima" className="justify-center" />,
+                cell: ({ row }) => (
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{row.original.hired}</span>
+                ),
+            },
+            {
+                id: 'conversion_rate',
+                accessorFn: (row) => row.conversion_rate ?? '',
+                meta: { title: 'Konversi', cellClassName: 'text-center' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Konversi" className="justify-center" />,
+                cell: ({ row }) => (
+                    <span className="text-xs text-zinc-700 dark:text-zinc-300">{row.original.conversion_rate}%</span>
+                ),
+            },
+        ],
+        []
+    );
+
     return (
         <AppLayout
             header={
@@ -492,56 +535,14 @@ export default function RecruitmentReports({
                     </div>
                 )}
 
-                {/* Performa per Saluran Rekrutmen (ROI Saluran) */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <CardContent className="p-0">
-                        <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                            Performa per Saluran Rekrutmen (ROI Sumber Pelamar)
-                        </div>
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-zinc-50/75 dark:bg-zinc-800/50">
-                                        <TableHead className="text-xs">Saluran / Sumber Kandidat</TableHead>
-                                        <TableHead className="text-center text-xs">Jumlah Loker</TableHead>
-                                        <TableHead className="text-center text-xs">Total Pelamar</TableHead>
-                                        <TableHead className="text-center text-xs">Diterima</TableHead>
-                                        <TableHead className="text-center text-xs">Konversi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {channels.length > 0 ? (
-                                        channels.map((ch) => (
-                                            <TableRow key={ch.channel} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                                                <TableCell className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
-                                                    {ch.channel}
-                                                </TableCell>
-                                                <TableCell className="text-center text-xs text-zinc-700 dark:text-zinc-300">
-                                                    {ch.jobs}
-                                                </TableCell>
-                                                <TableCell className="text-center text-xs text-zinc-700 dark:text-zinc-300">
-                                                    {ch.applicants}
-                                                </TableCell>
-                                                <TableCell className="text-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                                                    {ch.hired}
-                                                </TableCell>
-                                                <TableCell className="text-center text-xs text-zinc-700 dark:text-zinc-300">
-                                                    {ch.conversion_rate}%
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="text-center text-xs text-zinc-400 py-8">
-                                                Belum ada data saluran rekrutmen.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
-                </Card>
+                {/* Performa per Saluran Rekrutmen (ROI Saluran) - DataTable (sticky filter, sticky footer, salin Excel) */}
+                <DataTable
+                    columns={channelColumns}
+                    data={channels}
+                    searchPlaceholder="Cari saluran / sumber kandidat..."
+                    exportFileName={`ROI_Saluran_Rekrutmen_${new Date().toISOString().slice(0, 10)}`}
+                    emptyMessage="Belum ada data saluran rekrutmen."
+                />
             </div>
         </AppLayout>
     );

@@ -1,11 +1,12 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Badge } from '@/Components/ui/badge';
 import { SearchableSelect } from '@/Components/ui/searchable-select';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import {
     Table,
     TableBody,
@@ -158,7 +159,7 @@ export default function CompensationIndex({
         });
     };
 
-    const applyFilter = (s = search, st = status, empSt = employmentStatus, e = entity) => {
+    const applyFilter = (s = search, st = status, empSt = employmentStatus, e = entity, page = 1, perPage = compensations?.per_page || 15) => {
         router.get(
             route('hcm.compensations.index'),
             {
@@ -166,6 +167,8 @@ export default function CompensationIndex({
                 status: st,
                 employment_status: empSt,
                 entity: e,
+                page: page > 1 ? page : undefined,
+                per_page: perPage,
             },
             {
                 preserveState: true,
@@ -427,6 +430,343 @@ export default function CompensationIndex({
     // Helper dropdown options
     const toOptions = (items = []) => items.map((i) => (typeof i === 'string' ? { label: i, value: i } : i));
 
+    const compColumns = useMemo(() => [
+        {
+            id: 'employment_status',
+            accessorFn: (row) => row.employment_status || row.employee?.employment_status || 'PKWT',
+            meta: { title: 'Status Ketenagakerjaan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status Ketenagakerjaan" />,
+            cell: ({ row }) => {
+                const c = row.original;
+                const emp = c.employee;
+                const statusVal = c.employment_status || emp?.employment_status || 'PKWT';
+                return (
+                    <Badge
+                        variant="outline"
+                        className={`text-[10px] font-semibold ${
+                            statusVal.includes('Tetap')
+                                ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300'
+                                : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
+                        }`}
+                    >
+                        {statusVal}
+                    </Badge>
+                );
+            },
+        },
+        {
+            id: 'name',
+            accessorFn: (row) => row.employee?.name || '',
+            meta: { title: 'Nama' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama" />,
+            cell: ({ row }) => (
+                <div>
+                    <div className="font-semibold text-zinc-900 dark:text-zinc-100">{row.original.employee?.name || '-'}</div>
+                    <div className="text-[10px] font-mono text-zinc-400">{row.original.employee?.employee_code || '-'}</div>
+                </div>
+            ),
+        },
+        {
+            id: 'nickname',
+            accessorFn: (row) => row.employee?.nickname || '',
+            meta: { title: 'Nama Panggil' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama Panggil" />,
+            cell: ({ row }) => (
+                <span className="text-zinc-700 dark:text-zinc-300 font-medium">{row.original.employee?.nickname || '-'}</span>
+            ),
+        },
+        {
+            id: 'department',
+            accessorFn: (row) => row.employee?.department || '',
+            meta: { title: 'Departemen / Divisi' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Departemen / Divisi" />,
+            cell: ({ row }) => {
+                const emp = row.original.employee;
+                return (
+                    <div>
+                        <div className="font-semibold text-zinc-800 dark:text-zinc-200">{emp?.department || '-'}</div>
+                        {emp?.division && <div className="text-[10px] text-zinc-400">{emp.division}</div>}
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'legal_entity',
+            accessorFn: (row) => row.legal_entity || row.employee?.legal_entity || '',
+            meta: { title: 'CV' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="CV" />,
+            cell: ({ row }) => (
+                <span className="text-zinc-600 dark:text-zinc-400">
+                    {row.original.legal_entity || row.original.employee?.legal_entity || '-'}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'contract_number',
+            meta: { title: 'No. Kontrak' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="No. Kontrak" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-zinc-700 dark:text-zinc-300">{row.original.contract_number || '-'}</span>
+            ),
+        },
+        {
+            accessorKey: 'duration_text',
+            meta: { title: 'Masa Kontrak' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Masa Kontrak" />,
+            cell: ({ row }) => (
+                <span className="text-zinc-700 dark:text-zinc-300">{row.original.duration_text || '1 Tahun'}</span>
+            ),
+        },
+        {
+            id: 'contract_sequence',
+            accessorFn: (row) => row.employee?.activeContract?.contract_sequence ?? '',
+            meta: { title: 'Masa Kerja Kontrak Ke-', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Masa Kerja Kontrak Ke-" className="justify-center" />,
+            cell: ({ row }) => {
+                const c = row.original;
+                const emp = c.employee;
+                if (emp?.activeContract?.contract_sequence) {
+                    return (
+                        <Badge variant="outline" className="text-[10px] font-semibold bg-zinc-50 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
+                            Kontrak ke-{emp.activeContract.contract_sequence}
+                        </Badge>
+                    );
+                }
+                if ((c.employment_status || emp?.employment_status || '').includes('Tetap')) {
+                    return (
+                        <Badge variant="outline" className="text-[10px] font-semibold bg-purple-50 dark:bg-purple-950/40 border-purple-200 text-purple-700 dark:text-purple-300">
+                            Tetap (PKWTT)
+                        </Badge>
+                    );
+                }
+                return <span className="text-zinc-400 font-mono text-[11px]">-</span>;
+            },
+        },
+        {
+            id: 'trainee_duration_months',
+            accessorFn: (row) => row.trainee_duration_months ?? '',
+            meta: { title: 'Masa Trainee (Bulan)', cellClassName: 'text-center font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Masa Trainee (Bulan)" className="justify-center" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-zinc-700 dark:text-zinc-300">
+                    {row.original.trainee_duration_months !== null && row.original.trainee_duration_months !== undefined
+                        ? `${row.original.trainee_duration_months} Bulan`
+                        : '-'}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'evaluation_cycle_months',
+            meta: { title: 'Siklus Evaluasi (Bulan)', cellClassName: 'text-center font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Siklus Evaluasi (Bulan)" className="justify-center" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-zinc-700 dark:text-zinc-300">
+                    {row.original.evaluation_cycle_months ? `${row.original.evaluation_cycle_months} Bulan` : '6 Bulan'}
+                </span>
+            ),
+        },
+        {
+            id: 'initial_salary',
+            accessorFn: (row) => row.initial_salary ?? '',
+            meta: { title: 'Honor Awal Kontrak (Rp)', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Honor Awal Kontrak (Rp)" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-zinc-600 dark:text-zinc-400">{rp(row.original.initial_salary)}</span>,
+        },
+        {
+            id: 'current_salary',
+            accessorFn: (row) => row.current_salary ?? '',
+            meta: { title: 'Honor Saat Ini (Rp)', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Honor Saat Ini (Rp)" className="justify-end" />,
+            cell: ({ row }) => (
+                <span className={`inline-block min-w-[95px] text-right ${getSalaryCellClass(row.original.salary_status)}`}>
+                    {rp(row.original.current_salary)}
+                </span>
+            ),
+        },
+        {
+            id: 'salary_increment_count',
+            accessorFn: (row) => row.salary_increment_count ?? 0,
+            meta: { title: 'Total Kenaikan (Kali)', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Total Kenaikan (Kali)" className="justify-center" />,
+            cell: ({ row }) =>
+                row.original.salary_increment_count > 0 ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        {row.original.salary_increment_count}x
+                    </span>
+                ) : (
+                    <span className="text-zinc-400">-</span>
+                ),
+        },
+        {
+            id: 'increment_1_amount',
+            accessorFn: (row) => row.increment_1_amount ?? '',
+            meta: { title: 'Update Honor 1', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Update Honor 1" className="justify-end" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-zinc-700 dark:text-zinc-300 font-medium">
+                    {row.original.increment_1_amount ? rp(row.original.increment_1_amount) : '-'}
+                </span>
+            ),
+        },
+        {
+            id: 'increment_1_date',
+            accessorFn: (row) => (row.increment_1_amount ? getIncrementDate(row.original, 1) : ''),
+            meta: { title: 'Berlaku 1', cellClassName: 'text-center font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Berlaku 1" className="justify-center" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-zinc-600 dark:text-zinc-400">
+                    {row.original.increment_1_amount ? getIncrementDate(row.original, 1) : '-'}
+                </span>
+            ),
+        },
+        {
+            id: 'increment_2_amount',
+            accessorFn: (row) => row.increment_2_amount ?? '',
+            meta: { title: 'Update Honor 2', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Update Honor 2" className="justify-end" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-zinc-700 dark:text-zinc-300 font-medium">
+                    {row.original.increment_2_amount ? rp(row.original.increment_2_amount) : '-'}
+                </span>
+            ),
+        },
+        {
+            id: 'increment_2_date',
+            accessorFn: (row) => (row.increment_2_amount ? getIncrementDate(row.original, 2) : ''),
+            meta: { title: 'Berlaku 2', cellClassName: 'text-center font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Berlaku 2" className="justify-center" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-zinc-600 dark:text-zinc-400">
+                    {row.original.increment_2_amount ? getIncrementDate(row.original, 2) : '-'}
+                </span>
+            ),
+        },
+        {
+            id: 'increment_3_amount',
+            accessorFn: (row) => row.increment_3_amount ?? '',
+            meta: { title: 'Update Honor 3', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Update Honor 3" className="justify-end" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-zinc-700 dark:text-zinc-300 font-medium">
+                    {row.original.increment_3_amount ? rp(row.original.increment_3_amount) : '-'}
+                </span>
+            ),
+        },
+        {
+            id: 'increment_3_date',
+            accessorFn: (row) => (row.increment_3_amount ? getIncrementDate(row.original, 3) : ''),
+            meta: { title: 'Berlaku 3', cellClassName: 'text-center font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Berlaku 3" className="justify-center" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-zinc-600 dark:text-zinc-400">
+                    {row.original.increment_3_amount ? getIncrementDate(row.original, 3) : '-'}
+                </span>
+            ),
+        },
+        {
+            id: 'salary_status',
+            accessorFn: (row) => row.salary_status || '',
+            meta: { title: 'Status Pengajuan/Honor', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status Pengajuan/Honor" className="justify-center" />,
+            cell: ({ row }) => {
+                const c = row.original;
+                return (
+                    <div>
+                        <div>{getStatusBadge(c.salary_status)}</div>
+                        {c.decision_status && (
+                            <div className="mt-1">
+                                <span
+                                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
+                                        c.decision_status === 'Sudah Disetujui / ACC'
+                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                            : c.decision_status === 'Ditunda'
+                                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                            : c.decision_status === 'Tidak Naik'
+                                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                            : 'bg-blue-50 text-blue-700 border-blue-200'
+                                    }`}
+                                >
+                                    {c.decision_status}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Aksi</div>,
+            cell: ({ row }) => {
+                const c = row.original;
+                const emp = c.employee;
+                return (
+                    <div className="flex items-center justify-end gap-1">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenDecision(c)}
+                            className="h-7 text-[11px] px-2 gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300"
+                            title="Tentukan Keputusan Evaluasi Kenaikan Gaji (ACC/Tunda)"
+                        >
+                            <FileText className="h-3 w-3 text-indigo-500" />
+                            <span>Evaluasi</span>
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenHistory(c)}
+                            className="h-7 text-[11px] px-2 gap-1 text-zinc-700 dark:text-zinc-300"
+                            title="Lihat Riwayat Kenaikan Honor"
+                        >
+                            <History className="h-3 w-3 text-indigo-500" />
+                            <span>Riwayat</span>
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => handleOpenIncrement(c)}
+                            className="h-7 text-[11px] px-2 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            title="Catat Kenaikan Honor Langsung"
+                        >
+                            <ArrowUpRight className="h-3 w-3" />
+                            <span>Naikkan</span>
+                        </Button>
+                        <button
+                            type="button"
+                            onClick={() => handleOpenEdit(c)}
+                            className="p-1 rounded text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                            title="Edit Data Kompensasi"
+                        >
+                            <Edit3 className="h-3.5 w-3.5" />
+                        </button>
+                        {(emp?.employee_code || emp?.id) && (
+                            <Link href={route('hcm.employees.show', emp.employee_code || emp.id)}>
+                                <button
+                                    type="button"
+                                    className="p-1 rounded text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                                    title="Buka Dossier 360 Karyawan"
+                                >
+                                    <Eye className="h-3.5 w-3.5" />
+                                </button>
+                            </Link>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => handleOpenDelete(c)}
+                            className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                            title="Hapus Data Kompensasi"
+                        >
+                            <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
+                );
+            },
+        },
+    ], []);
+
     return (
         <AppLayout
             header={
@@ -656,83 +996,6 @@ export default function CompensationIndex({
                     </button>
                 </div>
 
-                {/* Filter Toolbar Sticky Top */}
-                <Card className="sticky top-0 z-30 border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <CardContent className="p-3.5">
-                        <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row items-center gap-2.5">
-                            <div className="relative flex-1 w-full">
-                                <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
-                                <Input
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    placeholder="Cari nama karyawan, nama panggil, NIK, departemen, divisi, no kontrak..."
-                                    className="pl-9 h-9 text-xs"
-                                />
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                                <SearchableSelect
-                                    value={entity}
-                                    onValueChange={(val) => {
-                                        setEntity(val);
-                                        applyFilter(search, status, employmentStatus, val);
-                                    }}
-                                    options={[
-                                        { label: 'Semua CV / Badan Usaha', value: 'all' },
-                                        ...toOptions(dropdowns.legal_entities || entities),
-                                    ]}
-                                    placeholder="Semua Badan Usaha"
-                                    className="w-full sm:w-48 text-xs"
-                                />
-
-                                <SearchableSelect
-                                    value={employmentStatus}
-                                    onValueChange={(val) => {
-                                        setEmploymentStatus(val);
-                                        applyFilter(search, status, val, entity);
-                                    }}
-                                    options={[
-                                        { label: 'Semua Status Ketenagakerjaan', value: 'all' },
-                                        ...toOptions(dropdowns.employment_statuses || ['Karyawan Tetap', 'PKWT', 'PKWT Lanjutan', 'Trainee (Probation)']),
-                                    ]}
-                                    placeholder="Status Kerja"
-                                    className="w-full sm:w-44 text-xs"
-                                />
-
-                                <SearchableSelect
-                                    value={status}
-                                    onValueChange={(val) => {
-                                        setStatus(val);
-                                        applyFilter(search, val, employmentStatus, entity);
-                                    }}
-                                    options={[
-                                        { label: 'Semua Status Pengajuan', value: 'all' },
-                                        ...toOptions(dropdowns.salary_statuses || statuses),
-                                    ]}
-                                    placeholder="Status Pengajuan"
-                                    className="w-full sm:w-44 text-xs"
-                                />
-
-                                <Button type="submit" size="sm" className="h-9 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1 shrink-0">
-                                    <Search className="h-3.5 w-3.5" />
-                                    <span>Filter</span>
-                                </Button>
-
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleResetFilters}
-                                    className="h-9 px-2.5 text-xs text-zinc-500 hover:text-zinc-800 gap-1 shrink-0"
-                                    title="Reset Semua Filter"
-                                >
-                                    <RotateCcw className="h-3.5 w-3.5" />
-                                    <span>Reset</span>
-                                </Button>
-                            </div>
-                        </form>
-                    </CardContent>
-                </Card>
 
                 {/* Legenda Warna Status Honor NIS Group */}
                 <div className="p-3 bg-zinc-900/95 dark:bg-zinc-950 text-white rounded-xl border border-zinc-800 shadow-xs mb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2.5 text-xs">
@@ -759,336 +1022,83 @@ export default function CompensationIndex({
                     </div>
                 </div>
 
-                {/* Tabel Rekapitulasi Kompensasi Format Master NIS Group */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs overflow-hidden">
-                    <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-xs text-left border-collapse">
-                                <thead>
-                                    <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/75 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400 font-semibold whitespace-nowrap">
-                                        <th className="py-3 px-3">Status Ketenagakerjaan</th>
-                                        <th className="py-3 px-3">Nama</th>
-                                        <th className="py-3 px-3">Nama Panggil</th>
-                                        <th className="py-3 px-3">Departemen / Divisi</th>
-                                        <th className="py-3 px-3">CV</th>
-                                        <th className="py-3 px-3">No. Kontrak</th>
-                                        <th className="py-3 px-3">Masa Kontrak</th>
-                                        <th className="py-3 px-3 text-center">Masa Kerja Kontrak Ke-</th>
-                                        <th className="py-3 px-3 text-center">Bulan Mulai Trainee</th>
-                                        <th className="py-3 px-3 text-center">Siklus Evaluasi (Bulan)</th>
-                                        <th className="py-3 px-3 text-right">Honor Awal Kontrak (Rp)</th>
-                                        <th className="py-3 px-3 text-right">Honor Saat Ini (Rp)</th>
-                                        <th className="py-3 px-3 text-center">Total Kenaikan (Kali)</th>
-                                        <th className="py-3 px-3 text-right">Update Honor 1</th>
-                                        <th className="py-3 px-3 text-center">Berlaku 1</th>
-                                        <th className="py-3 px-3 text-right">Update Honor 2</th>
-                                        <th className="py-3 px-3 text-center">Berlaku 2</th>
-                                        <th className="py-3 px-3 text-right">Update Honor 3</th>
-                                        <th className="py-3 px-3 text-center">Berlaku 3</th>
-                                        <th className="py-3 px-3 text-center">Status Pengajuan/Honor</th>
-                                        <th className="py-3 px-3.5 text-right sticky right-0 z-20 bg-zinc-50 dark:bg-zinc-800 border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">
-                                            Aksi
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-200/80 dark:divide-zinc-800/80 whitespace-nowrap">
-                                    {rows.length > 0 ? (
-                                        rows.map((c) => {
-                                            const emp = c.employee;
-                                            return (
-                                                <tr
-                                                    key={c.id}
-                                                    className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40 transition"
-                                                >
-                                                    {/* 1. Status Ketenagakerjaan */}
-                                                    <td className="py-3 px-3">
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={`text-[10px] font-semibold ${
-                                                                (c.employment_status || emp?.employment_status || '').includes('Tetap')
-                                                                    ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300'
-                                                                    : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
-                                                            }`}
-                                                        >
-                                                            {c.employment_status || emp?.employment_status || 'PKWT'}
-                                                        </Badge>
-                                                    </td>
-
-                                                    {/* 2. Nama */}
-                                                    <td className="py-3 px-3">
-                                                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-                                                            {emp?.name || '-'}
-                                                        </div>
-                                                        <div className="text-[10px] font-mono text-zinc-400">
-                                                            {emp?.employee_code || '-'}
-                                                        </div>
-                                                    </td>
-
-                                                    {/* 3. Nama Panggil */}
-                                                    <td className="py-3 px-3 text-zinc-700 dark:text-zinc-300 font-medium">
-                                                        {emp?.nickname || '-'}
-                                                    </td>
-
-                                                    {/* 4. Departemen / Divisi */}
-                                                    <td className="py-3 px-3">
-                                                        <div className="font-semibold text-zinc-800 dark:text-zinc-200">
-                                                            {emp?.department || '-'}
-                                                        </div>
-                                                        {emp?.division && (
-                                                            <div className="text-[10px] text-zinc-400">
-                                                                {emp?.division}
-                                                            </div>
-                                                        )}
-                                                    </td>
-
-                                                    {/* 5. CV */}
-                                                    <td className="py-3 px-3 text-zinc-600 dark:text-zinc-400">
-                                                        {c.legal_entity || emp?.legal_entity || '-'}
-                                                    </td>
-
-                                                    {/* 6. No. Kontrak */}
-                                                    <td className="py-3 px-3 font-mono text-zinc-700 dark:text-zinc-300">
-                                                        {c.contract_number || '-'}
-                                                    </td>
-
-                                                    {/* 7. Masa Kontrak */}
-                                                    <td className="py-3 px-3 text-zinc-700 dark:text-zinc-300">
-                                                        {c.duration_text || '1 Tahun'}
-                                                    </td>
-
-                                                    {/* Masa Kerja Kontrak Ke- */}
-                                                    <td className="py-3 px-3 text-center">
-                                                        {emp?.activeContract?.contract_sequence ? (
-                                                            <Badge variant="outline" className="text-[10px] font-semibold bg-zinc-50 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
-                                                                Kontrak ke-{emp.activeContract.contract_sequence}
-                                                            </Badge>
-                                                        ) : (c.employment_status || emp?.employment_status || '').includes('Tetap') ? (
-                                                            <Badge variant="outline" className="text-[10px] font-semibold bg-purple-50 dark:bg-purple-950/40 border-purple-200 text-purple-700 dark:text-purple-300">
-                                                                Tetap (PKWTT)
-                                                            </Badge>
-                                                        ) : (
-                                                            <span className="text-zinc-400 font-mono text-[11px]">-</span>
-                                                        )}
-                                                    </td>
-
-                                                    {/* 8. Bulan Mulai Trainee / Durasi Trainee */}
-                                                    <td className="py-3 px-3 text-center font-mono text-zinc-700 dark:text-zinc-300">
-                                                        {c.trainee_duration_months !== null && c.trainee_duration_months !== undefined
-                                                            ? `${c.trainee_duration_months} Bulan`
-                                                            : '-'}
-                                                    </td>
-
-                                                    {/* 9. Siklus Evaluasi (Bulan) */}
-                                                    <td className="py-3 px-3 text-center font-mono text-zinc-700 dark:text-zinc-300">
-                                                        {c.evaluation_cycle_months ? `${c.evaluation_cycle_months} Bulan` : '6 Bulan'}
-                                                    </td>
-
-                                                    {/* 10. Honor Awal Kontrak (Rp) */}
-                                                    <td className="py-3 px-3 text-right font-mono text-zinc-600 dark:text-zinc-400">
-                                                        {rp(c.initial_salary)}
-                                                    </td>
-
-                                                    {/* 11. Honor Saat Ini (Rp) */}
-                                                    <td className="py-2.5 px-3 text-right font-mono">
-                                                        <span className={`inline-block min-w-[95px] text-right ${getSalaryCellClass(c.salary_status)}`}>
-                                                            {rp(c.current_salary)}
-                                                        </span>
-                                                    </td>
-
-                                                    {/* 12. Total Kenaikan (Kali) */}
-                                                    <td className="py-3 px-3 text-center">
-                                                        {c.salary_increment_count > 0 ? (
-                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
-                                                                {c.salary_increment_count}x
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-zinc-400">-</span>
-                                                        )}
-                                                    </td>
-
-                                                    {/* Update Honor 1 & Berlaku */}
-                                                    <td className="py-3 px-3 text-right font-mono text-zinc-700 dark:text-zinc-300 font-medium">
-                                                        {c.increment_1_amount ? rp(c.increment_1_amount) : '-'}
-                                                    </td>
-                                                    <td className="py-3 px-3 text-center font-mono text-zinc-600 dark:text-zinc-400">
-                                                        {c.increment_1_amount ? getIncrementDate(c, 1) : '-'}
-                                                    </td>
-
-                                                    {/* Update Honor 2 & Berlaku */}
-                                                    <td className="py-3 px-3 text-right font-mono text-zinc-700 dark:text-zinc-300 font-medium">
-                                                        {c.increment_2_amount ? rp(c.increment_2_amount) : '-'}
-                                                    </td>
-                                                    <td className="py-3 px-3 text-center font-mono text-zinc-600 dark:text-zinc-400">
-                                                        {c.increment_2_amount ? getIncrementDate(c, 2) : '-'}
-                                                    </td>
-
-                                                    {/* Update Honor 3 & Berlaku */}
-                                                    <td className="py-3 px-3 text-right font-mono text-zinc-700 dark:text-zinc-300 font-medium">
-                                                        {c.increment_3_amount ? rp(c.increment_3_amount) : '-'}
-                                                    </td>
-                                                    <td className="py-3 px-3 text-center font-mono text-zinc-600 dark:text-zinc-400">
-                                                        {c.increment_3_amount ? getIncrementDate(c, 3) : '-'}
-                                                    </td>
-
-                                                    {/* 15. Status Pengajuan / Keputusan Evaluasi */}
-                                                    <td className="py-3 px-3 text-center">
-                                                        <div>{getStatusBadge(c.salary_status)}</div>
-                                                        {c.decision_status && (
-                                                            <div className="mt-1">
-                                                                <span
-                                                                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
-                                                                        c.decision_status === 'Sudah Disetujui / ACC'
-                                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                                            : c.decision_status === 'Ditunda'
-                                                                            ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                                                            : c.decision_status === 'Tidak Naik'
-                                                                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                                                            : 'bg-blue-50 text-blue-700 border-blue-200'
-                                                                    }`}
-                                                                >
-                                                                    {c.decision_status}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </td>
-
-                                                    {/* 16. Aksi */}
-                                                    <td className="py-3 px-3.5 text-right sticky right-0 z-10 bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-zinc-50 dark:group-hover:bg-zinc-800/90 transition-colors">
-                                                        <div className="flex items-center justify-end gap-1">
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleOpenDecision(c)}
-                                                                className="h-7 text-[11px] px-2 gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300"
-                                                                title="Tentukan Keputusan Evaluasi Kenaikan Gaji (ACC/Tunda)"
-                                                            >
-                                                                <FileText className="h-3 w-3 text-indigo-500" />
-                                                                <span>Evaluasi</span>
-                                                            </Button>
-
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleOpenHistory(c)}
-                                                                className="h-7 text-[11px] px-2 gap-1 text-zinc-700 dark:text-zinc-300"
-                                                                title="Lihat Riwayat Kenaikan Honor"
-                                                            >
-                                                                <History className="h-3 w-3 text-indigo-500" />
-                                                                <span>Riwayat</span>
-                                                            </Button>
-
-                                                            <Button
-                                                                type="button"
-                                                                size="sm"
-                                                                onClick={() => handleOpenIncrement(c)}
-                                                                className="h-7 text-[11px] px-2 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                                                title="Catat Kenaikan Honor Langsung"
-                                                            >
-                                                                <ArrowUpRight className="h-3 w-3" />
-                                                                <span>Naikkan</span>
-                                                            </Button>
-
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleOpenEdit(c)}
-                                                                className="p-1 rounded text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                                                                title="Edit Data Kompensasi"
-                                                            >
-                                                                <Edit3 className="h-3.5 w-3.5" />
-                                                            </button>
-
-                                                            {(emp?.employee_code || emp?.id) && (
-                                                                <Link href={route('hcm.employees.show', emp.employee_code || emp.id)}>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="p-1 rounded text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                                                                        title="Buka Dossier 360 Karyawan"
-                                                                    >
-                                                                        <Eye className="h-3.5 w-3.5" />
-                                                                    </button>
-                                                                </Link>
-                                                            )}
-
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleOpenDelete(c)}
-                                                                className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
-                                                                title="Hapus Data Kompensasi"
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={21} className="text-center text-zinc-400 py-12">
-                                                <div className="flex flex-col items-center justify-center gap-2">
-                                                    <Banknote className="h-8 w-8 text-zinc-300" />
-                                                    <p className="text-xs">Tidak ada data kompensasi yang sesuai dengan filter.</p>
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={handleResetFilters}
-                                                        className="text-xs mt-1"
-                                                    >
-                                                        Reset Filter
-                                                    </Button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                                <tfoot className="bg-zinc-100 dark:bg-zinc-800/80 font-bold text-xs border-t-2 border-zinc-300 dark:border-zinc-700">
-                                    <tr>
-                                        <td colSpan={11} className="py-3 px-3 text-right uppercase tracking-wider font-extrabold text-zinc-700 dark:text-zinc-300">
-                                            Total Honorium Saat Ini:
-                                        </td>
-                                        <td className="py-3 px-3 text-right font-mono font-extrabold text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-100/60 dark:bg-emerald-950/60 border-l border-r border-emerald-300">
-                                            {rp(metrics.total_current)}
-                                        </td>
-                                        <td colSpan={9} className="py-3 px-3 text-zinc-400 font-normal">
-                                            (Akumulasi dari {metrics.total_employees ?? 0} Karyawan Aktif)
-                                        </td>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                {/* Tabel Rekapitulasi Kompensasi - DataTable (sticky filter, sticky footer, kolom aksi pin kanan) */}
+                <DataTable
+                    columns={compColumns}
+                    data={rows}
+                    serverPagination={compensations}
+                    onServerPageChange={(page) => applyFilter(search, status, employmentStatus, entity, page)}
+                    onServerPerPageChange={(per_page) => applyFilter(search, status, employmentStatus, entity, 1, per_page)}
+                    onServerSearchChange={(val) => {
+                        setSearch(val);
+                        applyFilter(val, status, employmentStatus, entity, 1);
+                    }}
+                    searchValue={search}
+                    searchPlaceholder="Cari nama karyawan, nama panggil, NIK, departemen, divisi, no kontrak..."
+                    exportFileName={`Kompensasi_Honor_${new Date().toISOString().slice(0, 10)}`}
+                    emptyMessage="Tidak ada data kompensasi yang sesuai dengan filter."
+                    filterSlot={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <SearchableSelect
+                                value={entity}
+                                onValueChange={(val) => {
+                                    setEntity(val);
+                                    applyFilter(search, status, employmentStatus, val, 1);
+                                }}
+                                options={[
+                                    { label: 'Semua CV / Badan Usaha', value: 'all' },
+                                    ...toOptions(dropdowns.legal_entities || entities),
+                                ]}
+                                placeholder="Semua Badan Usaha"
+                                className="h-8 w-48 text-xs"
+                            />
+                            <SearchableSelect
+                                value={employmentStatus}
+                                onValueChange={(val) => {
+                                    setEmploymentStatus(val);
+                                    applyFilter(search, status, val, entity, 1);
+                                }}
+                                options={[
+                                    { label: 'Semua Status Ketenagakerjaan', value: 'all' },
+                                    ...toOptions(dropdowns.employment_statuses || ['Karyawan Tetap', 'PKWT', 'PKWT Lanjutan', 'Trainee (Probation)']),
+                                ]}
+                                placeholder="Status Kerja"
+                                className="h-8 w-44 text-xs"
+                            />
+                            <SearchableSelect
+                                value={status}
+                                onValueChange={(val) => {
+                                    setStatus(val);
+                                    applyFilter(search, val, employmentStatus, entity, 1);
+                                }}
+                                options={[
+                                    { label: 'Semua Status Pengajuan', value: 'all' },
+                                    ...toOptions(dropdowns.salary_statuses || statuses),
+                                ]}
+                                placeholder="Status Pengajuan"
+                                className="h-8 w-44 text-xs"
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={handleResetFilters}
+                                className="h-8 px-2.5 text-xs text-zinc-500 hover:text-zinc-800 gap-1 shrink-0"
+                                title="Reset Semua Filter"
+                            >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                                <span>Reset</span>
+                            </Button>
                         </div>
-                    </CardContent>
-                </Card>
+                    }
+                />
 
-                {/* Pagination Sticky Bottom */}
-                {compensations?.links && compensations.links.length > 3 && (
-                    <div className="flex items-center justify-between p-3 border border-zinc-200 dark:border-zinc-800 rounded-xl sticky bottom-0 z-20 bg-white dark:bg-zinc-900 shadow-[0_-4px_16px_-2px_rgba(0,0,0,0.08)]">
-                        <div className="text-xs text-zinc-500">
-                            Menampilkan <strong>{compensations.from || 0}</strong> - <strong>{compensations.to || 0}</strong> dari{' '}
-                            <strong>{compensations.total}</strong> karyawan
-                        </div>
-                        <div className="flex items-center gap-1">
-                            {compensations.links.map((link, idx) => (
-                                <Link
-                                    key={idx}
-                                    href={link.url || '#'}
-                                    preserveScroll
-                                    preserveState
-                                    className={`px-2.5 py-1 text-xs rounded transition ${
-                                        link.active
-                                            ? 'bg-indigo-600 text-white font-semibold'
-                                            : !link.url
-                                            ? 'text-zinc-400 cursor-not-allowed'
-                                            : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'
-                                    }`}
-                                    dangerouslySetInnerHTML={{ __html: link.label }}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
+                {/* Total honorium akumulatif (footer total tabel) */}
+                <div className="flex flex-wrap items-center justify-end gap-2 px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-800/60 text-xs">
+                    <span className="uppercase tracking-wider font-extrabold text-zinc-700 dark:text-zinc-300">Total Honorium Saat Ini:</span>
+                    <span className="font-mono font-extrabold text-sm text-emerald-700 dark:text-emerald-300">{rp(metrics.total_current)}</span>
+                    <span className="text-zinc-400 font-normal">(Akumulasi dari {metrics.total_employees ?? 0} Karyawan Aktif)</span>
+                </div>
             </div>
 
             {/* Modal Tambah Data Kompensasi Baru */}

@@ -1,5 +1,5 @@
 import { Head, Link, useForm, router } from '@inertiajs/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, AlertTriangle, Play, CheckCircle2, SkipForward, Plus, Edit, Trash2, Lock } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
@@ -11,6 +11,7 @@ import { Input } from '@/Components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { formatDateTime } from '@/lib/utils';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 
 const STATUS_VARIANT = {
     pending: 'outline',
@@ -379,6 +380,115 @@ export default function ProgressPage({ order, can, ekspedisis = [] }) {
         }
     };
 
+    const rijekColumns = useMemo(() => {
+        const canManage = can?.addReject && !isSent;
+        const cols = [
+            {
+                id: 'nama_progress',
+                accessorFn: (row) => row.progress?.nama_progress || '',
+                meta: { title: 'Tahapan', cellClassName: 'py-2.5 font-medium' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Tahapan" />,
+                cell: ({ row }) => <span className="font-medium">{row.original.progress?.nama_progress ?? '—'}</span>,
+            },
+            {
+                id: 'jenis',
+                accessorFn: (row) => row.jenis || '',
+                meta: { title: 'Jenis / Tingkat' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Jenis / Tingkat" />,
+                cell: ({ row }) => (
+                    <div className="flex gap-1.5 items-center">
+                        <span className="capitalize">{row.original.jenis}</span>
+                        <Badge
+                            variant={row.original.tingkat === 'berat' ? 'destructive' : row.original.tingkat === 'sedang' ? 'warning' : 'outline'}
+                            className="text-[10px] py-0 px-1.5 uppercase font-semibold"
+                        >
+                            {row.original.tingkat}
+                        </Badge>
+                    </div>
+                ),
+            },
+            {
+                id: 'jumlah',
+                accessorFn: (row) => row.jumlah ?? 0,
+                meta: { title: 'Jumlah', cellClassName: 'text-right font-mono font-bold text-amber-600' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Jumlah" className="justify-end" />,
+                cell: ({ row }) => <span className="font-mono font-bold text-amber-600">{row.original.jumlah} pcs</span>,
+            },
+            {
+                accessorKey: 'kendala',
+                meta: { title: 'Kendala', cellClassName: 'text-muted-foreground max-w-xs truncate' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Kendala" />,
+                cell: ({ row }) => (
+                    <span className="text-muted-foreground max-w-xs truncate inline-block align-middle" title={row.original.kendala}>
+                        {row.original.kendala}
+                    </span>
+                ),
+            },
+            {
+                accessorKey: 'penanganan',
+                meta: { title: 'Penanganan', cellClassName: 'text-muted-foreground max-w-xs truncate' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Penanganan" />,
+                cell: ({ row }) => (
+                    <span className="text-muted-foreground max-w-xs truncate inline-block align-middle" title={row.original.penanganan}>
+                        {row.original.penanganan || '—'}
+                    </span>
+                ),
+            },
+            {
+                id: 'oleh',
+                accessorFn: (row) => row.creator?.name || 'Sistem',
+                meta: { title: 'Oleh', cellClassName: 'text-xs text-muted-foreground' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Oleh" />,
+                cell: ({ row }) => (
+                    <div className="text-xs text-muted-foreground">
+                        <div>{row.original.creator?.name || 'Sistem'}</div>
+                        {row.original.created_at && (
+                            <div className="text-[10px] opacity-75">{formatDateTime(row.original.created_at)}</div>
+                        )}
+                    </div>
+                ),
+            },
+        ];
+
+        if (canManage) {
+            cols.push({
+                id: 'actions',
+                header: () => <div className="text-right">Aksi</div>,
+                cell: ({ row }) => (
+                    <div className="flex items-center justify-end gap-1">
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-700"
+                            onClick={() => {
+                                setEditingRijek(row.original);
+                                setOpenRijek(true);
+                            }}
+                        >
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-destructive hover:text-destructive/90"
+                            onClick={() => {
+                                if (confirm('Apakah Anda yakin ingin menghapus data rijek ini?')) {
+                                    router.delete(route('produksi.rijek.destroy', { order: order.id, rijek: row.original.id }), {
+                                        preserveScroll: true,
+                                    });
+                                }
+                            }}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                ),
+            });
+        }
+
+        return cols;
+    }, [can?.addReject, isSent, order.id]);
+
     return (
         <AppLayout title={`Progress ${order.no_po}`}>
             <Head title={`Progress ${order.no_po}`} />
@@ -519,74 +629,13 @@ export default function ProgressPage({ order, can, ekspedisis = [] }) {
                         )}
                     </CardHeader>
                     <CardContent>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead>
-                                    <tr className="border-b text-muted-foreground">
-                                        <th className="py-2">Tahapan</th>
-                                        <th className="py-2">Jenis / Tingkat</th>
-                                        <th className="py-2 text-right">Jumlah</th>
-                                        <th className="py-2">Kendala</th>
-                                        <th className="py-2">Penanganan</th>
-                                        <th className="py-2">Oleh</th>
-                                        {can?.addReject && !isSent && <th className="py-2 text-right">Aksi</th>}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {(order.rijeks ?? []).map((r) => (
-                                        <tr key={r.id} className="border-b hover:bg-muted/50">
-                                            <td className="py-2.5 font-medium">{r.progress?.nama_progress ?? '—'}</td>
-                                            <td className="py-2.5">
-                                                <div className="flex gap-1.5 items-center">
-                                                    <span className="capitalize">{r.jenis}</span>
-                                                    <Badge variant={
-                                                        r.tingkat === 'berat' ? 'destructive' :
-                                                            r.tingkat === 'sedang' ? 'warning' : 'outline'
-                                                    } className="text-[10px] py-0 px-1.5 uppercase font-semibold">
-                                                        {r.tingkat}
-                                                    </Badge>
-                                                </div>
-                                            </td>
-                                            <td className="py-2.5 text-right font-mono font-bold text-amber-600">{r.jumlah} pcs</td>
-                                            <td className="py-2.5 text-muted-foreground max-w-xs truncate" title={r.kendala}>{r.kendala}</td>
-                                            <td className="py-2.5 text-muted-foreground max-w-xs truncate" title={r.penanganan}>{r.penanganan || '—'}</td>
-                                            <td className="py-2.5 text-xs text-muted-foreground">
-                                                <div>{r.creator?.name || 'Sistem'}</div>
-                                                {r.created_at && <div className="text-[10px] opacity-75">{formatDateTime(r.created_at)}</div>}
-                                            </td>
-                                            {can?.addReject && !isSent && (
-                                                <td className="py-2.5 text-right">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:text-blue-700" onClick={() => {
-                                                            setEditingRijek(r);
-                                                            setOpenRijek(true);
-                                                        }}>
-                                                            <Edit className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive/90" onClick={() => {
-                                                            if (confirm('Apakah Anda yakin ingin menghapus data rijek ini?')) {
-                                                                router.delete(route('produksi.rijek.destroy', { order: order.id, rijek: r.id }), {
-                                                                    preserveScroll: true
-                                                                });
-                                                            }
-                                                        }}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </td>
-                                            )}
-                                        </tr>
-                                    ))}
-                                    {(order.rijeks ?? []).length === 0 && (
-                                        <tr>
-                                            <td colSpan={can?.addReject && !isSent ? 7 : 6} className="py-8 text-center text-muted-foreground text-sm">
-                                                Tidak ada rijek tercatat.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                                <DataTable
+                            columns={rijekColumns}
+                            data={order.rijeks ?? []}
+                            searchPlaceholder="Cari tahapan, jenis, kendala..."
+                            exportFileName={`Rijek_${order.id}`}
+                            emptyMessage="Tidak ada rijek tercatat."
+                        />
                     </CardContent>
                 </Card>
             </div>

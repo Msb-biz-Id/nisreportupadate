@@ -51,6 +51,12 @@ export function DataTablePagination({
 
     const selectedCount = table.getFilteredSelectedRowModel().rows.length;
 
+    const perPageOptions = Array.from(
+        new Set([10, 15, 20, 25, 50, 100, Number(pageSize)])
+    )
+        .filter((n) => Number.isFinite(n) && n > 0)
+        .sort((a, b) => a - b);
+
     const handlePageChange = (newPage) => {
         if (newPage < 1 || newPage > pageCount) return;
         if (isServer && onServerPageChange) {
@@ -98,7 +104,7 @@ export function DataTablePagination({
                             <SelectValue placeholder={String(pageSize)} />
                         </SelectTrigger>
                         <SelectContent side="top">
-                            {[10, 15, 25, 50, 100].map((size) => (
+                            {perPageOptions.map((size) => (
                                 <SelectItem key={size} value={String(size)} className="text-xs">
                                     {size}
                                 </SelectItem>
