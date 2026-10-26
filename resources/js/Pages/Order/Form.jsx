@@ -14,7 +14,7 @@ import { MultiSelect } from '@/Components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/Components/ui/dialog';
 import ImageUploader from '@/Components/ImageUploader';
-import { formatRupiah } from '@/lib/utils';
+import { formatRupiah, renderFormattedText } from '@/lib/utils';
 
 const NONE = '__none__';
 const ACCENT_COLORS = ['red', 'blue', 'emerald', 'amber', 'purple', 'pink', 'teal'];
@@ -91,7 +91,7 @@ function convertHtmlToCaretText(html, plainText) {
         const styles = doc.querySelectorAll('style');
         styles.forEach((styleEl) => {
             const cssText = styleEl.textContent || '';
-            const ruleRegex = /\.([a-zA-Z0-9_-]+)\s*\{[^}]*(?:vertical-align\s*:\s*super|mso-text-raise)/gi;
+            const ruleRegex = /(?:\.|\bclass\s*=\s*)([a-zA-Z0-9_-]+)[^{}]*\{[^}]*(?:vertical-align\s*:\s*super|mso-text-raise)/gi;
             let match;
             while ((match = ruleRegex.exec(cssText)) !== null) {
                 superClasses.add(match[1]);
@@ -103,7 +103,13 @@ function convertHtmlToCaretText(html, plainText) {
             const tag = el.tagName.toLowerCase();
             if (tag === 'sup') return true;
             const style = (el.getAttribute('style') || '').toLowerCase();
-            if (style.includes('vertical-align:super') || style.includes('vertical-align: super') || style.includes('mso-text-raise')) return true;
+            if (
+                /vertical-align\s*:\s*super/i.test(style) ||
+                style.includes('mso-text-raise') ||
+                (/position\s*:\s*relative/i.test(style) && /top\s*:\s*-\s*[0-9]/i.test(style))
+            ) {
+                return true;
+            }
             if (superClasses.size > 0) {
                 const cls = el.getAttribute('class') || '';
                 if (cls) {
@@ -207,13 +213,15 @@ function formatSuperscriptTrailing(str) {
         // Uppercase Letters
         'A': 'ᴬ', 'B': 'ᴮ', 'C': 'ᶜ', 'D': 'ᴰ', 'E': 'ᴱ', 'F': 'ᶠ', 'G': 'ᴳ', 'H': 'ᴴ', 'I': 'ᴵ', 'J': 'ᴶ', 'K': 'ᴷ', 'L': 'ᴸ', 'M': 'ᴹ', 'N': 'ᴺ', 'O': 'ᴼ', 'P': 'ᴾ', 'Q': '𐞳', 'R': 'ᴿ', 'S': 'ˢ', 'T': 'ᵀ', 'U': 'ᵁ', 'V': 'ⱽ', 'W': 'ᵂ', 'X': 'ˣ', 'Y': 'ʸ', 'Z': 'ᶻ',
         // Lowercase Letters
-        'a': 'ᵃ', 'b': 'ᵇ', 'c': 'ᶜ', 'd': 'ᵈ', 'e': 'ᵉ', 'f': 'ᶠ', 'g': 'ᵍ', 'h': 'ʰ', 'i': 'ⁱ', 'j': 'ʲ', 'k': 'ᵏ', 'l': 'ˡ', 'm': 'ᵐ', 'n': 'ⁿ', 'o': 'ᵒ', 'p': 'ᵖ', 'q': '𐞳', 'r': 'ʳ', 's': 'ˢ', 't': 'ᵗ', 'u': 'ᵘ', 'v': 'ᵛ', 'w': 'ʷ', 'x': 'ˣ', 'y': 'ʸ', 'z': 'ᶻ'
+        'a': 'ᵃ', 'b': 'ᵇ', 'c': 'ᶜ', 'd': 'ᵈ', 'e': 'ᵉ', 'f': 'ᶠ', 'g': 'ᵍ', 'h': 'ʰ', 'i': 'ⁱ', 'j': 'ʲ', 'k': 'ᵏ', 'l': 'ˡ', 'm': 'ᵐ', 'n': 'ⁿ', 'o': 'ᵒ', 'p': 'ᵖ', 'q': '𐞳', 'r': 'ʳ', 's': 'ˢ', 't': 'ᵗ', 'u': 'ᵘ', 'v': 'ᵛ', 'w': 'ʷ', 'x': 'ˣ', 'y': 'ʸ', 'z': 'ᶻ',
+        // Signs & Punctuation
+        '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾'
     };
 
     // If there's an explicit caret followed by Latin letters or digits, convert them to Unicode superscript characters!
-    // e.g. "WAA^LBK" -> "WAAᴸᴮᴷ", "LOTUS^011" -> "LOTUS⁰¹¹"
-    return str.replace(/\s*\^([A-Za-z0-9]+)/g, (match, p1) => {
-        return p1.split('').map(char => map[char] ?? char).join('');
+    // Preserves preceding space so "FAFA ^MIK" becomes "FAFA ᴹᴵᴷ" and "FAFA^MIK" becomes "FAFAᴹᴵᴷ"
+    return str.replace(/(\s*)\^([A-Za-z0-9+\-()]+)/g, (match, space, p1) => {
+        return space + p1.split('').map(char => map[char] ?? char).join('');
     });
 }
 
@@ -794,7 +802,7 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                                                         
                                                         return (
                                                             <TableCell key={cIdx} className="p-2 text-xs font-medium text-slate-800 border-l border-slate-100">
-                                                                {field === 'keterangan' ? val : (formatSuperscriptTrailing(val) || '—')}
+                                                                {field === 'keterangan' ? val : (renderFormattedText(val) || '—')}
                                                             </TableCell>
                                                         );
                                                     })}
