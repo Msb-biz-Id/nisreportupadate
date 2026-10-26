@@ -644,13 +644,6 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                     <p className="text-xs text-muted-foreground leading-relaxed">
                         Copy kolom data nameset dari Excel atau spreadsheet Anda, lalu paste di area teks di bawah. Sistem akan mendeteksi kolom secara dinamis dan Anda dapat menyesuaikan pemetaannya.
                     </p>
-
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-900 flex items-start gap-2">
-                        <span className="font-bold text-amber-700 whitespace-nowrap">💡 Format Pangkat:</span>
-                        <span>
-                            Gunakan format <strong>Superscript (Pangkat)</strong> di Excel/Word, atau ketik tanda sisipan <strong>^</strong> (misal: <code className="bg-amber-100/80 px-1 py-0.5 rounded font-mono font-bold text-amber-950">FAFA ^MIK</code> atau <code className="bg-amber-100/80 px-1 py-0.5 rounded font-mono font-bold text-amber-950">FAFA^MIK</code>). Sistem akan otomatis menjadikannya pangkat di PDF FO.
-                        </span>
-                    </div>
                     
                     <textarea
                         className="w-full h-28 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none shadow-inner"
