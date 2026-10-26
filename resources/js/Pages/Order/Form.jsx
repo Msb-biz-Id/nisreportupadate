@@ -644,6 +644,13 @@ function PasteNamesetDialog({ open, onClose, onConfirm, sizes = [], item = null,
                     <p className="text-xs text-muted-foreground leading-relaxed">
                         Copy kolom data nameset dari Excel atau spreadsheet Anda, lalu paste di area teks di bawah. Sistem akan mendeteksi kolom secara dinamis dan Anda dapat menyesuaikan pemetaannya.
                     </p>
+
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-900 flex items-start gap-2">
+                        <span className="font-bold text-amber-700 whitespace-nowrap">💡 Format Pangkat:</span>
+                        <span>
+                            Gunakan format <strong>Superscript (Pangkat)</strong> di Excel/Word, atau ketik tanda sisipan <strong>^</strong> (misal: <code className="bg-amber-100/80 px-1 py-0.5 rounded font-mono font-bold text-amber-950">FAFA ^MIK</code> atau <code className="bg-amber-100/80 px-1 py-0.5 rounded font-mono font-bold text-amber-950">FAFA^MIK</code>). Sistem akan otomatis menjadikannya pangkat di PDF FO.
+                        </span>
+                    </div>
                     
                     <textarea
                         className="w-full h-28 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none shadow-inner"
@@ -906,20 +913,34 @@ const NamesetRow = React.memo(function NamesetRow({ ns, rowIndex, displayIndex, 
         onUpdate(rowIndex, updated);
     }
 
+    function handlePasteInput(field, e) {
+        if (field === 'keterangan') return;
+        const html = e.clipboardData.getData('text/html');
+        const plainText = e.clipboardData.getData('text/plain');
+        if (html) {
+            e.preventDefault();
+            const caretText = convertHtmlToCaretText(html, plainText);
+            const formatted = formatSuperscriptTrailing(caretText);
+            const updatedLocal = { ...local, [field]: formatted };
+            setLocal(updatedLocal);
+            onUpdate(rowIndex, { ...ns, ...updatedLocal });
+        }
+    }
+
     const inputCls = 'h-7 text-xs font-medium border border-slate-200 rounded px-1.5 w-full focus:outline-none focus:border-blue-400 bg-white';
     const numberCls = 'h-7 text-xs font-black text-center border border-slate-200 rounded px-1.5 w-full focus:outline-none focus:border-blue-400 bg-white';
 
     return (
         <tr className="border-b border-gray-100 hover:bg-gray-50">
             <td className="p-1.5 text-center text-xs font-bold text-slate-500">{displayIndex}</td>
-            <td className="p-1.5"><input className={inputCls} value={local.nama_punggung} onChange={e => handleChange('nama_punggung', e.target.value)} onBlur={e => handleBlur('nama_punggung', e.target.value)} /></td>
-            <td className="p-1.5"><input className={numberCls} value={local.nomor_punggung} onChange={e => handleChange('nomor_punggung', e.target.value)} onBlur={e => handleBlur('nomor_punggung', e.target.value)} /></td>
-            <td className="p-1.5"><input className={inputCls} value={local.nama_dada} onChange={e => handleChange('nama_dada', e.target.value)} onBlur={e => handleBlur('nama_dada', e.target.value)} /></td>
-            <td className="p-1.5"><input className={numberCls} value={local.nomor_dada} onChange={e => handleChange('nomor_dada', e.target.value)} onBlur={e => handleBlur('nomor_dada', e.target.value)} /></td>
-            <td className="p-1.5"><input className={inputCls} value={local.nama_lengan} onChange={e => handleChange('nama_lengan', e.target.value)} onBlur={e => handleBlur('nama_lengan', e.target.value)} /></td>
-            <td className="p-1.5"><input className={numberCls} value={local.nomor_lengan} onChange={e => handleChange('nomor_lengan', e.target.value)} onBlur={e => handleBlur('nomor_lengan', e.target.value)} /></td>
-            <td className="p-1.5"><input className={numberCls} value={local.nomor_punggung_2} onChange={e => handleChange('nomor_punggung_2', e.target.value)} onBlur={e => handleBlur('nomor_punggung_2', e.target.value)} /></td>
-            <td className="p-1.5"><input className={inputCls} value={local.nama_punggung_2} onChange={e => handleChange('nama_punggung_2', e.target.value)} onBlur={e => handleBlur('nama_punggung_2', e.target.value)} /></td>
+            <td className="p-1.5"><input className={inputCls} value={local.nama_punggung} onChange={e => handleChange('nama_punggung', e.target.value)} onBlur={e => handleBlur('nama_punggung', e.target.value)} onPaste={e => handlePasteInput('nama_punggung', e)} /></td>
+            <td className="p-1.5"><input className={numberCls} value={local.nomor_punggung} onChange={e => handleChange('nomor_punggung', e.target.value)} onBlur={e => handleBlur('nomor_punggung', e.target.value)} onPaste={e => handlePasteInput('nomor_punggung', e)} /></td>
+            <td className="p-1.5"><input className={inputCls} value={local.nama_dada} onChange={e => handleChange('nama_dada', e.target.value)} onBlur={e => handleBlur('nama_dada', e.target.value)} onPaste={e => handlePasteInput('nama_dada', e)} /></td>
+            <td className="p-1.5"><input className={numberCls} value={local.nomor_dada} onChange={e => handleChange('nomor_dada', e.target.value)} onBlur={e => handleBlur('nomor_dada', e.target.value)} onPaste={e => handlePasteInput('nomor_dada', e)} /></td>
+            <td className="p-1.5"><input className={inputCls} value={local.nama_lengan} onChange={e => handleChange('nama_lengan', e.target.value)} onBlur={e => handleBlur('nama_lengan', e.target.value)} onPaste={e => handlePasteInput('nama_lengan', e)} /></td>
+            <td className="p-1.5"><input className={numberCls} value={local.nomor_lengan} onChange={e => handleChange('nomor_lengan', e.target.value)} onBlur={e => handleBlur('nomor_lengan', e.target.value)} onPaste={e => handlePasteInput('nomor_lengan', e)} /></td>
+            <td className="p-1.5"><input className={numberCls} value={local.nomor_punggung_2} onChange={e => handleChange('nomor_punggung_2', e.target.value)} onBlur={e => handleBlur('nomor_punggung_2', e.target.value)} onPaste={e => handlePasteInput('nomor_punggung_2', e)} /></td>
+            <td className="p-1.5"><input className={inputCls} value={local.nama_punggung_2} onChange={e => handleChange('nama_punggung_2', e.target.value)} onBlur={e => handleBlur('nama_punggung_2', e.target.value)} onPaste={e => handlePasteInput('nama_punggung_2', e)} /></td>
             <td className="p-1.5">
                 <Select value={ns.size_id || NONE} onValueChange={v => handleSelectChange('size_id', v === NONE ? '' : v)}>
                     <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Pilih" /></SelectTrigger>
