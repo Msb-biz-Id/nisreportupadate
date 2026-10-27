@@ -145,6 +145,38 @@ class CacheService
     }
 
     /**
+     * Invalidate Gantt and Kanban caches specifically without flushing entire system cache
+     */
+    public static function forgetProductionViews(string|array|null $brandId = null): void
+    {
+        $keys = [
+            'prod_gantt_' . md5(json_encode($brandId)),
+            'prod_gantt_' . md5(json_encode(null)),
+            'prod_gantt_' . md5(json_encode('all')),
+            'prod_kanban_' . md5(json_encode($brandId)),
+            'prod_kanban_' . md5(json_encode(null)),
+            'prod_kanban_' . md5(json_encode('all')),
+        ];
+
+        static $cachedBrandIds = null;
+        if ($cachedBrandIds === null) {
+            try {
+                $cachedBrandIds = \App\Models\Brand::pluck('id')->toArray();
+            } catch (\Exception $e) {
+                $cachedBrandIds = [];
+            }
+        }
+        foreach ($cachedBrandIds as $id) {
+            $keys[] = 'prod_gantt_' . md5(json_encode($id));
+            $keys[] = 'prod_kanban_' . md5(json_encode($id));
+        }
+
+        foreach (array_unique($keys) as $key) {
+            Cache::forget($key);
+        }
+    }
+
+    /**
      * Normalize brand ID for cache key
      */
     private static function normalizeBrandId(string|array|null $brandId): string

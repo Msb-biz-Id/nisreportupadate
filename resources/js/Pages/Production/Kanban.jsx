@@ -1,23 +1,30 @@
 import { Head, Link } from '@inertiajs/react';
-import { useState } from 'react';
-import { AlertTriangle, Calendar, Lock, Eye, Star, XCircle, Layers } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { AlertTriangle, Calendar, Lock, Eye, Star, XCircle, Layers, CheckCircle2 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
 import { formatDate } from '@/lib/utils';
+import SetTimelineDialog from '@/Components/Order/SetTimelineDialog';
 
-function KanbanCard({ order }) {
+function KanbanCard({ order, onSetDeadline }) {
     const isFinished   = ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'].includes(order.status_po);
     const days         = order.days_remaining;
     const overdue      = !isFinished && (order.status_po === 'delay' || (days !== null && days < 0));
     const urgent       = !isFinished && !overdue && days !== null && days <= 2 && days >= 0;
     const nearDeadline = !isFinished && !overdue && !urgent && days !== null && days <= 7 && days > 2;
+    const needsDeadline = order.needs_deadline || order.stage_status === 'baru_masuk';
+    const isReview = order.stage_status === 'review';
 
     // Visual border based on priority
     const borderClass = overdue
         ? 'border-red-400 ring-1 ring-red-300/50 bg-red-50/30'
         : urgent
         ? 'border-amber-400 ring-1 ring-amber-200 bg-amber-50/20'
+        : needsDeadline
+        ? 'border-blue-400 ring-1 ring-blue-200 bg-blue-50/15'
+        : isReview
+        ? 'border-purple-300 ring-1 ring-purple-200 bg-purple-50/15'
         : order.has_rijek
         ? 'border-orange-300 bg-orange-50/20'
         : order.is_special_order
@@ -53,6 +60,18 @@ function KanbanCard({ order }) {
 
             {/* Visual Indicator Badges */}
             <div className="mt-2 flex flex-wrap gap-1">
+                {/* Needs Deadline Badge */}
+                {needsDeadline && (
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                        ⚠️ Belum Ada Deadline Prod
+                    </Badge>
+                )}
+                {/* Review Stage Badge */}
+                {isReview && (
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-purple-600 hover:bg-purple-700 text-white font-bold">
+                        🔍 Review PO &amp; Mockup
+                    </Badge>
+                )}
                 {/* Delay / Urgent / Deadline */}
                 {overdue && (
                     <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4">
@@ -120,14 +139,16 @@ function KanbanCard({ order }) {
 
             {/* Footer: deadline + qty + actions */}
             <div className="mt-2 flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1" title={order.end_production_date ? `Deadline Produksi: ${formatDate(order.end_production_date)} (Deadline Cust: ${formatDate(order.deadline_customer)})` : `Deadline Customer: ${formatDate(order.deadline_customer)}`}>
-                    <Calendar className={`h-3 w-3 ${order.end_production_date ? 'text-indigo-600' : 'text-slate-400'}`} />
+                <span className="flex items-center gap-1" title={order.end_production_date ? `Deadline Produksi: ${formatDate(order.end_production_date)} (Deadline Cust: ${formatDate(order.deadline_customer)})` : `Deadline Customer: ${formatDate(order.deadline_customer)} (Deadline Produksi: Belum Set)`}>
+                    <Calendar className={`h-3 w-3 ${order.end_production_date ? 'text-indigo-600' : 'text-amber-500'}`} />
                     {order.end_production_date ? (
                         <span className="font-bold text-indigo-700">
                             {formatDate(order.end_production_date)}
                         </span>
                     ) : (
-                        <span>{formatDate(order.deadline_customer)}</span>
+                        <span className="font-medium text-amber-600 italic">
+                            Cust: {formatDate(order.deadline_customer)}
+                        </span>
                     )}
                 </span>
                 {order.total_items > 0 && (
@@ -138,13 +159,43 @@ function KanbanCard({ order }) {
                 )}
             </div>
 
-            <div className="mt-2 flex gap-1">
+            {/* Primary Action Button for Baru Masuk */}
+            {needsDeadline && (
+                <div className="mt-2">
+                    <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => onSetDeadline(order)}
+                        className="h-7 w-full text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white gap-1 shadow-xs"
+                    >
+                        <Calendar className="h-3.5 w-3.5" /> + Set Deadline Produksi
+                    </Button>
+                </div>
+            )}
+
+            {/* Quick Action Button for Review Produksi */}
+            {isReview && (
+                <div className="mt-2">
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onSetDeadline(order)}
+                        className="h-6.5 w-full text-[11px] font-semibold border-purple-300 text-purple-700 hover:bg-purple-50 gap-1 shadow-2xs"
+                        title="Ubah Target Deadline Produksi"
+                    >
+                        <Calendar className="h-3 w-3 text-purple-600" /> Atur / Ubah Deadline
+                    </Button>
+                </div>
+            )}
+
+            <div className="mt-2 flex gap-1.5">
                 <Button asChild size="sm" variant="ghost" className="h-7 flex-1 text-xs">
                     <Link href={route('orders.show', order.id)}>
                         <Eye className="h-3 w-3" /> Preview
                     </Link>
                 </Button>
-                <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                <Button asChild size="sm" variant="outline" className="h-7 flex-1 text-xs">
                     <Link href={route('produksi.progress', order.id)}>Progress</Link>
                 </Button>
             </div>
@@ -153,8 +204,20 @@ function KanbanCard({ order }) {
 }
 
 export default function Kanban({ columns: initialColumns }) {
-    const [columns] = useState(initialColumns);
+    const [columns, setColumns] = useState(initialColumns);
     const [visibleCounts, setVisibleCounts] = useState({});
+    const [timelineModalOpen, setTimelineModalOpen] = useState(false);
+    const [selectedOrderForTimeline, setSelectedOrderForTimeline] = useState(null);
+
+    // Keep state updated when props reload
+    useEffect(() => {
+        setColumns(initialColumns);
+    }, [initialColumns]);
+
+    const handleOpenTimeline = (order) => {
+        setSelectedOrderForTimeline(order);
+        setTimelineModalOpen(true);
+    };
 
     // Count indicators for column header
     const totalOrders = Object.values(columns).reduce((s, c) => s + c.orders.length, 0);
@@ -171,11 +234,14 @@ export default function Kanban({ columns: initialColumns }) {
             <Head title="Kanban Produksi" />
 
             {/* Legend */}
-            <div className="mb-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1 font-semibold text-blue-700">🟦 Baru Masuk (Isi Deadline)</span>
+                <span className="flex items-center gap-1 font-semibold text-purple-700">🟪 Review PO</span>
+                <span className="flex items-center gap-1 font-semibold text-amber-700">🟨 Sedang Produksi</span>
                 <span className="flex items-center gap-1">🔴 = Terlambat</span>
                 <span className="flex items-center gap-1">🟡 = Deadline ≤2 hari</span>
                 <span className="flex items-center gap-1">❌ = Ada Rijek</span>
-                <span className="flex items-center gap-1">⭐ = Special/Prioritas</span>
+                <span className="flex items-center gap-1">⭐ = Prioritas</span>
                 <span className="flex items-center gap-1 ml-auto font-medium text-slate-600">Total: {totalOrders} PO</span>
             </div>
 
@@ -239,7 +305,7 @@ export default function Kanban({ columns: initialColumns }) {
                                         </div>
                                     )}
                                     {displayedOrders.map((o) => (
-                                        <KanbanCard key={o.id} order={o} />
+                                        <KanbanCard key={o.id} order={o} onSetDeadline={handleOpenTimeline} />
                                     ))}
                                     {hasMore && (
                                         <Button
@@ -257,6 +323,13 @@ export default function Kanban({ columns: initialColumns }) {
                     })}
                 </div>
             </div>
+
+            <SetTimelineDialog
+                open={timelineModalOpen}
+                onOpenChange={setTimelineModalOpen}
+                order={selectedOrderForTimeline}
+            />
         </AppLayout>
     );
 }
+

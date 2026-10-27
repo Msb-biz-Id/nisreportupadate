@@ -24,8 +24,10 @@ import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
+import SetTimelineDialog from '@/Components/Order/SetTimelineDialog';
 
-const STATUS_ORDER = ['published', 'on_progress', 'delay', 'hold', 'selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'];
+const STATUS_ORDER = ['baru_masuk', 'review', 'published', 'on_progress', 'delay', 'hold', 'selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'];
+const ALWAYS_VISIBLE_STATUSES = ['baru_masuk', 'review', 'on_progress'];
 
 function DaysRemaining({ days }) {
     if (days === null) return null;
@@ -47,11 +49,12 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
     const filtered = useMemo(() => {
         const res = items.filter((item) => {
             const isItemDelayed = item.status_po === 'delay' || (item.days_remaining !== null && item.days_remaining < 0 && !['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'].includes(item.status_po));
+            const effectiveStatus = item.stage_status || item.status_po;
             const matchesStatus = filterStatus === 'all'
                 ? true
                 : filterStatus === 'delay'
                 ? isItemDelayed
-                : item.status_po === filterStatus;
+                : (effectiveStatus === filterStatus || item.status_po === filterStatus);
 
             const query = searchQuery.toLowerCase().trim();
             const matchesSearch = !query || 
@@ -85,8 +88,9 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
 
         for (const item of items) {
             const isItemDelayed = item.status_po === 'delay' || (item.days_remaining !== null && item.days_remaining < 0 && !['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'].includes(item.status_po));
+            const effectiveStatus = item.stage_status || item.status_po;
 
-            counts[item.status_po] = (counts[item.status_po] ?? 0) + 1;
+            counts[effectiveStatus] = (counts[effectiveStatus] ?? 0) + 1;
             totalPcs += Number(item.total_pcs || 0);
 
             if (isItemDelayed) {
@@ -302,8 +306,18 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
         return { series, chartOptions };
     }, [chartFiltered, statusColors, statusLabels]);
 
-    const activeStatuses = STATUS_ORDER.filter((s) => summary.counts[s]);
+    const activeStatuses = STATUS_ORDER.filter(
+        (s) => summary.counts[s] || ALWAYS_VISIBLE_STATUSES.includes(s)
+    );
     const chartHeight = Math.max(320, chartFiltered.length * 38 + 90);
+
+    const [timelineModalOpen, setTimelineModalOpen] = useState(false);
+    const [selectedOrderForTimeline, setSelectedOrderForTimeline] = useState(null);
+
+    const handleOpenTimeline = (order) => {
+        setSelectedOrderForTimeline(order);
+        setTimelineModalOpen(true);
+    };
 
     return (
         <AppLayout>
@@ -423,12 +437,12 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
                                 onClick={() => setFilterStatus(filterStatus === s ? 'all' : s)}
                                 className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-white transition-opacity hover:opacity-90 shadow-sm"
                                 style={{ 
-                                    backgroundColor: statusColors[s], 
+                                    backgroundColor: statusColors[s] || '#64748B', 
                                     opacity: filterStatus !== 'all' && filterStatus !== s ? 0.35 : 1 
                                 }}
                             >
-                                {statusLabels[s]}
-                                <span className="rounded-full bg-white/30 px-1.5 py-0.2 text-[10px] font-bold">{summary.counts[s]}</span>
+                                {statusLabels[s] || s}
+                                <span className="rounded-full bg-white/30 px-1.5 py-0.2 text-[10px] font-bold">{summary.counts[s] ?? 0}</span>
                             </button>
                         ))}
                     </div>
@@ -597,7 +611,18 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
                                                     {overdue && <AlertTriangle className="h-3.5 w-3.5 inline text-red-500 mr-1 animate-pulse" />}
                                                     <DaysRemaining days={item.days_remaining} />
                                                 </td>
-                                                <td className="px-4 py-2.5 text-right">
+                                                <td className="px-4 py-2.5 text-right flex items-center justify-end gap-1">
+                                                    {item.needs_deadline && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => handleOpenTimeline(item)}
+                                                            className="h-7 text-xs text-blue-600 border-blue-300 hover:bg-blue-50 font-semibold"
+                                                            title="Isi Target Deadline Produksi"
+                                                        >
+                                                            + Set Deadline
+                                                        </Button>
+                                                    )}
                                                     <Button variant="ghost" size="sm" asChild className="h-7 text-xs text-primary hover:text-primary">
                                                         <Link href={item.detail_url}>
                                                             Detail →
@@ -613,6 +638,12 @@ export default function Gantt({ items = [], statusColors = {}, statusLabels = {}
                     </CardContent>
                 </Card>
             </div>
+
+            <SetTimelineDialog
+                open={timelineModalOpen}
+                onOpenChange={setTimelineModalOpen}
+                order={selectedOrderForTimeline}
+            />
         </AppLayout>
     );
 }

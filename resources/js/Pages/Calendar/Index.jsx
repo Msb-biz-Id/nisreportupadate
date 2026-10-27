@@ -142,6 +142,11 @@ function DayPanel({ date, events, onClose }) {
                                                     >
                                                         {e.statusLabel}
                                                     </span>
+                                                    {e.needsDeadline && (
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                                                            ⚠️ Belum Ada Deadline Prod
+                                                        </span>
+                                                    )}
                                                     {e.totalPcs > 0 && (
                                                         <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
                                                             {e.totalPcs} pcs
@@ -161,7 +166,7 @@ function DayPanel({ date, events, onClose }) {
                                                 </div>
                                                 <div className="mt-2 text-[11px] space-y-0.5 bg-slate-50 p-2 rounded border border-slate-100">
                                                     <p className="text-slate-600"><span className="font-semibold text-slate-400">Deadline Customer:</span> {e.deadlineCustomer ? format(new Date(e.deadlineCustomer), 'dd MMM yyyy', { locale: idLocale }) : '—'}</p>
-                                                    <p className="text-indigo-600"><span className="font-semibold text-indigo-400">Deadline Produksi:</span> {e.deadlineProduksi ? format(new Date(e.deadlineProduksi), 'dd MMM yyyy', { locale: idLocale }) : 'Belum Set'}</p>
+                                                    <p className="text-indigo-600"><span className="font-semibold text-indigo-400">Deadline Produksi:</span> {e.deadlineProduksi ? format(new Date(e.deadlineProduksi), 'dd MMM yyyy', { locale: idLocale }) : <span className="text-amber-600 font-bold">Belum Diisi Tim Produksi</span>}</p>
                                                 </div>
                                             </div>
                                             <div className="flex flex-col gap-1 flex-shrink-0">
@@ -235,7 +240,7 @@ function CustomAgenda({ events, statusColors, statusLabels, filterStatus, curren
             .filter((e) => {
                 if (filterStatus === 'all') return true;
                 if (filterStatus === 'delay') return e.isDelayed;
-                return e.status === filterStatus || e.rawStatus === filterStatus;
+                return e.stageStatus === filterStatus || e.status === filterStatus || e.rawStatus === filterStatus;
             })
             .filter((e) => isEventInInterval(e, filterStart, filterEnd));
     }, [events, filterStatus, filterStart, filterEnd]);
@@ -559,7 +564,7 @@ export default function CalendarIndex({ events, statusColors, statusLabels, filt
             .filter((e) => {
                 if (filterStatus === 'all') return true;
                 if (filterStatus === 'delay') return e.isDelayed;
-                return e.status === filterStatus || e.rawStatus === filterStatus;
+                return e.stageStatus === filterStatus || e.status === filterStatus || e.rawStatus === filterStatus;
             })
             .map((e) => ({
                 ...e,
@@ -582,15 +587,15 @@ export default function CalendarIndex({ events, statusColors, statusLabels, filt
         },
     }), []);
 
-    const STATUS_ORDER = ['published', 'on_progress', 'delay', 'hold', 'selesai_produksi', 'siap_dikirim', 'sudah_dikirim'];
+    const STATUS_ORDER = ['baru_masuk', 'review', 'on_progress', 'delay', 'hold', 'selesai_produksi', 'siap_dikirim', 'sudah_dikirim'];
 
     const statusSummary = useMemo(() => {
         const counts = {};
         let overdueCount = 0;
 
         for (const e of events) {
-            const rawStatus = e.rawStatus || e.status;
-            counts[rawStatus] = (counts[rawStatus] ?? 0) + 1;
+            const currentStatus = e.stageStatus || e.status || e.rawStatus;
+            counts[currentStatus] = (counts[currentStatus] ?? 0) + 1;
             if (e.isDelayed) {
                 overdueCount++;
             }
@@ -603,8 +608,9 @@ export default function CalendarIndex({ events, statusColors, statusLabels, filt
         return counts;
     }, [events]);
 
+    const ALWAYS_VISIBLE_STATUSES = ['baru_masuk', 'review', 'on_progress'];
     const activeStatuses = useMemo(() => {
-        return STATUS_ORDER.filter((s) => statusSummary[s]);
+        return STATUS_ORDER.filter((s) => ALWAYS_VISIBLE_STATUSES.includes(s) || (statusSummary[s] && statusSummary[s] > 0));
     }, [statusSummary]);
 
     // Klik tanggal di view Bulan → buka DayPanel
@@ -720,7 +726,7 @@ export default function CalendarIndex({ events, statusColors, statusLabels, filt
                             }}
                         >
                             {statusLabels[s]}
-                            <span className="rounded-full bg-white/30 px-1.5">{statusSummary[s]}</span>
+                            <span className="rounded-full bg-white/30 px-1.5">{statusSummary[s] || 0}</span>
                         </button>
                     ))}
                 </div>

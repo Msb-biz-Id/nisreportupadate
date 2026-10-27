@@ -14,15 +14,24 @@ import { formatDate, formatRupiah } from '@/lib/utils';
 
 const STATUS_LABEL = {
     draft:            { label: 'Draft',                    variant: 'outline',     color: '#94A3B8' },
+    baru_masuk:       { label: 'Baru Masuk',                variant: 'info',        color: '#3B82F6' },
+    review:           { label: 'Review Produksi',          variant: 'secondary',   color: '#8B5CF6' },
     published:        { label: 'Baru Masuk',                variant: 'info',        color: '#3B82F6' },
-    on_progress:      { label: 'On Progress',              variant: 'warning',     color: '#F59E0B' },
+    on_progress:      { label: 'Sedang Produksi',          variant: 'warning',     color: '#F59E0B' },
     selesai_produksi: { label: 'Selesai Produksi',         variant: 'success',     color: '#22C55E' },
     siap_dikirim:     { label: 'Siap Dikirim',             variant: 'info',        color: '#06B6D4' },
-    sudah_dikirim:    { label: 'Sudah Dikirim',            variant: 'secondary',   color: '#8B5CF6' },
+    sudah_dikirim:    { label: 'Sudah Dikirim',            variant: 'secondary',   color: '#6366F1' },
     delay:            { label: 'Delay',                    variant: 'destructive', color: '#EF4444' },
     hold:             { label: 'Hold',                     variant: 'warning',     color: '#F97316' },
     selesai:          { label: 'Selesai',                  variant: 'success',     color: '#10B981' },
 };
+
+function getOrderStatus(o) {
+    if (o.status_po === 'published') {
+        return o.end_production_date ? STATUS_LABEL.review : STATUS_LABEL.baru_masuk;
+    }
+    return STATUS_LABEL[o.status_po] ?? { label: o.status_po, variant: 'outline' };
+}
 
 const NONE = '__none__';
 
@@ -604,7 +613,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
                                         </TableRow>
                                     )}
                                         {orders.data.map((o) => {
-                                        const st = STATUS_LABEL[o.status_po] ?? { label: o.status_po, variant: 'outline' };
+                                        const st = getOrderStatus(o);
                                         return (
                                      <TableRow key={o.id} className={`group hover:bg-slate-50/70 transition-colors ${
                                             isArchiveTab && o.status_po === 'sudah_dikirim'
@@ -640,7 +649,15 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
                                                         </span>
                                                     ) : <span className="text-xs text-muted-foreground">-</span>}
                                                 </TableCell>
-                                                <TableCell className="min-w-[95px] py-2.5"><Badge variant={st.variant} className="text-[10px] px-1.5 py-0.5">{st.label}</Badge></TableCell>
+                                                <TableCell className="min-w-[95px] py-2.5">
+                                                    <Badge 
+                                                        variant={st.variant} 
+                                                        style={st.color ? { backgroundColor: st.color, color: '#fff', borderColor: 'transparent' } : {}}
+                                                        className="text-[10px] px-2 py-0.5 font-semibold whitespace-nowrap shadow-2xs"
+                                                    >
+                                                        {st.label}
+                                                    </Badge>
+                                                </TableCell>
                                                 <TableCell className="text-center min-w-[60px] py-2.5">
                                                     <Badge variant="outline" className="text-xs font-semibold">{o.core_items_sum_quantity ?? 0}</Badge>
                                                 </TableCell>

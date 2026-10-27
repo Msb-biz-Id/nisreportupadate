@@ -207,9 +207,9 @@ export default function AppLayout({ title, header, children }) {
     /**
      * Calculates the next polling delay using exponential backoff.
      * Resets to BASE on success, backs off on consecutive failures.
-     *   0 failures → 5s, 1 → 10s, 2 → 20s, 3+ → 60s (max)
+     *   0 failures → 15s, 1 → 30s, 2+ → 60s (max)
      */
-    const POLL_BASE_MS = 5_000;
+    const POLL_BASE_MS = 15_000;
     const POLL_MAX_MS  = 60_000;
 
     const getBackoffDelay = (failCount) => {
@@ -633,8 +633,8 @@ export default function AppLayout({ title, header, children }) {
             </Sheet>
 
             <div className={cn("transition-all duration-300", isCollapsed ? "lg:pl-20" : "lg:pl-64")}>
-                {/* Top bar */}
-                <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur md:px-6">
+                {/* Top bar - Solid and opaque to prevent scroll-blur bleeding */}
+                <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs px-4 md:px-6">
                     <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)}>
                         <Menu className="h-5 w-5" />
                     </Button>
@@ -649,15 +649,15 @@ export default function AppLayout({ title, header, children }) {
                         {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
                     </Button>
 
-                    <div className="flex-1 flex items-center gap-3">
+                    <div className="flex-1 flex items-center gap-3 min-w-0">
                         {header ? (
                             typeof header === 'string' ? (
-                                <h1 className="text-base font-semibold sm:text-lg">{header}</h1>
+                                <h1 className="text-sm sm:text-base font-semibold truncate">{header}</h1>
                             ) : (
                                 header
                             )
                         ) : title ? (
-                            <h1 className="text-base font-semibold sm:text-lg">{title}</h1>
+                            <h1 className="text-sm sm:text-base font-semibold truncate">{title}</h1>
                         ) : null}
 
                         {isOffline && (

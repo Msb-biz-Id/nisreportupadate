@@ -53,8 +53,18 @@ class OrderObserver
 
     public function saving(Order $order): void
     {
-        // Jangan setel lunas otomatis untuk pesanan yang masih draft
-        if ($order->isDraft()) {
+        // Jangan setel lunas otomatis untuk pesanan yang masih draft atau sudah lunas
+        if ($order->isDraft() || $order->is_lunas) {
+            return;
+        }
+
+        // Jangan hitung ulang tagihan jika perubahan hanya pada data non-finansial (ekspedisi / resi / jadwal produksi)
+        $dirtyKeys = array_keys($order->getDirty());
+        $nonFinancialOnly = !empty($dirtyKeys) && empty(array_diff($dirtyKeys, [
+            'ekspedisi_id', 'nama_ekspedisi', 'no_resi',
+            'start_production_date', 'end_production_date', 'updated_at'
+        ]));
+        if ($nonFinancialOnly) {
             return;
         }
 

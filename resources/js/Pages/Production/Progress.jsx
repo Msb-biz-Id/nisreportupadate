@@ -1,6 +1,6 @@
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, AlertTriangle, Play, CheckCircle2, SkipForward, Plus, Edit, Trash2, Lock } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Play, CheckCircle2, SkipForward, Plus, Edit, Trash2, Lock, Calendar } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -10,7 +10,8 @@ import { Textarea } from '@/Components/ui/textarea';
 import { Input } from '@/Components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatDate } from '@/lib/utils';
+import SetTimelineDialog from '@/Components/Order/SetTimelineDialog';
 
 const STATUS_VARIANT = {
     pending: 'outline',
@@ -351,6 +352,7 @@ export default function ProgressPage({ order, can, ekspedisis = [] }) {
     const [editingRijek, setEditingRijek] = useState(null);
     const [selectedIds, setSelectedIds] = useState([]);
     const [openBulkUpdate, setOpenBulkUpdate] = useState(false);
+    const [timelineModalOpen, setTimelineModalOpen] = useState(false);
 
     const sortedDetails = (order.progress_details ?? []).slice().sort(
         (a, b) => (a.progress?.urutan ?? 0) - (b.progress?.urutan ?? 0)
@@ -394,6 +396,31 @@ export default function ProgressPage({ order, can, ekspedisis = [] }) {
                         </Button>
                     )}
                 </div>
+
+                {/* Banner Peringatan Deadline Produksi */}
+                {!order.end_production_date && (
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl border border-blue-200 bg-blue-50/70 dark:bg-blue-950/20 text-blue-900 dark:text-blue-100 shadow-xs">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-blue-600 text-white shrink-0">
+                                <Calendar className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold">Target Deadline Produksi Belum Diatur</p>
+                                <p className="text-xs text-blue-700 dark:text-blue-300">
+                                    PO ini masih dalam tahap <strong>Baru Masuk</strong>. Atur target deadline produksi agar masuk ke tahap <strong>Review PO</strong> dan muncul di Gantt/Kalender.
+                                </p>
+                            </div>
+                        </div>
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => setTimelineModalOpen(true)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 font-semibold gap-1.5 shadow-xs"
+                        >
+                            <Calendar className="h-4 w-4" /> + Set Deadline Produksi
+                        </Button>
+                    </div>
+                )}
 
                 <Card>
                     <CardHeader>
@@ -659,6 +686,11 @@ export default function ProgressPage({ order, can, ekspedisis = [] }) {
                 }}
                 progressOptions={progressOptions}
                 rijek={editingRijek}
+            />
+            <SetTimelineDialog
+                open={timelineModalOpen}
+                onOpenChange={setTimelineModalOpen}
+                order={order}
             />
         </AppLayout>
     );

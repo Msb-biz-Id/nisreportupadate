@@ -19,15 +19,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatDate, formatDateTime, formatRupiah, renderFormattedText } from '@/lib/utils';
 
 const STATUS_LABEL = {
-    draft: { label: 'Draft', variant: 'outline' },
-    published: { label: 'Published', variant: 'info' },
-    on_progress: { label: 'On Progress', variant: 'warning' },
-    selesai_produksi: { label: 'Selesai Produksi', variant: 'success' },
-    siap_dikirim: { label: 'Siap Dikirim', variant: 'info' },
-    sudah_dikirim: { label: 'Sudah Dikirim', variant: 'secondary' },
-    selesai: { label: 'Selesai', variant: 'success' },
-    delay: { label: 'Delay', variant: 'destructive' },
-    hold: { label: 'Hold', variant: 'warning' },
+    draft: { label: 'Draft', variant: 'outline', color: '#94A3B8' },
+    baru_masuk: { label: 'Baru Masuk', variant: 'info', color: '#3B82F6' },
+    review: { label: 'Review Produksi', variant: 'secondary', color: '#8B5CF6' },
+    published: { label: 'Baru Masuk', variant: 'info', color: '#3B82F6' },
+    on_progress: { label: 'Sedang Produksi', variant: 'warning', color: '#F59E0B' },
+    selesai_produksi: { label: 'Selesai Produksi', variant: 'success', color: '#22C55E' },
+    siap_dikirim: { label: 'Siap Dikirim', variant: 'info', color: '#06B6D4' },
+    sudah_dikirim: { label: 'Sudah Dikirim', variant: 'secondary', color: '#6366F1' },
+    selesai: { label: 'Selesai', variant: 'success', color: '#10B981' },
+    delay: { label: 'Delay', variant: 'destructive', color: '#EF4444' },
+    hold: { label: 'Hold', variant: 'warning', color: '#F97316' },
 };
 
 const PROGRESS_STATUS = {
@@ -738,7 +740,10 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
 
     const isLocked = order.status_po !== 'draft' && (!order.lock_status || order.lock_status.is_locked);
 
-    const st = STATUS_LABEL[order.status_po] ?? { label: order.status_po, variant: 'outline' };
+    const effectiveStatus = order.status_po === 'published'
+        ? (order.end_production_date ? 'review' : 'baru_masuk')
+        : order.status_po;
+    const st = STATUS_LABEL[effectiveStatus] ?? STATUS_LABEL[order.status_po] ?? { label: order.status_po, variant: 'outline' };
     const pendingPayments = (order.payments ?? []).filter(p => !p.verified_at);
     const isDeduction = (p) => {
         if (p.master_jenis_pembayaran) return p.master_jenis_pembayaran.tipe_keuangan === 'pengeluaran';
@@ -843,7 +848,13 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                             <div>
                                 <div className="flex flex-wrap items-center gap-2">
                                     <h2 className="text-2xl font-bold font-mono">{order.no_po}</h2>
-                                    <Badge variant={st.variant}>{st.label}</Badge>
+                                    <Badge 
+                                        variant={st.variant}
+                                        style={st.color ? { backgroundColor: st.color, color: '#fff', borderColor: 'transparent' } : {}}
+                                        className="font-semibold shadow-2xs"
+                                    >
+                                        {st.label}
+                                    </Badge>
                                     {order.tipe_pengiriman === 'pickup_cod' ? (
                                         <Badge variant="outline" className="border-cyan-300 bg-cyan-50 text-cyan-800 font-extrabold">Ambil di Tempat / COD</Badge>
                                     ) : (order.is_free_ongkir || order.tipe_pengiriman === 'free_ongkir') ? (

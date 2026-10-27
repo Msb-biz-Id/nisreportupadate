@@ -11,16 +11,20 @@ use Inertia\Inertia;
 class CalendarController extends Controller
 {
     private const STATUS_COLORS = [
+        'baru_masuk'       => '#3B82F6',
+        'review'           => '#8B5CF6',
         'published'        => '#3B82F6',
         'on_progress'      => '#F59E0B',
         'selesai_produksi' => '#22C55E',
         'siap_dikirim'     => '#06B6D4',
-        'sudah_dikirim'    => '#8B5CF6',
+        'sudah_dikirim'    => '#6366F1',
         'delay'            => '#EF4444',
         'hold'             => '#F97316',
     ];
 
     private const STATUS_LABELS = [
+        'baru_masuk'       => 'Baru Masuk (Belum Ada Deadline)',
+        'review'           => 'Review Produksi',
         'published'        => 'Baru Masuk',
         'on_progress'      => 'Sedang Produksi',
         'selesai_produksi' => 'Selesai Produksi',
@@ -74,7 +78,12 @@ class CalendarController extends Controller
             $isOverdue = $deadlineCarbon !== null && $deadlineCarbon < $today && !$isFinished;
             $isDelayed = $o->status_po === 'delay' || $isOverdue;
 
-            $effectiveStatus = $isDelayed ? 'delay' : $o->status_po;
+            $stageStatus = $o->status_po;
+            if ($o->status_po === 'published') {
+                $stageStatus = empty($o->end_production_date) ? 'baru_masuk' : 'review';
+            }
+
+            $effectiveStatus = $isDelayed ? 'delay' : $stageStatus;
             $brandPrefix = $o->brand?->nama_brand ? "({$o->brand->nama_brand}) " : "";
 
             return [
@@ -85,10 +94,12 @@ class CalendarController extends Controller
                 'deadlineCustomer' => $deadlineCustomer,
                 'deadlineProduksi' => $deadlineProduksi,
                 'status'           => $effectiveStatus,
+                'stageStatus'      => $stageStatus,
+                'needsDeadline'    => empty($o->end_production_date),
                 'rawStatus'        => $o->status_po,
                 'isDelayed'        => $isDelayed,
-                'statusLabel'      => self::STATUS_LABELS[$effectiveStatus] ?? $o->status_po,
-                'color'            => self::STATUS_COLORS[$effectiveStatus] ?? '#94A3B8',
+                'statusLabel'      => self::STATUS_LABELS[$effectiveStatus] ?? self::STATUS_LABELS[$stageStatus] ?? $o->status_po,
+                'color'            => self::STATUS_COLORS[$effectiveStatus] ?? self::STATUS_COLORS[$stageStatus] ?? '#94A3B8',
                 'pelanggan'        => $o->pelanggan?->nama,
                 'noPo'             => $o->no_po,
                 'namaPo'           => $o->nama_po,

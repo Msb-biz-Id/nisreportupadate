@@ -29,17 +29,21 @@ class ProductionController extends Controller
         };
 
         $statusColors = [
+            'baru_masuk'       => '#3B82F6',
+            'review'           => '#8B5CF6',
             'published'        => '#3B82F6',
             'on_progress'      => '#F59E0B',
             'selesai_produksi' => '#22C55E',
             'siap_dikirim'     => '#06B6D4',
-            'sudah_dikirim'    => '#8B5CF6',
+            'sudah_dikirim'    => '#6366F1',
             'delay'            => '#EF4444',
             'hold'             => '#F97316',
             'selesai'          => '#10B981',
         ];
 
         $statusLabels = [
+            'baru_masuk'       => 'Baru Masuk',
+            'review'           => 'Review Produksi',
             'published'        => 'Baru Masuk',
             'on_progress'      => 'Sedang Produksi',
             'selesai_produksi' => 'Selesai Produksi',
@@ -50,7 +54,7 @@ class ProductionController extends Controller
             'selesai'          => 'Selesai',
         ];
 
-        $cacheKey = 'prod_gantt_' . md5(json_encode($brandId) . '_' . ($user->id ?? 'guest'));
+        $cacheKey = 'prod_gantt_' . md5(json_encode($brandId));
         $items = \Illuminate\Support\Facades\Cache::remember($cacheKey, 20, function () use ($brandId, $statusColors, $statusLabels) {
             $statusPoCol = 'status_po';
             $orders = Order::query()
@@ -60,12 +64,14 @@ class ProductionController extends Controller
                 ->select([
                     'id', 'no_po', 'nama_po', 'pelanggan_id', 'brand_id', 'status_po',
                     'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date',
-                    'created_at'
+                    'created_at', 'ekspedisi_id', 'nama_ekspedisi', 'no_resi', 'is_lunas'
                 ])
                 ->with([
                     'pelanggan:id,nama',
                     'brand:id,kode,nama_brand',
-                    'items:id,order_id,is_addon,quantity,jml_atasan'
+                    'items:id,order_id,is_addon,quantity,jml_atasan',
+                    'ekspedisi:id,nama',
+                    'progressDetails.progress:id,nama_progress,warna,urutan',
                 ])
                 ->orderByDesc('created_at')
                 ->get();
@@ -88,6 +94,40 @@ class ProductionController extends Controller
                     }
                 }
 
+                // Hitung stage progress yang sedang berjalan
+                $activeDetail = $order->progressDetails->firstWhere('status', 'on_progress');
+                if ($activeDetail && $activeDetail->progress) {
+                    $currentProgress = [
+                        'nama'   => $activeDetail->progress->nama_progress,
+                        'warna'  => $activeDetail->progress->warna ?? '#F59E0B',
+                        'status' => 'on_progress',
+                    ];
+                } elseif (in_array($order->status_po, ['siap_dikirim', 'selesai_produksi'])) {
+                    $currentProgress = [
+                        'nama'   => 'Siap Dikirim / Packing Selesai',
+                        'warna'  => '#06B6D4',
+                        'status' => 'ready',
+                    ];
+                } elseif (in_array($order->status_po, ['sudah_dikirim', 'selesai'])) {
+                    $currentProgress = [
+                        'nama'   => 'Selesai Dikirim',
+                        'warna'  => '#10B981',
+                        'status' => 'done',
+                    ];
+                } else {
+                    $firstPending = $order->progressDetails->where('status', 'pending')->sortBy('progress.urutan')->first();
+                    $currentProgress = [
+                        'nama'   => $firstPending?->progress?->nama_progress ? 'Menunggu ' . $firstPending->progress->nama_progress : 'Antri Produksi',
+                        'warna'  => '#64748B',
+                        'status' => 'pending',
+                    ];
+                }
+
+                $stageStatus = $order->status_po;
+                if ($order->status_po === 'published') {
+                    $stageStatus = empty($order->end_production_date) ? 'baru_masuk' : 'review';
+                }
+
                 return [
                     'id'                  => $order->id,
                     'no_po'               => $order->no_po,
@@ -96,10 +136,18 @@ class ProductionController extends Controller
                     'brand_kode'          => $order->brand?->kode,
                     'total_pcs'           => (int) $order->items->sum('jml_atasan'),
                     'status_po'           => $order->status_po,
-                    'status_label'        => $statusLabels[$order->status_po] ?? $order->status_po,
-                    'color'               => $statusColors[$order->status_po] ?? '#94A3B8',
+                    'stage_status'        => $stageStatus,
+                    'status_label'        => $statusLabels[$stageStatus] ?? $statusLabels[$order->status_po] ?? $order->status_po,
+                    'color'               => $statusColors[$stageStatus] ?? $statusColors[$order->status_po] ?? '#94A3B8',
+                    'needs_deadline'      => empty($order->end_production_date),
+                    'current_progress'    => $currentProgress,
+                    'ekspedisi_id'        => $order->ekspedisi_id,
+                    'nama_ekspedisi'      => $order->ekspedisi?->nama ?? $order->nama_ekspedisi,
+                    'no_resi'             => $order->no_resi,
+                    'is_lunas'            => (bool) $order->is_lunas,
                     'tanggal_masuk'       => $order->tanggal_masuk ? \Carbon\Carbon::parse((string) $order->tanggal_masuk)->format('Y-m-d') : null,
                     'deadline_customer'   => $order->deadline_customer ? \Carbon\Carbon::parse((string) $order->deadline_customer)->format('Y-m-d') : null,
+                    'start_production_date' => $order->start_production_date ? \Carbon\Carbon::parse((string) $order->start_production_date)->format('Y-m-d') : null,
                     'end_production_date' => $order->end_production_date ? \Carbon\Carbon::parse((string) $order->end_production_date)->format('Y-m-d') : null,
                     'start'               => $start ? \Carbon\Carbon::parse((string) $start)->format('Y-m-d') : null,
                     'end'                 => $end ? \Carbon\Carbon::parse((string) $end)->format('Y-m-d') : null,
@@ -110,10 +158,13 @@ class ProductionController extends Controller
             })->all();
         });
 
+        $ekspedisiList = \App\Models\Master\Ekspedisi::active()->orderBy('nama')->get(['id', 'nama']);
+
         return Inertia::render('Production/Gantt', [
-            'items'        => $items,
-            'statusColors' => $statusColors,
-            'statusLabels' => $statusLabels,
+            'items'         => $items,
+            'statusColors'  => $statusColors,
+            'statusLabels'  => $statusLabels,
+            'ekspedisiList' => $ekspedisiList,
         ]);
     }
 
@@ -127,7 +178,7 @@ class ProductionController extends Controller
             default                          => BrandContext::current($request),
         };
 
-        $cacheKey = 'prod_kanban_' . md5(json_encode($brandId) . '_' . ($user->id ?? 'guest'));
+        $cacheKey = 'prod_kanban_' . md5(json_encode($brandId));
         $columns = \Illuminate\Support\Facades\Cache::remember($cacheKey, 20, function () use ($brandId) {
             $statusPoCol = 'status_po';
             $orders = Order::query()
@@ -153,11 +204,12 @@ class ProductionController extends Controller
                 ->get();
 
             $columns = [
-                'published'        => ['label' => 'Baru Masuk',       'color' => '#3B82F6', 'orders' => []],
+                'baru_masuk'       => ['label' => 'Baru Masuk',       'color' => '#3B82F6', 'orders' => []],
+                'review'           => ['label' => 'Review Produksi',  'color' => '#8B5CF6', 'orders' => []],
                 'on_progress'      => ['label' => 'Sedang Produksi',  'color' => '#F59E0B', 'orders' => []],
                 'selesai_produksi' => ['label' => 'Selesai Produksi', 'color' => '#22C55E', 'orders' => []],
                 'siap_dikirim'     => ['label' => 'Siap Dikirim',     'color' => '#06B6D4', 'orders' => []],
-                'sudah_dikirim'    => ['label' => 'Sudah Dikirim',    'color' => '#8B5CF6', 'orders' => []],
+                'sudah_dikirim'    => ['label' => 'Sudah Dikirim',    'color' => '#6366F1', 'orders' => []],
                 'hold'             => ['label' => 'Hold',             'color' => '#F97316', 'orders' => []],
             ];
 
@@ -165,7 +217,13 @@ class ProductionController extends Controller
             foreach ($orders as $order) {
                 $status = $order->status_po;
                 // Delay orders are in production workflow, map them to on_progress column
-                $columnKey = ($status === 'delay') ? 'on_progress' : $status;
+                if ($status === 'delay') {
+                    $columnKey = 'on_progress';
+                } elseif ($status === 'published') {
+                    $columnKey = empty($order->end_production_date) ? 'baru_masuk' : 'review';
+                } else {
+                    $columnKey = $status;
+                }
                 if (! isset($columns[$columnKey])) continue;
 
                 $effectiveDeadline = $order->end_production_date ?? $order->deadline_customer;
@@ -201,14 +259,18 @@ class ProductionController extends Controller
                 $columns[$columnKey]['orders'][] = [
                     'id'                  => $order->id,
                     'status_po'           => $order->status_po,
+                    'stage_status'        => $columnKey,
                     'no_po'               => $order->no_po,
                     'nama_po'             => $order->nama_po,
                     'pelanggan'           => $order->pelanggan?->nama,
                     'brand_kode'          => $order->brand?->kode,
                     'brand_warna'         => $order->brand?->warna_primary,
+                    'tanggal_masuk'       => $order->tanggal_masuk ? \Carbon\Carbon::parse((string) $order->tanggal_masuk)->format('Y-m-d') : null,
                     'deadline_customer'   => $order->deadline_customer ? \Carbon\Carbon::parse((string) $order->deadline_customer)->format('Y-m-d') : null,
+                    'start_production_date' => $order->start_production_date ? \Carbon\Carbon::parse((string) $order->start_production_date)->format('Y-m-d') : null,
                     'end_production_date' => $order->end_production_date ? \Carbon\Carbon::parse((string) $order->end_production_date)->format('Y-m-d') : null,
                     'effective_deadline'  => $effectiveDeadline ? \Carbon\Carbon::parse((string) $effectiveDeadline)->format('Y-m-d') : null,
+                    'needs_deadline'      => empty($order->end_production_date),
                     'is_locked'           => $order->isLocked(),
                     'is_special_order'    => (bool) $order->is_special_order,
                     'has_rijek'           => $order->has_rijek > 0,

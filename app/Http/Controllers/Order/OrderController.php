@@ -174,6 +174,10 @@ class OrderController extends Controller
                                  ->whereRaw("DATE(COALESCE(orders.end_production_date, orders.deadline_customer)) < ?", [$today]);
                           });
                     });
+                } elseif ($status === 'baru_masuk') {
+                    $query->where('orders.status_po', 'published')->whereNull('orders.end_production_date');
+                } elseif ($status === 'review') {
+                    $query->where('orders.status_po', 'published')->whereNotNull('orders.end_production_date');
                 } else {
                     $query->where('orders.status_po', $status);
                 }
@@ -230,6 +234,14 @@ class OrderController extends Controller
                 })
                 ->count();
             $counts['delay'] = $delayCount;
+            $counts['baru_masuk'] = (clone $baseQuery)
+                ->where('orders.status_po', 'published')
+                ->whereNull('orders.end_production_date')
+                ->count();
+            $counts['review'] = (clone $baseQuery)
+                ->where('orders.status_po', 'published')
+                ->whereNotNull('orders.end_production_date')
+                ->count();
         }
 
         return $counts;
@@ -253,12 +265,13 @@ class OrderController extends Controller
 
     private function getVisibleStatuses(\App\Models\User $user, string $tab): array
     {
-        $visibleStatuses = $user->hasRole('admin_produksi')
-            ? array_values(array_filter(Order::STATUSES, fn ($s) => $s !== 'draft'))
-            : Order::STATUSES;
+        $statuses = ['draft', 'baru_masuk', 'review', 'on_progress', 'selesai_produksi', 'siap_dikirim', 'delay', 'hold'];
+        if ($user->hasRole('admin_produksi')) {
+            $statuses = array_values(array_filter($statuses, fn ($s) => $s !== 'draft'));
+        }
 
         if ($tab === 'active') {
-            return array_values(array_filter($visibleStatuses, fn ($s) => ! in_array($s, ['sudah_dikirim', 'selesai'], true)));
+            return $statuses;
         } else {
             return ['sudah_dikirim', 'selesai'];
         }
@@ -623,6 +636,12 @@ class OrderController extends Controller
                 'catatan' => $data['catatan'] ?? null,
                 'updated_by' => $user->id,
             ];
+
+            if ($order->isDraft() && !empty($order->end_production_date)) {
+                if (\Carbon\Carbon::parse($order->end_production_date)->gt(\Carbon\Carbon::parse($data['deadline_customer']))) {
+                    $updateData['end_production_date'] = $data['deadline_customer'];
+                }
+            }
 
 
             $cleanSlug = (string) str($data['nama_po'])->slug('-')->upper();
@@ -1018,6 +1037,12 @@ class OrderController extends Controller
         Gate::authorize('order.create');
         $this->guardBrandOwnership($request, $order);
 
+        $request->validate([
+            'nama_po'           => ['nullable', 'string', 'max:255'],
+            'tanggal_masuk'     => ['nullable', 'date'],
+            'deadline_customer' => ['nullable', 'date'],
+        ]);
+
         $user = $request->user();
         $brand = $order->brand;
 
@@ -1026,17 +1051,64 @@ class OrderController extends Controller
             $newNamaPo = $order->nama_po;
         }
 
-        $newOrder = DB::transaction(function () use ($order, $user, $brand, $newNamaPo) {
+        // Tanggal Masuk PO Baru (default: hari ini)
+        $newTanggalMasukStr = $request->input('tanggal_masuk') ?: now()->toDateString();
+        $newTanggalMasuk = \Carbon\Carbon::parse($newTanggalMasukStr)->startOfDay();
+
+        // Hitung durasi/lead time dari PO lama jika ada
+        $leadDays = 14;
+        if ($order->tanggal_masuk && $order->deadline_customer) {
+            $origLead = (int) \Carbon\Carbon::parse($order->tanggal_masuk)->startOfDay()
+                ->diffInDays(\Carbon\Carbon::parse($order->deadline_customer)->startOfDay(), false);
+            if ($origLead > 0) {
+                $leadDays = $origLead;
+            }
+        }
+
+        // Hitung deadline customer baru
+        if ($request->filled('deadline_customer')) {
+            $newDeadlineCustomer = \Carbon\Carbon::parse($request->input('deadline_customer'))->startOfDay()->toDateString();
+        } else {
+            $newDeadlineCustomer = $newTanggalMasuk->copy()->addDays($leadDays)->toDateString();
+        }
+
+        $newOrder = DB::transaction(function () use (
+            $order, $user, $brand, $newNamaPo,
+            $newTanggalMasuk, $newDeadlineCustomer
+        ) {
             $clone = $order->replicate([
                 'no_po', 'nama_po', 'status_po', 'is_repeat_order', 'repeat_from_po_id',
                 'published_at', 'published_by', 'created_at', 'updated_at',
+                'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date',
+                'packing_completed_at', 'completed_at',
+                'production_days_late', 'customer_days_late',
+                'was_delayed_on_completion', 'days_late_on_completion',
+                'no_resi',
+                'is_lunas', 'lunas_at', 'lunas_by',
+                'is_dp_bypassed', 'dp_bypassed_at', 'dp_bypassed_by',
             ]);
             $clone->nama_po = $newNamaPo;
             $clone->no_po = $this->numbers->generateOrderNumber($brand, $newNamaPo);
             $clone->status_po = 'draft';
             $clone->is_repeat_order = true;
             $clone->repeat_from_po_id = $order->id;
-            $clone->tanggal_masuk = now()->toDateString();
+            $clone->tanggal_masuk = $newTanggalMasuk->toDateString();
+            $clone->deadline_customer = $newDeadlineCustomer;
+            $clone->start_production_date = null;
+            $clone->end_production_date = null; // Timeline dan deadline produksi diatur oleh tim produksi seperti biasanya
+            $clone->packing_completed_at = null;
+            $clone->completed_at = null;
+            $clone->production_days_late = 0;
+            $clone->customer_days_late = 0;
+            $clone->was_delayed_on_completion = false;
+            $clone->days_late_on_completion = 0;
+            $clone->no_resi = null;
+            $clone->is_lunas = false;
+            $clone->lunas_at = null;
+            $clone->lunas_by = null;
+            $clone->is_dp_bypassed = false;
+            $clone->dp_bypassed_at = null;
+            $clone->dp_bypassed_by = null;
             $clone->published_at = null;
             $clone->published_by = null;
             $clone->created_by = $user->id;
@@ -1914,6 +1986,8 @@ class OrderController extends Controller
             ]);
         }
 
+        \App\Services\CacheService::forgetProductionViews($order->brand_id);
+
         return back()->with('success', 'Timeline produksi berhasil diperbarui.');
     }
 
@@ -2402,7 +2476,7 @@ class OrderController extends Controller
     {
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
-        abort_unless($user && ($user->can('order.update') || $user->can('production.update-progress')), 403, 'Unauthorized');
+        abort_unless($user && ($user->can('order.update') || $user->can('production.update-progress') || $user->hasRole(['supervisor', 'superadmin', 'admin_produksi', 'owner'])), 403, 'Unauthorized');
 
         $data = $request->validate([
             'ekspedisi_id' => ['nullable', 'uuid', 'exists:ekspedisi,id'],
@@ -2453,6 +2527,10 @@ class OrderController extends Controller
                 ]);
             }
         });
+
+        // Invalidate dashboard & gantt/kanban cache specifically without wiping global caches
+        \App\Services\CacheService::forgetDashboard();
+        \App\Services\CacheService::forgetProductionViews($order->brand_id);
 
         return back()->with('success', 'Data pengiriman berhasil diperbarui.');
     }
