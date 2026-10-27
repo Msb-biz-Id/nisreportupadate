@@ -235,7 +235,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
             o.pelanggan?.nama ?? '',
             formatDate(o.tanggal_masuk),
             formatDate(o.deadline_customer),
-            STATUS_LABEL[o.status_po]?.label ?? o.status_po,
+            getOrderStatus(o)?.label ?? o.status_po,
             o.total_tagihan ?? 0,
             o.core_items_sum_quantity ?? 0,
         ]);

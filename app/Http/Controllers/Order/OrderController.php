@@ -242,6 +242,7 @@ class OrderController extends Controller
                 ->where('orders.status_po', 'published')
                 ->whereNotNull('orders.end_production_date')
                 ->count();
+            unset($counts['published']);
         }
 
         return $counts;
