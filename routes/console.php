@@ -63,4 +63,14 @@ Schedule::command('model:prune', ['--model' => [\App\Models\ActivityLog::class]]
 // Hapus log perubahan PO (po_change_logs) yang sudah selesai lebih dari 30 hari
 Schedule::command('po:clean-logs --days=30')->dailyAt('02:30');
 
+// Sinkronisasi keuangan malam (anti-drift): flag lunas PO -> resync kolom invoice + bersihkan yatim.
+// Output lengkap tersimpan di storage/logs/invoice-sync.log
+Schedule::command('po:sync-lunas')
+    ->dailyAt('03:00')
+    ->withoutOverlapping();
+Schedule::command('invoice:audit-sync --fix --clean-orphans')
+    ->dailyAt('03:10')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/invoice-sync.log'));
+
 

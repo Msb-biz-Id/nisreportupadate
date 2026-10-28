@@ -111,6 +111,11 @@ class Invoice extends Model
         $invoiceTotalTagihan = max(0, $newTotal - $diskonNominal);
         $newSisa = max(0, $invoiceTotalTagihan - $newPaid);
 
+        // Toleransi manual: PO yang ditandai LUNAS admin keuangan selalu dianggap lunas di invoice
+        if ($order->is_lunas) {
+            $newSisa = 0.0;
+        }
+
         $targetStatus = $this->status;
         if ($newSisa <= 0) {
             $targetStatus = ($this->status === 'validated') ? 'validated' : 'paid';
