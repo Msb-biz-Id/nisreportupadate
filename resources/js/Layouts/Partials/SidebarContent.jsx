@@ -19,6 +19,7 @@ import {
     ShieldCheck,
     Shirt,
     Sparkles,
+    Bot,
     Move3D,
     Printer,
     PackageOpen,
@@ -296,6 +297,12 @@ function buildMenu(user, reportsList = []) {
             href: route('settings.integrasi'),
             icon: Settings,
             active: route().current('settings.integrasi*'),
+        });
+        settingItems.push({
+            name: 'MCP & Multi-AI Copilot',
+            href: route('settings.mcp.index'),
+            icon: Bot,
+            active: route().current('settings.mcp.*'),
         });
         settingItems.push({
             name: 'Backup Media',

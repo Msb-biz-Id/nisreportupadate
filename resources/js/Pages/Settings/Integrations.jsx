@@ -1,6 +1,6 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Sparkles, MessageCircle, Send, Settings, CheckCircle2, AlertTriangle, FlaskConical, Bell, Volume2, ShieldAlert, CheckSquare, Clock, Calendar, Mail, Copy, Building2, Trash2, Plus } from 'lucide-react';
+import { Sparkles, MessageCircle, Send, Settings, CheckCircle2, AlertTriangle, FlaskConical, Bell, Volume2, ShieldAlert, CheckSquare, Clock, Calendar, Mail, Copy, Building2, Trash2, Plus, Bot } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -1385,11 +1385,20 @@ export default function Integrations({ ai, whatsapp, telegram, system, notificat
             <Head title="Pengaturan Integrasi" />
 
             <div className="space-y-6">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Pengaturan Integrasi & Notifikasi</h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Kelola dan konfigurasi channel pengiriman WhatsApp, Telegram, AI Hub, dan sound dinamis untuk tiap alur kerja.
-                    </p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">Pengaturan Integrasi & Notifikasi</h1>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Kelola dan konfigurasi channel pengiriman WhatsApp, Telegram, AI Hub, dan sound dinamis untuk tiap alur kerja.
+                        </p>
+                    </div>
+                    <Link
+                        href={route('settings.mcp.index')}
+                        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs shrink-0 self-start sm:self-auto transition-colors"
+                    >
+                        <Bot className="h-4 w-4" />
+                        Kelola MCP & Multi-AI Copilot →
+                    </Link>
                 </div>
 
                 <div className="rounded-lg border bg-blue-50/50 p-4 text-sm flex gap-3 items-start border-blue-200">
