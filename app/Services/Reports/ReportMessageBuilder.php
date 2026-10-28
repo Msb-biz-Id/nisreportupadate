@@ -1112,11 +1112,13 @@ PROMPT;
             $refundPending = Refund::where('brand_id', $bid)->where('status', 'pending_review')
                 ->with('order:id,no_po')->orderByDesc('created_at')->limit(3)->get();
 
-            $invoicePendingCount  = Invoice::where('brand_id', $bid)->whereIn('status', ['draft', 'validated'])->count();
-            $invoicePendingAmount = Invoice::where('brand_id', $bid)->whereIn('status', ['draft', 'validated'])->sum('sisa_pembayaran');
+            $invoicePendingCount  = Invoice::where('brand_id', $bid)->onPublishedOrder()->whereIn('status', ['draft', 'validated'])->count();
+            $invoicePendingAmount = Invoice::where('brand_id', $bid)->onPublishedOrder()->whereIn('status', ['draft', 'validated'])->where('sisa_pembayaran', '>', 0)->sum('sisa_pembayaran');
 
             $invoiceJatuhTempo = Invoice::where('brand_id', $bid)
+                ->onActiveOrder()
                 ->where('status', 'published')
+                ->where('sisa_pembayaran', '>', 0)
                 ->whereNotNull('jatuh_tempo')
                 ->where('jatuh_tempo', '<=', now()->addDays(3))
                 ->with(['order:id,no_po,pelanggan_id', 'order.pelanggan:id,nama'])
@@ -1181,7 +1183,9 @@ PROMPT;
             ];
 
             $invoiceJatuhTempo = Invoice::where('brand_id', $bid)
+                ->onActiveOrder()
                 ->where('status', 'published')
+                ->where('sisa_pembayaran', '>', 0)
                 ->whereNotNull('jatuh_tempo')
                 ->where('jatuh_tempo', '<=', now()->addDays(7))
                 ->with(['order:id,no_po,pelanggan_id', 'order.pelanggan:id,nama'])
@@ -1224,7 +1228,9 @@ PROMPT;
             ];
 
             $invoiceJatuhTempo = Invoice::where('brand_id', $bid)
+                ->onActiveOrder()
                 ->where('status', 'published')
+                ->where('sisa_pembayaran', '>', 0)
                 ->whereNotNull('jatuh_tempo')
                 ->where('jatuh_tempo', '<=', now()->addDays(14))
                 ->with(['order:id,no_po,pelanggan_id', 'order.pelanggan:id,nama'])

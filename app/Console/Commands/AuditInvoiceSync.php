@@ -11,6 +11,7 @@ class AuditInvoiceSync extends Command
     protected $signature = 'invoice:audit-sync
         {--brand= : Filter id brand (default semua brand)}
         {--fix : Resync total_tagihan / total_bayar / sisa_pembayaran / status seluruh invoice dari data live order}
+        {--clean-orphans : Soft-delete invoice yang order-nya sudah tidak ada/soft-delete (belum lunas)}
         {--sample=10 : Jumlah contoh baris per kategori}';
 
     protected $description = 'Audit perbedaan antara widget Reminder Sisa PO (basis orders, hitungan live) dengan daftar Invoice Belum Lunas (basis invoices, kolom tersimpan)';
@@ -58,12 +59,32 @@ class AuditInvoiceSync extends Command
         $listCount = $belumLunasInvoices->count();
         $listSum = (float) $belumLunasInvoices->sum('sisa_pembayaran');
 
+        // Basis 3: definisi piutang aktif baru (scope OutstandingPiutang — sama persis dg widget)
+        $newCount = Invoice::query()
+            ->when($brandId, fn ($q) => $q->where('brand_id', $brandId))
+            ->outstandingPiutang()
+            ->count();
+        $newSum = (float) Invoice::query()
+            ->when($brandId, fn ($q) => $q->where('brand_id', $brandId))
+            ->outstandingPiutang()
+            ->sum('sisa_pembayaran');
+
+        // Invoice sisa NEGATIF (overpayment tersimpan) — tak tampil di tab tapi menurunkan kartu /invoices
+        $negQ = fn () => Invoice::query()
+            ->when($brandId, fn ($q) => $q->where('brand_id', $brandId))
+            ->where('status', '!=', 'paid')
+            ->where('sisa_pembayaran', '<', 0);
+        $negCount = $negQ()->count();
+        $negSum = (float) $negQ()->sum('sisa_pembayaran');
+
         $this->table(
             ['Basis', 'Jumlah', 'Total Sisa'],
             [
                 ['Widget Reminder (orders, live)', $widgetCount, $this->rp($widgetSum)],
-                ['Invoice List Belum Lunas (tersimpan)', $listCount, $this->rp($listSum)],
-                ['SELISIH', $listCount - $widgetCount, $this->rp($listSum - $widgetSum)],
+                ['Invoice List Belum Lunas (lama, tersimpan)', $listCount, $this->rp($listSum)],
+                ['Invoice List Belum Lunas (def baru / sudah di-fix)', $newCount, $this->rp($newSum)],
+                ['SELISIH (lama vs widget)', $listCount - $widgetCount, $this->rp($listSum - $widgetSum)],
+                ['Invoice sisa NEGATIF status != paid (bukan tab)', $negCount, $this->rp($negSum)],
             ]
         );
 
@@ -171,10 +192,23 @@ class AuditInvoiceSync extends Command
             );
         }
 
+        if ($this->option('clean-orphans')) {
+            $orphans = Invoice::query()
+                ->when($brandId, fn ($q) => $q->where('brand_id', $brandId))
+                ->where('status', '!=', 'paid')
+                ->whereDoesntHave('order')
+                ->get();
+            foreach ($orphans as $inv) {
+                $inv->delete();
+            }
+            $preview = implode(', ', $orphans->pluck('invoice_number')->take(8)->all());
+            $this->info('Soft-delete ' . $orphans->count() . ' invoice yatim (order sudah tidak ada). Contoh: ' . $preview);
+        }
+
         if ($this->option('fix')) {
             $this->fix($brandId);
         } else {
-            $this->comment('Run read-only. Gunakan --fix untuk resync kolom tersimpan invoice dari data live order (tidak menyentuh markLunas manual / B1 tanpa invoice).');
+            $this->comment('Run read-only. Gunakan --fix untuk resync kolom tersimpan invoice dari data live order, dan --clean-orphans untuk soft-delete invoice yatim.');
         }
 
         return self::SUCCESS;

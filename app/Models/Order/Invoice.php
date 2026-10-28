@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\Concerns\HasUuidAndSoftDeletes;
 use App\Models\Master\BankAccount;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -54,6 +55,38 @@ class Invoice extends Model
     public function bank(): BelongsTo { return $this->belongsTo(BankAccount::class, 'bank_id'); }
     public function creator(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }
     public function items(): HasMany { return $this->hasMany(InvoiceItem::class); }
+
+    public function scopeOnPublishedOrder(Builder $q): Builder
+    {
+        return $q->whereHas('order', function ($o) {
+            $o->where('status_po', '!=', 'draft')
+              ->where('is_special_order', false);
+        });
+    }
+
+    public function scopeOnActiveOrder(Builder $q): Builder
+    {
+        return $q->onPublishedOrder()->whereHas('order', function ($o) {
+            $o->where('is_lunas', false);
+        });
+    }
+
+    public function scopeOutstandingPiutang(Builder $q): Builder
+    {
+        return $q->onActiveOrder()
+            ->where('status', '!=', 'paid')
+            ->where('sisa_pembayaran', '>', 0);
+    }
+
+    public function scopeSettledPiutang(Builder $q): Builder
+    {
+        return $q->onPublishedOrder()
+            ->where(function ($w) {
+                $w->where('status', 'paid')
+                  ->orWhere('sisa_pembayaran', '<=', 0)
+                  ->orWhereHas('order', fn ($o) => $o->where('is_lunas', true));
+            });
+    }
 
     public function syncWithOrder(): void
     {

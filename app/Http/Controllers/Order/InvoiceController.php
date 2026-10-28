@@ -239,11 +239,12 @@ class InvoiceController extends Controller
 
         // 1. Fetch aggregated sums grouped by brand_id to prevent N+1 loop queries
         $lunasSums = Invoice::where('status', 'paid')
+            ->whereHas('order')
             ->groupBy('brand_id')
             ->select('brand_id', DB::raw('SUM(total_tagihan) as total'))
             ->pluck('total', 'brand_id');
 
-        $belumLunasSums = Invoice::where('status', '!=', 'paid')
+        $belumLunasSums = Invoice::outstandingPiutang()
             ->groupBy('brand_id')
             ->select('brand_id', DB::raw('SUM(sisa_pembayaran) as total'))
             ->pluck('total', 'brand_id');
@@ -289,8 +290,7 @@ class InvoiceController extends Controller
         }
 
         // Recent Invoices / PO lists (unpaid & paid)
-        $unpaidInvoices = Invoice::where('status', '!=', 'paid')
-            ->where('sisa_pembayaran', '>', 0)
+        $unpaidInvoices = Invoice::outstandingPiutang()
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn($q) => $q->where('brand_id', $selectedBrandId))
             ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn($q) => $q->whereIn('brand_id', $userBrandIds))
             ->with(['order:id,no_po,nama_po,pelanggan_id', 'order.pelanggan:id,nama', 'brand'])
@@ -358,15 +358,15 @@ class InvoiceController extends Controller
         $baseQuery = $this->buildBaseInvoiceQuery($request, $selectedBrandId, $userBrandIds, $isAllBrandsRole, $paymentTypeFilter);
 
         // Calculate counts dynamically from base query (database-level count)
-        $totalUnpaidCount = (clone $baseQuery)->where('status', '!=', 'paid')->where('sisa_pembayaran', '>', 0)->count();
-        $totalPaidCount = (clone $baseQuery)->where(fn($q) => $q->where('status', 'paid')->orWhere('sisa_pembayaran', '<=', 0))->count();
+        $totalUnpaidCount = (clone $baseQuery)->outstandingPiutang()->count();
+        $totalPaidCount = (clone $baseQuery)->settledPiutang()->count();
 
         // Apply tab filter on invoice query
         $tabQuery = clone $baseQuery;
         if ($tab === 'belum_lunas') {
-            $tabQuery->where('status', '!=', 'paid')->where('sisa_pembayaran', '>', 0);
+            $tabQuery->outstandingPiutang();
         } elseif ($tab === 'sudah_lunas') {
-            $tabQuery->where(fn($q) => $q->where('status', 'paid')->orWhere('sisa_pembayaran', '<=', 0));
+            $tabQuery->settledPiutang();
         } elseif ($tab === 'tanda_jadi') {
             $tabQuery->whereRaw('1 = 0');
         }
@@ -446,9 +446,9 @@ class InvoiceController extends Controller
 
         $tabQuery = clone $baseQuery;
         if ($tab === 'belum_lunas') {
-            $tabQuery->where('status', '!=', 'paid')->where('sisa_pembayaran', '>', 0);
+            $tabQuery->outstandingPiutang();
         } elseif ($tab === 'sudah_lunas') {
-            $tabQuery->where(fn($q) => $q->where('status', 'paid')->orWhere('sisa_pembayaran', '<=', 0));
+            $tabQuery->settledPiutang();
         } elseif ($tab === 'tanda_jadi') {
             $tabQuery->whereRaw('1 = 0');
         }
@@ -513,6 +513,7 @@ class InvoiceController extends Controller
     private function buildBaseInvoiceQuery(Request $request, mixed $selectedBrandId, array $userBrandIds, bool $isAllBrandsRole, ?string $paymentTypeFilter)
     {
         $query = Invoice::query()
+            ->whereHas('order')
             ->when($selectedBrandId && $selectedBrandId !== 'all', fn ($q) => $q->where('brand_id', $selectedBrandId))
             ->when($selectedBrandId === 'all' && ! $isAllBrandsRole, fn ($q) => $q->whereIn('brand_id', $userBrandIds));
 
@@ -729,7 +730,7 @@ class InvoiceController extends Controller
             $totalPaid = (float) $order->totalPaid();
 
             if ($isSpecial) {
-                // Calculate dynamic shipping cost (can be free or paid)
+                // PO Support/Special gratis 100%: tagihan invoice selalu 0 (ongkir hanya tercatat utk display)
                 $ongkir_payment = 0.0;
                 if (!$order->is_free_ongkir) {
                     $ongkir_payment = (float) $order->payments
@@ -737,7 +738,7 @@ class InvoiceController extends Controller
                         ->sum('amount');
                 }
                 $biayaPengiriman = $order->is_free_ongkir ? 0.0 : (float) ($order->ongkir > 0 ? $order->ongkir : $ongkir_payment);
-                $totalTagihan = $biayaPengiriman;
+                $totalTagihan = 0.0;
                 $diskonType = 'persen';
                 $diskonValue = 100.0;
             } else {
@@ -954,7 +955,8 @@ class InvoiceController extends Controller
 
         // Final Nett Invoice Tagihan
         if ($isSpecial) {
-            $invoiceTotalTagihan = max(0, $biayaPengiriman);
+            // PO Support/Special gratis 100%: tidak ada tagihan ke pelanggan
+            $invoiceTotalTagihan = 0.0;
         } else {
             $invoiceTotalTagihan = max(0, $grossSubtotal - $diskonNominal + $biayaPengiriman + $penambahanExcludingOngkir - $pengurangan);
         }

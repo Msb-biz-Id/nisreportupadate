@@ -498,9 +498,9 @@ class DashboardService
         $invoices = Invoice::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
         $refunds  = Refund::query()->when($brandId && $brandId !== 'all', $this->bf($brandId));
 
-        $invoicePending      = (clone $invoices)->whereIn('status', ['draft', 'validated'])->count();
+        $invoicePending      = (clone $invoices)->onPublishedOrder()->whereIn('status', ['draft', 'validated'])->count();
         $invoiceToday        = (clone $invoices)->where('tanggal_terbit', today()->toDateString())->count();
-        $totalTagihanPending = (clone $invoices)->whereIn('status', ['draft', 'validated', 'published'])->sum('sisa_pembayaran');
+        $totalTagihanPending = (clone $invoices)->outstandingPiutang()->sum('sisa_pembayaran');
 
         $paidToday = OrderPayment::query()
             ->where('payment_date', today()->toDateString())
@@ -558,6 +558,7 @@ class DashboardService
                 ['label' => 'DP Desain Terverifikasi', 'value' => $dpVerifiedAmount,     'currency' => true, 'icon' => 'CheckCircle', 'accent' => 'indigo'],
             ],
             'invoice_pending_list' => (clone $invoices)
+                ->onPublishedOrder()
                 ->whereIn('status', ['draft', 'validated'])
                 ->with(['order:id,no_po,pelanggan_id', 'order.pelanggan:id,nama'])
                 ->orderByDesc('created_at')->limit(10)->get(),

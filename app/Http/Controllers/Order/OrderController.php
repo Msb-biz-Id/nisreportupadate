@@ -732,10 +732,18 @@ class OrderController extends Controller
                     'bank_id' => $data['bank_id'],
                     'tanggal_terbit' => $order->tanggal_masuk,
                     'jatuh_tempo' => $order->deadline_customer,
-                    'diskon_type' => $diskonType,
-                    'diskon_value' => $diskonValue,
+                    'diskon_type'     => $diskonType,
+                    'diskon_value'    => $diskonValue,
                     'voucher_discount_amount' => $order->voucher_discount_amount,
                 ]);
+            }
+
+            // Invoice lain milik order yang sama tetap ikut tersinkron
+            $extraInvoices = $order->invoices()
+                ->when($invoice, fn ($q) => $q->where('id', '!=', $invoice->id))
+                ->get();
+            foreach ($extraInvoices as $extraInvoice) {
+                $extraInvoice->syncWithOrder();
             }
 
             // Save new version and log unified changes
@@ -830,7 +838,8 @@ class OrderController extends Controller
                     $biayaPengiriman = $order->is_free_ongkir ? 0.0 : (float) $order->ongkir;
 
                     if ($isSpecial) {
-                        $invoiceTotalTagihan = $biayaPengiriman;
+                        // PO Support/Special gratis 100%: tagihan invoice selalu 0
+                        $invoiceTotalTagihan = 0.0;
                         $diskonType = 'persen';
                         $diskonValue = 100.0;
                     } else {
@@ -2017,11 +2026,29 @@ class OrderController extends Controller
 
         $toggle = ! $order->is_lunas;
 
-        $order->update([
-            'is_lunas'  => $toggle,
-            'lunas_at'  => $toggle ? now() : null,
-            'lunas_by'  => $toggle ? $request->user()->id : null,
-        ]);
+        DB::transaction(function () use ($order, $toggle, $request) {
+            $order->update([
+                'is_lunas'  => $toggle,
+                'lunas_at'  => $toggle ? now() : null,
+                'lunas_by'  => $toggle ? $request->user()->id : null,
+            ]);
+
+            foreach ($order->invoices()->get() as $invoice) {
+                if ($invoice->status === 'draft') {
+                    continue;
+                }
+                if ($toggle) {
+                    // Toleransi manual: lunaskan invoice mengikuti tanda lunas PO
+                    $invoice->update([
+                        'status' => 'paid',
+                        'sisa_pembayaran' => 0,
+                    ]);
+                } else {
+                    // Batal tanda lunas: kembalikan invoice ke perhitungan live
+                    $invoice->syncWithOrder();
+                }
+            }
+        });
 
         return back()->with('success', $toggle ? 'Order ditandai LUNAS.' : 'Status lunas dibatalkan.');
     }

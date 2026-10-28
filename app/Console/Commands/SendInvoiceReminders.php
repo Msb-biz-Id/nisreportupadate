@@ -22,7 +22,8 @@ class SendInvoiceReminders extends Command
         $dryRun   = $this->option('dry-run');
 
         // Mendekati jatuh tempo
-        $reminders = Invoice::whereIn('status', ['published', 'sent'])
+        $reminders = Invoice::onActiveOrder()
+            ->whereIn('status', ['published', 'sent'])
             ->whereNotNull('jatuh_tempo')
             ->where(function ($query) {
                 $query->whereNull('total_bayar')
@@ -33,7 +34,8 @@ class SendInvoiceReminders extends Command
             ->get();
 
         // Sudah melewati jatuh tempo
-        $overdues = Invoice::whereIn('status', ['published', 'sent'])
+        $overdues = Invoice::onActiveOrder()
+            ->whereIn('status', ['published', 'sent'])
             ->whereNotNull('jatuh_tempo')
             ->where(function ($query) {
                 $query->whereNull('total_bayar')
