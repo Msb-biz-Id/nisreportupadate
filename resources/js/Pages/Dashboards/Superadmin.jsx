@@ -4,7 +4,7 @@ import Chart from '@/Components/Chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
-import { StatGrid, StatusBreakdown, POListWidget, POSiapDikirimWidget } from '@/Components/Widgets';
+import { StatGrid, StatusBreakdown, POListWidget, POSiapDikirimWidget, ReminderSisaPOWidget } from '@/Components/Widgets';
 import { formatRupiah } from '@/lib/utils';
 import { Target } from 'lucide-react';
 
@@ -240,6 +240,11 @@ export default function Superadmin({ stats }) {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Reminder Sisa Pembayaran / Tunggakan PO */}
+            <div className="mb-4">
+                <ReminderSisaPOWidget data={stats.reminder_sisa_po} />
+            </div>
 
             {/* PO Siap Dikirim Section */}
             <div className="mb-4">

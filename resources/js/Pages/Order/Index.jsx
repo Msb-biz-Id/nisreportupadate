@@ -227,7 +227,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
         : (can?.filter_by_brand && brands?.length > 0 ? 5 : 4);
 
     function copyToClipboard() {
-        const headers = ['No. PO', 'Nama PO', 'Brand', 'Pelanggan', 'Tgl Masuk', 'Deadline', 'Status', 'Total', 'Pcs'];
+        const headers = ['No. PO', 'Nama PO', 'Brand', 'Pelanggan', 'Tgl Masuk', 'Deadline', 'Status', 'Total', 'Sisa/Tunggakan', 'Pcs'];
         const rows = orders.data.map((o) => [
             o.no_po,
             o.nama_po,
@@ -237,6 +237,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
             formatDate(o.deadline_customer),
             getOrderStatus(o)?.label ?? o.status_po,
             o.total_tagihan ?? 0,
+            o.is_special_order || o.is_lunas ? 0 : (o.sisa_tagihan ?? 0),
             o.core_items_sum_quantity ?? 0,
         ]);
 
@@ -595,7 +596,7 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
                                         <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[130px] py-3">Pelanggan</TableHead>
                                         <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[90px] whitespace-nowrap py-3">Tgl Masuk</TableHead>
                                         <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[90px] whitespace-nowrap py-3">Deadline</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[110px] py-3">Total</TableHead>
+                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[130px] py-3">Jumlah & Sisa</TableHead>
                                         <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[90px] py-3">Paket</TableHead>
                                         <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[95px] py-3">Status</TableHead>
                                         <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-center min-w-[60px] py-3">Pcs</TableHead>
@@ -637,7 +638,20 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
                                                 </TableCell>
                                                 <TableCell className="text-xs min-w-[90px] whitespace-nowrap py-2.5 text-slate-600">{formatDate(o.tanggal_masuk)}</TableCell>
                                                 <TableCell className="text-xs min-w-[90px] whitespace-nowrap py-2.5 text-slate-600">{formatDate(o.deadline_customer)}</TableCell>
-                                                <TableCell className="text-right font-mono text-xs font-bold min-w-[110px] py-2.5 text-slate-800">{formatRupiah(o.total_tagihan)}</TableCell>
+                                                <TableCell className="text-right min-w-[130px] py-2.5">
+                                                    <div className="font-mono text-xs font-bold text-slate-800">{formatRupiah(o.total_tagihan)}</div>
+                                                    {o.is_special_order ? (
+                                                        <span className="text-[10px] font-semibold text-purple-600 block">Support (Rp 0)</span>
+                                                    ) : o.is_lunas || (o.sisa_tagihan ?? 0) <= 0 ? (
+                                                        <span className="text-[10px] font-semibold text-emerald-600 flex items-center justify-end gap-0.5">
+                                                            <CheckCircle2 className="h-3 w-3 inline text-emerald-500" /> Lunas
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold text-rose-600 block whitespace-nowrap" title={`Terbayar: ${formatRupiah(o.total_paid ?? 0)}`}>
+                                                            Sisa: {formatRupiah(o.sisa_tagihan)}
+                                                        </span>
+                                                    )}
+                                                </TableCell>
                                                 <TableCell className="min-w-[90px] py-2.5">
                                                     {o.paket_order ? (
                                                         <span

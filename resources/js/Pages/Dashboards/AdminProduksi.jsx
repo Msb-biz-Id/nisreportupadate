@@ -3,7 +3,7 @@ import Chart from '@/Components/Chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Factory, ArrowUpRight } from 'lucide-react';
-import { StatGrid, StatusBreakdown, POListWidget } from '@/Components/Widgets';
+import { StatGrid, StatusBreakdown, POListWidget, ReminderSisaPOWidget } from '@/Components/Widgets';
 
 export default function AdminProduksi({ stats }) {
     const rijekJenis = stats.rijek_by_jenis ?? [];
@@ -96,6 +96,9 @@ export default function AdminProduksi({ stats }) {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Reminder Sisa Pembayaran / Tunggakan PO */}
+            <ReminderSisaPOWidget data={stats.reminder_sisa_po} />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <POListWidget

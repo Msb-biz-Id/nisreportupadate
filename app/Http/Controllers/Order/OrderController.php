@@ -82,6 +82,19 @@ class OrderController extends Controller
                 }
                 return $hasAnyJmlAtasan ? 0 : (int)$i->quantity;
             });
+
+            $totalTagihan = $order->totalTagihan();
+            $totalPaid = $order->totalPaid();
+            $isLunas = (bool) ($order->is_lunas || $order->is_special_order);
+            $sisa = $isLunas ? 0.0 : max(0.0, $totalTagihan - $totalPaid);
+            if ($sisa <= 0.0) {
+                $isLunas = true;
+            }
+
+            $order->total_paid = $totalPaid;
+            $order->sisa_tagihan = $sisa;
+            $order->is_lunas = $isLunas;
+
             return $order;
         });
 
@@ -132,7 +145,8 @@ class OrderController extends Controller
                 'pelanggan:id,nama',
                 'brand:id,nama_brand,kode',
                 'paketOrder:id,nama,warna,prioritas',
-                'items:id,order_id,is_addon,quantity,jml_atasan'
+                'items:id,order_id,is_addon,quantity,jml_atasan,subtotal',
+                'payments.masterJenisPembayaran'
             ])
             ->withCount(['items', 'progressDetails'])
             ->withSum(['items as core_items_sum_quantity' => fn($q) => $q->where('is_addon', false)], 'quantity');

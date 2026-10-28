@@ -131,6 +131,7 @@ class DashboardService
                     'trend_bulanan'                 => $this->trendBulanan($brandId),
                     'target_progress'               => $this->getTargetProgress($brandId),
                     'po_siap_dikirim'               => $this->poSiapDikirim($brandId, 10),
+                    'reminder_sisa_po'              => $this->reminderSisaPo($brandId),
                     'dp_pending_list' => DesignDeposit::query()
                         ->when($brandId, $this->bf($brandId))
                         ->where('status', 'pending')
@@ -296,6 +297,7 @@ class DashboardService
                     'progress_distribution' => $this->progressDistribution($brandId),
                     'deadline_mendekat'    => $this->deadlineMendekat($brandId, 10),
                     'po_terlambat'         => $this->poTerlambat($brandId, 10),
+                    'reminder_sisa_po'     => $this->reminderSisaPo($brandId),
                 ];
             },
             CacheService::TTL_SHORT
@@ -357,6 +359,7 @@ class DashboardService
                     'trend_bulanan'     => $this->trendBulanan($brandId),
                     'target_progress'   => $this->getTargetProgress($brandId ?: Brand::active()->pluck('id')->toArray()),
                     'po_siap_dikirim'   => $this->poSiapDikirim($brandId, 10),
+                    'reminder_sisa_po'  => $this->reminderSisaPo($brandId && $brandId !== 'all' ? $brandId : null),
                 ];
             },
             CacheService::TTL_SHORT
@@ -472,6 +475,7 @@ class DashboardService
             'po_terlambat'                  => $this->poTerlambat($opBrandIds, 5),
             'target_progress'               => $this->getTargetProgress($opBrandIds),
             'po_siap_dikirim'               => $this->poSiapDikirim($opBrandIds, 10),
+            'reminder_sisa_po'              => $this->reminderSisaPo($opBrandIds),
             'current_brand_id'              => $filterBrand ?: 'all',
         ];
             },
@@ -1346,6 +1350,65 @@ class DashboardService
                 ];
             })
             ->all();
+    }
+
+    public function reminderSisaPo(string|array|null $brandId, int $limit = 25): array
+    {
+        $orders = Order::query()
+            ->when($brandId, $this->bf($brandId))
+            ->where('status_po', '!=', 'draft')
+            ->where('is_special_order', false)
+            ->where('is_lunas', false)
+            ->with([
+                'pelanggan:id,nama,nomor_hp',
+                'brand:id,nama_brand,kode',
+                'items:id,order_id,is_addon,quantity,jml_atasan,subtotal',
+                'payments.masterJenisPembayaran'
+            ])
+            ->orderBy('deadline_customer', 'asc')
+            ->orderBy('tanggal_masuk', 'desc')
+            ->get();
+
+        $unpaidItems = [];
+        $totalTunggakan = 0.0;
+        $totalPoBelumLunas = 0;
+
+        foreach ($orders as $o) {
+            $totalTagihan = $o->totalTagihan();
+            $totalPaid = $o->totalPaid();
+            $sisa = max(0.0, $totalTagihan - $totalPaid);
+
+            if ($sisa <= 0.0) {
+                continue;
+            }
+
+            $totalTunggakan += $sisa;
+            $totalPoBelumLunas++;
+
+            if (count($unpaidItems) < $limit) {
+                $unpaidItems[] = [
+                    'id'            => $o->id,
+                    'no_po'         => $o->no_po,
+                    'nama_po'       => $o->nama_po,
+                    'pelanggan'     => $o->pelanggan?->nama,
+                    'pelanggan_hp'  => $o->pelanggan?->nomor_hp,
+                    'brand'         => $o->brand?->kode,
+                    'nama_brand'    => $o->brand?->nama_brand,
+                    'status'        => $o->status_po,
+                    'tanggal_masuk' => $o->tanggal_masuk?->format('Y-m-d'),
+                    'deadline'      => $o->deadline_customer?->format('Y-m-d'),
+                    'total_tagihan' => $totalTagihan,
+                    'total_paid'    => $totalPaid,
+                    'sisa_tagihan'  => $sisa,
+                ];
+            }
+        }
+
+        return [
+            'total_tunggakan' => $totalTunggakan,
+            'total_po'        => $totalPoBelumLunas,
+            'items'           => $unpaidItems,
+        ];
     }
 
     public function poTypeDistribution(string|array|null $brandId, array $filters): array

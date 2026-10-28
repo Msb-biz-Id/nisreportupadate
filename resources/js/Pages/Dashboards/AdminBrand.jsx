@@ -4,7 +4,7 @@ import Chart from '@/Components/Chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
-import { StatGrid, StatusBreakdown, POListWidget, TopList, POSiapDikirimWidget, POTypeDistributionWidget } from '@/Components/Widgets';
+import { StatGrid, StatusBreakdown, POListWidget, TopList, POSiapDikirimWidget, POTypeDistributionWidget, ReminderSisaPOWidget } from '@/Components/Widgets';
 import { formatDate, formatRupiah } from '@/lib/utils';
 import { Target, Sparkles, RotateCcw, CheckCircle2, ArrowUpRight, Wallet, Landmark, RefreshCw, Clock, Coins, FileText, Filter } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
@@ -741,6 +741,11 @@ export default function AdminBrand({ stats, filters }) {
                     items={stats.wilayah_top ?? []}
                     valueKey="count" valueLabel="order"
                 />
+            </div>
+
+            {/* Reminder Sisa Pembayaran / Tunggakan PO */}
+            <div className="mb-4">
+                <ReminderSisaPOWidget data={stats.reminder_sisa_po} />
             </div>
 
             {/* PO Siap Dikirim Section */}

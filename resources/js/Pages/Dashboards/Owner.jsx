@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Com
 import { Button } from '@/Components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Badge } from '@/Components/ui/badge';
-import { StatGrid, StatusBreakdown, TopList, POListWidget, POSiapDikirimWidget } from '@/Components/Widgets';
+import { StatGrid, StatusBreakdown, TopList, POListWidget, POSiapDikirimWidget, ReminderSisaPOWidget } from '@/Components/Widgets';
 import { formatRupiah } from '@/lib/utils';
 import { 
     Target, TrendingUp, Wallet, Package, Layers, 
@@ -925,6 +925,11 @@ export default function Owner({ stats }) {
                         valueLabel="order"
                     />
                 </div>
+            </div>
+
+            {/* Reminder Sisa Pembayaran / Tunggakan PO */}
+            <div className="mb-4">
+                <ReminderSisaPOWidget data={stats.reminder_sisa_po} />
             </div>
 
             {/* PO Siap Dikirim Section */}

@@ -441,3 +441,153 @@ export function POTypeDistributionWidget({ data }) {
         </Card>
     );
 }
+
+export function ReminderSisaPOWidget({ data, title = "Reminder Sisa Pembayaran / Tunggakan PO" }) {
+    const totalTunggakan = data?.total_tunggakan ?? 0;
+    const totalPo = data?.total_po ?? 0;
+    const items = data?.items ?? [];
+
+    const getWaLink = (o) => {
+        if (!o.pelanggan_hp) return '#';
+        let phone = o.pelanggan_hp.replace(/\D/g, '');
+        if (phone.startsWith('0')) {
+            phone = '62' + phone.substring(1);
+        } else if (phone.startsWith('8')) {
+            phone = '62' + phone;
+        }
+
+        const pelanggan = o.pelanggan || 'Pelanggan';
+        const noPo = o.no_po || '';
+        const namaPo = o.nama_po ? ` (${o.nama_po})` : '';
+        const brandName = o.nama_brand || o.brand || 'Kami';
+        const tagihan = formatRupiah(o.total_tagihan || 0);
+        const paid = formatRupiah(o.total_paid || 0);
+        const sisa = formatRupiah(o.sisa_tagihan || 0);
+
+        const message = `Halo Kak *${pelanggan}*,\n\nInformasi dari *${brandName}* perihal status pesanan No. PO *${noPo}*${namaPo}:\n\n*Rincian Pembayaran*:\n- Total Tagihan: ${tagihan}\n- Sudah Dibayar: ${paid}\n- *Sisa Tunggakan*: *${sisa}*\n\nMohon konfirmasi atau pelunasan sisa tagihan tersebut agar proses dan pengiriman pesanan Kakak dapat berjalan lancar. Terima kasih banyak! 🙏`;
+
+        return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    };
+
+    return (
+        <Card className="border-t-4 border-t-rose-500 shadow-md">
+            <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <span className="text-rose-500 font-bold">💰</span> {title}
+                            {totalPo > 0 && (
+                                <Badge variant="destructive" className="bg-rose-100 text-rose-700 border-rose-200 text-xs px-2 py-0.5 font-bold">
+                                    {totalPo} PO Belum Lunas
+                                </Badge>
+                            )}
+                        </CardTitle>
+                        <CardDescription>
+                            Daftar PO yang masih memiliki sisa pembayaran/tunggakan. Tindak lanjuti sebelum pengiriman atau selesaikan pesanan.
+                        </CardDescription>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <div className="bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5 text-right">
+                            <span className="text-[10px] text-rose-600 font-medium uppercase tracking-wider block">Total Sisa / Tunggakan</span>
+                            <span className="text-base font-black text-rose-700 font-mono block">
+                                {formatRupiah(totalTunggakan)}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </CardHeader>
+
+            <CardContent className="pt-1">
+                {items.length === 0 ? (
+                    <div className="py-8 text-center bg-emerald-50/50 rounded-xl border border-emerald-100">
+                        <span className="text-2xl mb-1 block">🎉</span>
+                        <p className="text-sm font-semibold text-emerald-800">Semua PO Sudah Lunas!</p>
+                        <p className="text-xs text-emerald-600">Tidak ada sisa tunggakan pembayaran saat ini.</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        <ul className="divide-y divide-slate-100">
+                            {items.map((o) => (
+                                <li key={o.id} className="py-3 first:pt-0 last:pb-0 hover:bg-slate-50/70 p-2.5 rounded-lg transition">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div className="min-w-0 flex-1 space-y-1">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <Link
+                                                    href={route('orders.show', o.id)}
+                                                    className="font-mono text-xs font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded transition"
+                                                >
+                                                    {o.no_po}
+                                                </Link>
+                                                {o.brand && (
+                                                    <Badge variant="outline" className="text-[10px] font-semibold">
+                                                        {o.brand}
+                                                    </Badge>
+                                                )}
+                                                <Badge variant="secondary" className="text-[10px] uppercase font-medium">
+                                                    {o.status?.replace('_', ' ')}
+                                                </Badge>
+                                            </div>
+                                            <div className="font-semibold text-sm text-slate-900 truncate">
+                                                {o.nama_po || 'Tanpa Nama PO'}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
+                                                <span>Pelanggan: <strong className="text-slate-700">{o.pelanggan || '-'}</strong></span>
+                                                {o.deadline && (
+                                                    <>
+                                                        <span className="text-slate-300">•</span>
+                                                        <span>Deadline: <span className="font-medium text-slate-700">{formatDate(o.deadline)}</span></span>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-row sm:flex-col items-start sm:items-end justify-between sm:justify-center border-t sm:border-0 pt-2 sm:pt-0 gap-2 shrink-0">
+                                            <div className="text-left sm:text-right">
+                                                <div className="text-[10px] text-muted-foreground">
+                                                    Tagihan: <span className="font-mono">{formatRupiah(o.total_tagihan)}</span> (Sudah: {formatRupiah(o.total_paid)})
+                                                </div>
+                                                <div className="text-sm font-black font-mono text-rose-600">
+                                                    Sisa: {formatRupiah(o.sisa_tagihan)}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-1.5">
+                                                {o.pelanggan_hp && (
+                                                    <a
+                                                        href={getWaLink(o)}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-1 rounded-md transition"
+                                                        title="Kirim pesan penagihan via WhatsApp"
+                                                    >
+                                                        <span>💬 Chat WA</span>
+                                                    </a>
+                                                )}
+                                                <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
+                                                    <Link href={route('orders.show', o.id)}>
+                                                        Detail PO <ArrowUpRight className="h-3 w-3 ml-0.5" />
+                                                    </Link>
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+
+                        <div className="pt-2 border-t flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground gap-2">
+                            <span>Menampilkan {items.length} dari {totalPo} PO yang belum lunas</span>
+                            <Button asChild variant="outline" size="sm" className="h-7 text-xs">
+                                <Link href={route('orders.index') + '?tab=active'}>
+                                    Buka Daftar Order <ArrowUpRight className="h-3 w-3 ml-1" />
+                                </Link>
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
