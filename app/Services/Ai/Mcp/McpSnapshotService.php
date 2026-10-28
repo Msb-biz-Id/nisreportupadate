@@ -498,9 +498,8 @@ class McpSnapshotService
      */
     public static function flushAllAiCache(): void
     {
-        CacheService::flushDomain('order');
-        CacheService::flushDomain('finance');
-        CacheService::flushDomain('production');
+        CacheService::forgetDashboard();
+        CacheService::forgetProductionViews();
         try {
             AiSnapshotCache::truncate();
         } catch (\Throwable $e) {

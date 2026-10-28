@@ -240,7 +240,7 @@ class McpServer
         ]);
     }
 
-    protected function errorResponse($id, int $code, string $message): array
+    protected function errorResponse(string|int|null $id, int $code, string $message): array
     {
         return [
             'jsonrpc' => '2.0',
