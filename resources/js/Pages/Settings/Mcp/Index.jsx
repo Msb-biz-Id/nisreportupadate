@@ -81,7 +81,8 @@ export default function McpIndex({ keys = [], recentLogs = [], tools = [], stats
     const serverUrl = stats.server_url || window.location.origin;
 
     const endpoints = {
-        openapi: `${serverUrl}/api/ai/mcp/openapi.json`,
+        universal: `${serverUrl}/api/ai/mcp`,
+        openapi: `${serverUrl}/api/ai/mcp`,
         rpc: `${serverUrl}/api/ai/mcp`,
         sse: `${serverUrl}/api/ai/mcp/sse`,
         openai_tools: `${serverUrl}/api/ai/mcp/openai-tools.json`,
@@ -145,6 +146,36 @@ export default function McpIndex({ keys = [], recentLogs = [], tools = [], stats
                             <PlusCircle className="h-4 w-4 mr-1.5" />
                             Generate API Key
                         </Button>
+                    </div>
+                </div>
+
+                {/* UNIVERSAL GENERAL MCP URL CARD */}
+                <div className="p-4 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50/80 via-white to-indigo-50/50 dark:from-indigo-950/40 dark:via-slate-900 dark:to-indigo-950/20 dark:border-indigo-800 shadow-xs">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm text-indigo-950 dark:text-indigo-200">
+                                    🌐 Universal MCP URL (1 URL General untuk Semua AI):
+                                </span>
+                                <Badge className="bg-indigo-600 text-white text-[10px]">General Endpoint</Badge>
+                            </div>
+                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                                Gunakan 1 URL tunggal ini untuk semua platform: <strong>ChatGPT Actions</strong> (otomatis mengenali skema OpenAPI), <strong>Claude Desktop</strong>, <strong>Gemini</strong>, <strong>Cursor</strong>, dan <strong>OpenCode</strong>.
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <code className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-950 border border-indigo-200 dark:border-indigo-800 font-mono text-xs text-indigo-700 dark:text-indigo-300 font-bold select-all">
+                                {endpoints.universal}
+                            </code>
+                            <Button
+                                size="sm"
+                                onClick={() => handleCopy(endpoints.universal, 'universal_url')}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white h-8 px-3 shrink-0"
+                            >
+                                {copiedMap['universal_url'] ? <Check className="h-4 w-4 mr-1 text-emerald-300" /> : <Copy className="h-4 w-4 mr-1" />}
+                                <span className="text-xs">{copiedMap['universal_url'] ? 'Tersalin' : 'Salin URL'}</span>
+                            </Button>
+                        </div>
                     </div>
                 </div>
 

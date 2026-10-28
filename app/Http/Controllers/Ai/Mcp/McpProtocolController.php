@@ -23,6 +23,37 @@ class McpProtocolController extends Controller
     }
 
     /**
+     * Single Universal Entrypoint (GET /api/ai/mcp).
+     * Otomatis melayani OpenAPI 3.1 Spec (ChatGPT), SSE Stream (Claude/Cursor), atau Skema Gemini/OpenAI.
+     */
+    public function handleGeneralGet(Request $request): mixed
+    {
+        // 1. Jika client meminta SSE Stream (Claude Desktop, Cursor over HTTP)
+        $accept = $request->header('Accept', '');
+        if (str_contains($accept, 'text/event-stream') || $request->query('format') === 'sse') {
+            return $this->handleSse($request);
+        }
+
+        // 2. Jika client meminta skema spesifik
+        $schemaType = $request->query('schema');
+        if ($schemaType === 'openai') {
+            return response()->json(['tools' => $this->registry->getOpenAiTools()]);
+        }
+        if ($schemaType === 'gemini') {
+            return response()->json($this->registry->getGeminiDeclarations());
+        }
+
+        // 3. Default: OpenAPI 3.1 Spec (Langsung terbaca otomatis oleh ChatGPT Actions / GPT Builder)
+        $serverUrl = $request->root();
+        $schema = $this->registry->getOpenApiSchema($serverUrl);
+
+        return response()->json($schema, 200, [
+            'Access-Control-Allow-Origin' => '*',
+            'Content-Type' => 'application/json'
+        ]);
+    }
+
+    /**
      * Endpoint utama JSON-RPC 2.0 (POST /api/ai/mcp).
      */
     public function handleRpc(Request $request): JsonResponse

@@ -11,30 +11,41 @@ use Illuminate\Support\Facades\Route;
 | AI & Model Context Protocol (MCP) Routes
 |--------------------------------------------------------------------------
 |
-| Terisolasi penuh untuk integrasi multi-AI: ChatGPT Actions, Claude Desktop,
-| Google Gemini, Cursor, Cline, dan OpenCode.
+| SINGLE UNIVERSAL ENTRYPOINT:
+| URL: https://yourdomain.com/api/ai/mcp
+|
+| - GET  /api/ai/mcp           => Auto OpenAPI 3.1 Spec (ChatGPT) / SSE Stream (Claude/Cursor)
+| - POST /api/ai/mcp           => Standard JSON-RPC 2.0 Protocol (Semua AI Client)
+| - GET  /api/ai/tools/{tool}  => Direct REST Tool Call (ChatGPT Actions)
 |
 */
 
-// ==================== UNIVERSAL SCHEMAS (PUBLIC / INTEGRATION BUILDER) ====================
+// ==================== 1. SINGLE UNIVERSAL GENERAL MCP URL ====================
+Route::prefix('api/ai')->group(function () {
+    // Single URL GET: otomatis mengenali apakah ChatGPT (OpenAPI) atau Claude (SSE)
+    Route::get('mcp', [McpProtocolController::class, 'handleGeneralGet'])->name('ai.mcp.general');
+
+    // Single URL POST: eksekusi JSON-RPC 2.0 resmi (dilindungi API Key)
+    Route::post('mcp', [McpProtocolController::class, 'handleRpc'])
+        ->middleware([AuthenticateAiMcpKey::class])
+        ->name('ai.mcp.rpc');
+
+    // REST Tool Execution (dilindungi API Key)
+    Route::get('tools/{toolName}', [McpProtocolController::class, 'handleRestTool'])
+        ->middleware([AuthenticateAiMcpKey::class])
+        ->name('ai.tools.call');
+});
+
+// ==================== 2. LEGACY / SPECIFIC SCHEMAS (BACKWARDS COMPATIBILITY) ====================
 Route::prefix('api/ai/mcp')->name('ai.mcp.')->group(function () {
     Route::get('openapi.json', [UniversalSchemaController::class, 'openapi'])->name('openapi');
     Route::get('openai-tools.json', [UniversalSchemaController::class, 'openAiTools'])->name('openai_tools');
     Route::get('gemini-tools.json', [UniversalSchemaController::class, 'geminiTools'])->name('gemini_tools');
     Route::get('claude-desktop-config.json', [UniversalSchemaController::class, 'claudeDesktopConfig'])->name('claude_config');
+    Route::get('sse', [McpProtocolController::class, 'handleSse'])->name('sse');
 });
 
-// ==================== MCP PROTOCOL & REST EXECUTION (PROTECTED BY API KEY) ====================
-Route::prefix('api/ai')->middleware([AuthenticateAiMcpKey::class])->name('ai.')->group(function () {
-    // Standard MCP Protocol JSON-RPC 2.0
-    Route::post('mcp', [McpProtocolController::class, 'handleRpc'])->name('mcp.rpc');
-    Route::get('mcp/sse', [McpProtocolController::class, 'handleSse'])->name('mcp.sse');
-
-    // REST Tool Execution (Untuk ChatGPT Actions / Direct HTTP Tools)
-    Route::get('tools/{toolName}', [McpProtocolController::class, 'handleRestTool'])->name('tools.call');
-});
-
-// ==================== SUPERADMIN UI & MANAGEMENT ====================
+// ==================== 3. SUPERADMIN UI & MANAGEMENT ====================
 Route::middleware(['auth', 'verified'])->prefix('settings/mcp')->name('settings.mcp.')->group(function () {
     Route::get('/', [SuperadminMcpController::class, 'index'])->name('index');
     Route::post('generate-key', [SuperadminMcpController::class, 'generateKey'])->name('generate_key');
