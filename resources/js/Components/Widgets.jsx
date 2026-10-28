@@ -445,6 +445,7 @@ export function POTypeDistributionWidget({ data }) {
 export function ReminderSisaPOWidget({ data, title = "Reminder Sisa Pembayaran / Tunggakan PO" }) {
     const totalTunggakan = data?.total_tunggakan ?? 0;
     const totalPo = data?.total_po ?? 0;
+    const totalPcs = data?.total_pcs ?? 0;
     const items = data?.items ?? [];
 
     const getWaLink = (o) => {
@@ -459,12 +460,13 @@ export function ReminderSisaPOWidget({ data, title = "Reminder Sisa Pembayaran /
         const pelanggan = o.pelanggan || 'Pelanggan';
         const noPo = o.no_po || '';
         const namaPo = o.nama_po ? ` (${o.nama_po})` : '';
+        const pcsInfo = o.total_pcs ? ` [${o.total_pcs.toLocaleString('id-ID')} Pcs]` : '';
         const brandName = o.nama_brand || o.brand || 'Kami';
         const tagihan = formatRupiah(o.total_tagihan || 0);
         const paid = formatRupiah(o.total_paid || 0);
         const sisa = formatRupiah(o.sisa_tagihan || 0);
 
-        const message = `Halo Kak *${pelanggan}*,\n\nInformasi dari *${brandName}* perihal status pesanan No. PO *${noPo}*${namaPo}:\n\n*Rincian Pembayaran*:\n- Total Tagihan: ${tagihan}\n- Sudah Dibayar: ${paid}\n- *Sisa Tunggakan*: *${sisa}*\n\nMohon konfirmasi atau pelunasan sisa tagihan tersebut agar proses dan pengiriman pesanan Kakak dapat berjalan lancar. Terima kasih banyak! 🙏`;
+        const message = `Halo Kak *${pelanggan}*,\n\nInformasi dari *${brandName}* perihal status pesanan No. PO *${noPo}*${namaPo}${pcsInfo}:\n\n*Rincian Pembayaran*:\n- Total Tagihan: ${tagihan}\n- Sudah Dibayar: ${paid}\n- *Sisa Tunggakan*: *${sisa}*\n\nMohon konfirmasi atau pelunasan sisa tagihan tersebut agar proses dan pengiriman pesanan Kakak dapat berjalan lancar. Terima kasih banyak! 🙏`;
 
         return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     };
@@ -474,11 +476,11 @@ export function ReminderSisaPOWidget({ data, title = "Reminder Sisa Pembayaran /
             <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
-                        <CardTitle className="text-base flex items-center gap-2">
+                        <CardTitle className="text-base flex items-center gap-2 flex-wrap">
                             <span className="text-rose-500 font-bold">💰</span> {title}
                             {totalPo > 0 && (
                                 <Badge variant="destructive" className="bg-rose-100 text-rose-700 border-rose-200 text-xs px-2 py-0.5 font-bold">
-                                    {totalPo} PO Belum Lunas
+                                    {totalPo} PO • {totalPcs.toLocaleString('id-ID')} Pcs Belum Lunas
                                 </Badge>
                             )}
                         </CardTitle>
@@ -489,7 +491,9 @@ export function ReminderSisaPOWidget({ data, title = "Reminder Sisa Pembayaran /
 
                     <div className="flex items-center gap-2">
                         <div className="bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5 text-right">
-                            <span className="text-[10px] text-rose-600 font-medium uppercase tracking-wider block">Total Sisa / Tunggakan</span>
+                            <span className="text-[10px] text-rose-600 font-medium uppercase tracking-wider block">
+                                Total Sisa ({totalPo} PO • {totalPcs.toLocaleString('id-ID')} Pcs)
+                            </span>
                             <span className="text-base font-black text-rose-700 font-mono block">
                                 {formatRupiah(totalTunggakan)}
                             </span>
@@ -524,6 +528,9 @@ export function ReminderSisaPOWidget({ data, title = "Reminder Sisa Pembayaran /
                                                         {o.brand}
                                                     </Badge>
                                                 )}
+                                                <Badge variant="outline" className="text-[10px] font-semibold bg-amber-50 text-amber-800 border-amber-200">
+                                                    {(o.total_pcs ?? 0).toLocaleString('id-ID')} Pcs
+                                                </Badge>
                                                 <Badge variant="secondary" className="text-[10px] uppercase font-medium">
                                                     {o.status?.replace('_', ' ')}
                                                 </Badge>
@@ -577,7 +584,7 @@ export function ReminderSisaPOWidget({ data, title = "Reminder Sisa Pembayaran /
                         </ul>
 
                         <div className="pt-2 border-t flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground gap-2">
-                            <span>Menampilkan {items.length} dari {totalPo} PO yang belum lunas</span>
+                            <span>Menampilkan {items.length} dari {totalPo} PO ({totalPcs.toLocaleString('id-ID')} Pcs) yang belum lunas</span>
                             <Button asChild variant="outline" size="sm" className="h-7 text-xs">
                                 <Link href={route('orders.index') + '?tab=active'}>
                                     Buka Daftar Order <ArrowUpRight className="h-3 w-3 ml-1" />

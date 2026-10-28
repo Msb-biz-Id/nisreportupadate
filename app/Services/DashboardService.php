@@ -1372,6 +1372,7 @@ class DashboardService
         $unpaidItems = [];
         $totalTunggakan = 0.0;
         $totalPoBelumLunas = 0;
+        $totalPcsTunggakan = 0;
 
         foreach ($orders as $o) {
             $totalTagihan = $o->totalTagihan();
@@ -1382,8 +1383,18 @@ class DashboardService
                 continue;
             }
 
+            $coreItems = $o->items->filter(fn($i) => empty($i->is_addon));
+            $hasAnyJmlAtasan = $coreItems->contains(fn($i) => $i->jml_atasan !== null && $i->jml_atasan !== '');
+            $pcs = (int) $coreItems->sum(function ($i) use ($hasAnyJmlAtasan) {
+                if ($i->jml_atasan !== null && $i->jml_atasan !== '') {
+                    return (int) $i->jml_atasan;
+                }
+                return $hasAnyJmlAtasan ? 0 : (int) $i->quantity;
+            });
+
             $totalTunggakan += $sisa;
             $totalPoBelumLunas++;
+            $totalPcsTunggakan += $pcs;
 
             if (count($unpaidItems) < $limit) {
                 $unpaidItems[] = [
@@ -1395,6 +1406,7 @@ class DashboardService
                     'brand'         => $o->brand?->kode,
                     'nama_brand'    => $o->brand?->nama_brand,
                     'status'        => $o->status_po,
+                    'total_pcs'     => $pcs,
                     'tanggal_masuk' => $o->tanggal_masuk?->format('Y-m-d'),
                     'deadline'      => $o->deadline_customer?->format('Y-m-d'),
                     'total_tagihan' => $totalTagihan,
@@ -1407,6 +1419,7 @@ class DashboardService
         return [
             'total_tunggakan' => $totalTunggakan,
             'total_po'        => $totalPoBelumLunas,
+            'total_pcs'       => $totalPcsTunggakan,
             'items'           => $unpaidItems,
         ];
     }

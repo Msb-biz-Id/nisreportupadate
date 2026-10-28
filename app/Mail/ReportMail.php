@@ -84,14 +84,29 @@ class ReportMail extends Mailable
                 continue;
             }
 
-            // Section Header (e.g. 📊 *LAPORAN HARIAN SUPERADMIN*)
-            if (str_starts_with($trimmed, '📊') || str_starts_with($trimmed, '🏭') || str_starts_with($trimmed, '💰') || str_starts_with($trimmed, '📌')) {
+            // Section Header (e.g. 📊 *LAPORAN HARIAN*, 🛑 *REMINDER SISA PEMBAYARAN*, etc.)
+            if (preg_match('/^(📊|🏭|💰|📌|🛑|⚠️|📋|📦|⏰|🏆|👥)/u', $trimmed)) {
                 if ($inTable) {
                     $outputHtml .= "</table></div>";
                     $inTable = false;
                 }
+                $isAlert = str_starts_with($trimmed, '🛑') || str_contains($trimmed, 'TUNGGAKAN') || str_contains($trimmed, 'REMINDER');
+                $borderCol = $isAlert ? '#f43f5e' : '#e2e8f0';
+                $textCol = $isAlert ? '#be123c' : '#0f172a';
+                $bgBadge = $isAlert ? 'background-color: #fff1f2; padding: 8px 12px; border-radius: 8px;' : '';
                 $cleanHeader = preg_replace('/\*(.*?)\*/', '<strong>$1</strong>', e($trimmed));
-                $outputHtml .= "<h3 style=\"color: #0f172a; font-size: 16px; font-weight: 700; margin: 20px 0 10px 0; padding-bottom: 6px; border-bottom: 2px solid #e2e8f0;\">{$cleanHeader}</h3>";
+                $outputHtml .= "<h3 style=\"color: {$textCol}; font-size: 15px; font-weight: 700; margin: 20px 0 10px 0; padding-bottom: 6px; border-bottom: 2px solid {$borderCol}; {$bgBadge}\">{$cleanHeader}</h3>";
+                continue;
+            }
+
+            // Numbered list item (e.g. 1. [BRAND] PO-001 - Pelanggan (100 pcs) - Sisa: Rp 500.000)
+            if (preg_match('/^\d+\.\s+/', $trimmed)) {
+                if ($inTable) {
+                    $outputHtml .= "</table></div>";
+                    $inTable = false;
+                }
+                $formattedItem = preg_replace('/\*(.*?)\*/', '<strong>$1</strong>', e($trimmed));
+                $outputHtml .= "<div style=\"margin: 5px 0; padding: 8px 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; color: #1e293b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\">{$formattedItem}</div>";
                 continue;
             }
 

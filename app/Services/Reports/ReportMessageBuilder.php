@@ -177,21 +177,7 @@ PROMPT;
             }
         }
 
-        $siapDikirimBelumLunas = Order::query()
-            ->whereIn('status_po', ['siap_dikirim', 'selesai_produksi'])
-            ->with(['pelanggan:id,nama', 'brand:id,kode', 'items', 'payments.masterJenisPembayaran'])
-            ->get()
-            ->filter(fn(Order $o) => $o->sisaTagihan() > 0.99)
-            ->take(15);
-
-        if ($siapDikirimBelumLunas->isNotEmpty()) {
-            $lines[] = "";
-            $lines[] = "🛑 *PO SIAP DIKIRIM (BELUM LUNAS):*";
-            foreach ($siapDikirimBelumLunas as $po) {
-                /** @var Order $po */
-                $lines[] = "• [{$po->brand?->kode}] {$po->no_po} - {$po->pelanggan?->nama} (Sisa: Rp " . number_format($po->sisaTagihan(), 0, ',', '.') . ")";
-            }
-        }
+        $this->appendReminderTunggakanSection($lines, null, 10);
 
         $lines[] = "";
         $lines[] = "💰 *REVENUE TOTAL:*";
@@ -288,6 +274,8 @@ PROMPT;
                 }
             }
 
+            $this->appendReminderTunggakanSection($lines, $bid, 5);
+
             $lines[] = "";
             $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · BULANAN · " . now()->format('d/m/Y H:i') . "_";
             return implode("\n", $lines);
@@ -361,6 +349,8 @@ PROMPT;
                     $lines[] = "• {$po->no_po} - {$po->pelanggan?->nama} ({$hari} hari)";
                 }
             }
+
+            $this->appendReminderTunggakanSection($lines, $bid, 5);
 
             $lines[] = "";
             $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · MINGGUAN · " . now()->format('d/m/Y H:i') . "_";
@@ -441,6 +431,8 @@ PROMPT;
         $lines[] = "";
         $lines[] = "⚠️ *RIJEK (30 HARI):*";
         $lines[] = "• Rate: {$rijekRate}% | Total: {$totalRijek} pcs dari {$totalPcs} pcs produksi";
+
+        $this->appendReminderTunggakanSection($lines, $bid, 5);
 
         $lines[] = "";
         $lines[] = "_" . $this->getAppName() . " · {$brand->kode} · " . strtoupper($periode) . " · " . now()->format('d/m/Y H:i') . "_";
@@ -538,17 +530,7 @@ PROMPT;
                 }
             }
 
-            $lines[] = "";
-            $lines[] = "⚠️ *DAFTAR PO MENUNGGU PELUNASAN (TUNGGAKAN):*";
-            if ($tunggakanPOs->isEmpty()) {
-                $lines[] = "• Bersih / Tidak ada tunggakan PO";
-            } else {
-                $idx = 1;
-                foreach ($tunggakanPOs as $po) {
-                    $lines[] = $idx . ". {$po->no_po} - {$po->pelanggan?->nama} (Sisa: Rp " . number_format($po->sisaTagihan(), 0, ',', '.') . ")";
-                    $idx++;
-                }
-            }
+            $this->appendReminderTunggakanSection($lines, $bid, 5);
 
             $aiCtx = "Brand {$brand->nama_brand}. Minggu ini — total PO: {$totalPo} ({$totalPcs} pcs), revenue: Rp " . number_format($revWeek, 0) . ". "
                 . "Tunggakan PO: " . $tunggakanPOs->count() . " PO.";
@@ -642,17 +624,7 @@ PROMPT;
             $lines[] = "• Produk Terlaris: " . ($topProduk?->nama_produk ?? '-') . " (" . ($topProduk?->total_qty ?? 0) . " pcs)";
             $lines[] = "• Pelanggan Baru: {$newPelanggan} customer";
 
-            $lines[] = "";
-            $lines[] = "⚠️ *DAFTAR PO MENUNGGU PELUNASAN (TUNGGAKAN):*";
-            if ($tunggakanPOs->isEmpty()) {
-                $lines[] = "• Bersih / Tidak ada tunggakan PO";
-            } else {
-                $idx = 1;
-                foreach ($tunggakanPOs as $po) {
-                    $lines[] = $idx . ". {$po->no_po} - {$po->pelanggan?->nama} (Sisa: Rp " . number_format($po->sisaTagihan(), 0, ',', '.') . ")";
-                    $idx++;
-                }
-            }
+            $this->appendReminderTunggakanSection($lines, $bid, 10);
 
             $aiCtx = "Brand {$brand->nama_brand}. Bulan ini — total PO: {$totalPo} ({$totalPcs} pcs), revenue: Rp " . number_format($revMonth, 0) . ". "
                 . "Tunggakan PO: " . $tunggakanPOs->count() . " PO. Produk terlaris: " . ($topProduk?->nama_produk ?? '-') . ".";
@@ -762,6 +734,8 @@ PROMPT;
             }
         }
 
+        $this->appendReminderTunggakanSection($lines, $bid, 5);
+
         $lines[] = "";
         $lines[] = "💰 *REVENUE:*";
         $lines[] = "• Hari ini: Rp " . number_format($revToday, 0, ',', '.');
@@ -864,17 +838,7 @@ PROMPT;
             $lines[] = "• Revenue Minggu Ini: Rp " . number_format($revWeek, 0, ',', '.');
             $lines[] = "• {$growthStr} (Minggu lalu: Rp " . number_format($revLastWeek, 0, ',', '.') . ")";
 
-            $lines[] = "";
-            $lines[] = "⚠️ *DAFTAR PO MENUNGGU PELUNASAN (TUNGGAKAN):*";
-            if ($tunggakanPOs->isEmpty()) {
-                $lines[] = "• Bersih / Tidak ada tunggakan PO";
-            } else {
-                $idx = 1;
-                foreach ($tunggakanPOs as $po) {
-                    $lines[] = $idx . ". {$po->no_po} - {$po->pelanggan?->nama} (Sisa: Rp " . number_format($po->sisaTagihan(), 0, ',', '.') . ")";
-                    $idx++;
-                }
-            }
+            $this->appendReminderTunggakanSection($lines, $bid, 5);
 
             $aiCtx = "Brand {$brand->nama_brand}. Minggu ini — total PO: {$totalPo} ({$totalPcs} pcs), revenue: Rp " . number_format($revWeek, 0) . ". "
                 . "Tunggakan PO: " . $tunggakanPOs->count() . " PO.";
@@ -977,17 +941,7 @@ PROMPT;
             $lines[] = "• Produk Terlaris: " . ($topProduk?->nama_produk ?? '-') . " (" . ($topProduk?->total_qty ?? 0) . " pcs)";
             $lines[] = "• Pelanggan Baru: {$newPelanggan} customer";
 
-            $lines[] = "";
-            $lines[] = "⚠️ *DAFTAR PO MENUNGGU PELUNASAN (TUNGGAKAN):*";
-            if ($tunggakanPOs->isEmpty()) {
-                $lines[] = "• Bersih / Tidak ada tunggakan PO";
-            } else {
-                $idx = 1;
-                foreach ($tunggakanPOs as $po) {
-                    $lines[] = $idx . ". {$po->no_po} - {$po->pelanggan?->nama} (Sisa: Rp " . number_format($po->sisaTagihan(), 0, ',', '.') . ")";
-                    $idx++;
-                }
-            }
+            $this->appendReminderTunggakanSection($lines, $bid, 10);
 
             $aiCtx = "Brand {$brand->nama_brand}. Bulan ini — total PO: {$totalPo} ({$totalPcs} pcs), revenue: Rp " . number_format($revMonth, 0) . ". "
                 . "Tunggakan PO: " . $tunggakanPOs->count() . " PO. Produk terlaris: " . ($topProduk?->nama_produk ?? '-') . ".";
@@ -1120,21 +1074,7 @@ PROMPT;
             }
         }
 
-        $siapDikirimBelumLunas = Order::where('brand_id', $bid)
-            ->whereIn('status_po', ['siap_dikirim', 'selesai_produksi'])
-            ->with(['pelanggan:id,nama', 'items', 'payments.masterJenisPembayaran'])
-            ->get()
-            ->filter(fn(Order $o) => $o->sisaTagihan() > 0.99)
-            ->take(15);
-
-        if ($siapDikirimBelumLunas->isNotEmpty()) {
-            $lines[] = "";
-            $lines[] = "🛑 *PO SIAP DIKIRIM (BELUM LUNAS):*";
-            foreach ($siapDikirimBelumLunas as $i => $po) {
-                /** @var Order $po */
-                $lines[] = ($i + 1) . ". {$po->no_po} - {$po->pelanggan?->nama} (Sisa: Rp " . number_format($po->sisaTagihan(), 0, ',', '.') . ")";
-            }
-        }
+        $this->appendReminderTunggakanSection($lines, $bid, 7);
 
         $lines[] = "";
         $lines[] = "💰 *REVENUE:*";
@@ -1212,6 +1152,8 @@ PROMPT;
                 }
             }
 
+            $this->appendReminderTunggakanSection($lines, $bid, 5);
+
             $aiCtx = "Brand {$brand->nama_brand}. Keuangan harian — pemasukan: Rp " . number_format($pemasukanToday, 0) . ", pengeluaran: Rp " . number_format($pengeluaranToday, 0) . ".";
             $this->appendAiInsight($lines, $aiCtx);
 
@@ -1252,6 +1194,8 @@ PROMPT;
                     $lines[] = "• {$inv->order?->no_po} - {$inv->order?->pelanggan?->nama} (Sisa: Rp " . number_format($inv->sisa_pembayaran, 0, ',', '.') . ")";
                 }
             }
+
+            $this->appendReminderTunggakanSection($lines, $bid, 5);
 
             $aiCtx = "Brand {$brand->nama_brand}. Keuangan mingguan — pemasukan: Rp " . number_format($pemasukanWeek, 0) . ", pengeluaran: Rp " . number_format($pengeluaranWeek, 0) . ".";
             $this->appendAiInsight($lines, $aiCtx);
@@ -1294,6 +1238,8 @@ PROMPT;
                 }
             }
 
+            $this->appendReminderTunggakanSection($lines, $bid, 10);
+
             $aiCtx = "Brand {$brand->nama_brand}. Keuangan bulanan — pemasukan: Rp " . number_format($pemasukanMonth, 0) . ", pengeluaran: Rp " . number_format($pengeluaranMonth, 0) . ".";
             $this->appendAiInsight($lines, $aiCtx);
 
@@ -1307,6 +1253,87 @@ PROMPT;
 
     private function getOrderPcs(Order $po): int
     {
-        return (int) $po->items->filter(fn($i) => empty($i->is_addon))->sum('quantity');
+        $coreItems = $po->items->filter(fn($i) => empty($i->is_addon));
+        $hasAnyJmlAtasan = $coreItems->contains(fn($i) => $i->jml_atasan !== null && $i->jml_atasan !== '');
+        return (int) $coreItems->sum(function ($i) use ($hasAnyJmlAtasan) {
+            if ($i->jml_atasan !== null && $i->jml_atasan !== '') {
+                return (int) $i->jml_atasan;
+            }
+            return $hasAnyJmlAtasan ? 0 : (int) $i->quantity;
+        });
+    }
+
+    /**
+     * Membangun section reminder sisa tagihan/tunggakan PO lengkap dengan:
+     * - Total PO belum lunas
+     * - Total Pcs tunggakan
+     * - Total Nominal Sisa Tagihan (Rp)
+     * - Rincian PO (No PO, Brand, Pelanggan, Pcs, Sisa Rp, Deadline / Status)
+     */
+    private function appendReminderTunggakanSection(array &$lines, ?string $brandId = null, int $limit = 10): void
+    {
+        $query = Order::query()
+            ->where('is_special_order', false)
+            ->where('is_lunas', false)
+            ->whereNotIn('status_po', ['draft', 'batal'])
+            ->with(['pelanggan:id,nama', 'brand:id,kode,nama_brand', 'items', 'payments.masterJenisPembayaran']);
+
+        if ($brandId) {
+            $query->where('brand_id', $brandId);
+        }
+
+        $orders = $query->get();
+
+        $unpaid = [];
+        $totalTunggakan = 0.0;
+        $totalPcs = 0;
+
+        foreach ($orders as $o) {
+            $sisa = $o->sisaTagihan();
+            if ($sisa <= 0.99) {
+                continue;
+            }
+            $pcs = $this->getOrderPcs($o);
+            $totalTunggakan += $sisa;
+            $totalPcs += $pcs;
+
+            $unpaid[] = [
+                'order' => $o,
+                'sisa'  => $sisa,
+                'pcs'   => $pcs,
+            ];
+        }
+
+        // Urutkan sisa tagihan terbesar dahulu
+        usort($unpaid, fn($a, $b) => $b['sisa'] <=> $a['sisa']);
+
+        $totalPo = count($unpaid);
+
+        $lines[] = "";
+        $lines[] = "🛑 *REMINDER SISA PEMBAYARAN / TUNGGAKAN PO:*";
+
+        if ($totalPo === 0) {
+            $lines[] = "• Status: 🎉 Bersih (Semua PO sudah lunas)";
+            return;
+        }
+
+        $lines[] = "• Total PO Belum Lunas: {$totalPo} PO (" . number_format($totalPcs, 0, ',', '.') . " pcs)";
+        $lines[] = "• Total Tunggakan: Rp " . number_format($totalTunggakan, 0, ',', '.');
+        $lines[] = "• Rincian PO Tunggakan Tertinggi:";
+
+        $displayItems = array_slice($unpaid, 0, $limit);
+        foreach ($displayItems as $idx => $item) {
+            /** @var Order $po */
+            $po = $item['order'];
+            $no = $idx + 1;
+            $brandTag = $brandId ? "" : "[{$po->brand?->kode}] ";
+            $dlInfo = $po->deadline_customer ? " (DL: " . $po->deadline_customer->format('d/m') . ")" : "";
+            $lines[] = "{$no}. {$brandTag}{$po->no_po} - {$po->pelanggan?->nama} ({$item['pcs']} pcs) - Sisa: Rp " . number_format($item['sisa'], 0, ',', '.') . "{$dlInfo}";
+        }
+
+        if ($totalPo > $limit) {
+            $sisaPoCount = $totalPo - $limit;
+            $lines[] = "... dan {$sisaPoCount} PO lainnya masih memiliki sisa tunggakan.";
+        }
     }
 }
