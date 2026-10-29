@@ -1,32 +1,35 @@
+@php
+$kopCompact = !empty($kopCompact);
+@endphp
 <div>
     @if (!empty($logoData))
-    <div style="margin-bottom: 8px;">
-        <img src="{{ $logoData }}" alt="{{ $brand?->nama_brand ?? 'Brand Logo' }}" style="max-height: 58px; max-width: 180px; height: auto; width: auto; display: inline-block;">
+    <div style="margin-bottom: {{ $kopCompact ? 4 : 8 }}px;">
+        <img src="{{ $logoData }}" alt="{{ $brand?->nama_brand ?? 'Brand Logo' }}" style="max-height: {{ $kopCompact ? 40 : 58 }}px; max-width: 180px; height: auto; width: auto; display: inline-block;">
     </div>
-    <div class="brand" style="color: #000000; font-weight: 900; font-size: 16pt; letter-spacing: -0.5px; margin-bottom: 4px;">{{ $brand?->nama_brand ?? 'Circle Sportwear' }}</div>
+    <div class="brand" style="color: #000000; font-weight: 900; font-size: {{ $kopCompact ? 13 : 16 }}pt; letter-spacing: -0.5px; margin-bottom: {{ $kopCompact ? 2 : 4 }}px;">{{ $brand?->nama_brand ?? 'Circle Sportwear' }}</div>
     @elseif ($brand?->logo)
-    <div style="margin-bottom: 8px;">
-        <img src="{{ public_path('storage/' . $brand->logo) }}" alt="{{ $brand?->nama_brand ?? 'Brand Logo' }}" style="max-height: 58px; max-width: 180px; height: auto; width: auto; display: inline-block;">
+    <div style="margin-bottom: {{ $kopCompact ? 4 : 8 }}px;">
+        <img src="{{ public_path('storage/' . $brand->logo) }}" alt="{{ $brand?->nama_brand ?? 'Brand Logo' }}" style="max-height: {{ $kopCompact ? 40 : 58 }}px; max-width: 180px; height: auto; width: auto; display: inline-block;">
     </div>
-    <div class="brand" style="color: #000000; font-weight: 900; font-size: 16pt; letter-spacing: -0.5px; margin-bottom: 4px;">{{ $brand?->nama_brand ?? 'Circle Sportwear' }}</div>
+    <div class="brand" style="color: #000000; font-weight: 900; font-size: {{ $kopCompact ? 13 : 16 }}pt; letter-spacing: -0.5px; margin-bottom: {{ $kopCompact ? 2 : 4 }}px;">{{ $brand?->nama_brand ?? 'Circle Sportwear' }}</div>
     @else
-    <div style="margin-bottom: 8px;">
-        <div style="display: inline-block; width: 50px; height: 50px; line-height: 50px; background-color: <?php echo $brand?->warna_primary ?? '#000000ff'; ?>; color: #ffffff; text-align: center; border-radius: 8px; font-weight: 900; font-size: 22pt; font-family: 'DejaVu Sans', sans-serif;">
+    <div style="margin-bottom: {{ $kopCompact ? 4 : 8 }}px;">
+        <div style="display: inline-block; width: {{ $kopCompact ? 38 : 50 }}px; height: {{ $kopCompact ? 38 : 50 }}px; line-height: {{ $kopCompact ? 38 : 50 }}px; background-color: <?php echo $brand?->warna_primary ?? '#000000ff'; ?>; color: #ffffff; text-align: center; border-radius: 8px; font-weight: 900; font-size: {{ $kopCompact ? 17 : 22 }}pt; font-family: 'DejaVu Sans', sans-serif;">
             {{ strtoupper(substr($brand?->nama_brand ?? 'C', 0, 1)) }}
         </div>
     </div>
-    <div class="brand" style="color: #000000; font-weight: 900; font-size: 16pt; letter-spacing: -0.5px; margin-bottom: 4px;">{{ $brand?->nama_brand ?? 'Circle Sportwear' }}</div>
+    <div class="brand" style="color: #000000; font-weight: 900; font-size: {{ $kopCompact ? 13 : 16 }}pt; letter-spacing: -0.5px; margin-bottom: {{ $kopCompact ? 2 : 4 }}px;">{{ $brand?->nama_brand ?? 'Circle Sportwear' }}</div>
     @endif
 
     @if ($brand?->tagline)
-    <div class="brand-tagline" style="font-size: 9.5pt; color: #000000; font-weight: 700;">{{ $brand->tagline }}</div>
+    <div class="brand-tagline" style="font-size: {{ $kopCompact ? 8 : 9.5 }}pt; color: #000000; font-weight: 700;">{{ $brand->tagline }}</div>
     @endif
 
     @if ($brand?->deskripsi)
-    <div style="font-size: 8pt; color: #000000; font-weight: 600; margin-top: 3px;">{{ $brand->deskripsi }}</div>
+    <div style="font-size: {{ $kopCompact ? 7 : 8 }}pt; color: #000000; font-weight: 600; margin-top: 3px;">{{ $brand->deskripsi }}</div>
     @endif
 
-    <div style="font-size: 8pt; color: #4B5563; font-weight: 500; margin-top: 4px; line-height: 1.35;">
+    <div style="font-size: {{ $kopCompact ? 7.3 : 8 }}pt; color: #4B5563; font-weight: 500; margin-top: {{ $kopCompact ? 2 : 4 }}px; line-height: {{ $kopCompact ? 1.25 : 1.35 }};">
         @if ($brand?->alamat)
         <div><span style="font-weight: 700; color: #6B7280;">Alamat:</span> {{ $brand->alamat }}</div>
         @endif
@@ -63,7 +66,7 @@
     $compTiktokDataUri = 'data:image/svg+xml;base64,' . base64_encode($svgTiktok);
     @endphp
 
-    <div style="margin-top: 6px;">
+    <div style="margin-top: {{ $kopCompact ? 3 : 6 }}px;">
         @if ($brand?->website)
         <a href="{{ str_starts_with($brand->website, 'http') ? $brand->website : 'https://' . $brand->website }}" target="_blank" style="display: inline-block; text-decoration: none; background: #F3F4F6; border: 1px solid #E5E7EB; border-radius: 4px; padding: 2px 6px; font-size: 7.5pt; font-weight: bold; color: #374151; margin-right: 5px; margin-bottom: 4px;">
             <img src="{{ $compGlobeDataUri }}" style="width: 9px; height: 9px; vertical-align: middle; margin-right: 2px; margin-top: 1.5px;"><span style="vertical-align: middle; font-weight: bold;">{{ $brand->website }}</span>

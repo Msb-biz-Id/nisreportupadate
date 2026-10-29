@@ -88,19 +88,20 @@ $primaryColor = $invoice->brand?->warna_primary
 
         body {
             font-family: 'Inter', 'Helvetica', 'Arial', 'DejaVu Sans', sans-serif;
-            font-size: 9.5pt;
+            font-size: 8.5pt;
+            line-height: 1.15;
             color: #1F2937;
             margin: 0;
         }
 
         @page {
-            margin: 14mm;
+            margin: 8mm 10mm;
         }
 
         .header {
             display: table;
             width: 100%;
-            margin-bottom: 18px;
+            margin-bottom: 6px;
         }
 
         .header>div {
@@ -111,18 +112,18 @@ $primaryColor = $invoice->brand?->warna_primary
         .brand {
             color: #000000;
             font-weight: 900;
-            font-size: 20pt;
+            font-size: 14pt;
             letter-spacing: -0.5px;
         }
 
         .brand-tagline {
-            font-size: 9.5pt;
+            font-size: 8.5pt;
             color: #000000;
             font-weight: 700;
         }
 
         .invoice-title {
-            font-size: 18pt;
+            font-size: 13.5pt;
             font-weight: 900;
             color: #000000;
             text-align: right;
@@ -132,16 +133,16 @@ $primaryColor = $invoice->brand?->warna_primary
         .invoice-no {
             font-family: monospace;
             text-align: right;
-            font-size: 10pt;
+            font-size: 9pt;
             color: #111827;
             font-weight: 700;
-            margin-top: -6px;
+            margin-top: -3px;
         }
 
         .info-grid {
             display: table;
             width: 100%;
-            margin-bottom: 16px;
+            margin-bottom: 8px;
             table-layout: fixed;
         }
 
@@ -155,41 +156,58 @@ $primaryColor = $invoice->brand?->warna_primary
         }
 
         .info-label {
-            font-size: 7pt;
+            font-size: 6.8pt;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: #6B7280;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
         }
 
         .info-card {
             border: 1px solid #E5E7EB;
             border-radius: 6px;
-            padding: 10px;
+            padding: 3px 6px;
             word-wrap: break-word;
             word-break: break-all;
         }
 
         .info-card strong {
-            font-size: 10pt;
+            font-size: 9pt;
         }
 
         table.items {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 12px;
+            margin-bottom: 6px;
         }
 
         table.items th {
             color: white;
-            padding: 8px;
+            padding: 3px 5px;
             text-align: left;
-            font-size: 9pt;
+            font-size: 8.3pt;
         }
 
         table.items td {
             border-bottom: 1px solid #E5E7EB;
-            padding: 7px 8px;
+            padding: 2.5px 5px;
+        }
+
+        table.items thead {
+            display: table-header-group;
+        }
+
+        table.items tr {
+            page-break-inside: avoid;
+        }
+
+        .keep-together {
+            page-break-inside: avoid;
+        }
+
+        .footer, .ketentuan {
+            page-break-inside: avoid;
+            page-break-before: avoid;
         }
 
         table.items .right {
@@ -237,8 +255,8 @@ $primaryColor = $invoice->brand?->warna_primary
         .qr-section {
             display: table;
             width: 100%;
-            margin-top: 18px;
-            padding: 12px;
+            margin-top: 10px;
+            padding: 8px;
             background: #F8FAFC;
             border: 1px solid #E5E7EB;
             border-radius: 6px;
@@ -250,14 +268,14 @@ $primaryColor = $invoice->brand?->warna_primary
         }
 
         .qr-image {
-            width: 90px;
+            width: 78px;
         }
 
         .footer {
-            margin-top: 24px;
-            padding-top: 12px;
+            margin-top: 10px;
+            padding-top: 6px;
             border-top: 1px solid #E5E7EB;
-            font-size: 8pt;
+            font-size: 7.5pt;
             color: #6B7280;
         }
 
@@ -266,8 +284,8 @@ $primaryColor = $invoice->brand?->warna_primary
         }
 
         .faq {
-            margin-top: 8px;
-            font-size: 7.5pt;
+            margin-top: 6px;
+            font-size: 7pt;
         }
     </style>
     {!! '<' . 'style>table.items th { background-color: ' . $primaryColor . '; }</' . 'style>' !!}
@@ -314,11 +332,11 @@ $primaryColor = $invoice->brand?->warna_primary
         @endphp
 
         <div class="header">
-        @include('pdf.components.kop', ['brand' => $headerBrand ?? ($invoice->brand ? $invoice->brand->getHeaderBrand() : null), 'logoData' => $logoData ?? null])
+        @include('pdf.components.kop', ['brand' => $headerBrand ?? ($invoice->brand ? $invoice->brand->getHeaderBrand() : null), 'logoData' => $logoData ?? null, 'kopCompact' => true])
         <div>
             <div class="invoice-title">INVOICE</div>
             <div class="invoice-no">{{ $invoice->invoice_number }}</div>
-            <div style="text-align: right; font-size: 8.5pt; color: #000000; font-weight: 600; margin-top: 8px;">
+            <div style="text-align: right; font-size: 7.5pt; color: #000000; font-weight: 600; margin-top: 4px;">
                 <div>Tgl Terbit: <strong>{{ \Carbon\Carbon::parse($invoice->tanggal_terbit)->translatedFormat('d M Y') }}</strong></div>
                 @if ($invoice->jatuh_tempo)
                 <div>Jatuh Tempo: <strong>{{ \Carbon\Carbon::parse($invoice->jatuh_tempo)->translatedFormat('d M Y') }}</strong></div>
@@ -336,7 +354,7 @@ $primaryColor = $invoice->brand?->warna_primary
                     @if ($invoice->order?->pelanggan?->email ?? '')
                     {{ maskEmailAddress($invoice->order?->pelanggan?->email) }}<br>
                     @endif
-                    <span style="color:#6B7280; font-size: 8pt;">
+                    <span style="color:#6B7280; font-size: 7.5pt;">
                         {{ trim(implode(', ', array_filter([
                         maskDetailAlamat($invoice->order?->pelanggan?->detail_alamat ?? ''),
                         $invoice->order?->pelanggan?->kabupaten_nama ?? '',
@@ -351,18 +369,18 @@ $primaryColor = $invoice->brand?->warna_primary
                 <div class="info-card">
                     <strong style="font-family: monospace;">{{ $invoice->order?->no_po ?? '—' }}</strong><br>
                     {!! \App\Support\PdfHelper::formatText($invoice->order?->nama_po ?? '—') !!}<br>
-                    <span style="color:#6B7280; font-size: 8pt;">Tgl Order: {{ $invoice->order?->tanggal_masuk ? \Carbon\Carbon::parse($invoice->order?->tanggal_masuk)->translatedFormat('d M Y') : '—' }}</span>
+                    <span style="color:#6B7280; font-size: 7.5pt;">Tgl Order: {{ $invoice->order?->tanggal_masuk ? \Carbon\Carbon::parse($invoice->order?->tanggal_masuk)->translatedFormat('d M Y') : '—' }}</span>
                     @if($invoice->order?->iklan)
-                    <br><span style="font-size: 8pt; color: #047857; font-weight: bold;">Promo: {{ $invoice->order?->iklan?->nama }}{{ $invoice->order?->iklan?->platform ? ' (' . $invoice->order?->iklan?->platform . ')' : '' }}</span>
+                    <br><span style="font-size: 7.5pt; color: #047857; font-weight: bold;">Promo: {{ $invoice->order?->iklan?->nama }}{{ $invoice->order?->iklan?->platform ? ' (' . $invoice->order?->iklan?->platform . ')' : '' }}</span>
                     @endif
                     @if($invoice->order?->is_free_ongkir)
-                    <br><span style="font-size: 8pt; color: #059669; font-weight: bold;">Status: Free Ongkir</span>
+                    <br><span style="font-size: 7.5pt; color: #059669; font-weight: bold;">Status: Free Ongkir</span>
                     @endif
                     @if($invoice->jasa_pengiriman)
-                    <br><span style="font-size: 8pt; color: #1e40af; font-weight: bold;">Ekspedisi: {{ $invoice->jasa_pengiriman }}</span>
+                    <br><span style="font-size: 7.5pt; color: #1e40af; font-weight: bold;">Ekspedisi: {{ $invoice->jasa_pengiriman }}</span>
                     @endif
                     @if($invoice->order?->no_resi)
-                    <br><span style="font-size: 8pt; color: #1e40af; font-weight: bold;">No. Resi: {{ $invoice->order->no_resi }}</span>
+                    <br><span style="font-size: 7.5pt; color: #1e40af; font-weight: bold;">No. Resi: {{ $invoice->order->no_resi }}</span>
                     @endif
                 </div>
             </div>
@@ -395,7 +413,7 @@ $primaryColor = $invoice->brand?->warna_primary
                 $mainOrderItems = $invoice->order ? $invoice->order->items->where('is_addon', false)->values() : collect();
                 @endphp
                 <tr style="background-color: #f9fafb; font-weight: bold;">
-                    <td colspan="5" style="padding: 4px 8px; font-size: 9pt;">PRODUK INTI</td>
+                    <td colspan="5" style="padding: 2px 6px; font-size: 8.3pt;">PRODUK INTI</td>
                 </tr>
                 @foreach ($mainItems as $index => $item)
                 @php
@@ -406,12 +424,12 @@ $primaryColor = $invoice->brand?->warna_primary
                     <td>
                         <div>{!! \App\Support\PdfHelper::formatText($item->produk) !!}</div>
                         @if($orderItem && $orderItem->bahan_formatted)
-                        <div style="font-size: 8pt; color: #4B5563; margin-top: 2px;">
+                        <div style="font-size: 7.5pt; color: #4B5563; margin-top: 0;">
                             Bahan: {{ $orderItem->bahan_formatted }}
                         </div>
                         @endif
                         @if (!empty($item->discount_amount) && $item->discount_amount > 0)
-                        <div style="font-size: 8pt; color: #DC2626; font-weight: bold; margin-top: 2px;">
+                        <div style="font-size: 7.5pt; color: #DC2626; font-weight: bold; margin-top: 0;">
                             Diskon: {{ $item->discount_type === 'persen' ? (number_format($item->discount_value, 0) . '%') : ('Rp ' . number_format($item->discount_value, 0, ',', '.') . '/pcs') }} (-Rp {{ number_format($item->discount_amount, 0, ',', '.') }})
                         </div>
                         @endif
@@ -428,7 +446,7 @@ $primaryColor = $invoice->brand?->warna_primary
                 $addonOrderItems = $invoice->order ? $invoice->order->items->where('is_addon', true)->values() : collect();
                 @endphp
                 <tr style="background-color: #f9fafb; font-weight: bold;">
-                    <td colspan="5" style="padding: 4px 8px; font-size: 9pt;">ADD-ON</td>
+                    <td colspan="5" style="padding: 2px 6px; font-size: 8.3pt;">ADD-ON</td>
                 </tr>
                 @foreach ($addonItems as $index => $item)
                 @php
@@ -439,12 +457,12 @@ $primaryColor = $invoice->brand?->warna_primary
                     <td>
                         <div>{!! \App\Support\PdfHelper::formatText($item->produk) !!}</div>
                         @if($orderItem && $orderItem->bahan_formatted)
-                        <div style="font-size: 8pt; color: #4B5563; margin-top: 2px;">
+                        <div style="font-size: 7.5pt; color: #4B5563; margin-top: 0;">
                             Bahan: {{ $orderItem->bahan_formatted }}
                         </div>
                         @endif
                         @if (!empty($item->discount_amount) && $item->discount_amount > 0)
-                        <div style="font-size: 8pt; color: #DC2626; font-weight: bold; margin-top: 2px;">
+                        <div style="font-size: 7.5pt; color: #DC2626; font-weight: bold; margin-top: 0;">
                             Diskon: {{ $item->discount_type === 'persen' ? (number_format($item->discount_value, 0) . '%') : ('Rp ' . number_format($item->discount_value, 0, ',', '.') . '/pcs') }} (-Rp {{ number_format($item->discount_amount, 0, ',', '.') }})
                         </div>
                         @endif
@@ -463,15 +481,15 @@ $primaryColor = $invoice->brand?->warna_primary
         @endphp
 
         @if ($allPayments->isNotEmpty())
-        <div style="margin-top: 15px; margin-bottom: 15px; page-break-inside: avoid;">
-            <div style="font-size: 7.5pt; font-weight: bold; color: #6b7280; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.05em;">Riwayat Pembayaran & Penyesuaian (Verified)</div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 8.5pt; border: 1px solid #e5e7eb;">
+        <div style="margin-top: 6px; margin-bottom: 8px; page-break-inside: avoid;">
+            <div style="font-size: 7pt; font-weight: bold; color: #6b7280; text-transform: uppercase; margin-bottom: 3px; letter-spacing: 0.05em;">Riwayat Pembayaran & Penyesuaian (Verified)</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 7.6pt; border: 1px solid #e5e7eb;">
                 <thead>
                     <tr style="background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb;">
-                        <th style="padding: 6px 8px; text-align: left; color: #4b5563; font-weight: bold; width: 15%;">Tanggal</th>
-                        <th style="padding: 6px 8px; text-align: left; color: #4b5563; font-weight: bold; width: 45%;">Deskripsi / Jenis Transaksi</th>
-                        <th style="padding: 6px 8px; text-align: left; color: #4b5563; font-weight: bold; width: 25%;">Tujuan Mutasi Bank</th>
-                        <th style="padding: 6px 8px; text-align: right; color: #4b5563; font-weight: bold; width: 15%;">Nominal</th>
+                        <th style="padding: 2.5px 5px; text-align: left; color: #4b5563; font-weight: bold; width: 15%;">Tanggal</th>
+                        <th style="padding: 2.5px 5px; text-align: left; color: #4b5563; font-weight: bold; width: 45%;">Deskripsi / Jenis Transaksi</th>
+                        <th style="padding: 2.5px 5px; text-align: left; color: #4b5563; font-weight: bold; width: 25%;">Tujuan Mutasi Bank</th>
+                        <th style="padding: 2.5px 5px; text-align: right; color: #4b5563; font-weight: bold; width: 15%;">Nominal</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -488,14 +506,14 @@ $primaryColor = $invoice->brand?->warna_primary
                             }
                         @endphp
                         <tr style="border-bottom: 1px solid #e5e7eb;">
-                            <td style="padding: 6px 8px; color: #4b5563; white-space: nowrap;">{{ $p->payment_date ? \Carbon\Carbon::parse($p->payment_date)->translatedFormat('d M Y') : '' }}</td>
-                            <td style="padding: 6px 8px;">
+                            <td style="padding: 2.5px 5px; color: #4b5563; white-space: nowrap;">{{ $p->payment_date ? \Carbon\Carbon::parse($p->payment_date)->translatedFormat('d M Y') : '' }}</td>
+                            <td style="padding: 2.5px 5px;">
                                 <strong style="color: #1f2937;">{{ $displayType }}</strong>
                                 @if ($p->notes)
-                                    <span style="display: block; font-size: 7.5pt; color: #6b7280; margin-top: 2px;">{!! nl2br(e($p->notes)) !!}</span>
+                                    <span style="display: block; font-size: 7.5pt; color: #6b7280; margin-top: 0;">{!! nl2br(e($p->notes)) !!}</span>
                                 @endif
                             </td>
-                            <td style="padding: 6px 8px; color: #4b5563;">
+                            <td style="padding: 2.5px 5px; color: #4b5563;">
                                 @if ($p->customer_bank_name || $p->customer_bank_account)
                                     <div style="font-weight: bold; color: #1f2937;">{{ $p->customer_bank_name ?? '—' }}</div>
                                     <div style="font-size: 7.5pt; color: #6b7280; font-family: monospace;">{{ $p->customer_bank_account ?? '—' }}</div>
@@ -505,7 +523,7 @@ $primaryColor = $invoice->brand?->warna_primary
                                     —
                                 @endif
                             </td>
-                            <td class="{{ $isDebit ? 'text-green' : 'text-red' }}" style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: bold; white-space: nowrap;">
+                            <td class="{{ $isDebit ? 'text-green' : 'text-red' }}" style="padding: 2.5px 5px; text-align: right; font-family: monospace; font-weight: bold; white-space: nowrap;">
                                 {{ $isDebit ? '+' : '-' }} Rp {{ number_format($p->amount, 0, ',', '.') }}
                             </td>
                         </tr>
@@ -546,22 +564,22 @@ $primaryColor = $invoice->brand?->warna_primary
             $totalRefunded = $returnSum + $cashbackSum;
         @endphp
 
-        <div style="display: table; width: 100%; margin-top: 15px;">
+        <div class="keep-together" style="display: table; width: 100%; margin-top: 8px;">
             <!-- Column 1: Bank Transfer Details (Left side) -->
             <div style="display: table-cell; width: 50%; vertical-align: top; padding-right: 20px;">
                 @if (!empty($invoice->bank) && $invoice->bank->bank === 'CASH')
                 <div class="info-label" style="font-size: 7.5pt; color: #6B7280; text-transform: uppercase; margin-bottom: 5px;">Metode Pembayaran Resmi</div>
-                <div style="border: 1px solid #E5E7EB; border-radius: 6px; padding: 12px; background: #F9FAFB;">
-                    <strong style="font-size: 10pt; color: #111827;">TUNAI / CASH</strong><br>
+                <div style="border: 1px solid #E5E7EB; border-radius: 6px; padding: 6px 8px; background: #F9FAFB;">
+                    <strong style="font-size: 9.5pt; color: #111827;">TUNAI / CASH</strong><br>
                     <span style="font-size: 9pt; color: #374151;">Pembayaran secara tunai langsung ke kasir atau outlet resmi.</span>
                 </div>
                 @else
                 <div class="info-label" style="font-size: 7.5pt; color: #6B7280; text-transform: uppercase; margin-bottom: 5px;">Rekening Pembayaran Resmi</div>
-                <div style="border: 1px solid #E5E7EB; border-radius: 6px; padding: 12px; background: #F9FAFB;">
+                <div style="border: 1px solid #E5E7EB; border-radius: 6px; padding: 6px 8px; background: #F9FAFB;">
                     @if (!empty($invoice->bank))
-                    <strong style="font-size: 10pt; color: #111827;">{{ $invoice->bank->bank ?? '' }}</strong><br>
+                    <strong style="font-size: 9.5pt; color: #111827;">{{ $invoice->bank->bank ?? '' }}</strong><br>
                     <span style="font-size: 9pt; color: #374151;">Atas Nama: {{ $invoice->bank->atas_nama ?? '' }}</span><br>
-                    <span style="font-family: monospace; font-size: 11pt; font-weight: bold; color: #1E40AF; display: inline-block; margin-top: 4px;">{{ $invoice->bank->nomor_rekening ?? '' }}</span>
+                    <span style="font-family: monospace; font-size: 10pt; font-weight: bold; color: #1E40AF; display: inline-block; margin-top: 4px;">{{ $invoice->bank->nomor_rekening ?? '' }}</span>
                     @else
                     <strong style="color: #DC2626;">Hubungi Admin Resmi untuk Rekening Pembayaran</strong>
                     @endif
@@ -600,14 +618,14 @@ $primaryColor = $invoice->brand?->warna_primary
 
                     <!-- Total Harga -->
                     <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Total Harga</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace;">Rp {{ number_format($grossSubtotal, 0, ',', '.') }}</td>
+                        <td style="padding: 2px 0; color: #6B7280;">Total Harga</td>
+                        <td style="padding: 2px 0; text-align: right; font-family: monospace;">Rp {{ number_format($grossSubtotal, 0, ',', '.') }}</td>
                     </tr>
 
                     <!-- Total Diskon -->
                     <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Total Diskon</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #DC2626;">
+                        <td style="padding: 2px 0; color: #6B7280;">Total Diskon</td>
+                        <td style="padding: 2px 0; text-align: right; font-family: monospace; color: #DC2626;">
                             @if ($diskonNominal > 0)
                             - Rp {{ number_format($diskonNominal, 0, ',', '.') }}
                             @else
@@ -619,80 +637,80 @@ $primaryColor = $invoice->brand?->warna_primary
                     <!-- Voucher -->
                     @if ($invoice->voucher_discount_amount > 0)
                     <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Voucher</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #DC2626;">- Rp {{ number_format((float) $invoice->voucher_discount_amount, 0, ',', '.') }}</td>
+                        <td style="padding: 2px 0; color: #6B7280;">Voucher</td>
+                        <td style="padding: 2px 0; text-align: right; font-family: monospace; color: #DC2626;">- Rp {{ number_format((float) $invoice->voucher_discount_amount, 0, ',', '.') }}</td>
                     </tr>
                     @endif
 
                     <!-- Ongkir / Pengiriman -->
                     @if ($invoice->order?->isPickupCod())
                     <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Pengiriman</td>
-                        <td style="padding: 4px 0; text-align: right; color: #0891b2; font-weight: bold;">Ambil di Tempat / COD</td>
+                        <td style="padding: 2px 0; color: #6B7280;">Pengiriman</td>
+                        <td style="padding: 2px 0; text-align: right; color: #0891b2; font-weight: bold;">Ambil di Tempat / COD</td>
                     </tr>
                     @elseif ($invoice->order?->isFreeOngkir())
                     <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Ongkir{{ $invoice->jasa_pengiriman ? ' (' . $invoice->jasa_pengiriman . ')' : '' }}</td>
-                        <td style="padding: 4px 0; text-align: right; color: #059669; font-weight: bold;">Gratis Ongkir</td>
+                        <td style="padding: 2px 0; color: #6B7280;">Ongkir{{ $invoice->jasa_pengiriman ? ' (' . $invoice->jasa_pengiriman . ')' : '' }}</td>
+                        <td style="padding: 2px 0; text-align: right; color: #059669; font-weight: bold;">Gratis Ongkir</td>
                     </tr>
                     @elseif ($invoice->biaya_pengiriman > 0)
                     <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Ongkir{{ $invoice->jasa_pengiriman ? ' (' . $invoice->jasa_pengiriman . ')' : '' }}</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace;">Rp {{ number_format((float) $invoice->biaya_pengiriman, 0, ',', '.') }}</td>
+                        <td style="padding: 2px 0; color: #6B7280;">Ongkir{{ $invoice->jasa_pengiriman ? ' (' . $invoice->jasa_pengiriman . ')' : '' }}</td>
+                        <td style="padding: 2px 0; text-align: right; font-family: monospace;">Rp {{ number_format((float) $invoice->biaya_pengiriman, 0, ',', '.') }}</td>
                     </tr>
                     @endif
 
                     <!-- Other Adjustments (Tambahan, Cashback, Return) -->
                     @if ($additionPayments->isNotEmpty())
                     <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Tambahan Produk</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace;">+ Rp {{ number_format($additionPayments->sum('amount'), 0, ',', '.') }}</td>
+                        <td style="padding: 2px 0; color: #6B7280;">Tambahan Produk</td>
+                        <td style="padding: 2px 0; text-align: right; font-family: monospace;">+ Rp {{ number_format($additionPayments->sum('amount'), 0, ',', '.') }}</td>
                     </tr>
                     @endif
 
                     <!-- Total yang Harus Dibayar -->
                     <tr style="border-top: 1px solid #E5E7EB; border-bottom: 2px solid #1F2937;">
-                        <td style="padding: 6px 0; font-weight: bold; color: #1F2937;">Total yang Harus Dibayar</td>
-                        <td style="padding: 6px 0; text-align: right; font-family: monospace; font-weight: bold; color: #1F2937; font-size: 10.5pt;">Rp {{ number_format($grossInvoiceTotal, 0, ',', '.') }}</td>
+                        <td style="padding: 4px 0; font-weight: bold; color: #1F2937;">Total yang Harus Dibayar</td>
+                        <td style="padding: 4px 0; text-align: right; font-family: monospace; font-weight: bold; color: #1F2937; font-size: 9.5pt;">Rp {{ number_format($grossInvoiceTotal, 0, ',', '.') }}</td>
                     </tr>
 
                     @if ($totalReceived > 0)
                     <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Total Terbayar</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #1F2937; font-weight: bold;">Rp {{ number_format($totalReceived, 0, ',', '.') }}</td>
+                        <td style="padding: 2px 0; color: #6B7280;">Total Terbayar</td>
+                        <td style="padding: 2px 0; text-align: right; font-family: monospace; color: #1F2937; font-weight: bold;">Rp {{ number_format($totalReceived, 0, ',', '.') }}</td>
                     </tr>
                     @endif
 
                     @if ($returnSum > 0)
                     <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Refund</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #DC2626;">- Rp {{ number_format($returnSum, 0, ',', '.') }}</td>
+                        <td style="padding: 2px 0; color: #6B7280;">Refund</td>
+                        <td style="padding: 2px 0; text-align: right; font-family: monospace; color: #DC2626;">- Rp {{ number_format($returnSum, 0, ',', '.') }}</td>
                     </tr>
                     @endif
 
                     @if ($cashbackSum > 0)
                     <tr>
-                        <td style="padding: 4px 0; color: #6B7280;">Cashback</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #DC2626;">- Rp {{ number_format($cashbackSum, 0, ',', '.') }}</td>
+                        <td style="padding: 2px 0; color: #6B7280;">Cashback</td>
+                        <td style="padding: 2px 0; text-align: right; font-family: monospace; color: #DC2626;">- Rp {{ number_format($cashbackSum, 0, ',', '.') }}</td>
                     </tr>
                     @endif
 
                     @if ($returnSum > 0 || $cashbackSum > 0)
                     <tr>
-                        <td style="padding: 4px 0; font-weight: bold; color: #059669;">Neto Pembayaran</td>
-                        <td style="padding: 4px 0; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">Rp {{ number_format($totalReceived - $returnSum - $cashbackSum, 0, ',', '.') }}</td>
+                        <td style="padding: 2px 0; font-weight: bold; color: #059669;">Neto Pembayaran</td>
+                        <td style="padding: 2px 0; text-align: right; font-family: monospace; color: #059669; font-weight: bold;">Rp {{ number_format($totalReceived - $returnSum - $cashbackSum, 0, ',', '.') }}</td>
                     </tr>
                     @endif
 
                     <!-- Sisa -->
                     <tr style="border-top: 2px solid #1F2937;">
-                        <td style="padding: 8px 0; font-weight: bold; font-size: 11pt; color: #111827;">SISA</td>
-                        <td style="padding: 8px 0; text-align: right; font-family: monospace; font-weight: bold; font-size: 11.5pt; color: #DC2626;">Rp {{ number_format(max(0, $grossInvoiceTotal - ($totalReceived - $returnSum - $cashbackSum)), 0, ',', '.') }}</td>
+                        <td style="padding: 5px 0; font-weight: bold; font-size: 10pt; color: #111827;">SISA</td>
+                        <td style="padding: 5px 0; text-align: right; font-family: monospace; font-weight: bold; font-size: 10.5pt; color: #DC2626;">Rp {{ number_format(max(0, $grossInvoiceTotal - ($totalReceived - $returnSum - $cashbackSum)), 0, ',', '.') }}</td>
                     </tr>
                 </table>
 
                 @if ($returnSum > 0)
-                <div style="margin-top: 10px; border: 1px solid #FECACA; border-radius: 6px; padding: 8px 10px; background: #FEF2F2; font-size: 8.5pt;">
+                <div style="margin-top: 10px; border: 1px solid #FECACA; border-radius: 6px; padding: 4px 8px; background: #FEF2F2; font-size: 8.5pt;">
                     <table style="width: 100%; border-collapse: collapse; font-size: 8.5pt; margin: 0;">
                         <tr>
                             <td style="font-weight: bold; color: #991B1B; padding: 0;">Informasi Refund</td>
@@ -703,7 +721,7 @@ $primaryColor = $invoice->brand?->warna_primary
                 @endif
 
                 @if ($cashbackSum > 0)
-                <div style="margin-top: 10px; border: 1px solid #FDE68A; border-radius: 6px; padding: 8px 10px; background: #FEF3C7; font-size: 8.5pt;">
+                <div style="margin-top: 10px; border: 1px solid #FDE68A; border-radius: 6px; padding: 4px 8px; background: #FEF3C7; font-size: 8.5pt;">
                     <table style="width: 100%; border-collapse: collapse; font-size: 8.5pt; margin: 0;">
                         <tr>
                             <td style="font-weight: bold; color: #92400E; padding: 0;">Informasi Cashback</td>
@@ -715,15 +733,15 @@ $primaryColor = $invoice->brand?->warna_primary
             </div>
         </div>
 
-        <div style="display: table; width: 100%; margin-top: 25px; border-top: 1px solid #E5E7EB; padding-top: 15px;">
+        <div class="footer" style="display: table; width: 100%; margin-top: 8px; border-top: 1px solid #E5E7EB; padding-top: 6px;">
             <!-- Left side: Thank you note + Security advice -->
             <div style="display: table-cell; vertical-align: top; padding-right: 20px;">
-                <div style="font-weight: bold; font-size: 10.5pt; color: #111827; margin-bottom: 4px;">Terima kasih atas pembayaran Anda!</div>
+                <div style="font-weight: bold; font-size: 9.5pt; color: #111827; margin-bottom: 4px;">Terima kasih atas pembayaran Anda!</div>
                 @if ($invoice->peraturan)
-                <div style="font-size: 8pt; color: #4B5563; line-height: 1.4; margin-bottom: 8px;">{!! \App\Support\PdfHelper::formatText($invoice->peraturan) !!}</div>
+                <div style="font-size: 7.5pt; color: #4B5563; line-height: 1.4; margin-bottom: 8px;">{!! \App\Support\PdfHelper::formatText($invoice->peraturan) !!}</div>
                 @endif
 
-                <div style="padding: 8px 10px; border: 1px dashed #D97706; background-color: #FEF3C7; border-radius: 6px; color: #92400E; font-size: 7.5pt; line-height: 1.3; margin-bottom: 8px;">
+                <div style="padding: 4px 8px; border: 1px dashed #D97706; background-color: #FEF3C7; border-radius: 6px; color: #92400E; font-size: 7.5pt; line-height: 1.3; margin-bottom: 8px;">
                     @if (!empty($invoice->bank) && $invoice->bank->bank === 'CASH')
                     <strong>⚠️ Imbauan Keamanan Pembayaran:</strong> Demi keamanan transaksi, mohon lakukan pembayaran tunai secara langsung hanya melalui kasir atau sales resmi brand kami. Jangan melakukan transfer ke rekening perorangan/rekening lain yang tidak terdaftar secara resmi.
                     @else
@@ -738,16 +756,16 @@ $primaryColor = $invoice->brand?->warna_primary
 
             <!-- Right side: QR Code -->
             @if (!empty($qrCodeData))
-            <div style="display: table-cell; width: 110px; text-align: center; vertical-align: top;">
-                <img src="{{ $qrCodeData }}" alt="QR Code" style="width: 90px; height: 90px; display: block; margin: 0 auto;">
-                <div style="font-size: 7.5pt; color: #4B5563; margin-top: 6px; font-weight: bold; line-height: 1.2;">
+            <div style="display: table-cell; width: 96px; text-align: center; vertical-align: top;">
+                <img src="{{ $qrCodeData }}" alt="QR Code" style="width: 76px; height: 76px; display: block; margin: 0 auto;">
+                <div style="font-size: 7pt; color: #4B5563; margin-top: 4px; font-weight: bold; line-height: 1.2;">
                     Scan QR untuk cek pesanan
                 </div>
             </div>
             @endif
         </div>
 
-        <div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #F3F4F6; font-size: 7.5pt; color: #374151; line-height: 1.4;">
+        <div class="ketentuan" style="margin-top: 10px; padding-top: 6px; border-top: 1px solid #F3F4F6; font-size: 7pt; color: #374151; line-height: 1.35;">
             <div style="font-weight: bold; color: #1F2937; margin-bottom: 4px;">Ketentuan Lainnya:</div>
             <div style="margin-left: 5px; font-weight: bold; margin-bottom: 2px;">1. Bukti pembayaran wajib dikirimkan ke WhatsApp Admin untuk proses verifikasi.</div>
             <div style="margin-left: 5px; font-weight: bold; margin-bottom: 2px;">2. Mohon lakukan video unboxing saat paket diterima sebagai bukti apabila terjadi kendala pada produk.</div>
