@@ -372,7 +372,7 @@ class InvoiceController extends Controller
         }
 
         $query = $tabQuery->with([
-            'order:id,no_po,nama_po,pelanggan_id,total_tagihan,brand_id,nama_ekspedisi,is_special_order', 
+            'order:id,no_po,nama_po,pelanggan_id,total_tagihan,brand_id,nama_ekspedisi,is_special_order,is_lunas', 
             'order.pelanggan:id,nama',
             'order.payments.masterJenisPembayaran',
             'order.payments.bank',
@@ -454,7 +454,7 @@ class InvoiceController extends Controller
         }
 
         $invoices = $tabQuery->with([
-                'order:id,no_po,pelanggan_id,total_tagihan', 
+                'order:id,no_po,pelanggan_id,total_tagihan,is_lunas,is_special_order', 
                 'order.pelanggan:id,nama',
                 'order.payments.masterJenisPembayaran'
             ])
@@ -494,6 +494,11 @@ class InvoiceController extends Controller
         $totalPaid = $grossPaid - $cashback - $refund;
         $totalTagihan = (float)$inv->total_tagihan;
         $sisa = $totalTagihan - $totalPaid;
+
+        // Tandai lunas manual / PO support: piutang dinolkan, lebih bayar tetap ditampilkan
+        if ($inv->order && ($inv->order->is_lunas || $inv->order->is_special_order)) {
+            $sisa = min(0, $sisa);
+        }
 
         return [
             'invoice_number' => $inv->invoice_number,

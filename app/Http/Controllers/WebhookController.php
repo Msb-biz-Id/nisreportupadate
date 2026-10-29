@@ -483,8 +483,7 @@ PROMPT;
                     ->get();
                 
                 foreach ($found as $f) {
-                    $verifiedPayments = $f->payments->where('status', 'verified')->sum('jumlah_bayar');
-                    $sisaTagihan = max(0, $f->total_tagihan - $verifiedPayments);
+                    $sisaTagihan = $f->sisaTagihan();
 
                     $matchedOrders[$f->no_po] = [
                         'no_po' => $f->no_po,
@@ -495,7 +494,7 @@ PROMPT;
                         'total_tagihan' => 'Rp' . number_format($f->total_tagihan, 0, ',', '.'),
                         'sisa_tagihan' => 'Rp' . number_format($sisaTagihan, 0, ',', '.'),
                         'items' => $f->items->map(fn($it) => $it->nama_produk . ' (qty: ' . $it->qty . ')')->toArray(),
-                        'payments' => $f->payments->map(fn($p) => 'Rp' . number_format($p->jumlah_bayar, 0, ',', '.') . ' (' . $p->status . ')')->toArray(),
+                        'payments' => $f->payments->map(fn($p) => 'Rp' . number_format((float) $p->amount, 0, ',', '.') . ' (' . ($p->verified_at ? 'verified' : 'pending') . ')')->toArray(),
                         'tanggal_masuk' => $f->tanggal_masuk,
                         'deadline' => $f->deadline_customer,
                     ];

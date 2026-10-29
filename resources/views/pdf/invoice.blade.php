@@ -336,6 +336,9 @@ $primaryColor = $invoice->brand?->warna_primary
         <div>
             <div class="invoice-title">INVOICE</div>
             <div class="invoice-no">{{ $invoice->invoice_number }}</div>
+            @if ($invoice->status === 'paid' || ($invoice->order && ($invoice->order->is_lunas || $invoice->order->is_special_order)))
+            <div style="display: inline-block; margin-top: 5px; border: 2px solid #059669; color: #059669; border-radius: 4px; padding: 1px 8px; font-weight: 900; font-size: 11pt; letter-spacing: 1px;">LUNAS</div>
+            @endif
             <div style="text-align: right; font-size: 7.5pt; color: #000000; font-weight: 600; margin-top: 4px;">
                 <div>Tgl Terbit: <strong>{{ \Carbon\Carbon::parse($invoice->tanggal_terbit)->translatedFormat('d M Y') }}</strong></div>
                 @if ($invoice->jatuh_tempo)
@@ -603,6 +606,7 @@ $primaryColor = $invoice->brand?->warna_primary
                     $grossSubtotal = $mainSubtotalGross + $addonSubtotalGross;
 
                     $isSpecial = $invoice->order && (bool) $invoice->order->is_special_order;
+                    $isLunasManual = $invoice->order && (bool) $invoice->order->is_lunas;
                     $itemDiskonSum = (float) $invoice->items->sum('discount_amount');
                     $diskonValue = (float) $invoice->diskon_value;
                     $diskonNominal = $isSpecial
@@ -703,9 +707,14 @@ $primaryColor = $invoice->brand?->warna_primary
                     @endif
 
                     <!-- Sisa -->
+                    @php
+                        $sisaSesudahTandaLunas = ($isLunasManual || $isSpecial)
+                            ? 0
+                            : max(0, $grossInvoiceTotal - ($totalReceived - $returnSum - $cashbackSum));
+                    @endphp
                     <tr style="border-top: 2px solid #1F2937;">
                         <td style="padding: 5px 0; font-weight: bold; font-size: 10pt; color: #111827;">SISA</td>
-                        <td style="padding: 5px 0; text-align: right; font-family: monospace; font-weight: bold; font-size: 10.5pt; color: #DC2626;">Rp {{ number_format(max(0, $grossInvoiceTotal - ($totalReceived - $returnSum - $cashbackSum)), 0, ',', '.') }}</td>
+                        <td style="padding: 5px 0; text-align: right; font-family: monospace; font-weight: bold; font-size: 10.5pt; color: {{ $sisaSesudahTandaLunas > 0 ? '#DC2626' : '#059669' }};">Rp {{ number_format($sisaSesudahTandaLunas, 0, ',', '.') }}</td>
                     </tr>
                 </table>
 

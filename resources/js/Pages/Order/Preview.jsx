@@ -760,7 +760,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
     const minDpPercentage = dp_info ? Number(dp_info.min_dp_percentage) : (order.brand?.min_dp_percentage != null ? Number(order.brand.min_dp_percentage) : 0.50);
     const minDp = dp_info ? Number(dp_info.min_dp) : totalTagihan * minDpPercentage;
     const isDpSufficient = dp_info ? Boolean(dp_info.is_sufficient) : (totalPaid >= minDp || order.is_dp_bypassed);
-    const sisaTagihan = Math.max(0, totalTagihan - totalPaid);
+    const sisaTagihan = order.is_lunas ? 0 : Math.max(0, totalTagihan - totalPaid);
 
     // Financial breakdown calculations
     const grossSubtotal = (order.items ?? []).reduce((s, x) => s + (Number(x.quantity) * Number(x.harga_satuan)), 0);
@@ -1631,7 +1631,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                 <span className="text-[10px] text-muted-foreground">{formatDate(order.lunas_at)}</span>
                                             )}
                                         </div>
-                                        {can?.mark_lunas && !order.is_special_order && order.status_po !== 'selesai' && sisaTagihan > 0 && (
+                                        {can?.mark_lunas && !order.is_special_order && order.status_po !== 'selesai' && (order.is_lunas || sisaTagihan > 0) && (
                                             <Button
                                                 size="xs"
                                                 variant={order.is_lunas ? 'outline' : 'default'}

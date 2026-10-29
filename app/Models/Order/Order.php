@@ -328,7 +328,25 @@ class Order extends Model
 
     public function sisaTagihan(): float
     {
+        // Toleransi manual: PO yang ditandai LUNAS oleh admin keuangan dianggap lunas (sisa 0).
+        // Riwayat pembayaran tetap utuh; hanya piutang yang dinolkan.
+        if ($this->is_lunas) {
+            return 0.0;
+        }
+
         return max(0, $this->totalTagihan() - $this->totalPaid());
+    }
+
+    /**
+     * Definisi lunas dua arah:
+     * - ditandai lunas manual / PO support (toleransi), ATAU
+     * - sisa tagihan live sudah 0 (pembayaran penuh) => otomatis dianggap lunas.
+     */
+    public function isLunasEffective(): bool
+    {
+        return (bool) $this->is_lunas
+            || (bool) $this->is_special_order
+            || $this->sisaTagihan() <= 0.99;
     }
 
     public function getTotalTagihanAttribute(mixed $value)

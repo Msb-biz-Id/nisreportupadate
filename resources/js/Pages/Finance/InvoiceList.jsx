@@ -240,7 +240,11 @@ export default function InvoiceList({
         const totalPaid = grossPaid - cashback - refund;
 
         // Sisa tagihan (negatif = lebih bayar)
-        const sisa = totalTagihan - totalPaid;
+        // Tandai lunas manual / PO support: piutang dinolkan, lebih bayar tetap ditampilkan
+        let sisa = totalTagihan - totalPaid;
+        if (iv.order?.is_lunas || iv.order?.is_special_order) {
+            sisa = Math.min(0, sisa);
+        }
 
         return {
             totalTagihan,

@@ -526,11 +526,7 @@ class DashboardService
             ->where('is_debit', false)
             ->sum('amount');
 
-        $outstandingTotal = Order::query()
-            ->when($brandId && $brandId !== 'all', $this->bf($brandId))
-            ->where('status_po', '!=', 'draft')
-            ->sum('total_tagihan')
-            - ($totalPayments - $totalRefunds);
+        $outstandingTotal = $this->reminderSisaPo($brandId)['total_tunggakan'];
 
         $dpPendingCount = DesignDeposit::query()
             ->when($brandId && $brandId !== 'all', $this->bf($brandId))
@@ -703,8 +699,27 @@ class DashboardService
                 ->groupBy('brand_id');
         }
 
+        // 5. Outstanding (piutang) per brand — basis sama dengan widget Reminder:
+        //    per order live, kecuali draft/special, dan lunas (manual maupun sisa 0) tidak dihitung.
+        $brandOutstanding = [];
+        if (!empty($brandIdsForReport)) {
+            Order::whereIn('brand_id', $brandIdsForReport)
+                ->where('status_po', '!=', 'draft')
+                ->where('is_special_order', false)
+                ->where('is_lunas', false)
+                ->with(['items', 'payments.masterJenisPembayaran'])
+                ->chunk(200, function ($orders) use (&$brandOutstanding) {
+                    foreach ($orders as $o) {
+                        $sisa = max(0, $o->totalTagihan() - $o->totalPaid());
+                        if ($sisa > 0.99) {
+                            $brandOutstanding[$o->brand_id] = ($brandOutstanding[$o->brand_id] ?? 0) + $sisa;
+                        }
+                    }
+                });
+        }
+
         return $brandsForReport
-            ->map(function ($brand) use ($brandRevenues, $brandPayments, $brandRefunds, $brandPaymentTypesRaw) {
+            ->map(function ($brand) use ($brandRevenues, $brandPayments, $brandRefunds, $brandPaymentTypesRaw, $brandOutstanding) {
                 $totalRevenue = $brandRevenues[$brand->id] ?? 0.0;
                 $totalPayments = $brandPayments[$brand->id] ?? 0.0;
                 $totalRefunds = $brandRefunds[$brand->id] ?? 0.0;
@@ -712,8 +727,8 @@ class DashboardService
                 // Net payments received
                 $netPayments = $totalPayments - $totalRefunds;
 
-                // Total outstanding
-                $outstanding = max(0, $totalRevenue - $netPayments);
+                // Total outstanding (piutang aktif per order)
+                $outstanding = (float) ($brandOutstanding[$brand->id] ?? 0.0);
 
                 // Payments by payment types for this brand
                 $rawTypes = $brandPaymentTypesRaw->get($brand->id, collect());
@@ -1332,9 +1347,9 @@ class DashboardService
             ->map(function (Order $o) {
                 $totalTagihan = $o->totalTagihan();
                 $totalPaid = $o->totalPaid();
-                $sisa = max(0, $totalTagihan - $totalPaid);
-                $isLunas = $o->is_lunas || ($sisa <= 0);
-                
+                $isLunas = $o->isLunasEffective();
+                $sisa = $isLunas ? 0 : max(0, $totalTagihan - $totalPaid);
+
                 return [
                     'id'            => $o->id,
                     'no_po'         => $o->no_po,
