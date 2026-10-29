@@ -178,6 +178,9 @@ export default function Owner({ stats }) {
                 </div>
             </div>
 
+            {/* Reminder Sisa Pembayaran / Tunggakan PO — paling atas */}
+            <ReminderSisaPOWidget data={stats.reminder_sisa_po} />
+
             {/* SECTION 1: PEROLEHAN BULAN BERJALAN (MONTHLY REALIZATION CARDS) */}
             <div className="space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -925,11 +928,6 @@ export default function Owner({ stats }) {
                         valueLabel="order"
                     />
                 </div>
-            </div>
-
-            {/* Reminder Sisa Pembayaran / Tunggakan PO */}
-            <div className="mb-4">
-                <ReminderSisaPOWidget data={stats.reminder_sisa_po} />
             </div>
 
             {/* PO Siap Dikirim Section */}

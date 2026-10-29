@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { Link } from '@inertiajs/react';
 import * as Icons from 'lucide-react';
 import { ArrowUpRight } from 'lucide-react';
@@ -446,7 +447,95 @@ export function ReminderSisaPOWidget({ data, title = "Reminder Sisa Pembayaran /
     const totalTunggakan = data?.total_tunggakan ?? 0;
     const totalPo = data?.total_po ?? 0;
     const totalPcs = data?.total_pcs ?? 0;
-    const items = data?.items ?? [];
+    const allItems = data?.items ?? [];
+
+    const [q, setQ] = useState('');
+    const [brand, setBrand] = useState('all');
+    const [status, setStatus] = useState('all');
+    const [sortBy, setSortBy] = useState('deadline');
+    const [perPage, setPerPage] = useState(10);
+    const [page, setPage] = useState(1);
+    const [copied, setCopied] = useState(false);
+
+    const brandOptions = useMemo(
+        () => [...new Set(allItems.map((o) => o.brand).filter(Boolean))].sort(),
+        [allItems]
+    );
+    const statusOptions = useMemo(
+        () => [...new Set(allItems.map((o) => o.status).filter(Boolean))].sort(),
+        [allItems]
+    );
+
+    const filtered = useMemo(() => {
+        const needle = q.trim().toLowerCase();
+        let rows = allItems.filter((o) => {
+            if (brand !== 'all' && o.brand !== brand) return false;
+            if (status !== 'all' && o.status !== status) return false;
+            if (needle) {
+                const hay = `${o.no_po} ${o.nama_po || ''} ${o.pelanggan || ''}`.toLowerCase();
+                if (!hay.includes(needle)) return false;
+            }
+            return true;
+        });
+
+        rows = [...rows].sort((a, b) => {
+            switch (sortBy) {
+                case 'sisa_desc':
+                    return (b.sisa_tagihan || 0) - (a.sisa_tagihan || 0);
+                case 'pcs_desc':
+                    return (b.total_pcs || 0) - (a.total_pcs || 0);
+                case 'masuk_desc':
+                    return String(b.tanggal_masuk || '').localeCompare(String(a.tanggal_masuk || ''));
+                case 'po_asc':
+                    return String(a.no_po || '').localeCompare(String(b.no_po || ''));
+                case 'deadline':
+                default:
+                    if (!a.deadline && !b.deadline) return 0;
+                    if (!a.deadline) return 1;
+                    if (!b.deadline) return -1;
+                    return String(a.deadline).localeCompare(String(b.deadline));
+            }
+        });
+        return rows;
+    }, [allItems, q, brand, status, sortBy]);
+
+    const filteredSisa = useMemo(() => filtered.reduce((s, o) => s + (o.sisa_tagihan || 0), 0), [filtered]);
+    const filteredPcs = useMemo(() => filtered.reduce((s, o) => s + (o.total_pcs || 0), 0), [filtered]);
+
+    const showAll = perPage === 'all';
+    const totalPages = showAll ? 1 : Math.max(1, Math.ceil(filtered.length / perPage));
+    const safePage = Math.min(page, totalPages);
+    const pageItems = showAll ? filtered : filtered.slice((safePage - 1) * perPage, safePage * perPage);
+
+    const resetFilters = () => {
+        setQ(''); setBrand('all'); setStatus('all'); setSortBy('deadline'); setPage(1);
+    };
+    const hasActiveFilters = q.trim() !== '' || brand !== 'all' || status !== 'all';
+
+    const copyTsvToExcel = async () => {
+        const header = ['No PO', 'Nama PO', 'Pelanggan', 'Brand', 'Status', 'Pcs', 'Tanggal Masuk', 'Deadline', 'Total Tagihan', 'Sudah Dibayar', 'Sisa Tagihan'];
+        const lines = [header.join('\t'), ...filtered.map((o) => [
+            o.no_po || '', o.nama_po || '', o.pelanggan || '', o.brand || '', String(o.status || '').replace('_', ' '),
+            o.total_pcs ?? 0, o.tanggal_masuk || '', o.deadline || '',
+            Math.round(o.total_tagihan || 0), Math.round(o.total_paid || 0), Math.round(o.sisa_tagihan || 0),
+        ].join('\t'))];
+        const tsv = lines.join('\r\n');
+
+        try {
+            await navigator.clipboard.writeText(tsv);
+        } catch {
+            const ta = document.createElement('textarea');
+            ta.value = tsv;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        }
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     const getWaLink = (o) => {
         if (!o.pelanggan_hp) return '#';
@@ -471,6 +560,8 @@ export function ReminderSisaPOWidget({ data, title = "Reminder Sisa Pembayaran /
         return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     };
 
+    const inputCls = "h-8 rounded-md border border-slate-200 bg-white px-2 text-xs focus:outline-none focus:ring-2 focus:ring-rose-400";
+
     return (
         <Card className="border-t-4 border-t-rose-500 shadow-md">
             <CardHeader className="pb-3">
@@ -490,6 +581,16 @@ export function ReminderSisaPOWidget({ data, title = "Reminder Sisa Pembayaran /
                     </div>
 
                     <div className="flex items-center gap-2">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className={`h-8 text-xs font-semibold ${copied ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200'}`}
+                            onClick={copyTsvToExcel}
+                            disabled={filtered.length === 0}
+                            title="Salin data hasil filter ke clipboard, lalu paste langsung ke Excel"
+                        >
+                            {copied ? '✓ Tersalin' : '📋 Salin ke Excel'}
+                        </Button>
                         <div className="bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5 text-right">
                             <span className="text-[10px] text-rose-600 font-medium uppercase tracking-wider block">
                                 Total Sisa ({totalPo} PO • {totalPcs.toLocaleString('id-ID')} Pcs)
@@ -500,19 +601,74 @@ export function ReminderSisaPOWidget({ data, title = "Reminder Sisa Pembayaran /
                         </div>
                     </div>
                 </div>
+
+                {allItems.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <input
+                            value={q}
+                            onChange={(e) => { setQ(e.target.value); setPage(1); }}
+                            placeholder="Cari No PO / nama / pelanggan…"
+                            className={`${inputCls} w-full sm:w-56`}
+                        />
+                        <select value={brand} onChange={(e) => { setBrand(e.target.value); setPage(1); }} className={inputCls}>
+                            <option value="all">Semua Brand</option>
+                            {brandOptions.map((b) => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                        <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className={inputCls}>
+                            <option value="all">Semua Status</option>
+                            {statusOptions.map((s) => <option key={s} value={s}>{String(s).replace('_', ' ')}</option>)}
+                        </select>
+                        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className={inputCls}>
+                            <option value="deadline">Deadline Terdekat</option>
+                            <option value="sisa_desc">Sisa Terbesar</option>
+                            <option value="pcs_desc">Pcs Terbanyak</option>
+                            <option value="masuk_desc">Terbaru Masuk</option>
+                            <option value="po_asc">No PO A-Z</option>
+                        </select>
+                        <select
+                            value={perPage}
+                            onChange={(e) => {
+                                const v = e.target.value === 'all' ? 'all' : Number(e.target.value);
+                                setPerPage(v);
+                                setPage(1);
+                            }}
+                            className={inputCls}
+                            title="Jumlah baris per halaman"
+                        >
+                            {[10, 20, 30].map((n) => <option key={n} value={n}>{n} / hal</option>)}
+                            <option value="all">Semua</option>
+                        </select>
+                        {hasActiveFilters && (
+                            <button
+                                type="button"
+                                onClick={resetFilters}
+                                className="h-8 px-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-md transition"
+                            >
+                                Reset filter
+                            </button>
+                        )}
+                    </div>
+                )}
             </CardHeader>
 
             <CardContent className="pt-1">
-                {items.length === 0 ? (
+                {allItems.length === 0 ? (
                     <div className="py-8 text-center bg-emerald-50/50 rounded-xl border border-emerald-100">
                         <span className="text-2xl mb-1 block">🎉</span>
                         <p className="text-sm font-semibold text-emerald-800">Semua PO Sudah Lunas!</p>
                         <p className="text-xs text-emerald-600">Tidak ada sisa tunggakan pembayaran saat ini.</p>
                     </div>
+                ) : filtered.length === 0 ? (
+                    <div className="py-8 text-center rounded-xl border border-slate-100 bg-slate-50/50">
+                        <p className="text-sm font-semibold text-slate-600">Tidak ada PO yang cocok dengan filter.</p>
+                        <button type="button" onClick={resetFilters} className="mt-2 text-xs font-bold text-rose-600 hover:underline">
+                            Reset filter
+                        </button>
+                    </div>
                 ) : (
                     <div className="space-y-3">
                         <ul className="divide-y divide-slate-100">
-                            {items.map((o) => (
+                            {pageItems.map((o) => (
                                 <li key={o.id} className="py-3 first:pt-0 last:pb-0 hover:bg-slate-50/70 p-2.5 rounded-lg transition">
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                         <div className="min-w-0 flex-1 space-y-1">
@@ -584,7 +740,31 @@ export function ReminderSisaPOWidget({ data, title = "Reminder Sisa Pembayaran /
                         </ul>
 
                         <div className="pt-2 border-t flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground gap-2">
-                            <span>Menampilkan {items.length} dari {totalPo} PO ({totalPcs.toLocaleString('id-ID')} Pcs) yang belum lunas</span>
+                            <span>
+                                Menampilkan {pageItems.length} dari {filtered.length} PO tersaring
+                                {hasActiveFilters ? ` (of ${totalPo} • sisa ${formatRupiah(filteredSisa)} • ${filteredPcs.toLocaleString('id-ID')} Pcs)` : ''}
+                            </span>
+
+                            {!showAll && totalPages > 1 && (
+                                <div className="flex items-center gap-1">
+                                    <Button
+                                        size="sm" variant="outline" className="h-7 px-2 text-xs"
+                                        disabled={safePage <= 1}
+                                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                    >
+                                        ‹ Prev
+                                    </Button>
+                                    <span className="px-2 font-semibold text-slate-600">Hal {safePage} / {totalPages}</span>
+                                    <Button
+                                        size="sm" variant="outline" className="h-7 px-2 text-xs"
+                                        disabled={safePage >= totalPages}
+                                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                    >
+                                        Next ›
+                                    </Button>
+                                </div>
+                            )}
+
                             <Button asChild variant="outline" size="sm" className="h-7 text-xs">
                                 <Link href={route('orders.index') + '?tab=active'}>
                                     Buka Daftar Order <ArrowUpRight className="h-3 w-3 ml-1" />

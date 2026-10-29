@@ -1353,7 +1353,7 @@ class DashboardService
             ->all();
     }
 
-    public function reminderSisaPo(string|array|null $brandId, int $limit = 25): array
+    public function reminderSisaPo(string|array|null $brandId, int $limit = 1000): array
     {
         $orders = Order::query()
             ->when($brandId, $this->bf($brandId))

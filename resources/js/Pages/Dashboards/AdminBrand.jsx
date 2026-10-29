@@ -147,6 +147,9 @@ export default function AdminBrand({ stats, filters }) {
                 </CardContent>
             </Card>
 
+            {/* Reminder Sisa Pembayaran / Tunggakan PO — paling atas */}
+            <ReminderSisaPOWidget data={stats.reminder_sisa_po} />
+
             <StatGrid cards={stats.cards ?? []} />
 
             {/* Target Progress Section */}
@@ -741,11 +744,6 @@ export default function AdminBrand({ stats, filters }) {
                     items={stats.wilayah_top ?? []}
                     valueKey="count" valueLabel="order"
                 />
-            </div>
-
-            {/* Reminder Sisa Pembayaran / Tunggakan PO */}
-            <div className="mb-4">
-                <ReminderSisaPOWidget data={stats.reminder_sisa_po} />
             </div>
 
             {/* PO Siap Dikirim Section */}

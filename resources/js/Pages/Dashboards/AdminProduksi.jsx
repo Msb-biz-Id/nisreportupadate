@@ -12,6 +12,9 @@ export default function AdminProduksi({ stats }) {
 
     return (
         <div className="space-y-6">
+            {/* Reminder Sisa Pembayaran / Tunggakan PO — paling atas */}
+            <ReminderSisaPOWidget data={stats.reminder_sisa_po} />
+
             <StatGrid cards={stats.cards ?? []} />
 
             <Card>
@@ -96,9 +99,6 @@ export default function AdminProduksi({ stats }) {
                     )}
                 </CardContent>
             </Card>
-
-            {/* Reminder Sisa Pembayaran / Tunggakan PO */}
-            <ReminderSisaPOWidget data={stats.reminder_sisa_po} />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <POListWidget

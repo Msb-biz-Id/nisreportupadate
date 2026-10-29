@@ -20,6 +20,9 @@ export default function Superadmin({ stats }) {
 
     return (
         <div className="space-y-6">
+            {/* Reminder Sisa Pembayaran / Tunggakan PO — paling atas */}
+            <ReminderSisaPOWidget data={stats.reminder_sisa_po} />
+
             <StatGrid cards={stats.cards ?? []} />
 
             {/* Target Progress Section */}
@@ -240,11 +243,6 @@ export default function Superadmin({ stats }) {
                     </div>
                 </CardContent>
             </Card>
-
-            {/* Reminder Sisa Pembayaran / Tunggakan PO */}
-            <div className="mb-4">
-                <ReminderSisaPOWidget data={stats.reminder_sisa_po} />
-            </div>
 
             {/* PO Siap Dikirim Section */}
             <div className="mb-4">
