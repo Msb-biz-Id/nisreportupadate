@@ -923,7 +923,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                 )}
 
                                 {/* 2. Edit Action */}
-                                {can?.edit && order.status_po !== 'selesai' && (
+                                {can?.edit && (order.status_po !== 'selesai' || can?.unlock) && (
                                     <Button asChild variant="outline" size="sm" className="font-medium text-slate-700 border-slate-200 hover:bg-slate-50">
                                         <Link href={route('orders.edit', order.id)}><Pencil className="h-3.5 w-3.5 mr-1" /> Edit</Link>
                                     </Button>
@@ -1022,7 +1022,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         )}
 
                                         {/* Unlock / Relock PO */}
-                                        {order.status_po !== 'draft' && order.status_po !== 'selesai' && isLocked && (
+                                        {order.status_po !== 'draft' && (order.status_po !== 'selesai' || can?.unlock) && isLocked && (
                                             <DropdownMenuItem
                                                 onClick={() => setOpenUnlock(true)}
                                                 className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md"
@@ -1033,7 +1033,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                             </DropdownMenuItem>
                                         )}
 
-                                        {order.status_po !== 'draft' && order.status_po !== 'selesai' && !isLocked && (
+                                        {order.status_po !== 'draft' && (order.status_po !== 'selesai' || can?.unlock) && !isLocked && (
                                             <DropdownMenuItem
                                                 onClick={() => setOpenRelock(true)}
                                                 className="flex items-center gap-2 cursor-pointer py-1.5 px-2 text-sm text-slate-700 hover:bg-slate-50 rounded-md"
@@ -1631,7 +1631,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                 <span className="text-[10px] text-muted-foreground">{formatDate(order.lunas_at)}</span>
                                             )}
                                         </div>
-                                        {can?.mark_lunas && !order.is_special_order && order.status_po !== 'selesai' && (order.is_lunas || sisaTagihan > 0) && (
+                                        {can?.mark_lunas && !order.is_special_order && (order.status_po !== 'selesai' || can?.unlock) && (order.is_lunas || sisaTagihan > 0) && (
                                             <Button
                                                 size="xs"
                                                 variant={order.is_lunas ? 'outline' : 'default'}
@@ -1669,7 +1669,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                                 <Badge variant={p.verified_at ? 'success' : 'warning'} className="text-[9px] px-1.5 py-0 font-bold">
                                                                     {p.verified_at ? '✓ VERIFIED' : '⏳ PENDING'}
                                                                 </Badge>
-                                                                {can?.edit_payment && order.status_po !== 'selesai' && (
+                                                                {can?.edit_payment && (order.status_po !== 'selesai' || can?.unlock) && (
                                                                     <button
                                                                         onClick={() => {
                                                                             setSelectedPayment(p);
@@ -1681,7 +1681,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                                                         <Pencil className="h-3.5 w-3.5" />
                                                                     </button>
                                                                 )}
-                                                                {can?.delete_payment && order.status_po !== 'selesai' && (
+                                                                {can?.delete_payment && (order.status_po !== 'selesai' || can?.unlock) && (
                                                                     <button
                                                                         onClick={() => {
                                                                             const paymentName = p.master_jenis_pembayaran?.nama === 'Return' || p.master_jenis_pembayaran?.nama === 'Refurn'
@@ -1750,7 +1750,7 @@ export default function OrderPreview({ order, can, dp_info = null, printings = [
                                         </div>
                                     )}
 
-                                    {can?.add_payment && order.status_po !== 'selesai' && (
+                                    {can?.add_payment && (order.status_po !== 'selesai' || can?.unlock) && (
                                         <Button size="sm" variant="outline" className="w-full mt-2" onClick={() => setOpenPayment(true)}>
                                             <CreditCard className="h-4 w-4" /> Tambah Pembayaran
                                         </Button>

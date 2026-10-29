@@ -324,8 +324,8 @@ class ProductionController extends Controller
         abort_unless($detail->order_id === $order->id, 404);
         $detail->loadMissing('progress');
 
-        if ($order->status_po === 'selesai') {
-            return back()->with('error', 'Tidak dapat memperbarui progress karena PO sudah selesai.');
+        if ($order->status_po === 'selesai' && $order->isLocked()) {
+            return back()->with('error', 'Tidak dapat memperbarui progress karena PO sudah selesai dan terkunci. Minta unlock ke Superadmin untuk koreksi.');
         }
 
         $isSending = strtoupper($detail->progress->nama_progress ?? '') === 'SENDING';
@@ -394,8 +394,8 @@ class ProductionController extends Controller
         Gate::authorize('production.update-progress');
         $this->guardBrandOwnership($request, $order);
 
-        if ($order->status_po === 'selesai') {
-            return back()->with('error', 'Tidak dapat memperbarui progress karena PO sudah selesai.');
+        if ($order->status_po === 'selesai' && $order->isLocked()) {
+            return back()->with('error', 'Tidak dapat memperbarui progress karena PO sudah selesai dan terkunci. Minta unlock ke Superadmin untuk koreksi.');
         }
 
         $data = $request->validate([
@@ -474,8 +474,8 @@ class ProductionController extends Controller
         Gate::authorize('production.add-reject');
         $this->guardBrandOwnership($request, $order);
 
-        if ($order->status_po === 'selesai') {
-            return back()->with('error', 'Tidak dapat mencatat rijek karena PO sudah selesai.');
+        if ($order->status_po === 'selesai' && $order->isLocked()) {
+            return back()->with('error', 'Tidak dapat mencatat rijek karena PO sudah selesai dan terkunci. Minta unlock ke Superadmin untuk koreksi.');
         }
 
         $data = $request->validate([

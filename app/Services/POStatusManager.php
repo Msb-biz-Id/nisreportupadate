@@ -201,10 +201,7 @@ class POStatusManager
 
     public function logChange(Order $order, User $user, string $reason, string $field, mixed $oldValue, mixed $newValue): void
     {
-        if ($order->status_po === 'selesai') {
-            return;
-        }
-
+        // Perubahan PO selesai (mode koreksi setelah unlock) tetap dicatat untuk jejak audit.
         POChangeLog::create([
             'order_id' => $order->id,
             'changed_by' => $user->id,
