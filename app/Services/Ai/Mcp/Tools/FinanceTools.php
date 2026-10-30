@@ -30,6 +30,29 @@ class FinanceTools
     }
 
     /**
+     * Daftar pesanan yang status produksinya sudah selesai/terkirim namun pembayarannya masih belum lunas.
+     */
+    public function getOverdueInvoices(array $params = []): array
+    {
+        $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
+        $limit = !empty($params['limit']) ? (int)$params['limit'] : 20;
+
+        $data = McpSnapshotService::getOverdueInvoices($brandId, $limit);
+
+        return [
+            'status' => 'success',
+            'summary' => [
+                'total_po_selesai_belum_lunas' => $data['total_po_selesai_belum_lunas'] ?? 0,
+                'total_pcs_belum_lunas' => $data['total_pcs_belum_lunas'] ?? 0,
+                'total_tunggakan_rp' => $data['total_tunggakan_rp'] ?? 0,
+                'formatted_total_tunggakan' => $data['formatted_total_tunggakan'] ?? 'Rp 0',
+            ],
+            'orders' => $data['orders'] ?? [],
+            'ai_presentation_tip' => 'Peringatkan user bahwa order pada daftar ini barangnya telah selesai / terkirim tetapi belum lunas. Wajib berikan analisis umur piutang dan sarankan penagihan prioritas dengan menyertakan tautan WhatsApp.'
+        ];
+    }
+
+    /**
      * Mengambil rincian billing / pembayaran spesifik untuk satu order.
      */
     public function getOrderBilling(array $params = []): array

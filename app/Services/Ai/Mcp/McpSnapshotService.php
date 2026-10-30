@@ -229,6 +229,92 @@ class McpSnapshotService
     }
 
     /**
+     * 3b. Get Overdue Invoices (Pesanan Selesai / Siap Kirim / Terkirim yang Belum Lunas)
+     */
+    public static function getOverdueInvoices(?string $brandId = null, int $limit = 20): array
+    {
+        $orders = Order::query()
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('brand_id', $brandId))
+            ->whereIn('status_po', ['selesai_produksi', 'siap_dikirim', 'sudah_dikirim', 'selesai'])
+            ->where('is_lunas', false)
+            ->where('is_special_order', false)
+            ->with([
+                'pelanggan:id,nama,nomor_hp',
+                'brand:id,kode,nama_brand',
+                'items:id,order_id,is_addon,quantity,jml_atasan',
+                'payments' => fn($q) => $q->whereNotNull('verified_at')
+            ])
+            ->orderByDesc('completed_at')
+            ->orderByDesc('tanggal_masuk')
+            ->get();
+
+        $items = [];
+        $totalTunggakan = 0;
+        $totalPcs = 0;
+
+        foreach ($orders as $order) {
+            $tagihan = $order->totalTagihan();
+            $terbayar = (float) $order->payments->sum('amount');
+            $sisa = max(0, $tagihan - $terbayar);
+
+            if ($sisa <= 0) {
+                continue;
+            }
+
+            $pcs = self::countPcs($order);
+            $totalTunggakan += $sisa;
+            $totalPcs += $pcs;
+
+            $phone = preg_replace('/\D/', '', $order->pelanggan?->nomor_hp ?? '');
+            if (str_starts_with($phone, '0')) {
+                $phone = '62' . substr($phone, 1);
+            } elseif (str_starts_with($phone, '8')) {
+                $phone = '62' . $phone;
+            }
+
+            $pelanggan = $order->pelanggan?->nama ?: 'Pelanggan';
+            $noPo = $order->no_po ?: '';
+            $namaPo = !empty($order->nama_po) ? " ({$order->nama_po})" : '';
+            $brandName = $order->brand?->nama_brand ?: 'Pabrik';
+            $formattedTagihan = 'Rp ' . number_format($tagihan, 0, ',', '.');
+            $formattedPaid = 'Rp ' . number_format($terbayar, 0, ',', '.');
+            $formattedSisa = 'Rp ' . number_format($sisa, 0, ',', '.');
+
+            $msg = "Halo Kak *{$pelanggan}*,\n\nInformasi dari *{$brandName}* perihal status pesanan No. PO *{$noPo}*{$namaPo} yang telah berstatus *{$order->status_po}* [{$pcs} Pcs]:\n\n*Rincian Pembayaran*:\n- Total Tagihan: {$formattedTagihan}\n- Sudah Dibayar: {$formattedPaid}\n- *Sisa Tagihan*: *{$formattedSisa}*\n\nMohon konfirmasi atau pelunasan sisa tagihan tersebut agar proses serah terima/pengiriman berjalan lancar. Terima kasih banyak! 🙏";
+
+            $waLink = !empty($phone) ? "https://wa.me/{$phone}?text=" . rawurlencode($msg) : null;
+
+            $items[] = [
+                'no_po'          => $order->no_po,
+                'nama_po'        => $order->nama_po,
+                'status_po'      => $order->status_po,
+                'brand'          => $brandName,
+                'pelanggan'      => $pelanggan,
+                'telepon'        => $order->pelanggan?->nomor_hp ?: '-',
+                'total_pcs'      => $pcs,
+                'total_tagihan'  => $tagihan,
+                'total_terbayar' => $terbayar,
+                'sisa_tagihan'   => $sisa,
+                'formatted_sisa' => $formattedSisa,
+                'wa_link'        => $waLink,
+            ];
+
+            if (count($items) >= $limit) {
+                break;
+            }
+        }
+
+        return [
+            'total_po_selesai_belum_lunas' => count($items),
+            'total_pcs_belum_lunas'        => $totalPcs,
+            'total_tunggakan_rp'           => $totalTunggakan,
+            'formatted_total_tunggakan'     => 'Rp ' . number_format($totalTunggakan, 0, ',', '.'),
+            'orders'                        => $items,
+        ];
+    }
+
+
+    /**
      * 4. Get Cashflow Summary (Pemasukan, Pengeluaran, Laba)
      */
     public static function getCashflowSummary(string $periode = 'bulanan', ?string $brandId = null): array

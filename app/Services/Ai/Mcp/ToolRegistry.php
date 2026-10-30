@@ -173,6 +173,10 @@ class ToolRegistry
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'Filter ID brand tertentu (opsional). Biarkan kosong untuk seluruh brand.'
+                        ],
                         'limit' => [
                             'type' => 'integer',
                             'description' => 'Jumlah maksimal data yang diambil (default: 20)',
