@@ -34,6 +34,18 @@ Route::prefix('api/ai')->group(function () {
     Route::get('tools/{toolName}', [McpProtocolController::class, 'handleRestTool'])
         ->middleware([AuthenticateAiMcpKey::class])
         ->name('ai.tools.call');
+
+    // OPTIONS Preflight untuk browser / web client
+    Route::options('mcp', fn () => response('', 200, [
+        'Access-Control-Allow-Origin' => '*',
+        'Access-Control-Allow-Methods' => 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers' => '*',
+    ]));
+    Route::options('mcp/sse', fn () => response('', 200, [
+        'Access-Control-Allow-Origin' => '*',
+        'Access-Control-Allow-Methods' => 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers' => '*',
+    ]));
 });
 
 // ==================== 2. LEGACY / SPECIFIC SCHEMAS (BACKWARDS COMPATIBILITY) ====================

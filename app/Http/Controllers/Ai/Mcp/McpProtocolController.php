@@ -94,7 +94,11 @@ class McpProtocolController extends Controller
             $request->userAgent()
         );
 
-        return response()->json($response);
+        return response()->json($response, 200, [
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers' => '*',
+        ]);
     }
 
     /**
@@ -128,21 +132,35 @@ class McpProtocolController extends Controller
         }
 
         if ($isError) {
-            return response()->json($result, 400);
+            return response()->json($result, 400, [
+                'Access-Control-Allow-Origin' => '*',
+                'Access-Control-Allow-Methods' => 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Headers' => '*',
+            ]);
         }
 
-        return response()->json($result['raw_data'] ?? $result);
+        return response()->json($result['raw_data'] ?? $result, 200, [
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers' => '*',
+        ]);
     }
 
     /**
-     * SSE (Server-Sent Events) untuk Claude Desktop / Cursor over HTTP (GET /api/ai/mcp/sse).
+     * SSE (Server-Sent Events) untuk Claude Desktop / Cursor over HTTP / ChatGPT MCP (GET /api/ai/mcp/sse).
      */
     public function handleSse(Request $request): StreamedResponse
     {
-        $response = new StreamedResponse(function () use ($request) {
+        $token = $request->bearerToken() ?? $request->header('X-MCP-API-KEY') ?? $request->query('api_key');
+        $rpcUrl = route('ai.mcp.rpc');
+        if ($token) {
+            $rpcUrl .= '?api_key=' . urlencode($token);
+        }
+
+        $response = new StreamedResponse(function () use ($rpcUrl) {
             // Heartbeat & initial endpoint connection
             echo "event: endpoint\n";
-            echo "data: " . route('ai.mcp.rpc') . "\n\n";
+            echo "data: " . $rpcUrl . "\n\n";
             ob_flush();
             flush();
 
@@ -162,6 +180,9 @@ class McpProtocolController extends Controller
         $response->headers->set('Cache-Control', 'no-cache, no-transform');
         $response->headers->set('Connection', 'keep-alive');
         $response->headers->set('X-Accel-Buffering', 'no');
+        $response->headers->set('Access-Control-Allow-Origin', '*');
+        $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        $response->headers->set('Access-Control-Allow-Headers', '*');
 
         return $response;
     }
