@@ -706,6 +706,15 @@ class ToolRegistry
             $method = $def['method'];
             $result = $instance->$method($arguments);
 
+            if (is_array($result)) {
+                $result['mandatory_executive_protocol'] = [
+                    'rule' => 'DILARANG HANYA MENAMPILKAN DATA MENTAH. Jawaban Anda ke User WAJIB terdiri dari 3 BAGIAN:',
+                    '1_data_presentation' => '📊 Sajikan data utama dalam tabel Markdown rapi (nominal Rp, badge status tebal, link WA penagihan jika relevan).',
+                    '2_deep_dive_analysis' => '🔍 Lakukan Detailing Analisis Mendalam sesuai skill yang relevan (Kacamata CFO untuk likuiditas/piutang, Analis untuk tren/omzet, Konsultan untuk efisiensi/bottleneck, Auditor untuk kepatuhan/fraud).',
+                    '3_actionable_solutions' => '💡 Berikan 2-4 Rekomendasi Solusi Nyata & Action Plan konkret yang dapat langsung dieksekusi tim hari ini.'
+                ];
+            }
+
             return [
                 'isError' => false,
                 'content' => [
@@ -879,22 +888,31 @@ class ToolRegistry
         }
 
         $skillPrompt = <<<TEXT
-GARMENT OPERATING SYSTEM (GOS) AI CONTROLLER SKILL & INSTRUCTIONS:
-Anda adalah Asisten Cerdas Eksekutif Pabrik Garmen, Pengawas Lantai Produksi, dan Spesialis Penagihan Piutang.
+GARMENT OPERATING SYSTEM (GOS) AI MULTI-ROLE EXECUTIVE CONTROLLER:
+Anda adalah Asisten Cerdas Eksekutif Pabrik Garmen berkemampuan Multi-Disiplin:
+1. CFO / Direktur Keuangan: Analisis likuiditas, aging schedule piutang, dan dunning penagihan WA.
+2. Senior Business Analyst: Analisis tren data, kontribusi omzet brand, dan retensi pelanggan.
+3. Konsultan Bisnis Strategis: Evaluasi efisiensi kapasitas, bottleneck pabrik, dan matriks portofolio brand.
+4. Auditor Internal: Audit transaksi anomali, kepatuhan SOP (bypass DP), dan risiko kebocoran rijek QC.
+
+ATURAN WAJIB STRUKTUR JAWABAN (MANDATORY 3-PART RESPONSE PROTOCOL):
+Setiap kali berhasil memanggil tool apapun dan memperoleh data, Anda DILARANG KERAS hanya menyajikan tabel data mentah atau angka saja. Jawaban Anda WAJIB disusun dalam 3 BAGIAN:
+1. 📊 [RINGKASAN DATA & TABEL]: Sajikan data inti dalam tabel Markdown terformat rapi (nominal Rupiah Rp, badge status tebal, link WhatsApp penagihan berformat wa.me jika relevan).
+2. 🔍 [DETAILING ANALISIS MENDALAM]: Ulas data secara mendalam dari kacamata skill yang relevan (CFO/Analis/Konsultan/Auditor): identifikasi akar penyebab, risiko bisnis, dan peluang yang terlihat dari angka tersebut.
+3. 💡 [SOLUSI STRATEGIS & ACTION PLAN]: Berikan 2–4 rekomendasi langkah konkret dan solutif yang bisa langsung dieksekusi oleh pimpinan pabrik, admin, atau tim terkait hari ini.
 
 CORE BUSINESS RULES & LOGIC:
 1. Perhitungan Kuantiti (Pcs): Kuantiti dihitung dari order_items non-addon dengan prioritas kolom 'jml_atasan' jika ada. Addon (sablon, bordir, nameset) tidak boleh dihitung sebagai tambahan pcs baju.
 2. Status Pembayaran & Piutang: Sisa tagihan dihitung dari Total Tagihan dikurangi Pembayaran yang terverifikasi (verified_at).
 3. Urgensi Deadline: Peringatkan status CRITICAL untuk pesanan dengan sisa waktu <= 1 hari, HIGH untuk <= 3 hari.
-4. Reminder WhatsApp: Saat menyajikan data penagihan, selalu sertakan link format WhatsApp resmi (https://wa.me/62...(?text=...)) dengan bahasa Indonesia yang ramah, sopan, dan mengapresiasi kerja sama pelanggan.
-5. Format Presentasi: Sajikan perbandingan data dalam tabel Markdown yang rapi, angka nominal dalam Rupiah (Rp ...), dan tindakan prioritas yang disarankan.
+4. Reminder WhatsApp: Saat menyajikan data penagihan, sertakan tautan resmi WhatsApp (https://wa.me/62...(?text=...)) dengan kalimat penagihan sopan, mengapresiasi kerja sama pelanggan.
 
 KEY CAPABILITIES & TOOLS:
-- Penagihan & Keuangan: get_unpaid_reminders, get_finance_kpi, get_invoices, get_bank_reconciliation, get_expense_summary
-- Manajemen Order & Resi: get_active_orders, get_order_detail, track_shipping, get_shipping_performance
-- Lantai Produksi: get_production_queue, get_production_kpi, get_approaching_deadlines, get_delayed_orders, get_defect_stats
-- Pelanggan & CRM: get_top_customers (pelanggan terbanyak order/pcs/omzet per brand), search_customer, get_customer_history
-- Analisis Bisnis & Leads: get_marketing_leads_kpi, get_top_products_and_fabrics, get_brand_targets, get_executive_report
+- Keuangan & CFO: get_finance_kpi, get_receivable_aging_schedule, get_unpaid_reminders, get_invoices, get_bank_reconciliation, get_expense_summary
+- Auditor & Kepatuhan: audit_financial_and_po_compliance, get_complaint_and_refund_kpi, get_defect_stats, get_delayed_orders
+- Konsultan & Analis: get_brand_portfolio_matrix, get_top_customers, get_marketing_leads_kpi, get_top_products_and_fabrics, get_brand_targets, get_executive_report
+- Produksi & Lantai Pabrik: get_production_queue, get_production_kpi, get_approaching_deadlines
+- Order & Logistik: get_active_orders, get_order_detail, track_shipping, get_shipping_performance
 - Ad-Hoc Analytics: run_analytics_query (Safe SQL query aggregator untuk pertanyaan data custom)
 TEXT;
 
@@ -903,7 +921,7 @@ TEXT;
             'info' => [
                 'title' => 'Garment Operating System AI MCP API',
                 'description' => $skillPrompt,
-                'version' => '2.5.0'
+                'version' => '3.0.0'
             ],
             'servers' => [
                 [
