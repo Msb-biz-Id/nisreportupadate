@@ -22,112 +22,154 @@ class MenuTools
 
         $menu = [
             'system_info' => [
-                'name' => 'Garment Operating System AI Copilot (MCP)',
-                'version' => '2.0.0-PROD',
-                'description' => 'Asisten pintar operasional pabrik garmen terintegrasi data real-time, keuangan, dan tracking.',
-                'status' => 'ONLINE (Shared-Hosting Optimized & Micro-Cached)'
+                'name' => 'Garment Operating System (GOS) AI Executive Intelligence',
+                'version' => '3.5.0-ENTERPRISE',
+                'description' => 'Asisten pintar analitik & operasional pabrik garmen terintegrasi data real-time, keuangan, produksi, CRM, dan audit risiko.',
+                'status' => 'ONLINE (Real-time DB & Micro-Cached)',
+                'total_tools_available' => 33
+            ],
+            'executive_skills' => [
+                'CFO' => 'Direktur Keuangan (Arus kas, aging piutang, penagihan WA, efisiensi beban operasional, rekonsiliasi bank)',
+                'DATA_ANALYST' => 'Kepala Analis Data (Statistik volume pcs, Laporan Jenis PO, tren per brand, ranking pelanggan)',
+                'BUSINESS_CONSULTANT' => 'Konsultan Bisnis Strategis (Matriks portofolio brand, evaluasi target penjualan, strategi repeat order)',
+                'INTERNAL_AUDITOR' => 'Auditor Internal & Kepatuhan (Deteksi fraud, audit bypass DP, kontrol mutu rijek QC, PO selesai belum lunas)'
             ],
             'categories' => [
                 'finance' => [
-                    'label' => '💰 1. Keuangan & Penagihan (Billing & Reminder)',
-                    'description' => 'Cek KPI keuangan, omzet, piutang tertahan, reminder WA, faktur invoice, rekonsiliasi kas bank, dan arus kas.',
+                    'category_code' => 'finance',
+                    'label' => '💰 1. Keuangan, Piutang & Penagihan (Finance & Billing)',
+                    'total_tools' => 11,
+                    'description' => 'Monitoring kesehatan finansial, piutang tertahan, aging schedule, reminder WA, rekonsiliasi kas bank, arus kas, dan audit risiko.',
                     'quick_triggers' => [
                         'KPI Keuangan & Piutang pabrik saat ini',
-                        'Sisa tagihan PO yang belum lunas',
-                        'Daftar invoice (faktur) pelanggan',
-                        'Saldo kas dan mutasi rekening bank',
-                        'Buat draft pesan tagihan WhatsApp ke pelanggan',
-                        'Ringkasan arus kas bulan ini'
+                        'Daftar PO yang masih ada sisa tagihan/tunggakan',
+                        'PO berstatus selesai/terkirim yang belum lunas',
+                        'Jadwal umur piutang (Aging Schedule) 0-30, 31-60, 61-90, >90 hari',
+                        'Daftar faktur invoice penagihan pelanggan',
+                        'Rekonsiliasi saldo kas rekening bank operasional',
+                        'Rincian pengeluaran beban biaya operasional bulan ini',
+                        'Audit transaksi anomali, bypass DP, dan deteksi fraud',
+                        'Rincian tagihan, DP, dan sisa per nomor PO'
                     ],
                     'available_tools' => [
-                        ['tool' => 'get_finance_kpi', 'desc' => 'KPI komprehensif keuangan: omzet, piutang outstanding, pembayaran, rasio per brand'],
+                        ['tool' => 'get_finance_kpi', 'desc' => 'Ringkasan KPI keuangan: omzet aktual, total piutang tertahan/outstanding, pembayaran masuk, per brand'],
                         ['tool' => 'get_unpaid_reminders', 'desc' => 'Daftar semua PO dengan sisa tagihan / tunggakan + link WA penagihan otomatis'],
-                        ['tool' => 'get_invoices', 'desc' => 'Daftar faktur invoice penagihan (params: status=unpaid|partial|paid|overdue, brand_id)'],
-                        ['tool' => 'get_bank_reconciliation', 'desc' => 'Rekonsiliasi saldo kas rekening bank operasional pabrik'],
-                        ['tool' => 'get_expense_summary', 'desc' => 'Rincian beban biaya operasional per kategori (params: brand_id, month, year)'],
-                        ['tool' => 'get_complaint_and_refund_kpi', 'desc' => 'Statistik cacat rijek produksi QC dan nominal pengembalian dana (refund)'],
-                        ['tool' => 'get_order_billing', 'desc' => 'Rincian invoice, DP, pelunasan & sisa tagihan per PO (params: order_id/spk_number)'],
-                        ['tool' => 'get_cashflow_summary', 'desc' => 'Ringkasan penerimaan kas masuk & total piutang tertahan'],
-                        ['tool' => 'get_overdue_invoices', 'desc' => 'Daftar order selesai yang belum melunasi pembayaran']
-                    ]
-                ],
-                'orders' => [
-                    'label' => '📦 2. Manajemen Order & Tracking (SPK)',
-                    'description' => 'Pencarian status order, progres produksi, detail kuantiti, dan pelacakan resi pengiriman.',
-                    'quick_triggers' => [
-                        'Cari order SPK-xxxx',
-                        'Daftar pesanan aktif dan statusnya',
-                        'Lacak pengiriman dan ekspedisi',
-                        'Statistik kurir & subsidi free ongkir'
-                    ],
-                    'available_tools' => [
-                        ['tool' => 'get_active_orders', 'desc' => 'Daftar pesanan yang sedang berjalan di pabrik'],
-                        ['tool' => 'get_order_detail', 'desc' => 'Detail lengkap item, ukuran, deadline, dan progress SPK'],
-                        ['tool' => 'track_shipping', 'desc' => 'Lacak kurir, no resi, dan status pengantaran'],
-                        ['tool' => 'get_shipping_performance', 'desc' => 'Statistik kurir ekspedisi terbanyak dipakai dan beban subsidi free ongkir']
+                        ['tool' => 'get_overdue_invoices', 'desc' => 'Daftar pesanan selesai/terkirim yang belum lunas (dilengkapi link penagihan WA)'],
+                        ['tool' => 'get_receivable_aging_schedule', 'desc' => 'Jadwal umur piutang (Aging Schedule 0-30, 31-60, 61-90, >90 hari macet) untuk CFO'],
+                        ['tool' => 'get_invoices', 'desc' => 'Daftar faktur invoice penagihan pelanggan (filter: status=unpaid|partial|paid|overdue, brand_id)'],
+                        ['tool' => 'get_cashflow_summary', 'desc' => 'Ringkasan arus kas keuangan pabrik (penerimaan kas masuk vs pengeluaran operasional)'],
+                        ['tool' => 'get_bank_reconciliation', 'desc' => 'Rekonsiliasi saldo kas rekening bank operasional pabrik dan mutasi masuk/keluar'],
+                        ['tool' => 'get_expense_summary', 'desc' => 'Rincian pengeluaran operasional per kategori beban biaya (params: brand_id, month, year)'],
+                        ['tool' => 'get_complaint_and_refund_kpi', 'desc' => 'Statistik kendala mutu, catatan rijek per stasiun, dan pengembalian dana (refund)'],
+                        ['tool' => 'audit_financial_and_po_compliance', 'desc' => 'Audit transaksi anomali, deteksi fraud, order bypass DP tanpa izin, dan order selesai belum lunas'],
+                        ['tool' => 'get_order_billing', 'desc' => 'Rincian invoice, riwayat DP, dan sisa pembayaran untuk spesifik satu nomor PO']
                     ]
                 ],
                 'production' => [
-                    'label' => '🏭 3. Antrian Produksi & Deadline (Production Floor)',
-                    'description' => 'Monitoring KPI produksi, antrean per stasiun kerja (potong, jahit, sablon, bordir, QC, packing), peringatan keterlambatan & siap kirim.',
+                    'category_code' => 'production',
+                    'label' => '🏭 2. Lantai Produksi & Workstation (Production Floor)',
+                    'total_tools' => 5,
+                    'description' => 'Monitoring KPI lantai produksi, beban antrean per workstation (Cutting, Sablon/Printing, Sewing, Finishing, QC, Packing), deteksi bottleneck, dan deadline.',
                     'quick_triggers' => [
                         'KPI Produksi menyeluruh & antrean workstation',
-                        'Order yang mendekati deadline (H-3 / H-7)',
-                        'Order yang sudah lewat deadline (terlambat)',
-                        'Status antrian jahit dan sablon hari ini'
+                        'Antrean beban produksi per workstation (Cutting, Sablon, Jahit, Finishing, QC, Packing)',
+                        'Berapa beban antrean khusus di stasiun Cutting dan Jahit?',
+                        'Order yang mendekati batas deadline (H-1, H-3, H-7)',
+                        'Order yang sudah melampaui deadline (terlambat)',
+                        'Statistik rijek / cacat produksi kontrol mutu QC'
                     ],
                     'available_tools' => [
-                        ['tool' => 'get_production_kpi', 'desc' => 'Dashboard KPI produksi lengkap: kartu ringkasan, antrean per stasiun kerja, deadline mepet, order terlambat & siap kirim'],
-                        ['tool' => 'get_production_queue', 'desc' => 'Distribusi jumlah order per stasiun kerja'],
-                        ['tool' => 'get_approaching_deadlines', 'desc' => 'Peringatan deadline kritis dalam X hari (params: days_ahead=7)'],
-                        ['tool' => 'get_delayed_orders', 'desc' => 'Daftar PO yang telah melampaui tanggal deadline'],
-                        ['tool' => 'get_defect_stats', 'desc' => 'Catatan kendala / reject QC jika tersedia']
+                        ['tool' => 'get_production_kpi', 'desc' => 'Dashboard KPI produksi lengkap: kartu ringkasan, antrean per workstation, deadline mendekat, order terlambat & siap kirim'],
+                        ['tool' => 'get_production_queue', 'desc' => 'Beban antrean per workstation (Cutting, Sablon/Printing, Sewing, Finishing, QC, Packing) beserta total order, pcs, dan penanda bottleneck'],
+                        ['tool' => 'get_approaching_deadlines', 'desc' => 'Peringatan dini order yang mendekati deadline (params: days_ahead=7)'],
+                        ['tool' => 'get_delayed_orders', 'desc' => 'Daftar pesanan yang telah melampaui deadline (terlambat) dan posisi stasiun produksinya'],
+                        ['tool' => 'get_defect_stats', 'desc' => 'Statistik cacat/reject hasil produksi untuk evaluasi kontrol kualitas QC']
+                    ]
+                ],
+                'orders' => [
+                    'category_code' => 'orders',
+                    'label' => '📦 3. Manajemen Order, Tracking & Logistik (Orders & Shipping)',
+                    'total_tools' => 4,
+                    'description' => 'Pencarian status order, progres produksi fisik, spesifikasi artikel, tracking resi ekspedisi, dan performa kurir pengiriman.',
+                    'quick_triggers' => [
+                        'Daftar pesanan aktif yang sedang diproses di pabrik',
+                        'Cari detail pesanan PO-xxx atau SPK-xxx',
+                        'Lacak nomor resi ekspedisi dan status pengiriman',
+                        'Statistik kurir logistik dan beban subsidi gratis ongkir'
+                    ],
+                    'available_tools' => [
+                        ['tool' => 'get_active_orders', 'desc' => 'Mengambil daftar pesanan aktif yang sedang dalam proses produksi di pabrik'],
+                        ['tool' => 'get_order_detail', 'desc' => 'Detail lengkap pesanan: spesifikasi artikel, breakdown size, status pengerjaan, dan pembayaran (params: no_po)'],
+                        ['tool' => 'track_shipping', 'desc' => 'Melacak nomor resi, kurir ekspedisi, dan status pengantaran barang pesanan'],
+                        ['tool' => 'get_shipping_performance', 'desc' => 'Statistik performa pengiriman logistik pabrik, kurir terbanyak dipakai, dan beban subsidi ongkir']
                     ]
                 ],
                 'customer' => [
-                    'label' => '👥 4. Data Pelanggan & Brand (CRM)',
-                    'description' => 'Pencarian kontak pelanggan, brand owner, pelanggan order terbanyak (Top Customers), dan loyalitas transaksi.',
+                    'category_code' => 'customer',
+                    'label' => '👥 4. Data Pelanggan & CRM (Customer Intelligence)',
+                    'total_tools' => 3,
+                    'description' => 'Pencarian kontak pelanggan, nomor WhatsApp, riwayat order, dan peringkat pelanggan dengan order terbanyak.',
                     'quick_triggers' => [
                         'Pelanggan dengan order terbanyak brand Allegiant',
-                        'Top pelanggan terbaik berdasarkan omzet / pcs',
-                        'Cari nomor WhatsApp customer PT ABC',
-                        'Riwayat pemesanan brand XYZ'
+                        'Peringkat top pelanggan terbaik berdasarkan omzet / pcs',
+                        'Cari kontak WhatsApp customer PT ABC',
+                        'Riwayat pemesanan pelanggan XYZ'
                     ],
                     'available_tools' => [
-                        ['tool' => 'get_top_customers', 'desc' => 'Daftar peringkat pelanggan order terbanyak per Brand / Pabrik (params: brand, by=orders|pcs|revenue, limit)'],
-                        ['tool' => 'search_customer', 'desc' => 'Cari pelanggan berdasarkan nama, perusahaan, no HP, atau nama brand'],
-                        ['tool' => 'get_customer_history', 'desc' => 'Histori transaksi dan reputasi pembayaran pelanggan']
+                        ['tool' => 'get_top_customers', 'desc' => 'Peringkat pelanggan order terbanyak per Brand / Pabrik (params: brand, by=orders|pcs|revenue, limit)'],
+                        ['tool' => 'search_customer', 'desc' => 'Cari pelanggan berdasarkan nama, perusahaan, nomor telepon WhatsApp, atau brand'],
+                        ['tool' => 'get_customer_history', 'desc' => 'Histori transaksi, frekuensi pemesanan, dan reputasi pembayaran pelanggan']
                     ]
                 ],
                 'reports' => [
-                    'label' => '📊 5. Laporan Eksekutif, Pemasaran & Query Analitik',
-                    'description' => 'Dashboard ringkasan harian/bulanan, sumber leads marketing, produk & bahan terlaris, target brand, dan analitik ad-hoc.',
+                    'category_code' => 'reports',
+                    'label' => '📊 5. Laporan Eksekutif, Portofolio Brand & Analisis Jenis PO (Reports & Strategy)',
+                    'total_tools' => 8,
+                    'description' => 'Laporan jenis PO (Normal, Reseller, Support, Repeat Order), pencapaian target penjualan, matriks portofolio brand, channel leads marketing, dan mesin query SQL ad-hoc.',
                     'quick_triggers' => [
-                        'Laporan ringkasan performa pabrik hari ini',
-                        'Laporan jenis PO per brand (Normal, Reseller, Support, Repeat Order)',
+                        'Laporan Jenis PO per brand (Normal, Reseller, Support, Repeat Order)',
                         'Komparasi omzet dan tagihan belum lunas masing-masing brand',
-                        'Sumber leads marketing (TikTok, IG, Referral)',
-                        'Kain dan produk yang paling laris',
-                        'Cek pencapaian target penjualan brand bulan ini',
+                        'Pencapaian target penjualan bulanan (Omzet & Pcs) per brand',
+                        'Matriks portofolio brand (Cash Cow, Star, High Risk)',
+                        'Channel marketing & sumber leads paling efektif (TikTok, IG, Web)',
+                        'Bahan kain (fabrics) terpopuler dan produk terlaris',
+                        'Laporan ringkasan eksekutif KPI harian pabrik',
                         'Analisis kustom ad-hoc data pabrik'
                     ],
                     'available_tools' => [
-                        ['tool' => 'get_jenis_po_report', 'desc' => 'Laporan Jenis PO: perolehan per brand, omset, tagihan belum lunas, statistik lengkap & grafik (Normal, Reseller, PO Support, Repeat Order)'],
+                        ['tool' => 'get_jenis_po_report', 'desc' => 'Laporan Jenis PO: perolehan per brand, nilai omzet, tagihan belum lunas, statistik lengkap & format grafik visualisasi'],
+                        ['tool' => 'get_brand_targets', 'desc' => 'Pencapaian target penjualan bulanan (Target Revenue Rp & Target Pcs) vs aktual, % capai & sisa kejar target per brand'],
                         ['tool' => 'get_brand_portfolio_matrix', 'desc' => 'Matriks portofolio brand (Cash Cow, Star, High Risk) untuk analisis Konsultan Bisnis'],
-                        ['tool' => 'get_marketing_leads_kpi', 'desc' => 'Statistik akuisisi order berdasarkan channel sumber leads (TikTok, IG, Referral, Web)'],
-                        ['tool' => 'get_top_products_and_fabrics', 'desc' => 'Statistik bahan kain (fabrics) terpopuler dan kategori produk terlaris'],
-                        ['tool' => 'get_brand_targets', 'desc' => 'Target penjualan bulanan (Omzet Rp & Pcs) vs aktual, persentase capai & sisa kejar target per brand'],
-                        ['tool' => 'get_executive_report', 'desc' => 'KPI harian: total PO, omset, target produksi, piutang'],
-                        ['tool' => 'get_brand_overview', 'desc' => 'Performa order & volume produksi per Brand'],
-                        ['tool' => 'run_analytics_query', 'desc' => 'Mesin query agregasi ad-hoc dinamis untuk pertanyaan data kustom tanpa batas'],
-                        ['tool' => 'get_factory_ai_skills', 'desc' => 'Paket Master Skill, SOP, formula bisnis garmen dan etika penagihan']
+                        ['tool' => 'get_brand_overview', 'desc' => 'Performa order dan volume produksi per masing-masing brand'],
+                        ['tool' => 'get_marketing_leads_kpi', 'desc' => 'Efektivitas channel pemasaran & sumber leads (TikTok, Instagram, Referral, Website)'],
+                        ['tool' => 'get_top_products_and_fabrics', 'desc' => 'Statistik bahan kain (fabrics) terpopuler dan kategori produk garmen terlaris'],
+                        ['tool' => 'get_executive_report', 'desc' => 'Laporan ringkasan KPI eksekutif pabrik harian untuk pimpinan pabrik'],
+                        ['tool' => 'run_analytics_query', 'desc' => 'Mesin query agregasi ad-hoc terproteksi (Safe SQL Analytics) untuk pertanyaan analisis kustom tanpa batas']
+                    ]
+                ],
+                'ai_system' => [
+                    'category_code' => 'ai_system',
+                    'label' => '🧠 6. Navigasi Menu & Protokol 4 Skill AI (AI Architecture)',
+                    'total_tools' => 2,
+                    'description' => 'Navigasi interaktif, injeksi paket Master Skill pabrik, formula kalkulasi pcs, dan aturan wajib 3-part protocol.',
+                    'quick_triggers' => [
+                        'Tampilkan menu interaktif utama',
+                        'Lihat paket skill AI yang terinjeksi (CFO, Analis, Konsultan, Auditor)',
+                        'SOP dan formula bisnis pabrik garmen'
+                    ],
+                    'available_tools' => [
+                        ['tool' => 'get_interactive_menu', 'desc' => 'Menampilkan menu navigasi interaktif terarah dan trigger perintah cepat seluruh 33 tools'],
+                        ['tool' => 'get_factory_ai_skills', 'desc' => 'Paket Master Skill 4 persona, SOP pabrik garmen, formula bisnis, dan etika penagihan WhatsApp']
                     ]
                 ]
             ],
             'ai_presentation_guide' => [
-                'tone' => 'Profesional, ringkas, sopan, proaktif memberikan solusi penagihan dan mitigasi deadline.',
-                'whatsapp_format' => 'Sertakan tombol/link format WhatsApp (https://wa.me/...) ketika menampilkan data penagihan.',
-                'formatting' => 'Gunakan tabel Markdown rapi dan bullet points terstruktur untuk kemudahan baca.'
+                'mandatory_structure' => [
+                    'Bagian 1: Tabel Data Ringkas' => 'Sajikan tabel ringkas dengan kolom angka, status, dan tautan resmi WhatsApp bila ada piutang.',
+                    'Bagian 2: Detailing Analisis 4 Skill' => 'Ulas dari perspektif CFO (keuangan/likuiditas), Analis Data (komposisi/volume), Konsultan Bisnis (pasar/strategi), dan Auditor Internal (kepatuhan/risiko).',
+                    'Bagian 3: Action Plan Solutif' => 'Rekomendasikan langkah konkrit bertahap dengan penomoran jelas.'
+                ],
+                'formatting' => 'Gunakan tabel Markdown bersih, badge status tebal, dan hindari penjelasan bertele-tele.'
             ]
         ];
 
