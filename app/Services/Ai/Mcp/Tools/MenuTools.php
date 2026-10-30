@@ -178,12 +178,13 @@ class MenuTools
 
         $menu = [
             'system_info' => [
-                'name' => 'Garment Operating System (GOS) AI Executive Intelligence',
+                'name' => 'ProTrack AI Executive Copilot',
+                'app_name' => config('app.name', 'ProTrack'),
                 'version' => '3.6.0-ENTERPRISE-UNIVERSAL',
                 'description' => 'Asisten pintar analitik & operasional pabrik garmen terintegrasi data real-time untuk ChatGPT, Claude Desktop, Google Gemini, OpenCode, Cursor, dan Cline.',
-                'status' => 'ONLINE (Real-time DB & Micro-Cached)',
+                'status' => '🟢 Terhubung Real-Time (ProTrack Live DB)',
                 'total_tools_available' => 33,
-                'ai_compatibility' => 'Multi-Client Protocol (OpenAPI 3.1, JSON-RPC 2.0, SSE Stream)'
+                'ai_compatibility' => 'Universal Multi-Client Protocol (OpenAPI 3.1, JSON-RPC 2.0, SSE Stream)'
             ],
             'executive_skills' => [
                 'CFO' => 'Direktur Keuangan (Arus kas, aging piutang, penagihan WA, efisiensi beban operasional, rekonsiliasi bank)',
@@ -343,12 +344,12 @@ class MenuTools
             ],
             'ai_presentation_guide' => [
                 'infographic_dashboard_layout' => [
-                    '1_header_and_overview' => 'Sajikan judul Dashboard Operasional GOS yang elegan dengan badge sistem aktif.',
-                    '2_tasking_matrix_tables' => 'Tampilkan 3 Tabel Infografis Terpisah: (1) 🌅 Tasking Harian, (2) 📅 Tasking Mingguan, (3) 📊 Tasking Bulanan. Format tabel wajib memuat kolom: No | Prioritas | Agenda Tugas & Target | PIC | Perintah Cepat / Tautan Web.',
-                    '3_export_ready_section' => 'Sediakan blok kode (Code Block) bertanda "📋 Salin / Ekspor ke Excel/Sheets (Format CSV)" agar pimpinan pabrik dapat langsung menyalin (Copy-Paste) seluruh agenda tugas dalam 1 klik.',
+                    '1_header_and_overview' => 'Sajikan judul "ProTrack AI Executive Copilot" yang elegan dengan badge [🟢 ProTrack Live Online].',
+                    '2_tasking_matrix_tables' => 'DILARANG HANYA MENAMPILKAN DAFTAR TEKS 1-5 BIASA. Anda WAJIB menyajikan 3 Tabel Matriks Tasking Infografis: (1) 🌅 Tasking Harian (Daily Routine), (2) 📅 Tasking Mingguan (Weekly Routine), (3) 📊 Tasking Bulanan (Monthly Routine). Kolom wajib: No | Prioritas | Agenda Tugas & Target | PIC | Perintah Cepat / Tautan Web.',
+                    '3_export_ready_section' => 'Sediakan blok kode Markdown (```csv) bertanda "📋 Salin / Ekspor ke Excel/Sheets (Format CSV)" agar pengguna dapat langsung menyalin (Copy) seluruh agenda tugas dalam 1 klik.',
                     '4_menu_category_accordion' => 'Tampilkan ringkasan 6 kategori pilar pabrik untuk navigasi eksplorasi mandiri.'
                 ],
-                'universal_ai_rules' => 'Aturan ini berlaku untuk semua AI Client (ChatGPT, Claude Desktop, Gemini, OpenCode, Cursor, Cline). Buat presentasi yang visually stunning, profesional, dan interaktif.'
+                'universal_ai_rules' => 'Aturan ini berlaku untuk semua AI Client (ChatGPT, Claude Desktop, Gemini, OpenCode, Cursor, Cline). Wajib merender tabel infografis yang interaktif, profesional, dan siap eksekusi.'
             ]
         ];
 
