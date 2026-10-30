@@ -6,7 +6,7 @@ import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { ArrowUpRight, Landmark, Building2, ChevronDown, ChevronUp, SlidersHorizontal, Info, CheckCircle2, AlertCircle, FileText, FileCheck, TrendingUp, TrendingDown, RotateCcw, Sparkles } from 'lucide-react';
-import { StatGrid } from '@/Components/Widgets';
+import { StatGrid, ReminderSisaPOWidget } from '@/Components/Widgets';
 import { formatDate, formatRupiah } from '@/lib/utils';
 
 export default function Finance({ stats }) {
@@ -76,6 +76,9 @@ export default function Finance({ stats }) {
                     </div>
                 </CardHeader>
             </Card>
+
+            {/* Reminder Sisa Pembayaran / Tunggakan PO */}
+            <ReminderSisaPOWidget data={stats.reminder_sisa_po} />
 
             {/* Main Financial KPI Grid */}
             <StatGrid cards={stats.cards ?? []} />

@@ -526,7 +526,8 @@ class DashboardService
             ->where('is_debit', false)
             ->sum('amount');
 
-        $outstandingTotal = $this->reminderSisaPo($brandId)['total_tunggakan'];
+        $reminderSisaPo = $this->reminderSisaPo($brandId && $brandId !== 'all' ? $brandId : null);
+        $outstandingTotal = $reminderSisaPo['total_tunggakan'];
 
         $dpPendingCount = DesignDeposit::query()
             ->when($brandId && $brandId !== 'all', $this->bf($brandId))
@@ -553,6 +554,7 @@ class DashboardService
                 ['label' => 'DP Desain Pending',     'value' => $dpPendingCount,       'icon' => 'Sparkles',    'accent' => 'amber'],
                 ['label' => 'DP Desain Terverifikasi', 'value' => $dpVerifiedAmount,     'currency' => true, 'icon' => 'CheckCircle', 'accent' => 'indigo'],
             ],
+            'reminder_sisa_po' => $reminderSisaPo,
             'invoice_pending_list' => (clone $invoices)
                 ->onPublishedOrder()
                 ->whereIn('status', ['draft', 'validated'])
