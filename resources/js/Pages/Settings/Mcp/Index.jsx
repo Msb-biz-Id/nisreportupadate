@@ -20,7 +20,8 @@ import {
     Send,
     Eye,
     EyeOff,
-    PlusCircle
+    PlusCircle,
+    Pencil
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -37,6 +38,9 @@ export default function McpIndex({ keys = [], recentLogs = [], tools = [], stats
     const [copiedMap, setCopiedMap] = useState({});
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [selectedLog, setSelectedLog] = useState(null);
+    const [editingKey, setEditingKey] = useState(null);
+    const [editName, setEditName] = useState('');
+    const [isUpdating, setIsUpdating] = useState(false);
 
     const { data, setData, post, processing, reset, errors } = useForm({
         name: '',
@@ -72,6 +76,30 @@ export default function McpIndex({ keys = [], recentLogs = [], tools = [], stats
         if (confirm(`Apakah Anda yakin ingin menghapus API Key "${name}" secara permanen? Client AI yang menggunakan token ini tidak dapat mengakses lagi.`)) {
             router.delete(route('settings.mcp.revoke_key', id), { preserveScroll: true });
         }
+    };
+
+    const handleOpenEdit = (keyItem) => {
+        setEditingKey(keyItem);
+        setEditName(keyItem.name || '');
+    };
+
+    const handleSaveEdit = (e) => {
+        e.preventDefault();
+        if (!editingKey || !editName.trim()) return;
+
+        setIsUpdating(true);
+        router.put(route('settings.mcp.update_key', editingKey.id), {
+            name: editName.trim()
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setEditingKey(null);
+                setIsUpdating(false);
+            },
+            onError: () => {
+                setIsUpdating(false);
+            }
+        });
     };
 
     const handleClearCache = () => {
@@ -379,7 +407,17 @@ export default function McpIndex({ keys = [], recentLogs = [], tools = [], stats
                                                             <TableCell className="text-xs text-slate-500">
                                                                 {k.last_used_at ? new Date(k.last_used_at).toLocaleString('id-ID') : 'Belum pernah'}
                                                             </TableCell>
-                                                            <TableCell className="text-right space-x-2">
+                                                            <TableCell className="text-right space-x-1.5 whitespace-nowrap">
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => handleOpenEdit(k)}
+                                                                    className="text-xs h-7 px-2.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border-indigo-200 dark:border-indigo-800"
+                                                                    title="Edit Nama Label"
+                                                                >
+                                                                    <Pencil className="h-3.5 w-3.5 mr-1" />
+                                                                    Edit
+                                                                </Button>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
@@ -762,6 +800,69 @@ export default function McpIndex({ keys = [], recentLogs = [], tools = [], stats
                                 Tutup
                             </Button>
                         </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* MODAL: EDIT NAMA LABEL API KEY */}
+                <Dialog open={!!editingKey} onOpenChange={(open) => !open && setEditingKey(null)}>
+                    <DialogContent className="sm:max-w-md">
+                        <form onSubmit={handleSaveEdit}>
+                            <DialogHeader>
+                                <DialogTitle className="text-base font-semibold flex items-center gap-2">
+                                    <Pencil className="h-4 w-4 text-indigo-600" />
+                                    Edit Nama Label API Key
+                                </DialogTitle>
+                                <DialogDescription className="text-xs">
+                                    Ganti nama label API Key ini agar lebih mudah mengenali siapa atau klien mana yang menggunakan key ini.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="py-4 space-y-3">
+                                <div>
+                                    <Label htmlFor="edit_name" className="text-xs font-medium">Nama Label API Key:</Label>
+                                    <Input
+                                        id="edit_name"
+                                        value={editName}
+                                        onChange={(e) => setEditName(e.target.value)}
+                                        required
+                                        maxLength={100}
+                                        placeholder="Contoh: ChatGPT Owner / Tim Marketing"
+                                        className="mt-1 text-sm"
+                                        autoFocus
+                                    />
+                                </div>
+                                {editingKey && (
+                                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-500 space-y-1">
+                                        <div className="flex justify-between">
+                                            <span>Client AI:</span>
+                                            <span className="font-semibold capitalize text-slate-700 dark:text-slate-300">{editingKey.client_type}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>Key Prefix:</span>
+                                            <code className="font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1 rounded">{editingKey.key_prefix}...</code>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <DialogFooter className="gap-2 sm:gap-0">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setEditingKey(null)}
+                                    disabled={isUpdating}
+                                >
+                                    Batal
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={isUpdating || !editName.trim()}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                >
+                                    {isUpdating ? 'Menyimpan...' : 'Simpan Perubahan'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
                     </DialogContent>
                 </Dialog>
             </div>

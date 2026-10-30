@@ -110,6 +110,32 @@ class SuperadminMcpController extends Controller
     }
 
     /**
+     * Edit nama label / metadata API Key.
+     */
+    public function updateKey(Request $request, int $id): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'client_type' => 'nullable|string|in:chatgpt,claude,gemini,opencode,cursor,custom',
+            'rate_limit_per_minute' => 'nullable|integer|min:5|max:300',
+        ]);
+
+        $key = AiMcpKey::findOrFail($id);
+
+        $updateData = ['name' => $validated['name']];
+        if (!empty($validated['client_type'])) {
+            $updateData['client_type'] = $validated['client_type'];
+        }
+        if (!empty($validated['rate_limit_per_minute'])) {
+            $updateData['rate_limit_per_minute'] = (int) $validated['rate_limit_per_minute'];
+        }
+
+        $key->update($updateData);
+
+        return redirect()->back()->with('success', "API Key '{$key->name}' berhasil diperbarui.");
+    }
+
+    /**
      * Aktifkan / Nonaktifkan API Key.
      */
     public function toggleKey(Request $request, int $id): RedirectResponse

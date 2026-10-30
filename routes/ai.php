@@ -64,6 +64,7 @@ Route::prefix('api/ai/mcp')->name('ai.mcp.')->group(function () {
 Route::middleware(['auth', 'verified'])->prefix('settings/mcp')->name('settings.mcp.')->group(function () {
     Route::get('/', [SuperadminMcpController::class, 'index'])->name('index');
     Route::post('generate-key', [SuperadminMcpController::class, 'generateKey'])->name('generate_key');
+    Route::put('update/{id}', [SuperadminMcpController::class, 'updateKey'])->name('update_key');
     Route::post('toggle/{id}', [SuperadminMcpController::class, 'toggleKey'])->name('toggle_key');
     Route::delete('revoke/{id}', [SuperadminMcpController::class, 'revokeKey'])->name('revoke_key');
     Route::post('clear-cache', [SuperadminMcpController::class, 'clearCache'])->name('clear_cache');
