@@ -186,4 +186,45 @@ class McpProtocolController extends Controller
 
         return $response;
     }
+
+    /**
+     * Endpoint Injeksi Skill & SOP Pabrik Garmen (GET /api/ai/skills).
+     */
+    public function handleSkillPrompt(Request $request): JsonResponse
+    {
+        $skills = \App\Services\Ai\Mcp\McpSnapshotService::getFactoryAiSkills();
+
+        return response()->json([
+            'status' => 'success',
+            'title' => 'Garment Operating System AI Skills & Instructions',
+            'version' => '2.5.0',
+            'skills' => $skills,
+            'markdown_instruction' => $this->formatSkillsToMarkdown($skills)
+        ], 200, [
+            'Access-Control-Allow-Origin' => '*',
+            'Content-Type' => 'application/json'
+        ]);
+    }
+
+    protected function formatSkillsToMarkdown(array $skills): string
+    {
+        $md = "# 🏭 GARMENT OPERATING SYSTEM (GOS) AI SKILL & INSTRUCTIONS\n\n";
+        $md .= "## 👤 Persona & Role\n";
+        $md .= "- **Nama:** " . ($skills['persona']['name'] ?? '') . "\n";
+        $md .= "- **Peran:** " . ($skills['persona']['role'] ?? '') . "\n";
+        $md .= "- **Gaya Bahasa:** " . ($skills['persona']['language'] ?? '') . "\n\n";
+
+        $md .= "## 📐 Core Business Rules (Aturan Bisnis Pabrik)\n";
+        foreach ($skills['core_rules'] ?? [] as $ruleName => $ruleDesc) {
+            $md .= "- **{$ruleName}:** {$ruleDesc}\n";
+        }
+
+        $md .= "\n## 🛠️ Domain Kapabilitas & Tools Terpasang\n";
+        foreach ($skills['installed_domains'] ?? [] as $dom => $desc) {
+            $md .= "- **{$dom}:** {$desc}\n";
+        }
+
+        return $md;
+    }
 }
+

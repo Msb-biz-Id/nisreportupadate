@@ -54,5 +54,52 @@ class ReportTools
             'ai_presentation_tip' => 'Bandingkan target vs aktual omzet & pcs bulan ini, tampilkan persentase ketercapaian, dan sisa kekurangan target per brand.'
         ];
     }
+
+    /**
+     * Mengambil performa akuisisi order berdasarkan channel pemasaran / sumber leads (TikTok, Instagram, Referral, Website).
+     */
+    public function getMarketingLeadsKpi(array $params = []): array
+    {
+        $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
+        $data = McpSnapshotService::getMarketingLeadsKpi($brandId);
+
+        return [
+            'status' => 'success',
+            'leads_kpi' => $data,
+            'ai_presentation_tip' => 'Identifikasi channel pemasaran yang paling efektif menghasilkan PO dan omzet penjualan terbesar.'
+        ];
+    }
+
+    /**
+     * Mengambil statistik jenis produk dan bahan kain (fabrics) terpopuler yang paling banyak dipesan.
+     */
+    public function getTopProductsAndFabrics(array $params = []): array
+    {
+        $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
+        $limit = !empty($params['limit']) ? (int)$params['limit'] : 10;
+        $data = McpSnapshotService::getTopProductsAndFabrics($brandId, $limit);
+
+        return [
+            'status' => 'success',
+            'data' => $data,
+            'ai_presentation_tip' => 'Tampilkan peringkat bahan kain favorit pelanggan dan kategori produk garmen paling laris.'
+        ];
+    }
+
+    /**
+     * Mengambil statistik pengiriman logistik, kurir ekspedisi paling banyak dipakai, dan rasio free ongkir.
+     */
+    public function getShippingPerformance(array $params = []): array
+    {
+        $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
+        $data = McpSnapshotService::getShippingPerformance($brandId);
+
+        return [
+            'status' => 'success',
+            'shipping_kpi' => $data,
+            'ai_presentation_tip' => 'Evaluasi kurir ekspedisi yang paling diandalkan dan beban subsidi gratis ongkir yang ditanggung pabrik.'
+        ];
+    }
 }
+
 

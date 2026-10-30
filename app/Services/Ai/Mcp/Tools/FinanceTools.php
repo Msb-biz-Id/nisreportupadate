@@ -124,5 +124,39 @@ class FinanceTools
             'ai_presentation_tip' => 'Tampilkan tabel tagihan faktur dengan nomor invoice, PO, nama pelanggan, sisa tagihan, dan tanggal jatuh tempo.'
         ];
     }
+
+    /**
+     * Mengambil ringkasan pengeluaran operasional pabrik per kategori pengeluaran dan total biaya.
+     */
+    public function getExpenseSummary(array $params = []): array
+    {
+        $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
+        $month = !empty($params['month']) ? (string)$params['month'] : null;
+        $year = !empty($params['year']) ? (string)$params['year'] : null;
+
+        $data = McpSnapshotService::getExpenseSummary($brandId, $month, $year);
+
+        return [
+            'status' => 'success',
+            'expenses' => $data,
+            'ai_presentation_tip' => 'Sajikan rincian pengeluaran per kategori, total beban biaya operasional, dan persentase pengeluaran terbesar.'
+        ];
+    }
+
+    /**
+     * Mengambil statistik komplain mutu, insiden rijek produksi QC, dan pengembalian dana (refund).
+     */
+    public function getComplaintAndRefundKpi(array $params = []): array
+    {
+        $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
+        $data = McpSnapshotService::getComplaintAndRefundKpi($brandId);
+
+        return [
+            'status' => 'success',
+            'quality_kpi' => $data,
+            'ai_presentation_tip' => 'Evaluasi total insiden rijek pakaian per stasiun pengerjaan dan total nominal refund yang diajukan pelanggan.'
+        ];
+    }
 }
+
 

@@ -770,6 +770,376 @@ class McpSnapshotService
     }
 
     /**
+     * 18. Get Marketing & Leads Acquisition KPI (Sumber Order)
+     */
+    public static function getMarketingLeadsKpi(?string $brandId = null): array
+    {
+        $orders = Order::query()
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('brand_id', $brandId))
+            ->where('status_po', '!=', 'draft')
+            ->with(['sumberOrder:id,nama'])
+            ->get();
+
+        $grouped = $orders->groupBy(fn($o) => $o->sumberOrder?->nama ?: 'Tanpa Sumber / Direct');
+
+        $channels = [];
+        $totalOrders = $orders->count();
+        $totalRevenue = 0;
+
+        foreach ($grouped as $channelName => $channelOrders) {
+            $rev = (float) $channelOrders->sum(fn($o) => $o->totalTagihan());
+            $pcs = 0;
+            foreach ($channelOrders as $o) {
+                $pcs += self::countPcs($o);
+            }
+            $totalRevenue += $rev;
+
+            $channels[] = [
+                'channel'        => $channelName,
+                'total_order'    => $channelOrders->count(),
+                'persentase_po'  => $totalOrders > 0 ? round(($channelOrders->count() / $totalOrders) * 100, 1) . '%' : '0%',
+                'total_pcs'      => $pcs,
+                'total_omzet'    => $rev,
+                'formatted_omzet'=> 'Rp ' . number_format($rev, 0, ',', '.'),
+            ];
+        }
+
+        usort($channels, fn($a, $b) => $b['total_omzet'] <=> $a['total_omzet']);
+
+        return [
+            'total_order_tervalidasi' => $totalOrders,
+            'total_omzet_agregat'     => $totalRevenue,
+            'formatted_omzet_agregat' => 'Rp ' . number_format($totalRevenue, 0, ',', '.'),
+            'channels'                => $channels,
+        ];
+    }
+
+    /**
+     * 19. Get Expense & Operational Cost Summary
+     */
+    public static function getExpenseSummary(?string $brandId = null, ?string $month = null, ?string $year = null): array
+    {
+        $m = $month ? (int)$month : (int)now()->month;
+        $y = $year ? (int)$year : (int)now()->year;
+
+        $query = \App\Models\Finance\Pengeluaran::query()
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('brand_id', $brandId))
+            ->whereMonth('tanggal', $m)
+            ->whereYear('tanggal', $y)
+            ->with(['kategori:id,nama', 'brand:id,kode']);
+
+        $expenses = $query->get();
+        $totalNominal = (float) $expenses->sum('nominal');
+
+        $byCategory = $expenses->groupBy(fn($e) => $e->kategori?->nama ?: 'Lain-lain')
+            ->map(function ($items, $cat) use ($totalNominal) {
+                $sub = (float) $items->sum('nominal');
+                return [
+                    'kategori'       => $cat,
+                    'total_transaksi'=> $items->count(),
+                    'total_nominal'  => $sub,
+                    'formatted_rp'   => 'Rp ' . number_format($sub, 0, ',', '.'),
+                    'persentase'     => $totalNominal > 0 ? round(($sub / $totalNominal) * 100, 1) . '%' : '0%',
+                ];
+            })->values()->sortByDesc('total_nominal')->all();
+
+        return [
+            'periode'            => date('F Y', mktime(0, 0, 0, $m, 1, $y)),
+            'total_pengeluaran'  => $totalNominal,
+            'formatted_total'    => 'Rp ' . number_format($totalNominal, 0, ',', '.'),
+            'kategori_breakdown' => $byCategory,
+        ];
+    }
+
+    /**
+     * 20. Get Top Products & Fabric Popularity
+     */
+    public static function getTopProductsAndFabrics(?string $brandId = null, int $limit = 10): array
+    {
+        // 1. Top Fabrics (Bahan Kain)
+        $fabrics = DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->join('bahan_kains', 'bahan_kains.id', '=', 'order_items.bahan_kain_id')
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('orders.brand_id', $brandId))
+            ->where('orders.status_po', '!=', 'draft')
+            ->where('order_items.is_addon', false)
+            ->select(
+                'bahan_kains.nama as nama_bahan',
+                DB::raw('COUNT(DISTINCT orders.id) as total_po'),
+                DB::raw('SUM(order_items.quantity) as total_pcs')
+            )
+            ->groupBy('bahan_kains.nama')
+            ->orderByDesc('total_pcs')
+            ->take($limit)
+            ->get();
+
+        // 2. Top Kategori Order
+        $categories = DB::table('orders')
+            ->leftJoin('kategori_orders', 'kategori_orders.id', '=', 'orders.kategori_order_id')
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('orders.brand_id', $brandId))
+            ->where('orders.status_po', '!=', 'draft')
+            ->select(
+                DB::raw("COALESCE(kategori_orders.nama, 'Reguler') as kategori"),
+                DB::raw('COUNT(orders.id) as total_po'),
+                DB::raw('SUM(orders.total_tagihan) as total_omzet')
+            )
+            ->groupBy('kategori_orders.nama')
+            ->orderByDesc('total_po')
+            ->take($limit)
+            ->get();
+
+        return [
+            'top_bahan_kain' => $fabrics->map(fn($f) => [
+                'bahan'     => $f->nama_bahan,
+                'total_po'  => (int)$f->total_po,
+                'total_pcs' => (int)$f->total_pcs,
+            ])->all(),
+            'top_kategori'   => $categories->map(fn($c) => [
+                'kategori'   => $c->kategori,
+                'total_po'   => (int)$c->total_po,
+                'total_omzet'=> (float)$c->total_omzet,
+                'formatted_omzet' => 'Rp ' . number_format((float)$c->total_omzet, 0, ',', '.'),
+            ])->all(),
+        ];
+    }
+
+    /**
+     * 21. Get Quality Issues, Defect (Rijek) & Refund KPI
+     */
+    public static function getComplaintAndRefundKpi(?string $brandId = null): array
+    {
+        // 1. Rijek Produksi
+        $rijeks = \App\Models\Order\Rijek::query()
+            ->when($brandId && $brandId !== 'all', function ($q) use ($brandId) {
+                $q->whereHas('order', fn($o) => $o->where('brand_id', $brandId));
+            })
+            ->with(['order:id,no_po,nama_po'])
+            ->orderByDesc('created_at')
+            ->take(20)
+            ->get();
+
+        $totalPcsRijek = (int) $rijeks->sum('jumlah');
+
+        // 2. Refunds
+        $refunds = \App\Models\Order\Refund::query()
+            ->when($brandId && $brandId !== 'all', function ($q) use ($brandId) {
+                $q->whereHas('order', fn($o) => $o->where('brand_id', $brandId));
+            })
+            ->with(['order:id,no_po,nama_po'])
+            ->orderByDesc('created_at')
+            ->take(20)
+            ->get();
+
+        $totalRefundRp = (float) $refunds->sum('nominal');
+
+        return [
+            'rijek_summary' => [
+                'total_insiden' => $rijeks->count(),
+                'total_pcs_rijek' => $totalPcsRijek,
+                'insiden_terbaru' => $rijeks->map(fn($r) => [
+                    'no_po'    => $r->order?->no_po ?: '-',
+                    'nama_po'  => $r->order?->nama_po ?: '-',
+                    'stasiun'  => $r->tahapan ?: '-',
+                    'jumlah'   => (int)$r->jumlah,
+                    'alasan'   => $r->alasan ?: '-',
+                    'tanggal'  => $r->created_at?->format('d/m/Y'),
+                ])->all(),
+            ],
+            'refund_summary' => [
+                'total_kasus'    => $refunds->count(),
+                'total_nominal'  => $totalRefundRp,
+                'formatted_rp'   => 'Rp ' . number_format($totalRefundRp, 0, ',', '.'),
+                'kasus_terbaru'  => $refunds->map(fn($rf) => [
+                    'no_po'      => $rf->order?->no_po ?: '-',
+                    'nominal'    => (float)$rf->nominal,
+                    'status'     => $rf->status ?: '-',
+                    'alasan'     => $rf->alasan ?: '-',
+                    'tanggal'    => $rf->created_at?->format('d/m/Y'),
+                ])->all(),
+            ]
+        ];
+    }
+
+    /**
+     * 22. Get Shipping & Logistics Performance
+     */
+    public static function getShippingPerformance(?string $brandId = null): array
+    {
+        $orders = Order::query()
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('brand_id', $brandId))
+            ->whereIn('status_po', ['siap_dikirim', 'sudah_dikirim', 'selesai'])
+            ->with(['ekspedisi:id,nama'])
+            ->get();
+
+        $totalShipped = $orders->count();
+        $freeOngkirCount = $orders->filter(fn($o) => $o->isFreeOngkir())->count();
+        $regularOngkirCount = $totalShipped - $freeOngkirCount;
+        $totalOngkirTalangan = (float) $orders->filter(fn($o) => $o->isFreeOngkir())->sum('ongkir');
+
+        $byEkspedisi = $orders->groupBy(fn($o) => $o->ekspedisi?->nama ?: ($o->nama_ekspedisi ?: 'Belum Ditentukan'))
+            ->map(fn($group, $name) => [
+                'ekspedisi'    => $name,
+                'total_kirim'  => $group->count(),
+                'persentase'   => $totalShipped > 0 ? round(($group->count() / $totalShipped) * 100, 1) . '%' : '0%',
+            ])->values()->sortByDesc('total_kirim')->all();
+
+        return [
+            'total_order_terkirim' => $totalShipped,
+            'rasio_pengiriman' => [
+                'free_ongkir_count'     => $freeOngkirCount,
+                'regular_ongkir_count'  => $regularOngkirCount,
+                'total_ongkir_subsidi'  => $totalOngkirTalangan,
+                'formatted_subsidi'     => 'Rp ' . number_format($totalOngkirTalangan, 0, ',', '.'),
+            ],
+            'kurir_terpopuler' => $byEkspedisi,
+        ];
+    }
+
+    /**
+     * 23. Safe Ad-Hoc Analytics Query Builder
+     * Memungkinkan AI melakukan query analitik agregasi terproteksi tanpa batas.
+     */
+    public static function runAnalyticsQuery(
+        string $dataset,
+        array $filters = [],
+        string $metric = 'count',
+        ?string $field = null,
+        ?string $groupBy = null,
+        int $limit = 20
+    ): array {
+        $allowedDatasets = [
+            'orders'     => Order::class,
+            'customers'  => Customer::class,
+            'invoices'   => \App\Models\Order\Invoice::class,
+            'payments'   => \App\Models\Order\OrderPayment::class,
+            'expenses'   => \App\Models\Finance\Pengeluaran::class,
+            'rijeks'     => \App\Models\Order\Rijek::class,
+            'refunds'    => \App\Models\Order\Refund::class,
+        ];
+
+        $datasetKey = strtolower(trim($dataset));
+        if (!isset($allowedDatasets[$datasetKey])) {
+            return [
+                'error' => "Dataset '{$dataset}' tidak diizinkan. Pilihan yang valid: " . implode(', ', array_keys($allowedDatasets))
+            ];
+        }
+
+        $modelClass = $allowedDatasets[$datasetKey];
+        $query = $modelClass::query();
+
+        // 1. Terapkan filter tanggal (start_date, end_date)
+        if (!empty($filters['start_date'])) {
+            $dateCol = $datasetKey === 'orders' ? 'tanggal_masuk' : ($datasetKey === 'expenses' ? 'tanggal' : 'created_at');
+            $query->whereDate($dateCol, '>=', $filters['start_date']);
+        }
+        if (!empty($filters['end_date'])) {
+            $dateCol = $datasetKey === 'orders' ? 'tanggal_masuk' : ($datasetKey === 'expenses' ? 'tanggal' : 'created_at');
+            $query->whereDate($dateCol, '<=', $filters['end_date']);
+        }
+
+        // 2. Terapkan filter brand
+        if (!empty($filters['brand_id']) && $filters['brand_id'] !== 'all') {
+            if ($datasetKey === 'orders' || $datasetKey === 'invoices' || $datasetKey === 'expenses' || $datasetKey === 'customers') {
+                $query->where('brand_id', $filters['brand_id']);
+            }
+        }
+
+        // 3. Terapkan filter status
+        if (!empty($filters['status']) && $filters['status'] !== 'all') {
+            $statusCol = $datasetKey === 'orders' ? 'status_po' : 'status';
+            $query->where($statusCol, $filters['status']);
+        }
+
+        // 4. Agregasi
+        $metric = strtolower($metric);
+        $field = $field ?: ($metric === 'count' ? '*' : 'id');
+
+        if ($groupBy) {
+            $allowedGroupBy = ['status', 'brand_id', 'month', 'year'];
+            if (!in_array($groupBy, $allowedGroupBy, true)) {
+                $groupBy = 'status';
+            }
+
+            if ($groupBy === 'month') {
+                $dateCol = $datasetKey === 'orders' ? 'tanggal_masuk' : 'created_at';
+                $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+                $expr = $isSqlite ? "strftime('%Y-%m', {$dateCol})" : "DATE_FORMAT({$dateCol}, '%Y-%m')";
+                $query->selectRaw("{$expr} as group_key");
+            } else {
+                $query->selectRaw("{$groupBy} as group_key");
+            }
+
+            $aggExpr = match ($metric) {
+                'sum' => "SUM({$field}) as metric_value",
+                'avg' => "AVG({$field}) as metric_value",
+                'max' => "MAX({$field}) as metric_value",
+                'min' => "MIN({$field}) as metric_value",
+                default => "COUNT(*) as metric_value",
+            };
+
+            $query->selectRaw($aggExpr)->groupBy('group_key')->orderByDesc('metric_value')->take($limit);
+            $results = $query->get()->map(fn($row) => [
+                'group' => (string)$row->group_key,
+                'value' => (float)$row->metric_value,
+            ])->all();
+
+            return [
+                'dataset'      => $datasetKey,
+                'metric'       => $metric,
+                'field'        => $field,
+                'group_by'     => $groupBy,
+                'total_groups' => count($results),
+                'results'      => $results,
+            ];
+        }
+
+        // Single Scalar Aggregate
+        $val = match ($metric) {
+            'sum' => (float) $query->sum($field),
+            'avg' => (float) $query->avg($field),
+            'max' => (float) $query->max($field),
+            'min' => (float) $query->min($field),
+            default => (int) $query->count(),
+        };
+
+        return [
+            'dataset' => $datasetKey,
+            'metric'  => $metric,
+            'field'   => $field,
+            'result'  => $val,
+        ];
+    }
+
+    /**
+     * 24. Master AI Skill & Persona Injection Package
+     */
+    public static function getFactoryAiSkills(): array
+    {
+        return [
+            'persona' => [
+                'name' => 'Garment Operating System (GOS) AI Executive Controller',
+                'role' => 'Asisten Cerdas Pimpinan Pabrik, Akuntan Piutang, dan Kepala Pengawas Produksi Garmen',
+                'language' => 'Bahasa Indonesia Profesional, Lugas, Terstruktur, dan Solutif',
+            ],
+            'core_rules' => [
+                'Kalkulasi Kuantiti (Pcs)' => 'Pcs pakaian dihitung dari order_items non-addon dengan prioritas jml_atasan jika tersedia. Addon sablon/bordir tidak boleh dihitung ganda sebagai pcs baju.',
+                'Perhitungan Piutang' => 'Piutang dihitung dari Total Tagihan dikurangi Pembayaran yang telah berstatus verified_at.',
+                'Deadline Urgensi' => 'CRITICAL jika sisa deadline <= 1 hari; HIGH jika <= 3 hari; NORMAL jika <= 7 hari.',
+                'Format Komunikasi WhatsApp' => 'Saat menyajikan data tunggakan/piutang, sertakan tautan resmi WhatsApp (https://wa.me/62...(?text=...)) dengan kalimat penagihan sopan, mengapresiasi kerja sama pelanggan.',
+                'Gaya Presentasi' => 'Gunakan tabel Markdown ringkas untuk daftar perbandingan, bullet points untuk action items, dan badge status tebal (LUNAS, DP, PROSES, TERLAMBAT).',
+            ],
+            'installed_domains' => [
+                'Finance & Billing'   => 'Omzet, Arus Kas, Piutang Tertahan, Rekonsiliasi Bank, Faktur Invoice, Pengeluaran Biaya.',
+                'Production Floor'    => 'Antrian Stasiun Kerja, Order Kritis H-3, Keterlambatan, PO Siap Kirim, Cacat Rijek QC.',
+                'Sales & CRM'         => 'Peringkat Pelanggan Terbanyak (Top Customers), Riwayat Pelanggan, Profil Kontak.',
+                'Marketing & Growth'  => 'Sumber Leads Order (TikTok, IG, Referral), Produk & Bahan Kain Terlaris, Target Brand Bulanan.',
+                'Logistics & Kurir'   => 'Ekspedisi Terpopuler, Kuota Free Ongkir Subsidi vs Reguler, Resi Pengiriman.',
+                'Ad-hoc Analytics'    => 'Safe Query Builder untuk pertanyaan analisis kustom tak terduga.',
+            ]
+        ];
+    }
+
+    /**
      * Flush all AI-related cache snapshots
      */
     public static function flushAllAiCache(): void
@@ -783,3 +1153,4 @@ class McpSnapshotService
         }
     }
 }
+

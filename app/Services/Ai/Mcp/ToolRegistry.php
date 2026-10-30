@@ -38,6 +38,61 @@ class ToolRegistry
                     ]
                 ]
             ],
+            'get_factory_ai_skills' => [
+                'name' => 'get_factory_ai_skills',
+                'description' => 'Menginjeksi paket Master Skill, SOP pabrik garmen, formula bisnis (kalkulasi pcs, piutang, deadline), dan etika penagihan WhatsApp ke dalam pemikiran AI.',
+                'class' => MenuTools::class,
+                'method' => 'getFactoryAiSkills',
+                'scope' => 'read:menu',
+                'category' => 'menu',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => []
+                ]
+            ],
+            'run_analytics_query' => [
+                'name' => 'run_analytics_query',
+                'description' => 'Mesin query analitik agregasi ad-hoc terproteksi (Safe SQL Analytics) untuk menjawab pertanyaan analisis data custom (COUNT, SUM, AVG) per bulan/brand/status.',
+                'class' => MenuTools::class,
+                'method' => 'runAnalyticsQuery',
+                'scope' => 'read:reports',
+                'category' => 'reports',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'required' => ['dataset'],
+                    'properties' => [
+                        'dataset' => [
+                            'type' => 'string',
+                            'enum' => ['orders', 'customers', 'invoices', 'payments', 'expenses', 'rijeks', 'refunds'],
+                            'description' => 'Tabel dataset yang dianalisis.'
+                        ],
+                        'metric' => [
+                            'type' => 'string',
+                            'enum' => ['count', 'sum', 'avg', 'min', 'max'],
+                            'description' => 'Jenis agregasi perhitungan (default: count)',
+                            'default' => 'count'
+                        ],
+                        'field' => [
+                            'type' => 'string',
+                            'description' => 'Kolom angka yang dihitung (misal: total_tagihan, nominal, quantity, amount).'
+                        ],
+                        'group_by' => [
+                            'type' => 'string',
+                            'enum' => ['month', 'status', 'brand_id'],
+                            'description' => 'Kelompokkan hasil berdasarkan bulan, status, atau brand.'
+                        ],
+                        'filters' => [
+                            'type' => 'object',
+                            'description' => 'Filter tanggal (start_date, end_date), brand_id, atau status.'
+                        ],
+                        'limit' => [
+                            'type' => 'integer',
+                            'description' => 'Batas maksimal baris (default: 20)',
+                            'default' => 20
+                        ]
+                    ]
+                ]
+            ],
 
             // ==================== FINANCE & BILLING ====================
             'get_unpaid_reminders' => [
@@ -187,6 +242,48 @@ class ToolRegistry
                     ]
                 ]
             ],
+            'get_expense_summary' => [
+                'name' => 'get_expense_summary',
+                'description' => 'Ringkasan pengeluaran biaya operasional pabrik per kategori pengeluaran dan total beban biaya bulanan.',
+                'class' => FinanceTools::class,
+                'method' => 'getExpenseSummary',
+                'scope' => 'read:finance',
+                'category' => 'finance',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'Filter ID Brand (opsional)'
+                        ],
+                        'month' => [
+                            'type' => 'string',
+                            'description' => 'Format 2 digit bulan (01-12). Default bulan berjalan.'
+                        ],
+                        'year' => [
+                            'type' => 'string',
+                            'description' => 'Format 4 digit tahun (contoh: 2026). Default tahun berjalan.'
+                        ]
+                    ]
+                ]
+            ],
+            'get_complaint_and_refund_kpi' => [
+                'name' => 'get_complaint_and_refund_kpi',
+                'description' => 'Statistik kendala mutu, catatan rijek / cacat per stasiun pengerjaan, dan pengembalian dana (refund) pelanggan.',
+                'class' => FinanceTools::class,
+                'method' => 'getComplaintAndRefundKpi',
+                'scope' => 'read:finance',
+                'category' => 'finance',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'Filter ID Brand (opsional)'
+                        ]
+                    ]
+                ]
+            ],
 
             // ==================== ORDERS & TRACKING ====================
             'get_active_orders' => [
@@ -253,6 +350,23 @@ class ToolRegistry
                         'order_id' => [
                             'type' => 'integer',
                             'description' => 'ID order yang dicari resinya'
+                        ]
+                    ]
+                ]
+            ],
+            'get_shipping_performance' => [
+                'name' => 'get_shipping_performance',
+                'description' => 'Statistik performa pengiriman logistik pabrik, kurir ekspedisi paling banyak dipakai, dan total beban subsidi gratis ongkir.',
+                'class' => ReportTools::class,
+                'method' => 'getShippingPerformance',
+                'scope' => 'read:orders',
+                'category' => 'orders',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'Filter ID Brand (opsional)'
                         ]
                     ]
                 ]
@@ -461,6 +575,45 @@ class ToolRegistry
                         'brand_id' => [
                             'type' => 'string',
                             'description' => 'ID Brand spesifik atau "all" untuk seluruh brand (opsional).'
+                        ]
+                    ]
+                ]
+            ],
+            'get_marketing_leads_kpi' => [
+                'name' => 'get_marketing_leads_kpi',
+                'description' => 'Statistik akuisisi order berdasarkan channel marketing / sumber leads (TikTok, Instagram, Referral, Website) beserta omzet dan kuantiti pcs.',
+                'class' => ReportTools::class,
+                'method' => 'getMarketingLeadsKpi',
+                'scope' => 'read:reports',
+                'category' => 'reports',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'Filter ID Brand (opsional)'
+                        ]
+                    ]
+                ]
+            ],
+            'get_top_products_and_fabrics' => [
+                'name' => 'get_top_products_and_fabrics',
+                'description' => 'Daftar bahan kain (fabrics) paling banyak dipesan dan kategori produk garmen terlaris.',
+                'class' => ReportTools::class,
+                'method' => 'getTopProductsAndFabrics',
+                'scope' => 'read:reports',
+                'category' => 'reports',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'Filter ID Brand (opsional)'
+                        ],
+                        'limit' => [
+                            'type' => 'integer',
+                            'description' => 'Jumlah teratas (default: 10)',
+                            'default' => 10
                         ]
                     ]
                 ]
@@ -679,12 +832,32 @@ class ToolRegistry
             ];
         }
 
+        $skillPrompt = <<<TEXT
+GARMENT OPERATING SYSTEM (GOS) AI CONTROLLER SKILL & INSTRUCTIONS:
+Anda adalah Asisten Cerdas Eksekutif Pabrik Garmen, Pengawas Lantai Produksi, dan Spesialis Penagihan Piutang.
+
+CORE BUSINESS RULES & LOGIC:
+1. Perhitungan Kuantiti (Pcs): Kuantiti dihitung dari order_items non-addon dengan prioritas kolom 'jml_atasan' jika ada. Addon (sablon, bordir, nameset) tidak boleh dihitung sebagai tambahan pcs baju.
+2. Status Pembayaran & Piutang: Sisa tagihan dihitung dari Total Tagihan dikurangi Pembayaran yang terverifikasi (verified_at).
+3. Urgensi Deadline: Peringatkan status CRITICAL untuk pesanan dengan sisa waktu <= 1 hari, HIGH untuk <= 3 hari.
+4. Reminder WhatsApp: Saat menyajikan data penagihan, selalu sertakan link format WhatsApp resmi (https://wa.me/62...(?text=...)) dengan bahasa Indonesia yang ramah, sopan, dan mengapresiasi kerja sama pelanggan.
+5. Format Presentasi: Sajikan perbandingan data dalam tabel Markdown yang rapi, angka nominal dalam Rupiah (Rp ...), dan tindakan prioritas yang disarankan.
+
+KEY CAPABILITIES & TOOLS:
+- Penagihan & Keuangan: get_unpaid_reminders, get_finance_kpi, get_invoices, get_bank_reconciliation, get_expense_summary
+- Manajemen Order & Resi: get_active_orders, get_order_detail, track_shipping, get_shipping_performance
+- Lantai Produksi: get_production_queue, get_production_kpi, get_approaching_deadlines, get_delayed_orders, get_defect_stats
+- Pelanggan & CRM: get_top_customers (pelanggan terbanyak order/pcs/omzet per brand), search_customer, get_customer_history
+- Analisis Bisnis & Leads: get_marketing_leads_kpi, get_top_products_and_fabrics, get_brand_targets, get_executive_report
+- Ad-Hoc Analytics: run_analytics_query (Safe SQL query aggregator untuk pertanyaan data custom)
+TEXT;
+
         return [
             'openapi' => '3.1.0',
             'info' => [
                 'title' => 'Garment Operating System AI MCP API',
-                'description' => 'Universal Model Context Protocol & Tools API for Garment Factory Production & Billing Tracking.',
-                'version' => '2.0.0'
+                'description' => $skillPrompt,
+                'version' => '2.5.0'
             ],
             'servers' => [
                 [
@@ -710,3 +883,4 @@ class ToolRegistry
         ];
     }
 }
+

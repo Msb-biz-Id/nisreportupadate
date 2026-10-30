@@ -35,6 +35,9 @@ Route::prefix('api/ai')->group(function () {
         ->middleware([AuthenticateAiMcpKey::class])
         ->name('ai.tools.call');
 
+    // Injeksi Skill & SOP Pabrik Garmen untuk AI / ChatGPT
+    Route::get('skills', [McpProtocolController::class, 'handleSkillPrompt'])->name('ai.skills');
+
     // OPTIONS Preflight untuk browser / web client
     Route::options('mcp', fn () => response('', 200, [
         'Access-Control-Allow-Origin' => '*',
