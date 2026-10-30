@@ -21,7 +21,7 @@ class ToolRegistry
             // ==================== INTERACTIVE MENU ====================
             'get_interactive_menu' => [
                 'name' => 'get_interactive_menu',
-                'description' => 'Mendapatkan menu navigasi interaktif terarah untuk memandu AI dan User memilih tool dengan tepat dan cepat.',
+                'description' => 'Mendapatkan menu navigasi interaktif terpadu, matriks rekomendasi tasking operasional pabrik (Harian, Mingguan, Bulanan), infografis dashboard, dan data ekspor siap salin (CSV & Markdown) untuk seluruh AI Client (ChatGPT, Claude, Gemini, Cursor, dll).',
                 'class' => MenuTools::class,
                 'method' => 'getInteractiveMenu',
                 'scope' => 'read:menu',
@@ -32,7 +32,13 @@ class ToolRegistry
                         'category' => [
                             'type' => 'string',
                             'enum' => ['all', 'finance', 'orders', 'production', 'customer', 'reports'],
-                            'description' => 'Filter kategori menu tertentu atau "all" untuk seluruh menu.',
+                            'description' => 'Filter kategori menu spesifik atau "all" untuk seluruh menu.',
+                            'default' => 'all'
+                        ],
+                        'view' => [
+                            'type' => 'string',
+                            'enum' => ['all', 'tasking', 'tools', 'export'],
+                            'description' => 'Pilihan tampilan: "tasking" untuk matriks tugas Harian/Mingguan/Bulanan, "export" untuk CSV siap salin, atau "all" untuk dashboard lengkap.',
                             'default' => 'all'
                         ]
                     ]

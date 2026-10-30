@@ -14,25 +14,203 @@ class MenuTools
     }
 
     /**
-     * Menampilkan menu interaktif terarah untuk memandu AI dan User memilih tool dengan cepat.
+     * Menampilkan menu interaktif terpadu, matriks rekomendasi tasking (Harian, Mingguan, Bulanan),
+     * infografis dashboard, dan format ekspor data (CSV & Markdown) untuk seluruh AI Client (ChatGPT, Claude, Gemini, Cursor, dll).
      */
     public function getInteractiveMenu(array $params = []): array
     {
         $mode = $params['category'] ?? 'all';
+        $view = $params['view'] ?? 'all';
+
+        // 1. MATRIKS TASKING PERIODIK (Harian, Mingguan, Bulanan)
+        $dailyTasks = [
+            [
+                'no' => 1,
+                'prioritas' => '🔴 TINGGI',
+                'task' => 'Pantau Antrean Workstation & Bottleneck Produksi',
+                'pic' => 'Admin Produksi & SPV',
+                'tool' => 'get_production_queue',
+                'action_prompt' => 'Cek beban antrean produksi per workstation hari ini',
+                'web_url' => 'https://nis.biz.id/admin-produksi',
+                'objektif' => 'Deteksi penumpukan bahan di stasiun Cutting, Sablon, Jahit, QC, Finishing, & Packing.'
+            ],
+            [
+                'no' => 2,
+                'prioritas' => '🔴 TINGGI',
+                'task' => 'Peringatan Dini PO Mendekati Deadline (H-1 s/d H-3)',
+                'pic' => 'Admin Produksi & Logistik',
+                'tool' => 'get_approaching_deadlines',
+                'action_prompt' => 'Tampilkan pesanan yang mendekati batas deadline 3 hari ke depan',
+                'web_url' => 'https://nis.biz.id/monitoring-deadline',
+                'objektif' => 'Pencegahan keterlambatan pengiriman pakaian ke pelanggan.'
+            ],
+            [
+                'no' => 3,
+                'prioritas' => '🟡 SEDANG',
+                'task' => 'Verifikasi Kas Masuk & Rekonsiliasi Rekening Hari Ini',
+                'pic' => 'Admin Keuangan',
+                'tool' => 'get_bank_reconciliation',
+                'action_prompt' => 'Tampilkan mutasi dan saldo kas rekening bank operasional hari ini',
+                'web_url' => 'https://nis.biz.id/reports/arus-kas-bank',
+                'objektif' => 'Validasi setoran DP & pelunasan pelanggan di seluruh rekening bank.'
+            ],
+            [
+                'no' => 4,
+                'prioritas' => '🟡 SEDANG',
+                'task' => 'Follow-up Penagihan PO Selesai Belum Lunas (WhatsApp)',
+                'pic' => 'Admin Keuangan & CS',
+                'tool' => 'get_overdue_invoices',
+                'action_prompt' => 'Tampilkan PO berstatus selesai yang belum lunas beserta link WhatsApp',
+                'web_url' => 'https://nis.biz.id/finance/pending-payments',
+                'objektif' => 'Percepatan pencairan piutang order jadi yang siap dikirim.'
+            ]
+        ];
+
+        $weeklyTasks = [
+            [
+                'no' => 1,
+                'prioritas' => '🔴 TINGGI',
+                'task' => 'Evaluasi Mutu & Cacat Pakaian (Rijek QC)',
+                'pic' => 'QC & Kepala Produksi',
+                'tool' => 'get_defect_stats',
+                'action_prompt' => 'Evaluasi statistik rijek dan cacat produksi QC minggu ini',
+                'web_url' => 'https://nis.biz.id/reports/rijek',
+                'objektif' => 'Identifikasi akar masalah cacat di workstation sablon/jahit.'
+            ],
+            [
+                'no' => 2,
+                'prioritas' => '🔴 TINGGI',
+                'task' => 'Audit Pesanan Terlambat (Overdue Orders)',
+                'pic' => 'Supervisor Produksi',
+                'tool' => 'get_delayed_orders',
+                'action_prompt' => 'Daftar pesanan yang telah melampaui deadline beserta workstation terakhirnya',
+                'web_url' => 'https://nis.biz.id/monitoring-deadline',
+                'objektif' => 'Tindakan mitigasi lembur atau percepatan stasiun macet.'
+            ],
+            [
+                'no' => 3,
+                'prioritas' => '🟡 SEDANG',
+                'task' => 'Jadwal Umur Piutang (Aging Schedule 0-90 Hari)',
+                'pic' => 'CFO / Direktur Keuangan',
+                'tool' => 'get_receivable_aging_schedule',
+                'action_prompt' => 'Analisis jadwal umur piutang aging schedule pelanggan',
+                'web_url' => 'https://nis.biz.id/finance',
+                'objektif' => 'Mitigasi piutang macet di atas 30 dan 60 hari.'
+            ],
+            [
+                'no' => 4,
+                'prioritas' => '🟢 RUTIN',
+                'task' => 'Evaluasi Performa Kurir Logistik & Subsidi Ongkir',
+                'pic' => 'Admin Logistik',
+                'tool' => 'get_shipping_performance',
+                'action_prompt' => 'Statistik performa kurir pengiriman dan beban gratis ongkir',
+                'web_url' => 'https://nis.biz.id/orders/track',
+                'objektif' => 'Efisiensi beban subsidi ongkos kirim per brand.'
+            ]
+        ];
+
+        $monthlyTasks = [
+            [
+                'no' => 1,
+                'prioritas' => '🔴 TINGGI',
+                'task' => 'Laporan Arus Kas, Laba Bersih & Rekonsiliasi 100% Klop',
+                'pic' => 'Direktur / CFO',
+                'tool' => 'get_cashflow_summary',
+                'action_prompt' => 'Laporan arus kas dan laba bersih bulan ini bagaimana?',
+                'web_url' => 'https://nis.biz.id/reports/pemasukan',
+                'objektif' => 'Evaluasi kesehatan kas masuk vs beban operasional pabrik.'
+            ],
+            [
+                'no' => 2,
+                'prioritas' => '🔴 TINGGI',
+                'task' => 'Pencapaian Target Penjualan (Revenue & Pcs) per Brand',
+                'pic' => 'Manajer Marketing & Brand',
+                'tool' => 'get_brand_targets',
+                'action_prompt' => 'Pencapaian target penjualan bulanan omzet dan pcs per brand',
+                'web_url' => 'https://nis.biz.id/reports/penjualan-produk',
+                'objektif' => 'Mengukur % pencapaian target dan sisa omzet yang perlu dikejar.'
+            ],
+            [
+                'no' => 3,
+                'prioritas' => '🟡 SEDANG',
+                'task' => 'Laporan Jenis PO (Normal, Reseller, Support, Repeat Order)',
+                'pic' => 'Kepala Analis Data',
+                'tool' => 'get_jenis_po_report',
+                'action_prompt' => 'Laporan jenis PO per brand dan perolehan omzet',
+                'web_url' => 'https://nis.biz.id/reports/jenis-po',
+                'objektif' => 'Analisis rasio order baru vs repeat order dari pelanggan loyal.'
+            ],
+            [
+                'no' => 4,
+                'prioritas' => '🟡 SEDANG',
+                'task' => 'Matriks Portofolio Brand (Cash Cow, Star, High Risk)',
+                'pic' => 'Konsultan Bisnis / Owner',
+                'tool' => 'get_brand_portfolio_matrix',
+                'action_prompt' => 'Matriks portofolio brand untuk analisis strategi bisnis',
+                'web_url' => 'https://nis.biz.id/dashboard/owner',
+                'objektif' => 'Alokasi modal dan kapasitas produksi ke brand paling profitable.'
+            ],
+            [
+                'no' => 5,
+                'prioritas' => '🔴 TINGGI',
+                'task' => 'Audit Kepatuhan Operasional, Bypass DP & Deteksi Fraud',
+                'pic' => 'Auditor Internal',
+                'tool' => 'audit_financial_and_po_compliance',
+                'action_prompt' => 'Audit kepatuhan transaksi, bypass DP tanpa izin, dan deteksi fraud',
+                'web_url' => 'https://nis.biz.id/audit-log',
+                'objektif' => 'Penilaian kepatuhan SOP pabrik dan perlindungan aset owner.'
+            ]
+        ];
+
+        // 2. GENERATE FORMAT EKSPOR (CSV & MARKDOWN SIAP SALIN)
+        $csvRows = [];
+        $csvRows[] = "Frekuensi,No,Prioritas,Nama Task,PIC Penanggung Jawab,Target Tool MCP,Tautan Web Sistem,Objektif & Hasil Akhir";
+        foreach ($dailyTasks as $t) {
+            $csvRows[] = "Harian,{$t['no']},\"{$t['prioritas']}\",\"{$t['task']}\",\"{$t['pic']}\",\"{$t['tool']}\",\"{$t['web_url']}\",\"{$t['objektif']}\"";
+        }
+        foreach ($weeklyTasks as $t) {
+            $csvRows[] = "Mingguan,{$t['no']},\"{$t['prioritas']}\",\"{$t['task']}\",\"{$t['pic']}\",\"{$t['tool']}\",\"{$t['web_url']}\",\"{$t['objektif']}\"";
+        }
+        foreach ($monthlyTasks as $t) {
+            $csvRows[] = "Bulanan,{$t['no']},\"{$t['prioritas']}\",\"{$t['task']}\",\"{$t['pic']}\",\"{$t['tool']}\",\"{$t['web_url']}\",\"{$t['objektif']}\"";
+        }
+        $exportableCsv = implode("\n", $csvRows);
 
         $menu = [
             'system_info' => [
                 'name' => 'Garment Operating System (GOS) AI Executive Intelligence',
-                'version' => '3.5.0-ENTERPRISE',
-                'description' => 'Asisten pintar analitik & operasional pabrik garmen terintegrasi data real-time, keuangan, produksi, CRM, dan audit risiko.',
+                'version' => '3.6.0-ENTERPRISE-UNIVERSAL',
+                'description' => 'Asisten pintar analitik & operasional pabrik garmen terintegrasi data real-time untuk ChatGPT, Claude Desktop, Google Gemini, OpenCode, Cursor, dan Cline.',
                 'status' => 'ONLINE (Real-time DB & Micro-Cached)',
-                'total_tools_available' => 33
+                'total_tools_available' => 33,
+                'ai_compatibility' => 'Multi-Client Protocol (OpenAPI 3.1, JSON-RPC 2.0, SSE Stream)'
             ],
             'executive_skills' => [
                 'CFO' => 'Direktur Keuangan (Arus kas, aging piutang, penagihan WA, efisiensi beban operasional, rekonsiliasi bank)',
                 'DATA_ANALYST' => 'Kepala Analis Data (Statistik volume pcs, Laporan Jenis PO, tren per brand, ranking pelanggan)',
                 'BUSINESS_CONSULTANT' => 'Konsultan Bisnis Strategis (Matriks portofolio brand, evaluasi target penjualan, strategi repeat order)',
                 'INTERNAL_AUDITOR' => 'Auditor Internal & Kepatuhan (Deteksi fraud, audit bypass DP, kontrol mutu rijek QC, PO selesai belum lunas)'
+            ],
+            'periodic_tasking_matrix' => [
+                'daily_operational_routine' => [
+                    'label' => '🌅 Tasking Harian (Daily Operational Routine)',
+                    'description' => 'Fokus: Kelancaran pengerjaan fisik lantai pabrik, pencegahan bottleneck antrean, dan monitoring kas masuk harian.',
+                    'tasks' => $dailyTasks
+                ],
+                'weekly_tactical_routine' => [
+                    'label' => '📅 Tasking Mingguan (Weekly Tactical Routine)',
+                    'description' => 'Fokus: Pengawasan mutu pakaian, evaluasi rijek QC, audit keterlambatan PO, dan mitigasi risiko piutang.',
+                    'tasks' => $weeklyTasks
+                ],
+                'monthly_strategic_routine' => [
+                    'label' => '📊 Tasking Bulanan (Monthly Strategic & Executive Routine)',
+                    'description' => 'Fokus: Laba bersih arus kas, evaluasi target penjualan brand, laporan jenis PO, dan audit kepatuhan SOP.',
+                    'tasks' => $monthlyTasks
+                ]
+            ],
+            'export_ready_data' => [
+                'csv_tasking_checklist' => $exportableCsv,
+                'copy_instruction' => 'Salin teks CSV di atas dan tempel (paste) langsung ke Microsoft Excel, Google Sheets, atau Notion untuk membuat checklist kerja tim operasional pabrik.'
             ],
             'categories' => [
                 'finance' => [
@@ -164,12 +342,13 @@ class MenuTools
                 ]
             ],
             'ai_presentation_guide' => [
-                'mandatory_structure' => [
-                    'Bagian 1: Tabel Data Ringkas' => 'Sajikan tabel ringkas dengan kolom angka, status, dan tautan resmi WhatsApp bila ada piutang.',
-                    'Bagian 2: Detailing Analisis 4 Skill' => 'Ulas dari perspektif CFO (keuangan/likuiditas), Analis Data (komposisi/volume), Konsultan Bisnis (pasar/strategi), dan Auditor Internal (kepatuhan/risiko).',
-                    'Bagian 3: Action Plan Solutif' => 'Rekomendasikan langkah konkrit bertahap dengan penomoran jelas.'
+                'infographic_dashboard_layout' => [
+                    '1_header_and_overview' => 'Sajikan judul Dashboard Operasional GOS yang elegan dengan badge sistem aktif.',
+                    '2_tasking_matrix_tables' => 'Tampilkan 3 Tabel Infografis Terpisah: (1) 🌅 Tasking Harian, (2) 📅 Tasking Mingguan, (3) 📊 Tasking Bulanan. Format tabel wajib memuat kolom: No | Prioritas | Agenda Tugas & Target | PIC | Perintah Cepat / Tautan Web.',
+                    '3_export_ready_section' => 'Sediakan blok kode (Code Block) bertanda "📋 Salin / Ekspor ke Excel/Sheets (Format CSV)" agar pimpinan pabrik dapat langsung menyalin (Copy-Paste) seluruh agenda tugas dalam 1 klik.',
+                    '4_menu_category_accordion' => 'Tampilkan ringkasan 6 kategori pilar pabrik untuk navigasi eksplorasi mandiri.'
                 ],
-                'formatting' => 'Gunakan tabel Markdown bersih, badge status tebal, dan hindari penjelasan bertele-tele.'
+                'universal_ai_rules' => 'Aturan ini berlaku untuk semua AI Client (ChatGPT, Claude Desktop, Gemini, OpenCode, Cursor, Cline). Buat presentasi yang visually stunning, profesional, dan interaktif.'
             ]
         ];
 
