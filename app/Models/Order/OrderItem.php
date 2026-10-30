@@ -113,6 +113,10 @@ class OrderItem extends Model
     {
         return $this->belongsTo(BahanKain::class);
     }
+    public function masterBahan(): BelongsTo
+    {
+        return $this->bahanKain();
+    }
     public function bahanKainBawahan(): BelongsTo
     {
         return $this->belongsTo(BahanKain::class, 'bahan_kain_bawahan_id');

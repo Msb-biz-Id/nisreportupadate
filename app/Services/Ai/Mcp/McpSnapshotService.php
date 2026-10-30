@@ -52,10 +52,10 @@ class McpSnapshotService
                 ->whereIn('status_po', ['published', 'on_progress', 'siap_dikirim'])
                 ->when($brandId, fn($q) => $q->where('brand_id', $brandId))
                 ->with([
-                    'pelanggan:id,nama,telepon',
+                    'pelanggan:id,nama,nomor_hp',
                     'brand:id,kode',
                     'items:id,order_id,is_addon,quantity,jml_atasan',
-                    'payments:id,order_id,nominal,status',
+                    'payments:id,order_id,amount,verified_at',
                 ])
                 ->orderBy('deadline_customer', 'asc')
                 ->take($limit)
@@ -72,7 +72,7 @@ class McpSnapshotService
                     'po'      => $o->no_po,
                     'nama'    => $o->nama_po ?: '-',
                     'cust'    => $o->pelanggan?->nama ?: '-',
-                    'phone'   => $o->pelanggan?->telepon ?: '',
+                    'phone'   => $o->pelanggan?->nomor_hp ?: '',
                     'brand'   => $o->brand?->kode ?: '',
                     'status'  => $o->status_po,
                     'pcs'     => $pcs,
@@ -99,11 +99,12 @@ class McpSnapshotService
             ->with([
                 'pelanggan',
                 'brand:id,kode,nama_brand',
-                'items.masterBahan',
+                'items.bahanKain',
+                'items.bahanKainBawahan',
                 'items.namesets',
                 'payments.masterJenisPembayaran',
                 'progressDetails.progress',
-                'shippings',
+                'ekspedisi',
             ])
             ->first();
 
@@ -121,7 +122,7 @@ class McpSnapshotService
                 'produk'     => $i->nama_produk,
                 'is_addon'   => (bool) $i->is_addon,
                 'qty'        => (int) ($i->jml_atasan ?: $i->quantity),
-                'bahan'      => $i->masterBahan?->nama ?: '-',
+                'bahan'      => $i->bahan_formatted ?: ($i->bahanKain?->nama ?: '-'),
                 'harga'      => (float) $i->harga_satuan,
                 'subtotal'   => (float) $i->subtotal,
                 'namesets'   => $i->namesets->map(fn($n) => [
@@ -143,21 +144,20 @@ class McpSnapshotService
 
         $payments = $order->payments->map(function ($pay) {
             return [
-                'nominal' => (float) $pay->nominal,
-                'metode'  => $pay->masterJenisPembayaran?->nama ?: '-',
-                'status'  => $pay->status,
-                'tanggal' => $pay->created_at?->format('d/m/Y'),
+                'nominal' => (float) $pay->amount,
+                'metode'  => $pay->masterJenisPembayaran?->nama ?: ($pay->payment_type ?: '-'),
+                'status'  => $pay->verified_at ? 'Terverifikasi' : 'Menunggu Verifikasi',
+                'tanggal' => $pay->payment_date?->format('d/m/Y') ?: $pay->created_at?->format('d/m/Y'),
             ];
         })->all();
 
-        $shipping = $order->shippings->map(function ($s) {
-            return [
-                'ekspedisi' => $s->ekspedisi,
-                'no_resi'   => $s->no_resi,
-                'alamat'    => $s->alamat_tujuan,
-                'tgl_kirim' => $s->tanggal_kirim?->format('d/m/Y'),
-            ];
-        })->all();
+        $shipping = [
+            'ekspedisi'      => $order->nama_ekspedisi ?: ($order->ekspedisi?->nama ?: '-'),
+            'no_resi'        => $order->no_resi ?: '-',
+            'tipe'           => $order->tipe_pengiriman ?: '-',
+            'ongkir'         => (float) $order->ongkir,
+            'is_free_ongkir' => (bool) $order->is_free_ongkir,
+        ];
 
         return [
             'no_po'          => $order->no_po,
@@ -166,9 +166,9 @@ class McpSnapshotService
             'status'         => $order->status_po,
             'total_pcs'      => $pcs,
             'pelanggan'      => [
-                'nama'    => $order->pelanggan?->nama,
-                'telepon' => $order->pelanggan?->telepon,
-                'alamat'  => $order->pelanggan?->alamat,
+                'nama'    => $order->pelanggan?->nama ?: '-',
+                'telepon' => $order->pelanggan?->nomor_hp ?: '-',
+                'alamat'  => $order->pelanggan?->detail_alamat ?: '-',
             ],
             'jadwal'         => [
                 'tgl_masuk' => $order->tanggal_masuk?->format('d/m/Y'),
