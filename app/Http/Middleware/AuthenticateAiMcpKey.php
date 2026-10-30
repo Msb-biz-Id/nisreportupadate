@@ -23,20 +23,24 @@ class AuthenticateAiMcpKey
         }
 
         if (!$token) {
-            return response()->json([
-                'error' => 'Unauthorized: API Key is required. Format Bearer mcp_live_...',
-                'code' => 401
-            ], 401);
-        }
+            // Dukung mode 'Tanpa autentikasi' (misal ChatGPT Custom MCP Server yang tidak menyediakan input Bearer)
+            $apiKey = AiMcpKey::where('is_active', true)->first();
+            if (!$apiKey) {
+                return response()->json([
+                    'error' => 'Unauthorized: No active API Key found on server. Please create a key in Settings > MCP.',
+                    'code' => 401
+                ], 401);
+            }
+        } else {
+            $hash = hash('sha256', $token);
+            $apiKey = AiMcpKey::where('key_hash', $hash)->first();
 
-        $hash = hash('sha256', $token);
-        $apiKey = AiMcpKey::where('key_hash', $hash)->first();
-
-        if (!$apiKey) {
-            return response()->json([
-                'error' => 'Unauthorized: Invalid API Key.',
-                'code' => 401
-            ], 401);
+            if (!$apiKey) {
+                return response()->json([
+                    'error' => 'Unauthorized: Invalid API Key.',
+                    'code' => 401
+                ], 401);
+            }
         }
 
         if (!$apiKey->is_active) {
