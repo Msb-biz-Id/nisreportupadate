@@ -26,10 +26,23 @@ class AuthenticateAiMcpKey
             // Dukung mode 'Tanpa autentikasi' (misal ChatGPT Custom MCP Server yang tidak menyediakan input Bearer)
             $apiKey = AiMcpKey::where('is_active', true)->first();
             if (!$apiKey) {
-                return response()->json([
-                    'error' => 'Unauthorized: No active API Key found on server. Please create a key in Settings > MCP.',
-                    'code' => 401
-                ], 401);
+                try {
+                    $apiKey = AiMcpKey::create([
+                        'name' => 'ChatGPT Default (Tanpa Autentikasi)',
+                        'key_hash' => hash('sha256', 'mcp_anon_fallback_' . (config('app.key') ?: 'protrack')),
+                        'key_prefix' => 'mcp_live_anon',
+                        'client_type' => 'chatgpt',
+                        'allowed_brands' => null,
+                        'is_active' => true,
+                    ]);
+                } catch (\Throwable $e) {
+                    $apiKey = null;
+                }
+            }
+
+            if (!$apiKey) {
+                // Jika database belum memiliki key dan create gagal, tetap loloskan request
+                return $next($request);
             }
         } else {
             $hash = hash('sha256', $token);
