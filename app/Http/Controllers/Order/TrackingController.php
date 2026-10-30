@@ -111,34 +111,36 @@ class TrackingController extends Controller
             'nama_ekspedisi' => $order->nama_ekspedisi,
             'no_resi'        => $order->no_resi,
             'brand' => [
-                'nama_brand' => $order->brand->nama_brand,
-                'kode' => $order->brand->kode,
-                'warna_primary' => $order->brand->warna_primary,
-                'logo' => $order->brand->logo,
-                'instagram' => $order->brand->instagram,
-                'whatsapp' => $order->brand->whatsapp ?? $order->brand->no_hp,
+                'nama_brand' => $order->brand?->nama_brand ?? '-',
+                'kode' => $order->brand?->kode ?? '-',
+                'warna_primary' => $order->brand?->warna_primary,
+                'logo' => $order->brand?->logo,
+                'instagram' => $order->brand?->instagram,
+                'whatsapp' => $order->brand?->whatsapp ?? $order->brand?->no_hp,
             ],
             'pelanggan' => [
-                'nama_initial' => $this->maskName($order->pelanggan->nama),
-                'hp_masked' => $this->maskPhone($order->pelanggan->nomor_hp),
+                'nama_initial' => $this->maskName($order->pelanggan?->nama),
+                'hp_masked' => $this->maskPhone($order->pelanggan?->nomor_hp),
             ],
             'items' => $order->items->map(fn ($i) => [
                 'nama_produk' => $i->nama_produk,
                 'quantity' => $i->quantity,
             ])->all(),
             'progress' => $order->progressDetails->sortBy('progress.urutan')->values()->map(fn ($d) => [
-                'nama' => $d->progress->nama_progress,
-                'urutan' => $d->progress->urutan,
+                'nama' => $d->progress?->nama_progress ?? '-',
+                'urutan' => $d->progress?->urutan ?? 0,
                 'status' => $d->status,
-                'warna' => $d->progress->warna,
+                'warna' => $d->progress?->warna,
                 'completed_at' => $d->completed_at?->toDateString(),
             ])->all(),
         ];
     }
 
-    private function maskName(string $name): string
+    private function maskName(?string $name): string
     {
-        $parts = explode(' ', trim($name));
+        if (! $name) return '-';
+        $parts = array_filter(explode(' ', trim($name)));
+        if (empty($parts)) return '-';
         return collect($parts)->map(fn ($p) => mb_substr($p, 0, 1) . str_repeat('*', max(0, mb_strlen($p) - 1)))->join(' ');
     }
 
