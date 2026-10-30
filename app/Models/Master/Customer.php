@@ -7,6 +7,7 @@ use App\Models\Concerns\HasUuidAndSoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $id
@@ -38,6 +39,11 @@ class Customer extends Model
     public function brand(): BelongsTo
     {
         return $this->belongsTo(Brand::class);
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(\App\Models\Order\Order::class, 'pelanggan_id');
     }
 
     public function customerType(): BelongsTo

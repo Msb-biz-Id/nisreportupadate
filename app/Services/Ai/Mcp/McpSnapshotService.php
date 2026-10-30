@@ -376,9 +376,9 @@ class McpSnapshotService
         $customers = Customer::query()
             ->where(function ($w) use ($q) {
                 $w->where('nama', 'LIKE', "%{$q}%")
-                  ->orWhere('telepon', 'LIKE', "%{$q}%")
+                  ->orWhere('nomor_hp', 'LIKE', "%{$q}%")
                   ->orWhere('email', 'LIKE', "%{$q}%")
-                  ->orWhere('instansi', 'LIKE', "%{$q}%");
+                  ->orWhere('kode', 'LIKE', "%{$q}%");
             })
             ->withCount('orders')
             ->take(10)
@@ -387,12 +387,14 @@ class McpSnapshotService
         return [
             'total_found' => $customers->count(),
             'customers'   => $customers->map(fn($c) => [
-                'id'          => $c->id,
-                'nama'        => $c->nama,
-                'telepon'     => $c->telepon,
-                'email'       => $c->email,
-                'instansi'    => $c->instansi ?: '-',
-                'total_order' => $c->orders_count,
+                'id'              => $c->id,
+                'kode'            => $c->kode,
+                'nama'            => $c->nama,
+                'nomor_hp'        => $c->nomor_hp,
+                'email'           => $c->email,
+                'alamat'          => $c->detail_alamat ?: '-',
+                'total_order'     => $c->orders_count ?? $c->total_order,
+                'total_transaksi' => (float) ($c->total_transaksi ?? 0),
             ])->all(),
         ];
     }
@@ -405,7 +407,8 @@ class McpSnapshotService
         $q = trim($query);
         $customer = Customer::query()
             ->where('id', $q)
-            ->orWhere('telepon', $q)
+            ->orWhere('nomor_hp', $q)
+            ->orWhere('kode', $q)
             ->orWhere('nama', 'LIKE', "%{$q}%")
             ->first();
 
@@ -420,7 +423,7 @@ class McpSnapshotService
             ->take(20)
             ->get();
 
-        $totalSpent = $orders->sum('total_amount');
+        $totalSpent = $orders->sum(fn($o) => $o->totalTagihan());
         $totalPcs = 0;
         foreach ($orders as $o) {
             $totalPcs += self::countPcs($o);
@@ -428,10 +431,12 @@ class McpSnapshotService
 
         return [
             'customer' => [
+                'id'       => $customer->id,
+                'kode'     => $customer->kode,
                 'nama'     => $customer->nama,
-                'telepon'  => $customer->telepon,
-                'instansi' => $customer->instansi,
-                'alamat'   => $customer->alamat,
+                'nomor_hp' => $customer->nomor_hp,
+                'email'    => $customer->email,
+                'alamat'   => $customer->detail_alamat ?: '-',
             ],
             'statistik' => [
                 'total_po'    => $orders->count(),
@@ -444,7 +449,7 @@ class McpSnapshotService
                 'brand'    => $o->brand?->kode,
                 'status'   => $o->status_po,
                 'pcs'      => self::countPcs($o),
-                'nilai_rp' => (float) $o->total_amount,
+                'nilai_rp' => (float) $o->totalTagihan(),
                 'tgl'      => $o->tanggal_masuk?->format('d/m/Y'),
             ])->all(),
         ];
@@ -491,6 +496,166 @@ class McpSnapshotService
                 'order_aktif'    => $activeOrders,
             ];
         })->all();
+    }
+
+    /**
+     * 13. Get Comprehensive Finance KPI Summary
+     */
+    public static function getFinanceKpi(?string $brandId = null): array
+    {
+        $dashboardService = app(DashboardService::class);
+        $finance = $dashboardService->financeStats($brandId);
+
+        return [
+            'cards' => $finance['cards'] ?? [],
+            'piutang_outstanding' => [
+                'total_tunggakan' => $finance['reminder_sisa_po']['total_tunggakan'] ?? 0,
+                'total_po' => $finance['reminder_sisa_po']['total_po'] ?? 0,
+                'total_pcs' => $finance['reminder_sisa_po']['total_pcs'] ?? 0,
+            ],
+            'brand_financial_reports' => $finance['brand_financial_reports'] ?? [],
+            'payment_status_distribution' => $finance['payment_status'] ?? [],
+            'current_brand_id' => $finance['current_brand_id'] ?? 'all',
+        ];
+    }
+
+    /**
+     * 14. Get Production KPI & Workstation Antrean
+     */
+    public static function getProductionKpi(?string $brandId = null): array
+    {
+        $dashboardService = app(DashboardService::class);
+        $prod = $dashboardService->adminProduksiStats($brandId);
+
+        return [
+            'cards' => $prod['cards'] ?? [],
+            'tahapan_progress' => $prod['progress_distribution'] ?? [],
+            'deadline_mendekat' => $prod['deadline_mendekat'] ?? [],
+            'po_terlambat' => $prod['po_terlambat'] ?? [],
+            'po_siap_dikirim' => $prod['po_siap_dikirim'] ?? [],
+        ];
+    }
+
+    /**
+     * 15. Get Brand Monthly Sales Targets & Achievement
+     */
+    public static function getBrandTargets(?string $brandId = null): array
+    {
+        $targetMonth = (int) now()->month;
+        $targetYear = (int) now()->year;
+
+        $brands = Brand::active()
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('id', $brandId))
+            ->get();
+
+        $startOfMonth = now()->startOfMonth()->toDateTimeString();
+        $endOfMonth = now()->endOfMonth()->toDateTimeString();
+
+        $results = [];
+        $totalTargetRevenue = 0;
+        $totalActualRevenue = 0;
+
+        foreach ($brands as $b) {
+            $target = DB::table('brand_targets')
+                ->where('brand_id', $b->id)
+                ->where('year', $targetYear)
+                ->where('month', $targetMonth)
+                ->first();
+
+            $actualRevenue = (float) Order::where('brand_id', $b->id)
+                ->whereBetween('tanggal_masuk', [$startOfMonth, $endOfMonth])
+                ->where('status_po', '!=', 'draft')
+                ->sum('total_tagihan');
+
+            $actualPcs = (int) OrderItem::query()
+                ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                ->where('order_items.is_addon', false)
+                ->where('orders.brand_id', $b->id)
+                ->whereBetween('orders.tanggal_masuk', [$startOfMonth, $endOfMonth])
+                ->where('orders.status_po', '!=', 'draft')
+                ->sum(DB::raw("CASE WHEN order_items.jml_atasan IS NOT NULL AND order_items.jml_atasan != '' THEN CAST(order_items.jml_atasan AS UNSIGNED) ELSE order_items.quantity END"));
+
+            $revTarget = (float) ($target?->target_revenue ?? 0);
+            $pcsTarget = (int) ($target?->target_pcs ?? 0);
+            $achievement = $revTarget > 0 ? round(($actualRevenue / $revTarget) * 100, 1) : 0;
+
+            $totalTargetRevenue += $revTarget;
+            $totalActualRevenue += $actualRevenue;
+
+            $results[] = [
+                'brand_id'           => $b->id,
+                'kode'               => $b->kode,
+                'nama_brand'         => $b->nama_brand,
+                'target_omzet'       => $revTarget,
+                'aktual_omzet'       => $actualRevenue,
+                'target_pcs'         => $pcsTarget,
+                'aktual_pcs'         => $actualPcs,
+                'persentase_capai'   => "{$achievement}%",
+                'sisa_kejar_target'  => max(0, $revTarget - $actualRevenue),
+            ];
+        }
+
+        $overallPct = $totalTargetRevenue > 0 ? round(($totalActualRevenue / $totalTargetRevenue) * 100, 1) : 0;
+
+        return [
+            'bulan'                  => now()->translatedFormat('F Y'),
+            'total_target_agregat'   => $totalTargetRevenue,
+            'total_aktual_agregat'   => $totalActualRevenue,
+            'persentase_total'       => "{$overallPct}%",
+            'detail_per_brand'       => $results,
+        ];
+    }
+
+    /**
+     * 16. Get Bank Reconciliation & Cash Inflow
+     */
+    public static function getBankReconciliation(?string $brandId = null): array
+    {
+        $dashboardService = app(DashboardService::class);
+        $banks = $dashboardService->financeStats($brandId)['bank_accounts_summary'] ?? collect();
+
+        return [
+            'total_rekening' => count($banks),
+            'rekening_list'  => $banks,
+        ];
+    }
+
+    /**
+     * 17. Get Invoices with Status Filter
+     */
+    public static function getInvoices(?string $brandId = null, ?string $status = null, int $limit = 20): array
+    {
+        $query = \App\Models\Order\Invoice::query()
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('brand_id', $brandId))
+            ->when($status && $status !== 'all', fn($q) => $q->where('status', $status))
+            ->with([
+                'order:id,no_po,nama_po,pelanggan_id',
+                'order.pelanggan:id,nama,nomor_hp',
+                'brand:id,kode,nama_brand',
+            ])
+            ->orderByDesc('tanggal_terbit')
+            ->take($limit);
+
+        $invoices = $query->get();
+
+        return [
+            'filter_status' => $status ?: 'all',
+            'total_count'   => $invoices->count(),
+            'invoices'      => $invoices->map(fn($iv) => [
+                'no_invoice'       => $iv->invoice_number,
+                'no_po'            => $iv->order?->no_po ?: '-',
+                'nama_po'          => $iv->order?->nama_po ?: '-',
+                'pelanggan'        => $iv->order?->pelanggan?->nama ?: '-',
+                'telepon'          => $iv->order?->pelanggan?->nomor_hp ?: '-',
+                'brand'            => $iv->brand?->kode ?: '-',
+                'status'           => $iv->status,
+                'total_tagihan'    => (float) $iv->total_tagihan,
+                'total_bayar'      => (float) $iv->total_bayar,
+                'sisa_pembayaran'  => (float) $iv->sisa_pembayaran,
+                'tanggal_terbit'   => $iv->tanggal_terbit?->format('d/m/Y'),
+                'jatuh_tempo'      => $iv->jatuh_tempo?->format('d/m/Y'),
+            ])->all(),
+        ];
     }
 
     /**

@@ -70,4 +70,20 @@ class ProductionTools
             'ai_presentation_tip' => 'Sajikan evaluasi kontrol kualitas hasil produksi dan rijek.'
         ];
     }
+
+    /**
+     * Mengambil KPI Produksi menyeluruh (Antrean per workstation, kapasitas produksi, deadline mepet, order terlambat, & PO siap kirim).
+     */
+    public function getProductionKpi(array $params = []): array
+    {
+        $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
+        $data = McpSnapshotService::getProductionKpi($brandId);
+
+        return [
+            'status' => 'success',
+            'production_kpi' => $data,
+            'ai_presentation_tip' => 'Paparkan KPI lantai produksi secara terstruktur: kartu ringkasan, antrean per stasiun kerja (potong, jahit, sablon, bordir, dll), deadline mendekat, dan order siap kirim.'
+        ];
+    }
 }
+

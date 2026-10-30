@@ -126,6 +126,67 @@ class ToolRegistry
                     ]
                 ]
             ],
+            'get_finance_kpi' => [
+                'name' => 'get_finance_kpi',
+                'description' => 'Ringkasan komprehensif KPI Keuangan: Omzet aktual, total piutang tertahan/outstanding, pembayaran masuk, dan distribusi status pembayaran per brand.',
+                'class' => FinanceTools::class,
+                'method' => 'getFinanceKpi',
+                'scope' => 'read:finance',
+                'category' => 'finance',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'ID Brand spesifik atau "all" untuk seluruh brand (opsional).'
+                        ]
+                    ]
+                ]
+            ],
+            'get_bank_reconciliation' => [
+                'name' => 'get_bank_reconciliation',
+                'description' => 'Melihat rekonsiliasi saldo kas rekening bank operasional pabrik, total mutasi uang masuk dan keluar.',
+                'class' => FinanceTools::class,
+                'method' => 'getBankReconciliation',
+                'scope' => 'read:finance',
+                'category' => 'finance',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'Filter rekening terkait Brand tertentu (opsional).'
+                        ]
+                    ]
+                ]
+            ],
+            'get_invoices' => [
+                'name' => 'get_invoices',
+                'description' => 'Melihat daftar faktur invoice penagihan pelanggan dengan filter status pembayaran (unpaid, partial, paid, overdue).',
+                'class' => FinanceTools::class,
+                'method' => 'getInvoices',
+                'scope' => 'read:finance',
+                'category' => 'finance',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'status' => [
+                            'type' => 'string',
+                            'enum' => ['all', 'unpaid', 'partial', 'paid', 'overdue'],
+                            'description' => 'Status invoice yang ingin difilter (default: all).'
+                        ],
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'Filter Brand tertentu (opsional).'
+                        ],
+                        'limit' => [
+                            'type' => 'integer',
+                            'description' => 'Jumlah maksimal invoice yang ditampilkan (default: 20).',
+                            'default' => 20
+                        ]
+                    ]
+                ]
+            ],
 
             // ==================== ORDERS & TRACKING ====================
             'get_active_orders' => [
@@ -268,6 +329,23 @@ class ToolRegistry
                     ]
                 ]
             ],
+            'get_production_kpi' => [
+                'name' => 'get_production_kpi',
+                'description' => 'Monitoring KPI lantai produksi menyeluruh: beban antrean per workstation (cutting, sewing, sablon, bordir, finishing, packing), deadline mendekat, order terlambat, & PO siap kirim.',
+                'class' => ProductionTools::class,
+                'method' => 'getProductionKpi',
+                'scope' => 'read:production',
+                'category' => 'production',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'ID Brand spesifik atau "all" untuk seluruh brand (opsional).'
+                        ]
+                    ]
+                ]
+            ],
 
             // ==================== CUSTOMER & CRM ====================
             'search_customer' => [
@@ -338,6 +416,23 @@ class ToolRegistry
                         'brand_id' => [
                             'type' => 'integer',
                             'description' => 'ID Brand tertentu jika ingin filter satu brand saja.'
+                        ]
+                    ]
+                ]
+            ],
+            'get_brand_targets' => [
+                'name' => 'get_brand_targets',
+                'description' => 'Target penjualan dan pencapaian bulanan (Target Revenue Rp & Target Pcs) per masing-masing Brand dan agregat total pabrik, termasuk sisa kekurangan yang harus dikejar.',
+                'class' => ReportTools::class,
+                'method' => 'getBrandTargets',
+                'scope' => 'read:reports',
+                'category' => 'reports',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'ID Brand spesifik atau "all" untuk seluruh brand (opsional).'
                         ]
                     ]
                 ]

@@ -30,17 +30,22 @@ class MenuTools
             'categories' => [
                 'finance' => [
                     'label' => '💰 1. Keuangan & Penagihan (Billing & Reminder)',
-                    'description' => 'Cek sisa tagihan PO, reminder otomatis WhatsApp, dan arus kas.',
+                    'description' => 'Cek KPI keuangan, omzet, piutang tertahan, reminder WA, faktur invoice, rekonsiliasi kas bank, dan arus kas.',
                     'quick_triggers' => [
+                        'KPI Keuangan & Piutang pabrik saat ini',
                         'Sisa tagihan PO yang belum lunas',
+                        'Daftar invoice (faktur) pelanggan',
+                        'Saldo kas dan mutasi rekening bank',
                         'Buat draft pesan tagihan WhatsApp ke pelanggan',
-                        'Ringkasan arus kas bulan ini',
-                        'Daftar invoice jatuh tempo'
+                        'Ringkasan arus kas bulan ini'
                     ],
                     'available_tools' => [
-                        ['tool' => 'get_unpaid_reminders', 'desc' => 'Daftar semua PO dengan sisa tagihan / tunggakan + link WA'],
+                        ['tool' => 'get_finance_kpi', 'desc' => 'KPI komprehensif keuangan: omzet, piutang outstanding, pembayaran, rasio per brand'],
+                        ['tool' => 'get_unpaid_reminders', 'desc' => 'Daftar semua PO dengan sisa tagihan / tunggakan + link WA penagihan otomatis'],
+                        ['tool' => 'get_invoices', 'desc' => 'Daftar faktur invoice penagihan (params: status=unpaid|partial|paid|overdue, brand_id)'],
+                        ['tool' => 'get_bank_reconciliation', 'desc' => 'Rekonsiliasi saldo kas rekening bank operasional pabrik'],
                         ['tool' => 'get_order_billing', 'desc' => 'Rincian invoice, DP, pelunasan & sisa tagihan per PO (params: order_id/spk_number)'],
-                        ['tool' => 'get_cashflow_summary', 'desc' => 'Ringkasan pembayaran masuk & total piutang tertahan'],
+                        ['tool' => 'get_cashflow_summary', 'desc' => 'Ringkasan penerimaan kas masuk & total piutang tertahan'],
                         ['tool' => 'get_overdue_invoices', 'desc' => 'Daftar order selesai yang belum melunasi pembayaran']
                     ]
                 ],
@@ -60,13 +65,15 @@ class MenuTools
                 ],
                 'production' => [
                     'label' => '🏭 3. Antrian Produksi & Deadline (Production Floor)',
-                    'description' => 'Monitoring antrian stasiun kerja (potong, jahit, sablon, bordir, QC, packing) dan peringatan keterlambatan.',
+                    'description' => 'Monitoring KPI produksi, antrean per stasiun kerja (potong, jahit, sablon, bordir, QC, packing), peringatan keterlambatan & siap kirim.',
                     'quick_triggers' => [
+                        'KPI Produksi menyeluruh & antrean workstation',
                         'Order yang mendekati deadline (H-3 / H-7)',
                         'Order yang sudah lewat deadline (terlambat)',
                         'Status antrian jahit dan sablon hari ini'
                     ],
                     'available_tools' => [
+                        ['tool' => 'get_production_kpi', 'desc' => 'Dashboard KPI produksi lengkap: kartu ringkasan, antrean per stasiun kerja, deadline mepet, order terlambat & siap kirim'],
                         ['tool' => 'get_production_queue', 'desc' => 'Distribusi jumlah order per stasiun kerja'],
                         ['tool' => 'get_approaching_deadlines', 'desc' => 'Peringatan deadline kritis dalam X hari (params: days_ahead=7)'],
                         ['tool' => 'get_delayed_orders', 'desc' => 'Daftar PO yang telah melampaui tanggal deadline'],
@@ -87,12 +94,14 @@ class MenuTools
                 ],
                 'reports' => [
                     'label' => '📊 5. Laporan Eksekutif & Ringkasan (Executive Summary)',
-                    'description' => 'Dashboard ringkasan harian/bulanan untuk Owner dan Direksi.',
+                    'description' => 'Dashboard ringkasan harian/bulanan untuk Owner dan Direksi serta pencapaian target brand.',
                     'quick_triggers' => [
                         'Laporan ringkasan performa pabrik hari ini',
+                        'Cek pencapaian target penjualan brand bulan ini',
                         'Analisis omset per brand'
                     ],
                     'available_tools' => [
+                        ['tool' => 'get_brand_targets', 'desc' => 'Target penjualan bulanan (Omzet Rp & Pcs) vs aktual, persentase capai & sisa kejar target per brand'],
                         ['tool' => 'get_executive_report', 'desc' => 'KPI harian: total PO, omset, target produksi, piutang'],
                         ['tool' => 'get_brand_overview', 'desc' => 'Performa order & volume produksi per Brand']
                     ]

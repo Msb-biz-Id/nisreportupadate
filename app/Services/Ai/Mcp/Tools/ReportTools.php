@@ -39,4 +39,20 @@ class ReportTools
             'ai_presentation_tip' => 'Tampilkan data order aktif per masing-masing brand.'
         ];
     }
+
+    /**
+     * Mengambil pencapaian target penjualan bulanan (Revenue & Pcs) per Brand dan agregat pabrik.
+     */
+    public function getBrandTargets(array $params = []): array
+    {
+        $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
+        $targets = McpSnapshotService::getBrandTargets($brandId);
+
+        return [
+            'status' => 'success',
+            'target_achievement' => $targets,
+            'ai_presentation_tip' => 'Bandingkan target vs aktual omzet & pcs bulan ini, tampilkan persentase ketercapaian, dan sisa kekurangan target per brand.'
+        ];
+    }
 }
+

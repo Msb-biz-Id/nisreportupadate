@@ -78,20 +78,51 @@ class FinanceTools
     }
 
     /**
-     * Daftar order yang sudah selesai/dikirim namun pembayarannya masih belum lunas.
+     * Ringkasan KPI Keuangan menyeluruh (Omzet bulanan, Piutang outstanding, Penerimaan kas, Beban biaya).
      */
-    public function getOverdueInvoices(array $params = []): array
+    public function getFinanceKpi(array $params = []): array
     {
         $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
-        $limit = !empty($params['limit']) ? (int)$params['limit'] : 20;
-
-        $data = McpSnapshotService::getUnpaidReminders($brandId, $limit);
+        $data = McpSnapshotService::getFinanceKpi($brandId);
 
         return [
             'status' => 'success',
-            'total_overdue_count' => $data['total_po_belum_lunas'] ?? 0,
-            'orders' => $data['items'] ?? [],
-            'ai_presentation_tip' => 'Peringatkan user bahwa order pada daftar ini barangnya telah selesai / terkirim tetapi belum lunas. Sarankan penagihan prioritas.'
+            'kpi' => $data,
+            'ai_presentation_tip' => 'Paparkan KPI keuangan utama dalam bentuk summary eksekutif yang memuat: Omset, Piutang Tertahan, Pembayaran Masuk, dan Rincian per Brand.'
+        ];
+    }
+
+    /**
+     * Ringkasan rekonsiliasi dan saldo kas rekening bank operasional pabrik.
+     */
+    public function getBankReconciliation(array $params = []): array
+    {
+        $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
+        $data = McpSnapshotService::getBankReconciliation($brandId);
+
+        return [
+            'status' => 'success',
+            'data' => $data,
+            'ai_presentation_tip' => 'Tampilkan saldo dan mutasi kas bank penerimaan secara transparan.'
+        ];
+    }
+
+    /**
+     * Mengambil daftar invoice / faktur penagihan pelanggan dengan filter status (unpaid, partial, paid, overdue).
+     */
+    public function getInvoices(array $params = []): array
+    {
+        $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
+        $status = !empty($params['status']) ? (string)$params['status'] : null;
+        $limit = !empty($params['limit']) ? (int)$params['limit'] : 20;
+
+        $data = McpSnapshotService::getInvoices($brandId, $status, $limit);
+
+        return [
+            'status' => 'success',
+            'invoices_data' => $data,
+            'ai_presentation_tip' => 'Tampilkan tabel tagihan faktur dengan nomor invoice, PO, nama pelanggan, sisa tagihan, dan tanggal jatuh tempo.'
         ];
     }
 }
+
