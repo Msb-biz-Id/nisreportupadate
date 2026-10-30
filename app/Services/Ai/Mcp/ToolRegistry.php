@@ -144,7 +144,7 @@ class ToolRegistry
             ],
             'get_cashflow_summary' => [
                 'name' => 'get_cashflow_summary',
-                'description' => 'Ringkasan arus kas keuangan pabrik (pembayaran masuk vs piutang tertahan) untuk periode bulan tertentu.',
+                'description' => 'Ringkasan arus kas keuangan pabrik (penerimaan kas masuk, beban operasional, refund, & laba bersih) dengan rekonsiliasi 100% klop per kategori pembayaran, per brand, dan rekening bank untuk periode bulan tertentu atau rentang tanggal bebas.',
                 'class' => FinanceTools::class,
                 'method' => 'getCashflowSummary',
                 'scope' => 'read:finance',
@@ -152,13 +152,35 @@ class ToolRegistry
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
+                        'periode' => [
+                            'type' => 'string',
+                            'enum' => ['bulan_ini', 'bulan_lalu', 'hari_ini', 'minggu_ini', 'tahun_ini', 'semua'],
+                            'description' => 'Pilihan periode cepat (contoh: "bulan_ini", "bulan_lalu", "tahun_ini"). Default: "bulan_ini".'
+                        ],
                         'month' => [
                             'type' => 'string',
-                            'description' => 'Format 2 digit bulan (01-12). Default bulan berjalan.'
+                            'description' => 'Format 2 digit bulan (01-12) atau 1-12 (contoh: "10" untuk Oktober).'
                         ],
                         'year' => [
                             'type' => 'string',
-                            'description' => 'Format 4 digit tahun (contoh: 2026). Default tahun berjalan.'
+                            'description' => 'Format 4 digit tahun (contoh: "2026").'
+                        ],
+                        'from_date' => [
+                            'type' => 'string',
+                            'description' => 'Tanggal awal rentang spesifik (format YYYY-MM-DD).'
+                        ],
+                        'to_date' => [
+                            'type' => 'string',
+                            'description' => 'Tanggal akhir rentang spesifik (format YYYY-MM-DD).'
+                        ],
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'Filter ID Brand tertentu atau "all" untuk seluruh brand (opsional).'
+                        ],
+                        'limit' => [
+                            'type' => 'integer',
+                            'description' => 'Jumlah sampel baris transaksi terbaru yang ditampilkan (default: 25, max: 100).',
+                            'default' => 25
                         ]
                     ]
                 ]

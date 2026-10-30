@@ -84,19 +84,16 @@ class FinanceTools
     }
 
     /**
-     * Ringkasan arus kas & laba bersih.
+     * Ringkasan arus kas keuangan pabrik (penerimaan kas masuk, beban operasional, refund, laba bersih, & rekonsiliasi 100% klop).
      */
     public function getCashflowSummary(array $params = []): array
     {
-        $periode = $params['periode'] ?? 'bulanan';
-        $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
-
-        $data = McpSnapshotService::getCashflowSummary($periode, $brandId);
+        $data = McpSnapshotService::getCashflowSummary($params);
 
         return [
             'status' => 'success',
             'cashflow' => $data,
-            'ai_presentation_tip' => 'Sajikan dalam bentuk bullet points perbandingan penerimaan kas vs piutang/pengeluaran.'
+            'ai_presentation_tip' => 'Sajikan sebagai Analis Keuangan / CFO Profesional: (1) Sebutkan rentang tanggal periode yang dianalisis secara presisi. (2) Tampilkan Ringkasan Eksekutif Arus Kas (Total Pemasukan, Beban Operasional, Refund, dan Arus Kas Bersih). (3) Tampilkan Rekonsiliasi 100% Klop dalam bentuk tabel breakdown per Kategori Pembayaran (DP vs Pelunasan) dan per Brand agar pembaca yakin bahwa seluruh nilai agregat terverifikasi tanpa ada selisih. (4) Informasikan bahwa daftar sampel transaksi dibatasi pada transaksi terbaru untuk efisiensi, dan seluruh total agregat telah terangkum utuh pada tabel breakdown.'
         ];
     }
 
