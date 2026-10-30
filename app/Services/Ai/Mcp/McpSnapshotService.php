@@ -373,24 +373,44 @@ class McpSnapshotService
     public static function searchCustomer(string $query): array
     {
         $q = trim($query);
+
+        // Cek apakah query merujuk pada nama atau kode Brand tertentu
+        $matchedBrand = Brand::where('kode', 'LIKE', $q)
+            ->orWhere('nama_brand', 'LIKE', "%{$q}%")
+            ->first();
+
         $customers = Customer::query()
-            ->where(function ($w) use ($q) {
+            ->where(function ($w) use ($q, $matchedBrand) {
                 $w->where('nama', 'LIKE', "%{$q}%")
                   ->orWhere('nomor_hp', 'LIKE', "%{$q}%")
                   ->orWhere('email', 'LIKE', "%{$q}%")
                   ->orWhere('kode', 'LIKE', "%{$q}%");
+
+                if ($matchedBrand) {
+                    $w->orWhere('brand_id', $matchedBrand->id)
+                      ->orWhereHas('orders', fn($o) => $o->where('brand_id', $matchedBrand->id));
+                } else {
+                    $w->orWhereHas('brand', function ($b) use ($q) {
+                        $b->where('nama_brand', 'LIKE', "%{$q}%")
+                          ->orWhere('kode', 'LIKE', "%{$q}%");
+                    });
+                }
             })
+            ->with(['brand:id,kode,nama_brand'])
             ->withCount('orders')
-            ->take(10)
+            ->orderByDesc('orders_count')
+            ->take(20)
             ->get();
 
         return [
             'total_found' => $customers->count(),
+            'brand_matched' => $matchedBrand?->nama_brand,
             'customers'   => $customers->map(fn($c) => [
                 'id'              => $c->id,
                 'kode'            => $c->kode,
                 'nama'            => $c->nama,
                 'nomor_hp'        => $c->nomor_hp,
+                'brand'           => $c->brand?->nama_brand ?: '-',
                 'email'           => $c->email,
                 'alamat'          => $c->detail_alamat ?: '-',
                 'total_order'     => $c->orders_count ?? $c->total_order,
@@ -400,17 +420,108 @@ class McpSnapshotService
     }
 
     /**
-     * 10. Get Customer History & LTV
+     * 10. Get Top Customers Ranking by Orders, Pcs, or Revenue
+     */
+    public static function getTopCustomers(?string $brand = null, string $by = 'orders', int $limit = 10): array
+    {
+        $brandModel = null;
+        if (!empty($brand) && strtolower($brand) !== 'all') {
+            $brandModel = Brand::where('id', $brand)
+                ->orWhere('kode', 'LIKE', $brand)
+                ->orWhere('nama_brand', 'LIKE', "%{$brand}%")
+                ->first();
+        }
+
+        $brandId = $brandModel?->id;
+
+        $customersQuery = Customer::query()
+            ->when($brandId, function ($q) use ($brandId) {
+                $q->where(function ($sub) use ($brandId) {
+                    $sub->where('brand_id', $brandId)
+                        ->orWhereHas('orders', fn($o) => $o->where('brand_id', $brandId));
+                });
+            })
+            ->with(['brand:id,kode,nama_brand'])
+            ->withCount(['orders' => function ($q) use ($brandId) {
+                $q->when($brandId, fn($sq) => $sq->where('brand_id', $brandId))
+                  ->where('status_po', '!=', 'draft');
+            }]);
+
+        $customers = $customersQuery->get();
+
+        $ranked = $customers->map(function ($c) use ($brandId) {
+            $ordersQuery = Order::query()
+                ->where('pelanggan_id', $c->id)
+                ->when($brandId, fn($oq) => $oq->where('brand_id', $brandId))
+                ->where('status_po', '!=', 'draft')
+                ->with(['items:id,order_id,is_addon,quantity,jml_atasan']);
+
+            $orders = $ordersQuery->get();
+            $totalPo = $orders->count();
+            $totalNilai = (float) $orders->sum(fn($o) => $o->totalTagihan());
+            $totalPcs = 0;
+            foreach ($orders as $o) {
+                $totalPcs += self::countPcs($o);
+            }
+
+            return [
+                'id'              => $c->id,
+                'kode'            => $c->kode,
+                'nama'            => $c->nama,
+                'nomor_hp'        => $c->nomor_hp ?: '-',
+                'brand'           => $c->brand?->nama_brand ?: ($orders->first()?->brand?->nama_brand ?: '-'),
+                'total_po'        => $totalPo,
+                'total_pcs'       => $totalPcs,
+                'total_transaksi' => $totalNilai,
+                'formatted_nilai' => 'Rp ' . number_format($totalNilai, 0, ',', '.'),
+            ];
+        });
+
+        // Filter pelanggan yang minimal memiliki transaksi jika ada
+        $filtered = $ranked->filter(fn($c) => $c['total_po'] > 0 || $c['total_pcs'] > 0 || $c['total_transaksi'] > 0);
+        if ($filtered->isEmpty()) {
+            $filtered = $ranked;
+        }
+
+        // Urutkan sesuai kriteria
+        $sorted = match ($by) {
+            'pcs'      => $filtered->sortByDesc('total_pcs'),
+            'revenue'  => $filtered->sortByDesc('total_transaksi'),
+            default    => $filtered->sortByDesc('total_po')->sortByDesc('total_pcs'),
+        };
+
+        $topList = $sorted->take($limit)->values();
+
+        return [
+            'brand_filter' => $brandModel ? $brandModel->nama_brand : ($brand ?: 'Semua Brand'),
+            'sorted_by'    => $by,
+            'total_found'  => $topList->count(),
+            'top_customers'=> $topList->all(),
+        ];
+    }
+
+    /**
+     * 11. Get Customer History & LTV
      */
     public static function getCustomerHistory(string $query): array
     {
         $q = trim($query);
+
+        // Jika query adalah nama Brand, redirect ke getTopCustomers
+        $brandMatch = Brand::where('kode', 'LIKE', $q)
+            ->orWhere('nama_brand', 'LIKE', "%{$q}%")
+            ->first();
+
         $customer = Customer::query()
             ->where('id', $q)
             ->orWhere('nomor_hp', $q)
             ->orWhere('kode', $q)
             ->orWhere('nama', 'LIKE', "%{$q}%")
             ->first();
+
+        if (!$customer && $brandMatch) {
+            return self::getTopCustomers($brandMatch->nama_brand, 'orders', 10);
+        }
 
         if (!$customer) {
             return ['error' => "Pelanggan '{$query}' tidak ditemukan."];

@@ -368,7 +368,7 @@ class ToolRegistry
             ],
             'get_customer_history' => [
                 'name' => 'get_customer_history',
-                'description' => 'Histori order dan transaksi yang pernah dilakukan oleh seorang pelanggan.',
+                'description' => 'Histori order dan transaksi yang pernah dilakukan oleh seorang pelanggan atau ringkasan customer dari suatu brand.',
                 'class' => CustomerTools::class,
                 'method' => 'getCustomerHistory',
                 'scope' => 'read:customer',
@@ -378,8 +378,36 @@ class ToolRegistry
                     'required' => ['customer_id'],
                     'properties' => [
                         'customer_id' => [
+                            'type' => 'string',
+                            'description' => 'ID/Kode/Nama pelanggan atau Nama Brand (misal: "Allegiant")'
+                        ]
+                    ]
+                ]
+            ],
+            'get_top_customers' => [
+                'name' => 'get_top_customers',
+                'description' => 'Mendapatkan daftar pelanggan terbaik dengan pesanan terbanyak (Top Customers Ranking) per Brand (misal: Allegiant) atau seluruh pabrik berdasarkan jumlah order, pcs, atau total omzet.',
+                'class' => CustomerTools::class,
+                'method' => 'getTopCustomers',
+                'scope' => 'read:customer',
+                'category' => 'customer',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brand' => [
+                            'type' => 'string',
+                            'description' => 'Nama brand (contoh: "Allegiant", "Circle"), kode brand ("ALG"), atau Brand ID (opsional).'
+                        ],
+                        'by' => [
+                            'type' => 'string',
+                            'enum' => ['orders', 'pcs', 'revenue'],
+                            'description' => 'Kriteria peringkat: "orders" (jumlah PO), "pcs" (total kuantitas pakaian), atau "revenue" (total nilai transaksi Rp). Default: orders.',
+                            'default' => 'orders'
+                        ],
+                        'limit' => [
                             'type' => 'integer',
-                            'description' => 'ID numerik pelanggan'
+                            'description' => 'Jumlah maksimal pelanggan teratas yang ditampilkan (default: 10)',
+                            'default' => 10
                         ]
                     ]
                 ]

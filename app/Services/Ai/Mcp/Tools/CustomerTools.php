@@ -57,4 +57,23 @@ class CustomerTools
             'ai_presentation_tip' => 'Analisis loyalitas pelanggan, total nilai transaksi (omzet), total pcs, dan riwayat pesanan.'
         ];
     }
+
+    /**
+     * Mengambil peringkat pelanggan dengan pesanan terbanyak (Top Customers) berdasarkan jumlah order, pcs, atau total nilai transaksi per Brand.
+     */
+    public function getTopCustomers(array $params = []): array
+    {
+        $brand = $params['brand'] ?? $params['brand_id'] ?? null;
+        $by = $params['by'] ?? 'orders';
+        $limit = !empty($params['limit']) ? (int)$params['limit'] : 10;
+
+        $results = McpSnapshotService::getTopCustomers($brand, $by, $limit);
+
+        return [
+            'status' => 'success',
+            'data' => $results,
+            'ai_presentation_tip' => 'Sajikan tabel peringkat Pelanggan Terbanyak dengan kolom: Peringkat, Nama Pelanggan, Brand, Jumlah PO, Total Pcs, Total Nilai Transaksi (Rp), dan Nomor WhatsApp. Berikan insight loyalitas pelanggan utama ini.'
+        ];
+    }
 }
+

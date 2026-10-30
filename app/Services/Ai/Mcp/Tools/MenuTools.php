@@ -82,13 +82,16 @@ class MenuTools
                 ],
                 'customer' => [
                     'label' => '👥 4. Data Pelanggan & Brand (CRM)',
-                    'description' => 'Pencarian kontak pelanggan, brand owner, riwayat order, dan loyalitas.',
+                    'description' => 'Pencarian kontak pelanggan, brand owner, pelanggan order terbanyak (Top Customers), dan loyalitas transaksi.',
                     'quick_triggers' => [
+                        'Pelanggan dengan order terbanyak brand Allegiant',
+                        'Top pelanggan terbaik berdasarkan omzet / pcs',
                         'Cari nomor WhatsApp customer PT ABC',
                         'Riwayat pemesanan brand XYZ'
                     ],
                     'available_tools' => [
-                        ['tool' => 'search_customer', 'desc' => 'Cari pelanggan berdasarkan nama, perusahaan, no HP, atau brand'],
+                        ['tool' => 'get_top_customers', 'desc' => 'Daftar peringkat pelanggan order terbanyak per Brand / Pabrik (params: brand, by=orders|pcs|revenue, limit)'],
+                        ['tool' => 'search_customer', 'desc' => 'Cari pelanggan berdasarkan nama, perusahaan, no HP, atau nama brand'],
                         ['tool' => 'get_customer_history', 'desc' => 'Histori transaksi dan reputasi pembayaran pelanggan']
                     ]
                 ],
