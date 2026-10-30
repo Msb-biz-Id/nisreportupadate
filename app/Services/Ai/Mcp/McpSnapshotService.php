@@ -1111,33 +1111,285 @@ class McpSnapshotService
     }
 
     /**
-     * 24. Master AI Skill & Persona Injection Package
+     * 24. Get Accounts Receivable Aging Schedule (Untuk Skill CFO / Keuangan)
+     * Mengelompokkan piutang berdasarkan umur keterlambatan: 0-30 hari, 31-60 hari, 61-90 hari, >90 hari.
      */
-    public static function getFactoryAiSkills(): array
+    public static function getReceivableAgingSchedule(?string $brandId = null): array
     {
+        $orders = Order::query()
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('brand_id', $brandId))
+            ->where('is_lunas', false)
+            ->where('status_po', '!=', 'draft')
+            ->where('is_special_order', false)
+            ->with([
+                'pelanggan:id,nama,nomor_hp',
+                'brand:id,kode,nama_brand',
+                'payments' => fn($q) => $q->whereNotNull('verified_at')
+            ])
+            ->get();
+
+        $buckets = [
+            'current'    => ['label' => 'Jatuh Tempo <= 30 Hari', 'count' => 0, 'total_rp' => 0, 'items' => []],
+            'overdue_30' => ['label' => 'Terlambat 31 - 60 Hari', 'count' => 0, 'total_rp' => 0, 'items' => []],
+            'overdue_60' => ['label' => 'Terlambat 61 - 90 Hari', 'count' => 0, 'total_rp' => 0, 'items' => []],
+            'bad_debt'   => ['label' => 'Macet (> 90 Hari)',     'count' => 0, 'total_rp' => 0, 'items' => []],
+        ];
+
+        $totalReceivable = 0;
+        $now = now();
+
+        foreach ($orders as $order) {
+            $tagihan = $order->totalTagihan();
+            $terbayar = (float) $order->payments->sum('amount');
+            $sisa = max(0, $tagihan - $terbayar);
+
+            if ($sisa <= 0) {
+                continue;
+            }
+
+            $totalReceivable += $sisa;
+            $tglMasuk = $order->tanggal_masuk ?: $order->created_at;
+            $daysOld = $tglMasuk ? (int)$tglMasuk->diffInDays($now) : 0;
+
+            $itemData = [
+                'no_po'      => $order->no_po,
+                'nama_po'    => $order->nama_po,
+                'pelanggan'  => $order->pelanggan?->nama ?: '-',
+                'telepon'    => $order->pelanggan?->nomor_hp ?: '-',
+                'brand'      => $order->brand?->kode ?: '-',
+                'umur_hari'  => $daysOld,
+                'sisa_rp'    => $sisa,
+                'formatted'  => 'Rp ' . number_format($sisa, 0, ',', '.'),
+            ];
+
+            if ($daysOld <= 30) {
+                $buckets['current']['count']++;
+                $buckets['current']['total_rp'] += $sisa;
+                $buckets['current']['items'][] = $itemData;
+            } elseif ($daysOld <= 60) {
+                $buckets['overdue_30']['count']++;
+                $buckets['overdue_30']['total_rp'] += $sisa;
+                $buckets['overdue_30']['items'][] = $itemData;
+            } elseif ($daysOld <= 90) {
+                $buckets['overdue_60']['count']++;
+                $buckets['overdue_60']['total_rp'] += $sisa;
+                $buckets['overdue_60']['items'][] = $itemData;
+            } else {
+                $buckets['bad_debt']['count']++;
+                $buckets['bad_debt']['total_rp'] += $sisa;
+                $buckets['bad_debt']['items'][] = $itemData;
+            }
+        }
+
+        foreach ($buckets as $k => $b) {
+            $buckets[$k]['formatted_total'] = 'Rp ' . number_format($b['total_rp'], 0, ',', '.');
+            $buckets[$k]['persentase'] = $totalReceivable > 0 ? round(($b['total_rp'] / $totalReceivable) * 100, 1) . '%' : '0%';
+            // batasi sample list untuk token efficiency
+            $buckets[$k]['items'] = array_slice($b['items'], 0, 10);
+        }
+
         return [
-            'persona' => [
-                'name' => 'Garment Operating System (GOS) AI Executive Controller',
-                'role' => 'Asisten Cerdas Pimpinan Pabrik, Akuntan Piutang, dan Kepala Pengawas Produksi Garmen',
-                'language' => 'Bahasa Indonesia Profesional, Lugas, Terstruktur, dan Solutif',
+            'total_piutang_outstanding' => $totalReceivable,
+            'formatted_total_piutang'   => 'Rp ' . number_format($totalReceivable, 0, ',', '.'),
+            'aging_schedule'            => $buckets,
+        ];
+    }
+
+    /**
+     * 25. Audit Financial & PO Compliance (Untuk Skill Auditor Internal & Risk Controller)
+     * Mendeteksi transaksi anomali, bypass DP tanpa izin, order selesai belum lunas, dan voucher mencurigakan.
+     */
+    public static function auditFinancialAndPoCompliance(?string $brandId = null): array
+    {
+        // 1. Audit PO yang di-Bypass DP
+        $bypassedOrders = Order::query()
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('brand_id', $brandId))
+            ->where('is_dp_bypassed', true)
+            ->with(['dpBypasser:id,name', 'brand:id,kode', 'pelanggan:id,nama'])
+            ->orderByDesc('dp_bypassed_at')
+            ->take(15)
+            ->get();
+
+        // 2. Audit PO Selesai / Terkirim tapi Belum Lunas (High Risk Piutang)
+        $unpaidDelivered = Order::query()
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('brand_id', $brandId))
+            ->whereIn('status_po', ['sudah_dikirim', 'selesai'])
+            ->where('is_lunas', false)
+            ->where('is_special_order', false)
+            ->with(['pelanggan:id,nama,nomor_hp', 'brand:id,kode'])
+            ->take(15)
+            ->get();
+
+        // 3. Audit PO dengan Diskon Voucher / Nilai Abnormal
+        $highDiscountOrders = Order::query()
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('brand_id', $brandId))
+            ->where('voucher_discount_amount', '>', 0)
+            ->with(['creator:id,name', 'brand:id,kode', 'pelanggan:id,nama'])
+            ->orderByDesc('voucher_discount_amount')
+            ->take(15)
+            ->get();
+
+        return [
+            'audit_summary' => [
+                'total_dp_bypassed'         => $bypassedOrders->count(),
+                'total_unpaid_delivered'    => $unpaidDelivered->count(),
+                'total_voucher_discounts'   => $highDiscountOrders->count(),
+                'status_kepatuhan_pabrik'   => $unpaidDelivered->count() > 5 ? 'PERHATIAN TINGGI (RISK WARNING)' : 'TERKENDALI (LOW RISK)',
             ],
-            'core_rules' => [
+            'temuan_anomali' => [
+                'po_bypass_dp' => $bypassedOrders->map(fn($o) => [
+                    'no_po'        => $o->no_po,
+                    'pelanggan'    => $o->pelanggan?->nama ?: '-',
+                    'di_bypass_oleh'=> $o->dpBypasser?->name ?: 'System / Admin',
+                    'tanggal'      => $o->dp_bypassed_at?->format('d/m/Y H:i'),
+                ])->all(),
+                'po_terkirim_belum_lunas' => $unpaidDelivered->map(fn($o) => [
+                    'no_po'        => $o->no_po,
+                    'pelanggan'    => $o->pelanggan?->nama ?: '-',
+                    'telepon'      => $o->pelanggan?->nomor_hp ?: '-',
+                    'sisa_tagihan' => (float)$o->totalTagihan(),
+                    'formatted'    => 'Rp ' . number_format((float)$o->totalTagihan(), 0, ',', '.'),
+                    'status'       => $o->status_po,
+                ])->all(),
+                'voucher_diskon_terbesar' => $highDiscountOrders->map(fn($o) => [
+                    'no_po'        => $o->no_po,
+                    'pelanggan'    => $o->pelanggan?->nama ?: '-',
+                    'diskon_rp'    => (float)$o->voucher_discount_amount,
+                    'formatted'    => 'Rp ' . number_format((float)$o->voucher_discount_amount, 0, ',', '.'),
+                    'dibuat_oleh'  => $o->creator?->name ?: 'Admin',
+                ])->all(),
+            ]
+        ];
+    }
+
+    /**
+     * 26. Get Brand Portfolio Matrix (Untuk Skill Konsultan Bisnis & Analis Data)
+     * Evaluasi matriks performa brand (Omzet, Pcs, Tingkat Pelunasan, dan Kontribusi Laba).
+     */
+    public static function getBrandPortfolioMatrix(): array
+    {
+        $brands = Brand::active()->get();
+        $totalPabrikOmzet = (float) Order::where('status_po', '!=', 'draft')->sum('total_tagihan');
+        $matrix = [];
+
+        foreach ($brands as $b) {
+            $orders = Order::where('brand_id', $b->id)->where('status_po', '!=', 'draft')->with(['items', 'payments'])->get();
+            $omzet = (float) $orders->sum(fn($o) => $o->totalTagihan());
+            $pcs = 0;
+            foreach ($orders as $o) {
+                $pcs += self::countPcs($o);
+            }
+            $terbayar = (float) $orders->sum(fn($o) => $o->payments->whereNotNull('verified_at')->sum('amount'));
+            $unpaid = max(0, $omzet - $terbayar);
+            $repaymentRate = $omzet > 0 ? round(($terbayar / $omzet) * 100, 1) : 100;
+            $marketShare = $totalPabrikOmzet > 0 ? round(($omzet / $totalPabrikOmzet) * 100, 1) : 0;
+
+            // Klasifikasi Strategis
+            $strategicRole = 'Standard Brand';
+            if ($marketShare >= 30 && $repaymentRate >= 80) {
+                $strategicRole = 'CASH COW (Pilar Utama Omzet & Kas)';
+            } elseif ($marketShare >= 20 && $repaymentRate < 70) {
+                $strategicRole = 'HIGH VOLUME / HIGH RISK (Omzet Besar tapi Piutang Macet)';
+            } elseif ($marketShare < 10 && $repaymentRate >= 90) {
+                $strategicRole = 'HEALTHY NICHE (Kecil tapi Arus Kas Sehat)';
+            } elseif ($marketShare < 5) {
+                $strategicRole = 'UNDERPERFORMING (Perlu Evaluasi Pemasaran)';
+            }
+
+            $matrix[] = [
+                'brand_id'           => $b->id,
+                'kode'               => $b->kode,
+                'nama_brand'         => $b->nama_brand,
+                'total_order'        => $orders->count(),
+                'total_pcs'          => $pcs,
+                'total_omzet'        => $omzet,
+                'formatted_omzet'    => 'Rp ' . number_format($omzet, 0, ',', '.'),
+                'piutang_tertahan'   => $unpaid,
+                'tingkat_pelunasan'  => "{$repaymentRate}%",
+                'kontribusi_omzet'   => "{$marketShare}%",
+                'klasifikasi_bisnis' => $strategicRole,
+            ];
+        }
+
+        usort($matrix, fn($a, $b) => $b['total_omzet'] <=> $a['total_omzet']);
+
+        return [
+            'total_omzet_keseluruhan' => $totalPabrikOmzet,
+            'formatted_keseluruhan'   => 'Rp ' . number_format($totalPabrikOmzet, 0, ',', '.'),
+            'portofolio_brands'       => $matrix,
+        ];
+    }
+
+    /**
+     * 27. Master AI Multi-Role Skills Injection Package
+     * Menginjeksi 4 Persona Spesialis: CFO Keuangan, Analis Bisnis, Konsultan Strategis, & Auditor Internal.
+     */
+    public static function getFactoryAiSkills(?string $role = null): array
+    {
+        $allSkills = [
+            'finance_expert' => [
+                'title' => 'Direktur Keuangan & Arus Kas (Chief Financial Officer / CFO)',
+                'perspective' => 'Fokus pada likuiditas, solvabilitas kas, perlindungan modal kerja, dan penagihan piutang agresif namun santun.',
+                'capabilities' => [
+                    'Aging Schedule Analysis' => 'Memantau piutang berdasarkan umur jatuh tempo (<30 hari, 31-60 hari, >90 hari).',
+                    'Dunning Strategy' => 'Menyusun naskah pesan penagihan WhatsApp berjenjang (Reminder Halus -> Penegasan Jatuh Tempo -> Somasi Penyelesaian).',
+                    'Cashflow Projection' => 'Menghitung rasio realisasi pembayaran masuk terhadap proyeksi pengeluaran operasional.',
+                ],
+                'recommended_tools' => ['get_finance_kpi', 'get_receivable_aging_schedule', 'get_unpaid_reminders', 'get_bank_reconciliation', 'get_expense_summary']
+            ],
+            'business_analyst' => [
+                'title' => 'Senior Business & Data Analyst',
+                'perspective' => 'Fokus pada tren data, pola musiman, perilaku pembelian pelanggan, dan elastisitas produk terlaris.',
+                'capabilities' => [
+                    'Customer Cohort & LTV' => 'Menganalisis frekuensi order pelanggan setia dan kontribusi nilai seumur hidup.',
+                    'Product Affinity & Fabric Trend' => 'Mengevaluasi kombinasi bahan kain dan kategori produk dengan perputaran paling cepat.',
+                    'Channel ROI' => 'Mengidentifikasi sumber leads (TikTok, IG, Referral) yang menghasilkan konversi omzet tertinggi.',
+                ],
+                'recommended_tools' => ['get_top_customers', 'get_marketing_leads_kpi', 'get_top_products_and_fabrics', 'get_brand_targets', 'run_analytics_query']
+            ],
+            'strategy_consultant' => [
+                'title' => 'Konsultan Bisnis & Manajemen Strategis (McKinsey / BCG Style)',
+                'perspective' => 'Fokus pada pertumbuhan jangka panjang, skalabilitas pabrik, optimasi kapasitas produksi, dan profitabilitas antar brand.',
+                'capabilities' => [
+                    'Brand Portfolio Matrix' => 'Mengklasifikasikan brand ke dalam kuadran Cash Cow, Star, Question Mark, atau Underperforming.',
+                    'Theory of Constraints (TOC)' => 'Menganalisis stasiun kerja pabrik yang menjadi leher botol (bottleneck) dan menghambat throughput.',
+                    'Pricing & Margin Optimization' => 'Menilai kebijakan harga grosir/reseller terhadap margin laba bersih pabrik.',
+                ],
+                'recommended_tools' => ['get_brand_portfolio_matrix', 'get_production_kpi', 'get_production_queue', 'get_executive_report', 'get_shipping_performance']
+            ],
+            'internal_auditor' => [
+                'title' => 'Auditor Internal, Kepatuhan & Pengendali Risiko (Audit & Risk Controller)',
+                'perspective' => 'Fokus pada integritas transaksi, deteksi anomali kecurangan (fraud), kepatuhan SOP pabrik, dan mitigasi kerugian bahan baku.',
+                'capabilities' => [
+                    'Transaction Anomaly Detection' => 'Audit PO bypass DP tanpa otorisasi pimpinan atau diskon voucher abnormal.',
+                    'Delivery Risk Audit' => 'Audit order yang barangnya sudah dikirim/selesai tapi pembayaran belum lunas.',
+                    'Quality & Scrap Loss Audit' => 'Audit persentase cacat rijek produksi QC untuk mencegah pemborosan kain dan biaya penjahit.',
+                ],
+                'recommended_tools' => ['audit_financial_and_po_compliance', 'get_complaint_and_refund_kpi', 'get_defect_stats', 'get_delayed_orders']
+            ]
+        ];
+
+        if ($role && isset($allSkills[$role])) {
+            return [
+                'role_selected' => $role,
+                'skill_package' => $allSkills[$role]
+            ];
+        }
+
+        return [
+            'framework' => 'Garment Operating System (GOS) Multi-Persona Executive Intelligence',
+            'version' => '3.0.0-PROD',
+            'available_roles' => $allSkills,
+            'core_business_rules' => [
                 'Kalkulasi Kuantiti (Pcs)' => 'Pcs pakaian dihitung dari order_items non-addon dengan prioritas jml_atasan jika tersedia. Addon sablon/bordir tidak boleh dihitung ganda sebagai pcs baju.',
                 'Perhitungan Piutang' => 'Piutang dihitung dari Total Tagihan dikurangi Pembayaran yang telah berstatus verified_at.',
                 'Deadline Urgensi' => 'CRITICAL jika sisa deadline <= 1 hari; HIGH jika <= 3 hari; NORMAL jika <= 7 hari.',
                 'Format Komunikasi WhatsApp' => 'Saat menyajikan data tunggakan/piutang, sertakan tautan resmi WhatsApp (https://wa.me/62...(?text=...)) dengan kalimat penagihan sopan, mengapresiasi kerja sama pelanggan.',
                 'Gaya Presentasi' => 'Gunakan tabel Markdown ringkas untuk daftar perbandingan, bullet points untuk action items, dan badge status tebal (LUNAS, DP, PROSES, TERLAMBAT).',
-            ],
-            'installed_domains' => [
-                'Finance & Billing'   => 'Omzet, Arus Kas, Piutang Tertahan, Rekonsiliasi Bank, Faktur Invoice, Pengeluaran Biaya.',
-                'Production Floor'    => 'Antrian Stasiun Kerja, Order Kritis H-3, Keterlambatan, PO Siap Kirim, Cacat Rijek QC.',
-                'Sales & CRM'         => 'Peringkat Pelanggan Terbanyak (Top Customers), Riwayat Pelanggan, Profil Kontak.',
-                'Marketing & Growth'  => 'Sumber Leads Order (TikTok, IG, Referral), Produk & Bahan Kain Terlaris, Target Brand Bulanan.',
-                'Logistics & Kurir'   => 'Ekspedisi Terpopuler, Kuota Free Ongkir Subsidi vs Reguler, Resi Pengiriman.',
-                'Ad-hoc Analytics'    => 'Safe Query Builder untuk pertanyaan analisis kustom tak terduga.',
             ]
         ];
     }
+
 
     /**
      * Flush all AI-related cache snapshots

@@ -100,6 +100,21 @@ class ReportTools
             'ai_presentation_tip' => 'Evaluasi kurir ekspedisi yang paling diandalkan dan beban subsidi gratis ongkir yang ditanggung pabrik.'
         ];
     }
+
+    /**
+     * Mengambil matriks portofolio brand (Klasifikasi Cash Cow, Star, High Risk) untuk analisis Konsultan Bisnis & Manajemen Strategis.
+     */
+    public function getBrandPortfolioMatrix(array $params = []): array
+    {
+        $data = McpSnapshotService::getBrandPortfolioMatrix();
+
+        return [
+            'status' => 'success',
+            'portfolio_matrix' => $data,
+            'ai_presentation_tip' => 'Sebagai Konsultan Bisnis Strategis (McKinsey/BCG style), berikan rekomendasi alokasi kapasitas pabrik, brand mana yang harus dipush pemasarannya, dan brand mana yang perlu mitigasi risiko piutang.'
+        ];
+    }
 }
+
 
 

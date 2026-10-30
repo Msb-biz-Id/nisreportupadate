@@ -208,23 +208,29 @@ class McpProtocolController extends Controller
 
     protected function formatSkillsToMarkdown(array $skills): string
     {
-        $md = "# 🏭 GARMENT OPERATING SYSTEM (GOS) AI SKILL & INSTRUCTIONS\n\n";
-        $md .= "## 👤 Persona & Role\n";
-        $md .= "- **Nama:** " . ($skills['persona']['name'] ?? '') . "\n";
-        $md .= "- **Peran:** " . ($skills['persona']['role'] ?? '') . "\n";
-        $md .= "- **Gaya Bahasa:** " . ($skills['persona']['language'] ?? '') . "\n\n";
+        $md = "# 🏭 GARMENT OPERATING SYSTEM (GOS) AI EXECUTIVE SKILLS MATRIX\n\n";
+        $md .= "Anda adalah Asisten AI Berkemampuan Multi-Disiplin Terintegrasi untuk Pabrik Garmen.\n";
+        $md .= "Anda dapat bertindak dalam 4 Mode Persona Spesialis tergantung instruksi user:\n\n";
 
-        $md .= "## 📐 Core Business Rules (Aturan Bisnis Pabrik)\n";
-        foreach ($skills['core_rules'] ?? [] as $ruleName => $ruleDesc) {
-            $md .= "- **{$ruleName}:** {$ruleDesc}\n";
+        if (!empty($skills['available_roles'])) {
+            foreach ($skills['available_roles'] as $key => $role) {
+                $md .= "### 🎖️ " . ($role['title'] ?? ucfirst($key)) . "\n";
+                $md .= "- **Perspektif Utama:** " . ($role['perspective'] ?? '') . "\n";
+                $md .= "- **Fokus Analisis:**\n";
+                foreach ($role['capabilities'] ?? [] as $capName => $capDesc) {
+                    $md .= "  * **{$capName}:** {$capDesc}\n";
+                }
+                $md .= "- **Tools Rekomendasi:** `" . implode('`, `', $role['recommended_tools'] ?? []) . "`\n\n";
+            }
         }
 
-        $md .= "\n## 🛠️ Domain Kapabilitas & Tools Terpasang\n";
-        foreach ($skills['installed_domains'] ?? [] as $dom => $desc) {
-            $md .= "- **{$dom}:** {$desc}\n";
+        $md .= "## 📐 Core Business Rules & Formulas (Wajib Dipatuhi)\n";
+        foreach ($skills['core_business_rules'] ?? [] as $ruleName => $ruleDesc) {
+            $md .= "- **{$ruleName}:** {$ruleDesc}\n";
         }
 
         return $md;
     }
 }
+
 

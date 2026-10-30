@@ -284,6 +284,40 @@ class ToolRegistry
                     ]
                 ]
             ],
+            'get_receivable_aging_schedule' => [
+                'name' => 'get_receivable_aging_schedule',
+                'description' => 'Jadwal umur piutang (Aging Schedule) untuk analisis CFO: 0-30 hari, 31-60 hari, 61-90 hari, dan piutang macet (>90 hari).',
+                'class' => FinanceTools::class,
+                'method' => 'getReceivableAgingSchedule',
+                'scope' => 'read:finance',
+                'category' => 'finance',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'Filter ID Brand (opsional)'
+                        ]
+                    ]
+                ]
+            ],
+            'audit_financial_and_po_compliance' => [
+                'name' => 'audit_financial_and_po_compliance',
+                'description' => 'Audit transaksi abnormal, deteksi potensi fraud, order bypass DP tanpa otorisasi, dan order selesai yang belum melunasi pembayaran.',
+                'class' => FinanceTools::class,
+                'method' => 'auditFinancialAndPoCompliance',
+                'scope' => 'read:finance',
+                'category' => 'finance',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'Filter ID Brand (opsional)'
+                        ]
+                    ]
+                ]
+            ],
 
             // ==================== ORDERS & TRACKING ====================
             'get_active_orders' => [
@@ -616,6 +650,18 @@ class ToolRegistry
                             'default' => 10
                         ]
                     ]
+                ]
+            ],
+            'get_brand_portfolio_matrix' => [
+                'name' => 'get_brand_portfolio_matrix',
+                'description' => 'Matriks evaluasi portofolio brand garmen (analisis Cash Cow, Star, High Risk) untuk Konsultan Bisnis & Manajemen Strategis.',
+                'class' => ReportTools::class,
+                'method' => 'getBrandPortfolioMatrix',
+                'scope' => 'read:reports',
+                'category' => 'reports',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => []
                 ]
             ],
         ];

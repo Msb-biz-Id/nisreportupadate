@@ -157,6 +157,37 @@ class FinanceTools
             'ai_presentation_tip' => 'Evaluasi total insiden rijek pakaian per stasiun pengerjaan dan total nominal refund yang diajukan pelanggan.'
         ];
     }
+
+    /**
+     * Mengambil jadwal umur piutang (Aging Schedule) untuk analisis CFO: 0-30 hari, 31-60 hari, 61-90 hari, dan piutang macet (>90 hari).
+     */
+    public function getReceivableAgingSchedule(array $params = []): array
+    {
+        $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
+        $data = McpSnapshotService::getReceivableAgingSchedule($brandId);
+
+        return [
+            'status' => 'success',
+            'aging_report' => $data,
+            'ai_presentation_tip' => 'Sebagai CFO / Direktur Keuangan, berikan analisis risiko likuiditas piutang dan rekomendasikan penagihan prioritas untuk kategori keterlambatan di atas 30 hari.'
+        ];
+    }
+
+    /**
+     * Mengaudit transaksi abnormal, bypass DP tanpa izin, dan order terkirim yang belum lunas (Audit Internal & Fraud Detection).
+     */
+    public function auditFinancialAndPoCompliance(array $params = []): array
+    {
+        $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
+        $data = McpSnapshotService::auditFinancialAndPoCompliance($brandId);
+
+        return [
+            'status' => 'success',
+            'audit_findings' => $data,
+            'ai_presentation_tip' => 'Sebagai Auditor Internal, beri penilaian status kepatuhan (Compliance Rating), temuan anomali bypass DP, dan tindakan perbaikan operasional.'
+        ];
+    }
 }
+
 
 
