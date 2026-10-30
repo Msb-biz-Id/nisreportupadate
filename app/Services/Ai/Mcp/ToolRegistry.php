@@ -780,12 +780,16 @@ class ToolRegistry
                 ];
             }
 
+            $textOutput = !empty($result['dashboard_markdown'])
+                ? $result['dashboard_markdown']
+                : json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
             return [
                 'isError' => false,
                 'content' => [
                     [
                         'type' => 'text',
-                        'text' => json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                        'text' => $textOutput
                     ]
                 ],
                 'raw_data' => $result

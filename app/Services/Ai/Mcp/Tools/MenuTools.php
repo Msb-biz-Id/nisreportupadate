@@ -353,6 +353,9 @@ class MenuTools
             ]
         ];
 
+        // 3. GENERATE PRE-RENDERED MARKDOWN DASHBOARD UNTUK MENJAMIN AI TIDAK MERINGKAS MENJADI LIST BIASA
+        $fullMarkdown = $this->generateFullDashboardMarkdown($dailyTasks, $weeklyTasks, $monthlyTasks, $exportableCsv, $menu['categories']);
+
         if ($mode !== 'all' && isset($menu['categories'][$mode])) {
             return [
                 'status' => 'success',
@@ -364,8 +367,70 @@ class MenuTools
 
         return [
             'status' => 'success',
-            'menu' => $menu
+            'dashboard_markdown' => $fullMarkdown,
+            'copy_ready_csv' => $exportableCsv,
+            'menu' => $menu,
+            'mandatory_instruction_for_ai' => 'PERINGATAN WAJIB UNTUK AI: DILARANG HANYA MENAMPILKAN DAFTAR 1-6 TEKS RINGKAS! Anda WAJIB langsung mencetak isi teks dari field "dashboard_markdown" secara lengkap dan rapi ke layar chat sekarang juga.'
         ];
+    }
+
+    /**
+     * Membangun tampilan Dashboard Infografis Markdown lengkap siap saji.
+     */
+    protected function generateFullDashboardMarkdown(array $daily, array $weekly, array $monthly, string $csv, array $categories): string
+    {
+        $md = "# 🏭 ProTrack AI Executive Copilot — Dashboard Operasional Pabrik Garmen\n\n";
+        $md .= "> **Status Sistem:** 🟢 `PROTRACK LIVE ONLINE` | **Database:** Real-Time Terintegrasi | **Multi-Role:** CFO, Analis Data, Konsultan Bisnis, Auditor Internal\n\n";
+        $md .= "Selamat datang di pusat kendali operasional pabrik garmen. Di bawah ini adalah **Matriks Tasking Terjadwal** dan **Katalog Menu Cepat** yang dapat langsung Anda jalankan atau ekspor ke lembar kerja tim:\n\n";
+
+        // Tabel Harian
+        $md .= "### 🌅 1. Matriks Tasking Harian (Daily Operational Routine)\n";
+        $md .= "*Fokus: Kelancaran lantai produksi, pencegahan bottleneck antrean, dan pengawasan kas masuk harian.*\n\n";
+        $md .= "| No | Prioritas | Agenda Tugas Harian & Target | PIC | Perintah Cepat / Tautan Web |\n";
+        $md .= "| :-: | :-: | :--- | :--- | :--- |\n";
+        foreach ($daily as $t) {
+            $md .= "| **{$t['no']}** | {$t['prioritas']} | **{$t['task']}**<br>_{$t['objektif']}_ | {$t['pic']} | [▶️ Jalankan Tugas]({$t['web_url']})<br>`{$t['tool']}` |\n";
+        }
+        $md .= "\n";
+
+        // Tabel Mingguan
+        $md .= "### 📅 2. Matriks Tasking Mingguan (Weekly Tactical Routine)\n";
+        $md .= "*Fokus: Pengawasan mutu pakaian, evaluasi rijek QC, audit keterlambatan PO, dan mitigasi piutang.*\n\n";
+        $md .= "| No | Prioritas | Agenda Tugas Mingguan & Target | PIC | Perintah Cepat / Tautan Web |\n";
+        $md .= "| :-: | :-: | :--- | :--- | :--- |\n";
+        foreach ($weekly as $t) {
+            $md .= "| **{$t['no']}** | {$t['prioritas']} | **{$t['task']}**<br>_{$t['objektif']}_ | {$t['pic']} | [▶️ Jalankan Tugas]({$t['web_url']})<br>`{$t['tool']}` |\n";
+        }
+        $md .= "\n";
+
+        // Tabel Bulanan
+        $md .= "### 📊 3. Matriks Tasking Bulanan (Monthly Strategic & Executive Routine)\n";
+        $md .= "*Fokus: Arus kas bersih, evaluasi target penjualan brand, laporan jenis PO, dan audit kepatuhan SOP.*\n\n";
+        $md .= "| No | Prioritas | Agenda Tugas Bulanan & Target | PIC | Perintah Cepat / Tautan Web |\n";
+        $md .= "| :-: | :-: | :--- | :--- | :--- |\n";
+        foreach ($monthly as $t) {
+            $md .= "| **{$t['no']}** | {$t['prioritas']} | **{$t['task']}**<br>_{$t['objektif']}_ | {$t['pic']} | [▶️ Jalankan Tugas]({$t['web_url']})<br>`{$t['tool']}` |\n";
+        }
+        $md .= "\n";
+
+        // Blok Salin CSV
+        $md .= "### 📋 4. Salin / Ekspor Agenda Tugas (Format CSV Siap Salin)\n";
+        $md .= "Klik tombol **Salin** pada kotak kode berikut untuk menempelkannya langsung ke **Microsoft Excel**, **Google Sheets**, atau **Notion**:\n\n";
+        $md .= "```csv\n" . $csv . "\n```\n\n";
+
+        // Ringkasan 6 Pilar Kategori Tools
+        $md .= "### 🧭 5. Katalog Lengkap 6 Pilar Operasional (33 Tools Tersedia)\n\n";
+        $md .= "| No | Pilar Kategori | Total Tools | Cakupan Operasional | Contoh Perintah Cepat |\n";
+        $md .= "| :-: | :--- | :-: | :--- | :--- |\n";
+        $md .= "| 1 | 💰 **Keuangan & Piutang** | 11 Tools | Arus kas, aging piutang, penagihan WA, rekonsiliasi kas bank | `Laporan arus kas bulan ini` |\n";
+        $md .= "| 2 | 🏭 **Produksi & Workstation** | 5 Tools | Antrean Cutting, Sablon, Jahit, QC, Finishing, Packing | `Beban antrean workstation` |\n";
+        $md .= "| 3 | 📦 **Order & Logistik** | 4 Tools | Tracking SPK, progres fisik, spesifikasi artikel, lacak resi | `Detail pesanan PO-xxx` |\n";
+        $md .= "| 4 | 👥 **Customer & CRM** | 3 Tools | Ranking pelanggan setia, kontak WA, riwayat repeat order | `Top pelanggan terbaik` |\n";
+        $md .= "| 5 | 📊 **Laporan & Strategi Bisnis** | 8 Tools | Laporan Jenis PO, target omzet brand, matriks portofolio | `Laporan jenis PO per brand` |\n";
+        $md .= "| 6 | 🧠 **SOP & AI Architecture** | 2 Tools | SOP formula pcs garmen, protokol 4 persona spesialis AI | `Injeksi master skills` |\n\n";
+        $md .= "💡 _Silakan ketik nomor agenda atau klik tautan perintah di atas untuk langsung menjalankan analisis data!_\n";
+
+        return $md;
     }
 
     /**
