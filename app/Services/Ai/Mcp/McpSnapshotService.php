@@ -344,33 +344,234 @@ class McpSnapshotService
     }
 
     /**
-     * 5. Get Production Queue Breakdown by Stage
+     * Kategorisasi nama master progress ke dalam kategori workstation umum (Cutting, Sewing, Sablon, QC, Finishing, dll)
      */
-    public static function getProductionQueue(?string $brandId = null): array
+    public static function categorizeStation(string $namaProgress): string
+    {
+        $upper = strtoupper(trim($namaProgress));
+        if (str_contains($upper, 'POTONG') || str_contains($upper, 'CUTTING')) {
+            return 'Cutting';
+        }
+        if (str_contains($upper, 'JAHIT') && !str_contains($upper, 'QC')) {
+            return 'Sewing';
+        }
+        if (str_contains($upper, 'TALI CELANA')) {
+            return 'Sewing';
+        }
+        if (str_contains($upper, 'PRINT') || str_contains($upper, 'SUBLIM') || str_contains($upper, 'POLYFLEX') || str_contains($upper, 'SABLON')) {
+            return 'Sablon/Printing';
+        }
+        if (str_contains($upper, 'QC') || str_contains($upper, 'BUANG BENANG') || str_contains($upper, 'QUALITY')) {
+            return 'QC';
+        }
+        if (str_contains($upper, 'STEAM') || str_contains($upper, 'SETRIKA') || str_contains($upper, 'FINISHING')) {
+            return 'Finishing';
+        }
+        if (str_contains($upper, 'PACKING') || str_contains($upper, 'KEMAS')) {
+            return 'Packing';
+        }
+        if (str_contains($upper, 'SENDING') || str_contains($upper, 'KIRIM')) {
+            return 'Sending';
+        }
+        if (str_contains($upper, 'SETTING') || str_contains($upper, 'DESAIN')) {
+            return 'Setting';
+        }
+        return 'Lainnya';
+    }
+
+    /**
+     * Memeriksa apakah nama progress atau kategori cocok dengan filter stasiun yang diminta
+     */
+    public static function matchStationFilter(string $namaProgress, string $category, string $filter): bool
+    {
+        $filterLower = strtolower(trim($filter));
+        $namaLower = strtolower(trim($namaProgress));
+        $catLower = strtolower(trim($category));
+
+        if ($filterLower === $catLower || $filterLower === $namaLower) {
+            return true;
+        }
+
+        if (str_contains($namaLower, $filterLower) || str_contains($catLower, $filterLower)) {
+            return true;
+        }
+
+        // Alias umum multi-bahasa (ID & EN)
+        $aliases = [
+            'cutting'   => ['potong', 'cutting', 'potong bahan', 'potong pola'],
+            'potong'    => ['potong', 'cutting', 'potong bahan', 'potong pola'],
+            'sewing'    => ['jahit', 'sewing', 'penjahitan', 'tali celana'],
+            'jahit'     => ['jahit', 'sewing', 'penjahitan', 'tali celana'],
+            'sablon'    => ['sablon', 'printing', 'sublim', 'sublime', 'polyflex', 'press'],
+            'printing'  => ['sablon', 'printing', 'sublim', 'sublime', 'polyflex', 'press'],
+            'sublim'    => ['sablon', 'printing', 'sublim', 'sublime', 'polyflex', 'press'],
+            'qc'        => ['qc', 'quality control', 'buang benang'],
+            'finishing' => ['finishing', 'steam', 'setrika'],
+            'steam'     => ['finishing', 'steam', 'setrika'],
+            'packing'   => ['packing', 'kemas', 'pengemasan'],
+            'sending'   => ['sending', 'kirim', 'siap kirim', 'pengiriman'],
+            'setting'   => ['setting', 'desain', 'pra-produksi'],
+        ];
+
+        foreach ($aliases as $key => $synonyms) {
+            if ($filterLower === $key || in_array($filterLower, $synonyms, true)) {
+                foreach ($synonyms as $syn) {
+                    if (str_contains($namaLower, $syn) || str_contains($catLower, $syn)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 5. Get Production Queue Breakdown by Stage & Workstation
+     */
+    public static function getProductionQueue(?string $brandId = null, ?string $station = null): array
     {
         $orders = Order::query()
             ->whereIn('status_po', ['published', 'on_progress'])
-            ->when($brandId, fn($q) => $q->where('brand_id', $brandId))
-            ->with(['items:id,order_id,is_addon,quantity,jml_atasan'])
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('brand_id', $brandId))
+            ->with([
+                'pelanggan:id,nama',
+                'brand:id,kode,nama_brand',
+                'items:id,order_id,is_addon,quantity,jml_atasan',
+                'progressDetails' => fn($q) => $q->with('progress:id,nama_progress,urutan,warna'),
+            ])
+            ->orderBy('deadline_customer', 'asc')
             ->get();
 
-        $totalPcs = 0;
-        foreach ($orders as $o) {
-            $totalPcs += self::countPcs($o);
+        // 1. Ambil master progress untuk menyusun breakdown berurutan
+        $masterProgress = \App\Models\Master\Progress::ordered()->get();
+        $stationBreakdown = [];
+
+        foreach ($masterProgress as $mp) {
+            $cat = self::categorizeStation($mp->nama_progress);
+            $stationBreakdown[$mp->nama_progress] = [
+                'urutan'         => (int) $mp->urutan,
+                'workstation'    => $mp->nama_progress,
+                'kategori'       => $cat,
+                'warna'          => $mp->warna,
+                'total_order'    => 0,
+                'total_pcs'      => 0,
+                'persentase_pcs' => '0%',
+                'is_bottleneck'  => false,
+                'sample_orders'  => [],
+            ];
         }
 
-        // Count per status
+        $totalPcs = 0;
+        $allOrderRows = [];
+        $filteredOrders = [];
+        $filteredPcs = 0;
+
+        foreach ($orders as $order) {
+            $pcs = self::countPcs($order);
+            $totalPcs += $pcs;
+
+            // Cari detail progress aktif
+            $onProgressDetail = $order->progressDetails->firstWhere('status', 'on_progress');
+            if ($onProgressDetail && $onProgressDetail->progress) {
+                $stName = $onProgressDetail->progress->nama_progress;
+                $stUrutan = (int) $onProgressDetail->progress->urutan;
+                $stWarna = $onProgressDetail->progress->warna;
+                $statusPengerjaan = 'Sedang Dikerjakan';
+            } else {
+                // Jika belum ada yang on_progress, cari pending pertama berdasarkan urutan
+                $pendingDetail = $order->progressDetails->where('status', 'pending')->sortBy('progress.urutan')->first();
+                if ($pendingDetail && $pendingDetail->progress) {
+                    $stName = $pendingDetail->progress->nama_progress;
+                    $stUrutan = (int) $pendingDetail->progress->urutan;
+                    $stWarna = $pendingDetail->progress->warna;
+                    $statusPengerjaan = 'Menunggu Giliran';
+                } else {
+                    $stName = 'SETTING';
+                    $stUrutan = 1;
+                    $stWarna = '#6B7280';
+                    $statusPengerjaan = 'Antrean Awal';
+                }
+            }
+
+            $category = self::categorizeStation($stName);
+
+            // Tambahkan ke breakdown station jika ada di master
+            if (!isset($stationBreakdown[$stName])) {
+                $stationBreakdown[$stName] = [
+                    'urutan'         => $stUrutan,
+                    'workstation'    => $stName,
+                    'kategori'       => $category,
+                    'warna'          => $stWarna,
+                    'total_order'    => 0,
+                    'total_pcs'      => 0,
+                    'persentase_pcs' => '0%',
+                    'is_bottleneck'  => false,
+                    'sample_orders'  => [],
+                ];
+            }
+
+            $stationBreakdown[$stName]['total_order']++;
+            $stationBreakdown[$stName]['total_pcs'] += $pcs;
+            if (count($stationBreakdown[$stName]['sample_orders']) < 5) {
+                $stationBreakdown[$stName]['sample_orders'][] = $order->no_po;
+            }
+
+            $diff = $order->deadline_customer ? (int) now()->startOfDay()->diffInDays($order->deadline_customer, false) : 999;
+            $orderRow = [
+                'no_po'             => $order->no_po,
+                'nama_po'           => $order->nama_po ?: '-',
+                'pelanggan'         => $order->pelanggan?->nama ?: '-',
+                'brand'             => $order->brand?->kode ?: '',
+                'total_pcs'         => $pcs,
+                'status_po'         => $order->status_po,
+                'workstation'       => $stName,
+                'kategori_stasiun'  => $category,
+                'status_pengerjaan' => $statusPengerjaan,
+                'deadline'          => $order->deadline_customer?->format('Y-m-d') ?: '-',
+                'sisa_hari'         => $diff <= 0 ? "HARI INI (H-0)" : "H-{$diff}",
+                'urgensi'           => $diff <= 1 ? 'CRITICAL' : ($diff <= 3 ? 'HIGH' : 'NORMAL'),
+            ];
+
+            $allOrderRows[] = $orderRow;
+
+            // Jika filter stasiun aktif, cek kecocokan
+            if (!empty($station)) {
+                if (self::matchStationFilter($stName, $category, $station)) {
+                    $filteredOrders[] = $orderRow;
+                    $filteredPcs += $pcs;
+                }
+            }
+        }
+
+        // Hitung persentase beban & penanda bottleneck
+        foreach ($stationBreakdown as $key => &$stData) {
+            $pct = $totalPcs > 0 ? round(($stData['total_pcs'] / $totalPcs) * 100, 1) : 0;
+            $stData['persentase_pcs'] = "{$pct}%";
+            $stData['is_bottleneck'] = ($pct >= 25.0 && $stData['total_pcs'] > 0);
+        }
+        unset($stData);
+
+        // Sort breakdown berdasarkan urutan master progress
+        uasort($stationBreakdown, fn($a, $b) => $a['urutan'] <=> $b['urutan']);
+
+        // Breakdown per status_po
         $byStatus = Order::query()
             ->select('status_po', DB::raw('count(*) as count'))
             ->whereNotIn('status_po', ['draft', 'selesai', 'batal'])
-            ->when($brandId, fn($q) => $q->where('brand_id', $brandId))
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('brand_id', $brandId))
             ->groupBy('status_po')
             ->pluck('count', 'status_po');
 
         return [
-            'total_order_antrean' => $orders->count(),
-            'total_pcs_antrean'   => $totalPcs,
-            'breakdown_status'    => $byStatus->all(),
+            'filter_stasiun_aktif'     => !empty($station) ? $station : null,
+            'total_order_antrean'      => $orders->count(),
+            'total_pcs_antrean'        => $totalPcs,
+            'total_order_di_stasiun'   => !empty($station) ? count($filteredOrders) : $orders->count(),
+            'total_pcs_di_stasiun'     => !empty($station) ? $filteredPcs : $totalPcs,
+            'workstation_breakdown'    => array_values($stationBreakdown),
+            'breakdown_status'         => $byStatus->all(),
+            'orders'                   => !empty($station) ? array_slice($filteredOrders, 0, 30) : array_slice($allOrderRows, 0, 30),
         ];
     }
 
@@ -723,13 +924,17 @@ class McpSnapshotService
     {
         $dashboardService = app(DashboardService::class);
         $prod = $dashboardService->adminProduksiStats($brandId);
+        $queue = self::getProductionQueue($brandId);
 
         return [
-            'cards' => $prod['cards'] ?? [],
-            'tahapan_progress' => $prod['progress_distribution'] ?? [],
-            'deadline_mendekat' => $prod['deadline_mendekat'] ?? [],
-            'po_terlambat' => $prod['po_terlambat'] ?? [],
-            'po_siap_dikirim' => $prod['po_siap_dikirim'] ?? [],
+            'cards'                 => $prod['cards'] ?? [],
+            'total_order_antrean'   => $queue['total_order_antrean'] ?? 0,
+            'total_pcs_antrean'     => $queue['total_pcs_antrean'] ?? 0,
+            'workstation_breakdown' => $queue['workstation_breakdown'] ?? [],
+            'tahapan_progress'      => $prod['progress_distribution'] ?? [],
+            'deadline_mendekat'     => $prod['deadline_mendekat'] ?? [],
+            'po_terlambat'          => $prod['po_terlambat'] ?? [],
+            'po_siap_dikirim'       => $prod['po_siap_dikirim'] ?? [],
         ];
     }
 
@@ -1469,13 +1674,275 @@ class McpSnapshotService
             'core_business_rules' => [
                 'Kalkulasi Kuantiti (Pcs)' => 'Pcs pakaian dihitung dari order_items non-addon dengan prioritas jml_atasan jika tersedia. Addon sablon/bordir tidak boleh dihitung ganda sebagai pcs baju.',
                 'Perhitungan Piutang' => 'Piutang dihitung dari Total Tagihan dikurangi Pembayaran yang telah berstatus verified_at.',
-                'Deadline Urgensi' => 'CRITICAL jika sisa deadline <= 1 hari; HIGH jika <= 3 hari; NORMAL jika <= 7 hari.',
                 'Format Komunikasi WhatsApp' => 'Saat menyajikan data tunggakan/piutang, sertakan tautan resmi WhatsApp (https://wa.me/62...(?text=...)) dengan kalimat penagihan sopan, mengapresiasi kerja sama pelanggan.',
                 'Gaya Presentasi' => 'Gunakan tabel Markdown ringkas untuk daftar perbandingan, bullet points untuk action items, dan badge status tebal (LUNAS, DP, PROSES, TERLAMBAT).',
             ]
         ];
     }
 
+    /**
+     * 25. Get Laporan Jenis PO: Rincian Jenis PO per Brand, Omzet, Tagihan Belum Lunas, Statistik Lengkap & Data Grafik
+     */
+    public static function getJenisPoReport(?string $brandId = null, ?int $year = null, ?int $month = null, ?string $jenisPoFilter = null): array
+    {
+        $year = $year ?: (int) now()->year;
+
+        // Ambil brand yang relevan
+        $brands = Brand::active()
+            ->when($brandId && $brandId !== 'all', fn($q) => $q->where('id', $brandId))
+            ->get(['id', 'nama_brand', 'kode', 'warna_primary']);
+
+        $brandIds = $brands->pluck('id')->toArray();
+
+        // Query orders
+        $orderQuery = Order::query()
+            ->whereIn('brand_id', $brandIds)
+            ->whereYear('tanggal_masuk', $year)
+            ->when($month, fn($q) => $q->whereMonth('tanggal_masuk', $month))
+            ->where('status_po', '!=', 'draft')
+            ->with([
+                'brand:id,kode,nama_brand,warna_primary',
+                'pelanggan:id,nama,nomor_hp',
+                'items:id,order_id,is_addon,quantity,jml_atasan,harga_satuan,subtotal',
+                'payments' => fn($q) => $q->whereNotNull('verified_at'),
+            ])
+            ->orderByDesc('tanggal_masuk');
+
+        if (!empty($jenisPoFilter) && $jenisPoFilter !== 'all') {
+            $jpLower = strtolower(trim($jenisPoFilter));
+            if ($jpLower === 'normal') {
+                $orderQuery->where('is_special_order', false)->where('is_reseller_price', false)->where('is_repeat_order', false);
+            } elseif ($jpLower === 'special_order' || $jpLower === 'support') {
+                $orderQuery->where('is_special_order', true);
+            } elseif ($jpLower === 'reseller_price' || $jpLower === 'reseller') {
+                $orderQuery->where('is_reseller_price', true);
+            } elseif ($jpLower === 'repeat_order' || $jpLower === 'repeat') {
+                $orderQuery->where('is_repeat_order', true);
+            }
+        }
+
+        $orders = $orderQuery->get();
+
+        // Inisialisasi struktur per brand
+        $brandStats = [];
+        foreach ($brands as $b) {
+            $brandStats[$b->id] = [
+                'brand_id'           => $b->id,
+                'nama_brand'         => $b->nama_brand,
+                'kode'               => $b->kode,
+                'warna'              => $b->warna_primary ?: '#6366F1',
+                'total_po'           => 0,
+                'total_pcs'          => 0,
+                'total_omset'        => 0.0,
+                'total_terbayar'     => 0.0,
+                'total_belum_lunas'  => 0.0,
+                'po_lunas_count'     => 0,
+                'po_belum_lunas_count'=> 0,
+                'jenis_po'           => [
+                    'normal'         => ['label' => 'PO Normal',       'total_po' => 0, 'total_pcs' => 0, 'omset' => 0.0, 'terbayar' => 0.0, 'belum_lunas' => 0.0],
+                    'reseller_price' => ['label' => 'Harga Reseller',  'total_po' => 0, 'total_pcs' => 0, 'omset' => 0.0, 'terbayar' => 0.0, 'belum_lunas' => 0.0],
+                    'special_order'  => ['label' => 'PO Support',      'total_po' => 0, 'total_pcs' => 0, 'omset' => 0.0, 'terbayar' => 0.0, 'belum_lunas' => 0.0],
+                    'repeat_order'   => ['label' => 'Repeat Order',    'total_po' => 0, 'total_pcs' => 0, 'omset' => 0.0, 'terbayar' => 0.0, 'belum_lunas' => 0.0],
+                ]
+            ];
+        }
+
+        // Inisialisasi ringkasan jenis PO lintas brand
+        $jenisPoSummary = [
+            'normal'         => ['key' => 'normal',         'label' => 'PO Normal (Retail)',     'color' => '#3B82F6', 'total_po' => 0, 'total_pcs' => 0, 'omset' => 0.0, 'terbayar' => 0.0, 'belum_lunas' => 0.0],
+            'reseller_price' => ['key' => 'reseller_price', 'label' => 'PO Harga Reseller',     'color' => '#10B981', 'total_po' => 0, 'total_pcs' => 0, 'omset' => 0.0, 'terbayar' => 0.0, 'belum_lunas' => 0.0],
+            'special_order'  => ['key' => 'special_order',  'label' => 'PO Support (Sponsorship)','color' => '#8B5CF6', 'total_po' => 0, 'total_pcs' => 0, 'omset' => 0.0, 'terbayar' => 0.0, 'belum_lunas' => 0.0],
+            'repeat_order'   => ['key' => 'repeat_order',   'label' => 'PO Repeat Order',        'color' => '#F59E0B', 'total_po' => 0, 'total_pcs' => 0, 'omset' => 0.0, 'terbayar' => 0.0, 'belum_lunas' => 0.0],
+        ];
+
+        $grandTotalPo = 0;
+        $grandTotalPcs = 0;
+        $grandTotalOmset = 0.0;
+        $grandTotalTerbayar = 0.0;
+        $grandTotalBelumLunas = 0.0;
+        $grandLunasPo = 0;
+        $grandBelumLunasPo = 0;
+
+        foreach ($orders as $order) {
+            $pcs = self::countPcs($order);
+            $tagihan = (float) $order->totalTagihan();
+            $terbayar = (float) $order->payments->sum('amount');
+            $sisa = max(0.0, $tagihan - $terbayar);
+            $isLunas = ($sisa <= 0.01 && $tagihan > 0) || (bool)$order->is_lunas;
+
+            // Klasifikasi Jenis PO
+            if ($order->is_special_order) {
+                $jKey = 'special_order';
+            } elseif ($order->is_reseller_price) {
+                $jKey = 'reseller_price';
+            } elseif ($order->is_repeat_order) {
+                $jKey = 'repeat_order';
+            } else {
+                $jKey = 'normal';
+            }
+
+            $bId = $order->brand_id;
+            if (isset($brandStats[$bId])) {
+                $brandStats[$bId]['total_po']++;
+                $brandStats[$bId]['total_pcs'] += $pcs;
+                $brandStats[$bId]['total_omset'] += $tagihan;
+                $brandStats[$bId]['total_terbayar'] += $terbayar;
+                $brandStats[$bId]['total_belum_lunas'] += $sisa;
+                if ($isLunas) {
+                    $brandStats[$bId]['po_lunas_count']++;
+                } else {
+                    $brandStats[$bId]['po_belum_lunas_count']++;
+                }
+
+                $brandStats[$bId]['jenis_po'][$jKey]['total_po']++;
+                $brandStats[$bId]['jenis_po'][$jKey]['total_pcs'] += $pcs;
+                $brandStats[$bId]['jenis_po'][$jKey]['omset'] += $tagihan;
+                $brandStats[$bId]['jenis_po'][$jKey]['terbayar'] += $terbayar;
+                $brandStats[$bId]['jenis_po'][$jKey]['belum_lunas'] += $sisa;
+            }
+
+            // Agregat Lintas Brand
+            $jenisPoSummary[$jKey]['total_po']++;
+            $jenisPoSummary[$jKey]['total_pcs'] += $pcs;
+            $jenisPoSummary[$jKey]['omset'] += $tagihan;
+            $jenisPoSummary[$jKey]['terbayar'] += $terbayar;
+            $jenisPoSummary[$jKey]['belum_lunas'] += $sisa;
+
+            $grandTotalPo++;
+            $grandTotalPcs += $pcs;
+            $grandTotalOmset += $tagihan;
+            $grandTotalTerbayar += $terbayar;
+            $grandTotalBelumLunas += $sisa;
+            if ($isLunas) {
+                $grandLunasPo++;
+            } else {
+                $grandBelumLunasPo++;
+            }
+        }
+
+        // Format and finalize brand breakdown
+        $formattedBrands = [];
+        $chartCategories = [];
+        $chartOmsetSeries = [];
+        $chartTerbayarSeries = [];
+        $chartBelumLunasSeries = [];
+        $chartPcsSeries = [];
+        $chartPoSeries = [];
+
+        foreach ($brandStats as $b) {
+            $colRate = $b['total_omset'] > 0 ? round(($b['total_terbayar'] / $b['total_omset']) * 100, 1) : 0;
+            $b['collection_rate'] = "{$colRate}%";
+            $b['formatted_omset'] = 'Rp ' . number_format($b['total_omset'], 0, ',', '.');
+            $b['formatted_terbayar'] = 'Rp ' . number_format($b['total_terbayar'], 0, ',', '.');
+            $b['formatted_belum_lunas'] = 'Rp ' . number_format($b['total_belum_lunas'], 0, ',', '.');
+
+            // Format rincian jenis po dalam brand
+            foreach ($b['jenis_po'] as $jk => &$jData) {
+                $jData['formatted_omset'] = 'Rp ' . number_format($jData['omset'], 0, ',', '.');
+                $jData['formatted_belum_lunas'] = 'Rp ' . number_format($jData['belum_lunas'], 0, ',', '.');
+                $jData['persentase_po'] = $b['total_po'] > 0 ? round(($jData['total_po'] / $b['total_po']) * 100, 1) : 0;
+                $jData['persentase_omset'] = $b['total_omset'] > 0 ? round(($jData['omset'] / $b['total_omset']) * 100, 1) : 0;
+            }
+            unset($jData);
+
+            $formattedBrands[] = $b;
+
+            // Untuk data grafik
+            $chartCategories[] = $b['nama_brand'];
+            $chartOmsetSeries[] = (float) $b['total_omset'];
+            $chartTerbayarSeries[] = (float) $b['total_terbayar'];
+            $chartBelumLunasSeries[] = (float) $b['total_belum_lunas'];
+            $chartPcsSeries[] = (int) $b['total_pcs'];
+            $chartPoSeries[] = (int) $b['total_po'];
+        }
+
+        // Finalize summary jenis PO
+        $formattedJenisPo = [];
+        $donutLabels = [];
+        $donutOmsetSeries = [];
+        $donutPcsSeries = [];
+        $donutColors = [];
+
+        foreach ($jenisPoSummary as $jk => $jp) {
+            $pctPo = $grandTotalPo > 0 ? round(($jp['total_po'] / $grandTotalPo) * 100, 1) : 0;
+            $pctPcs = $grandTotalPcs > 0 ? round(($jp['total_pcs'] / $grandTotalPcs) * 100, 1) : 0;
+            $pctOmset = $grandTotalOmset > 0 ? round(($jp['omset'] / $grandTotalOmset) * 100, 1) : 0;
+
+            $jp['formatted_omset'] = 'Rp ' . number_format($jp['omset'], 0, ',', '.');
+            $jp['formatted_terbayar'] = 'Rp ' . number_format($jp['terbayar'], 0, ',', '.');
+            $jp['formatted_belum_lunas'] = 'Rp ' . number_format($jp['belum_lunas'], 0, ',', '.');
+            $jp['persentase_po'] = "{$pctPo}%";
+            $jp['persentase_pcs'] = "{$pctPcs}%";
+            $jp['persentase_omset'] = "{$pctOmset}%";
+
+            $formattedJenisPo[] = $jp;
+
+            $donutLabels[] = $jp['label'];
+            $donutOmsetSeries[] = (float) $jp['omset'];
+            $donutPcsSeries[] = (int) $jp['total_pcs'];
+            $donutColors[] = $jp['color'];
+        }
+
+        $overallCollectionRate = $grandTotalOmset > 0 ? round(($grandTotalTerbayar / $grandTotalOmset) * 100, 1) : 0;
+
+        return [
+            'periode' => [
+                'tahun' => $year,
+                'bulan' => $month ? \Carbon\Carbon::createFromDate($year, $month, 1)->translatedFormat('F') : 'Semua Bulan (Januari - Desember)',
+                'filter_jenis_po' => $jenisPoFilter ?: 'Semua Jenis PO',
+            ],
+            'ringkasan_eksekutif' => [
+                'total_po'               => $grandTotalPo,
+                'total_pcs'              => $grandTotalPcs,
+                'total_omset'            => $grandTotalOmset,
+                'formatted_total_omset'  => 'Rp ' . number_format($grandTotalOmset, 0, ',', '.'),
+                'total_terbayar'         => $grandTotalTerbayar,
+                'formatted_total_terbayar'=> 'Rp ' . number_format($grandTotalTerbayar, 0, ',', '.'),
+                'total_belum_lunas'      => $grandTotalBelumLunas,
+                'formatted_total_belum_lunas' => 'Rp ' . number_format($grandTotalBelumLunas, 0, ',', '.'),
+                'collection_rate'        => "{$overallCollectionRate}%",
+                'po_lunas_count'         => $grandLunasPo,
+                'po_belum_lunas_count'   => $grandBelumLunasPo,
+            ],
+            'perolehan_per_brand' => $formattedBrands,
+            'distribusi_jenis_po' => $formattedJenisPo,
+            'grafik_visualisasi'  => [
+                'chart_komparasi_keuangan_brand' => [
+                    'tipe'       => 'column',
+                    'judul'      => 'Komparasi Omset, Pembayaran Masuk & Sisa Tagihan Per Brand',
+                    'categories' => $chartCategories,
+                    'series'     => [
+                        ['name' => 'Sudah Masuk (Rp)', 'data' => $chartTerbayarSeries, 'color' => '#10B981'],
+                        ['name' => 'Belum Lunas (Rp)', 'data' => $chartBelumLunasSeries, 'color' => '#F59E0B'],
+                        ['name' => 'Total Omset (Rp)',  'data' => $chartOmsetSeries, 'color' => '#6366F1'],
+                    ]
+                ],
+                'chart_volume_brand' => [
+                    'tipe'       => 'combo',
+                    'judul'      => 'Volume Produksi (PCS) vs Jumlah Lembar PO Per Brand',
+                    'categories' => $chartCategories,
+                    'series'     => [
+                        ['name' => 'Total PCS', 'type' => 'column', 'data' => $chartPcsSeries, 'color' => '#3B82F6'],
+                        ['name' => 'Jumlah PO', 'type' => 'line',   'data' => $chartPoSeries, 'color' => '#EC4899'],
+                    ]
+                ],
+                'chart_donut_omset_jenis_po' => [
+                    'tipe'   => 'donut',
+                    'judul'  => 'Pangsa Omset Berdasarkan Jenis PO',
+                    'labels' => $donutLabels,
+                    'series' => $donutOmsetSeries,
+                    'colors' => $donutColors,
+                ],
+                'chart_donut_pcs_jenis_po' => [
+                    'tipe'   => 'donut',
+                    'judul'  => 'Porsi Volume Produksi (PCS) Berdasarkan Jenis PO',
+                    'labels' => $donutLabels,
+                    'series' => $donutPcsSeries,
+                    'colors' => $donutColors,
+                ]
+            ],
+        ];
+    }
 
     /**
      * Flush all AI-related cache snapshots

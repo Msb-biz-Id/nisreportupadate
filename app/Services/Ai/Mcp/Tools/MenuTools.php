@@ -104,12 +104,16 @@ class MenuTools
                     'description' => 'Dashboard ringkasan harian/bulanan, sumber leads marketing, produk & bahan terlaris, target brand, dan analitik ad-hoc.',
                     'quick_triggers' => [
                         'Laporan ringkasan performa pabrik hari ini',
+                        'Laporan jenis PO per brand (Normal, Reseller, Support, Repeat Order)',
+                        'Komparasi omzet dan tagihan belum lunas masing-masing brand',
                         'Sumber leads marketing (TikTok, IG, Referral)',
                         'Kain dan produk yang paling laris',
                         'Cek pencapaian target penjualan brand bulan ini',
                         'Analisis kustom ad-hoc data pabrik'
                     ],
                     'available_tools' => [
+                        ['tool' => 'get_jenis_po_report', 'desc' => 'Laporan Jenis PO: perolehan per brand, omset, tagihan belum lunas, statistik lengkap & grafik (Normal, Reseller, PO Support, Repeat Order)'],
+                        ['tool' => 'get_brand_portfolio_matrix', 'desc' => 'Matriks portofolio brand (Cash Cow, Star, High Risk) untuk analisis Konsultan Bisnis'],
                         ['tool' => 'get_marketing_leads_kpi', 'desc' => 'Statistik akuisisi order berdasarkan channel sumber leads (TikTok, IG, Referral, Web)'],
                         ['tool' => 'get_top_products_and_fabrics', 'desc' => 'Statistik bahan kain (fabrics) terpopuler dan kategori produk terlaris'],
                         ['tool' => 'get_brand_targets', 'desc' => 'Target penjualan bulanan (Omzet Rp & Pcs) vs aktual, persentase capai & sisa kejar target per brand'],

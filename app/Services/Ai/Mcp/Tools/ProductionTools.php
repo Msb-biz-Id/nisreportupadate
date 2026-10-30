@@ -7,17 +7,20 @@ use App\Services\Ai\Mcp\McpSnapshotService;
 class ProductionTools
 {
     /**
-     * Mengambil antrian produksi dan beban kerja per status.
+     * Mengambil antrian produksi dan rincian beban kerja per workstation (Cutting, Sablon/Printing, Sewing, Finishing, QC, Packing, dll).
      */
     public function getProductionQueue(array $params = []): array
     {
         $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
-        $queue = McpSnapshotService::getProductionQueue($brandId);
+        $station = !empty($params['station']) ? (string)$params['station'] : (!empty($params['workstation']) ? (string)$params['workstation'] : null);
+
+        $queue = McpSnapshotService::getProductionQueue($brandId, $station);
 
         return [
             'status' => 'success',
+            'filter_applied' => $station ? "Workstation: {$station}" : 'Seluruh Workstation',
             'queue' => $queue,
-            'ai_presentation_tip' => 'Visualisasikan antrian beban kerja produksi untuk menemukan potensi bottleneck pabrik.'
+            'ai_presentation_tip' => 'WAJIB sajikan tabel breakdown antrean per workstation (Nama Stasiun, Kategori Alur, Jumlah PO, Total Pcs, dan % Beban Pcs). Jika stasiun tertentu difilter (misal Cutting, Jahit, Sablon), laporkan khusus beban stasiun tersebut dan daftar PO-nya. Tandai potensi bottleneck bila suatu stasiun menampung ≥ 25% total pcs antrean.'
         ];
     }
 

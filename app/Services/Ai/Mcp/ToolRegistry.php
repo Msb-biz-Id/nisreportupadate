@@ -413,7 +413,7 @@ class ToolRegistry
             // ==================== PRODUCTION FLOOR ====================
             'get_production_queue' => [
                 'name' => 'get_production_queue',
-                'description' => 'Melihat beban antrian order per stasiun kerja (Cutting, Sablon/Bordir, Sewing, Finishing, QC) untuk mencegah bottleneck.',
+                'description' => 'Melihat beban antrian order per workstation (Cutting, Sablon/Printing, Sewing, Finishing, QC, Packing, dll) beserta jumlah order, total pcs, dan potensi bottleneck.',
                 'class' => ProductionTools::class,
                 'method' => 'getProductionQueue',
                 'scope' => 'read:production',
@@ -423,7 +423,11 @@ class ToolRegistry
                     'properties' => [
                         'station' => [
                             'type' => 'string',
-                            'description' => 'Filter stasiun tertentu (opsional)'
+                            'description' => 'Filter stasiun/workstation tertentu (misal: "Cutting", "Sewing", "Jahit", "Sablon", "Finishing", "QC", "Packing"). Biarkan kosong untuk melihat rincian seluruh workstation.'
+                        ],
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'Filter ID Brand tertentu (opsional). Kosongkan untuk seluruh brand pabrik.'
                         ]
                     ]
                 ]
@@ -666,6 +670,35 @@ class ToolRegistry
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => []
+                ]
+            ],
+            'get_jenis_po_report' => [
+                'name' => 'get_jenis_po_report',
+                'description' => 'Laporan Analisis Jenis PO menyeluruh: perolehan masing-masing per brand (Normal, Reseller, PO Support, Repeat Order), nilai omzet, tagihan belum lunas, statistik lengkap & format data visualisasi grafik.',
+                'class' => ReportTools::class,
+                'method' => 'getJenisPoReport',
+                'scope' => 'read:reports',
+                'category' => 'reports',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brand_id' => [
+                            'type' => 'string',
+                            'description' => 'Filter ID Brand tertentu (opsional). Kosongkan untuk seluruh brand.'
+                        ],
+                        'year' => [
+                            'type' => 'integer',
+                            'description' => 'Tahun analisis (contoh: 2026). Default tahun berjalan.'
+                        ],
+                        'month' => [
+                            'type' => 'integer',
+                            'description' => 'Bulan analisis 1-12 (opsional). Kosongkan untuk akumulasi setahun.'
+                        ],
+                        'jenis_po' => [
+                            'type' => 'string',
+                            'description' => 'Filter jenis PO spesifik ("normal", "special_order", "reseller_price", "repeat_order"). Kosongkan untuk semua jenis PO.'
+                        ]
+                    ]
                 ]
             ],
         ];

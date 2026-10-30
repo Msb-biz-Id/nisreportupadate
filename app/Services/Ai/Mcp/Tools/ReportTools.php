@@ -114,6 +114,25 @@ class ReportTools
             'ai_presentation_tip' => 'Sebagai Konsultan Bisnis Strategis (McKinsey/BCG style), berikan rekomendasi alokasi kapasitas pabrik, brand mana yang harus dipush pemasarannya, dan brand mana yang perlu mitigasi risiko piutang.'
         ];
     }
+
+    /**
+     * Mengambil Laporan Jenis PO: Rincian jenis PO per brand, perolehan omset, tagihan yang belum lunas, statistik lengkap, dan grafik visualisasi.
+     */
+    public function getJenisPoReport(array $params = []): array
+    {
+        $brandId = !empty($params['brand_id']) ? (string)$params['brand_id'] : null;
+        $year = !empty($params['year']) ? (int)$params['year'] : null;
+        $month = !empty($params['month']) ? (int)$params['month'] : null;
+        $jenisPo = !empty($params['jenis_po']) ? (string)$params['jenis_po'] : null;
+
+        $report = McpSnapshotService::getJenisPoReport($brandId, $year, $month, $jenisPo);
+
+        return [
+            'status' => 'success',
+            'data' => $report,
+            'ai_presentation_tip' => 'WAJIB sajikan tabel perbandingan performa per brand (Jumlah PO, Total Pcs, Nilai Omset, Nilai Belum Lunas, Collection Rate). Tampilkan juga breakdown 4 jenis PO (Normal, Reseller, PO Support, Repeat Order) dan sajikan rincian data grafik komparasi. Terapkan analisis 4 skill: CFO (evaluasi piutang belum lunas & likuiditas), Analis Data (komposisi jenis PO & rata-rata order size), Konsultan Bisnis (strategi konversi & loyalitas pelanggan), dan Auditor Internal (pengawasan diskon reseller & otorisasi PO support).'
+        ];
+    }
 }
 
 
