@@ -1,6 +1,6 @@
 import InputError from '@/Components/InputError';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { Eye, EyeOff, Lock, Mail, LogIn, AlertTriangle, ShieldCheck, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, LogIn, AlertTriangle, ShieldCheck, Sparkles, ChevronDown, ChevronUp, CheckCircle2, UserCheck } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { createTimeline, animate } from 'animejs';
 
@@ -100,7 +100,83 @@ export default function Login({ status, canResetPassword, turnstile }) {
 
     const [showPassword, setShowPassword] = useState(false);
     const [isShaking, setIsShaking] = useState(false);
-    const [showHelp, setShowHelp] = useState(false);
+    const [showHelp, setShowHelp] = useState(true);
+    const [selectedEmail, setSelectedEmail] = useState('');
+
+    const quickAccounts = [
+        {
+            role: 'Keuangan / Finance',
+            desc: 'Invoice, Kas, & Refund',
+            email: 'finance.nisgroup@gmail.com',
+            password: 'password123',
+            icon: '💰',
+            badgeClass: 'bg-emerald-600 text-white',
+            borderHover: 'hover:border-emerald-300 hover:bg-emerald-50/60',
+        },
+        {
+            role: 'Admin Produksi',
+            desc: 'Gantt Chart & SPK',
+            email: 'adminproduksi.nisgroup@gmail.com',
+            password: 'password123',
+            icon: '🏭',
+            badgeClass: 'bg-amber-600 text-white',
+            borderHover: 'hover:border-amber-300 hover:bg-amber-50/60',
+        },
+        {
+            role: 'Admin HCM',
+            desc: 'Karyawan, Presensi, KPI',
+            email: 'hcm@nisgroup.id',
+            password: 'password123',
+            icon: '👥',
+            badgeClass: 'bg-indigo-600 text-white',
+            borderHover: 'hover:border-indigo-300 hover:bg-indigo-50/60',
+        },
+        {
+            role: 'Staff HCM',
+            desc: 'Legalitas & Dokumen HR',
+            email: 'staff.hcm@nisgroup.id',
+            password: 'password123',
+            icon: '📋',
+            badgeClass: 'bg-sky-600 text-white',
+            borderHover: 'hover:border-sky-300 hover:bg-sky-50/60',
+        },
+        {
+            role: 'Admin Purchasing',
+            desc: 'PO Bahan & Supplier',
+            email: 'purchasing@nisgroup.id',
+            password: 'password123',
+            icon: '🛒',
+            badgeClass: 'bg-teal-600 text-white',
+            borderHover: 'hover:border-teal-300 hover:bg-teal-50/60',
+        },
+        {
+            role: 'Owner / Direksi',
+            desc: 'Akses Ringkasan Eksekutif',
+            email: 'owner@nisreport.local',
+            password: 'password123',
+            icon: '👑',
+            badgeClass: 'bg-purple-600 text-white',
+            borderHover: 'hover:border-purple-300 hover:bg-purple-50/60',
+        },
+        {
+            role: 'Admin Brand (ALG)',
+            desc: 'Apparel Allegiant',
+            email: 'allegiant.id@gmail.com',
+            password: 'password123',
+            icon: '🏷️',
+            badgeClass: 'bg-rose-600 text-white',
+            borderHover: 'hover:border-rose-300 hover:bg-rose-50/60',
+        },
+        {
+            role: 'Supervisor',
+            desc: 'Supervisi Operasional Order',
+            email: 'supervisor.nisgroup@gmail.com',
+            password: 'password123',
+            icon: '🎯',
+            badgeClass: 'bg-blue-600 text-white',
+            borderHover: 'hover:border-blue-300 hover:bg-blue-50/60',
+        },
+    ];
 
     const submit = (e) => {
         e.preventDefault();
@@ -250,99 +326,87 @@ export default function Login({ status, canResetPassword, turnstile }) {
                             </div>
                         )}
 
-                        {/* Bantuan Login Cepat (Quick Fill) - Hidden sementara */}
-                        {false && (
-                        <div className="mb-6 p-3.5 rounded-2xl bg-gradient-to-br from-indigo-50/90 via-slate-50 to-sky-50/60 border border-indigo-100 text-xs shadow-xs">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="font-semibold text-indigo-950 flex items-center gap-1.5">
-                                    <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                                    Bantuan Akun Cepat
-                                </span>
-                                <span className="text-[10px] text-indigo-600/70 font-mono">Klik untuk isi otomatis</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
+                        {/* Bantuan Login Cepat (Non-Superadmin) */}
+                        <div className="mb-6 rounded-2xl bg-gradient-to-br from-slate-50 via-indigo-50/30 to-sky-50/20 border border-indigo-100 shadow-xs overflow-hidden transition-all">
+                            <div 
+                                onClick={() => setShowHelp(!showHelp)}
+                                className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-white/60 transition select-none"
+                            >
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                                        <Sparkles className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div>
+                                        <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                                            Bantuan Akun Cepat
+                                            <span className="px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[9px] font-semibold">
+                                                Non-Superadmin ({quickAccounts.length})
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500">Pilih salah satu peran untuk isi email & password otomatis</p>
+                                    </div>
+                                </div>
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        setData({
-                                            ...data,
-                                            email: 'hcm@nisgroup.id',
-                                            password: 'password123',
-                                        });
-                                    }}
-                                    className="flex items-center gap-2 p-2 rounded-xl bg-white hover:bg-indigo-50/80 border border-indigo-100 text-left transition shadow-xs group"
+                                    className="p-1 rounded-lg hover:bg-slate-200/60 text-slate-500 transition"
+                                    aria-label="Toggle bantuan login"
                                 >
-                                    <span className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-                                        👥
-                                    </span>
-                                    <div className="overflow-hidden">
-                                        <div className="font-bold text-slate-800 text-[11px] group-hover:text-indigo-600 transition truncate">Admin HCM</div>
-                                        <div className="text-[10px] text-slate-400 font-mono truncate">hcm@nisgroup.id</div>
-                                    </div>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setData({
-                                            ...data,
-                                            email: 'staff.hcm@nisgroup.id',
-                                            password: 'password123',
-                                        });
-                                    }}
-                                    className="flex items-center gap-2 p-2 rounded-xl bg-white hover:bg-sky-50/80 border border-sky-100 text-left transition shadow-xs group"
-                                >
-                                    <span className="w-7 h-7 rounded-lg bg-sky-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-                                        📋
-                                    </span>
-                                    <div className="overflow-hidden">
-                                        <div className="font-bold text-slate-800 text-[11px] group-hover:text-sky-600 transition truncate">Staff HCM</div>
-                                        <div className="text-[10px] text-slate-400 font-mono truncate">staff.hcm@nisgroup.id</div>
-                                    </div>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setData({
-                                            ...data,
-                                            email: 'ITidwarehouse@gmail.com',
-                                            password: 'password123',
-                                        });
-                                    }}
-                                    className="flex items-center gap-2 p-2 rounded-xl bg-white hover:bg-purple-50/80 border border-purple-100 text-left transition shadow-xs group"
-                                >
-                                    <span className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-                                        ⚡
-                                    </span>
-                                    <div className="overflow-hidden">
-                                        <div className="font-bold text-slate-800 text-[11px] group-hover:text-purple-600 transition truncate">Superadmin</div>
-                                        <div className="text-[10px] text-slate-400 font-mono truncate">ITidwarehouse@...</div>
-                                    </div>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setData({
-                                            ...data,
-                                            email: 'finance.nisgroup@gmail.com',
-                                            password: 'password123',
-                                        });
-                                    }}
-                                    className="flex items-center gap-2 p-2 rounded-xl bg-white hover:bg-emerald-50/80 border border-emerald-100 text-left transition shadow-xs group"
-                                >
-                                    <span className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-                                        💰
-                                    </span>
-                                    <div className="overflow-hidden">
-                                        <div className="font-bold text-slate-800 text-[11px] group-hover:text-emerald-600 transition truncate">Keuangan / Finance</div>
-                                        <div className="text-[10px] text-slate-400 font-mono truncate">finance.nisgroup@...</div>
-                                    </div>
+                                    {showHelp ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                                 </button>
                             </div>
+
+                            {showHelp && (
+                                <div className="p-3 pt-0 border-t border-indigo-100/60 animate-in fade-in duration-200">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2.5 max-h-64 overflow-y-auto pr-1">
+                                        {quickAccounts.map((acc) => {
+                                            const isSelected = data.email === acc.email;
+                                            return (
+                                                <button
+                                                    key={acc.email}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setData(prev => ({
+                                                            ...prev,
+                                                            email: acc.email,
+                                                            password: acc.password,
+                                                        }));
+                                                        setSelectedEmail(acc.email);
+                                                    }}
+                                                    className={`flex items-start gap-2.5 p-2 rounded-xl border text-left transition shadow-2xs group relative ${
+                                                        isSelected
+                                                            ? 'bg-indigo-50/90 border-indigo-400 ring-1 ring-indigo-400'
+                                                            : `bg-white ${acc.borderHover} border-slate-200`
+                                                    }`}
+                                                >
+                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 shadow-xs mt-0.5 ${acc.badgeClass}`}>
+                                                        {acc.icon}
+                                                    </span>
+                                                    <div className="overflow-hidden flex-1 min-w-0">
+                                                        <div className="flex items-center justify-between gap-1">
+                                                            <div className="font-bold text-slate-800 text-[11px] group-hover:text-indigo-600 transition truncate">
+                                                                {acc.role}
+                                                            </div>
+                                                            {isSelected && (
+                                                                <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                                            )}
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 font-mono truncate">{acc.email}</div>
+                                                        <div className="text-[9px] text-slate-500 truncate">{acc.desc}</div>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="mt-2.5 pt-2 border-t border-indigo-50 flex items-center justify-between text-[10px] text-slate-400">
+                                        <div className="flex items-center gap-1">
+                                            <Lock className="w-3 h-3 text-slate-400" />
+                                            <span>Sandi default: <code className="font-mono text-slate-600 bg-slate-100 px-1 py-0.5 rounded font-semibold">password123</code></span>
+                                        </div>
+                                        <span className="text-[9px] text-emerald-600 font-medium">1-Klik Langsung Isi</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        )}
 
                         <form onSubmit={submit} className="space-y-5">
                             {/* Email */}
