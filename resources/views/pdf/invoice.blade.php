@@ -702,7 +702,11 @@ $primaryColor = $invoice->brand?->warna_primary
                     @endphp
                     <tr style="border-top: 2px solid #1F2937;">
                         <td style="padding: 5px 0; font-weight: bold; font-size: 10pt; color: #111827;">SISA</td>
-                        <td style="padding: 5px 0; text-align: right; font-family: monospace; font-weight: bold; font-size: 10.5pt; color: {{ $sisaSesudahTandaLunas > 0 ? '#DC2626' : '#059669' }};">Rp {{ number_format($sisaSesudahTandaLunas, 0, ',', '.') }}</td>
+                        @if ($sisaSesudahTandaLunas > 0)
+                        <td style="padding: 5px 0; text-align: right; font-family: monospace; font-weight: bold; font-size: 10.5pt; color: #DC2626;">Rp {{ number_format($sisaSesudahTandaLunas, 0, ',', '.') }}</td>
+                        @else
+                        <td style="padding: 5px 0; text-align: right; font-family: monospace; font-weight: bold; font-size: 10.5pt; color: #059669;">Rp {{ number_format($sisaSesudahTandaLunas, 0, ',', '.') }}</td>
+                        @endif
                     </tr>
                 </table>
 
