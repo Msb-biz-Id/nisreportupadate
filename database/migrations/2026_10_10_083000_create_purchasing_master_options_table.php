@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('uuid')->unique();
             $table->string('category', 50)->comment('location, item_category, unit, vendor_type, payment_type, asset_category, asset_unit, retirement_reason, final_condition, disposal_method, ink_variant');
-            $table->string('code', 50);
+            $table->string('code', 100);
             $table->string('name', 150);
             $table->unsignedInteger('order_index')->default(0);
             $table->boolean('is_active')->default(true);

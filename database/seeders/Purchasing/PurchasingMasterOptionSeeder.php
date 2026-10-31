@@ -174,7 +174,7 @@ class PurchasingMasterOptionSeeder extends Seeder
 
         foreach ($dataset as $category => $items) {
             foreach ($items as $index => $itemName) {
-                $code = Str::slug($itemName, '_');
+                $code = rtrim(substr(Str::slug($itemName, '_'), 0, 50), '_');
                 PurchasingMasterOption::firstOrCreate(
                     [
                         'category' => $category,
@@ -195,7 +195,7 @@ class PurchasingMasterOptionSeeder extends Seeder
         if (file_exists($itemNamesFile)) {
             $names = json_decode(file_get_contents($itemNamesFile), true) ?? [];
             foreach ($names as $index => $itemName) {
-                $code = Str::slug($itemName, '_');
+                $code = rtrim(substr(Str::slug($itemName, '_'), 0, 50), '_');
                 PurchasingMasterOption::firstOrCreate(
                     [
                         'category' => 'item_name',

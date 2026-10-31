@@ -30,7 +30,7 @@ class StorePurchasingMasterOptionRequest extends FormRequest
             'code' => [
                 'nullable',
                 'string',
-                'max:50',
+                'max:100',
                 Rule::unique('purchasing_master_options', 'code')
                     ->where('category', $this->input('category'))
                     ->ignore($optionId),

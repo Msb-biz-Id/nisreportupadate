@@ -130,7 +130,7 @@ Buka menu **Terminal** di cPanel atau hubungkan via SSH:
 cd ~
 
 # 2. Clone repository ke folder nis_app
-git clone -b main https://github.com/USERNAME/REPO_NAME.git nis_app
+git clone -b main https://github.com/Msb-biz-Id/nisreportupadate.git nis_app
 
 # 3. Masuk ke folder aplikasi
 cd nis_app
