@@ -22,6 +22,15 @@ class PurchasingPaymentController extends Controller
      */
     public function storeTerms(StorePurchasingPaymentTermsRequest $request, PurchasingOrder $order): RedirectResponse
     {
+        $isSplit = $order->payment_mode === 'SPLIT' || $order->payment_type === 'Tempo / Kredit (TOP)';
+        if (! $isSplit) {
+            return back()->withErrors(['terms' => "PO {$order->po_number} menggunakan skema 1 Kali Pembayaran Langsung, bukan termin bertahap (TOP)."]);
+        }
+
+        if (in_array($order->status, ['PAID_COMPLETED', 'PURCHASE_COMPLETED']) || $order->payments()->where('status', 'PAID')->exists()) {
+            return back()->withErrors(['terms' => "Jadwal termin untuk PO {$order->po_number} telah terkunci dan tidak dapat diubah."]);
+        }
+
         try {
             $this->paymentService->generateTerms(
                 $order,

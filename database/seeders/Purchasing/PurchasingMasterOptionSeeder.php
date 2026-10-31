@@ -189,5 +189,26 @@ class PurchasingMasterOptionSeeder extends Seeder
                 );
             }
         }
+
+        // Seed 383 Standar Nama Item dari Kolom D Excel Blueprint
+        $itemNamesFile = database_path('seeders/data/purchasing_item_names.json');
+        if (file_exists($itemNamesFile)) {
+            $names = json_decode(file_get_contents($itemNamesFile), true) ?? [];
+            foreach ($names as $index => $itemName) {
+                $code = Str::slug($itemName, '_');
+                PurchasingMasterOption::firstOrCreate(
+                    [
+                        'category' => 'item_name',
+                        'name' => $itemName,
+                    ],
+                    [
+                        'uuid' => (string) Str::uuid(),
+                        'code' => $code,
+                        'order_index' => $index + 1,
+                        'is_active' => true,
+                    ]
+                );
+            }
+        }
     }
 }

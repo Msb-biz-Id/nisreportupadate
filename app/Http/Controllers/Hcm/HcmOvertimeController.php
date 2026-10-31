@@ -106,7 +106,8 @@ class HcmOvertimeController extends Controller
             ->orderBy('period_start', 'desc')
             ->orderBy('id', 'desc');
 
-        $batches = $batchesQuery->paginate(12)->withQueryString();
+        $perPage = min(max((int) $request->query('per_page', 12), 5), 100);
+        $batches = $batchesQuery->paginate($perPage)->withQueryString();
 
         $rates = self::getDynamicRates();
 
@@ -516,9 +517,9 @@ class HcmOvertimeController extends Controller
 
         $payoutProofUrl = $validated['payout_proof_url'] ?? null;
         if ($request->hasFile('payout_proof')) {
-            $uploaded = \App\Services\GoogleDriveSyncService::uploadFile(
+            $uploaded = \App\Services\HcmFileStorageService::uploadFile(
                 $request->file('payout_proof'),
-                \App\Services\GoogleDriveSyncService::FOLDER_DOCUMENTS
+                \App\Services\HcmFileStorageService::FOLDER_DOCUMENTS
             );
             $payoutProofUrl = $uploaded['url'];
         }

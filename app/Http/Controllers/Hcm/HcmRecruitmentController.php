@@ -40,6 +40,9 @@ class HcmRecruitmentController extends Controller
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
+        $perPage = (int) $request->query('per_page', 10);
+        $perPage = in_array($perPage, [10, 20, 25, 50, 100]) ? $perPage : 10;
+
         $jobs = HcmJobPosting::withCount(['applicants'])
             ->with('creator:id,name')
             ->when($escapedSearch, fn ($q, $t) => $q->where(fn ($sub) =>
@@ -51,7 +54,7 @@ class HcmRecruitmentController extends Controller
             ->when($statusFilter === 'inactive', fn ($q) => $q->where('is_active', false))
             ->when($deptFilter !== 'all', fn ($q) => $q->where('department', $deptFilter))
             ->orderBy('id', 'desc')
-            ->paginate(10)
+            ->paginate($perPage)
             ->withQueryString();
 
         $metrics = [
@@ -232,6 +235,9 @@ class HcmRecruitmentController extends Controller
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
+        $perPage = (int) $request->query('per_page', 15);
+        $perPage = in_array($perPage, [10, 15, 20, 25, 50, 100]) ? $perPage : 15;
+
         $applicants = HcmJobApplicant::with([
             'jobPosting:id,slug,title,department,position',
             'convertedEmployee:id,employee_code,name',
@@ -256,7 +262,7 @@ class HcmRecruitmentController extends Controller
                 }
             })
             ->orderBy('id', 'desc')
-            ->paginate(15)
+            ->paginate($perPage)
             ->withQueryString();
 
         $metrics = [

@@ -3,10 +3,34 @@
 namespace App\Models\Hcm;
 
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property string $title
+ * @property string|null $event_type
+ * @property string|null $organizer_name
+ * @property Carbon|null $start_date
+ * @property Carbon|null $end_date
+ * @property string|null $start_time
+ * @property string|null $end_time
+ * @property string|null $location
+ * @property string|null $target_audience
+ * @property int|null $reminder_days
+ * @property bool $is_annual_recurring
+ * @property string|null $invitation_file_url
+ * @property string|null $description
+ * @property string|null $color_code
+ * @property bool $is_public
+ * @property int|null $created_by
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read User|null $creator
+ */
 class HcmCompanyEvent extends Model
 {
     use HasFactory;

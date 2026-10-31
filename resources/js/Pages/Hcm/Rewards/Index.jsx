@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
     Award,
     Plus,
@@ -17,6 +17,7 @@ import {
     UserCheck,
     FileText,
     FileSpreadsheet,
+    RotateCcw,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent } from '@/Components/ui/card';
@@ -25,14 +26,8 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
 import { Textarea } from '@/Components/ui/textarea';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/Components/ui/table';
+import { DataTable } from '@/Components/DataTable/DataTable';
+import { DataTableColumnHeader } from '@/Components/DataTable/DataTableColumnHeader';
 import {
     Dialog,
     DialogContent,
@@ -98,13 +93,15 @@ export default function RewardsIndex({
         }).format(val);
     };
 
-    const handleFilterChange = (newSearch, newStatus, newYear) => {
+    const handleFilterChange = (newSearch = search, newStatus = statusFilter, newYear = yearFilter, page = 1, perPage = rewards?.per_page || 12) => {
         router.get(
             route('hcm.rewards.index'),
             {
                 search: newSearch,
                 status: newStatus,
                 year: newYear,
+                page,
+                per_page: perPage,
             },
             {
                 preserveState: true,
@@ -207,6 +204,171 @@ export default function RewardsIndex({
         );
     };
 
+    const columns = useMemo(() => [
+        {
+            id: 'no',
+            size: 50,
+            minSize: 44,
+            meta: { title: 'No' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="No" className="justify-center" />,
+            cell: ({ row }) => (
+                <div className="text-center text-xs text-zinc-400 font-mono">
+                    {(rewards.current_page - 1) * rewards.per_page + row.index + 1}
+                </div>
+            ),
+        },
+        {
+            id: 'employee',
+            size: 220,
+            minSize: 200,
+            meta: { title: 'Karyawan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Karyawan" />,
+            cell: ({ row }) => {
+                const item = row.original;
+                return (
+                    <div>
+                        <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
+                            {item.employee?.name}
+                        </div>
+                        <div className="text-[10px] text-zinc-400">
+                            {item.employee?.employee_code} • {item.employee?.department || '-'}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'reward_name',
+            size: 240,
+            minSize: 200,
+            meta: { title: 'Nama Apresiasi / Reward' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nama Apresiasi / Reward" />,
+            cell: ({ row }) => {
+                const item = row.original;
+                return (
+                    <div>
+                        <div className="font-semibold text-xs text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                            <Gift className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            {item.reward_name}
+                        </div>
+                        {item.notes && (
+                            <div className="text-[10px] text-zinc-400 line-clamp-1 italic mt-0.5">
+                                {item.notes}
+                            </div>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'reward_year',
+            size: 100,
+            minSize: 90,
+            meta: { title: 'Tahun' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tahun" className="justify-center" />,
+            cell: ({ row }) => (
+                <div className="text-center text-xs font-mono font-bold">
+                    {row.original.reward_year}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'budget_amount',
+            size: 150,
+            minSize: 140,
+            meta: { title: 'Nominal / Nilai' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nominal / Nilai" className="justify-end" />,
+            cell: ({ row }) => (
+                <div className="text-right text-xs font-mono font-bold text-zinc-900 dark:text-zinc-100">
+                    {row.original.budget_amount > 0 ? formatRp(row.original.budget_amount) : 'Non-Finansial'}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'distribution_status',
+            size: 160,
+            minSize: 150,
+            meta: { title: 'Status Penyaluran' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status Penyaluran" className="justify-center" />,
+            cell: ({ row }) => (
+                <div className="text-center">
+                    {getStatusBadge(row.original.distribution_status)}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'received_date',
+            size: 130,
+            minSize: 120,
+            meta: { title: 'Tanggal Diterima' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tanggal Diterima" />,
+            cell: ({ row }) => (
+                <span className="text-xs font-mono text-zinc-600 dark:text-zinc-400">
+                    {row.original.received_date || '-'}
+                </span>
+            ),
+        },
+        {
+            id: 'document',
+            size: 140,
+            minSize: 130,
+            meta: { title: 'Dokumen / Bukti' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Dokumen / Bukti" />,
+            cell: ({ row }) => {
+                const item = row.original;
+                return (
+                    <div className="space-y-1">
+                        <div className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                            {item.document_status || 'Belum Ada'}
+                        </div>
+                        {item.proof_url && (
+                            <a
+                                href={item.proof_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] text-blue-600 hover:underline"
+                            >
+                                <ExternalLink className="w-3 h-3" />
+                                Lihat Bukti
+                            </a>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'actions',
+            size: 100,
+            minSize: 90,
+            pinned: 'right',
+            meta: { title: 'Aksi' },
+            header: () => <div className="text-right pr-2">Aksi</div>,
+            cell: ({ row }) => {
+                const item = row.original;
+                return (
+                    <div className="flex items-center justify-end gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-zinc-500 hover:text-blue-600"
+                            onClick={() => openEditModal(item)}
+                        >
+                            <Edit2 className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-zinc-500 hover:text-rose-600"
+                            onClick={() => handleDelete(item)}
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                    </div>
+                );
+            },
+        },
+    ], [rewards.current_page, rewards.per_page]);
+
     return (
         <AppLayout title="Reward & Apresiasi Karyawan">
             <Head title="Reward & Apresiasi Karyawan" />
@@ -304,194 +466,64 @@ export default function RewardsIndex({
                             </div>
                         </CardContent>
                     </Card>
-                </div>
-
-                {/* 3. Filter Toolbar */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-                        <div className="relative w-full sm:w-64">
-                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                            <Input
-                                placeholder="Cari reward / nama karyawan..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        handleFilterChange(search, statusFilter, yearFilter);
-                                    }
-                                }}
-                                className="pl-9 text-xs h-9"
-                            />
-                        </div>
-
-                        <div className="w-full sm:w-44">
+                </div>                {/* 3. Tabel Daftar Reward with DataTable */}
+                <DataTable
+                    columns={columns}
+                    data={rewards.data || []}
+                    serverPagination={rewards}
+                    onServerPageChange={(page) => handleFilterChange(search, statusFilter, yearFilter, page)}
+                    onServerPerPageChange={(per_page) => handleFilterChange(search, statusFilter, yearFilter, 1, per_page)}
+                    onServerSearchChange={(val) => {
+                        setSearch(val);
+                        handleFilterChange(val, statusFilter, yearFilter, 1);
+                    }}
+                    searchValue={search}
+                    searchPlaceholder="Cari reward / nama karyawan..."
+                    exportFileName={`Reward_Apresiasi_${new Date().toISOString().slice(0, 10)}`}
+                    filterSlot={
+                        <div className="flex flex-wrap items-center gap-2">
                             <SearchableSelect
                                 value={yearFilter}
                                 onValueChange={(val) => {
                                     setYearFilter(val);
-                                    handleFilterChange(search, statusFilter, val);
+                                    handleFilterChange(search, statusFilter, val, 1);
                                 }}
                                 options={yearOptions}
                                 placeholder="Pilih Tahun"
-                                className="h-9 text-xs"
+                                clearable={false}
+                                className="h-8 text-xs w-[130px]"
                             />
-                        </div>
-
-                        <div className="w-full sm:w-56">
                             <SearchableSelect
                                 value={statusFilter}
                                 onValueChange={(val) => {
                                     setStatusFilter(val);
-                                    handleFilterChange(search, val, yearFilter);
+                                    handleFilterChange(search, val, yearFilter, 1);
                                 }}
                                 options={statusOptions}
                                 placeholder="Status Distribusi"
-                                className="h-9 text-xs"
+                                clearable={false}
+                                className="h-8 text-xs w-[190px]"
                             />
+                            {(statusFilter !== 'all' || yearFilter !== 'all' || search !== '') && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        setSearch('');
+                                        setStatusFilter('all');
+                                        setYearFilter('all');
+                                        handleFilterChange('', 'all', 'all', 1);
+                                    }}
+                                    className="h-8 text-xs text-zinc-500 hover:text-rose-600 gap-1 px-2"
+                                    title="Reset filter"
+                                >
+                                    <RotateCcw className="h-3 w-3" />
+                                    <span>Reset</span>
+                                </Button>
+                            )}
                         </div>
-                    </div>
-
-                    <div className="text-xs text-zinc-500 self-end sm:self-center">
-                        Total {rewards.total || 0} data tercatat
-                    </div>
-                </div>
-
-                {/* 4. Tabel Daftar Reward */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-zinc-50 dark:bg-zinc-800/50">
-                                <TableRow>
-                                    <TableHead className="w-[40px] text-center text-xs font-bold">No</TableHead>
-                                    <TableHead className="min-w-[190px] text-xs font-bold">Karyawan</TableHead>
-                                    <TableHead className="min-w-[170px] text-xs font-bold">Nama Apresiasi / Reward</TableHead>
-                                    <TableHead className="min-w-[80px] text-center text-xs font-bold">Tahun</TableHead>
-                                    <TableHead className="min-w-[130px] text-right text-xs font-bold">Nominal / Nilai</TableHead>
-                                    <TableHead className="min-w-[140px] text-center text-xs font-bold">Status Penyaluran</TableHead>
-                                    <TableHead className="min-w-[110px] text-xs font-bold">Tanggal Diterima</TableHead>
-                                    <TableHead className="min-w-[150px] text-xs font-bold">Dokumen / Bukti</TableHead>
-                                    <TableHead className="w-[90px] text-right text-xs font-bold">Aksi</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {rewards.data && rewards.data.length > 0 ? (
-                                    rewards.data.map((item, idx) => (
-                                        <TableRow key={item.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                                            <TableCell className="text-center text-xs text-zinc-400 font-mono">
-                                                {(rewards.current_page - 1) * rewards.per_page + idx + 1}
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
-                                                    {item.employee?.name}
-                                                </div>
-                                                <div className="text-[10px] text-zinc-400">
-                                                    {item.employee?.employee_code} • {item.employee?.department || '-'}
-                                                </div>
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <div className="font-semibold text-xs text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
-                                                    <Gift className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                                    {item.reward_name}
-                                                </div>
-                                                {item.notes && (
-                                                    <div className="text-[10px] text-zinc-400 line-clamp-1 italic mt-0.5">
-                                                        {item.notes}
-                                                    </div>
-                                                )}
-                                            </TableCell>
-
-                                            <TableCell className="text-center text-xs font-mono font-bold">
-                                                {item.reward_year}
-                                            </TableCell>
-
-                                            <TableCell className="text-right text-xs font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                                                {item.budget_amount > 0 ? formatRp(item.budget_amount) : 'Non-Finansial'}
-                                            </TableCell>
-
-                                            <TableCell className="text-center">
-                                                {getStatusBadge(item.distribution_status)}
-                                            </TableCell>
-
-                                            <TableCell className="text-xs font-mono text-zinc-600 dark:text-zinc-400">
-                                                {item.received_date || '-'}
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <div className="space-y-1">
-                                                    <div className="text-[11px] text-zinc-600 dark:text-zinc-400">
-                                                        {item.document_status || 'Belum Ada'}
-                                                    </div>
-                                                    {item.proof_url && (
-                                                        <a
-                                                            href={item.proof_url}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="inline-flex items-center gap-1 text-[10px] text-blue-600 hover:underline"
-                                                        >
-                                                            <ExternalLink className="w-3 h-3" />
-                                                            Lihat Bukti
-                                                        </a>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-
-                                            <TableCell className="text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 text-zinc-500 hover:text-blue-600"
-                                                        onClick={() => openEditModal(item)}
-                                                    >
-                                                        <Edit2 className="w-3.5 h-3.5" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 text-zinc-500 hover:text-rose-600"
-                                                        onClick={() => handleDelete(item)}
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={9} className="text-center py-10 text-zinc-400 text-xs">
-                                            Belum ada catatan reward dan apresiasi karyawan.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-
-                    {/* Pagination */}
-                    {rewards.links && rewards.links.length > 3 && (
-                        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-                            <div className="text-xs text-zinc-500">
-                                Halaman {rewards.current_page} dari {rewards.last_page}
-                            </div>
-                            <div className="flex gap-1">
-                                {rewards.links.map((link, i) => (
-                                    <Button
-                                        key={i}
-                                        variant={link.active ? 'default' : 'outline'}
-                                        size="sm"
-                                        disabled={!link.url}
-                                        onClick={() => link.url && router.get(link.url)}
-                                        className="h-8 text-xs"
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </Card>
+                    }
+                />
 
                 {/* 5. Modal Tambah / Edit Reward */}
                 <Dialog open={isFormModalOpen} onOpenChange={setIsFormModalOpen}>
@@ -599,7 +631,7 @@ export default function RewardsIndex({
                                     <Input
                                         value={form.data.proof_url}
                                         onChange={(e) => form.setData('proof_url', e.target.value)}
-                                        placeholder="https://drive.google.com/..."
+                                        placeholder="https://..."
                                         className="text-xs"
                                     />
                                 </div>

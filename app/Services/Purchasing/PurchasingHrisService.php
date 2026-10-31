@@ -35,46 +35,7 @@ class PurchasingHrisService
      */
     public function getDivisionPositionMap(): array
     {
-        return [
-            'Finance' => [
-                'Accounting',
-                'Purchasing',
-            ],
-            'Human Capital Management' => [
-                'Admin HCM',
-            ],
-            'HCM' => [
-                'Admin HCM',
-            ],
-            'Marketing' => [
-                'Admin Brand',
-                'Designer',
-            ],
-            'Produksi' => [
-                'Admin Produksi',
-                'Setting Printing',
-                'Potong Bahan',
-                'Press Sublime',
-                'Potong Pola',
-                'Jahit',
-                'Quality Control',
-                'Finishing (Press)',
-                'Finishing (Steam)',
-                'Finishing (Packing)',
-                'Operasional',
-            ],
-            'Media Internal' => [
-                'Media Spesialist',
-                'Publisher',
-                'Editor',
-                'Planner',
-            ],
-            'Media Eksternal' => [
-                'Media Spesialist',
-                'Web Editor',
-                'Web Developer',
-            ],
-        ];
+        return HcmMasterOption::getDepartmentDivisionsMap();
     }
 
     /**
@@ -106,13 +67,14 @@ class PurchasingHrisService
     public function getHrisReferences(): array
     {
         $hcmDropdowns = HcmMasterOption::getAllDropdowns();
+        $deptDivMap = HcmMasterOption::getDepartmentDivisionsMap();
 
         return [
             'departments' => $hcmDropdowns['departments'] ?? [],
             'departments_with_codes' => $this->getDepartmentsWithCodes(),
             'divisions' => $hcmDropdowns['divisions'] ?? [],
-            'department_division_map' => $hcmDropdowns['department_division_map'] ?? [],
-            'division_position_map' => $this->getDivisionPositionMap(),
+            'department_division_map' => $deptDivMap,
+            'division_position_map' => $deptDivMap,
             'all_positions' => HcmMasterOption::getOptions('posisi'),
         ];
     }

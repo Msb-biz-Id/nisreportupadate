@@ -29,6 +29,8 @@ import {
     Send,
     PlusCircle,
     Info,
+    TrendingUp,
+    Banknote,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
@@ -41,6 +43,7 @@ export default function HcmDashboardIndex({
     legalEntities = [],
     probationAlerts = [],
     contractAlerts = [],
+    salaryEvaluationAlerts = [],
     unexcusedAbsenceAlerts = [],
     overtimeReminder = {},
     payrollCutoffReminder = {},
@@ -63,6 +66,7 @@ export default function HcmDashboardIndex({
     const totalUrgentIssues =
         (probationAlerts?.length || 0) +
         (contractAlerts?.length || 0) +
+        (salaryEvaluationAlerts?.length || 0) +
         (unexcusedAbsenceAlerts?.length || 0) +
         (moduleTotals.leaves?.pending || 0) +
         (moduleTotals.overtime?.pending_batches || 0) +
@@ -619,13 +623,79 @@ export default function HcmDashboardIndex({
                                     </div>
                                 )}
 
-                                {/* C. Pending Approvals (Tiket Cuti / Izin Baru Menunggu Persetujuan Atasan/HR) */}
+                                {/* C. Jadwal Evaluasi Kenaikan Gaji Berkala (Bulan ke-6 / Siklus Kontrak) */}
+                                {salaryEvaluationAlerts && salaryEvaluationAlerts.length > 0 && (
+                                    <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                                        <div className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 flex items-center justify-between">
+                                            <span className="flex items-center gap-1.5">
+                                                <TrendingUp className="w-3.5 h-3.5" />
+                                                C. Jadwal Evaluasi Kenaikan Gaji Berkala (Siklus Kontrak):
+                                            </span>
+                                            <span className="text-[10px] text-zinc-400 font-normal">
+                                                {salaryEvaluationAlerts.length} Karyawan (Butuh Keputusan)
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {salaryEvaluationAlerts.map((s) => {
+                                                const isCritical = s.urgency === 'critical';
+                                                return (
+                                                    <div
+                                                        key={s.compensation_id}
+                                                        className={`p-2.5 rounded-lg border text-xs flex items-center justify-between ${
+                                                            isCritical
+                                                                ? 'border-indigo-300 bg-indigo-50/70 dark:bg-indigo-950/30'
+                                                                : 'border-zinc-200 bg-zinc-50/50 dark:bg-zinc-800/40'
+                                                        }`}
+                                                    >
+                                                        <div>
+                                                            <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                                                                <span>{s.name}</span>
+                                                                <Badge variant="outline" className="text-[9px] px-1 py-0 border-indigo-200 text-indigo-700">
+                                                                    {s.cycle_text}
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                                                                {s.contract_sequence} • Gaji: {formatRp(s.current_salary)}
+                                                            </div>
+                                                            <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                                                                Status: {s.decision_status}
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <Badge
+                                                                className={`font-mono text-[10px] ${
+                                                                    s.decision_status === 'Sedang Diajukan'
+                                                                        ? 'bg-amber-500 text-white'
+                                                                        : s.decision_status === 'Ditunda'
+                                                                        ? 'bg-orange-500 text-white'
+                                                                        : isCritical
+                                                                        ? 'bg-indigo-600 text-white'
+                                                                        : 'bg-zinc-700 text-white'
+                                                                }`}
+                                                            >
+                                                                {s.days_remaining <= 0 ? 'Waktunya Review' : `${s.days_remaining} Hari Lagi`}
+                                                            </Badge>
+                                                            <Link
+                                                                href={route('hcm.compensations.index', { search: s.name })}
+                                                                className="block text-[10px] text-indigo-600 hover:underline mt-1 font-semibold"
+                                                            >
+                                                                Evaluasi Gaji ➔
+                                                            </Link>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* D. Pending Approvals (Tiket Cuti / Izin Baru Menunggu Persetujuan Atasan/HR) */}
                                 {pendingLeaves && pendingLeaves.length > 0 && (
                                     <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                                         <div className="text-xs font-semibold text-blue-700 dark:text-blue-400 flex items-center justify-between">
                                             <span className="flex items-center gap-1.5">
                                                 <FileText className="w-3.5 h-3.5" />
-                                                C. Pending Approvals ({pendingLeaves.length} Pengajuan Menunggu HR):
+                                                D. Pending Approvals ({pendingLeaves.length} Pengajuan Menunggu HR):
                                             </span>
                                             <Link
                                                 href={route('hcm.leaves.index')}
@@ -670,10 +740,11 @@ export default function HcmDashboardIndex({
 
                                 {(!probationAlerts || probationAlerts.length === 0) &&
                                  (!contractAlerts || contractAlerts.length === 0) &&
+                                 (!salaryEvaluationAlerts || salaryEvaluationAlerts.length === 0) &&
                                  (!pendingLeaves || pendingLeaves.length === 0) && (
                                     <div className="text-xs text-emerald-600 flex items-center gap-2 py-3">
                                         <CheckCircle2 className="w-4 h-4" />
-                                        Seluruh masa probation, kontrak PKWT, dan persetujuan perizinan dalam status terkendali dan aman.
+                                        Seluruh masa probation, kontrak PKWT, evaluasi gaji, dan persetujuan perizinan dalam status terkendali dan aman.
                                     </div>
                                 )}
                             </CardContent>

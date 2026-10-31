@@ -10,6 +10,8 @@ use App\Models\Hcm\HcmEmployee;
 use App\Models\Hcm\HcmLeaveRequest;
 use App\Models\Hcm\HcmMasterOption;
 use App\Models\Hcm\HcmOfficeExitPermit;
+use App\Models\Hcm\HcmShiftRoster;
+use App\Models\Hcm\HcmWorkShift;
 use App\Services\HcmAttendanceWaSummaryService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
@@ -65,10 +67,22 @@ class HcmAttendanceController extends Controller
 
         // 7. Master data dropdowns
         $departments = HcmMasterOption::getOptions('departemen') ?: HcmMasterOption::getOptions('departments');
+        if (empty($departments)) {
+            $departments = HcmEmployee::where('is_active', true)->whereNotNull('department')->distinct()->pluck('department')->values()->toArray();
+        }
         $divisions = HcmMasterOption::getOptions('divisi');
+        if (empty($divisions)) {
+            $divisions = HcmEmployee::where('is_active', true)->whereNotNull('division')->distinct()->pluck('division')->values()->toArray();
+        }
         $attachmentStatuses = HcmMasterOption::getOptions('status_lampiran') ?: ['Terlampir', 'Tidak Terlampir'];
 
         $activeEmployeesForGatePass = $this->formatGatePassEmployees($employees);
+        $activeEmployeesForBulk = $employees->map(fn ($e) => [
+            'id' => $e->id,
+            'department' => $e->department,
+            'division' => $e->division,
+        ])->values();
+        $shifts = HcmWorkShift::where('is_active', true)->orderBy('shift_code')->get();
 
         return Inertia::render('Hcm/Attendance/Index', [
             'activeTab' => $activeTab,
@@ -83,8 +97,10 @@ class HcmAttendanceController extends Controller
             'exitPermits' => $exitPermits,
             'departments' => $departments,
             'divisions' => $divisions,
+            'shifts' => $shifts,
             'attachmentStatuses' => $attachmentStatuses,
             'activeEmployeesForGatePass' => $activeEmployeesForGatePass,
+            'activeEmployeesForBulk' => $activeEmployeesForBulk,
             'metrics' => $metrics,
             'filters' => [
                 'tab' => $activeTab,
@@ -152,7 +168,8 @@ class HcmAttendanceController extends Controller
      */
     private function getActiveEmployees(string $escapedSearch, string $categoryFilter, string $departmentFilter): Collection
     {
-        return HcmEmployee::where('is_active', true)
+        return HcmEmployee::with('defaultShift')
+            ->where('is_active', true)
             ->when($escapedSearch, function ($query, $term) {
                 $query->where(function ($q) use ($term) {
                     $q->where('name', 'like', "%{$term}%")
@@ -203,7 +220,8 @@ class HcmAttendanceController extends Controller
     {
         $employeeIds = $employees->pluck('id');
 
-        $monthlyAttendances = HcmAttendance::whereBetween('attendance_date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
+        $monthlyAttendances = HcmAttendance::with('shift')
+            ->whereBetween('attendance_date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
             ->whereIn('employee_id', $employeeIds)
             ->get();
 
@@ -219,6 +237,15 @@ class HcmAttendanceController extends Controller
             ->whereIn('employee_id', $employeeIds)
             ->get();
 
+        $monthlyRosters = HcmShiftRoster::with('shift')
+            ->whereBetween('roster_date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
+            ->whereIn('employee_id', $employeeIds)
+            ->get()
+            ->groupBy(fn ($item) => $item->employee_id . '_' . (int) $item->roster_date->format('j'));
+
+        $defaultGlobalShift = HcmWorkShift::where('shift_code', 'REG')->first()
+            ?: HcmWorkShift::where('is_off_day', false)->first();
+
         $attKeyed = [];
         foreach ($monthlyAttendances as $att) {
             $dayNum = (int) Carbon::parse($att->attendance_date)->format('j');
@@ -229,10 +256,15 @@ class HcmAttendanceController extends Controller
                 'clock_out' => $att->clock_out ? substr($att->clock_out, 0, 5) : null,
                 'notes' => $att->notes,
                 'attachment_url' => $att->attachment_url,
+                'shift_id' => $att->shift_id,
+                'shift_code' => $att->shift?->shift_code,
+                'shift_color' => $att->shift?->color_code,
+                'shift_name' => $att->shift?->name,
+                'late_minutes' => $att->late_minutes,
             ];
         }
 
-        return $employees->map(function ($emp) use ($daysList, $attKeyed, $monthlyLeaves, $effectiveWorkDays) {
+        return $employees->map(function ($emp) use ($daysList, $attKeyed, $monthlyLeaves, $monthlyRosters, $defaultGlobalShift, $effectiveWorkDays) {
             $daysData = [];
             $hadirCount = 0;
             $lateCount = 0;
@@ -241,14 +273,20 @@ class HcmAttendanceController extends Controller
             $cutiCount = 0;
             $alphaCount = 0;
 
+            $empDefaultShift = $emp->defaultShift ?: $defaultGlobalShift;
             $empLeaves = $monthlyLeaves->where('employee_id', $emp->id);
 
             foreach ($daysList as $dayInfo) {
                 $dayNum = $dayInfo['day'];
                 $dateStr = $dayInfo['date'];
+                $rosterItem = $monthlyRosters->get($emp->id . '_' . $dayNum)?->first();
+                $dayShift = $rosterItem?->shift ?: ($dayInfo['is_weekend'] && !$rosterItem ? null : $empDefaultShift);
 
                 if (isset($attKeyed[$emp->id][$dayNum])) {
                     $record = $attKeyed[$emp->id][$dayNum];
+                    $record['shift_code'] = $record['shift_code'] ?? ($dayShift?->shift_code ?? 'REG');
+                    $record['shift_color'] = $record['shift_color'] ?? ($dayShift?->color_code ?? '#2563eb');
+                    $record['shift_name'] = $record['shift_name'] ?? ($dayShift?->name ?? 'Shift Reguler');
                 } else {
                     $matchingLeave = $empLeaves->first(function ($l) use ($dateStr) {
                         return $l->start_date <= $dateStr && $l->end_date >= $dateStr;
@@ -262,15 +300,31 @@ class HcmAttendanceController extends Controller
                             'clock_out' => null,
                             'notes' => "Cuti/Izin: {$matchingLeave->reason}",
                             'attachment_url' => $matchingLeave->attachment_url,
+                            'shift_code' => $dayShift?->shift_code ?? 'REG',
+                            'shift_color' => $dayShift?->color_code ?? '#2563eb',
+                            'shift_name' => $dayShift?->name ?? 'Shift Reguler',
+                            'late_minutes' => 0,
                         ];
                     } else {
-                        $record = null;
+                        $record = [
+                            'id' => null,
+                            'category' => null,
+                            'clock_in' => null,
+                            'clock_out' => null,
+                            'notes' => null,
+                            'attachment_url' => null,
+                            'shift_code' => $dayShift ? $dayShift->shift_code : 'OFF',
+                            'shift_color' => $dayShift ? $dayShift->color_code : '#64748b',
+                            'shift_name' => $dayShift ? $dayShift->name : 'Libur Rutin',
+                            'is_off_day' => $dayShift ? $dayShift->is_off_day : true,
+                            'late_minutes' => 0,
+                        ];
                     }
                 }
 
                 $daysData[$dayNum] = $record;
 
-                if ($record) {
+                if ($record && !empty($record['category'])) {
                     $cat = $record['category'];
                     if ($cat === 'Hadir') $hadirCount++;
                     elseif ($cat === 'Terlambat') $lateCount++;
@@ -282,7 +336,7 @@ class HcmAttendanceController extends Controller
             }
 
             $totalAttended = $hadirCount + $lateCount;
-            $attendanceRate = round(($totalAttended / $effectiveWorkDays) * 100, 1);
+            $attendanceRate = $effectiveWorkDays > 0 ? round(($totalAttended / $effectiveWorkDays) * 100, 1) : 0;
 
             return [
                 'employee_id' => $emp->id,
@@ -447,7 +501,8 @@ class HcmAttendanceController extends Controller
     {
         $employeeIds = $employees->pluck('id');
 
-        $dailyAttendances = HcmAttendance::whereDate('attendance_date', $selectedDate)
+        $dailyAttendances = HcmAttendance::with('shift')
+            ->whereDate('attendance_date', $selectedDate)
             ->whereIn('employee_id', $employeeIds)
             ->get()
             ->keyBy('employee_id');
@@ -459,9 +514,23 @@ class HcmAttendanceController extends Controller
             ->get()
             ->keyBy('employee_id');
 
-        $dailyMatrixData = $employees->map(function ($emp) use ($dailyAttendances, $dailyLeaves) {
+        $dailyRosters = HcmShiftRoster::with('shift')
+            ->whereDate('roster_date', $selectedDate)
+            ->whereIn('employee_id', $employeeIds)
+            ->get()
+            ->keyBy('employee_id');
+
+        $defaultGlobalShift = HcmWorkShift::where('shift_code', 'REG')->first()
+            ?: HcmWorkShift::where('is_off_day', false)->first();
+
+        $dailyMatrixData = $employees->map(function ($emp) use ($dailyAttendances, $dailyLeaves, $dailyRosters, $defaultGlobalShift) {
             $att = $dailyAttendances->get($emp->id);
             $leave = $dailyLeaves->get($emp->id);
+            $roster = $dailyRosters->get($emp->id);
+
+            $assignedShift = $att?->shift ?: ($roster?->shift ?: ($emp->defaultShift ?: $defaultGlobalShift));
+            $shiftStartTime = $assignedShift && $assignedShift->start_time ? substr($assignedShift->start_time, 0, 5) : '08:00';
+            $shiftEndTime = $assignedShift && $assignedShift->end_time ? substr($assignedShift->end_time, 0, 5) : '17:00';
 
             return [
                 'employee_id' => $emp->id,
@@ -475,8 +544,14 @@ class HcmAttendanceController extends Controller
                 'job_level' => $emp->job_level,
                 'attendance_id' => $att?->id,
                 'attendance_category' => $att?->attendance_category ?? ($leave ? $leave->leave_type : null),
-                'clock_in' => $att?->clock_in ? substr($att->clock_in, 0, 5) : ($leave ? null : '08:00'),
-                'clock_out' => $att?->clock_out ? substr($att->clock_out, 0, 5) : ($leave ? null : '17:00'),
+                'shift_id' => $assignedShift?->id,
+                'shift_code' => $assignedShift?->shift_code ?? 'REG',
+                'shift_name' => $assignedShift?->name ?? 'Shift Reguler',
+                'shift_color' => $assignedShift?->color_code ?? '#2563eb',
+                'is_off_day' => $assignedShift?->is_off_day ?? false,
+                'clock_in' => $att?->clock_in ? substr($att->clock_in, 0, 5) : ($leave ? null : $shiftStartTime),
+                'clock_out' => $att?->clock_out ? substr($att->clock_out, 0, 5) : ($leave ? null : $shiftEndTime),
+                'late_minutes' => $att?->late_minutes ?? 0,
                 'notes' => $att?->notes ?? ($leave ? "Cuti/Izin Disetujui: {$leave->reason}" : ''),
                 'attachment_status' => $att?->attachment_status ?? ($leave?->attachment_url ? 'Terlampir' : 'Tidak Terlampir'),
                 'attachment_url' => $att?->attachment_url ?? $leave?->attachment_url,
@@ -560,6 +635,7 @@ class HcmAttendanceController extends Controller
             'items' => ['required', 'array'],
             'items.*.employee_id' => ['required', 'exists:hcm_employees,id'],
             'items.*.position' => ['nullable', 'string', 'max:100'],
+            'items.*.shift_id' => ['nullable', 'exists:hcm_work_shifts,id'],
             'items.*.attendance_category' => [
                 'required',
                 'string',
@@ -588,6 +664,7 @@ class HcmAttendanceController extends Controller
                     ],
                     [
                         'position' => $item['position'] ?? null,
+                        'shift_id' => $item['shift_id'] ?? null,
                         'attendance_category' => $item['attendance_category'],
                         'clock_in' => $clockIn,
                         'clock_out' => $clockOut,
@@ -605,7 +682,7 @@ class HcmAttendanceController extends Controller
     }
 
     /**
-     * Tombol Pintas 1-Klik: Set Seluruh Karyawan Hadir (08:00 - 17:00).
+     * Tombol Pintas 1-Klik: Set Seluruh Karyawan Hadir Sesuai Jadwal Shift / Default.
      */
     public function setAllPresent(Request $request): RedirectResponse
     {
@@ -620,9 +697,12 @@ class HcmAttendanceController extends Controller
         $department = $validated['department'] ?? 'all';
         $userId = Auth::id();
 
-        DB::transaction(function () use ($date, $department, $userId) {
+        $affectedCount = 0;
+
+        DB::transaction(function () use ($date, $department, $userId, &$affectedCount) {
             // Dapatkan karyawan aktif
-            $employees = HcmEmployee::where('is_active', true)
+            $employees = HcmEmployee::with('defaultShift')
+                ->where('is_active', true)
                 ->when($department !== 'all', fn ($q) => $q->where('department', $department))
                 ->get();
 
@@ -633,11 +713,31 @@ class HcmAttendanceController extends Controller
                 ->pluck('employee_id')
                 ->toArray();
 
+            $dailyRosters = HcmShiftRoster::with('shift')
+                ->whereDate('roster_date', $date)
+                ->whereIn('employee_id', $employees->pluck('id'))
+                ->get()
+                ->keyBy('employee_id');
+
+            $defaultGlobalShift = HcmWorkShift::where('shift_code', 'REG')->first()
+                ?: HcmWorkShift::where('is_off_day', false)->first();
+
             foreach ($employees as $emp) {
                 // Jika sedang cuti/izin, lewati agar tidak tertimpa Hadir
                 if (in_array($emp->id, $activeLeaveIds)) {
                     continue;
                 }
+
+                $roster = $dailyRosters->get($emp->id);
+                $shift = $roster?->shift ?: ($emp->defaultShift ?: $defaultGlobalShift);
+
+                // Jika shift adalah hari libur (OFF), lewati
+                if ($shift && $shift->is_off_day) {
+                    continue;
+                }
+
+                $clockIn = $shift && $shift->start_time ? $shift->start_time : '08:00:00';
+                $clockOut = $shift && $shift->end_time ? $shift->end_time : '17:00:00';
 
                 HcmAttendance::updateOrCreate(
                     [
@@ -646,22 +746,25 @@ class HcmAttendanceController extends Controller
                     ],
                     [
                         'position' => $emp->division ?: $emp->position,
+                        'shift_id' => $shift?->id,
                         'attendance_category' => 'Hadir',
-                        'clock_in' => '08:00:00',
-                        'clock_out' => '17:00:00',
+                        'clock_in' => $clockIn,
+                        'clock_out' => $clockOut,
                         'notes' => null,
                         'attachment_status' => 'Tidak Terlampir',
                         'created_by' => $userId,
                     ]
                 );
+
+                $affectedCount++;
             }
         });
 
-        return redirect()->back()->with('success', "Seluruh karyawan aktif pada tanggal {$date} berhasil diset HADIR (08:00 - 17:00).");
+        return redirect()->back()->with('success', "Sebanyak {$affectedCount} karyawan aktif pada tanggal {$date} berhasil diset HADIR sesuai jadwal shift masing-masing.");
     }
 
     /**
-     * Set Presensi Massal Fleksibel berdasarkan Divisi, Posisi/Jabatan, dan Shift Kerja.
+     * Set Presensi Massal Fleksibel berdasarkan Departemen, Divisi, dan Jam Shift Kerja Resmi.
      */
     public function setBulkAttendance(Request $request): RedirectResponse
     {
@@ -672,7 +775,8 @@ class HcmAttendanceController extends Controller
             'department' => ['nullable', 'string'],
             'division' => ['nullable', 'string'],
             'position' => ['nullable', 'string'],
-            'attendance_category' => ['required', 'string', 'in:Hadir,Terlambat,Izin,Sakit,Alpha/Mangkir,Dinas Luar'],
+            'shift_id' => ['nullable', 'exists:hcm_work_shifts,id'],
+            'attendance_category' => ['required', 'string', 'in:Hadir,Terlambat,Pulang Cepat,Izin,Sakit,Alpha/Mangkir,Dinas Luar,Libur/Cuti Bersama'],
             'clock_in' => ['nullable', 'string'],
             'clock_out' => ['nullable', 'string'],
             'notes' => ['nullable', 'string', 'max:255'],
@@ -682,36 +786,70 @@ class HcmAttendanceController extends Controller
         $date = $validated['date'];
         $department = $validated['department'] ?? 'all';
         $division = $validated['division'] ?? ($validated['position'] ?? 'all');
+        $shiftId = !empty($validated['shift_id']) ? (int) $validated['shift_id'] : null;
         $category = $validated['attendance_category'];
-        $clockIn = !empty($validated['clock_in']) ? Carbon::parse($validated['clock_in'])->format('H:i:s') : ($category === 'Hadir' ? '08:00:00' : null);
-        $clockOut = !empty($validated['clock_out']) ? Carbon::parse($validated['clock_out'])->format('H:i:s') : ($category === 'Hadir' ? '17:00:00' : null);
         $notes = $validated['notes'] ?? null;
         $override = (bool) ($validated['override_existing'] ?? false);
         $userId = Auth::id();
 
+        // 1. Ambil data shift kerja jika dipilih
+        $selectedShift = $shiftId ? HcmWorkShift::find($shiftId) : null;
+
+        // 2. Tentukan jam masuk dan keluar secara cerdas berdasarkan shift / input
+        if ($selectedShift && $selectedShift->is_off_day) {
+            $clockIn = null;
+            $clockOut = null;
+            if ($category === 'Hadir') {
+                $category = 'Libur/Cuti Bersama';
+            }
+        } else {
+            $shiftStartTime = $selectedShift && $selectedShift->start_time ? substr($selectedShift->start_time, 0, 5) : '08:00';
+            $shiftEndTime = $selectedShift && $selectedShift->end_time ? substr($selectedShift->end_time, 0, 5) : '17:00';
+
+            $rawClockIn = !empty($validated['clock_in']) ? $validated['clock_in'] : $shiftStartTime;
+            $rawClockOut = !empty($validated['clock_out']) ? $validated['clock_out'] : $shiftEndTime;
+
+            $clockIn = in_array($category, ['Hadir', 'Terlambat', 'Pulang Cepat'])
+                ? Carbon::parse($rawClockIn)->format('H:i:s')
+                : null;
+            $clockOut = in_array($category, ['Hadir', 'Terlambat', 'Pulang Cepat'])
+                ? Carbon::parse($rawClockOut)->format('H:i:s')
+                : null;
+        }
+
+        if (empty($notes) && $selectedShift) {
+            $notes = "Shift: {$selectedShift->name}";
+        }
+
         $affectedCount = 0;
 
-        DB::transaction(function () use ($date, $department, $division, $category, $clockIn, $clockOut, $notes, $override, $userId, &$affectedCount) {
-            $employees = HcmEmployee::where('is_active', true)
+        DB::transaction(function () use (
+            $date, $department, $division, $selectedShift, $category,
+            $clockIn, $clockOut, $notes, $override, $userId, &$affectedCount
+        ) {
+            $employees = HcmEmployee::with('defaultShift')
+                ->where('is_active', true)
                 ->when($department && $department !== 'all', fn ($q) => $q->where('department', $department))
-                ->when($division && $division !== 'all', fn ($q) => $q->where(fn ($sub) => $sub->where('division', $division)->orWhere('position', $division)))
+                ->when($division && $division !== 'all', fn ($q) => $q->where(function ($sub) use ($division) {
+                    $sub->where('division', $division)->orWhere('position', $division);
+                }))
                 ->get();
 
-            // Cek cuti/izin aktif
+            // Cek cuti/izin aktif pada tanggal bersangkutan
             $activeLeaveIds = HcmLeaveRequest::where('status', 'APPROVED')
                 ->whereDate('start_date', '<=', $date)
                 ->whereDate('end_date', '>=', $date)
                 ->pluck('employee_id')
                 ->toArray();
 
-            // Record yang sudah ada
+            // Record yang sudah terisi presensinya
             $existingAttendanceIds = HcmAttendance::whereDate('attendance_date', $date)
                 ->whereIn('employee_id', $employees->pluck('id'))
                 ->pluck('employee_id')
                 ->toArray();
 
             foreach ($employees as $emp) {
-                // Jangan timpa jika sedang cuti/izin yang telah disetujui resmi
+                // Jangan timpa jika sedang cuti/izin resmi yang telah disetujui
                 if (in_array($emp->id, $activeLeaveIds)) {
                     continue;
                 }
@@ -721,6 +859,8 @@ class HcmAttendanceController extends Controller
                     continue;
                 }
 
+                $assignedShiftId = $selectedShift?->id ?: ($emp->default_shift_id ?? null);
+
                 HcmAttendance::updateOrCreate(
                     [
                         'attendance_date' => $date,
@@ -728,9 +868,10 @@ class HcmAttendanceController extends Controller
                     ],
                     [
                         'position' => $emp->division ?: $emp->position,
+                        'shift_id' => $assignedShiftId,
                         'attendance_category' => $category,
-                        'clock_in' => in_array($category, ['Hadir', 'Terlambat']) ? $clockIn : null,
-                        'clock_out' => in_array($category, ['Hadir', 'Terlambat']) ? $clockOut : null,
+                        'clock_in' => $clockIn,
+                        'clock_out' => $clockOut,
                         'notes' => $notes,
                         'attachment_status' => 'Tidak Terlampir',
                         'created_by' => $userId,
@@ -740,8 +881,14 @@ class HcmAttendanceController extends Controller
             }
         });
 
-        $targetDesc = ($department !== 'all' ? "Departemen {$department}" : "Semua Departemen") . ($division !== 'all' ? " / {$division}" : "");
-        return redirect()->back()->with('success', "Presensi massal ({$affectedCount} karyawan) untuk {$targetDesc} pada {$date} berhasil diset ({$category}).");
+        $shiftInfo = $selectedShift ? " [Shift {$selectedShift->name}]" : "";
+        $targetDesc = ($department !== 'all' ? "Departemen {$department}" : "Semua Departemen")
+            . ($division !== 'all' ? " / Divisi {$division}" : "");
+
+        return redirect()->back()->with(
+            'success',
+            "Presensi massal ({$affectedCount} karyawan) untuk {$targetDesc}{$shiftInfo} pada {$date} berhasil diset ({$category})."
+        );
     }
 
     /**
@@ -805,6 +952,7 @@ class HcmAttendanceController extends Controller
         $validated = $request->validate([
             'employee_id' => ['required', 'exists:hcm_employees,id'],
             'date' => ['required', 'date'],
+            'shift_id' => ['nullable', 'exists:hcm_work_shifts,id'],
             'attendance_category' => [
                 'required',
                 'string',
@@ -815,7 +963,16 @@ class HcmAttendanceController extends Controller
             'notes' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $emp = HcmEmployee::findOrFail($validated['employee_id']);
+        $emp = HcmEmployee::with('defaultShift')->findOrFail($validated['employee_id']);
+        $shiftId = $validated['shift_id'] ?? null;
+        if (!$shiftId) {
+            $roster = HcmShiftRoster::where('employee_id', $emp->id)->whereDate('roster_date', $validated['date'])->first();
+            $shiftId = $roster?->shift_id ?? ($emp->default_shift_id ?? HcmWorkShift::where('shift_code', 'REG')->value('id'));
+        }
+        $shift = $shiftId ? HcmWorkShift::find($shiftId) : null;
+        $defaultIn = $shift && $shift->start_time ? $shift->start_time : '08:00:00';
+        $defaultOut = $shift && $shift->end_time ? $shift->end_time : '17:00:00';
+
         $clockIn = !empty($validated['clock_in']) ? Carbon::parse($validated['clock_in'])->format('H:i:s') : null;
         $clockOut = !empty($validated['clock_out']) ? Carbon::parse($validated['clock_out'])->format('H:i:s') : null;
 
@@ -826,9 +983,10 @@ class HcmAttendanceController extends Controller
             ],
             [
                 'position' => $emp->division ?: $emp->position,
+                'shift_id' => $shiftId,
                 'attendance_category' => $validated['attendance_category'],
-                'clock_in' => in_array($validated['attendance_category'], ['Hadir', 'Terlambat']) ? ($clockIn ?: '08:00:00') : null,
-                'clock_out' => in_array($validated['attendance_category'], ['Hadir', 'Terlambat']) ? ($clockOut ?: '17:00:00') : null,
+                'clock_in' => in_array($validated['attendance_category'], ['Hadir', 'Terlambat']) ? ($clockIn ?: $defaultIn) : null,
+                'clock_out' => in_array($validated['attendance_category'], ['Hadir', 'Terlambat']) ? ($clockOut ?: $defaultOut) : null,
                 'notes' => $validated['notes'] ?? null,
                 'created_by' => Auth::id(),
             ]

@@ -8,6 +8,31 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $asset_id
+ * @property \Illuminate\Support\Carbon|null $retired_at
+ * @property string|null $department
+ * @property string|null $division
+ * @property string|null $position
+ * @property int|null $location_id
+ * @property string $retirement_reason
+ * @property string|null $final_condition
+ * @property string|null $disposal_method
+ * @property float|null $book_value
+ * @property float|null $disposal_price
+ * @property int|null $finance_approved_by
+ * @property \Illuminate\Support\Carbon|null $finance_approved_at
+ * @property string|null $handover_document_path
+ * @property string|null $notes
+ * @property int|null $created_by
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Purchasing\PurchasingAsset|null $asset
+ * @property-read \App\Models\User|null $financeApprover
+ * @property-read \App\Models\User|null $creator
+ */
 class PurchasingAssetRetirement extends Model
 {
     use HasFactory;
@@ -58,7 +83,7 @@ class PurchasingAssetRetirement extends Model
     protected function casts(): array
     {
         return [
-            'retired_at' => 'date',
+            'retired_at' => 'date:Y-m-d',
             'book_value' => 'decimal:2',
             'disposal_price' => 'decimal:2',
             'finance_approved_at' => 'datetime',

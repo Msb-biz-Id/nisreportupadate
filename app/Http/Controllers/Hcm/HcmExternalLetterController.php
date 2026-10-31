@@ -27,6 +27,8 @@ class HcmExternalLetterController extends Controller
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
+        $perPage = min(max((int) $request->query('per_page', 15), 5), 100);
+
         $letters = HcmExternalLetter::with('creator:id,name')
             ->when($escapedSearch, fn ($q, $t) => $q->where(fn ($sub) =>
                 $sub->where('subject', 'like', "%{$t}%")
@@ -39,7 +41,7 @@ class HcmExternalLetterController extends Controller
             ->when($yearFilter !== 'all', fn ($q) => $q->whereYear('letter_date', (int) $yearFilter))
             ->orderBy('letter_date', 'desc')
             ->orderBy('id', 'desc')
-            ->paginate(12)
+            ->paginate($perPage)
             ->withQueryString();
 
         $metrics = [
@@ -54,6 +56,7 @@ class HcmExternalLetterController extends Controller
                 'direction' => $directionFilter,
                 'search' => $search,
                 'year' => $yearFilter,
+                'per_page' => $perPage,
             ],
             'metrics' => $metrics,
         ]);
@@ -76,9 +79,9 @@ class HcmExternalLetterController extends Controller
         ]);
 
         if ($request->hasFile('file_upload')) {
-            $uploaded = \App\Services\GoogleDriveSyncService::uploadFile(
+            $uploaded = \App\Services\HcmFileStorageService::uploadFile(
                 $request->file('file_upload'),
-                \App\Services\GoogleDriveSyncService::FOLDER_LETTERS
+                \App\Services\HcmFileStorageService::FOLDER_LETTERS
             );
             $validated['file_scan_url'] = $uploaded['url'];
         }
@@ -109,9 +112,9 @@ class HcmExternalLetterController extends Controller
         ]);
 
         if ($request->hasFile('file_upload')) {
-            $uploaded = \App\Services\GoogleDriveSyncService::uploadFile(
+            $uploaded = \App\Services\HcmFileStorageService::uploadFile(
                 $request->file('file_upload'),
-                \App\Services\GoogleDriveSyncService::FOLDER_LETTERS
+                \App\Services\HcmFileStorageService::FOLDER_LETTERS
             );
             $validated['file_scan_url'] = $uploaded['url'];
         }

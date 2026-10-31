@@ -33,6 +33,7 @@ import {
     ShieldCheck,
     DollarSign,
     Sparkles,
+    Lock,
 } from 'lucide-react';
 
 export default function PaymentTermsDrawer({
@@ -47,6 +48,15 @@ export default function PaymentTermsDrawer({
     const [receiptFileName, setReceiptFileName] = useState('');
 
     const grandTotal = parseFloat(order?.grand_total || 0);
+
+    const isFullyPaid = order?.status === 'PAID_COMPLETED' || order?.status === 'PURCHASE_COMPLETED' ||
+        (order?.payments?.length > 0 && order.payments.every((p) => p.status === 'PAID'));
+    const isTermsLocked = isFullyPaid ||
+        ['APPROVED_BY_PIC', 'PAID_COMPLETED', 'PURCHASE_COMPLETED'].includes(order?.status) ||
+        (order?.payments?.some((p) => p.status === 'PAID')) ||
+        (order?.payment_mode !== 'SPLIT');
+
+    const allowEditing = canManageTerms && !isTermsLocked;
 
     // Initial terms builder form
     const { data: termsData, setData: setTermsData, post: postTerms, processing: processingTerms, errors: errorsTerms } = useForm({
@@ -348,8 +358,35 @@ export default function PaymentTermsDrawer({
                     </div>
                 )}
 
-                {/* Form Konfigurasi / Pembuatan Jadwal Termin */}
-                {canManageTerms && (
+                {/* Banner Status Terkunci jika tidak dapat diedit */}
+                {!allowEditing && (
+                    <div className="pt-2">
+                        {isFullyPaid ? (
+                            <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-2.5">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="font-bold">Pembayaran Selesai & Lunas 100%</p>
+                                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                                        Seluruh kewajiban pembayaran telah diselesaikan. Konfigurasi termin terkunci permanen demi integritas pencatatan keuangan.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : isTermsLocked ? (
+                            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+                                <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="font-bold">Jadwal Termin Terkunci</p>
+                                    <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">
+                                        Jadwal termin tidak dapat diubah karena order telah diverifikasi/disetujui atau proses pembayaran termin telah berjalan.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : null}
+                    </div>
+                )}
+
+                {/* Form Konfigurasi / Pembuatan Jadwal Termin (Hanya saat draft/belum disetujui/belum lunas) */}
+                {allowEditing && (
                     <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
                         <div className="flex items-center justify-between">
                             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">

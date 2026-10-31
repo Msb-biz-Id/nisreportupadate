@@ -35,6 +35,7 @@ class HcmPdfController extends Controller
             'compensation',
             'compensationHistories' => fn($q) => $q->orderByDesc('effective_date')->limit(10),
             'attendances' => fn($q) => $q->orderByDesc('attendance_date')->limit(93), // 3 bulan
+            'salaryDeductions' => fn($q) => $q->orderByDesc('effective_payroll_month')->limit(20),
             'intern',
             'onboarding',
             'offboarding',

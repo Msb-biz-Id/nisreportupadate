@@ -37,7 +37,8 @@ class PurchasingMasterOptionController extends Controller
             ->orderBy('order_index')
             ->orderBy('name');
 
-        $options = $query->paginate(30)->withQueryString();
+        $perPage = min(max((int) $request->query('per_page', 30), 5), 200);
+        $options = $query->paginate($perPage)->withQueryString();
 
         // Rekap count per category untuk badge tab
         $categoryCounts = PurchasingMasterOption::selectRaw('category, count(*) as total')

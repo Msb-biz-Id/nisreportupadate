@@ -14,8 +14,13 @@ import {
     QrCode, 
     Building2,
     Save,
-    ArrowRight
+    ArrowRight,
+    Wrench,
+    Plus,
+    DollarSign,
+    ExternalLink
 } from 'lucide-react';
+import { formatDate, formatDateTime, formatRupiah } from '@/lib/utils';
 
 export default function AssetDetailDrawer({ 
     asset, 
@@ -52,16 +57,31 @@ export default function AssetDetailDrawer({
         });
     };
 
-    const formatRupiah = (val) => {
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            maximumFractionDigits: 0
-        }).format(val || 0);
+    const [isAddingMaintenance, setIsAddingMaintenance] = useState(false);
+    const maintenanceForm = useForm({
+        maintenance_date: new Date().toISOString().split('T')[0],
+        service_type: 'Servis Berkala / Rutin',
+        vendor_workshop: '',
+        cost: '',
+        status: 'COMPLETED',
+        issue_description: '',
+        action_taken: '',
+        notes: '',
+    });
+
+    const handleMaintenanceSubmit = (e) => {
+        e.preventDefault();
+        maintenanceForm.post(route('purchasing.assets.maintenances.store', asset.asset_code), {
+            preserveScroll: true,
+            onSuccess: () => {
+                maintenanceForm.reset();
+                setIsAddingMaintenance(false);
+            }
+        });
     };
 
     return (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-sm flex justify-end transition-opacity duration-300">
+        <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 flex justify-end transition-opacity duration-300">
             <div className="w-full max-w-2xl bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-300">
                 {/* Header */}
                 <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-start justify-between">
@@ -137,6 +157,17 @@ export default function AssetDetailDrawer({
                     >
                         <History className="w-3.5 h-3.5" />
                         Riwayat Mutasi ({asset.mutations?.length || 0})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('maintenances')}
+                        className={`py-3 px-4 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition-colors ${
+                            activeTab === 'maintenances'
+                                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                        }`}
+                    >
+                        <Wrench className="w-3.5 h-3.5" />
+                        Riwayat Servis ({asset.maintenances?.length || 0})
                     </button>
                     {asset.status === 'RETIRED' && (
                         <button
@@ -224,9 +255,52 @@ export default function AssetDetailDrawer({
                                             <span className="text-[11px] text-slate-400">Berlaku Sampai:</span>
                                             <p className="text-xs font-medium text-slate-800 dark:text-slate-200 mt-0.5 flex items-center gap-1">
                                                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                                                {asset.warranty_expires_at || '-'}
+                                                {asset.warranty_expires_at ? formatDate(asset.warranty_expires_at) : '-'}
                                             </p>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Informasi Finansial & Pengadaan PO */}
+                            <div className="space-y-3">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                    <DollarSign className="w-3.5 h-3.5" />
+                                    Informasi Finansial & Pengadaan PO
+                                </h3>
+                                <div className="p-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-4">
+                                    <div>
+                                        <span className="text-[11px] text-slate-400">Tanggal Pembelian:</span>
+                                        <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-0.5 flex items-center gap-1">
+                                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                            {asset.purchase_date ? formatDate(asset.purchase_date) : '-'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span className="text-[11px] text-slate-400">Supplier / Vendor:</span>
+                                        <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
+                                            {asset.vendor?.name || asset.supplier_name || 'Vendor Tidak Tercatat'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span className="text-[11px] text-slate-400">Nilai Perolehan Aset:</span>
+                                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 font-mono">
+                                            {formatRupiah(asset.acquisition_cost)}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span className="text-[11px] text-slate-400">Nomor Purchase Order:</span>
+                                        {asset.order?.po_number ? (
+                                            <a
+                                                href={route('purchasing.orders.show', asset.order.po_number)}
+                                                className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 mt-0.5 font-mono"
+                                            >
+                                                {asset.order.po_number}
+                                                <ExternalLink className="w-3 h-3" />
+                                            </a>
+                                        ) : (
+                                            <p className="text-xs text-slate-500 mt-0.5">Pengadaan Langsung</p>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -337,9 +411,15 @@ export default function AssetDetailDrawer({
                                         className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800"
                                     >
                                         <option value="">Pilih Lokasi</option>
-                                        {locations.map((loc) => (
-                                            <option key={loc.id} value={loc.id}>{loc.name}</option>
-                                        ))}
+                                        {locations.map((loc, idx) => {
+                                            const id = typeof loc === 'object' ? loc.id : loc;
+                                            const name = typeof loc === 'object' ? loc.name : loc;
+                                            return (
+                                                <option key={id || idx} value={id}>
+                                                    {name}
+                                                </option>
+                                            );
+                                        })}
                                     </select>
                                 </div>
                                 <div>
@@ -403,7 +483,10 @@ export default function AssetDetailDrawer({
                                                     <ArrowRight className="w-3.5 h-3.5 text-indigo-500" />
                                                     <span className="font-bold text-indigo-600 dark:text-indigo-400">{m.new_asset_code}</span>
                                                 </div>
-                                                <span className="text-[11px] text-slate-400">{m.mutation_date}</span>
+                                                <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
+                                                    <Calendar className="w-3 h-3 text-slate-400" />
+                                                    {formatDate(m.mutation_date, { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                </span>
                                             </div>
                                             <div className="text-xs text-slate-700 dark:text-slate-300">
                                                 Dipindah dari <span className="font-semibold">{m.from_department_name} ({m.from_department_code})</span> ke <span className="font-semibold text-emerald-600 dark:text-emerald-400">{m.to_department_name} ({m.to_department_code})</span>
@@ -431,7 +514,7 @@ export default function AssetDetailDrawer({
                                 <div className="grid grid-cols-2 gap-3 text-slate-700 dark:text-slate-300">
                                     <div>
                                         <span className="text-[11px] text-slate-400 block">Tanggal Pelepasan:</span>
-                                        <span className="font-semibold">{asset.retirement.retired_at}</span>
+                                        <span className="font-semibold">{formatDate(asset.retirement.retired_at, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                                     </div>
                                     <div>
                                         <span className="text-[11px] text-slate-400 block">Metode Pelepasan:</span>
@@ -461,6 +544,178 @@ export default function AssetDetailDrawer({
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    )}
+                    {activeTab === 'maintenances' && (
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Wrench className="w-3.5 h-3.5" />
+                                    Riwayat Servis, Perbaikan & Perawatan Fisik
+                                </h3>
+                                {asset.status !== 'RETIRED' && (
+                                    <button
+                                        onClick={() => setIsAddingMaintenance(!isAddingMaintenance)}
+                                        className="px-2.5 py-1 text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300 rounded-lg flex items-center gap-1 border border-indigo-200 dark:border-indigo-800 transition-colors"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        {isAddingMaintenance ? 'Tutup Form' : 'Catat Servis Baru'}
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Form Tambah Catatan Servis */}
+                            {isAddingMaintenance && (
+                                <form onSubmit={handleMaintenanceSubmit} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3 animate-in fade-in duration-200">
+                                    <div className="font-semibold text-xs text-slate-800 dark:text-slate-200 pb-1 border-b border-slate-200 dark:border-slate-700">
+                                        Formulir Pencatatan Servis / Perbaikan
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Tanggal Servis *</label>
+                                            <input
+                                                type="date"
+                                                value={maintenanceForm.data.maintenance_date}
+                                                onChange={(e) => maintenanceForm.setData('maintenance_date', e.target.value)}
+                                                className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Jenis Layanan / Servis *</label>
+                                            <select
+                                                value={maintenanceForm.data.service_type}
+                                                onChange={(e) => maintenanceForm.setData('service_type', e.target.value)}
+                                                className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+                                                required
+                                            >
+                                                <option value="Servis Berkala / Rutin">Servis Berkala / Rutin</option>
+                                                <option value="Perbaikan Kerusakan">Perbaikan Kerusakan</option>
+                                                <option value="Penggantian Sparepart">Penggantian Sparepart</option>
+                                                <option value="Kalibrasi & Setting">Kalibrasi & Setting</option>
+                                                <option value="Perawatan Lainnya">Perawatan Lainnya</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Bengkel / Vendor Servis</label>
+                                            <input
+                                                type="text"
+                                                value={maintenanceForm.data.vendor_workshop}
+                                                onChange={(e) => maintenanceForm.setData('vendor_workshop', e.target.value)}
+                                                placeholder="Contoh: Official Service Center / Bengkel Mesin"
+                                                className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Biaya Perbaikan (Rp)</label>
+                                            <input
+                                                type="number"
+                                                value={maintenanceForm.data.cost}
+                                                onChange={(e) => maintenanceForm.setData('cost', e.target.value)}
+                                                placeholder="0"
+                                                className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Kendala / Keluhan Kerusakan *</label>
+                                        <textarea
+                                            value={maintenanceForm.data.issue_description}
+                                            onChange={(e) => maintenanceForm.setData('issue_description', e.target.value)}
+                                            rows={2}
+                                            placeholder="Deskripsikan indikasi kerusakan atau tujuan perawatan..."
+                                            className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+                                            required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Tindakan / Solusi yang Dilakukan</label>
+                                        <textarea
+                                            value={maintenanceForm.data.action_taken}
+                                            onChange={(e) => maintenanceForm.setData('action_taken', e.target.value)}
+                                            rows={2}
+                                            placeholder="Contoh: Penggantian bearing roller, pembersihan sensor, update firmware..."
+                                            className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Status Servis *</label>
+                                            <select
+                                                value={maintenanceForm.data.status}
+                                                onChange={(e) => maintenanceForm.setData('status', e.target.value)}
+                                                className="w-full text-xs rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+                                                required
+                                            >
+                                                <option value="COMPLETED">Selesai (Aset Siap Digunakan)</option>
+                                                <option value="IN_PROGRESS">Dalam Perbaikan (Status Aset: MAINTENANCE)</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex items-end justify-end">
+                                            <button
+                                                type="submit"
+                                                disabled={maintenanceForm.processing}
+                                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                                            >
+                                                <Save className="w-3.5 h-3.5" />
+                                                Simpan Log Servis
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            )}
+
+                            {/* Daftar Riwayat Servis */}
+                            {(!asset.maintenances || asset.maintenances.length === 0) ? (
+                                <div className="text-center py-8 text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                                    Belum ada riwayat servis atau perbaikan untuk aset ini. Kondisi fisik prima.
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {asset.maintenances.map((m, idx) => (
+                                        <div key={m.id || idx} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                                        m.status === 'COMPLETED'
+                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                            : 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
+                                                    }`}>
+                                                        {m.status === 'COMPLETED' ? 'Selesai' : 'Sedang Diservis'}
+                                                    </span>
+                                                    <span className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                                                        {m.service_type}
+                                                    </span>
+                                                </div>
+                                                <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
+                                                    <Calendar className="w-3 h-3 text-slate-400" />
+                                                    {formatDate(m.maintenance_date, { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                </span>
+                                            </div>
+
+                                            <div className="text-xs space-y-1 text-slate-700 dark:text-slate-300">
+                                                <p><strong>Keluhan / Kendala:</strong> {m.issue_description}</p>
+                                                {m.action_taken && (
+                                                    <p className="text-slate-500"><strong>Tindakan:</strong> {m.action_taken}</p>
+                                                )}
+                                            </div>
+
+                                            <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700/50 text-[11px] text-slate-500">
+                                                <span>Vendor/Bengkel: {m.vendor_workshop || '-'}</span>
+                                                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                                                    Biaya: {formatRupiah(m.cost)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

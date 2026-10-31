@@ -6,9 +6,49 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * @property int $id
+ * @property string $employee_code
+ * @property string|null $employee_category
+ * @property string $name
+ * @property string|null $nickname
+ * @property string|null $department
+ * @property string|null $division
+ * @property string|null $position
+ * @property string|null $job_level
+ * @property string|null $employment_status
+ * @property string|null $legal_entity
+ * @property string|null $phone_number
+ * @property string|null $gender
+ * @property string|null $religion
+ * @property string|null $education
+ * @property string|null $marital_status
+ * @property string|null $birth_place
+ * @property Carbon|null $birth_date
+ * @property string|null $nik_ktp
+ * @property string|null $bpjs_kesehatan_no
+ * @property string|null $bpjs_ketenagakerjaan_no
+ * @property string|null $shirt_size
+ * @property string|null $address
+ * @property string|null $bank_account_no
+ * @property string|null $bank_name
+ * @property string|null $email
+ * @property Carbon|null $join_date
+ * @property Carbon|null $original_join_date
+ * @property bool $is_active
+ * @property string|null $photo
+ * @property string|null $photo_url
+ * @property string|null $notes
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read string|null $photo_path
+ * @property-read HcmIntern|null $intern
+ * @property-read \Illuminate\Database\Eloquent\Collection|HcmContract[] $contracts
+ */
 class HcmEmployee extends Model
 {
     use HasFactory;
@@ -47,12 +87,13 @@ class HcmEmployee extends Model
         'photo',
         'photo_url',
         'notes',
+        'default_shift_id',
     ];
 
     protected $casts = [
-        'birth_date' => 'date',
-        'join_date' => 'date',
-        'original_join_date' => 'date',
+        'birth_date' => 'date:Y-m-d',
+        'join_date' => 'date:Y-m-d',
+        'original_join_date' => 'date:Y-m-d',
         'is_active' => 'boolean',
     ];
 
@@ -384,6 +425,22 @@ class HcmEmployee extends Model
     public function payrollItems(): HasMany
     {
         return $this->hasMany(HcmPayrollItem::class, 'employee_id')->orderBy('id', 'desc');
+    }
+
+    /**
+     * Shift kerja default karyawan.
+     */
+    public function defaultShift(): BelongsTo
+    {
+        return $this->belongsTo(HcmWorkShift::class, 'default_shift_id');
+    }
+
+    /**
+     * Riwayat roster penugasan shift harian karyawan.
+     */
+    public function shiftRosters(): HasMany
+    {
+        return $this->hasMany(HcmShiftRoster::class, 'employee_id')->orderBy('roster_date', 'desc');
     }
 }
 

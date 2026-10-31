@@ -7,6 +7,19 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property string $material_type
+ * @property string $code
+ * @property string $name
+ * @property string $unit
+ * @property float $minimum_threshold
+ * @property float $current_stock
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Purchasing\PurchasingMaterialUsage[] $usages
+ */
 class PurchasingMaterialStock extends Model
 {
     use HasFactory;

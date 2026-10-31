@@ -12,7 +12,7 @@ use App\Models\Hcm\HcmMasterOption;
 use App\Models\Hcm\HcmOffboarding;
 use App\Models\Hcm\HcmOnboarding;
 use App\Services\ActivityLogger;
-use App\Services\GoogleDriveSyncService;
+use App\Services\HcmFileStorageService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -79,7 +79,8 @@ class HcmEmployeeController extends Controller
             ->when($statusFilter === 'inactive', fn ($q) => $q->where('is_active', false))
             ->orderBy('id', 'desc');
 
-        $employees = $employeesQuery->paginate(15)->withQueryString();
+        $perPage = min(max((int) $request->query('per_page', 15), 5), 200);
+        $employees = $employeesQuery->paginate($perPage)->withQueryString();
 
         // Dropdown dinamis dari master data
         $dropdowns = HcmMasterOption::getAllDropdowns();
@@ -347,6 +348,7 @@ class HcmEmployeeController extends Controller
             'leaveRequests' => fn ($q) => $q->orderBy('start_date', 'desc')->limit(10),
             'overtimes.batch' => fn ($q) => $q->orderBy('overtime_date', 'desc')->limit(20),
             'rewards' => fn ($q) => $q->orderByDesc('reward_year')->orderByDesc('id'),
+            'salaryDeductions.creator:id,name',
         ]);
 
         return Inertia::render('Hcm/Employees/Show', [
@@ -522,9 +524,9 @@ class HcmEmployeeController extends Controller
 
         $fileUrl = $validated['file_contract_url'] ?? null;
         if ($request->hasFile('file_contract')) {
-            $uploaded = GoogleDriveSyncService::uploadFile(
+            $uploaded = HcmFileStorageService::uploadFile(
                 $request->file('file_contract'),
-                GoogleDriveSyncService::FOLDER_CONTRACTS
+                HcmFileStorageService::FOLDER_CONTRACTS
             );
             $fileUrl = $uploaded['url'];
         }

@@ -8,6 +8,7 @@ use App\Models\Hcm\HcmCompensationHistory;
 use App\Models\Hcm\HcmEmployee;
 use App\Models\Hcm\HcmMasterOption;
 use App\Services\ActivityLogger;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -34,6 +35,7 @@ class HcmCompensationController extends Controller
 
         $query = HcmCompensation::with([
             'employee:id,employee_code,name,nickname,department,division,legal_entity,employment_status,is_active,photo_url,join_date,original_join_date',
+            'employee.activeContract',
             'histories' => fn($q) => $q->orderBy('effective_date', 'desc')->take(5),
         ])
             ->when($escapedSearch, function ($q, $term) {
@@ -64,7 +66,8 @@ class HcmCompensationController extends Controller
             ->when($entityFilter !== 'all', fn($q) => $q->where('legal_entity', $entityFilter))
             ->orderBy('id', 'desc');
 
-        $compensations = $query->paginate(15)->withQueryString();
+        $perPage = min(max((int) $request->query('per_page', 15), 5), 200);
+        $compensations = $query->paginate($perPage)->withQueryString();
 
         $all = HcmCompensation::query();
 
@@ -96,7 +99,18 @@ class HcmCompensationController extends Controller
                 ->get(),
             'employment_statuses' => HcmMasterOption::getOptions('status_ketenagakerjaan'),
             'legal_entities' => HcmMasterOption::getOptions('entitas_cv'),
-            'salary_statuses' => HcmMasterOption::getOptions('status_pengajuan_honor'),
+            'salary_statuses' => array_values(array_unique(array_merge(
+                [
+                    'Penyesuaian honor telah berlaku dan diterima',
+                    'Penyesuaian honor berlaku mulai bulan berjalan',
+                    'Penyesuaian honor telah disetujui',
+                    'Penyesuaian honor sedang dalam proses pengajuan',
+                    'Penyesuaian honor ditangguhkan sementara',
+                    'Telah berlaku',
+                    'Draft',
+                ],
+                HcmMasterOption::getOptions('status_pengajuan_honor')
+            ))),
             'deduction_categories' => HcmMasterOption::getOptions('kategori_potongan_gaji'),
             'decision_statuses' => [
                 'Sedang Diajukan',
@@ -208,7 +222,7 @@ class HcmCompensationController extends Controller
             $updateData = [
                 'current_salary' => $newSalary,
                 'salary_increment_count' => $newCount,
-                'salary_status' => 'Telah berlaku',
+                'salary_status' => 'Penyesuaian honor telah berlaku dan diterima',
             ];
 
             if ($newCount === 1) {
@@ -260,15 +274,36 @@ class HcmCompensationController extends Controller
         ]);
 
         DB::transaction(function () use ($compensation, $validated) {
+            $effectiveDate = !empty($validated['effective_date']) ? Carbon::parse($validated['effective_date']) : null;
+            $currentMonth = Carbon::now()->format('Y-m');
+            $effectiveMonth = $effectiveDate ? $effectiveDate->format('Y-m') : null;
+
+            // Klasifikasi salary_status sesuai 5 status warna master NIS Group
+            $salaryStatus = $compensation->salary_status ?? 'Draft';
+            if ($validated['decision_status'] === 'Sudah Disetujui / ACC') {
+                if ($effectiveMonth && $effectiveMonth <= $currentMonth) {
+                    $salaryStatus = 'Penyesuaian honor berlaku mulai bulan berjalan';
+                } else {
+                    $salaryStatus = 'Penyesuaian honor telah disetujui';
+                }
+            } elseif ($validated['decision_status'] === 'Sedang Diajukan') {
+                $salaryStatus = 'Penyesuaian honor sedang dalam proses pengajuan';
+            } elseif ($validated['decision_status'] === 'Ditunda') {
+                $salaryStatus = 'Penyesuaian honor ditangguhkan sementara';
+            } elseif ($validated['decision_status'] === 'Tidak Naik') {
+                $salaryStatus = 'Tidak Naik (Tetap)';
+            }
+
             $updateData = [
                 'decision_status' => $validated['decision_status'],
                 'planned_increment' => $validated['planned_increment'] ?? 0,
                 'effective_date' => $validated['effective_date'] ?? null,
                 'custom_milestone_date' => $validated['custom_milestone_date'] ?? null,
                 'decision_notes' => $validated['decision_notes'] ?? null,
+                'salary_status' => $salaryStatus,
             ];
 
-            // Jika status ACC dan dicentang langsung terapkan ke gaji berjalan
+            // Jika status ACC dan opsi langsung terapkan dipilih
             if ($validated['decision_status'] === 'Sudah Disetujui / ACC' && !empty($validated['apply_immediately']) && !empty($validated['planned_increment']) && (float) $validated['planned_increment'] > 0) {
                 $previousSalary = (float) $compensation->current_salary;
                 $incrementAmount = (float) $validated['planned_increment'];
@@ -277,7 +312,8 @@ class HcmCompensationController extends Controller
 
                 $updateData['current_salary'] = $newSalary;
                 $updateData['salary_increment_count'] = $newCount;
-                $updateData['salary_status'] = 'Telah berlaku';
+                $updateData['salary_status'] = 'Penyesuaian honor telah berlaku dan diterima';
+                $updateData['planned_increment'] = 0; // Terealisasi penuh
 
                 if ($newCount === 1) {
                     $updateData['increment_1_amount'] = $incrementAmount;

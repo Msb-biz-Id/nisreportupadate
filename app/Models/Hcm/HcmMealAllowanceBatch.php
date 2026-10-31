@@ -3,11 +3,39 @@
 namespace App\Models\Hcm;
 
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property string $batch_code
+ * @property int $period_month
+ * @property int $period_year
+ * @property Carbon|null $period_start
+ * @property Carbon|null $period_end
+ * @property Carbon|null $payout_date
+ * @property int $total_employees
+ * @property float $total_amount
+ * @property float $total_held_amount
+ * @property string $status
+ * @property int|null $hcm_signed_by
+ * @property Carbon|null $hcm_signed_at
+ * @property int|null $finance_signed_by
+ * @property Carbon|null $finance_signed_at
+ * @property string|null $payment_method
+ * @property string|null $coa_code
+ * @property string|null $finance_notes
+ * @property int|null $created_by
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection|HcmMealAllowanceItem[] $items
+ * @property-read User|null $hcmSigner
+ * @property-read User|null $financeSigner
+ * @property-read User|null $creator
+ */
 class HcmMealAllowanceBatch extends Model
 {
     use HasFactory;

@@ -7,6 +7,20 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $vendor_id
+ * @property string $pic_name
+ * @property string|null $role_title
+ * @property string|null $phone
+ * @property string|null $email
+ * @property bool $is_primary
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Purchasing\PurchasingVendor|null $vendor
+ */
 class PurchasingVendorContact extends Model
 {
     use HasFactory;

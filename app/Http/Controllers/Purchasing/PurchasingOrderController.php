@@ -8,10 +8,12 @@ use App\Http\Requests\Purchasing\StorePurchasingOrderRequest;
 use App\Http\Requests\Purchasing\UpdatePurchasingOrderRequest;
 use App\Models\Purchasing\PurchasingMasterOption;
 use App\Models\Purchasing\PurchasingOrder;
+use App\Models\Purchasing\PurchasingPayment;
 use App\Models\Purchasing\PurchasingVendor;
 use App\Services\ActivityLogger;
 use App\Services\Purchasing\PurchasingHrisService;
 use App\Services\Purchasing\PurchasingOrderService;
+use App\Services\Purchasing\PurchasingPaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,7 +25,8 @@ class PurchasingOrderController extends Controller
 {
     public function __construct(
         protected PurchasingOrderService $orderService,
-        protected PurchasingHrisService $hrisService
+        protected PurchasingHrisService $hrisService,
+        protected PurchasingPaymentService $paymentService
     ) {}
 
     /**
@@ -35,6 +38,7 @@ class PurchasingOrderController extends Controller
 
         $search = $request->query('search');
         $status = $request->query('status');
+        $settlementStatus = $request->query('settlement_status');
         $orderType = $request->query('order_type');
         $department = $request->query('department');
         $locationId = $request->query('location_id');
@@ -49,6 +53,7 @@ class PurchasingOrderController extends Controller
                 'requester',
                 'picApprover',
                 'financeApprover',
+                'settledBy',
             ])
             ->when($search, function ($q, $s) {
                 $q->where(function ($sub) use ($s) {
@@ -60,7 +65,14 @@ class PurchasingOrderController extends Controller
                         ->orWhereHas('vendor', fn ($vq) => $vq->where('name', 'like', "%{$s}%"));
                 });
             })
-            ->when($status, fn ($q, $st) => $q->where('status', $st))
+            ->when($status, function ($q, $st) {
+                if ($st === 'pending_approval' || $st === 'PENDING_APPROVAL') {
+                    $q->whereIn('status', ['PENDING_PIC_CHECK', 'APPROVED_BY_PIC']);
+                } else {
+                    $q->where('status', $st);
+                }
+            })
+            ->when($settlementStatus, fn ($q, $ss) => $q->where('settlement_status', $ss))
             ->when($orderType, fn ($q, $ot) => $q->where('order_type', $ot))
             ->when($department, fn ($q, $dept) => $q->where('department', $dept))
             ->when($locationId, fn ($q, $loc) => $q->where('location_id', $loc))
@@ -68,16 +80,83 @@ class PurchasingOrderController extends Controller
             ->when($endDate, fn ($q, $ed) => $q->whereDate('transaction_date', '<=', $ed))
             ->orderByDesc('transaction_date')
             ->orderByDesc('id')
-            ->paginate(15)
+            ->paginate(min(max((int) $request->query('per_page', 15), 5), 200))
             ->withQueryString();
+
+        // 1. Sinkronisasi status jatuh tempo tagihan (Overdue / Due Today)
+        try {
+            $this->paymentService->checkAndUpdateDueStatuses();
+        } catch (\Throwable) {
+            // Safe fallback
+        }
+
+        // 2. Realisasi Pengeluaran Nyata (Hanya yang benar-benar lunas / selesai dibayar)
+        // A. Operasional (OPEX)
+        $realizedOpexSingle = (float) PurchasingOrder::where('order_type', 'OPEX')
+            ->whereDoesntHave('payments')
+            ->whereIn('status', ['PAID_COMPLETED', 'PURCHASE_COMPLETED'])
+            ->sum('grand_total');
+        $realizedOpexTerms = (float) PurchasingPayment::whereHas('order', fn ($q) => $q->where('order_type', 'OPEX'))
+            ->where('status', 'PAID')
+            ->sum('amount');
+        $realizedOpex = $realizedOpexSingle + $realizedOpexTerms;
+
+        // B. Aset Tetap & Inventaris (CAPEX)
+        $realizedCapexSingle = (float) PurchasingOrder::where('order_type', 'CAPEX')
+            ->whereDoesntHave('payments')
+            ->whereIn('status', ['PAID_COMPLETED', 'PURCHASE_COMPLETED'])
+            ->sum('grand_total');
+        $realizedCapexTerms = (float) PurchasingPayment::whereHas('order', fn ($q) => $q->where('order_type', 'CAPEX'))
+            ->where('status', 'PAID')
+            ->sum('amount');
+        $realizedCapex = $realizedCapexSingle + $realizedCapexTerms;
+
+        // C. Total Realisasi Belanja Gabungan (1 Ruang: Operasional & Aset)
+        $totalRealized = $realizedOpex + $realizedCapex;
+
+        // 3. Total Kewajiban Belum Terbayar (PO aktif belum lunas & sisa termin)
+        $unpaidSingle = (float) PurchasingOrder::whereDoesntHave('payments')
+            ->whereNotIn('status', ['DRAFT', 'REJECTED', 'PAID_COMPLETED', 'PURCHASE_COMPLETED'])
+            ->sum('grand_total');
+        $unpaidTerms = (float) PurchasingPayment::where('status', '!=', 'PAID')->sum('amount');
+        $totalUnpaid = $unpaidSingle + $unpaidTerms;
+
+        // 4. Tunggakan Jatuh Tempo (Overdue & Due Today)
+        $overdueAmount = (float) PurchasingPayment::whereIn('status', ['OVERDUE', 'DUE_TODAY'])->sum('amount');
+        $overdueCount = PurchasingPayment::whereIn('status', ['OVERDUE', 'DUE_TODAY'])->count();
+
+        // 5. Metrik Penyelesaian Sisa Belanja Operasional & Reminder Alert
+        $threeDaysAgo = \Carbon\Carbon::now()->subDays(3)->toDateString();
+        $pendingReceiptCount = PurchasingOrder::where('settlement_status', 'DISBURSED_PENDING_RECEIPT')->count();
+        $overdueReceiptCount = PurchasingOrder::where('settlement_status', 'DISBURSED_PENDING_RECEIPT')
+            ->whereDate('disbursed_at', '<=', $threeDaysAgo)
+            ->count();
+        $pendingRefundCount = PurchasingOrder::where('settlement_status', 'REFUND_PENDING')->count();
+        $pendingReimburseCount = PurchasingOrder::where('settlement_status', 'REIMBURSE_PENDING')->count();
+        $totalRefundAmount = (float) PurchasingOrder::where('settlement_status', 'REFUND_PENDING')->sum('remaining_amount');
+        $totalReimburseAmount = (float) abs((float) PurchasingOrder::where('settlement_status', 'REIMBURSE_PENDING')->sum('remaining_amount'));
 
         // Rekapitulasi metrik ringkas untuk header cards
         $metrics = [
             'total_orders' => PurchasingOrder::count(),
+            'pending_approval' => PurchasingOrder::whereIn('status', ['PENDING_PIC_CHECK', 'APPROVED_BY_PIC'])->count(),
             'pending_pic' => PurchasingOrder::where('status', 'PENDING_PIC_CHECK')->count(),
             'pending_finance' => PurchasingOrder::where('status', 'APPROVED_BY_PIC')->count(),
             'completed' => PurchasingOrder::whereIn('status', ['PURCHASE_COMPLETED', 'PAID_COMPLETED'])->count(),
-            'total_opex_amount' => (float) PurchasingOrder::where('order_type', 'OPEX')->whereIn('status', ['APPROVED_BY_PIC', 'PURCHASE_COMPLETED', 'PAID_COMPLETED'])->sum('grand_total'),
+            'realized_opex' => $realizedOpex,
+            'realized_capex' => $realizedCapex,
+            'total_realized' => $totalRealized,
+            'total_unpaid' => $totalUnpaid,
+            'overdue_amount' => $overdueAmount,
+            'overdue_count' => $overdueCount,
+            // Reminder Sisa Belanja Operasional
+            'pending_receipt_count' => $pendingReceiptCount,
+            'overdue_receipt_count' => $overdueReceiptCount,
+            'pending_refund_count' => $pendingRefundCount,
+            'pending_reimburse_count' => $pendingReimburseCount,
+            'total_refund_amount' => $totalRefundAmount,
+            'total_reimburse_amount' => $totalReimburseAmount,
+            'total_unsettled_proposals' => $pendingReceiptCount + $pendingRefundCount + $pendingReimburseCount,
         ];
 
         // Master dropdowns
@@ -94,6 +173,7 @@ class PurchasingOrderController extends Controller
             'filters' => [
                 'search' => $search,
                 'status' => $status,
+                'settlement_status' => $settlementStatus,
                 'order_type' => $orderType,
                 'department' => $department,
                 'location_id' => $locationId,
@@ -115,16 +195,18 @@ class PurchasingOrderController extends Controller
             ->orderBy('name')
             ->get(['id', 'uuid', 'vendor_code', 'name', 'category', 'phone', 'term_days']);
 
-        $itemCategories = PurchasingMasterOption::getOptions('item_category');
-        $units = PurchasingMasterOption::getOptions('unit');
-        $locations = PurchasingMasterOption::getOptions('location');
-        $paymentTypes = PurchasingMasterOption::getOptions('payment_type');
+        $itemCategories = PurchasingMasterOption::getCategoryModels('item_category');
+        $itemNames = $this->getDynamicItemNames();
+        $units = PurchasingMasterOption::getCategoryModels('unit');
+        $locations = PurchasingMasterOption::getCategoryModels('location');
+        $paymentTypes = PurchasingMasterOption::getCategoryModels('payment_type');
         $hrisEmployees = $this->hrisService->getActiveEmployees();
         $hrisReferences = $this->hrisService->getHrisReferences();
 
         return Inertia::render('Purchasing/Orders/Create', [
             'vendors' => $vendors,
             'itemCategories' => $itemCategories,
+            'itemNames' => $itemNames,
             'units' => $units,
             'locations' => $locations,
             'paymentTypes' => $paymentTypes,
@@ -165,6 +247,8 @@ class PurchasingOrderController extends Controller
             'financeApprover',
             'creator',
             'payments',
+            'items.itemCategory',
+            'assets',
         ]);
 
         return Inertia::render('Purchasing/Orders/Show', [
@@ -183,17 +267,18 @@ class PurchasingOrderController extends Controller
             abort(403, 'Order ini sudah masuk tahap approval dan tidak dapat diubah lagi.');
         }
 
-        $order->load(['vendor.primaryContact', 'requester']);
+        $order->load(['vendor.primaryContact', 'requester', 'items.itemCategory', 'payments']);
 
         $vendors = PurchasingVendor::where('is_active', true)
             ->with('primaryContact')
             ->orderBy('name')
             ->get(['id', 'uuid', 'vendor_code', 'name', 'category', 'phone', 'term_days']);
 
-        $itemCategories = PurchasingMasterOption::getOptions('item_category');
-        $units = PurchasingMasterOption::getOptions('unit');
-        $locations = PurchasingMasterOption::getOptions('location');
-        $paymentTypes = PurchasingMasterOption::getOptions('payment_type');
+        $itemCategories = PurchasingMasterOption::getCategoryModels('item_category');
+        $itemNames = $this->getDynamicItemNames();
+        $units = PurchasingMasterOption::getCategoryModels('unit');
+        $locations = PurchasingMasterOption::getCategoryModels('location');
+        $paymentTypes = PurchasingMasterOption::getCategoryModels('payment_type');
         $hrisEmployees = $this->hrisService->getActiveEmployees();
         $hrisReferences = $this->hrisService->getHrisReferences();
 
@@ -201,6 +286,7 @@ class PurchasingOrderController extends Controller
             'order' => $order,
             'vendors' => $vendors,
             'itemCategories' => $itemCategories,
+            'itemNames' => $itemNames,
             'units' => $units,
             'locations' => $locations,
             'paymentTypes' => $paymentTypes,
@@ -269,6 +355,76 @@ class PurchasingOrderController extends Controller
     }
 
     /**
+     * Pencairan Kas Bon Pengajuan oleh Keuangan (Pilar 2)
+     */
+    public function disburse(Request $request, PurchasingOrder $order): RedirectResponse
+    {
+        Gate::authorize('purchasing.manage-orders');
+
+        $validated = $request->validate([
+            'disbursed_amount' => ['required', 'numeric', 'min:0'],
+            'disbursed_at' => ['required', 'date'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $this->orderService->disburseFunds(
+            $order,
+            (float) $validated['disbursed_amount'],
+            $validated['disbursed_at'],
+            $request->user(),
+            $validated['notes'] ?? null
+        );
+
+        return back()->with('success', "Kas bon sebesar Rp " . number_format($validated['disbursed_amount'], 0, ',', '.') . " untuk {$order->po_number} berhasil dicatat.");
+    }
+
+    /**
+     * Pelaporan Realisasi Belanja & Upload Nota Asli (Pilar 3 & Hitung Sisa Uang)
+     */
+    public function realize(Request $request, PurchasingOrder $order): RedirectResponse
+    {
+        Gate::authorize('purchasing.manage-orders');
+
+        $validated = $request->validate([
+            'realized_amount' => ['required', 'numeric', 'min:0'],
+            'realized_at' => ['required', 'date'],
+            'invoice_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $this->orderService->recordRealization(
+            $order,
+            (float) $validated['realized_amount'],
+            $validated['realized_at'],
+            $request->file('invoice_file'),
+            $request->user(),
+            $validated['notes'] ?? null
+        );
+
+        return back()->with('success', "Realisasi belanja dan bukti nota untuk {$order->po_number} berhasil dicatat.");
+    }
+
+    /**
+     * Konfirmasi Penyelesaian Sisa (Settlement Sisa Kas Bon / Reimburse)
+     */
+    public function settle(Request $request, PurchasingOrder $order): RedirectResponse
+    {
+        Gate::authorize('purchasing.manage-orders');
+
+        $validated = $request->validate([
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $this->orderService->settleRemaining(
+            $order,
+            $request->user(),
+            $validated['notes'] ?? null
+        );
+
+        return back()->with('success', "Penyelesaian sisa dana untuk {$order->po_number} berhasil divalidasi.");
+    }
+
+    /**
      * API JSON Live Purchase History Search for price benchmarks
      */
     public function history(Request $request): JsonResponse
@@ -282,5 +438,26 @@ class PurchasingOrderController extends Controller
             'success' => true,
             'data' => $results,
         ]);
+    }
+
+    /**
+     * Dapatkan daftar nama item dinamis gabungan dari master catalog dan riwayat pengadaan (tanpa hardcode).
+     */
+    protected function getDynamicItemNames(): array
+    {
+        $masterNames = PurchasingMasterOption::where('category', 'item_name')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->pluck('name')
+            ->toArray();
+
+        $historyOrderNames = PurchasingOrder::select('item_name')
+            ->whereNotNull('item_name')
+            ->distinct()
+            ->orderBy('item_name')
+            ->pluck('item_name')
+            ->toArray();
+
+        return array_values(array_unique(array_filter(array_merge($masterNames, $historyOrderNames))));
     }
 }

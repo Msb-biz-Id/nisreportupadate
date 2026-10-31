@@ -29,6 +29,7 @@ import {
     Eye,
     ChevronLeft,
     ChevronRight,
+    Scissors,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import UniversalDocumentViewer from '@/Components/Hcm/UniversalDocumentViewer';
@@ -972,6 +973,104 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                 </TableBody>
                             </Table>
                         </Card>
+
+                        {/* Rekam Riwayat Pemotongan Gaji & Sanksi Disiplin (Section 5.C Audit Trail) */}
+                        <div className="pt-2">
+                            <div className="flex items-center justify-between mb-3">
+                                <div>
+                                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                        <Scissors className="h-4 w-4 text-rose-600" />
+                                        <span>Rekam Riwayat Pemotongan Gaji &amp; Sanksi Disiplin (Audit Trail)</span>
+                                    </h3>
+                                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                                        Transparansi seluruh riwayat pemotongan disiplin, kelebihan cuti, dan cuti berjenjang dalam masa kontrak.
+                                    </p>
+                                </div>
+                                <Link
+                                    href={route('hcm.salary-deductions.index')}
+                                    className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-medium hover:underline"
+                                >
+                                    <span>Kelola Potongan Gaji Bulanan</span>
+                                    <ExternalLink className="h-3 w-3" />
+                                </Link>
+                            </div>
+
+                            <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+                                <Table>
+                                    <TableHeader className="bg-zinc-50 dark:bg-zinc-800/50">
+                                        <TableRow>
+                                            <TableHead className="min-w-[110px] font-bold">Bulan Berlaku</TableHead>
+                                            <TableHead className="min-w-[160px] font-bold">Kategori Potongan</TableHead>
+                                            <TableHead className="min-w-[110px] font-bold text-center">Metode / Rate</TableHead>
+                                            <TableHead className="min-w-[130px] font-bold text-right">Gaji Snapshot</TableHead>
+                                            <TableHead className="min-w-[130px] font-bold text-right">Nominal Potongan</TableHead>
+                                            <TableHead className="min-w-[180px] font-bold">Keterangan / Alasan</TableHead>
+                                            <TableHead className="min-w-[100px] font-bold text-center">Status</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {employee.salary_deductions && employee.salary_deductions.length > 0 ? (
+                                            employee.salary_deductions.map((ded) => (
+                                                <TableRow key={ded.id}>
+                                                    <TableCell className="text-xs font-mono font-medium text-zinc-800 dark:text-zinc-200">
+                                                        {ded.effective_payroll_month}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs">
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={`text-[10px] font-semibold ${
+                                                                (ded.deduction_category || '').toLowerCase().includes('pelanggaran')
+                                                                    ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300'
+                                                                    : (ded.deduction_category || '').toLowerCase().includes('berjenjang') || (ded.deduction_category || '').toLowerCase().includes('maternity')
+                                                                    ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300'
+                                                                    : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
+                                                            }`}
+                                                        >
+                                                            {ded.deduction_category}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-center text-xs">
+                                                        {ded.calculation_type === 'percent' ? (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                                                {ded.percentage_rate}%
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[11px] text-zinc-500">Nominal Tetap</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs text-right font-mono text-zinc-500">
+                                                        {formatRp(ded.base_salary_snapshot)}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                                                        - {formatRp(ded.deduction_amount)}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs text-zinc-700 dark:text-zinc-300">
+                                                        {ded.notes || '-'}
+                                                    </TableCell>
+                                                    <TableCell className="text-center text-xs">
+                                                        <Badge
+                                                            className={`text-[10px] ${
+                                                                ded.status === 'APPROVED' || ded.status === 'APPLIED'
+                                                                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-200'
+                                                                    : 'bg-zinc-100 text-zinc-700 border-zinc-200'
+                                                            }`}
+                                                        >
+                                                            {ded.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={7} className="h-24 text-center text-xs text-zinc-400">
+                                                    Tidak ada riwayat pemotongan gaji atau catatan sanksi kedisiplinan yang tercatat untuk karyawan ini.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </Card>
+                        </div>
                     </div>
                 )}
 
@@ -1501,7 +1600,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                 className="text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                             />
                             <p className="text-[11px] text-zinc-500">
-                                Berkas kontrak fisik otomatis tersinkronisasi ke Google Drive subfolder Kontrak PKWT.
+                                Berkas kontrak fisik otomatis tersimpan ke penyimpanan sistem.
                             </p>
                         </div>
 

@@ -1,11 +1,12 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Badge } from '@/Components/ui/badge';
 import { SearchableSelect } from '@/Components/ui/searchable-select';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import {
     Table,
     TableBody,
@@ -40,6 +41,8 @@ import {
     AlertCircle,
     ArrowRight,
     FileSpreadsheet,
+    Copy,
+    Check,
 } from 'lucide-react';
 
 const rp = (v) => {
@@ -55,6 +58,27 @@ export default function PayrollIndex({
 }) {
     const [search, setSearch] = useState(filters.search || '');
     const [status, setStatus] = useState(filters.status || 'all');
+    const [copied, setCopied] = useState(false);
+
+    const handleCopyPayrollTable = () => {
+        if (rows.length === 0) return;
+        const headers = ['Kode Periode', 'Bulan Kinerja', 'Bulan Pencairan', 'Headcount', 'Gaji Pokok', 'Uang Makan', 'Upah Lembur', 'Potongan', 'Net Kas', 'Status'];
+        const body = rows.map((p) => [
+            p.period_code || '',
+            p.work_period_month || '',
+            p.payout_period_month || '',
+            `${p.total_employees} org`,
+            rp(p.total_base_salary),
+            rp(p.total_meal_allowance),
+            rp(p.total_overtime),
+            rp(p.total_deductions),
+            rp(p.total_net_payout),
+            p.status || '',
+        ].join('\t')).join('\n');
+        navigator.clipboard.writeText(`${headers.join('\t')}\n${body}`);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     // Modals
     const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -74,6 +98,19 @@ export default function PayrollIndex({
         router.get(
             route('hcm.payroll.index'),
             { search, status },
+            { preserveState: true, replace: true }
+        );
+    };
+
+    const applyPayrollFilter = (s = search, st = status, page = 1, perPage = payrolls?.per_page || 15) => {
+        router.get(
+            route('hcm.payroll.index'),
+            {
+                search: s || undefined,
+                status: st,
+                page: page > 1 ? page : undefined,
+                per_page: perPage,
+            },
             { preserveState: true, replace: true }
         );
     };
@@ -151,13 +188,163 @@ export default function PayrollIndex({
         }
     };
 
+    const payrollColumns = useMemo(() => [
+        {
+            id: 'period_code',
+            size: 160,
+            minSize: 150,
+            accessorFn: (row) => row.period_code || '',
+            meta: { title: 'Kode Periode' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kode Periode" />,
+            cell: ({ row }) => {
+                const p = row.original;
+                const code = p.period_code || p.uuid;
+                return (
+                    <Link href={route('hcm.payroll.show', code)} className="hover:underline inline-flex items-center gap-1 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                        <span>{p.period_code}</span>
+                        <ArrowRight className="h-3 w-3 opacity-60" />
+                    </Link>
+                );
+            },
+        },
+        {
+            accessorKey: 'work_period_month',
+            size: 150,
+            minSize: 140,
+            meta: { title: 'Bulan Kinerja Kerja' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Bulan Kinerja Kerja" />,
+            cell: ({ row }) => <span className="font-medium">{row.original.work_period_month}</span>,
+        },
+        {
+            id: 'payout',
+            size: 160,
+            minSize: 150,
+            accessorFn: (row) => row.payout_period_month || '',
+            meta: { title: 'Pencairan / Transfer' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Pencairan / Transfer" />,
+            cell: ({ row }) => (
+                <div>
+                    <div>{row.original.payout_period_month}</div>
+                    <div className="text-[10px] text-zinc-400">{row.original.payout_date || '-'}</div>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'total_employees',
+            size: 110,
+            minSize: 100,
+            meta: { title: 'Headcount', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Headcount" className="justify-center" />,
+            cell: ({ row }) => <span className="font-semibold">{row.original.total_employees} org</span>,
+        },
+        {
+            id: 'total_base_salary',
+            size: 150,
+            minSize: 140,
+            accessorFn: (row) => row.total_base_salary ?? '',
+            meta: { title: 'Gaji Pokok', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Gaji Pokok" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-zinc-600 dark:text-zinc-400">{rp(row.original.total_base_salary)}</span>,
+        },
+        {
+            id: 'total_meal_allowance',
+            size: 140,
+            minSize: 130,
+            accessorFn: (row) => row.total_meal_allowance ?? '',
+            meta: { title: 'Uang Makan', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Uang Makan" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-zinc-600 dark:text-zinc-400">{rp(row.original.total_meal_allowance)}</span>,
+        },
+        {
+            id: 'total_overtime_pay',
+            size: 140,
+            minSize: 130,
+            accessorFn: (row) => row.total_overtime_pay ?? '',
+            meta: { title: 'Upah Lembur', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Upah Lembur" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-zinc-600 dark:text-zinc-400">{rp(row.original.total_overtime_pay)}</span>,
+        },
+        {
+            id: 'total_deductions',
+            size: 140,
+            minSize: 130,
+            accessorFn: (row) => row.total_deductions ?? '',
+            meta: { title: 'Total Potongan', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Total Potongan" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-rose-600">-{rp(row.original.total_deductions)}</span>,
+        },
+        {
+            id: 'total_net_payout',
+            size: 160,
+            minSize: 150,
+            accessorFn: (row) => row.total_net_payout ?? '',
+            meta: { title: 'Total Net Kas', cellClassName: 'text-right font-mono font-bold' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Total Net Kas" className="justify-end" />,
+            cell: ({ row }) => (
+                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{rp(row.original.total_net_payout)}</span>
+            ),
+        },
+        {
+            accessorKey: 'status',
+            size: 150,
+            minSize: 140,
+            meta: { title: 'Status Otorisasi', cellClassName: 'text-center' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status Otorisasi" className="justify-center" />,
+            cell: ({ row }) => getStatusBadge(row.original.status),
+        },
+        {
+            id: 'actions',
+            size: 180,
+            minSize: 160,
+            pinned: 'right',
+            meta: { title: 'Aksi' },
+            header: () => <div className="text-right pr-2">Aksi</div>,
+            cell: ({ row }) => {
+                const p = row.original;
+                const code = p.period_code || p.uuid;
+                return (
+                    <div className="flex items-center justify-end gap-1.5">
+                        <a
+                            href={route('hcm.payroll.export', code)}
+                            className="h-7 text-[11px] px-2 gap-1 inline-flex items-center rounded border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition-colors"
+                            title="Ekspor Excel (BRI & Rekap)"
+                        >
+                            <FileSpreadsheet className="h-3 w-3" />
+                        </a>
+                        <Link href={route('hcm.payroll.show', code)}>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-[11px] px-2 gap-1 text-indigo-600 hover:bg-indigo-50 border-indigo-200"
+                            >
+                                <Eye className="h-3 w-3" />
+                                <span>Buka Rekap</span>
+                            </Button>
+                        </Link>
+                        {p.status !== 'PAID_COMPLETED' && (
+                            <button
+                                type="button"
+                                onClick={() => handleOpenDelete(p)}
+                                className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                title="Hapus Batch Draf"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                        )}
+                    </div>
+                );
+            },
+        },
+    ], []);
+
     const rows = payrolls?.data || [];
 
     return (
         <AppLayout>
             <Head title="Penggajian Terpadu (Unified Payroll) - HCM" />
 
-            <div className="space-y-5 p-4 sm:p-6 max-w-7xl mx-auto">
+            <div className="space-y-5">
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="flex items-center gap-2.5">
@@ -241,177 +428,55 @@ export default function PayrollIndex({
                     </Card>
                 </div>
 
-                {/* Toolbar Filter */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <CardContent className="p-3.5">
-                        <form onSubmit={handleFilterSubmit} className="flex flex-col sm:flex-row items-center gap-2.5">
-                            <div className="relative flex-1 w-full">
-                                <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
-                                <Input
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    placeholder="Cari kode periode (PAY-...), bulan, atau catatan..."
-                                    className="pl-9 h-9 text-xs"
-                                />
-                            </div>
 
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <SearchableSelect
-                                    value={status}
-                                    onValueChange={(val) => setStatus(val)}
-                                    options={[
-                                        { label: 'Semua Status Batch', value: 'all' },
-                                        { label: 'Draf HCM (Belum Disetujui)', value: 'DRAFT_HCM' },
-                                        { label: 'Disetujui HCM (Menunggu Finance)', value: 'APPROVED_BY_HCM' },
-                                        { label: 'Selesai Dicairkan (PAID_COMPLETED)', value: 'PAID_COMPLETED' },
-                                    ]}
-                                    placeholder="Status Batch"
-                                    className="w-full sm:w-56 text-xs"
-                                />
-
-                                <Button
-                                    type="submit"
-                                    size="sm"
-                                    className="h-9 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1 shrink-0"
-                                >
-                                    <Search className="h-3.5 w-3.5" />
-                                    <span>Filter</span>
-                                </Button>
-
+                {/* Tabel Batch Payroll - DataTable (sticky filter, sticky footer, kolom aksi pin kanan) */}
+                <DataTable
+                    columns={payrollColumns}
+                    data={rows}
+                    serverPagination={payrolls}
+                    onServerPageChange={(page) => applyPayrollFilter(search, status, page)}
+                    onServerPerPageChange={(per_page) => applyPayrollFilter(search, status, 1, per_page)}
+                    onServerSearchChange={(val) => {
+                        setSearch(val);
+                        applyPayrollFilter(val, status, 1);
+                    }}
+                    searchValue={search}
+                    searchPlaceholder="Cari kode periode (PAY-...), bulan, atau catatan..."
+                    exportFileName={`Payroll_Batch_${new Date().toISOString().slice(0, 10)}`}
+                    emptyMessage="Belum ada batch penggajian terdata. Klik tombol Generate Batch Penggajian untuk membuat periode baru."
+                    filterSlot={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <SearchableSelect
+                                value={status}
+                                onValueChange={(val) => {
+                                    setStatus(val);
+                                    applyPayrollFilter(search, val, 1);
+                                }}
+                                options={[
+                                    { label: 'Semua Status Batch', value: 'all' },
+                                    { label: 'Draf HCM (Belum Disetujui)', value: 'DRAFT_HCM' },
+                                    { label: 'Disetujui HCM (Menunggu Finance)', value: 'APPROVED_BY_HCM' },
+                                    { label: 'Selesai Dicairkan (PAID_COMPLETED)', value: 'PAID_COMPLETED' },
+                                ]}
+                                placeholder="Status Batch"
+                                className="h-8 w-56 text-xs"
+                            />
+                            {(search || status !== 'all') && (
                                 <Button
                                     type="button"
                                     variant="outline"
                                     size="sm"
                                     onClick={handleReset}
-                                    className="h-9 px-2.5 text-xs text-zinc-500 hover:text-zinc-800 gap-1 shrink-0"
+                                    className="h-8 px-2.5 text-xs text-zinc-500 hover:text-zinc-800 gap-1 shrink-0"
                                     title="Reset Filter"
                                 >
                                     <RotateCcw className="h-3.5 w-3.5" />
+                                    <span>Reset</span>
                                 </Button>
-                            </div>
-                        </form>
-                    </CardContent>
-                </Card>
-
-                {/* Tabel Batch Payroll */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs overflow-hidden">
-                    <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <Table className="text-xs">
-                                <TableHeader>
-                                    <TableRow className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/75 dark:bg-zinc-800/50">
-                                        <TableHead className="py-3 px-3">Kode Periode</TableHead>
-                                        <TableHead className="py-3 px-3">Bulan Kinerja Kerja</TableHead>
-                                        <TableHead className="py-3 px-3">Pencairan / Transfer</TableHead>
-                                        <TableHead className="py-3 px-3 text-center">Headcount</TableHead>
-                                        <TableHead className="py-3 px-3 text-right">Gaji Pokok</TableHead>
-                                        <TableHead className="py-3 px-3 text-right">Uang Makan</TableHead>
-                                        <TableHead className="py-3 px-3 text-right">Upah Lembur</TableHead>
-                                        <TableHead className="py-3 px-3 text-right text-rose-600">Total Potongan</TableHead>
-                                        <TableHead className="py-3 px-3 text-right font-bold text-emerald-600">Total Net Kas</TableHead>
-                                        <TableHead className="py-3 px-3 text-center">Status Otorisasi</TableHead>
-                                        <TableHead className="py-3 px-3 text-right sticky right-0 bg-zinc-50/95 dark:bg-zinc-800/95">Aksi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody className="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
-                                    {rows.length > 0 ? (
-                                        rows.map((p) => {
-                                            const code = p.period_code || p.uuid;
-                                            return (
-                                                <TableRow key={p.id} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40">
-                                                    <TableCell className="py-3 px-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                                                        <Link href={route('hcm.payroll.show', code)} className="hover:underline flex items-center gap-1">
-                                                            <span>{p.period_code}</span>
-                                                            <ArrowRight className="h-3 w-3 opacity-60" />
-                                                        </Link>
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 font-medium">
-                                                        {p.work_period_month}
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3">
-                                                        <div>{p.payout_period_month}</div>
-                                                        <div className="text-[10px] text-zinc-400">{p.payout_date || '-'}</div>
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 text-center font-semibold">
-                                                        {p.total_employees} org
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 text-right font-mono text-zinc-600 dark:text-zinc-400">
-                                                        {rp(p.total_base_salary)}
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 text-right font-mono text-zinc-600 dark:text-zinc-400">
-                                                        {rp(p.total_meal_allowance)}
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 text-right font-mono text-zinc-600 dark:text-zinc-400">
-                                                        {rp(p.total_overtime_pay)}
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 text-right font-mono text-rose-600">
-                                                        -{rp(p.total_deductions)}
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                                                        {rp(p.total_net_payout)}
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 text-center">
-                                                        {getStatusBadge(p.status)}
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 text-right sticky right-0 bg-white/95 dark:bg-zinc-900/95">
-                                                        <div className="flex items-center justify-end gap-1.5">
-                                                            <a
-                                                                href={route('hcm.payroll.export', code)}
-                                                                className="h-7 text-[11px] px-2 gap-1 inline-flex items-center rounded border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition-colors"
-                                                                title="Ekspor Excel (BRI & Rekap)"
-                                                            >
-                                                                <FileSpreadsheet className="h-3 w-3" />
-                                                            </a>
-
-                                                            <Link href={route('hcm.payroll.show', code)}>
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="h-7 text-[11px] px-2 gap-1 text-indigo-600 hover:bg-indigo-50 border-indigo-200"
-                                                                >
-                                                                    <Eye className="h-3 w-3" />
-                                                                    <span>Buka Rekap</span>
-                                                                </Button>
-                                                            </Link>
-
-                                                            {p.status !== 'PAID_COMPLETED' && (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleOpenDelete(p)}
-                                                                    className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                                                    title="Hapus Batch Draf"
-                                                                >
-                                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={11} className="py-12 text-center text-zinc-400">
-                                                Belum ada batch penggajian terdata. Klik tombol "+ Generate Batch Penggajian" untuk membuat periode baru.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
+                            )}
                         </div>
-                    </CardContent>
-                </Card>
+                    }
+                />
             </div>
 
             {/* Modal Dialog Generate Batch */}

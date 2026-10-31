@@ -32,7 +32,7 @@ class HcmRewardController extends Controller
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
-        $rewards = HcmEmployeeReward::with([
+        $rewardsQuery = HcmEmployeeReward::with([
             'employee:id,employee_code,name,nickname,department,division',
             'creator:id,name',
         ])
@@ -48,9 +48,10 @@ class HcmRewardController extends Controller
             ->when($statusFilter !== 'all', fn ($q) => $q->where('distribution_status', $statusFilter))
             ->when($yearFilter !== 'all', fn ($q) => $q->where('reward_year', (int) $yearFilter))
             ->orderBy('reward_year', 'desc')
-            ->orderBy('id', 'desc')
-            ->paginate(12)
-            ->withQueryString();
+            ->orderBy('id', 'desc');
+
+        $perPage = min(max((int) $request->query('per_page', 12), 5), 100);
+        $rewards = $rewardsQuery->paginate($perPage)->withQueryString();
 
         // Metrik Ringkasan Penyaluran Reward
         $metrics = [

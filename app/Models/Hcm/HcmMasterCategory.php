@@ -6,6 +6,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property string $code
+ * @property string $name
+ * @property string $group
+ * @property string|null $icon
+ * @property string|null $description
+ * @property int $order_index
+ * @property bool $is_active
+ * @property \Carbon\Carbon|null $created_at
+ * @property \Carbon\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Hcm\HcmMasterOption[] $options
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Hcm\HcmMasterOption[] $activeOptions
+ */
 class HcmMasterCategory extends Model
 {
     use HasFactory;

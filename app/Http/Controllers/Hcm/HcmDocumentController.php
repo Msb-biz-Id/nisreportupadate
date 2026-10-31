@@ -29,7 +29,7 @@ class HcmDocumentController extends Controller
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
 
-        $documents = HcmInternalDocument::with('creator:id,name')
+        $documentsQuery = HcmInternalDocument::with('creator:id,name')
             ->when($escapedSearch, fn ($q, $t) => $q->where(fn ($sub) =>
                 $sub->where('title', 'like', "%{$t}%")
                     ->orWhere('document_code', 'like', "%{$t}%")
@@ -40,9 +40,10 @@ class HcmDocumentController extends Controller
             ->when($stageFilter !== 'all', fn ($q) => $q->where('document_stage', $stageFilter))
             ->when($departmentFilter !== 'all', fn ($q) => $q->where('department', $departmentFilter))
             ->when($statusFilter !== 'all', fn ($q) => $q->where('status', $statusFilter))
-            ->orderByDesc('id')
-            ->paginate(12)
-            ->withQueryString();
+            ->orderByDesc('id');
+
+        $perPage = min(max((int) $request->query('per_page', 12), 5), 100);
+        $documents = $documentsQuery->paginate($perPage)->withQueryString();
 
         $metrics = [
             'total_documents' => HcmInternalDocument::count(),
@@ -154,9 +155,9 @@ class HcmDocumentController extends Controller
         ]);
 
         if ($request->hasFile('file_upload')) {
-            $uploaded = \App\Services\GoogleDriveSyncService::uploadFile(
+            $uploaded = \App\Services\HcmFileStorageService::uploadFile(
                 $request->file('file_upload'),
-                \App\Services\GoogleDriveSyncService::FOLDER_DOCUMENTS
+                \App\Services\HcmFileStorageService::FOLDER_DOCUMENTS
             );
             $validated['file_url'] = $uploaded['url'];
         }
@@ -196,9 +197,9 @@ class HcmDocumentController extends Controller
         ]);
 
         if ($request->hasFile('file_upload')) {
-            $uploaded = \App\Services\GoogleDriveSyncService::uploadFile(
+            $uploaded = \App\Services\HcmFileStorageService::uploadFile(
                 $request->file('file_upload'),
-                \App\Services\GoogleDriveSyncService::FOLDER_DOCUMENTS
+                \App\Services\HcmFileStorageService::FOLDER_DOCUMENTS
             );
             $validated['file_url'] = $uploaded['url'];
         }

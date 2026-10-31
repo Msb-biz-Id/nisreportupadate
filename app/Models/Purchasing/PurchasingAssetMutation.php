@@ -8,6 +8,24 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $uuid
+ * @property int $asset_id
+ * @property string $old_asset_code
+ * @property string $new_asset_code
+ * @property string $from_department_code
+ * @property string $to_department_code
+ * @property string|null $from_department_name
+ * @property string|null $to_department_name
+ * @property \Illuminate\Support\Carbon|null $mutation_date
+ * @property int|null $pic_user_id
+ * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Purchasing\PurchasingAsset|null $asset
+ * @property-read \App\Models\User|null $picUser
+ */
 class PurchasingAssetMutation extends Model
 {
     use HasFactory;
@@ -52,7 +70,7 @@ class PurchasingAssetMutation extends Model
     protected function casts(): array
     {
         return [
-            'mutation_date' => 'date',
+            'mutation_date' => 'date:Y-m-d',
         ];
     }
 

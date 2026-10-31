@@ -52,6 +52,7 @@ import {
     DialogTitle,
 } from '@/Components/ui/dialog';
 import { SearchableSelect } from '@/Components/ui/searchable-select';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 
 export default function OvertimeShow({
     batch,
@@ -277,6 +278,156 @@ export default function OvertimeShow({
     }, [employees, selectedEmployeeIds]);
 
     const isDraft = batch.status === 'DRAFT';
+
+    const overtimeColumns = useMemo(() => [
+        {
+            id: 'no',
+            size: 50,
+            minSize: 44,
+            meta: { title: 'No', cellClassName: 'text-center text-zinc-400 font-mono' },
+            header: () => <div className="text-center">No</div>,
+            cell: ({ row }) => <span className="block text-center text-zinc-400 font-mono">{row.index + 1}</span>,
+        },
+        {
+            id: 'employee',
+            size: 220,
+            minSize: 200,
+            accessorFn: (row) => row.employee?.name || '',
+            meta: { title: 'Karyawan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Karyawan" />,
+            cell: ({ row }) => (
+                <div>
+                    <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">{row.original.employee?.name}</div>
+                    <div className="text-[10px] text-zinc-400">
+                        {row.original.employee?.employee_code} &bull; {row.original.employee?.department || '-'} / {row.original.employee?.division || '-'}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'overtime_date',
+            size: 120,
+            minSize: 110,
+            meta: { title: 'Tanggal', cellClassName: 'font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tanggal" />,
+            cell: ({ row }) => <span className="text-xs font-mono">{row.original.overtime_date}</span>,
+        },
+        {
+            accessorKey: 'day_type',
+            size: 140,
+            minSize: 130,
+            meta: { title: 'Jenis Hari' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Jenis Hari" />,
+            cell: ({ row }) => (
+                <Badge
+                    variant="outline"
+                    className={`text-[11px] ${
+                        row.original.day_type === 'Lembur Hari Libur'
+                            ? 'border-amber-300 text-amber-600 bg-amber-50/50'
+                            : 'border-zinc-200 text-zinc-600'
+                    }`}
+                >
+                    {row.original.day_type === 'Lembur Hari Libur' ? 'Weekend / Libur' : 'Hari Kerja'}
+                </Badge>
+            ),
+        },
+        {
+            id: 'duration_hours',
+            size: 100,
+            minSize: 90,
+            accessorFn: (row) => parseFloat(row.duration_hours) || 0,
+            meta: { title: 'Durasi', cellClassName: 'text-center font-mono font-semibold' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Durasi" className="justify-center" />,
+            cell: ({ row }) => (
+                <span className="font-mono text-xs font-semibold">{parseFloat(row.original.duration_hours).toFixed(1)} Jam</span>
+            ),
+        },
+        {
+            id: 'hourly_rate',
+            size: 130,
+            minSize: 120,
+            accessorFn: (row) => row.hourly_rate ?? '',
+            meta: { title: 'Tarif / Jam', cellClassName: 'text-right font-mono' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tarif / Jam" className="justify-end" />,
+            cell: ({ row }) => <span className="text-xs font-mono text-zinc-500">{formatRp(row.original.hourly_rate)}</span>,
+        },
+        {
+            id: 'total_amount',
+            size: 140,
+            minSize: 130,
+            accessorFn: (row) => row.total_amount ?? '',
+            meta: { title: 'Total Upah', cellClassName: 'text-right font-mono font-bold' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Total Upah" className="justify-end" />,
+            cell: ({ row }) => (
+                <span className="text-xs font-mono font-bold text-zinc-900 dark:text-zinc-100">{formatRp(row.original.total_amount)}</span>
+            ),
+        },
+        {
+            accessorKey: 'task_description',
+            size: 220,
+            minSize: 180,
+            meta: { title: 'Tugas / Penugasan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tugas / Penugasan" />,
+            cell: ({ row }) => (
+                <span className="text-xs text-zinc-600 dark:text-zinc-400">{row.original.task_description || '-'}</span>
+            ),
+        },
+        {
+            id: 'actions',
+            size: 160,
+            minSize: 150,
+            pinned: 'right',
+            meta: { title: 'Aksi' },
+            header: () => <div className="text-right pr-2">Aksi</div>,
+            cell: ({ row }) => {
+                const item = row.original;
+                return (
+                    <div className="flex items-center justify-end gap-1">
+                        <a
+                            href={route('hcm.overtime.employee-slip', [batch.id, item.employee_id])}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center h-7 px-1.5 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/40 rounded transition"
+                            title="Cetak Slip Lembur Karyawan"
+                        >
+                            <FileText className="h-3.5 w-3.5" />
+                        </a>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setViewItemModal({ isOpen: true, item })}
+                            className="h-7 px-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                            title="Lihat Rincian"
+                        >
+                            <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        {isDraft && (
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => openEditModal(item)}
+                                className="h-7 px-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                                title="Edit Rincian Lembur"
+                            >
+                                <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                        )}
+                        {isDraft && (
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setDeleteItemModal({ isOpen: true, item })}
+                                className="h-7 px-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                title="Hapus lembur ini"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                        )}
+                    </div>
+                );
+            },
+        },
+    ], [isDraft]);
 
     return (
         <AppLayout
@@ -755,134 +906,13 @@ export default function OvertimeShow({
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-zinc-50 dark:bg-zinc-800/50">
-                                <TableRow>
-                                    <TableHead className="w-[40px] text-center text-xs font-bold">No</TableHead>
-                                    <TableHead className="min-w-[180px] text-xs font-bold">Karyawan</TableHead>
-                                    <TableHead className="min-w-[110px] text-xs font-bold">Tanggal</TableHead>
-                                    <TableHead className="min-w-[130px] text-xs font-bold">Jenis Hari</TableHead>
-                                    <TableHead className="min-w-[90px] text-xs font-bold text-center">Durasi</TableHead>
-                                    <TableHead className="min-w-[110px] text-xs font-bold text-right">Tarif / Jam</TableHead>
-                                    <TableHead className="min-w-[120px] text-xs font-bold text-right">Total Upah</TableHead>
-                                    <TableHead className="min-w-[180px] text-xs font-bold">Tugas / Penugasan</TableHead>
-                                    <TableHead className="w-[120px] text-xs font-bold text-right">Aksi</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {batch.overtimes && batch.overtimes.length > 0 ? (
-                                    batch.overtimes.map((item, idx) => (
-                                        <TableRow key={item.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                                            <TableCell className="text-center text-xs text-zinc-400 font-mono">
-                                                {idx + 1}
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
-                                                    {item.employee?.name}
-                                                </div>
-                                                <div className="text-[10px] text-zinc-400">
-                                                    {item.employee?.employee_code} • {item.employee?.department || '-'} / {item.employee?.division || '-'}
-                                                </div>
-                                            </TableCell>
-
-                                            <TableCell className="text-xs font-mono">
-                                                {item.overtime_date}
-                                            </TableCell>
-
-                                            <TableCell>
-                                                <Badge
-                                                    variant="outline"
-                                                    className={`text-[11px] ${
-                                                        item.day_type === 'Lembur Hari Libur'
-                                                            ? 'border-amber-300 text-amber-600 bg-amber-50/50'
-                                                            : 'border-zinc-200 text-zinc-600'
-                                                    }`}
-                                                >
-                                                    {item.day_type === 'Lembur Hari Libur' ? 'Weekend / Libur' : 'Hari Kerja'}
-                                                </Badge>
-                                            </TableCell>
-
-                                            <TableCell className="text-center font-mono text-xs font-semibold">
-                                                {parseFloat(item.duration_hours).toFixed(1)} Jam
-                                            </TableCell>
-
-                                            <TableCell className="text-right text-xs font-mono text-zinc-500">
-                                                {formatRp(item.hourly_rate)}
-                                            </TableCell>
-
-                                            <TableCell className="text-right text-xs font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                                                {formatRp(item.total_amount)}
-                                            </TableCell>
-
-                                            <TableCell className="text-xs text-zinc-600 dark:text-zinc-400">
-                                                {item.task_description || '-'}
-                                            </TableCell>
-
-                                            <TableCell className="text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    {/* AKSI: CETAK SLIP LEMBUR */}
-                                                    <a
-                                                        href={route('hcm.overtime.employee-slip', [batch.id, item.employee_id])}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="inline-flex items-center justify-center h-7 px-1.5 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/40 rounded transition"
-                                                        title="Cetak Slip Lembur Karyawan"
-                                                    >
-                                                        <FileText className="h-3.5 w-3.5" />
-                                                    </a>
-
-                                                    {/* AKSI: LIHAT */}
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        onClick={() => setViewItemModal({ isOpen: true, item })}
-                                                        className="h-7 px-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
-                                                        title="Lihat Rincian"
-                                                    >
-                                                        <Eye className="h-3.5 w-3.5" />
-                                                    </Button>
-
-                                                    {/* AKSI: EDIT (Hanya jika DRAFT) */}
-                                                    {isDraft && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => openEditModal(item)}
-                                                            className="h-7 px-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                                                            title="Edit Rincian Lembur"
-                                                        >
-                                                            <Pencil className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                    )}
-
-                                                    {/* AKSI: HAPUS (Hanya jika DRAFT) */}
-                                                    {isDraft && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={() => setDeleteItemModal({ isOpen: true, item })}
-                                                            className="h-7 px-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                                                            title="Hapus lembur ini"
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={9} className="h-32 text-center text-xs text-zinc-400">
-                                            Belum ada penugasan lembur yang dicatat pada batch ini. Silakan gunakan Bulk Overtime Dispatcher di atas.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
+                <DataTable
+                        columns={overtimeColumns}
+                        data={batch.overtimes || []}
+                        searchPlaceholder="Cari karyawan, tanggal, tugas..."
+                        exportFileName={`Rincian_Lembur_${batch.batch_code || batch.id}`}
+                        emptyMessage="Belum ada penugasan lembur yang dicatat pada batch ini."
+                    />
                 </Card>
             </div>
 
@@ -1138,7 +1168,7 @@ export default function OvertimeShow({
                                 className="text-xs file:text-xs"
                             />
                             <p className="text-[10px] text-zinc-500">
-                                Tanda terima / slip transfer. Berkas dialirkan ke Google Drive; jika kosong, cukup catatan voucher.
+                                Tanda terima / slip transfer. Jika kosong, cukup catatan voucher.
                             </p>
                         </div>
 

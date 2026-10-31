@@ -6,14 +6,8 @@ import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Badge } from '@/Components/ui/badge';
 import { SearchableSelect } from '@/Components/ui/searchable-select';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/Components/ui/table';
+import { DataTable } from '@/Components/DataTable/DataTable';
+import { DataTableColumnHeader } from '@/Components/DataTable/DataTableColumnHeader';
 import {
     Dialog,
     DialogContent,
@@ -39,6 +33,8 @@ import {
     Calculator,
     Percent,
     RotateCcw,
+    History,
+    ExternalLink,
 } from 'lucide-react';
 
 const rp = (v) => {
@@ -61,7 +57,27 @@ export default function SalaryDeductionIndex({
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [historyModalOpen, setHistoryModalOpen] = useState(false);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyData, setHistoryData] = useState(null);
     const [selectedDeduction, setSelectedDeduction] = useState(null);
+
+    const handleOpenEmployeeHistory = async (employeeId) => {
+        if (!employeeId) return;
+        setHistoryLoading(true);
+        setHistoryModalOpen(true);
+        try {
+            const res = await fetch(route('hcm.salary-deductions.employee-history', employeeId));
+            if (res.ok) {
+                const data = await res.json();
+                setHistoryData(data);
+            }
+        } catch (err) {
+            console.error('Failed to load history', err);
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
 
     // Form Tambah
     const createForm = useForm({
@@ -122,11 +138,10 @@ export default function SalaryDeductionIndex({
         };
     }, [selectedEmployeeData, createForm.data.calculation_type, createForm.data.percentage_rate, createForm.data.deduction_amount]);
 
-    const handleFilterSubmit = (e) => {
-        if (e) e.preventDefault();
+    const handleApplyFilter = (newMonth = month, newSearch = search, newCat = category, page = 1, perPage = deductions?.per_page || 20) => {
         router.get(
             route('hcm.salary-deductions.index'),
-            { month, search, category },
+            { month: newMonth, search: newSearch, category: newCat, page, per_page: perPage },
             { preserveState: true, replace: true }
         );
     };
@@ -138,7 +153,7 @@ export default function SalaryDeductionIndex({
         setCategory('all');
         router.get(
             route('hcm.salary-deductions.index'),
-            { month: defaultMonth, search: '', category: 'all' },
+            { month: defaultMonth, search: '', category: 'all', page: 1, per_page: deductions?.per_page || 20 },
             { preserveState: true, replace: true }
         );
     };
@@ -209,13 +224,205 @@ export default function SalaryDeductionIndex({
         });
     };
 
+    const columns = useMemo(() => [
+        {
+            id: 'employee',
+            size: 220,
+            minSize: 200,
+            meta: { title: 'Karyawan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Karyawan" />,
+            cell: ({ row }) => {
+                const emp = row.original.employee;
+                return (
+                    <div>
+                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                            {emp?.name || '-'}
+                        </div>
+                        <div className="text-[10px] font-mono text-zinc-400">
+                            {emp?.employee_code || '-'}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'department',
+            size: 190,
+            minSize: 180,
+            meta: { title: 'Departemen & Divisi' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Departemen & Divisi" />,
+            cell: ({ row }) => {
+                const emp = row.original.employee;
+                return (
+                    <div>
+                        <div className="font-medium text-zinc-800 dark:text-zinc-200">
+                            {emp?.department || '-'}
+                        </div>
+                        <div className="text-[10px] text-zinc-400">
+                            {emp?.division || '-'}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'deduction_category',
+            size: 220,
+            minSize: 200,
+            meta: { title: 'Kategori Pemotongan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Kategori Pemotongan" />,
+            cell: ({ row }) => (
+                <Badge
+                    variant="outline"
+                    className="text-[10px] font-semibold bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300"
+                >
+                    {row.original.deduction_category}
+                </Badge>
+            ),
+        },
+        {
+            id: 'calculation_type',
+            size: 130,
+            minSize: 120,
+            meta: { title: 'Metode / Rate' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Metode / Rate" className="justify-center" />,
+            cell: ({ row }) => {
+                const item = row.original;
+                return (
+                    <div className="text-center">
+                        {item.calculation_type === 'percent' ? (
+                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                <Percent className="h-3 w-3" />
+                                {item.percentage_rate}%
+                            </span>
+                        ) : (
+                            <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
+                                Nominal Flat
+                            </span>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'base_salary_snapshot',
+            size: 160,
+            minSize: 150,
+            meta: { title: 'Gaji Pokok Snapshot' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Gaji Pokok Snapshot" className="justify-end" />,
+            cell: ({ row }) => (
+                <div className="text-right font-mono text-zinc-600 dark:text-zinc-400">
+                    {rp(row.original.base_salary_snapshot)}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'deduction_amount',
+            size: 160,
+            minSize: 150,
+            meta: { title: 'Nominal Potongan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nominal Potongan" className="justify-end" />,
+            cell: ({ row }) => (
+                <div className="text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                    -{rp(row.original.deduction_amount)}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'net_salary_snapshot',
+            size: 170,
+            minSize: 160,
+            meta: { title: 'Proyeksi Take-Home' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Proyeksi Take-Home" className="justify-end" />,
+            cell: ({ row }) => (
+                <div className="text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                    {rp(row.original.net_salary_snapshot)}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'status',
+            size: 120,
+            minSize: 110,
+            meta: { title: 'Status' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" className="justify-center" />,
+            cell: ({ row }) => {
+                const item = row.original;
+                return (
+                    <div className="text-center">
+                        <Badge
+                            className={`text-[10px] ${
+                                item.status === 'APPROVED' || item.status === 'APPLIED'
+                                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-200'
+                                    : 'bg-zinc-100 text-zinc-700 border-zinc-200'
+                            }`}
+                        >
+                            {item.status}
+                        </Badge>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'notes',
+            size: 240,
+            minSize: 200,
+            meta: { title: 'Catatan / Keterangan' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Catatan / Keterangan" />,
+            cell: ({ row }) => (
+                <div className="max-w-xs truncate text-zinc-600 dark:text-zinc-400">
+                    {row.original.notes || '-'}
+                </div>
+            ),
+        },
+        {
+            id: 'actions',
+            size: 110,
+            minSize: 100,
+            pinned: 'right',
+            meta: { title: 'Aksi' },
+            header: () => <div className="text-right pr-2">Aksi</div>,
+            cell: ({ row }) => {
+                const item = row.original;
+                return (
+                    <div className="flex items-center justify-end gap-1">
+                        <button
+                            type="button"
+                            onClick={() => handleOpenEmployeeHistory(item.employee_id)}
+                            className="p-1 rounded text-zinc-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition"
+                            title="Riwayat Pemotongan Kontrak (Audit Trail)"
+                        >
+                            <History className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleOpenEdit(item)}
+                            className="p-1 rounded text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                            title="Edit Pemotongan"
+                        >
+                            <Edit3 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleOpenDelete(item)}
+                            className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                            title="Hapus Pemotongan"
+                        >
+                            <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
+                );
+            },
+        },
+    ], []);
+
     const rows = deductions?.data || [];
 
     return (
         <AppLayout>
             <Head title="Pemotongan &amp; Penyesuaian Gaji Bulanan - HCM" />
 
-            <div className="space-y-5 p-4 sm:p-6 max-w-7xl mx-auto">
+            <div className="space-y-5">
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
@@ -310,198 +517,63 @@ export default function SalaryDeductionIndex({
                     </Card>
                 </div>
 
-                {/* Filter Toolbar */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <CardContent className="p-3.5">
-                        <form onSubmit={handleFilterSubmit} className="flex flex-col sm:flex-row items-center gap-2.5">
-                            <div className="flex items-center gap-1.5 w-full sm:w-auto">
-                                <Label htmlFor="month-filter" className="text-xs text-zinc-500 whitespace-nowrap">
-                                    Bulan:
-                                </Label>
+                {/* Tabel Data Potongan Gaji with DataTable */}
+                <DataTable
+                    columns={columns}
+                    data={deductions.data || []}
+                    serverPagination={deductions}
+                    onServerPageChange={(page) => handleApplyFilter(month, search, category, page)}
+                    onServerPerPageChange={(per_page) => handleApplyFilter(month, search, category, 1, per_page)}
+                    onServerSearchChange={(val) => {
+                        setSearch(val);
+                        handleApplyFilter(month, val, category, 1);
+                    }}
+                    searchValue={search}
+                    searchPlaceholder="Cari nama karyawan, NIK, departemen..."
+                    exportFileName={`Potongan_Gaji_${month}_${new Date().toISOString().slice(0, 10)}`}
+                    filterSlot={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-zinc-500 font-medium">Bulan:</span>
                                 <Input
-                                    id="month-filter"
                                     type="month"
                                     value={month}
-                                    onChange={(e) => setMonth(e.target.value)}
-                                    className="h-9 text-xs w-40"
+                                    onChange={(e) => {
+                                        setMonth(e.target.value);
+                                        handleApplyFilter(e.target.value, search, category, 1);
+                                    }}
+                                    className="h-8 text-xs w-36"
                                 />
                             </div>
-
-                            <div className="relative flex-1 w-full">
-                                <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
-                                <Input
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    placeholder="Cari nama karyawan, NIK, departemen, divisi, atau catatan..."
-                                    className="pl-9 h-9 text-xs"
-                                />
-                            </div>
-
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <SearchableSelect
-                                    value={category}
-                                    onValueChange={(val) => setCategory(val)}
-                                    options={[
-                                        { label: 'Semua Kategori Potongan', value: 'all' },
-                                        ...categories.map((c) => ({ label: c, value: c })),
-                                    ]}
-                                    placeholder="Kategori Potongan"
-                                    className="w-full sm:w-56 text-xs"
-                                />
-
+                            <SearchableSelect
+                                value={category}
+                                onValueChange={(val) => {
+                                    setCategory(val);
+                                    handleApplyFilter(month, search, val, 1);
+                                }}
+                                options={[
+                                    { label: 'Semua Kategori Potongan', value: 'all' },
+                                    ...categories.map((c) => ({ label: c, value: c })),
+                                ]}
+                                placeholder="Kategori Potongan"
+                                clearable={false}
+                                className="h-8 text-xs min-w-[220px] w-auto"
+                            />
+                            {(category !== 'all' || search !== '') && (
                                 <Button
-                                    type="submit"
-                                    size="sm"
-                                    className="h-9 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1 shrink-0"
-                                >
-                                    <Search className="h-3.5 w-3.5" />
-                                    <span>Terapkan</span>
-                                </Button>
-
-                                <Button
-                                    type="button"
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
                                     onClick={handleReset}
-                                    className="h-9 px-2.5 text-xs text-zinc-500 hover:text-zinc-800 gap-1 shrink-0"
-                                    title="Reset Filter"
+                                    className="h-8 text-xs text-zinc-500 hover:text-rose-600 gap-1 px-2"
+                                    title="Reset filter"
                                 >
-                                    <RotateCcw className="h-3.5 w-3.5" />
+                                    <RotateCcw className="h-3 w-3" />
+                                    <span>Reset</span>
                                 </Button>
-                            </div>
-                        </form>
-                    </CardContent>
-                </Card>
-
-                {/* Tabel Data Potongan Gaji */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs overflow-hidden">
-                    <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <Table className="text-xs">
-                                <TableHeader>
-                                    <TableRow className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/75 dark:bg-zinc-800/50">
-                                        <TableHead className="py-3 px-3">Karyawan</TableHead>
-                                        <TableHead className="py-3 px-3">Departemen &amp; Divisi</TableHead>
-                                        <TableHead className="py-3 px-3">Kategori Pemotongan</TableHead>
-                                        <TableHead className="py-3 px-3 text-center">Metode / Rate</TableHead>
-                                        <TableHead className="py-3 px-3 text-right">Gaji Pokok Snapshot</TableHead>
-                                        <TableHead className="py-3 px-3 text-right font-bold text-rose-600">Nominal Potongan</TableHead>
-                                        <TableHead className="py-3 px-3 text-right font-bold text-emerald-600">Proyeksi Take-Home</TableHead>
-                                        <TableHead className="py-3 px-3 text-center">Status</TableHead>
-                                        <TableHead className="py-3 px-3">Catatan / Keterangan</TableHead>
-                                        <TableHead className="py-3 px-3 text-right sticky right-0 bg-zinc-50/95 dark:bg-zinc-800/95">Aksi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody className="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
-                                    {rows.length > 0 ? (
-                                        rows.map((item) => {
-                                            const emp = item.employee;
-                                            return (
-                                                <TableRow key={item.id} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40">
-                                                    <TableCell className="py-3 px-3 font-medium">
-                                                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-                                                            {emp?.name || '-'}
-                                                        </div>
-                                                        <div className="text-[10px] font-mono text-zinc-400">
-                                                            {emp?.employee_code || '-'}
-                                                        </div>
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3">
-                                                        <div className="font-medium text-zinc-800 dark:text-zinc-200">
-                                                            {emp?.department || '-'}
-                                                        </div>
-                                                        <div className="text-[10px] text-zinc-400">
-                                                            {emp?.division || '-'}
-                                                        </div>
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3">
-                                                        <Badge
-                                                            variant="outline"
-                                                            className="text-[10px] font-semibold bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300"
-                                                        >
-                                                            {item.deduction_category}
-                                                        </Badge>
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 text-center">
-                                                        {item.calculation_type === 'percent' ? (
-                                                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                                                <Percent className="h-3 w-3" />
-                                                                {item.percentage_rate}%
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
-                                                                Nominal Flat
-                                                            </span>
-                                                        )}
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 text-right font-mono text-zinc-600 dark:text-zinc-400">
-                                                        {rp(item.base_salary_snapshot)}
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
-                                                        -{rp(item.deduction_amount)}
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                                                        {rp(item.net_salary_snapshot)}
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 text-center">
-                                                        <Badge
-                                                            className={`text-[10px] ${
-                                                                item.status === 'APPROVED' || item.status === 'APPLIED'
-                                                                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-200'
-                                                                    : 'bg-zinc-100 text-zinc-700 border-zinc-200'
-                                                            }`}
-                                                        >
-                                                            {item.status}
-                                                        </Badge>
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 max-w-xs truncate text-zinc-600 dark:text-zinc-400">
-                                                        {item.notes || '-'}
-                                                    </TableCell>
-
-                                                    <TableCell className="py-3 px-3 text-right sticky right-0 bg-white/95 dark:bg-zinc-900/95">
-                                                        <div className="flex items-center justify-end gap-1">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleOpenEdit(item)}
-                                                                className="p-1 rounded text-zinc-500 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                                                                title="Edit Pemotongan"
-                                                            >
-                                                                <Edit3 className="h-3.5 w-3.5" />
-                                                            </button>
-
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleOpenDelete(item)}
-                                                                className="p-1 rounded text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
-                                                                title="Hapus Pemotongan"
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={10} className="py-12 text-center text-zinc-400">
-                                                Tidak ada catatan pemotongan gaji untuk periode {month}.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
+                            )}
                         </div>
-                    </CardContent>
-                </Card>
+                    }
+                />
             </div>
 
             {/* Modal Tambah Pemotongan Gaji */}
@@ -593,14 +665,26 @@ export default function SalaryDeductionIndex({
                                     <div className="flex gap-1">
                                         <button
                                             type="button"
-                                            onClick={() => createForm.setData('percentage_rate', '25')}
+                                            onClick={() => {
+                                                createForm.setData((prev) => ({
+                                                    ...prev,
+                                                    percentage_rate: '25',
+                                                    notes: prev.notes || 'Potongan cuti melahirkan bulan ke-1 sebesar 25%',
+                                                }));
+                                            }}
                                             className="px-2 py-0.5 text-[10px] rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-medium"
                                         >
                                             Preset 25% (Bulan 1)
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => createForm.setData('percentage_rate', '50')}
+                                            onClick={() => {
+                                                createForm.setData((prev) => ({
+                                                    ...prev,
+                                                    percentage_rate: '50',
+                                                    notes: prev.notes || 'Potongan cuti melahirkan bulan ke-2 sebesar 50%',
+                                                }));
+                                            }}
                                             className="px-2 py-0.5 text-[10px] rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-medium"
                                         >
                                             Preset 50% (Bulan 2)
@@ -842,6 +926,152 @@ export default function SalaryDeductionIndex({
                             className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold"
                         >
                             Hapus Sekarang
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            {/* Modal Riwayat Pemotongan Kontrak (Audit Trail) */}
+            <Dialog open={historyModalOpen} onOpenChange={setHistoryModalOpen}>
+                <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+                    <DialogHeader>
+                        <div className="flex items-center justify-between">
+                            <DialogTitle className="text-base font-bold flex items-center gap-2">
+                                <History className="h-4 w-4 text-blue-600" />
+                                <span>Riwayat Pemotongan Gaji (Audit Trail)</span>
+                            </DialogTitle>
+                            {historyData?.employee?.id && (
+                                <Link
+                                    href={`/hcm/employees/${historyData.employee.id}`}
+                                    className="text-xs text-blue-600 hover:underline flex items-center gap-1 font-medium mr-6"
+                                    target="_blank"
+                                >
+                                    <span>Buka Dossier 360</span>
+                                    <ExternalLink className="h-3 w-3" />
+                                </Link>
+                            )}
+                        </div>
+                        <DialogDescription className="text-xs">
+                            Rekapitulasi riwayat pemotongan gaji dan sanksi kedisiplinan karyawan selama masa kontrak kerja.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {historyLoading ? (
+                        <div className="py-12 text-center text-xs text-zinc-500">
+                            Memuat data riwayat pemotongan...
+                        </div>
+                    ) : historyData ? (
+                        <div className="space-y-4 overflow-y-auto pr-1">
+                            {/* Info Karyawan & Kontrak */}
+                            <div className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 grid grid-cols-2 gap-3 text-xs">
+                                <div>
+                                    <div className="text-[11px] text-zinc-400">Nama & NIK</div>
+                                    <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                                        {historyData.employee?.name} ({historyData.employee?.employee_code || '-'})
+                                    </div>
+                                    <div className="text-[11px] text-zinc-500">
+                                        {historyData.employee?.department} • {historyData.employee?.division || '-'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="text-[11px] text-zinc-400">Kontrak Aktif</div>
+                                    {historyData.active_contract ? (
+                                        <div>
+                                            <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                                                {historyData.active_contract.contract_number} ({historyData.active_contract.contract_type})
+                                            </div>
+                                            <div className="text-[11px] text-zinc-500">
+                                                Periode: {historyData.active_contract.start_date || '-'} s/d {historyData.active_contract.end_date || '-'}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-zinc-500 italic">Tidak ada kontrak aktif terdaftar</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Akumulasi Ringkasan */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 rounded-lg border border-rose-100 dark:border-rose-950/40 bg-rose-50/50 dark:bg-rose-950/20">
+                                    <div className="text-[11px] text-rose-700 dark:text-rose-400 font-medium">Total Akumulasi Pemotongan</div>
+                                    <div className="text-lg font-bold text-rose-600 dark:text-rose-400 font-mono">
+                                        {rp(historyData.total_deductions_amount)}
+                                    </div>
+                                </div>
+                                <div className="p-3 rounded-lg border border-blue-100 dark:border-blue-950/40 bg-blue-50/50 dark:bg-blue-950/20">
+                                    <div className="text-[11px] text-blue-700 dark:text-blue-400 font-medium">Frekuensi Pemotongan</div>
+                                    <div className="text-lg font-bold text-blue-600 dark:text-blue-400 font-mono">
+                                        {historyData.total_deductions_count} Kali
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Daftar Catatan */}
+                            <div>
+                                <h4 className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
+                                    Catatan Kronologis Pemotongan ({historyData.deductions?.length || 0})
+                                </h4>
+                                {historyData.deductions?.length === 0 ? (
+                                    <div className="py-6 text-center text-xs text-zinc-400 border rounded-lg border-dashed">
+                                        Belum ada riwayat pemotongan gaji untuk karyawan ini.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {historyData.deductions.map((item) => (
+                                            <div
+                                                key={item.id}
+                                                className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs space-y-1.5"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-zinc-800 dark:text-zinc-200 font-mono">
+                                                            {item.effective_payroll_month}
+                                                        </span>
+                                                        <Badge
+                                                            variant="outline"
+                                                            className="text-[10px] bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300"
+                                                        >
+                                                            {item.deduction_category}
+                                                        </Badge>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="font-bold font-mono text-rose-600 dark:text-rose-400 text-sm">
+                                                            -{rp(item.deduction_amount)}
+                                                        </span>
+                                                        {item.calculation_type === 'percent' && (
+                                                            <span className="text-[10px] text-zinc-400 ml-1">
+                                                                ({item.percentage_rate}%)
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="text-[11px] text-zinc-600 dark:text-zinc-300 italic">
+                                                    "{item.notes || 'Tanpa catatan'}"
+                                                </div>
+                                                <div className="flex items-center justify-between text-[10px] text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                                                    <div>
+                                                        Gaji Pokok: {rp(item.base_salary_snapshot)} → Take Home: {rp(item.net_salary_snapshot)}
+                                                    </div>
+                                                    <div>
+                                                        Oleh: {item.creator_name} ({item.created_at})
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : null}
+
+                    <DialogFooter className="pt-3 border-t">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setHistoryModalOpen(false)}
+                            className="text-xs"
+                        >
+                            Tutup
                         </Button>
                     </DialogFooter>
                 </DialogContent>

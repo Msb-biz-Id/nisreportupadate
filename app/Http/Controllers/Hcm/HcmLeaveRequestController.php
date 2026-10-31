@@ -48,7 +48,10 @@ class HcmLeaveRequestController extends Controller
             ->when($typeFilter !== 'all', fn ($q) => $q->where('leave_type', $typeFilter))
             ->orderBy('id', 'desc');
 
-        $leaveRequests = $query->paginate(15)->withQueryString();
+        $perPage = (int) $request->query('per_page', 15);
+        $perPage = in_array($perPage, [10, 15, 20, 25, 50, 100]) ? $perPage : 15;
+
+        $leaveRequests = $query->paginate($perPage)->withQueryString();
 
         // Metrics statistik tiket
         $currentMonth = date('m');
@@ -113,9 +116,9 @@ class HcmLeaveRequestController extends Controller
 
         $attachmentUrl = $validated['attachment_url'] ?? null;
         if ($request->hasFile('attachment_file')) {
-            $uploaded = \App\Services\GoogleDriveSyncService::uploadFile(
+            $uploaded = \App\Services\HcmFileStorageService::uploadFile(
                 $request->file('attachment_file'),
-                \App\Services\GoogleDriveSyncService::FOLDER_ATTENDANCE
+                \App\Services\HcmFileStorageService::FOLDER_ATTENDANCE
             );
             $attachmentUrl = $uploaded['url'];
         }

@@ -26,8 +26,10 @@ class PurchasingDashboardController extends Controller
 
         return Inertia::render('Purchasing/Dashboard/Index', [
             'metrics' => $data['metrics'],
-            'alerts' => $data['alerts'],
-            'upcomingPayments' => $data['upcoming_payments'],
+            'urgentActions' => $data['urgent_actions'] ?? [],
+            'upcomingMonitoring' => $data['upcoming_monitoring'] ?? [],
+            'alerts' => $data['alerts'] ?? [],
+            'upcomingPayments' => $data['upcoming_payments'] ?? [],
         ]);
     }
 }

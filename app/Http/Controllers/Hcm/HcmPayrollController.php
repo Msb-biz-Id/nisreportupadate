@@ -12,7 +12,7 @@ use App\Models\Hcm\HcmPayroll;
 use App\Models\Hcm\HcmPayrollItem;
 use App\Models\Hcm\HcmSalaryDeduction;
 use App\Services\ActivityLogger;
-use App\Services\GoogleDriveSyncService;
+use App\Services\HcmFileStorageService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -53,7 +53,8 @@ class HcmPayrollController extends Controller
             ->when($statusFilter !== 'all', fn($q) => $q->where('status', $statusFilter))
             ->orderBy('id', 'desc');
 
-        $payrolls = $query->paginate(15)->withQueryString();
+        $perPage = min(max((int) $request->query('per_page', 15), 5), 200);
+        $payrolls = $query->paginate($perPage)->withQueryString();
 
         $allPayrolls = HcmPayroll::query();
         $metrics = [
@@ -349,7 +350,7 @@ class HcmPayrollController extends Controller
 
         $proofUrl = null;
         if ($request->hasFile('payment_proof')) {
-            $uploaded = GoogleDriveSyncService::uploadFile(
+            $uploaded = HcmFileStorageService::uploadFile(
                 $request->file('payment_proof'),
                 'HCM_PAYROLL_PROOFS'
             );

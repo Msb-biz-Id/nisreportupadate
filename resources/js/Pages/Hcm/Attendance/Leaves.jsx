@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
     CalendarDays,
     Calendar,
@@ -27,14 +27,7 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Textarea } from '@/Components/ui/textarea';
 import { Badge } from '@/Components/ui/badge';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/Components/ui/table';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -128,13 +121,15 @@ export default function LeavesIndex({
     };
 
     // Filter perubahan
-    const handleApplyFilter = (newStatus = status, newType = leaveType, newSearch = search) => {
+    const handleApplyFilter = (newStatus = status, newType = leaveType, newSearch = search, page = 1, per_page = leaveRequests.per_page) => {
         router.get(
             route('hcm.leaves.index'),
             {
                 status: newStatus,
                 leave_type: newType,
                 search: newSearch,
+                page,
+                per_page,
             },
             {
                 preserveState: true,
@@ -182,6 +177,180 @@ export default function LeavesIndex({
             icon: XCircle,
         },
     };
+
+    const columns = useMemo(
+        () => [
+            {
+                accessorKey: 'employee.name',
+                size: 220,
+                minSize: 200,
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Karyawan" />,
+                cell: ({ row }) => {
+                    const req = row.original;
+                    return (
+                        <div className="min-w-[160px]">
+                            <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
+                                {req.employee?.name}
+                            </div>
+                            <div className="text-[10px] text-zinc-400">
+                                {req.employee?.employee_code} • {req.employee?.department}
+                            </div>
+                        </div>
+                    );
+                },
+                meta: { title: 'Karyawan' },
+            },
+            {
+                accessorKey: 'leave_type',
+                size: 140,
+                minSize: 130,
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Jenis Izin" />,
+                cell: ({ row }) => (
+                    <Badge variant="outline" className="text-xs font-medium whitespace-nowrap">
+                        {row.original.leave_type}
+                    </Badge>
+                ),
+                meta: { title: 'Jenis Izin' },
+            },
+            {
+                accessorKey: 'start_date',
+                size: 180,
+                minSize: 170,
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Periode Tanggal" />,
+                cell: ({ row }) => {
+                    const req = row.original;
+                    return (
+                        <div className="text-xs font-mono font-medium text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
+                            {req.start_date}
+                            {req.start_date !== req.end_date && ` s.d. ${req.end_date}`}
+                        </div>
+                    );
+                },
+                meta: { title: 'Periode Tanggal' },
+            },
+            {
+                accessorKey: 'total_days',
+                size: 100,
+                minSize: 90,
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Durasi" className="justify-center" />,
+                cell: ({ row }) => (
+                    <div className="text-center">
+                        <Badge className="bg-indigo-500/10 text-indigo-600 border-indigo-200 text-xs">
+                            {row.original.total_days} Hari
+                        </Badge>
+                    </div>
+                ),
+                meta: { title: 'Durasi' },
+            },
+            {
+                accessorKey: 'reason',
+                size: 240,
+                minSize: 200,
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Alasan / Catatan" />,
+                cell: ({ row }) => {
+                    const req = row.original;
+                    return (
+                        <div className="min-w-[180px]">
+                            <div className="text-xs text-zinc-700 dark:text-zinc-300 line-clamp-2">
+                                {req.reason}
+                            </div>
+                            {req.attachment_url && (
+                                <div className="flex items-center gap-1.5 mt-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const isPdf = req.attachment_url.toLowerCase().endsWith('.pdf') || req.attachment_url.includes('.pdf');
+                                            setPreviewFile({
+                                                url: req.attachment_url,
+                                                name: `Surat/Bukti - ${req.employee?.name} (${req.leave_type})`,
+                                                isPdf: isPdf,
+                                            });
+                                        }}
+                                        className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800"
+                                    >
+                                        <Eye className="h-3 w-3" />
+                                        Pratinjau Berkas
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    );
+                },
+                meta: { title: 'Alasan / Catatan' },
+            },
+            {
+                accessorKey: 'status',
+                size: 150,
+                minSize: 140,
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Status" className="justify-center" />,
+                cell: ({ row }) => {
+                    const req = row.original;
+                    const badgeConfig = STATUS_BADGES[req.status] || STATUS_BADGES.PENDING_REVIEW;
+                    const BadgeIcon = badgeConfig.icon;
+                    return (
+                        <div className="text-center">
+                            <Badge className={`inline-flex items-center gap-1 text-xs border ${badgeConfig.class}`}>
+                                <BadgeIcon className="h-3 w-3" />
+                                <span>{badgeConfig.label}</span>
+                            </Badge>
+                        </div>
+                    );
+                },
+                meta: { title: 'Status' },
+            },
+            {
+                id: 'actions',
+                size: 190,
+                minSize: 180,
+                pinned: 'right',
+                header: () => <div className="text-center text-xs font-semibold">Aksi</div>,
+                cell: ({ row }) => {
+                    const req = row.original;
+                    return (
+                        <div className="flex items-center justify-center gap-1">
+                            {req.status === 'PENDING_REVIEW' ? (
+                                <>
+                                    <Button
+                                        size="sm"
+                                        onClick={() => handleApprove(req)}
+                                        className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                                        title="Setujui permohonan"
+                                    >
+                                        <Check className="h-3 w-3" />
+                                        Setujui
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => openRejectModal(req)}
+                                        className="h-7 px-2 text-xs border-rose-300 text-rose-600 hover:bg-rose-50 dark:border-rose-800 gap-1"
+                                        title="Tolak permohonan"
+                                    >
+                                        <X className="h-3 w-3" />
+                                        Tolak
+                                    </Button>
+                                </>
+                            ) : (
+                                <span className="text-[11px] text-zinc-400 italic">Selesai Ditinjau</span>
+                            )}
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDelete(req)}
+                                className="h-7 px-1.5 text-zinc-400 hover:text-rose-600"
+                                title="Hapus permohonan"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                        </div>
+                    );
+                },
+                enableSorting: false,
+                meta: { title: 'Aksi' },
+            },
+        ],
+        []
+    );
 
     return (
         <AppLayout
@@ -263,18 +432,28 @@ export default function LeavesIndex({
                     </Card>
                 </div>
 
-                {/* 2. Filter Bar */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm p-3">
-                    <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
-                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                            {/* Filter Status SearchableSelect */}
-                            <div className="flex items-center gap-2 min-w-[180px]">
-                                <Label className="text-xs font-medium text-zinc-500 whitespace-nowrap">Status:</Label>
+                {/* 2. Riwayat Pengajuan Cuti DataTable */}
+                <DataTable
+                    columns={columns}
+                    data={leaveRequests.data || []}
+                    serverPagination={leaveRequests}
+                    onServerPageChange={(page) => handleApplyFilter(status, leaveType, search, page)}
+                    onServerPerPageChange={(per_page) => handleApplyFilter(status, leaveType, search, 1, per_page)}
+                    onServerSearchChange={(val) => {
+                        setSearch(val);
+                        handleApplyFilter(status, leaveType, val, 1);
+                    }}
+                    searchValue={search}
+                    searchPlaceholder="Cari nama karyawan / alasan..."
+                    exportFileName={`Riwayat_Cuti_Izin_${new Date().toISOString().slice(0, 10)}`}
+                    filterSlot={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="min-w-[170px] w-auto">
                                 <SearchableSelect
                                     value={status}
                                     onValueChange={(val) => {
                                         setStatus(val);
-                                        handleApplyFilter(val, leaveType, search);
+                                        handleApplyFilter(val, leaveType, search, 1);
                                     }}
                                     options={statusOptions}
                                     placeholder="Semua Status..."
@@ -283,14 +462,12 @@ export default function LeavesIndex({
                                 />
                             </div>
 
-                            {/* Filter Jenis Cuti SearchableSelect */}
-                            <div className="flex items-center gap-2 min-w-[180px]">
-                                <Label className="text-xs font-medium text-zinc-500 whitespace-nowrap">Kategori:</Label>
+                            <div className="min-w-[180px] w-auto">
                                 <SearchableSelect
                                     value={leaveType}
                                     onValueChange={(val) => {
                                         setLeaveType(val);
-                                        handleApplyFilter(status, val, search);
+                                        handleApplyFilter(status, val, search, 1);
                                     }}
                                     options={leaveTypeOptions}
                                     placeholder="Semua Kategori..."
@@ -299,211 +476,8 @@ export default function LeavesIndex({
                                 />
                             </div>
                         </div>
-
-                        {/* Search Box */}
-                        <div className="relative w-full md:w-[260px]">
-                            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-400" />
-                            <Input
-                                placeholder="Cari nama karyawan / alasan..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        handleApplyFilter(status, leaveType, search);
-                                    }
-                                }}
-                                className="h-8 pl-8 text-xs"
-                            />
-                        </div>
-                    </div>
-                </Card>
-
-                {/* 3. Tabel Riwayat Pengajuan Cuti */}
-                <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-zinc-50 dark:bg-zinc-800/50">
-                                <TableRow>
-                                    <TableHead className="min-w-[180px] text-xs font-bold">Karyawan</TableHead>
-                                    <TableHead className="min-w-[130px] text-xs font-bold">Jenis Izin</TableHead>
-                                    <TableHead className="min-w-[170px] text-xs font-bold">Periode Tanggal</TableHead>
-                                    <TableHead className="min-w-[80px] text-xs font-bold text-center">Durasi</TableHead>
-                                    <TableHead className="min-w-[200px] text-xs font-bold">Alasan / Catatan</TableHead>
-                                    <TableHead className="min-w-[130px] text-xs font-bold text-center">Status</TableHead>
-                                    <TableHead className="min-w-[140px] text-xs font-bold text-right">Aksi</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {leaveRequests.data && leaveRequests.data.length > 0 ? (
-                                    leaveRequests.data.map((req) => {
-                                        const badgeConfig = STATUS_BADGES[req.status] || STATUS_BADGES.PENDING_REVIEW;
-                                        const BadgeIcon = badgeConfig.icon;
-
-                                        return (
-                                            <TableRow key={req.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                                                {/* Karyawan Info */}
-                                                <TableCell>
-                                                    <div className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
-                                                        {req.employee?.name}
-                                                    </div>
-                                                    <div className="text-[10px] text-zinc-400">
-                                                        {req.employee?.employee_code} • {req.employee?.department}
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Jenis Izin */}
-                                                <TableCell>
-                                                    <Badge variant="outline" className="text-xs font-medium">
-                                                        {req.leave_type}
-                                                    </Badge>
-                                                </TableCell>
-
-                                                {/* Periode Tanggal */}
-                                                <TableCell>
-                                                    <div className="text-xs font-mono font-medium text-zinc-700 dark:text-zinc-300">
-                                                        {req.start_date}
-                                                        {req.start_date !== req.end_date && ` s.d. ${req.end_date}`}
-                                                    </div>
-                                                </TableCell>
-
-                                                {/* Durasi */}
-                                                <TableCell className="text-center">
-                                                    <Badge className="bg-indigo-500/10 text-indigo-600 border-indigo-200 text-xs">
-                                                        {req.total_days} Hari
-                                                    </Badge>
-                                                </TableCell>
-
-                                                {/* Alasan & Catatan */}
-                                                <TableCell>
-                                                    <div className="text-xs text-zinc-700 dark:text-zinc-300">
-                                                        {req.reason}
-                                                    </div>
-                                                    {req.attachment_url && (
-                                                        <div className="flex items-center gap-1.5 mt-1">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    const isPdf = req.attachment_url.toLowerCase().endsWith('.pdf') || req.attachment_url.includes('.pdf');
-                                                                    setPreviewFile({
-                                                                        url: req.attachment_url,
-                                                                        name: `Surat/Bukti - ${req.employee?.name} (${req.leave_type})`,
-                                                                        isPdf: isPdf,
-                                                                    });
-                                                                }}
-                                                                className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800"
-                                                            >
-                                                                <Eye className="h-3 w-3" />
-                                                                Pratinjau Berkas
-                                                            </button>
-                                                            <a
-                                                                href={req.attachment_url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-zinc-400 hover:text-zinc-600 p-0.5"
-                                                                title="Buka di tab baru"
-                                                            >
-                                                                <ExternalLink className="h-3 w-3" />
-                                                            </a>
-                                                        </div>
-                                                    )}
-                                                    {req.status === 'REJECTED' && req.rejection_reason && (
-                                                        <div className="mt-1 text-[11px] text-rose-500 italic bg-rose-50 dark:bg-rose-950/30 p-1.5 rounded">
-                                                            Alasan Penolakan: {req.rejection_reason}
-                                                        </div>
-                                                    )}
-                                                </TableCell>
-
-                                                {/* Status Badge */}
-                                                <TableCell className="text-center">
-                                                    <Badge className={`text-xs gap-1 py-0.5 ${badgeConfig.class}`}>
-                                                        <BadgeIcon className="h-3 w-3" />
-                                                        {badgeConfig.label}
-                                                    </Badge>
-                                                    {req.reviewer && (
-                                                        <div className="text-[10px] text-zinc-400 mt-1">
-                                                            oleh {req.reviewer.name}
-                                                        </div>
-                                                    )}
-                                                </TableCell>
-
-                                                {/* Aksi Operasional */}
-                                                <TableCell className="text-right">
-                                                    {req.status === 'PENDING_REVIEW' ? (
-                                                        <div className="flex items-center justify-end gap-1">
-                                                            <Button
-                                                                size="sm"
-                                                                onClick={() => handleApprove(req)}
-                                                                className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
-                                                                title="Setujui dan sinkronkan ke presensi harian"
-                                                            >
-                                                                <Check className="h-3 w-3" />
-                                                                Setujui
-                                                            </Button>
-
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => openRejectModal(req)}
-                                                                className="h-7 px-2 text-xs border-rose-300 text-rose-600 hover:bg-rose-50 dark:border-rose-800 gap-1"
-                                                                title="Tolak permohonan"
-                                                            >
-                                                                <X className="h-3 w-3" />
-                                                                Tolak
-                                                            </Button>
-
-                                                            <Button
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                onClick={() => handleDelete(req)}
-                                                                className="h-7 px-1.5 text-zinc-400 hover:text-rose-600"
-                                                                title="Hapus permohonan"
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-[11px] text-zinc-400 italic">Selesai Ditinjau</span>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="h-32 text-center text-xs text-zinc-400">
-                                            Belum ada permohonan Cuti / Izin yang tercatat.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-
-                    {/* Pagination */}
-                    {leaveRequests.links && leaveRequests.links.length > 3 && (
-                        <div className="flex items-center justify-between p-3 border-t border-zinc-200 dark:border-zinc-800 text-xs">
-                            <span className="text-zinc-500">
-                                Menampilkan {leaveRequests.from || 0} - {leaveRequests.to || 0} dari {leaveRequests.total} data
-                            </span>
-                            <div className="flex gap-1">
-                                {leaveRequests.links.map((link, idx) => (
-                                    <Link
-                                        key={idx}
-                                        href={link.url || '#'}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                        className={`px-2.5 py-1 rounded text-xs transition-colors ${
-                                            link.active
-                                                ? 'bg-indigo-600 text-white font-medium'
-                                                : link.url
-                                                ? 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
-                                                : 'text-zinc-300 dark:text-zinc-700 pointer-events-none'
-                                        }`}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </Card>
+                    }
+                />
             </div>
 
             {/* MODAL 1: Ajukan Cuti / Izin Baru */}
@@ -601,7 +575,7 @@ export default function LeavesIndex({
                                 className="text-xs file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 file:border-0 file:rounded file:px-2 file:py-1 hover:file:bg-indigo-100"
                             />
                             <p className="text-[10px] text-zinc-500">
-                                Format: PDF, PNG, JPG (Maks. 5MB). Otomatis diarsipkan ke sistem storage & sinkronisasi Google Drive.
+                                Format: PDF, PNG, JPG (Maks. 5MB). Otomatis diarsipkan ke penyimpanan sistem.
                             </p>
 
                             <div className="pt-1.5 border-t border-zinc-200/60 dark:border-zinc-800">
@@ -609,7 +583,7 @@ export default function LeavesIndex({
                                 <Input
                                     value={createForm.data.attachment_url}
                                     onChange={(e) => createForm.setData('attachment_url', e.target.value)}
-                                    placeholder="https://drive.google.com/..."
+                                    placeholder="https://..."
                                     className="text-xs h-7 mt-0.5"
                                 />
                             </div>

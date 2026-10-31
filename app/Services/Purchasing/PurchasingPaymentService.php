@@ -38,6 +38,15 @@ class PurchasingPaymentService
                 );
             }
 
+            // Larang rekonfigurasi jika PO sudah lunas atau sudah ada pembayaran yang dicairkan
+            if (in_array($order->status, ['PAID_COMPLETED', 'PURCHASE_COMPLETED'])) {
+                throw new \InvalidArgumentException("PO {$order->po_number} telah berstatus Lunas/Selesai. Jadwal pembayaran terkunci permanen.");
+            }
+
+            if ($order->payments()->where('status', 'PAID')->exists()) {
+                throw new \InvalidArgumentException("Jadwal termin PO {$order->po_number} tidak dapat diubah karena sudah ada pembayaran yang telah dicairkan/lunas.");
+            }
+
             // Hapus termin non-PAID yang ada sebelumnya untuk PO ini
             $order->payments()->where('status', '!=', 'PAID')->delete();
 

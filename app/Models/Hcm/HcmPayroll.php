@@ -84,7 +84,7 @@ class HcmPayroll extends Model
     protected function casts(): array
     {
         return [
-            'payout_date' => 'date',
+            'payout_date' => 'date:Y-m-d',
             'hcm_signed_at' => 'datetime',
             'finance_signed_at' => 'datetime',
             'total_employees' => 'integer',
