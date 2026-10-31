@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
-import { Plus, Pencil, Trash2, Search, Users, Phone, Mail, MapPin, Upload, Download } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Pencil, Trash2, Users, Phone, Mail, MapPin, Upload, Download } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardHeader } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -9,7 +9,7 @@ import { Label } from '@/Components/ui/label';
 import { Textarea } from '@/Components/ui/textarea';
 import { Switch } from '@/Components/ui/switch';
 import { Badge } from '@/Components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { Separator } from '@/Components/ui/separator';
@@ -234,8 +234,99 @@ export default function CustomerIndex({ items, filters, customerTypes, can }) {
         router.get(route('master.pelanggan.index'), {
             q: overrides.q ?? search,
             status: (overrides.status ?? status) === 'all' ? '' : (overrides.status ?? status),
+            page: overrides.page ?? undefined,
+            per_page: overrides.per_page ?? (items?.per_page ?? 15),
         }, { preserveScroll: true, preserveState: true });
     }
+
+    const customerColumns = useMemo(() => {
+        const cols = [
+            {
+                id: 'nama',
+                accessorFn: (c) => c.nama || '',
+                meta: { title: 'Pelanggan' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Pelanggan" />,
+                cell: ({ row }) => {
+                    const c = row.original;
+                    return (
+                        <>
+                            <div className="font-medium">{c.nama}</div>
+                            <div className="text-xs text-muted-foreground">
+                                {c.kode} {c.customer_type ? `· ${c.customer_type.nama}` : ''}
+                            </div>
+                        </>
+                    );
+                },
+            },
+            {
+                id: 'kontak',
+                accessorFn: (c) => `${c.nomor_hp || ''} ${c.email || ''}`,
+                meta: { title: 'Kontak' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Kontak" />,
+                cell: ({ row }) => (
+                    <>
+                        <div className="flex items-center gap-1.5 text-sm"><Phone className="h-3 w-3 text-muted-foreground" /> {row.original.nomor_hp}</div>
+                        {row.original.email && <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Mail className="h-3 w-3" /> {row.original.email}</div>}
+                    </>
+                ),
+            },
+            {
+                id: 'wilayah',
+                accessorFn: (c) => `${c.kabupaten_nama || ''} ${c.provinsi_nama || ''}`,
+                meta: { title: 'Wilayah', cellClassName: 'text-xs' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Wilayah" />,
+                cell: ({ row }) =>
+                    row.original.kabupaten_nama ? (
+                        <div className="flex items-start gap-1">
+                            <MapPin className="mt-0.5 h-3 w-3 text-muted-foreground" />
+                            <span>{row.original.kabupaten_nama}<br /><span className="text-muted-foreground">{row.original.provinsi_nama}</span></span>
+                        </div>
+                    ) : (
+                        <span className="text-muted-foreground">-</span>
+                    ),
+            },
+            {
+                id: 'total_order',
+                accessorFn: (c) => Number(c.total_order) || 0,
+                meta: { title: 'Total Order', cellClassName: 'text-right font-mono' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Total Order" className="justify-end" />,
+                cell: ({ row }) => <span className="font-mono">{row.original.total_order ?? 0}</span>,
+            },
+            {
+                id: 'total_transaksi',
+                accessorFn: (c) => Number(c.total_transaksi) || 0,
+                meta: { title: 'Total Transaksi', cellClassName: 'text-right font-mono text-xs' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Total Transaksi" className="justify-end" />,
+                cell: ({ row }) => <span className="font-mono text-xs">{formatRupiah(row.original.total_transaksi)}</span>,
+            },
+            {
+                id: 'is_active',
+                accessorFn: (c) => (c.is_active ? 1 : 0),
+                meta: { title: 'Status' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+                cell: ({ row }) => <Badge variant={row.original.is_active ? 'success' : 'secondary'}>{row.original.is_active ? 'Aktif' : 'Non-Aktif'}</Badge>,
+            },
+        ];
+
+        if (can?.manage) {
+            cols.push({
+                id: 'actions',
+                header: () => <div className="text-right">Aksi</div>,
+                cell: ({ row }) => (
+                    <div className="flex justify-end gap-1">
+                        <Button size="icon" variant="ghost" onClick={() => { setEditing(row.original); setOpenForm(true); }}>
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setConfirmDelete(row.original)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                ),
+            });
+        }
+
+        return cols;
+    }, [can?.manage]);
 
     function doDelete() {
         if (!confirmDelete) return;
@@ -271,114 +362,31 @@ export default function CustomerIndex({ items, filters, customerTypes, can }) {
                             </div>
                         )}
                     </CardHeader>
-                    <CardContent className="pt-0">
-                        <div className="mb-4 flex flex-col gap-2 sm:flex-row">
-                            <div className="relative flex-1">
-                                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    placeholder="Cari nama, kode, atau no. HP..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
-                                    className="pl-9"
-                                />
-                            </div>
-                            <Select value={status} onValueChange={(v) => { setStatus(v); applyFilters({ status: v }); }}>
-                                <SelectTrigger className="sm:w-44"><SelectValue placeholder="Status" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Semua Status</SelectItem>
-                                    <SelectItem value="active">Aktif</SelectItem>
-                                    <SelectItem value="inactive">Non-Aktif</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <Button variant="outline" onClick={() => applyFilters()}>Terapkan</Button>
-                        </div>
-
-                        <div className="overflow-hidden rounded-lg border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Pelanggan</TableHead>
-                                        <TableHead>Kontak</TableHead>
-                                        <TableHead>Wilayah</TableHead>
-                                        <TableHead className="text-right">Total Order</TableHead>
-                                        <TableHead className="text-right">Total Transaksi</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        {can?.manage && <TableHead className="w-24 text-right">Aksi</TableHead>}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {items.data.length === 0 && (
-                                        <TableRow>
-                                            <TableCell colSpan={can?.manage ? 7 : 6} className="py-8 text-center text-sm text-muted-foreground">
-                                                Belum ada pelanggan.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                    {items.data.map((c) => (
-                                        <TableRow key={c.id}>
-                                            <TableCell>
-                                                <div className="font-medium">{c.nama}</div>
-                                                <div className="text-xs text-muted-foreground">
-                                                    {c.kode} {c.customer_type ? `· ${c.customer_type.nama}` : ''}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-sm">
-                                                <div className="flex items-center gap-1.5"><Phone className="h-3 w-3 text-muted-foreground" /> {c.nomor_hp}</div>
-                                                {c.email && <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Mail className="h-3 w-3" /> {c.email}</div>}
-                                            </TableCell>
-                                            <TableCell className="text-xs">
-                                                {c.kabupaten_nama ? (
-                                                    <div className="flex items-start gap-1">
-                                                        <MapPin className="mt-0.5 h-3 w-3 text-muted-foreground" />
-                                                        <span>{c.kabupaten_nama}<br /><span className="text-muted-foreground">{c.provinsi_nama}</span></span>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-muted-foreground">-</span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono">{c.total_order ?? 0}</TableCell>
-                                            <TableCell className="text-right font-mono text-xs">{formatRupiah(c.total_transaksi)}</TableCell>
-                                            <TableCell>
-                                                <Badge variant={c.is_active ? 'success' : 'secondary'}>{c.is_active ? 'Aktif' : 'Non-Aktif'}</Badge>
-                                            </TableCell>
-                                            {can?.manage && (
-                                                <TableCell className="text-right">
-                                                    <div className="flex justify-end gap-1">
-                                                        <Button size="icon" variant="ghost" onClick={() => { setEditing(c); setOpenForm(true); }}>
-                                                            <Pencil className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setConfirmDelete(c)}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                            )}
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-
-                        {items.last_page > 1 && (
-                            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
-                                <span className="text-muted-foreground">
-                                    Menampilkan {items.from ?? 0}–{items.to ?? 0} dari {items.total} data
-                                </span>
-                                <div className="flex gap-1">
-                                    {items.links.map((link, i) => (
-                                        <Button
-                                            key={i}
-                                            variant={link.active ? 'default' : 'outline'}
-                                            size="sm"
-                                            disabled={!link.url}
-                                            onClick={() => link.url && router.visit(link.url, { preserveScroll: true })}
-                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                        />
-                                    ))}
+                    <CardContent className="p-0">
+                        <DataTable
+                            columns={customerColumns}
+                            data={items.data || []}
+                            serverPagination={items}
+                            searchValue={search}
+                            onServerSearchChange={(val) => { setSearch(val); applyFilters({ q: val, page: 1 }); }}
+                            onServerPageChange={(page) => applyFilters({ page })}
+                            onServerPerPageChange={(per_page) => applyFilters({ per_page, page: 1 })}
+                            searchPlaceholder="Cari nama, kode, kontak..."
+                            exportFileName={`Pelanggan_${new Date().toISOString().slice(0, 10)}`}
+                            emptyMessage="Belum ada pelanggan."
+                            filterSlot={
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Select value={status} onValueChange={(v) => { setStatus(v); applyFilters({ status: v, page: 1 }); }}>
+                                        <SelectTrigger className="h-8 w-40 text-xs bg-background"><SelectValue placeholder="Status" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Semua Status</SelectItem>
+                                            <SelectItem value="active">Aktif</SelectItem>
+                                            <SelectItem value="inactive">Non-Aktif</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
-                            </div>
-                        )}
+                            }
+                        />
                     </CardContent>
                 </Card>
             </div>

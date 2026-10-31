@@ -1,7 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import * as Icons from 'lucide-react';
-import { Download, FileSpreadsheet, FileText, Filter, BarChart3 } from 'lucide-react';
+import { FileSpreadsheet, FileText, Filter, BarChart3 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
@@ -11,9 +11,10 @@ import { Badge } from '@/Components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/Components/ui/table';
 import Chart from '@/Components/Chart';
-import { formatDate, formatRupiah } from '@/lib/utils';
+import { formatDate, formatDateTime, formatRupiah } from '@/lib/utils';
 import { MultiSelect } from '@/Components/ui/multi-select';
 import DateRangeFilter from '@/Components/DateRangeFilter';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 
 const STATUS_BADGE = {
     draft: 'outline', published: 'info', on_progress: 'warning',
@@ -48,6 +49,13 @@ function FormatCell({ value, format }) {
     if (format === 'currency') return <span className="font-mono">{formatRupiah(value)}</span>;
     if (format === 'number') return <span className="font-mono">{Number(value).toLocaleString('id-ID')}</span>;
     if (format === 'date') return formatDate(value);
+    if (format === 'datetime') return formatDateTime(value);
+    if (typeof value === 'string' && value.startsWith('Telat')) {
+        return <Badge variant="destructive">{value}</Badge>;
+    }
+    if (typeof value === 'string' && value === 'Tepat Waktu') {
+        return <Badge variant="success">✅ Tepat Waktu</Badge>;
+    }
     if (format === 'status_badge' || format === 'badge') {
         const displayValue = STATUS_LABELS[value] ?? String(value).replace(/_/g, ' ');
         return <Badge variant={STATUS_BADGE[value] ?? 'outline'}>{displayValue}</Badge>;
@@ -68,8 +76,8 @@ function FormatCell({ value, format }) {
         return <Badge variant="outline">H-{days}</Badge>;
     }
     if (format === 'whatsapp_action') {
-        const { nama, nomor_hp, type, recency, aoi, order_tahun_lalu, tanggal_order_lalu } = value;
-        const phone = String(nomor_hp).replace(/[^0-9]/g, '');
+        const { nama, nomor_hp, type, recency, aoi, order_tahun_lalu, tanggal_order_lalu } = value || {};
+        const phone = String(nomor_hp || '').replace(/[^0-9]/g, '');
         const formattedPhone = phone.startsWith('0') ? '62' + phone.slice(1) : phone;
         
         let messageText = '';
@@ -132,6 +140,18 @@ function FilterBar({ config, filters, onApply, customerTypes = [], sumberOrders 
                             to={local.to || ''}
                             onChange={(from, to) => setLocal({ ...local, from, to })}
                         />
+                    </div>
+                )}
+                {config.filters?.includes('date_basis') && (
+                    <div>
+                        <Label className="text-xs">Basis Tanggal</Label>
+                        <Select value={local.date_basis || 'packing_date'} onValueChange={(v) => patch('date_basis', v)}>
+                            <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="Pilih Basis Tanggal" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="packing_date">📦 Tgl Selesai Packing (Output Produksi)</SelectItem>
+                                <SelectItem value="tanggal_masuk">📅 Tgl Masuk PO (Siklus Order)</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 )}
                 {config.filters?.includes('jenis_po') && (
@@ -367,9 +387,93 @@ function SummaryCards({ items, onCardClick, currentLateness }) {
     );
 }
 
-function ReportChart({ config, rows, heatmapSeries }) {
+function ReportChart({ config, rows, heatmapSeries, packingChartData }) {
     if (!config.chart) return null;
     const { type, x, y, label, value, title } = config.chart;
+
+    // Grafik Khusus Kinerja Produksi: Output Harian Packing (Wave / Area Chart)
+    if (config.slug === 'kinerja-produksi' && packingChartData?.series?.length) {
+        return (
+            <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-2">
+                    <div>
+                        <CardTitle className="text-base flex items-center gap-2 font-semibold">
+                            <BarChart3 className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+                            {title || 'Grafik Output Harian Selesai Packing (PCS & PO)'}
+                        </CardTitle>
+                        <CardDescription>
+                            Fluktuasi harian penyelesaian PO dan kuantitas PCS oleh divisi produksi hingga tahap packing.
+                        </CardDescription>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs mt-2 sm:mt-0 font-medium">
+                        <span className="bg-cyan-50 text-cyan-800 dark:bg-cyan-950/60 dark:text-cyan-300 px-2.5 py-1 rounded-full border border-cyan-200 dark:border-cyan-800 font-mono font-semibold">
+                            Total: {packingChartData.total_pcs?.toLocaleString('id-ID')} pcs ({packingChartData.total_po} PO)
+                        </span>
+                        <span className="bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800 font-mono font-semibold">
+                            {packingChartData.total_po_tepat_waktu ?? 0} Tepat Waktu
+                        </span>
+                        <span className="bg-red-50 text-red-800 dark:bg-red-950/60 dark:text-red-300 px-2.5 py-1 rounded-full border border-red-200 dark:border-red-800 font-mono font-semibold">
+                            {packingChartData.total_po_telat ?? 0} Telat
+                        </span>
+                        <span className="bg-blue-50 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 px-2.5 py-1 rounded-full border border-blue-200 dark:border-blue-800 font-mono font-semibold">
+                            Rata²: {packingChartData.avg_pcs_day?.toLocaleString('id-ID')} pcs/hari
+                        </span>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Chart
+                        type="area"
+                        height={320}
+                        series={packingChartData.series}
+                        options={{
+                            stroke: { curve: 'smooth', width: [3, 2, 2.5] },
+                            colors: ['#06B6D4', '#10B981', '#EF4444'],
+                            fill: {
+                                type: ['gradient', 'solid', 'solid'],
+                                gradient: {
+                                    shadeIntensity: 1,
+                                    opacityFrom: 0.45,
+                                    opacityTo: 0.05,
+                                    stops: [0, 95, 100]
+                                }
+                            },
+                            xaxis: {
+                                categories: packingChartData.categories,
+                                labels: { style: { fontSize: '11px' } }
+                            },
+                            yaxis: [
+                                {
+                                    title: { text: 'Total PCS Dipacking', style: { fontSize: '11px', fontWeight: 600 } },
+                                    labels: { formatter: (v) => Math.round(v).toLocaleString('id-ID') }
+                                },
+                                {
+                                    opposite: true,
+                                    title: { text: 'Jumlah PO', style: { fontSize: '11px', fontWeight: 600 } },
+                                    labels: { formatter: (v) => Math.round(v) }
+                                },
+                                {
+                                    opposite: true,
+                                    show: false,
+                                }
+                            ],
+                            legend: { position: 'top', horizontalAlign: 'right' },
+                            tooltip: {
+                                shared: true,
+                                intersect: false,
+                                y: {
+                                    formatter: (v, { seriesIndex }) => {
+                                        if (seriesIndex === 0) return `${v?.toLocaleString('id-ID') ?? 0} pcs`;
+                                        if (seriesIndex === 1) return `${v ?? 0} PO (Tepat Waktu)`;
+                                        return `${v ?? 0} PO (Telat)`;
+                                    }
+                                }
+                            }
+                        }}
+                    />
+                </CardContent>
+            </Card>
+        );
+    }
 
     if (type === 'heatmap') {
         if (!heatmapSeries?.length) return null;
@@ -440,6 +544,8 @@ function ReportChart({ config, rows, heatmapSeries }) {
     );
 }
 
+const NUMERIC_FORMATS = ['currency', 'number'];
+
 function SummaryTableCard({ summaryTable }) {
     if (!summaryTable || !summaryTable.rows?.length) return null;
 
@@ -458,7 +564,7 @@ function SummaryTableCard({ summaryTable }) {
                                 {summaryTable.columns.map((c) => (
                                     <TableHead 
                                         key={c.key} 
-                                        className={`font-bold text-xs uppercase tracking-wider text-slate-600 dark:text-slate-300 ${['currency', 'number'].includes(c.format) ? 'text-right' : ''}`}
+                                        className={`font-bold text-xs uppercase tracking-wider text-slate-600 dark:text-slate-300 ${NUMERIC_FORMATS.includes(c.format) ? 'text-right' : ''}`}
                                     >
                                         {c.label}
                                     </TableHead>
@@ -471,7 +577,7 @@ function SummaryTableCard({ summaryTable }) {
                                     {summaryTable.columns.map((c) => (
                                         <TableCell 
                                             key={c.key} 
-                                            className={`text-sm py-2.5 ${['currency', 'number'].includes(c.format) ? 'text-right font-mono' : 'font-semibold text-slate-700 dark:text-slate-200'}`}
+                                            className={`text-sm py-2.5 ${NUMERIC_FORMATS.includes(c.format) ? 'text-right font-mono' : 'font-semibold text-slate-700 dark:text-slate-200'}`}
                                         >
                                             <FormatCell value={row[c.key]} format={c.format} />
                                         </TableCell>
@@ -485,7 +591,7 @@ function SummaryTableCard({ summaryTable }) {
                                     {summaryTable.columns.map((c) => (
                                         <TableCell 
                                             key={c.key} 
-                                            className={`py-3 text-slate-900 dark:text-white font-extrabold ${['currency', 'number'].includes(c.format) ? 'text-right font-mono' : ''}`}
+                                            className={`py-3 text-slate-900 dark:text-white font-extrabold ${NUMERIC_FORMATS.includes(c.format) ? 'text-right font-mono' : ''}`}
                                         >
                                             <FormatCell value={summaryTable.total[c.key]} format={c.format} />
                                         </TableCell>
@@ -500,12 +606,80 @@ function SummaryTableCard({ summaryTable }) {
     );
 }
 
-export default function ReportShow({ config, filters, rows, summary, summaryTable = null, brandSummaryTable = null, heatmapSeries, groups, allReports, customerTypes = [], sumberOrders = [], brands = [], products = [], bankAccounts = [] }) {
+export default function ReportShow({ config, filters, rows, summary, summaryTable = null, brandSummaryTable = null, heatmapSeries, packingChartData = null, groups, allReports, customerTypes = [], sumberOrders = [], brands = [], products = [], bankAccounts = [] }) {
     const Icon = Icons[config.icon] ?? Icons.BarChart3;
 
     function applyFilters(newFilters) {
         router.get(route('reports.show', config.slug), newFilters, { preserveScroll: true });
     }
+
+    const groupHeaderLabel = config.slug === 'monitoring-deadline' ? 'Deadline Produksi' : 'Deadline';
+
+    const detailColumns = useMemo(() => config.columns.map((c, idx) => {
+        const isNumeric = NUMERIC_FORMATS.includes(c.format);
+        return {
+            id: c.key,
+            accessorFn: (row) => (row.is_group_header || row.is_group_total ? '' : row[c.key]),
+            meta: { title: c.label, cellClassName: isNumeric ? 'text-right' : '' },
+            header: ({ column }) => (
+                <DataTableColumnHeader column={column} title={c.label} className={isNumeric ? 'justify-end' : ''} />
+            ),
+            cell: ({ row }) => {
+                const r = row.original;
+                if (r.is_group_header) {
+                    if (idx !== 0) return null;
+                    return (
+                        <span className="font-bold text-blue-700 dark:text-blue-300">
+                            {groupHeaderLabel}: {formatDate(r.deadline_produksi || r.deadline)}
+                        </span>
+                    );
+                }
+                if (r.is_group_total) {
+                    if (c.key === 'pelanggan') return <span className="font-extrabold text-slate-700 dark:text-slate-200">TOTAL PCS</span>;
+                    if (c.key === 'pcs') return <FormatCell value={r[c.key]} format={c.format} />;
+                    return null;
+                }
+                return <FormatCell value={r[c.key]} format={c.format} />;
+            },
+        };
+    }), [config.columns, groupHeaderLabel]);
+
+    const dataRows = useMemo(() => rows.filter((r) => !r.is_group_header && !r.is_group_total), [rows]);
+
+    const detailRowClassName = (row) => {
+        if (row.is_group_header) {
+            return '!bg-blue-50 dark:!bg-blue-950/40 hover:!bg-blue-50 dark:hover:!bg-blue-950/40';
+        }
+        if (row.is_group_total) {
+            return '!bg-slate-100 dark:!bg-slate-800 font-bold hover:!bg-slate-100 dark:hover:!bg-slate-800';
+        }
+        return '';
+    };
+
+    const KEYS_TO_SUM = ['pcs', 'total_qty', 'total_order', 'total_tagihan', 'total_value', 'jumlah', 'nominal', 'nominal_refund', 'amount', 'total_pcs'];
+
+    const detailFooter = dataRows.length > 0 ? (
+        <TableRow className="bg-slate-100 dark:bg-slate-900 font-bold">
+            {config.columns.map((c, idx) => {
+                if (idx === 0) {
+                    return (
+                        <TableCell key={c.key} className="font-extrabold text-slate-800 dark:text-slate-100 py-3">
+                            TOTAL KESELURUHAN ({dataRows.length} Data)
+                        </TableCell>
+                    );
+                }
+                if (KEYS_TO_SUM.includes(c.key)) {
+                    const totalSum = dataRows.reduce((acc, r) => acc + (Number(r[c.key]) || 0), 0);
+                    return (
+                        <TableCell key={c.key} className="text-right font-extrabold text-slate-800 dark:text-slate-100 py-3">
+                            <FormatCell value={totalSum} format={c.format} />
+                        </TableCell>
+                    );
+                }
+                return <TableCell key={c.key} className="py-3" />;
+            })}
+        </TableRow>
+    ) : null;
 
     return (
         <AppLayout title={`Laporan ${config.label}`}>
@@ -543,7 +717,7 @@ export default function ReportShow({ config, filters, rows, summary, summaryTabl
                     onCardClick={(status) => applyFilters({ ...filters, lateness_status: status === 'all' ? '' : status })} 
                 />
 
-                <ReportChart config={config} rows={rows} heatmapSeries={heatmapSeries} />
+                <ReportChart config={config} rows={rows} heatmapSeries={heatmapSeries} packingChartData={packingChartData} />
 
                 <SummaryTableCard summaryTable={summaryTable} />
 
@@ -551,102 +725,19 @@ export default function ReportShow({ config, filters, rows, summary, summaryTabl
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-base">Detail ({rows.length} baris)</CardTitle>
+                        <CardTitle className="text-base">Detail ({dataRows.length} baris)</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="overflow-hidden rounded-lg border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        {config.columns.map((c) => (
-                                            <TableHead key={c.key} className={['currency', 'number'].includes(c.format) ? 'text-right' : ''}>
-                                                {c.label}
-                                            </TableHead>
-                                        ))}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {rows.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={config.columns.length} className="py-8 text-center text-sm text-muted-foreground">
-                                                Tidak ada data untuk filter ini.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        rows.map((row, i) => {
-                                            if (row.is_group_header) {
-                                                return (
-                                                    <TableRow key={i} className="bg-blue-50/50 hover:bg-blue-50/50">
-                                                        <TableCell colSpan={config.columns.length} className="font-bold text-blue-700 py-3 pl-4">
-                                                            {config.slug === 'monitoring-deadline' ? 'Deadline Produksi' : 'Deadline'}: {formatDate(row.deadline_produksi || row.deadline)}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            }
-                                            if (row.is_group_total) {
-                                                return (
-                                                    <TableRow key={i} className="bg-slate-50 font-bold hover:bg-slate-50 border-b-2 border-slate-300">
-                                                        {config.columns.map((c) => {
-                                                            if (c.key === 'pelanggan') {
-                                                                return (
-                                                                    <TableCell key={c.key} className="py-3 font-extrabold text-slate-700">
-                                                                        TOTAL PCS
-                                                                    </TableCell>
-                                                                );
-                                                            }
-                                                            if (c.key === 'pcs') {
-                                                                return (
-                                                                    <TableCell key={c.key} className="py-3 font-extrabold text-slate-700 text-right">
-                                                                        <FormatCell value={row[c.key]} format={c.format} />
-                                                                    </TableCell>
-                                                                );
-                                                            }
-                                                            return <TableCell key={c.key} className="py-3" />;
-                                                        })}
-                                                    </TableRow>
-                                                );
-                                            }
-                                            return (
-                                                <TableRow key={i}>
-                                                    {config.columns.map((c) => (
-                                                        <TableCell key={c.key} className={['currency', 'number'].includes(c.format) ? 'text-right' : ''}>
-                                                            <FormatCell value={row[c.key]} format={c.format} />
-                                                        </TableCell>
-                                                    ))}
-                                                </TableRow>
-                                            );
-                                        })
-                                    )}
-                                </TableBody>
-                                {rows.length > 0 && (
-                                    <TableFooter className="bg-slate-100 dark:bg-slate-900 font-bold border-t-2 border-slate-300">
-                                        <TableRow>
-                                            {config.columns.map((c, idx) => {
-                                                const isFirstCol = idx === 0;
-                                                const dataRows = rows.filter((r) => !r.is_group_header && !r.is_group_total);
-                                                if (isFirstCol) {
-                                                    return (
-                                                        <TableCell key={c.key} className="font-extrabold text-slate-800 dark:text-slate-100 py-3">
-                                                            TOTAL KESELURUHAN ({dataRows.length} Data)
-                                                        </TableCell>
-                                                    );
-                                                }
-                                                const keysToSum = ['pcs', 'total_qty', 'total_order', 'total_tagihan', 'total_value', 'jumlah', 'nominal', 'nominal_refund', 'amount', 'total_pcs'];
-                                                if (keysToSum.includes(c.key)) {
-                                                    const totalSum = dataRows.reduce((acc, r) => acc + (Number(r[c.key]) || 0), 0);
-                                                    return (
-                                                        <TableCell key={c.key} className="text-right font-extrabold text-slate-800 dark:text-slate-100 py-3">
-                                                            <FormatCell value={totalSum} format={c.format} />
-                                                        </TableCell>
-                                                    );
-                                                }
-                                                return <TableCell key={c.key} className="py-3" />;
-                                            })}
-                                        </TableRow>
-                                    </TableFooter>
-                                )}
-                            </Table>
-                        </div>
+                    <CardContent className="p-0">
+                        <DataTable
+                            columns={detailColumns}
+                            data={rows}
+                            searchPlaceholder="Cari data laporan..."
+                            exportFileName={`laporan-${config.slug}`}
+                            enableExportExcel={config.slug !== 'jenis-po'}
+                            emptyMessage="Tidak ada data untuk filter ini."
+                            rowClassName={detailRowClassName}
+                            footerSlot={detailFooter}
+                        />
                     </CardContent>
                 </Card>
             </div>

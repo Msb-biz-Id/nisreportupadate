@@ -1,19 +1,18 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
     Search, Receipt, CheckCircle2, ExternalLink, Copy, Calendar,
     ShieldCheck, Clock, Banknote, AlertTriangle, Plus, Sparkles,
     Layers, RefreshCw, FileText, ChevronRight, CheckCircle, HelpCircle, XCircle,
     Info, Percent, Truck, Wallet, FileSpreadsheet, CheckCircle2 as CheckedIcon,
-    MessageCircle, Send, Edit, Trash2, TrendingDown, TrendingUp
+    MessageCircle, Send, Edit, Trash2, TrendingDown, TrendingUp, X
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
-import StickyTableWrapper from '@/Components/StickyTableWrapper';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Badge } from '@/Components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { formatDate, formatRupiah } from '@/lib/utils';
@@ -256,15 +255,8 @@ export default function InvoiceList({
         };
     };
 
-    // Calculate Invoices tab segments
-    const unpaidInvoices = (invoices?.data || []).filter(inv => {
-        const fin = getInvoiceFinance(inv);
-        return inv.status !== 'paid' && fin.sisa > 0;
-    });
-    const paidInvoices = (invoices?.data || []).filter(inv => {
-        const fin = getInvoiceFinance(inv);
-        return inv.status === 'paid' || fin.sisa <= 0;
-    });
+    // Data invoice per tab sudah difilter di server (controller), cukup pakai langsung.
+    const invoiceRows = invoices?.data || [];
 
     function applyFilters(overrides = {}) {
         router.get(route('invoices.list'), {
@@ -651,6 +643,295 @@ export default function InvoiceList({
 
     const valPreview = getValidationPreview();
 
+    const makeInvoiceColumns = (isPaid) => [
+        {
+            id: 'invoice_number',
+            accessorFn: (iv) => iv.invoice_number || '',
+            meta: { title: 'No. Invoice', pinned: 'left' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="No. Invoice" />,
+            cell: ({ row }) => <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-100">{row.original.invoice_number}</span>,
+        },
+        {
+            id: 'no_po',
+            accessorFn: (iv) => iv.order?.no_po || '',
+            meta: { title: 'No. PO', cellClassName: 'font-mono text-xs text-slate-500' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="No. PO" />,
+            cell: ({ row }) => (
+                <div className="font-mono text-xs text-slate-500">
+                    <div>{row.original.order?.no_po}</div>
+                    <div className="text-[10px] text-slate-400 font-sans truncate max-w-[140px]" title={row.original.order?.nama_po}>{row.original.order?.nama_po ?? '-'}</div>
+                </div>
+            ),
+        },
+        {
+            id: 'pelanggan',
+            accessorFn: (iv) => iv.order?.pelanggan?.nama || '',
+            meta: { title: 'Pelanggan', cellClassName: 'font-bold text-slate-800 text-xs' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Pelanggan" />,
+            cell: ({ row }) => <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{row.original.order?.pelanggan?.nama ?? '-'}</span>,
+        },
+        {
+            id: 'terbayar',
+            accessorFn: (iv) => getInvoiceFinance(iv).grossPaid,
+            meta: { title: 'Terbayar', cellClassName: 'text-right font-mono text-xs font-bold text-indigo-700' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Terbayar" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-xs font-bold text-indigo-700 dark:text-indigo-300">{formatRupiah(getInvoiceFinance(row.original).grossPaid)}</span>,
+        },
+        {
+            id: 'total_tagihan',
+            accessorFn: (iv) => Number(iv.total_tagihan) || 0,
+            meta: { title: 'Total Tagihan', cellClassName: 'text-right font-mono text-xs font-bold' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Total Tagihan" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-xs font-bold">{formatRupiah(row.original.total_tagihan)}</span>,
+        },
+        {
+            id: 'cashback',
+            accessorFn: (iv) => getInvoiceFinance(iv).cashback,
+            meta: { title: 'Cashback', cellClassName: 'text-right font-mono text-xs font-semibold text-amber-600' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Cashback" className="justify-end" />,
+            cell: ({ row }) => {
+                const cashback = getInvoiceFinance(row.original).cashback;
+                return <span className="font-mono text-xs font-semibold text-amber-600">{cashback > 0 ? `-${formatRupiah(cashback)}` : '—'}</span>;
+            },
+        },
+        {
+            id: 'refund',
+            accessorFn: (iv) => getInvoiceFinance(iv).refund,
+            meta: { title: 'Refund', cellClassName: 'text-right font-mono text-xs font-semibold text-red-500' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Refund" className="justify-end" />,
+            cell: ({ row }) => {
+                const refund = getInvoiceFinance(row.original).refund;
+                return <span className="font-mono text-xs font-semibold text-red-500">{refund > 0 ? `-${formatRupiah(refund)}` : '—'}</span>;
+            },
+        },
+        {
+            id: 'neto',
+            accessorFn: (iv) => getInvoiceFinance(iv).totalPaid,
+            meta: { title: 'Neto', cellClassName: 'text-right font-mono text-xs font-bold' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Neto" className="justify-end" />,
+            cell: ({ row }) => {
+                const fin = getInvoiceFinance(row.original);
+                return (
+                    <span className={`font-mono text-xs font-bold ${fin.totalPaid < 0 ? 'text-rose-600' : (fin.cashback > 0 || fin.refund > 0) ? 'text-emerald-700' : 'text-indigo-700'}`}>
+                        {formatRupiah(fin.totalPaid)}
+                    </span>
+                );
+            },
+        },
+        {
+            id: 'sisa',
+            accessorFn: (iv) => getInvoiceFinance(iv).sisa,
+            meta: { title: 'Sisa/Selisih', cellClassName: 'text-right font-mono text-xs font-black' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Sisa/Selisih" className="justify-end" />,
+            cell: ({ row }) => {
+                const sisa = getInvoiceFinance(row.original).sisa;
+                return (
+                    <span className="text-right font-mono text-xs font-black">
+                        {sisa < 0 ? (
+                            <span className="text-emerald-600 text-[11px] font-sans font-bold inline-flex items-center justify-end gap-0.5">
+                                -{formatRupiah(Math.abs(sisa))} <span className="text-[9px] opacity-70">(Lebih)</span>
+                            </span>
+                        ) : sisa > 0 ? (
+                            <span className="text-red-600 text-[11px] font-sans font-bold inline-flex items-center justify-end gap-0.5">
+                                {formatRupiah(sisa)} <span className="text-[9px] opacity-70">(Sisa)</span>
+                            </span>
+                        ) : (
+                            <span className="text-emerald-600 text-[11px] font-sans font-bold inline-flex items-center justify-end gap-0.5">
+                                Rp 0 <span className="text-[9px] opacity-70">(Lunas)</span>
+                            </span>
+                        )}
+                    </span>
+                );
+            },
+        },
+        {
+            id: 'status',
+            accessorFn: (iv) => (isPaid ? 'LUNAS' : iv.status),
+            meta: { title: 'Status' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+            cell: ({ row }) => (
+                isPaid
+                    ? <Badge variant="success">LUNAS</Badge>
+                    : <Badge variant={STATUS_VARIANT[row.original.status] ?? 'outline'}>{STATUS_LABELS[row.original.status] ?? row.original.status.toUpperCase()}</Badge>
+            ),
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-center">Aksi</div>,
+            cell: ({ row }) => {
+                const iv = row.original;
+                return (
+                    <div className="flex justify-center items-center gap-0.5">
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            title="Rincian Keuangan"
+                            className="h-7 w-7 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
+                            onClick={() => setSelectedInvoiceForDetail(iv)}
+                        >
+                            <FileText className="h-4 w-4" />
+                        </Button>
+                        <Button asChild size="icon" variant="ghost" title="Lihat PDF Invoice" className="h-7 w-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100">
+                            <a href={route('invoice.public', iv.invoice_number)} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="h-4 w-4" />
+                            </a>
+                        </Button>
+                        {!isPaid && can?.create && iv.status === 'draft' && (
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                title="Validasi Invoice"
+                                className="h-7 w-7 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50"
+                                onClick={() => handleOpenValidateModal(iv)}
+                            >
+                                <CheckCircle className="h-4 w-4" />
+                            </Button>
+                        )}
+                        {!isPaid && can?.publish && iv.status === 'validated' && (
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                title="Publish Invoice"
+                                className="h-7 w-7 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                onClick={() => setConfirmPublish(iv)}
+                            >
+                                <Send className="h-4 w-4" />
+                            </Button>
+                        )}
+                        {!isPaid && can?.create && iv.status === 'validated' && (
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                title="Batalkan Validasi"
+                                className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => {
+                                    if (confirm(`Yakin ingin membatalkan validasi Invoice ${iv.invoice_number}?`)) {
+                                        router.post(route('invoices.cancel-validation', iv.id));
+                                    }
+                                }}
+                            >
+                                <XCircle className="h-4 w-4" />
+                            </Button>
+                        )}
+                        {!isPaid && can?.publish && ['published', 'sent', 'overdue'].includes(iv.status) && (
+                            <WaDropdownButton invoice={iv} onSend={sendInvoiceWa} />
+                        )}
+                    </div>
+                );
+            },
+        },
+    ];
+
+    const unpaidInvoiceColumns = useMemo(() => makeInvoiceColumns(false), [can?.create, can?.publish]);
+    const paidInvoiceColumns = useMemo(() => makeInvoiceColumns(true), []);
+
+    const depositColumns = useMemo(() => [
+        {
+            id: 'deposit_number',
+            accessorFn: (dep) => dep.deposit_number || '',
+            meta: { title: 'No. Tanda Jadi', cellClassName: 'font-mono text-xs font-bold text-slate-800' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="No. Tanda Jadi" />,
+            cell: ({ row }) => <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-100">{row.original.deposit_number}</span>,
+        },
+        {
+            id: 'brand',
+            accessorFn: (dep) => dep.brand?.kode || '',
+            meta: { title: 'Brand' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Brand" />,
+            cell: ({ row }) => <Badge variant="outline" className="font-bold text-indigo-700 dark:text-indigo-300">{row.original.brand?.kode ?? '-'}</Badge>,
+        },
+        {
+            accessorKey: 'customer_name',
+            meta: { title: 'Customer', cellClassName: 'font-bold text-slate-800' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
+            cell: ({ row }) => <span className="font-bold text-slate-800 dark:text-slate-200">{row.original.customer_name}</span>,
+        },
+        {
+            id: 'description',
+            accessorFn: (dep) => dep.description || '',
+            meta: { title: 'Deskripsi Desain', cellClassName: 'text-xs text-slate-600 font-medium' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Deskripsi Desain" />,
+            cell: ({ row }) => <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">{row.original.description ?? '—'}</span>,
+        },
+        {
+            id: 'payment_date',
+            accessorFn: (dep) => dep.payment_date || '',
+            meta: { title: 'Tanggal', cellClassName: 'text-xs text-slate-500' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Tanggal" />,
+            cell: ({ row }) => <span className="text-xs text-slate-500">{formatDate(row.original.payment_date)}</span>,
+        },
+        {
+            id: 'amount',
+            accessorFn: (dep) => Number(dep.amount) || 0,
+            meta: { title: 'Nominal', cellClassName: 'text-right font-mono text-xs font-bold text-slate-800' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nominal" className="justify-end" />,
+            cell: ({ row }) => <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-100">{formatRupiah(row.original.amount)}</span>,
+        },
+        {
+            id: 'status',
+            accessorFn: (dep) => dep.status || '',
+            meta: { title: 'Status' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+            cell: ({ row }) => (
+                <div className="flex flex-col gap-1">
+                    <Badge variant={DEPOSIT_STATUS_VARIANT[row.original.status] ?? 'outline'}>{row.original.status.toUpperCase()}</Badge>
+                    {row.original.status === 'converted' && row.original.order && (
+                        <span className="text-[10px] text-emerald-600 font-bold block">Linked: PO {row.original.order.no_po}</span>
+                    )}
+                </div>
+            ),
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Aksi</div>,
+            cell: ({ row }) => {
+                const dep = row.original;
+                return (
+                    <div className="flex justify-end gap-1.5">
+                        {dep.status === 'pending' && can?.validate && (
+                            <Button size="xs" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] py-1 px-2.5 rounded-lg shadow-sm" onClick={() => setConfirmDepositVerify(dep)}>
+                                Validate TJ
+                            </Button>
+                        )}
+                        {dep.status === 'verified' && (
+                            <Button
+                                size="xs"
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] py-1 px-2.5 rounded-lg shadow-sm"
+                                onClick={() => {
+                                    setConvertDeposit(dep);
+                                    const matchedOrder = available_orders.find((o) => o.brand_id === dep.brand_id);
+                                    setSelectedOrderId(matchedOrder?.id || '');
+                                }}
+                            >
+                                Konversi ke PO
+                            </Button>
+                        )}
+                        {['pending', 'verified'].includes(dep.status) && can?.validate && (
+                            <Button size="xs" variant="destructive" className="font-bold text-[11px] py-1 px-2.5 rounded-lg" onClick={() => setConfirmDepositRefund(dep)}>
+                                Refund
+                            </Button>
+                        )}
+                        {dep.status === 'pending' && can?.validate && (
+                            <Button
+                                size="xs"
+                                variant="destructive"
+                                className="font-bold text-[11px] py-1 px-2.5 rounded-lg ml-1"
+                                onClick={() => {
+                                    if (confirm('Yakin ingin menghapus record tanda jadi ini?')) {
+                                        router.delete(route('design-deposits.destroy', dep.id));
+                                    }
+                                }}
+                            >
+                                Hapus
+                            </Button>
+                        )}
+                    </div>
+                );
+            },
+        },
+    ], [can?.validate, available_orders]);
+
     return (
         <AppLayout title="Invoice Management">
             <Head title="List Invoice & Tanda Jadi" />
@@ -765,78 +1046,6 @@ export default function InvoiceList({
                         </div>
                     </div>
 
-                    {/* Filter Inputs Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 border-t pt-4">
-                        <div className="relative">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                            <Input
-                                placeholder="Cari..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
-                                className="pl-9 bg-slate-50 border-slate-200 focus:bg-white text-xs rounded-xl"
-                            />
-                        </div>
-
-                        <Select value={brandId} onValueChange={(v) => { setBrandId(v); applyFilters({ brand_id: v }); }}>
-                            <SelectTrigger className="bg-slate-50 border-slate-200 text-xs rounded-xl"><SelectValue placeholder="Pilih Brand" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Semua Brand</SelectItem>
-                                {brands.map((b) => (
-                                    <SelectItem key={b.id} value={b.id}>{b.nama_brand} ({b.kode})</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        {activeTab !== 'tanda_jadi' && (
-                            <Select value={status} onValueChange={(v) => { setStatus(v); applyFilters({ status: v }); }}>
-                                <SelectTrigger className="bg-slate-50 border-slate-200 text-xs rounded-xl"><SelectValue placeholder="Status" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Semua Status</SelectItem>
-                                    {statuses.map((s) => (<SelectItem key={s} value={s}>{STATUS_LABELS[s] ?? s.toUpperCase()}</SelectItem>))}
-                                </SelectContent>
-                            </Select>
-                        )}
-
-                        {activeTab !== 'tanda_jadi' && (
-                            <Select value={paymentTypeFilter} onValueChange={(v) => { setPaymentTypeFilter(v); applyFilters({ payment_type_filter: v }); }}>
-                                <SelectTrigger className="bg-slate-50 border-slate-200 text-xs rounded-xl"><SelectValue placeholder="Tipe Transaksi" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Semua Tipe</SelectItem>
-                                    <SelectItem value="normal">Normal</SelectItem>
-                                    <SelectItem value="cashback">Cashback</SelectItem>
-                                    <SelectItem value="refund">Refund</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        )}
-
-                        <Button
-                            type="button"
-                            variant={showDatePanel || startDate || endDate ? "secondary" : "outline"}
-                            onClick={() => setShowDatePanel(!showDatePanel)}
-                            className="bg-slate-50 hover:bg-slate-100 border border-slate-200 flex justify-between items-center text-slate-700 font-medium w-full text-xs rounded-xl"
-                        >
-                            <span className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-slate-500" />
-                                {getDateFilterLabel()}
-                            </span>
-                        </Button>
-
-                        <div className="flex gap-2">
-                            <Button className="flex-1 text-xs font-bold rounded-xl" onClick={() => applyFilters()}>Filter</Button>
-                            <Button variant="outline" className="text-xs font-semibold rounded-xl border-slate-200" onClick={() => {
-                                setSearch('');
-                                setStatus('all');
-                                setBrandId('all');
-                                setStartDate('');
-                                setEndDate('');
-                                setPaymentTypeFilter('all');
-                                setShowDatePanel(false);
-                                router.get(route('invoices.list'), {}, { preserveScroll: true });
-                            }}>Reset</Button>
-                        </div>
-                    </div>
-
                     {/* Date Collapsible */}
                     {showDatePanel && (
                         <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-200/60 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -902,363 +1111,89 @@ export default function InvoiceList({
                 </div>
 
                 {/* Tabs Content */}
-                <Card className="border border-slate-150 shadow-sm overflow-hidden rounded-2xl">
-                    <CardContent className="p-6 pt-0">
-                        <StickyTableWrapper maxHeight="calc(100vh - 280px)">
-                            {activeTab === 'belum_lunas' && (
-                                <Table className="min-w-[1100px] border-collapse">
-                                    <TableHeader className="bg-slate-50">
-                                        <TableRow>
-                                            <TableHead className="sticky top-0 left-0 z-30 bg-slate-50 font-bold text-slate-700 min-w-[140px] w-[140px] shadow-[inset_-1px_0_0_0_#e2e8f0]">No. Invoice</TableHead>
-                                            <TableHead className="sticky top-0 left-[150px] z-30 bg-slate-50 font-bold text-slate-700 min-w-[150px] w-[150px] shadow-[inset_-1px_0_0_0_#e2e8f0]">No. PO</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[150px]">Pelanggan</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right text-indigo-600 min-w-[130px]">Terbayar</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[120px]">Total Tagihan</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right text-amber-600 min-w-[110px]">Cashback</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right text-red-600 min-w-[110px]">Refund</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right text-emerald-700 min-w-[130px]">Neto</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right text-slate-800 min-w-[140px]">Sisa/Selisih</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[100px]">Status</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-center min-w-[100px]">Aksi</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {unpaidInvoices.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={11} className="py-16 text-center text-sm text-slate-400 italic">
-                                                    Tidak ada invoice belum lunas.
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            unpaidInvoices.map((iv) => {
-                                                const finance = getInvoiceFinance(iv);
-                                                return (
-                                                    <TableRow key={iv.id} className="group hover:bg-slate-50/50">
-                                                        <TableCell className="sticky left-0 z-10 bg-white font-mono text-xs font-bold text-slate-800 min-w-[140px] w-[140px] shadow-[inset_-1px_0_0_0_#e2e8f0] group-hover:bg-slate-50 transition-colors">{iv.invoice_number}</TableCell>
-                                                        <TableCell className="sticky left-[140px] z-10 bg-white font-mono text-xs text-slate-500 min-w-[150px] w-[150px] shadow-[inset_-1px_0_0_0_#e2e8f0] group-hover:bg-slate-50 transition-colors">
-                                                            <div>{iv.order?.no_po}</div>
-                                                            <div className="text-[10px] text-slate-400 font-sans truncate max-w-[140px]" title={iv.order?.nama_po}>{iv.order?.nama_po ?? '-'}</div>
-                                                        </TableCell>
-                                                        <TableCell className="font-bold text-slate-800 text-xs min-w-[150px]">{iv.order?.pelanggan?.nama ?? '-'}</TableCell>
-                                                        <TableCell className="text-right font-mono text-xs font-bold text-indigo-700 min-w-[130px]">{formatRupiah(finance.grossPaid)}</TableCell>
-                                                        <TableCell className="text-right font-mono text-xs font-bold min-w-[120px]">{formatRupiah(iv.total_tagihan)}</TableCell>
-                                                        <TableCell className="text-right font-mono text-xs font-semibold text-amber-600 min-w-[110px]">{finance.cashback > 0 ? `-${formatRupiah(finance.cashback)}` : '—'}</TableCell>
-                                                        <TableCell className="text-right font-mono text-xs font-semibold text-red-500 min-w-[110px]">{finance.refund > 0 ? `-${formatRupiah(finance.refund)}` : '—'}</TableCell>
-                                                        <TableCell className="text-right font-mono text-xs font-bold min-w-[130px]">
-                                                            <span className={finance.totalPaid < 0 ? 'text-rose-600' : (finance.cashback > 0 || finance.refund > 0) ? 'text-emerald-700' : 'text-indigo-700'}>
-                                                                {formatRupiah(finance.totalPaid)}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-mono text-xs font-black min-w-[140px]">
-                                                            {finance.sisa < 0 ? (
-                                                                <span className="text-emerald-600 text-[11px] font-sans font-bold flex items-center justify-end gap-0.5">
-                                                                    -{formatRupiah(Math.abs(finance.sisa))} <span className="text-[9px] opacity-70">(Lebih)</span>
-                                                                </span>
-                                                            ) : finance.sisa > 0 ? (
-                                                                <span className="text-red-600 text-[11px] font-sans font-bold flex items-center justify-end gap-0.5">
-                                                                    {formatRupiah(finance.sisa)} <span className="text-[9px] opacity-70">(Sisa)</span>
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-emerald-600 text-[11px] font-sans font-bold flex items-center justify-end gap-0.5">
-                                                                    Rp 0 <span className="text-[9px] opacity-70">(Lunas)</span>
-                                                                </span>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="min-w-[100px]"><Badge variant={STATUS_VARIANT[iv.status] ?? 'outline'}>{STATUS_LABELS[iv.status] ?? iv.status.toUpperCase()}</Badge></TableCell>
-                                                        <TableCell className="text-center">
-                                                            <div className="flex justify-center items-center gap-0.5">
-                                                                <Button
-                                                                    type="button"
-                                                                    size="icon"
-                                                                    variant="ghost"
-                                                                    title="Rincian Keuangan"
-                                                                    className="h-7 w-7 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
-                                                                    onClick={() => setSelectedInvoiceForDetail(iv)}
-                                                                >
-                                                                    <FileText className="h-4 w-4" />
-                                                                </Button>
-                                                                <Button asChild size="icon" variant="ghost" title="Lihat PDF Invoice" className="h-7 w-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100">
-                                                                    <a href={route('invoice.public', iv.invoice_number)} target="_blank" rel="noopener noreferrer">
-                                                                        <ExternalLink className="h-4 w-4" />
-                                                                    </a>
-                                                                </Button>
-                                                                {can?.create && iv.status === 'draft' && (
-                                                                    <Button
-                                                                        size="icon"
-                                                                        variant="ghost"
-                                                                        title="Validasi Invoice"
-                                                                        className="h-7 w-7 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50"
-                                                                        onClick={() => handleOpenValidateModal(iv)}
-                                                                    >
-                                                                        <CheckCircle className="h-4 w-4" />
-                                                                    </Button>
-                                                                )}
-                                                                {can?.publish && iv.status === 'validated' && (
-                                                                    <Button
-                                                                        size="icon"
-                                                                        variant="ghost"
-                                                                        title="Publish Invoice"
-                                                                        className="h-7 w-7 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                                                                        onClick={() => setConfirmPublish(iv)}
-                                                                    >
-                                                                        <Send className="h-4 w-4" />
-                                                                    </Button>
-                                                                )}
-                                                                {can?.create && iv.status === 'validated' && (
-                                                                    <Button
-                                                                        size="icon"
-                                                                        variant="ghost"
-                                                                        title="Batalkan Validasi"
-                                                                        className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                                        onClick={() => {
-                                                                            if (confirm(`Yakin ingin membatalkan validasi Invoice ${iv.invoice_number}?`)) {
-                                                                                router.post(route('invoices.cancel-validation', iv.id));
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        <XCircle className="h-4 w-4" />
-                                                                    </Button>
-                                                                )}
-                                                                {can?.publish && ['published', 'sent', 'overdue'].includes(iv.status) && (
-                                                                    <WaDropdownButton invoice={iv} onSend={sendInvoiceWa} />
-                                                                )}
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            )}
-
-                            {activeTab === 'sudah_lunas' && (
-                                <Table className="min-w-[1100px] border-collapse">
-                                    <TableHeader className="bg-slate-50">
-                                        <TableRow>
-                                            <TableHead className="sticky top-0 left-0 z-30 bg-slate-50 font-bold text-slate-700 min-w-[140px] w-[140px] shadow-[inset_-1px_0_0_0_#e2e8f0]">No. Invoice</TableHead>
-                                            <TableHead className="sticky top-0 left-[150px] z-30 bg-slate-50 font-bold text-slate-700 min-w-[150px] w-[150px] shadow-[inset_-1px_0_0_0_#e2e8f0]">No. PO</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[150px]">Pelanggan</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right text-indigo-600 min-w-[130px]">Terbayar</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[120px]">Total Tagihan</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right text-amber-600 min-w-[110px]">Cashback</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right text-red-600 min-w-[110px]">Refund</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right text-emerald-700 min-w-[130px]">Neto</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right text-slate-800 min-w-[140px]">Sisa/Selisih</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[100px]">Status</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-center min-w-[100px]">Aksi</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {paidInvoices.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={11} className="py-16 text-center text-sm text-slate-400 italic">
-                                                    Tidak ada invoice lunas.
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            paidInvoices.map((iv) => {
-                                                const finance = getInvoiceFinance(iv);
-                                                return (
-                                                    <TableRow key={iv.id} className="group hover:bg-slate-50/50">
-                                                        <TableCell className="sticky left-0 z-10 bg-white font-mono text-xs font-bold text-slate-800 min-w-[140px] w-[140px] shadow-[inset_-1px_0_0_0_#e2e8f0] group-hover:bg-slate-50 transition-colors">{iv.invoice_number}</TableCell>
-                                                        <TableCell className="sticky left-[140px] z-10 bg-white font-mono text-xs text-slate-500 min-w-[150px] w-[150px] shadow-[inset_-1px_0_0_0_#e2e8f0] group-hover:bg-slate-50 transition-colors">
-                                                            <div>{iv.order?.no_po}</div>
-                                                            <div className="text-[10px] text-slate-400 font-sans truncate max-w-[140px]" title={iv.order?.nama_po}>{iv.order?.nama_po ?? '-'}</div>
-                                                        </TableCell>
-                                                        <TableCell className="font-bold text-slate-800 text-xs min-w-[150px]">{iv.order?.pelanggan?.nama ?? '-'}</TableCell>
-                                                        <TableCell className="text-right font-mono text-xs font-bold text-indigo-700 min-w-[130px]">{formatRupiah(finance.grossPaid)}</TableCell>
-                                                        <TableCell className="text-right font-mono text-xs font-bold min-w-[120px]">{formatRupiah(iv.total_tagihan)}</TableCell>
-                                                        <TableCell className="text-right font-mono text-xs font-semibold text-amber-600 min-w-[110px]">{finance.cashback > 0 ? `-${formatRupiah(finance.cashback)}` : '—'}</TableCell>
-                                                        <TableCell className="text-right font-mono text-xs font-semibold text-red-500 min-w-[110px]">{finance.refund > 0 ? `-${formatRupiah(finance.refund)}` : '—'}</TableCell>
-                                                        <TableCell className="text-right font-mono text-xs font-bold min-w-[130px]">
-                                                            <span className={finance.totalPaid < 0 ? 'text-rose-600' : (finance.cashback > 0 || finance.refund > 0) ? 'text-emerald-700' : 'text-indigo-700'}>
-                                                                {formatRupiah(finance.totalPaid)}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-mono text-xs font-black min-w-[140px]">
-                                                            {finance.sisa < 0 ? (
-                                                                <span className="text-emerald-600 text-[11px] font-sans font-bold flex items-center justify-end gap-0.5">
-                                                                    -{formatRupiah(Math.abs(finance.sisa))} <span className="text-[9px] opacity-70">(Lebih)</span>
-                                                                </span>
-                                                            ) : finance.sisa > 0 ? (
-                                                                <span className="text-red-600 text-[11px] font-sans font-bold flex items-center justify-end gap-0.5">
-                                                                    {formatRupiah(finance.sisa)} <span className="text-[9px] opacity-70">(Sisa)</span>
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-emerald-600 text-[11px] font-sans font-bold flex items-center justify-end gap-0.5">
-                                                                    Rp 0 <span className="text-[9px] opacity-70">(Lunas)</span>
-                                                                </span>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="min-w-[100px]"><Badge variant="success">LUNAS</Badge></TableCell>
-                                                        <TableCell className="text-center">
-                                                            <div className="flex justify-center items-center gap-0.5">
-                                                                <Button
-                                                                    type="button"
-                                                                    size="icon"
-                                                                    variant="ghost"
-                                                                    title="Rincian Keuangan"
-                                                                    className="h-7 w-7 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
-                                                                    onClick={() => setSelectedInvoiceForDetail(iv)}
-                                                                >
-                                                                    <FileText className="h-4 w-4" />
-                                                                </Button>
-                                                                <Button asChild size="icon" variant="ghost" title="Lihat PDF Invoice" className="h-7 w-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100">
-                                                                    <a href={route('invoice.public', iv.invoice_number)} target="_blank" rel="noopener noreferrer">
-                                                                        <ExternalLink className="h-4 w-4" />
-                                                                    </a>
-                                                                </Button>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            )}
-
-                            {activeTab === 'tanda_jadi' && (
-                                <Table className="min-w-[1200px] border-collapse">
-                                    <TableHeader className="bg-slate-50">
-                                        <TableRow>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">No. Tanda Jadi</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Brand</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Customer</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Deskripsi Desain</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Tanggal</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right">Nominal</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700">Status</TableHead>
-                                            <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right">Aksi</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {design_deposits.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={8} className="py-16 text-center text-sm text-slate-400 italic">
-                                                    Belum ada data Tanda Jadi (Design Deposit).
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            design_deposits.map((dep) => (
-                                                <TableRow key={dep.id} className="hover:bg-slate-50/50">
-                                                    <TableCell className="font-mono text-xs font-bold text-slate-800">{dep.deposit_number}</TableCell>
-                                                    <TableCell><Badge variant="outline" className="font-bold text-indigo-700">{dep.brand?.kode ?? '-'}</Badge></TableCell>
-                                                    <TableCell className="font-bold text-slate-800">{dep.customer_name}</TableCell>
-                                                    <TableCell className="text-xs text-slate-600 font-medium">{dep.description ?? '—'}</TableCell>
-                                                    <TableCell className="text-xs text-slate-500">{formatDate(dep.payment_date)}</TableCell>
-                                                    <TableCell className="text-right font-mono text-xs font-bold text-slate-800">{formatRupiah(dep.amount)}</TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-col gap-1">
-                                                            <Badge variant={DEPOSIT_STATUS_VARIANT[dep.status] ?? 'outline'}>{dep.status.toUpperCase()}</Badge>
-                                                            {dep.status === 'converted' && dep.order && (
-                                                                <span className="text-[10px] text-emerald-600 font-bold block">
-                                                                    Linked: PO {dep.order.no_po}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <div className="flex justify-end gap-1.5">
-                                                            {dep.status === 'pending' && can?.validate && (
-                                                                <Button
-                                                                    size="xs"
-                                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] py-1 px-2.5 rounded-lg shadow-sm"
-                                                                    onClick={() => setConfirmDepositVerify(dep)}
-                                                                >
-                                                                    Validate TJ
-                                                                </Button>
-                                                            )}
-                                                            {dep.status === 'verified' && (
-                                                                <Button
-                                                                    size="xs"
-                                                                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] py-1 px-2.5 rounded-lg shadow-sm"
-                                                                    onClick={() => {
-                                                                        setConvertDeposit(dep);
-                                                                        const matchedOrder = available_orders.find(o => o.brand_id === dep.brand_id);
-                                                                        setSelectedOrderId(matchedOrder?.id || '');
-                                                                    }}
-                                                                >
-                                                                    Konversi ke PO
-                                                                </Button>
-                                                            )}
-                                                            {['pending', 'verified'].includes(dep.status) && can?.validate && (
-                                                                <Button
-                                                                    size="xs"
-                                                                    variant="destructive"
-                                                                    className="font-bold text-[11px] py-1 px-2.5 rounded-lg"
-                                                                    onClick={() => setConfirmDepositRefund(dep)}
-                                                                >
-                                                                    Refund
-                                                                </Button>
-                                                            )}
-                                                            {dep.status === 'pending' && can?.validate && (
-                                                                <Button
-                                                                    size="xs"
-                                                                    variant="destructive"
-                                                                    className="font-bold text-[11px] py-1 px-2.5 rounded-lg ml-1"
-                                                                    onClick={() => {
-                                                                        if (confirm('Yakin ingin menghapus record tanda jadi ini?')) {
-                                                                            router.delete(route('design-deposits.destroy', dep.id));
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    Hapus
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            )}
-                        </StickyTableWrapper>
-
-                        {activeTab !== 'tanda_jadi' && (
-                            <div className="mt-4 flex flex-wrap items-center justify-between gap-4 text-sm pt-4 border-t border-slate-100">
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                                    <span className="text-muted-foreground font-medium">
-                                        Menampilkan {invoices.from ?? 0}–{invoices.to ?? 0} dari {invoices.total} data
-                                    </span>
-                                    <span className="text-slate-200 hidden sm:inline">|</span>
-                                    <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
-                                        <span>Tampilkan</span>
-                                        <select
-                                            value={filters?.per_page ?? 15}
-                                            onChange={(e) => {
-                                                applyFilters({ per_page: e.target.value });
-                                            }}
-                                            className="h-7 rounded-lg border border-slate-200 bg-white px-2 py-0 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                <Card className="border border-slate-200 shadow-sm rounded-2xl">
+                    <CardContent className="p-0">
+                        {activeTab === 'tanda_jadi' ? (
+                            <DataTable
+                                columns={depositColumns}
+                                data={design_deposits}
+                                searchPlaceholder="Cari no tanda jadi, customer..."
+                                exportFileName={`Tanda_Jadi_${new Date().toISOString().slice(0, 10)}`}
+                                emptyMessage="Belum ada data Tanda Jadi (Design Deposit)."
+                            />
+                        ) : (
+                            <DataTable
+                                columns={activeTab === 'sudah_lunas' ? paidInvoiceColumns : unpaidInvoiceColumns}
+                                data={invoiceRows}
+                                serverPagination={invoices}
+                                searchValue={search}
+                                onServerSearchChange={(val) => { setSearch(val); applyFilters({ q: val, page: 1 }); }}
+                                onServerPageChange={(page) => applyFilters({ page })}
+                                onServerPerPageChange={(per_page) => applyFilters({ per_page, page: 1 })}
+                                searchPlaceholder="Cari no invoice, PO, pelanggan..."
+                                exportFileName={`Invoice_${activeTab}_${new Date().toISOString().slice(0, 10)}`}
+                                emptyMessage={activeTab === 'sudah_lunas' ? 'Tidak ada invoice lunas.' : 'Tidak ada invoice belum lunas.'}
+                                filterSlot={
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Select value={brandId} onValueChange={(v) => { setBrandId(v); applyFilters({ brand_id: v, page: 1 }); }}>
+                                            <SelectTrigger className="h-8 w-44 text-xs bg-background"><SelectValue placeholder="Pilih Brand" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Semua Brand</SelectItem>
+                                                {brands.map((b) => (
+                                                    <SelectItem key={b.id} value={b.id}>{b.nama_brand} ({b.kode})</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Select value={status} onValueChange={(v) => { setStatus(v); applyFilters({ status: v, page: 1 }); }}>
+                                            <SelectTrigger className="h-8 w-36 text-xs bg-background"><SelectValue placeholder="Status" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Semua Status</SelectItem>
+                                                {statuses.map((s) => (<SelectItem key={s} value={s}>{STATUS_LABELS[s] ?? s.toUpperCase()}</SelectItem>))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Select value={paymentTypeFilter} onValueChange={(v) => { setPaymentTypeFilter(v); applyFilters({ payment_type_filter: v, page: 1 }); }}>
+                                            <SelectTrigger className="h-8 w-40 text-xs bg-background"><SelectValue placeholder="Tipe Transaksi" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Semua Tipe</SelectItem>
+                                                <SelectItem value="normal">Normal</SelectItem>
+                                                <SelectItem value="cashback">Cashback</SelectItem>
+                                                <SelectItem value="refund">Refund</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant={showDatePanel || startDate || endDate ? 'secondary' : 'outline'}
+                                            onClick={() => setShowDatePanel(!showDatePanel)}
+                                            className="h-8 text-xs gap-1.5"
                                         >
-                                            <option value="10">10</option>
-                                            <option value="15">15</option>
-                                            <option value="25">25</option>
-                                            <option value="50">50</option>
-                                            <option value="100">100</option>
-                                            <option value="250">250</option>
-                                        </select>
-                                        <span>data</span>
-                                    </div>
-                                </div>
-                                {invoices.last_page > 1 && (
-                                    <div className="flex gap-1">
-                                        {invoices.links.map((link, i) => (
+                                            <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                                            {getDateFilterLabel()}
+                                        </Button>
+                                        {(search || status !== 'all' || (brandId && brandId !== 'all') || paymentTypeFilter !== 'all' || startDate || endDate) && (
                                             <Button
-                                                key={i}
-                                                variant={link.active ? 'default' : 'outline'}
+                                                type="button"
                                                 size="sm"
-                                                disabled={!link.url}
-                                                onClick={() => link.url && router.visit(link.url, { preserveScroll: true })}
-                                                dangerouslySetInnerHTML={{ __html: link.label }}
-                                                className="rounded-lg text-xs"
-                                            />
-                                        ))}
+                                                variant="ghost"
+                                                className="h-8 text-xs text-slate-500 gap-1"
+                                                onClick={() => {
+                                                    setSearch('');
+                                                    setStatus('all');
+                                                    setBrandId('all');
+                                                    setStartDate('');
+                                                    setEndDate('');
+                                                    setPaymentTypeFilter('all');
+                                                    setShowDatePanel(false);
+                                                    router.get(route('invoices.list'), {}, { preserveScroll: true });
+                                                }}
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                                Reset
+                                            </Button>
+                                        )}
                                     </div>
-                                )}
-                            </div>
+                                }
+                            />
                         )}
                     </CardContent>
                 </Card>

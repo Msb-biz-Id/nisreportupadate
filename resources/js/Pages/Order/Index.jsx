@@ -1,13 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Search, Eye, Package, RotateCw, Copy, Check, X, Calendar, Download, CheckCircle2, Archive, Clock } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { Plus, Pencil, Trash2, Eye, Package, RotateCw, X, Calendar, Download, CheckCircle2, Archive, Clock } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
-import StickyTableWrapper from '@/Components/StickyTableWrapper';
 import { Card, CardContent, CardHeader } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
-import { Input } from '@/Components/ui/input';
 import { Badge } from '@/Components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
+import { DataTable, DataTableColumnHeader } from '@/Components/DataTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { formatDate, formatRupiah } from '@/lib/utils';
@@ -20,7 +18,7 @@ const STATUS_LABEL = {
     on_progress:      { label: 'Sedang Produksi',          variant: 'warning',     color: '#F59E0B' },
     selesai_produksi: { label: 'Selesai Produksi',         variant: 'success',     color: '#22C55E' },
     siap_dikirim:     { label: 'Siap Dikirim',             variant: 'info',        color: '#06B6D4' },
-    sudah_dikirim:    { label: 'Sudah Dikirim',            variant: 'secondary',   color: '#6366F1' },
+    sudah_dikirim:    { label: 'Sudah Dikirim',            variant: 'secondary',   color: '#8B5CF6' },
     delay:            { label: 'Delay',                    variant: 'destructive', color: '#EF4444' },
     hold:             { label: 'Hold',                     variant: 'warning',     color: '#F97316' },
     selesai:          { label: 'Selesai',                  variant: 'success',     color: '#10B981' },
@@ -43,7 +41,6 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
     const [dateTo, setDateTo]     = useState(filters?.date_to ?? '');
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [confirmComplete, setConfirmComplete] = useState(null);
-    const [copied, setCopied]     = useState(false);
     const [showDatePanel, setShowDatePanel] = useState(!!(filters?.date_from || filters?.date_to));
     const isArchiveTab = (filters?.tab ?? 'active') === 'archive';
 
@@ -57,8 +54,193 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
             date_to:   overrides.hasOwnProperty('date_to') ? overrides.date_to : dateTo,
             tab:       activeTab,
             per_page:  overrides.hasOwnProperty('per_page') ? overrides.per_page : (filters?.per_page ?? 25),
+            page:      overrides.hasOwnProperty('page') ? overrides.page : undefined,
         }, { preserveScroll: true, preserveState: true });
     }
+
+    const orderColumns = useMemo(() => {
+        const cols = [
+            {
+                id: 'no_po',
+                accessorFn: (o) => o.no_po || '',
+                meta: { title: 'No. PO' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="No. PO" />,
+                cell: ({ row }) => {
+                    const o = row.original;
+                    return <div className="font-mono text-xs font-bold text-slate-800 truncate max-w-[155px]" title={o.no_po}>{o.no_po}</div>;
+                },
+            },
+            {
+                id: 'nama_po',
+                accessorFn: (o) => o.nama_po || '',
+                meta: { title: 'Nama PO' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Nama PO" />,
+                cell: ({ row }) => {
+                    const o = row.original;
+                    return (
+                        <>
+                            <div className="font-semibold text-slate-800 truncate max-w-[150px]" title={o.nama_po}>{o.nama_po}</div>
+                            {o.is_repeat_order && (
+                                <Badge variant="outline" className="mt-0.5 text-[9px] px-1 py-0">
+                                    <RotateCw className="mr-0.5 h-2.5 w-2.5" />Repeat
+                                </Badge>
+                            )}
+                        </>
+                    );
+                },
+            },
+        ];
+
+        if (can?.filter_by_brand) {
+            cols.push({
+                id: 'brand',
+                accessorFn: (o) => o.brand?.kode || '',
+                meta: { title: 'Brand', cellClassName: 'text-xs text-muted-foreground font-medium' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Brand" />,
+                cell: ({ row }) => <span className="text-xs text-muted-foreground font-medium">{row.original.brand?.kode ?? '-'}</span>,
+            });
+        }
+
+        cols.push(
+            {
+                id: 'pelanggan',
+                accessorFn: (o) => o.pelanggan?.nama || '',
+                meta: { title: 'Pelanggan' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Pelanggan" />,
+                cell: ({ row }) => (
+                    <div className="text-slate-700 truncate max-w-[140px]" title={row.original.pelanggan?.nama ?? '-'}>
+                        {row.original.pelanggan?.nama ?? '-'}
+                    </div>
+                ),
+            },
+            {
+                id: 'tanggal_masuk',
+                accessorFn: (o) => o.tanggal_masuk || '',
+                meta: { title: 'Tgl Masuk', cellClassName: 'text-xs whitespace-nowrap text-slate-600' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Tgl Masuk" />,
+                cell: ({ row }) => <span className="text-xs whitespace-nowrap text-slate-600">{formatDate(row.original.tanggal_masuk)}</span>,
+            },
+            {
+                id: 'deadline_customer',
+                accessorFn: (o) => o.deadline_customer || '',
+                meta: { title: 'Deadline', cellClassName: 'text-xs whitespace-nowrap text-slate-600' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Deadline" />,
+                cell: ({ row }) => <span className="text-xs whitespace-nowrap text-slate-600">{formatDate(row.original.deadline_customer)}</span>,
+            },
+            {
+                id: 'total_tagihan',
+                accessorFn: (o) => Number(o.total_tagihan) || 0,
+                meta: { title: 'Total', cellClassName: 'text-right font-mono text-xs font-bold text-slate-800' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Total" className="justify-end" />,
+                cell: ({ row }) => <span className="font-mono text-xs font-bold text-slate-800">{formatRupiah(row.original.total_tagihan)}</span>,
+            },
+            {
+                id: 'sisa_tagihan',
+                accessorFn: (o) => (o.is_special_order || o.is_lunas ? 0 : (o.sisa_tagihan ?? 0)),
+                meta: { title: 'Sisa/Tunggakan', cellClassName: 'text-right font-mono text-xs' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Sisa/Tunggakan" className="justify-end" />,
+                cell: ({ row }) => {
+                    const o = row.original;
+                    if (o.is_special_order) {
+                        return <span className="text-[10px] font-semibold text-purple-600 block text-right">Support (Rp 0)</span>;
+                    }
+                    if (o.is_lunas || (o.sisa_tagihan ?? 0) <= 0) {
+                        return (
+                            <span className="text-[10px] font-semibold text-emerald-600 flex items-center justify-end gap-0.5">
+                                <CheckCircle2 className="h-3 w-3 inline text-emerald-500" /> Lunas
+                            </span>
+                        );
+                    }
+                    return (
+                        <span className="text-[10px] font-bold text-rose-600 block text-right whitespace-nowrap" title={`Terbayar: ${formatRupiah(o.total_paid ?? 0)}`}>
+                            Sisa: {formatRupiah(o.sisa_tagihan)}
+                        </span>
+                    );
+                },
+            },
+            {
+                id: 'paket_order',
+                accessorFn: (o) => o.paket_order?.nama || '',
+                meta: { title: 'Paket' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Paket" />,
+                cell: ({ row }) => {
+                    const p = row.original.paket_order;
+                    if (!p) return <span className="text-xs text-muted-foreground">-</span>;
+                    return (
+                        <span
+                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold text-white whitespace-nowrap"
+                            style={{ background: p.warna || '#6B7280' }}
+                        >
+                            {p.prioritas >= 2 ? '🚨' : p.prioritas >= 1 ? '⚡' : ''}
+                            {p.nama}
+                        </span>
+                    );
+                },
+            },
+            {
+                id: 'status_po',
+                accessorFn: (o) => getOrderStatus(o)?.label ?? o.status_po,
+                meta: { title: 'Status' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+                cell: ({ row }) => {
+                    const st = getOrderStatus(row.original);
+                    return <Badge variant={st.variant} className="text-[10px] px-1.5 py-0.5">{st.label}</Badge>;
+                },
+            },
+            {
+                id: 'pcs',
+                accessorFn: (o) => o.core_items_sum_quantity ?? 0,
+                meta: { title: 'Pcs', cellClassName: 'text-center' },
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Pcs" className="justify-center" />,
+                cell: ({ row }) => (
+                    <Badge variant="outline" className="text-xs font-semibold">{row.original.core_items_sum_quantity ?? 0}</Badge>
+                ),
+            },
+        );
+
+        cols.push({
+            id: 'actions',
+            header: () => <div className="text-right">Aksi</div>,
+            cell: ({ row }) => {
+                const o = row.original;
+                return (
+                    <div className="flex justify-end gap-1">
+                        {isArchiveTab && o.status_po === 'sudah_dikirim' && can?.update && (
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                title="Selesaikan Pesanan"
+                                className="h-7 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-semibold text-[10px] flex items-center gap-1"
+                                onClick={() => setConfirmComplete(o)}
+                            >
+                                <CheckCircle2 className="h-3 w-3" />
+                                Selesai
+                            </Button>
+                        )}
+                        <Button asChild size="icon" variant="ghost" className="h-7 w-7" title="Preview">
+                            <Link href={route('orders.show', o.id)}>
+                                <Eye className="h-3.5 w-3.5" />
+                            </Link>
+                        </Button>
+                        {can?.update && o.status_po === 'draft' && (
+                            <Button asChild size="icon" variant="ghost" className="h-7 w-7" title="Edit">
+                                <Link href={route('orders.edit', o.id)}>
+                                    <Pencil className="h-3.5 w-3.5" />
+                                </Link>
+                            </Button>
+                        )}
+                        {can?.delete && o.status_po === 'draft' && (
+                            <Button size="icon" variant="ghost" title="Hapus" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setConfirmDelete(o)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                        )}
+                    </div>
+                );
+            },
+        });
+
+        return cols;
+    }, [can?.filter_by_brand, can?.update, can?.delete, isArchiveTab]);
 
     const calculateDateRange = (preset) => {
         const today = new Date();
@@ -222,31 +404,6 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
     const hasActiveFilter = search || (status && status !== 'all') || brandId || dateFrom || dateTo;
     const totalPo = Object.values(statusCounts ?? {}).reduce((s, v) => Number(s) + Number(v), 0);
     const summaryItems = statuses.filter((s) => Number(statusCounts?.[s] ?? 0) > 0).map((s) => ({ key: s, ...STATUS_LABEL[s], count: Number(statusCounts[s]) }));
-    const colsCount = isArchiveTab
-        ? (can?.filter_by_brand && brands?.length > 0 ? 3 : 2)
-        : (can?.filter_by_brand && brands?.length > 0 ? 5 : 4);
-
-    function copyToClipboard() {
-        const headers = ['No. PO', 'Nama PO', 'Brand', 'Pelanggan', 'Tgl Masuk', 'Deadline', 'Status', 'Total', 'Sisa/Tunggakan', 'Pcs'];
-        const rows = orders.data.map((o) => [
-            o.no_po,
-            o.nama_po,
-            o.brand?.nama_brand ?? '',
-            o.pelanggan?.nama ?? '',
-            formatDate(o.tanggal_masuk),
-            formatDate(o.deadline_customer),
-            getOrderStatus(o)?.label ?? o.status_po,
-            o.total_tagihan ?? 0,
-            o.is_special_order || o.is_lunas ? 0 : (o.sisa_tagihan ?? 0),
-            o.core_items_sum_quantity ?? 0,
-        ]);
-
-        const tsv = [headers, ...rows].map((r) => r.join('\t')).join('\n');
-        navigator.clipboard.writeText(tsv).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        });
-    }
 
     return (
         <AppLayout title="Order Management">
@@ -369,16 +526,6 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={copyToClipboard}
-                                className={copied ? 'text-emerald-600 border-emerald-400' : ''}
-                                title="Salin data halaman ini ke clipboard (untuk Excel)"
-                            >
-                                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                                {copied ? 'Tersalin!' : 'Salin Data'}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
                                 onClick={() => {
                                     const params = new URLSearchParams({
                                         q: search,
@@ -435,322 +582,120 @@ export default function OrderIndex({ orders, filters, statuses, statusCounts, ar
                             </button>
                         </div>
 
-                        {/* Filter Bar */}
-                        <div className="mb-6 space-y-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-                            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${colsCount} gap-3`}>
-                                {/* Search */}
-                                <div className="relative">
-                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Cari no PO, nama, pelanggan..."
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
-                                        className="pl-9 bg-white"
-                                    />
-                                </div>
-
-                                {/* Status Select — active tab only (archive uses summary cards as filter) */}
-                                {!isArchiveTab && (
-                                    <Select value={status} onValueChange={(v) => { setStatus(v); applyFilters({ status: v }); }}>
-                                        <SelectTrigger className="bg-white"><SelectValue placeholder="Status" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">Semua Status</SelectItem>
-                                            {statuses.map((s) => (
-                                                <SelectItem key={s} value={s}>{STATUS_LABEL[s]?.label ?? s}</SelectItem>
+                        {/* Panel Filter Tanggal (collapsible) */}
+                        {showDatePanel && (
+                            <div className="mb-4 p-4 bg-slate-50/50 rounded-xl border border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <span className="text-xs font-semibold text-slate-500 block mb-2">Pilih Cepat Rentang Tanggal PO</span>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {[
+                                                { label: 'Bulan Ini', preset: 'this_month' },
+                                                { label: 'Bulan Lalu', preset: 'last_month' },
+                                                { label: '7 Hari Terakhir', preset: 'last_7' },
+                                                { label: '30 Hari Terakhir', preset: 'last_30' },
+                                                { label: 'Tahun Ini', preset: 'this_year' },
+                                                { label: 'Hari Ini', preset: 'today' },
+                                                { label: 'Kemarin', preset: 'yesterday' },
+                                                { label: 'Semua', preset: 'all' },
+                                            ].map((opt) => (
+                                                <button
+                                                    key={opt.preset}
+                                                    type="button"
+                                                    onClick={() => handlePresetClick(opt.preset)}
+                                                    className={`text-xs px-3 py-1.5 rounded-full border transition font-medium ${
+                                                        getActivePreset() === opt.preset
+                                                            ? 'bg-primary text-white border-primary shadow-sm'
+                                                            : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                                                    }`}
+                                                >
+                                                    {opt.label}
+                                                </button>
                                             ))}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-
-                                {/* Brand Filter — admin_brand bisa pilih semua brand atau satu */}
-                                {can?.filter_by_brand && brands?.length > 0 ? (
-                                    <Select value={brandId || NONE} onValueChange={(v) => { const val = v === NONE ? '' : v; setBrandId(val); applyFilters({ brand_id: val }); }}>
-                                        <SelectTrigger className="bg-white"><SelectValue placeholder="📦 Semua Brand Saya" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>📦 Semua Brand Saya</SelectItem>
-                                            {brands.map((b) => (
-                                                <SelectItem key={b.id} value={b.id}>{b.nama_brand}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                ) : (
-                                    <div className="hidden lg:block"></div>
-                                )}
-
-                                {/* Collapsible Date Toggle */}
-                                <Button 
-                                    type="button" 
-                                    variant={showDatePanel || dateFrom || dateTo ? "secondary" : "outline"} 
-                                    onClick={() => setShowDatePanel(!showDatePanel)}
-                                    className="bg-white hover:bg-slate-50 border flex justify-between items-center text-slate-700 font-medium w-full"
-                                >
-                                    <span className="flex items-center gap-2">
-                                        <Calendar className="h-4 w-4 text-slate-500" />
-                                        {getDateFilterLabel()}
-                                    </span>
-                                </Button>
-
-                                {/* Action Buttons */}
-                                <div className="flex gap-2">
-                                    <Button className="flex-1" onClick={() => applyFilters()}>Filter</Button>
-                                    <Button variant="outline" onClick={resetFilters}>Reset</Button>
-                                </div>
-                            </div>
-
-                            {/* Collapsible Date Filter Panel */}
-                            {showDatePanel && (
-                                <div className="p-4 bg-white rounded-lg border border-slate-200/60 mt-2 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                        <div>
-                                            <span className="text-xs font-semibold text-slate-500 block mb-2">Pilih Cepat Rentang Tanggal PO</span>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {[
-                                                    { label: 'Bulan Ini', preset: 'this_month' },
-                                                    { label: 'Bulan Lalu', preset: 'last_month' },
-                                                    { label: '7 Hari Terakhir', preset: 'last_7' },
-                                                    { label: '30 Hari Terakhir', preset: 'last_30' },
-                                                    { label: 'Tahun Ini', preset: 'this_year' },
-                                                    { label: 'Hari Ini', preset: 'today' },
-                                                    { label: 'Kemarin', preset: 'yesterday' },
-                                                    { label: 'Semua', preset: 'all' },
-                                                ].map((opt) => (
-                                                    <button
-                                                        key={opt.preset}
-                                                        type="button"
-                                                        onClick={() => handlePresetClick(opt.preset)}
-                                                        className={`text-xs px-3 py-1.5 rounded-full border transition font-medium ${
-                                                            getActivePreset() === opt.preset
-                                                                ? 'bg-primary text-white border-primary shadow-sm'
-                                                                : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
-                                                        }`}
-                                                    >
-                                                        {opt.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-
-                                            <div className="mt-3 flex items-center gap-2">
-                                                <span className="text-xs text-slate-500 font-medium">Atau Pilih Bulan Tertentu:</span>
-                                                <input
-                                                    type="month"
-                                                    onChange={(e) => handleSpecificMonthChange(e.target.value)}
-                                                    className="text-xs border rounded-md px-2.5 py-1 text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary shadow-sm font-medium"
-                                                />
-                                            </div>
                                         </div>
-                                        
-                                        <div className="border-t md:border-t-0 md:border-l border-dashed border-slate-200 pt-3 md:pt-0 md:pl-6">
-                                            <span className="text-xs font-semibold text-slate-500 block mb-2">Pilih Tanggal Manual</span>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="date"
-                                                    value={dateFrom}
-                                                    onChange={(e) => { setDateFrom(e.target.value); applyFilters({ date_from: e.target.value }); }}
-                                                    className="text-xs border rounded-md px-3 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
-                                                />
-                                                <span className="text-slate-400 text-xs">s/d</span>
-                                                <input
-                                                    type="date"
-                                                    value={dateTo}
-                                                    onChange={(e) => { setDateTo(e.target.value); applyFilters({ date_to: e.target.value }); }}
-                                                    className="text-xs border rounded-md px-3 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
-                                                />
-                                            </div>
+
+                                        <div className="mt-3 flex items-center gap-2">
+                                            <span className="text-xs text-slate-500 font-medium">Atau Pilih Bulan Tertentu:</span>
+                                            <input
+                                                type="month"
+                                                onChange={(e) => handleSpecificMonthChange(e.target.value)}
+                                                className="text-xs border rounded-md px-2.5 py-1 text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary shadow-sm font-medium"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t md:border-t-0 md:border-l border-dashed border-slate-200 pt-3 md:pt-0 md:pl-6">
+                                        <span className="text-xs font-semibold text-slate-500 block mb-2">Pilih Tanggal Manual</span>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="date"
+                                                value={dateFrom}
+                                                onChange={(e) => { setDateFrom(e.target.value); applyFilters({ date_from: e.target.value, page: 1 }); }}
+                                                className="text-xs border rounded-md px-3 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                                            />
+                                            <span className="text-slate-400 text-xs">s/d</span>
+                                            <input
+                                                type="date"
+                                                value={dateTo}
+                                                onChange={(e) => { setDateTo(e.target.value); applyFilters({ date_to: e.target.value, page: 1 }); }}
+                                                className="text-xs border rounded-md px-3 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                                            />
                                         </div>
                                     </div>
                                 </div>
-                            )}
-
-                            {/* Active Filters Display */}
-                            <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground pt-3 border-t border-slate-100">
-                                {hasActiveFilter ? (
-                                    <>
-                                        <span className="font-semibold text-slate-500 mr-1">Filter Aktif:</span>
-                                        {search && <Badge variant="secondary" className="px-2 py-0.5">{search}</Badge>}
-                                        {brandId && (
-                                            <Badge variant="secondary" className="px-2 py-0.5">
-                                                {brands.find(b => String(b.id) === String(brandId))?.nama_brand ?? 'Brand'}
-                                            </Badge>
-                                        )}
-                                        {status && status !== 'all' && (
-                                            <Badge variant="secondary" className="px-2 py-0.5">
-                                                {STATUS_LABEL[status]?.label ?? status.toUpperCase()}
-                                            </Badge>
-                                        )}
-                                        {(dateFrom || dateTo) && <Badge variant="secondary" className="px-2 py-0.5">{getDateFilterLabel()}</Badge>}
-                                    </>
-                                ) : (
-                                    <span className="text-slate-400">Menampilkan semua PO tanpa filter.</span>
-                                )}
                             </div>
-                        </div>
+                        )}
 
-                        <StickyTableWrapper maxHeight="calc(100vh - 280px)">
-                            <Table className="min-w-[1050px] border-collapse text-xs">
-                                <TableHeader>
-                                    <TableRow className="bg-slate-50">
-                                        <TableHead className="sticky top-0 left-0 z-30 bg-slate-50 font-bold text-slate-700 min-w-[160px] w-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] py-3">No. PO</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[140px] py-3">Nama PO</TableHead>
-                                        {can?.filter_by_brand && <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[65px] py-3">Brand</TableHead>}
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[130px] py-3">Pelanggan</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[90px] whitespace-nowrap py-3">Tgl Masuk</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[90px] whitespace-nowrap py-3">Deadline</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-right min-w-[130px] py-3">Jumlah & Sisa</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[90px] py-3">Paket</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 min-w-[95px] py-3">Status</TableHead>
-                                        <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-slate-700 text-center min-w-[60px] py-3">Pcs</TableHead>
-                                        <TableHead className="sticky top-0 right-0 z-30 bg-slate-50 font-bold text-slate-700 text-right min-w-[100px] shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.08)] py-3">Aksi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {orders.data.length === 0 && (
-                                        <TableRow>
-                                            <TableCell colSpan={can?.filter_by_brand ? 11 : 10} className="py-8 text-center text-sm text-muted-foreground">
-                                                {isArchiveTab && status === 'sudah_dikirim'
-                                                    ? '🎉 Semua PO sudah diselesaikan! Tidak ada yang menunggu.'
-                                                    : 'Belum ada PO yang cocok dengan filter.'}
-                                            </TableCell>
-                                        </TableRow>
+                        <DataTable
+                            columns={orderColumns}
+                            data={orders.data || []}
+                            serverPagination={orders}
+                            searchValue={search}
+                            onServerSearchChange={(val) => {
+                                setSearch(val);
+                                applyFilters({ q: val, page: 1 });
+                            }}
+                            onServerPageChange={(page) => applyFilters({ page })}
+                            onServerPerPageChange={(per_page) => applyFilters({ per_page, page: 1 })}
+                            searchPlaceholder="Cari no PO, nama, pelanggan..."
+                            exportFileName={`Order_PO_${new Date().toISOString().slice(0, 10)}`}
+                            emptyMessage={isArchiveTab && status === 'sudah_dikirim'
+                                ? 'Semua PO sudah diselesaikan! Tidak ada yang menunggu.'
+                                : 'Belum ada PO yang cocok dengan filter.'}
+                            filterSlot={
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {can?.filter_by_brand && brands?.length > 0 && (
+                                        <Select value={brandId || NONE} onValueChange={(v) => { const val = v === NONE ? '' : v; setBrandId(val); applyFilters({ brand_id: val, page: 1 }); }}>
+                                            <SelectTrigger className="h-8 w-44 text-xs bg-background"><SelectValue placeholder="📦 Semua Brand Saya" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value={NONE}>📦 Semua Brand Saya</SelectItem>
+                                                {brands.map((b) => (
+                                                    <SelectItem key={b.id} value={b.id}>{b.nama_brand}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     )}
-                                        {orders.data.map((o) => {
-                                        const st = getOrderStatus(o);
-                                        return (
-                                     <TableRow key={o.id} className={`group hover:bg-slate-50/70 transition-colors ${
-                                            isArchiveTab && o.status_po === 'sudah_dikirim'
-                                                ? 'bg-violet-50/30 hover:bg-violet-50/60'
-                                                : isArchiveTab && o.status_po === 'selesai'
-                                                ? 'bg-emerald-50/20 hover:bg-emerald-50/40'
-                                                : ''
-                                        }`}>
-                                                <TableCell className="sticky left-0 z-10 bg-white font-mono text-xs font-bold text-slate-800 min-w-[160px] w-[160px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-slate-50 transition-colors py-2.5">
-                                                    <div className="truncate max-w-[155px]" title={o.no_po}>{o.no_po}</div>
-                                                </TableCell>
-                                                <TableCell className="min-w-[140px] py-2.5">
-                                                    <div className="font-semibold text-slate-800 truncate max-w-[150px]" title={o.nama_po}>{o.nama_po}</div>
-                                                    {o.is_repeat_order && <Badge variant="outline" className="mt-0.5 text-[9px] px-1 py-0"><RotateCw className="mr-0.5 h-2.5 w-2.5" />Repeat</Badge>}
-                                                </TableCell>
-                                                {can?.filter_by_brand && (
-                                                    <TableCell className="text-xs text-muted-foreground min-w-[65px] py-2.5 font-medium">{o.brand?.kode ?? '-'}</TableCell>
-                                                )}
-                                                <TableCell className="min-w-[130px] py-2.5">
-                                                    <div className="text-slate-700 truncate max-w-[140px]" title={o.pelanggan?.nama ?? '-'}>{o.pelanggan?.nama ?? '-'}</div>
-                                                </TableCell>
-                                                <TableCell className="text-xs min-w-[90px] whitespace-nowrap py-2.5 text-slate-600">{formatDate(o.tanggal_masuk)}</TableCell>
-                                                <TableCell className="text-xs min-w-[90px] whitespace-nowrap py-2.5 text-slate-600">{formatDate(o.deadline_customer)}</TableCell>
-                                                <TableCell className="text-right min-w-[130px] py-2.5">
-                                                    <div className="font-mono text-xs font-bold text-slate-800">{formatRupiah(o.total_tagihan)}</div>
-                                                    {o.is_special_order ? (
-                                                        <span className="text-[10px] font-semibold text-purple-600 block">Support (Rp 0)</span>
-                                                    ) : o.is_lunas || (o.sisa_tagihan ?? 0) <= 0 ? (
-                                                        <span className="text-[10px] font-semibold text-emerald-600 flex items-center justify-end gap-0.5">
-                                                            <CheckCircle2 className="h-3 w-3 inline text-emerald-500" /> Lunas
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-[10px] font-bold text-rose-600 block whitespace-nowrap" title={`Terbayar: ${formatRupiah(o.total_paid ?? 0)}`}>
-                                                            Sisa: {formatRupiah(o.sisa_tagihan)}
-                                                        </span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="min-w-[90px] py-2.5">
-                                                    {o.paket_order ? (
-                                                        <span
-                                                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold text-white whitespace-nowrap"
-                                                            style={{ background: o.paket_order.warna || '#6B7280' }}
-                                                        >
-                                                            {o.paket_order.prioritas >= 2 ? '🚨' : o.paket_order.prioritas >= 1 ? '⚡' : ''}
-                                                            {o.paket_order.nama}
-                                                        </span>
-                                                    ) : <span className="text-xs text-muted-foreground">-</span>}
-                                                </TableCell>
-                                                <TableCell className="min-w-[95px] py-2.5">
-                                                    <Badge 
-                                                        variant={st.variant} 
-                                                        style={st.color ? { backgroundColor: st.color, color: '#fff', borderColor: 'transparent' } : {}}
-                                                        className="text-[10px] px-2 py-0.5 font-semibold whitespace-nowrap shadow-2xs"
-                                                    >
-                                                        {st.label}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-center min-w-[60px] py-2.5">
-                                                    <Badge variant="outline" className="text-xs font-semibold">{o.core_items_sum_quantity ?? 0}</Badge>
-                                                </TableCell>
-                                                <TableCell className="sticky right-0 z-10 bg-white text-right min-w-[100px] shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.08)] group-hover:bg-slate-50 transition-colors py-2.5">
-                                                    <div className="flex justify-end gap-1">
-                                                        {/* Quick Selesaikan — hanya di Arsip untuk PO sudah_dikirim */}
-                                                        {isArchiveTab && o.status_po === 'sudah_dikirim' && can?.update && (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                title="Selesaikan Pesanan"
-                                                                className="h-7 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-semibold text-[10px] flex items-center gap-1"
-                                                                onClick={() => setConfirmComplete(o)}
-                                                            >
-                                                                <CheckCircle2 className="h-3 w-3" />
-                                                                Selesai
-                                                            </Button>
-                                                        )}
-                                                        <Button asChild size="icon" variant="ghost" className="h-7 w-7" title="Preview">
-                                                            <Link href={route('orders.show', o.id)}>
-                                                                <Eye className="h-3.5 w-3.5" />
-                                                            </Link>
-                                                        </Button>
-                                                        {can?.update && o.status_po === 'draft' && (
-                                                            <Button asChild size="icon" variant="ghost" className="h-7 w-7" title="Edit">
-                                                                <Link href={route('orders.edit', o.id)}>
-                                                                    <Pencil className="h-3.5 w-3.5" />
-                                                                </Link>
-                                                            </Button>
-                                                        )}
-                                                        {can?.delete && o.status_po === 'draft' && (
-                                                            <Button size="icon" variant="ghost" title="Hapus" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setConfirmDelete(o)}>
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </StickyTableWrapper>
 
-                        <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-4">
-                                <span>
-                                    {orders.total > 0
-                                        ? `Menampilkan ${orders.from ?? 0}–${orders.to ?? 0} dari ${orders.total} PO`
-                                        : '0 PO ditemukan'}
-                                    {hasActiveFilter && <span className="ml-1 text-amber-600">(difilter)</span>}
-                                </span>
-                                <div className="flex items-center gap-1.5">
-                                    <span>Tampilkan:</span>
-                                    <select
-                                        value={orders.per_page}
-                                        onChange={(e) => {
-                                            applyFilters({ per_page: e.target.value });
-                                        }}
-                                        className="h-7 rounded border border-slate-200 bg-white px-2 py-0 text-xs font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                    <Button
+                                        type="button"
+                                        variant={showDatePanel || dateFrom || dateTo ? 'secondary' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setShowDatePanel(!showDatePanel)}
+                                        className="h-8 text-xs gap-1.5"
                                     >
-                                        <option value="10">10</option>
-                                        <option value="25">25</option>
-                                        <option value="50">50</option>
-                                        <option value="100">100</option>
-                                        <option value="250">250</option>
-                                    </select>
+                                        <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                                        {getDateFilterLabel()}
+                                    </Button>
+
+                                    {hasActiveFilter && (
+                                        <Button type="button" variant="ghost" size="sm" onClick={resetFilters} className="h-8 text-xs text-slate-500 gap-1">
+                                            <X className="h-3.5 w-3.5" />
+                                            Reset
+                                        </Button>
+                                    )}
                                 </div>
-                            </div>
-                            {orders.last_page > 1 && (
-                                <div className="flex gap-1 flex-wrap">
-                                    {orders.links.map((link, i) => (
-                                        <Button key={i} variant={link.active ? 'default' : 'outline'} size="sm" disabled={!link.url}
-                                            onClick={() => link.url && router.visit(link.url, { preserveScroll: true })}
-                                            dangerouslySetInnerHTML={{ __html: link.label }} />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                            }
+                        />
                     </CardContent>
                 </Card>
             </div>
