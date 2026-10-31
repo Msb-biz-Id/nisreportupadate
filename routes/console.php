@@ -82,5 +82,3 @@ Schedule::command('hcm:overtime-reminder')->saturdays()->at('08:00');
 
 // Modul HCM: pengingat agenda/event (H-N, H-1, Hari-H) + generate event tahunan berulang
 Schedule::command('hcm:event-reminders')->dailyAt('07:00');
-
-
