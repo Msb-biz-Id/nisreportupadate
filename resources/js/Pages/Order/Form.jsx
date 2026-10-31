@@ -1234,18 +1234,21 @@ function ItemCard({ index, item, masters, onChange, onRemove, onDuplicate, onMov
                             </Select>
                         </div>
                         <div>
-                            <FieldLabel>Nilai Diskon</FieldLabel>
+                            <FieldLabel>Nilai Diskon {item.discount_type === 'nominal' ? '(per Pcs)' : ''}</FieldLabel>
                             <Input 
-                                type="number" 
-                                min={0} 
+                                type="text" 
+                                inputMode="decimal"
                                 disabled={!item.discount_type} 
-                                value={item.discount_value === 0 ? '' : item.discount_value} 
+                                value={item.discount_value === 0 || item.discount_value === '' || item.discount_value === null || item.discount_value === undefined ? '' : item.discount_value} 
                                 onChange={(e) => {
-                                    const val = e.target.value === '' ? 0 : Number(e.target.value);
-                                    patch('discount_value', val);
+                                    let valStr = e.target.value.replace(',', '.');
+                                    // Hanya izinkan angka dan maksimal satu titik desimal
+                                    if (valStr === '' || /^[0-9]*\.?[0-9]*$/.test(valStr)) {
+                                        patch('discount_value', valStr);
+                                    }
                                 }} 
                                 className="h-8 text-xs font-bold" 
-                                placeholder={item.discount_type === 'persen' ? '%' : 'Rp'}
+                                placeholder={item.discount_type === 'persen' ? '%' : 'Rp / pcs'}
                             />
                         </div>
                         <div className="flex items-end justify-end">
@@ -2295,7 +2298,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                                                 {item.namesets.length} pcs — {formatRupiah(getCalculatedSubtotal(item))}
                                                                 {Number(item.discount_value) > 0 && (
                                                                     <span className="text-[10px] text-slate-400 block text-right font-normal">
-                                                                        (hemat {formatRupiah(item.discount_type === 'persen' ? (item.namesets.length * item.harga_satuan * item.discount_value / 100) : (item.namesets.length * item.discount_value))})
+                                                                        (hemat {formatRupiah(item.discount_type === 'persen' ? (item.namesets.length * Number(item.harga_satuan) * Number(item.discount_value) / 100) : (item.namesets.length * Number(item.discount_value)))})
                                                                     </span>
                                                                 )}
                                                             </span>
@@ -2326,7 +2329,7 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                                                 {item.quantity} pcs — {formatRupiah(getCalculatedSubtotal(item))}
                                                                 {Number(item.discount_value) > 0 && (
                                                                     <span className="text-[10px] text-slate-400 block text-right font-normal">
-                                                                        (hemat {formatRupiah(item.discount_type === 'persen' ? (item.quantity * item.harga_satuan * item.discount_value / 100) : (item.quantity * item.discount_value))})
+                                                                        (hemat {formatRupiah(item.discount_type === 'persen' ? (Number(item.quantity) * Number(item.harga_satuan) * Number(item.discount_value) / 100) : (Number(item.quantity) * Number(item.discount_value)))})
                                                                     </span>
                                                                 )}
                                                             </span>

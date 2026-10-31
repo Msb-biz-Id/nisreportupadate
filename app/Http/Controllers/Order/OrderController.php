@@ -2374,8 +2374,10 @@ class OrderController extends Controller
             if ($discountType === 'persen') {
                 $discountAmount = $raw * ($discountValue / 100);
             } elseif ($discountType === 'nominal') {
-                $discountAmount = $qty * $discountValue;
+                $discountAmount = $qty * (float) $discountValue;
             }
+
+            $discountAmount = min($raw, max(0, $discountAmount));
 
             $item['discount_amount'] = $discountAmount;
             $item['subtotal'] = max(0, $raw - $discountAmount);

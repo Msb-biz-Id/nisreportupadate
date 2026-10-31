@@ -17,6 +17,17 @@ class DatabaseSeeder extends Seeder
             CustomerSeeder::class,
             EkspedisiSeeder::class,
             OrderSeeder::class,
+            HcmMasterDataSeeder::class,
+            HcmUserSeeder::class,
+            HcmEmployeeSeeder::class,
+            HcmAttendanceAndLeaveSeeder::class,
+            HcmOvertimeSeeder::class,
+            HcmMealAllowanceAndRewardSeeder::class,
+            HcmRecruitmentAndDocumentSeeder::class,
+            HcmCompanyEventSeeder::class,
+            \Database\Seeders\Purchasing\PurchasingMasterOptionSeeder::class,
+            \Database\Seeders\Purchasing\PurchasingAssetCategorySeeder::class,
+            \Database\Seeders\Purchasing\PurchasingAssetSuggestionSeeder::class,
             // MultiFontTestSeeder::class,
         ]);
     }

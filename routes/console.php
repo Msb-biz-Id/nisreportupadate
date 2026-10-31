@@ -73,4 +73,14 @@ Schedule::command('invoice:audit-sync --fix --clean-orphans')
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/invoice-sync.log'));
 
+// Modul HCM: alert harian (probation H-7, kontrak H-60/H-30, mangkir 08:30 WIB)
+Schedule::command('hcm:daily-alerts')->dailyAt('08:30');
+
+// Modul HCM: pengingat validasi lembur mingguan (Jumat sore & Sabtu pagi)
+Schedule::command('hcm:overtime-reminder')->fridays()->at('16:00');
+Schedule::command('hcm:overtime-reminder')->saturdays()->at('08:00');
+
+// Modul HCM: pengingat agenda/event (H-N, H-1, Hari-H) + generate event tahunan berulang
+Schedule::command('hcm:event-reminders')->dailyAt('07:00');
+
 

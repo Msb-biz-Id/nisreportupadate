@@ -1,0 +1,374 @@
+<?php
+
+namespace App\Http\Controllers\Hcm;
+
+use App\Http\Controllers\Controller;
+use App\Models\Settings\SystemSetting;
+use App\Services\ActivityLogger;
+use App\Support\UrlHelper;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class HcmSettingController extends Controller
+{
+    /**
+     * Memastikan user memiliki izin akses pengaturan HCM.
+     */
+    protected function authorizeAccess(): void
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        $allowed = $user?->is_superadmin 
+            || \Illuminate\Support\Facades\Gate::allows('hcm.manage-settings') 
+            || ($user && method_exists($user, 'hasRole') && $user->hasRole(['superadmin', 'admin_hcm']));
+
+        if (! $allowed) {
+            abort(403, 'Akses ditolak: Anda tidak memiliki otoritas untuk mengakses Pengaturan Kepegawaian (HCM).');
+        }
+    }
+
+    /**
+     * Halaman Utama Pengaturan HCM (Profil Divisi, Kop Surat Resmi, TTD Digital, Lembur Dinamis, & Uang Makan).
+     */
+    public function index(Request $request): Response
+    {
+        $this->authorizeAccess();
+
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $publicDisk */
+        $publicDisk = Storage::disk('public');
+        
+        $logo = SystemSetting::get('hcm_profile', 'logo');
+        $logoUrl = $logo ? UrlHelper::clean($publicDisk->url($logo), $request) : null;
+
+        $signature = SystemSetting::get('hcm_profile', 'signature');
+        $signatureUrl = $signature ? UrlHelper::clean($publicDisk->url($signature), $request) : null;
+
+        $stamp = SystemSetting::get('hcm_profile', 'stamp');
+        $stampUrl = $stamp ? UrlHelper::clean($publicDisk->url($stamp), $request) : null;
+
+        return Inertia::render('Hcm/Settings/Index', [
+            'profile' => [
+                'company_name' => SystemSetting::get('hcm_profile', 'company_name', config('app.name', 'NISGroup')),
+                'division_name' => SystemSetting::get('hcm_profile', 'division_name', 'Divisi Human Capital Management'),
+                'company_tagline' => SystemSetting::get('hcm_profile', 'company_tagline', 'People, Culture & Organizational Development'),
+                'company_address' => SystemSetting::get('hcm_profile', 'company_address', 'Klaten, Jawa Tengah'),
+                'company_city' => SystemSetting::get('hcm_profile', 'company_city', 'Klaten'),
+                'company_email' => SystemSetting::get('hcm_profile', 'company_email', 'hrd@nisgroup.co.id'),
+                'company_phone' => SystemSetting::get('hcm_profile', 'company_phone', '0812-3456-7890'),
+                'company_website' => SystemSetting::get('hcm_profile', 'company_website', 'https://nisgroup.co.id'),
+                'company_socials' => SystemSetting::get('hcm_profile', 'company_socials', '@nisgroup.apparel'),
+                'logo' => $logo,
+                'logo_url' => $logoUrl,
+                'kop_header_line1' => SystemSetting::get('hcm_profile', 'kop_header_line1', 'DIVISI HUMAN CAPITAL & MANAJEMEN OPERASIONAL'),
+                'kop_header_line2' => SystemSetting::get('hcm_profile', 'kop_header_line2', 'No. Izin KBLI 14111 / 14120 - Manajemen SDM Terpadu'),
+                'document_footer_text' => SystemSetting::get('hcm_profile', 'document_footer_text', 'Dokumen resmi diterbitkan otomatis oleh Sistem Kepegawaian terintegrasi.'),
+                'document_footer_disclaimer' => SystemSetting::get('hcm_profile', 'document_footer_disclaimer', 'Keabsahan dokumen dapat diverifikasi langsung melalui portal HCM atau QR code tertera.'),
+                
+                // Pejabat Penandatangan Resmi (Automatic Signer) & Tanda Tangan Digital
+                'signer_name' => SystemSetting::get('hcm_profile', 'signer_name', 'Ahmad Fauzi, S.Psi., CHRP'),
+                'signer_role' => SystemSetting::get('hcm_profile', 'signer_role', 'Head of Human Capital Management'),
+                'signer_nik' => SystemSetting::get('hcm_profile', 'signer_nik', 'HCM-2021-001'),
+                'show_signature_on_pdf' => (bool) SystemSetting::get('hcm_profile', 'show_signature_on_pdf', true),
+                'show_stamp_on_pdf' => (bool) SystemSetting::get('hcm_profile', 'show_stamp_on_pdf', true),
+                'signature' => $signature,
+                'signature_url' => $signatureUrl,
+                'stamp' => $stamp,
+                'stamp_url' => $stampUrl,
+            ],
+            'overtime' => [
+                'weekday_hourly_rate' => (float) SystemSetting::get('hcm_overtime', 'weekday_hourly_rate', 10000),
+                'weekday_first_half_rate' => (float) SystemSetting::get('hcm_overtime', 'weekday_first_half_rate', 5000),
+                'weekend_hourly_rate' => (float) SystemSetting::get('hcm_overtime', 'weekend_hourly_rate', 15000),
+                'weekend_first_half_rate' => (float) SystemSetting::get('hcm_overtime', 'weekend_first_half_rate', 10000),
+                'coa_code' => (string) SystemSetting::get('hcm_overtime', 'coa_code', '5-50100'),
+                'coa_name' => (string) SystemSetting::get('hcm_overtime', 'coa_name', 'Beban Upah Lembur Karyawan Pabrik'),
+            ],
+            'meal_allowance' => [
+                'monthly_rate' => (float) SystemSetting::get('hcm_meal_allowance', 'monthly_rate', 280000),
+                'alpha_deduction_rate' => (float) SystemSetting::get('hcm_meal_allowance', 'alpha_deduction_rate', 14000),
+                'half_day_deduction_rate' => (float) SystemSetting::get('hcm_meal_allowance', 'half_day_deduction_rate', 7000),
+                'max_late_tolerance' => (int) SystemSetting::get('hcm_meal_allowance', 'max_late_tolerance', 3),
+                'max_permit_bonus_limit' => (int) SystemSetting::get('hcm_meal_allowance', 'max_permit_bonus_limit', 2),
+                'coa_code' => (string) SystemSetting::get('hcm_meal_allowance', 'coa_code', '5-50200'),
+                'coa_name' => (string) SystemSetting::get('hcm_meal_allowance', 'coa_name', 'Beban Uang Makan Karyawan Pabrik'),
+            ],
+            'payroll' => [
+                'cutoff_day' => (int) SystemSetting::get('hcm_payroll', 'cutoff_day', 25),
+                'auto_send_slip_email' => (bool) SystemSetting::get('hcm_payroll', 'auto_send_slip_email', false),
+                'slip_email_delay_minutes' => (int) SystemSetting::get('hcm_payroll', 'slip_email_delay_minutes', 60),
+                'send_salary_slip_email' => (bool) SystemSetting::get('hcm_payroll', 'send_salary_slip_email', true),
+                'send_meal_slip_email' => (bool) SystemSetting::get('hcm_payroll', 'send_meal_slip_email', true),
+                'send_overtime_slip_email' => (bool) SystemSetting::get('hcm_payroll', 'send_overtime_slip_email', true),
+            ],
+            'storage' => [
+                'drive_sync_enabled' => (bool) SystemSetting::get('hcm_storage', 'drive_sync_enabled', false),
+                'root_folder_id' => (string) SystemSetting::get('hcm_storage', 'root_folder_id', ''),
+                'auto_unlink_local' => (bool) SystemSetting::get('hcm_storage', 'auto_unlink_local', false),
+                'has_service_account' => !empty(SystemSetting::get('hcm_storage', 'service_account_json')),
+                'service_account_email' => \App\Services\GoogleDriveClient::getCredentials()['client_email'] ?? null,
+                'project_id' => \App\Services\GoogleDriveClient::getCredentials()['project_id'] ?? null,
+            ],
+        ]);
+    }
+
+    /**
+     * Perbarui Profil Divisi, Instansi, Pejabat Penandatangan, TTD Digital & Stempel.
+     */
+    public function updateProfile(Request $request): RedirectResponse
+    {
+        $this->authorizeAccess();
+
+        $validated = $request->validate([
+            'company_name' => ['required', 'string', 'max:150'],
+            'division_name' => ['nullable', 'string', 'max:150'],
+            'company_tagline' => ['nullable', 'string', 'max:255'],
+            'company_address' => ['required', 'string', 'max:500'],
+            'company_city' => ['nullable', 'string', 'max:100'],
+            'company_email' => ['nullable', 'email', 'max:150'],
+            'company_phone' => ['nullable', 'string', 'max:50'],
+            'company_website' => ['nullable', 'string', 'max:200'],
+            'company_socials' => ['nullable', 'string', 'max:200'],
+            'kop_header_line1' => ['nullable', 'string', 'max:255'],
+            'kop_header_line2' => ['nullable', 'string', 'max:255'],
+            'document_footer_text' => ['nullable', 'string', 'max:500'],
+            'document_footer_disclaimer' => ['nullable', 'string', 'max:500'],
+            
+            // Penandatangan otomatis & TTD Digital
+            'signer_name' => ['nullable', 'string', 'max:150'],
+            'signer_role' => ['nullable', 'string', 'max:150'],
+            'signer_nik' => ['nullable', 'string', 'max:50'],
+            'show_signature_on_pdf' => ['nullable', 'boolean'],
+            'show_stamp_on_pdf' => ['nullable', 'boolean'],
+            
+            // Upload Gambar
+            'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:3072'],
+            'remove_logo' => ['nullable', 'boolean'],
+            'signature' => ['nullable', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:2048'],
+            'remove_signature' => ['nullable', 'boolean'],
+            'stamp' => ['nullable', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:2048'],
+            'remove_stamp' => ['nullable', 'boolean'],
+        ]);
+
+        SystemSetting::set('hcm_profile', 'company_name', $validated['company_name'], false, 'Nama resmi instansi/perusahaan pada kop dokumen HCM');
+        SystemSetting::set('hcm_profile', 'division_name', $validated['division_name'] ?? 'Divisi Human Capital Management', false, 'Nama divisi kepegawaian HCM');
+        SystemSetting::set('hcm_profile', 'company_tagline', $validated['company_tagline'] ?? '', false, 'Tagline atau sub-identitas instansi');
+        SystemSetting::set('hcm_profile', 'company_address', $validated['company_address'], false, 'Alamat domisili instansi/pabrik pada kop dokumen');
+        SystemSetting::set('hcm_profile', 'company_city', $validated['company_city'] ?? 'Klaten', false, 'Kota domisili kantor HCM');
+        SystemSetting::set('hcm_profile', 'company_email', $validated['company_email'] ?? '', false, 'Alamat email korespondensi resmi HCM');
+        SystemSetting::set('hcm_profile', 'company_phone', $validated['company_phone'] ?? '', false, 'Nomor telepon atau hotline resmi HCM');
+        SystemSetting::set('hcm_profile', 'company_website', $validated['company_website'] ?? '', false, 'Situs web resmi perusahaan');
+        SystemSetting::set('hcm_profile', 'company_socials', $validated['company_socials'] ?? '', false, 'Akun media sosial resmi HCM');
+        SystemSetting::set('hcm_profile', 'kop_header_line1', $validated['kop_header_line1'] ?? '', false, 'Teks baris 1 header kop surat');
+        SystemSetting::set('hcm_profile', 'kop_header_line2', $validated['kop_header_line2'] ?? '', false, 'Teks baris 2 header kop surat (Izin/KBLI)');
+        SystemSetting::set('hcm_profile', 'document_footer_text', $validated['document_footer_text'] ?? '', false, 'Catatan kaki / footer dokumen resmi HCM');
+        SystemSetting::set('hcm_profile', 'document_footer_disclaimer', $validated['document_footer_disclaimer'] ?? '', false, 'Teks klausul disclaimer keabsahan dokumen HCM');
+
+        // Pengaturan Penandatangan Resmi (Automatic Signer)
+        SystemSetting::set('hcm_profile', 'signer_name', $validated['signer_name'] ?? '', false, 'Nama pejabat penandatangan dokumen resmi HCM');
+        SystemSetting::set('hcm_profile', 'signer_role', $validated['signer_role'] ?? '', false, 'Jabatan resmi penandatangan dokumen HCM');
+        SystemSetting::set('hcm_profile', 'signer_nik', $validated['signer_nik'] ?? '', false, 'NIK/NIP pejabat penandatangan');
+        SystemSetting::set('hcm_profile', 'show_signature_on_pdf', $request->boolean('show_signature_on_pdf', true), false, 'Otomatis tampilkan TTD digital pada dokumen PDF');
+        SystemSetting::set('hcm_profile', 'show_stamp_on_pdf', $request->boolean('show_stamp_on_pdf', true), false, 'Otomatis tampilkan cap/stempel resmi pada dokumen PDF');
+
+        // Sinkronkan juga ke general company address agar modul lain tetap konsisten
+        SystemSetting::set('company', 'address', $validated['company_address'], false, 'Alamat perusahaan terpadu');
+
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $publicDisk */
+        $publicDisk = Storage::disk('public');
+
+        // 1. Penanganan Logo
+        if ($request->boolean('remove_logo')) {
+            $oldLogo = SystemSetting::get('hcm_profile', 'logo');
+            if ($oldLogo && $publicDisk->exists($oldLogo)) {
+                $publicDisk->delete($oldLogo);
+            }
+            SystemSetting::set('hcm_profile', 'logo', null, false, 'Logo resmi kop dokumen HCM');
+        } elseif ($request->hasFile('logo')) {
+            $path = $request->file('logo')->store('hcm/logos', 'public');
+            SystemSetting::set('hcm_profile', 'logo', $path, false, 'Logo resmi kop dokumen HCM');
+        }
+
+        // 2. Penanganan Tanda Tangan Digital (Signature)
+        if ($request->boolean('remove_signature')) {
+            $oldSig = SystemSetting::get('hcm_profile', 'signature');
+            if ($oldSig && $publicDisk->exists($oldSig)) {
+                $publicDisk->delete($oldSig);
+            }
+            SystemSetting::set('hcm_profile', 'signature', null, false, 'Tanda tangan digital pejabat HCM');
+        } elseif ($request->hasFile('signature')) {
+            $path = $request->file('signature')->store('hcm/signatures', 'public');
+            SystemSetting::set('hcm_profile', 'signature', $path, false, 'Tanda tangan digital pejabat HCM');
+        }
+
+        // 3. Penanganan Stempel / Cap Resmi (Stamp)
+        if ($request->boolean('remove_stamp')) {
+            $oldStamp = SystemSetting::get('hcm_profile', 'stamp');
+            if ($oldStamp && $publicDisk->exists($oldStamp)) {
+                $publicDisk->delete($oldStamp);
+            }
+            SystemSetting::set('hcm_profile', 'stamp', null, false, 'Stempel cap resmi divisi HCM');
+        } elseif ($request->hasFile('stamp')) {
+            $path = $request->file('stamp')->store('hcm/stamps', 'public');
+            SystemSetting::set('hcm_profile', 'stamp', $path, false, 'Stempel cap resmi divisi HCM');
+        }
+
+        ActivityLogger::log('update', 'hcm', null, 'Memperbarui profil divisi, penandatangan resmi, TTD digital, kop surat, dan stempel dokumen HCM.');
+
+        return back()->with('success', 'Profil divisi, penandatangan resmi, TTD digital, stempel, dan kop surat HCM berhasil disimpan.');
+    }
+
+    /**
+     * Perbarui Konfigurasi Tarif Lembur Dinamis & Akun COA Akuntansi.
+     */
+    public function updateOvertime(Request $request): RedirectResponse
+    {
+        $this->authorizeAccess();
+
+        $validated = $request->validate([
+            'weekday_hourly_rate' => ['required', 'numeric', 'min:0'],
+            'weekday_first_half_rate' => ['required', 'numeric', 'min:0'],
+            'weekend_hourly_rate' => ['required', 'numeric', 'min:0'],
+            'weekend_first_half_rate' => ['required', 'numeric', 'min:0'],
+            'coa_code' => ['required', 'string', 'max:50'],
+            'coa_name' => ['nullable', 'string', 'max:150'],
+        ]);
+
+        SystemSetting::set('hcm_overtime', 'weekday_hourly_rate', (string) $validated['weekday_hourly_rate'], false, 'Tarif dasar lembur hari kerja per jam');
+        SystemSetting::set('hcm_overtime', 'weekday_first_half_rate', (string) $validated['weekday_first_half_rate'], false, 'Tarif 30 menit pertama lembur hari kerja');
+        SystemSetting::set('hcm_overtime', 'weekend_hourly_rate', (string) $validated['weekend_hourly_rate'], false, 'Tarif dasar lembur hari libur/weekend per jam');
+        SystemSetting::set('hcm_overtime', 'weekend_first_half_rate', (string) $validated['weekend_first_half_rate'], false, 'Tarif 30 menit pertama lembur hari libur/weekend');
+        SystemSetting::set('hcm_overtime', 'coa_code', (string) $validated['coa_code'], false, 'Kode Akun Akuntansi / COA Beban Lembur');
+        SystemSetting::set('hcm_overtime', 'coa_name', (string) ($validated['coa_name'] ?? 'Beban Upah Lembur Karyawan Pabrik'), false, 'Nama Akun COA Beban Lembur');
+
+        ActivityLogger::log('update', 'hcm', null, 'Memperbarui konfigurasi tarif lembur dinamis dari modul Pengaturan HCM.');
+
+        return back()->with('success', 'Pengaturan tarif lembur dinamis dan akun COA akuntansi berhasil diperbarui.');
+    }
+
+    /**
+     * Perbarui Konfigurasi Uang Makan Bulanan & Batas Cut-Off Penggajian.
+     */
+    public function updateMealAllowance(Request $request): RedirectResponse
+    {
+        $this->authorizeAccess();
+
+        $validated = $request->validate([
+            'monthly_rate' => ['required', 'numeric', 'min:0'],
+            'alpha_deduction_rate' => ['required', 'numeric', 'min:0'],
+            'half_day_deduction_rate' => ['required', 'numeric', 'min:0'],
+            'max_late_tolerance' => ['required', 'integer', 'min:0'],
+            'max_permit_bonus_limit' => ['required', 'integer', 'min:0'],
+            'coa_code' => ['required', 'string', 'max:50'],
+            'coa_name' => ['nullable', 'string', 'max:150'],
+            'cutoff_day' => ['nullable', 'integer', 'between:1,31'],
+        ]);
+
+        SystemSetting::set('hcm_meal_allowance', 'monthly_rate', (string) $validated['monthly_rate'], false, 'Tarif standar uang makan per bulan');
+        SystemSetting::set('hcm_meal_allowance', 'alpha_deduction_rate', (string) $validated['alpha_deduction_rate'], false, 'Nominal potongan per hari alpha/mangkir');
+        SystemSetting::set('hcm_meal_allowance', 'half_day_deduction_rate', (string) $validated['half_day_deduction_rate'], false, 'Nominal potongan per hari setengah hari');
+        SystemSetting::set('hcm_meal_allowance', 'max_late_tolerance', (string) $validated['max_late_tolerance'], false, 'Batas toleransi keterlambatan sebelum status hold');
+        SystemSetting::set('hcm_meal_allowance', 'max_permit_bonus_limit', (string) $validated['max_permit_bonus_limit'], false, 'Batas izin pribadi sebelum pembatalan bonus');
+        SystemSetting::set('hcm_meal_allowance', 'coa_code', (string) $validated['coa_code'], false, 'Kode Akun Akuntansi / COA Beban Uang Makan');
+        SystemSetting::set('hcm_meal_allowance', 'coa_name', (string) ($validated['coa_name'] ?? 'Beban Uang Makan Karyawan Pabrik'), false, 'Nama Akun COA Uang Makan');
+
+        if (!empty($validated['cutoff_day'])) {
+            SystemSetting::set('hcm_payroll', 'cutoff_day', (string) $validated['cutoff_day'], false, 'Tanggal batas cut-off payroll bulanan');
+        }
+
+        ActivityLogger::log('update', 'hcm', null, 'Memperbarui konfigurasi uang makan dan cut-off payroll dari modul Pengaturan HCM.');
+
+        return back()->with('success', 'Pengaturan uang makan dan batas cut-off penggajian berhasil diperbarui.');
+    }
+
+    /**
+     * Perbarui Konfigurasi Distribusi Slip Otomatis & Notifikasi Email ke Karyawan.
+     */
+    public function updatePayroll(Request $request): RedirectResponse
+    {
+        $this->authorizeAccess();
+
+        $validated = $request->validate([
+            'cutoff_day' => ['required', 'integer', 'between:1,31'],
+            'auto_send_slip_email' => ['required', 'boolean'],
+            'slip_email_delay_minutes' => ['required', 'integer', 'min:0', 'max:1440'],
+            'send_salary_slip_email' => ['nullable', 'boolean'],
+            'send_meal_slip_email' => ['nullable', 'boolean'],
+            'send_overtime_slip_email' => ['nullable', 'boolean'],
+        ]);
+
+        SystemSetting::set('hcm_payroll', 'cutoff_day', (string) $validated['cutoff_day'], false, 'Tanggal batas cut-off payroll bulanan');
+        SystemSetting::set('hcm_payroll', 'auto_send_slip_email', $validated['auto_send_slip_email'] ? '1' : '0', false, 'Opsi kirim slip ke email karyawan otomatis setelah approval keuangan');
+        SystemSetting::set('hcm_payroll', 'slip_email_delay_minutes', (string) $validated['slip_email_delay_minutes'], false, 'Jeda waktu (menit) sebelum slip dikirim ke email karyawan untuk penyetoran ke BRI');
+        SystemSetting::set('hcm_payroll', 'send_salary_slip_email', $request->boolean('send_salary_slip_email') ? '1' : '0', false, 'Kirim otomatis slip gaji bulanan');
+        SystemSetting::set('hcm_payroll', 'send_meal_slip_email', $request->boolean('send_meal_slip_email') ? '1' : '0', false, 'Kirim otomatis slip uang makan bulanan');
+        SystemSetting::set('hcm_payroll', 'send_overtime_slip_email', $request->boolean('send_overtime_slip_email') ? '1' : '0', false, 'Kirim otomatis slip upah lembur');
+
+        ActivityLogger::log('update', 'hcm', null, "Memperbarui konfigurasi auto-send slip email HCM (Delay: {$validated['slip_email_delay_minutes']} menit).");
+
+        return back()->with('success', 'Pengaturan distribusi slip & notifikasi email otomatis berhasil diperbarui.');
+    }
+
+    /**
+     * Perbarui Konfigurasi Sinkronisasi Google Drive & Penyimpanan Dokumen HCM.
+     */
+    public function updateStorage(Request $request): RedirectResponse
+    {
+        $this->authorizeAccess();
+
+        $validated = $request->validate([
+            'drive_sync_enabled' => ['required', 'boolean'],
+            'root_folder_id' => ['nullable', 'string', 'max:255'],
+            'auto_unlink_local' => ['required', 'boolean'],
+            'service_account_file' => ['nullable', 'file', 'mimes:json,txt', 'max:1024'],
+            'service_account_raw' => ['nullable', 'string'],
+            'clear_service_account' => ['nullable', 'boolean'],
+        ]);
+
+        SystemSetting::set('hcm_storage', 'drive_sync_enabled', $validated['drive_sync_enabled'] ? '1' : '0', false, 'Status aktif sinkronisasi Google Drive HCM');
+        SystemSetting::set('hcm_storage', 'root_folder_id', trim($validated['root_folder_id'] ?? ''), false, 'ID Folder Utama Google Drive untuk HCM');
+        SystemSetting::set('hcm_storage', 'auto_unlink_local', $validated['auto_unlink_local'] ? '1' : '0', false, 'Opsi hapus berkas lokal setelah sinkron Google Drive');
+
+        // Reset kredensial jika diminta
+        if ($request->boolean('clear_service_account')) {
+            SystemSetting::set('hcm_storage', 'service_account_json', null, true, 'Kredensial Service Account Google Drive HCM');
+            ActivityLogger::log('update', 'hcm', null, 'Menghapus kredensial Service Account Google Drive HCM.');
+            return back()->with('success', 'Kredensial Google Drive berhasil dihapus. Sistem beralih ke penyimpanan lokal.');
+        }
+
+        // Simpan file JSON service account jika diunggah
+        $jsonContent = null;
+        if ($request->hasFile('service_account_file')) {
+            $jsonContent = file_get_contents($request->file('service_account_file')->getRealPath());
+        } elseif (!empty($validated['service_account_raw'])) {
+            $jsonContent = trim($validated['service_account_raw']);
+        }
+
+        if ($jsonContent) {
+            $decoded = json_decode($jsonContent, true);
+            if (!is_array($decoded) || empty($decoded['client_email']) || empty($decoded['private_key'])) {
+                return back()->withErrors(['service_account_file' => 'Berkas JSON tidak valid. Pastikan berisi "client_email" dan "private_key" Google Service Account.']);
+            }
+
+            SystemSetting::set('hcm_storage', 'service_account_json', json_encode($decoded), true, 'Kredensial Service Account Google Drive HCM');
+            ActivityLogger::log('update', 'hcm', null, "Memperbarui kredensial Service Account Google Drive ({$decoded['client_email']}).");
+        }
+
+        return back()->with('success', 'Pengaturan penyimpanan Google Drive HCM berhasil disimpan.');
+    }
+
+    /**
+     * Endpoint AJAX untuk menguji koneksi Google Drive secara riil.
+     */
+    public function testStorageConnection(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $this->authorizeAccess();
+
+        $result = \App\Services\GoogleDriveClient::testConnection();
+
+        return response()->json($result);
+    }
+}

@@ -9,19 +9,7 @@ $primaryColor = $invoice->brand?->warna_primary
     <meta charset="utf-8">
     <title>Invoice {{ $invoice->invoice_number }}</title>
     <style>
-        @font-face {
-            font-family: 'Inter';
-            font-style: normal;
-            font-weight: 400;
-            src: url('{{ public_path("fonts/Inter-Regular.ttf") }}') format('truetype');
-        }
 
-        @font-face {
-            font-family: 'Inter';
-            font-style: normal;
-            font-weight: 700;
-            src: url('{{ public_path("fonts/Inter-Bold.ttf") }}') format('truetype');
-        }
 
         @font-face {
             font-family: 'Noto Sans JP';
@@ -87,7 +75,7 @@ $primaryColor = $invoice->brand?->warna_primary
         }
 
         body {
-            font-family: 'Inter', 'Helvetica', 'Arial', 'DejaVu Sans', sans-serif;
+            font-family: 'Helvetica', 'Arial', 'DejaVu Sans', sans-serif;
             font-size: 8.5pt;
             line-height: 1.15;
             color: #1F2937;

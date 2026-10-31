@@ -33,3 +33,4 @@ Thumbs.db
 /storage/fonts/*.ufm.json
 /scratch
 *.zip
+~$*

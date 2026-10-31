@@ -79,7 +79,7 @@ class SystemEventNotification extends Notification implements ShouldQueue
             ->line($body);
 
         if ($actionUrl) {
-            $mailMessage->action('Buka Halaman PO', url($actionUrl));
+            $mailMessage->action($this->payload['action_label'] ?? 'Buka Halaman', url($actionUrl));
         }
 
         return $mailMessage;
@@ -133,7 +133,7 @@ class SystemEventNotification extends Notification implements ShouldQueue
         $appName = \App\Models\Settings\SystemSetting::get('seo', 'site_name', config('app.name', 'ProTrack'));
         $msg = "*[{$appName}]* {$emoji} *{$title}*\n\n{$body}";
         if ($actionUrl) {
-            $msg .= "\n\nDetail PO: " . url($actionUrl);
+            $msg .= "\n\nDetail: " . url($actionUrl);
         }
         return $msg;
     }
@@ -152,7 +152,7 @@ class SystemEventNotification extends Notification implements ShouldQueue
         $msg = "*[{$appName}]* {$emoji} *{$title}*\n\n{$body}";
         if ($actionUrl) {
             // Escapes or formats URL for MarkdownV2 if required, but standard Markdown is fine
-            $msg .= "\n\nDetail PO: [Buka Halaman](" . url($actionUrl) . ")";
+            $msg .= "\n\nDetail: [Buka Halaman](" . url($actionUrl) . ")";
         }
         return $msg;
     }
@@ -198,7 +198,16 @@ class SystemEventNotification extends Notification implements ShouldQueue
             'order_unlocked' => 'PO Berhasil Di-unlock',
             'relock_requested' => 'Permohonan Re-lock PO Diajukan',
             'order_locked' => 'PO Berhasil Di-lock',
-            default => 'Notifikasi Sistem',
+            // Modul Kepegawaian (HCM)
+            'hcm_probation_warning' => 'Evaluasi Probation Karyawan',
+            'hcm_contract_expired_warning' => 'Peringatan Berakhirnya Kontrak PKWT',
+            'hcm_unexcused_absence' => 'Peringatan Mangkir (Unexcused Absence)',
+            'hcm_overtime_validation_reminder' => 'Pengingat Validasi Lembur Mingguan',
+            'hcm_overtime_ready_to_pay' => 'Rekap Lembur Siap Dicairkan',
+            'hcm_meal_allowance_ready_to_pay' => 'Rekap Uang Makan Siap Dibayarkan',
+            'hcm_payout_completed' => 'Pencairan Kas Selesai',
+            'hcm_event_reminder' => 'Pengingat Agenda / Event',
+            default => $this->payload['title'] ?? 'Notifikasi Sistem',
         };
     }
 
@@ -277,7 +286,16 @@ class SystemEventNotification extends Notification implements ShouldQueue
             'order_unlocked' => '🔓',
             'relock_requested' => '🔒',
             'order_locked' => '🔒',
-            default => '🔔',
+            // Modul Kepegawaian (HCM)
+            'hcm_probation_warning' => '⏳',
+            'hcm_contract_expired_warning' => '📄',
+            'hcm_unexcused_absence' => '🚨',
+            'hcm_overtime_validation_reminder' => '⏰',
+            'hcm_overtime_ready_to_pay' => '💸',
+            'hcm_meal_allowance_ready_to_pay' => '🍽️',
+            'hcm_payout_completed' => '✅',
+            'hcm_event_reminder' => '📅',
+            default => $this->payload['emoji'] ?? '🔔',
         };
     }
 

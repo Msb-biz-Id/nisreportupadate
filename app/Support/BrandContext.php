@@ -96,6 +96,10 @@ class BrandContext
 
     public static function current(Request $request): ?string
     {
+        if (! $request->hasSession()) {
+            return $request->user()?->last_brand_id;
+        }
+
         $fromSession = $request->session()->get(self::SESSION_KEY);
         if ($fromSession) {
             return $fromSession;

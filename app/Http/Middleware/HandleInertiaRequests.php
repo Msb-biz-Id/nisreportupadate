@@ -36,7 +36,7 @@ class HandleInertiaRequests extends Middleware
                 $user->getAllPermissions()->pluck('name')->all()
             );
 
-            $canSeeAllGlobalBrands = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi']);
+            $canSeeAllGlobalBrands = $user->isSuperadmin() || $user->hasRole(['owner', 'supervisor', 'admin_keuangan', 'admin_produksi', 'admin_hcm', 'staff_hcm']);
             $nameCol = 'nama_brand';
 
             $cacheKey = $canSeeAllGlobalBrands ? 'global_available_brands' : "user_available_brands:{$user->id}";
