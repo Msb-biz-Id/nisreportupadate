@@ -172,7 +172,7 @@
 
   @page {
     size: A4 portrait;
-    margin: 24px 0 34px 0;
+    margin: 24px 28px 34px 28px;
   }
   @page :first {
     margin-top: 0;
@@ -193,7 +193,7 @@
   .header-strip { height: 5px; background-color: #a8001c; }
   .page-header { background-color: #0f172a; border-bottom: 3px solid #a8001c; }
   .ph-table { width: 100%; border-collapse: collapse; }
-  .ph-table > tbody > tr > td { padding: 15px 34px; vertical-align: middle; }
+  .ph-table > tbody > tr > td { padding: 15px 0; vertical-align: middle; }
   .brand-logo-box {
     width: 42px; height: 42px; background-color: #ffffff; color: #a8001c;
     font-size: 18px; font-weight: 700; text-align: center; line-height: 42px;
@@ -212,7 +212,7 @@
   }
 
   /* ================= LAYOUT ================= */
-  .container { padding: 20px 34px 8px 34px; }
+  .container { padding: 20px 0 8px 0; }
 
   /* ================= PROFILE HERO ================= */
   .profile { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
@@ -321,9 +321,9 @@
   .sign-role { font-size: 8px; color: #94a3b8; margin-top: 2px; }
 
   /* ================= RUNNING FOOTER ================= */
-  .footer { position: fixed; bottom: -34px; left: 0; right: 0; height: 30px; background-color: #0f172a; border-top: 2px solid #a8001c; }
+  .footer { position: fixed; bottom: -34px; left: -28px; right: -28px; height: 30px; background-color: #0f172a; border-top: 2px solid #a8001c; }
   .footer-table { width: 100%; border-collapse: collapse; }
-  .footer-table td { padding: 8px 34px; font-size: 7.5px; color: #94a3b8; vertical-align: middle; }
+  .footer-table td { padding: 8px 28px; font-size: 7.5px; color: #94a3b8; vertical-align: middle; }
   .fuel { color: #7dd3fc; }
   .page-no::before { content: "HAL " counter(page); }
 </style>

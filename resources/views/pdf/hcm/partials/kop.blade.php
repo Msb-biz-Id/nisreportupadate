@@ -23,9 +23,9 @@
             </td>
 
             {{-- IDENTITAS RESMI LEMBAGA & DIVISI (TENGAH SIMETRIS 100%) --}}
-            <td style="vertical-align: middle; text-align: center; padding: 0 6px;">
+            <td style="vertical-align: middle; text-align: center; padding: 0 8px; word-break: break-word; overflow-wrap: break-word;">
                 {{-- NAMA PERUSAHAAN / HOLDING (12.5pt BOLD) --}}
-                <div style="font-family: 'Inter', Arial, sans-serif; font-size: 12.5pt; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 0.8px; line-height: 1.2; margin-bottom: 2px;">
+                <div style="font-family: 'Inter', Arial, sans-serif; font-size: 12.5pt; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 0.8px; line-height: 1.2; margin-bottom: 2px; word-break: break-word; overflow-wrap: break-word;">
                     {{ $p['company_name'] }}
                 </div>
 

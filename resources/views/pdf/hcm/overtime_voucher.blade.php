@@ -7,7 +7,7 @@
         @font-face { font-family: 'Inter'; font-weight: 400; src: url('{{ public_path("fonts/Inter-Regular.ttf") }}') format('truetype'); }
         @font-face { font-family: 'Inter'; font-weight: 700; src: url('{{ public_path("fonts/Inter-Bold.ttf") }}') format('truetype'); }
 
-        @page { size: A4 portrait; margin: 24px 30px 22px 30px; }
+        @page { size: A4 portrait; margin: 24px 28px 22px 28px; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', Arial, sans-serif; font-size: 8.5pt; color: #1e293b; background: #fff; line-height: 1.4; width: 100%; }
 
