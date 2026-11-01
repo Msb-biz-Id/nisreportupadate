@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import {
     CalendarDays,
     Calendar,
@@ -527,6 +527,11 @@ export default function AttendanceIndex({
             return matchDept && matchSearch;
         });
     }, [dossierEmployees, selectedDepartment, searchTerm]);
+
+    // Baris karyawan yang detail bulanannya sedang dibuka (default: semua tertutup)
+    const [expandedDossierIds, setExpandedDossierIds] = useState({});
+    const toggleDossier = (employeeId) =>
+        setExpandedDossierIds((prev) => ({ ...prev, [employeeId]: !prev[employeeId] }));
 
     // Filtered data entri harian
     const filteredDailyRows = useMemo(() => {
@@ -1551,143 +1556,129 @@ export default function AttendanceIndex({
                             </div>
                         </div>
 
-                        {/* List Profil Dossier Multi-Bulan Tiap Karyawan */}
-                        <div className="space-y-4">
+                        {/* Ringkasan Rekap Tahunan — kompak, detail dibuka per karyawan */}
+                        <Card className="border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
                             {filteredDossierEmployees.length === 0 ? (
-                                <Card className="p-8 text-center text-zinc-400">
+                                <div className="p-8 text-center text-zinc-400">
                                     Tidak ada data rekap presensi untuk tahun {currentYear}.
-                                </Card>
+                                </div>
                             ) : (
-                                filteredDossierEmployees.map((emp) => (
-                                    <Card key={emp.employee_id} className="border-zinc-200 dark:border-zinc-800 shadow-xs overflow-hidden">
-                                        {/* Header Karyawan */}
-                                        <div className="p-3.5 bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center text-indigo-700 dark:text-indigo-300 font-bold text-xs border border-indigo-200 dark:border-indigo-800">
-                                                    {emp.name.substring(0, 2).toUpperCase()}
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
-                                                            {emp.name}
-                                                        </span>
-                                                        <Badge variant="outline" className="text-[10px] font-mono">
-                                                            {emp.employee_code}
-                                                        </Badge>
-                                                    </div>
-                                                    <span className="text-xs text-zinc-500">
-                                                        {emp.department} &bull; {emp.division || '-'}
-                                                    </span>
-                                                </div>
-                                            </div>
+                                <div className="overflow-x-auto scrollbar-thin">
+                                    <table className="w-full text-left text-xs border-collapse">
+                                        <thead>
+                                            <tr className="bg-zinc-100/60 dark:bg-zinc-800/40 text-zinc-600 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800 text-[11px] uppercase tracking-wider">
+                                                <th className="p-2.5 font-bold">Karyawan</th>
+                                                <th className="p-2.5 font-bold text-center text-emerald-700 dark:text-emerald-400">Hadir</th>
+                                                <th className="p-2.5 font-bold text-center text-amber-700 dark:text-amber-400">Telat</th>
+                                                <th className="p-2.5 font-bold text-center text-sky-700 dark:text-sky-400">Izin</th>
+                                                <th className="p-2.5 font-bold text-center text-purple-700 dark:text-purple-400">Sakit</th>
+                                                <th className="p-2.5 font-bold text-center text-teal-700 dark:text-teal-400">Cuti</th>
+                                                <th className="p-2.5 font-bold text-center text-rose-700 dark:text-rose-400">Alpha</th>
+                                                <th className="p-2.5 font-bold text-center text-indigo-700 dark:text-indigo-400">% Hadir</th>
+                                                <th className="p-2.5 font-bold text-right">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                                            {filteredDossierEmployees.map((emp) => {
+                                                const isOpen = !!expandedDossierIds[emp.employee_id];
+                                                const totalWorkDays = allMonthsInYear.reduce((acc, m) => acc + m.work_days, 0);
+                                                const attendanceRate = Math.round(
+                                                    (((emp.annual_totals?.hadir || 0) + (emp.annual_totals?.terlambat || 0)) /
+                                                        Math.max(1, totalWorkDays)) *
+                                                        100
+                                                );
 
-                                            <div className="flex items-center gap-2 text-xs">
-                                                <span className="text-zinc-500">Total Kehadiran {currentYear}:</span>
-                                                <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                                                    {emp.annual_totals?.hadir + emp.annual_totals?.terlambat} Hari
-                                                </span>
-                                                <span className="text-zinc-300 dark:text-zinc-700">|</span>
-                                                <Link
-                                                    href={route('hcm.employees.pdf.dossier', emp.employee_id)}
-                                                    target="_blank"
-                                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
-                                                >
-                                                    <FileText className="h-3 w-3" />
-                                                    Buku Riwayat Karyawan (PDF)
-                                                </Link>
-                                            </div>
-                                        </div>
+                                                return (
+                                                    <Fragment key={emp.employee_id}>
+                                                        <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+                                                            <td className="p-2.5">
+                                                                <div className="flex items-center gap-2.5">
+                                                                    <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center text-indigo-700 dark:text-indigo-300 font-bold text-[10px] border border-indigo-200 dark:border-indigo-800 shrink-0">
+                                                                        {emp.name.substring(0, 2).toUpperCase()}
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <span className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">{emp.name}</span>
+                                                                            <Badge variant="outline" className="text-[9px] font-mono py-0 px-1">{emp.employee_code}</Badge>
+                                                                        </div>
+                                                                        <div className="text-[10px] text-zinc-500 truncate">{emp.department} &bull; {emp.division || '-'}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-2 text-center font-bold text-emerald-600 dark:text-emerald-400 font-mono">{emp.annual_totals?.hadir ?? 0}</td>
+                                                            <td className="p-2 text-center font-mono text-amber-600">{emp.annual_totals?.terlambat ?? 0}</td>
+                                                            <td className="p-2 text-center font-mono text-sky-600">{emp.annual_totals?.izin ?? 0}</td>
+                                                            <td className="p-2 text-center font-mono text-purple-600">{emp.annual_totals?.sakit ?? 0}</td>
+                                                            <td className="p-2 text-center font-mono text-teal-600">{emp.annual_totals?.cuti ?? 0}</td>
+                                                            <td className={`p-2 text-center font-bold font-mono ${emp.annual_totals?.alpha > 0 ? 'text-rose-600' : 'text-zinc-400'}`}>{emp.annual_totals?.alpha ?? 0}</td>
+                                                            <td className="p-2 text-center font-bold text-indigo-600 dark:text-indigo-400 font-mono">{attendanceRate}%</td>
+                                                            <td className="p-2 text-right whitespace-nowrap">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => toggleDossier(emp.employee_id)}
+                                                                    className="inline-flex items-center gap-1 rounded-md border border-zinc-200 dark:border-zinc-700 px-2 py-1 text-[10px] font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                                                >
+                                                                    {isOpen ? 'Tutup ▴' : 'Detail ▾'}
+                                                                </button>
+                                                                <Link
+                                                                    href={route('hcm.employees.pdf.dossier', emp.employee_id)}
+                                                                    target="_blank"
+                                                                    className="ml-1.5 inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                                                                >
+                                                                    PDF
+                                                                </Link>
+                                                            </td>
+                                                        </tr>
 
-                                        {/* Tabel Rekap Multi-Bulan */}
-                                        <div className="overflow-x-auto scrollbar-thin">
-                                            <table className="w-full text-left text-xs border-collapse">
-                                                <thead>
-                                                    <tr className="bg-zinc-100/60 dark:bg-zinc-800/40 text-zinc-600 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800 text-[11px] uppercase tracking-wider">
-                                                        <th className="p-2.5 font-bold">Periode Bulan</th>
-                                                        <th className="p-2.5 font-bold text-center text-emerald-700 dark:text-emerald-400">Hadir</th>
-                                                        <th className="p-2.5 font-bold text-center text-amber-700 dark:text-amber-400">Terlambat</th>
-                                                        <th className="p-2.5 font-bold text-center text-sky-700 dark:text-sky-400">Izin / Dinas</th>
-                                                        <th className="p-2.5 font-bold text-center text-purple-700 dark:text-purple-400">Sakit</th>
-                                                        <th className="p-2.5 font-bold text-center text-teal-700 dark:text-teal-400">Cuti</th>
-                                                        <th className="p-2.5 font-bold text-center text-rose-700 dark:text-rose-400">Alpha</th>
-                                                        <th className="p-2.5 font-bold text-center">Total Catatan</th>
-                                                        <th className="p-2.5 font-bold text-center text-indigo-700 dark:text-indigo-400">% Kehadiran</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                                                    {allMonthsInYear.map((mInfo) => {
-                                                        const monthData = emp.months?.[mInfo.year_month];
-                                                        const isRowCurrent = mInfo.is_current;
-                                                        return (
-                                                            <tr
-                                                                key={mInfo.year_month}
-                                                                className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors ${
-                                                                    isRowCurrent ? 'bg-indigo-50/20 dark:bg-indigo-950/10 font-medium' : ''
-                                                                }`}
-                                                            >
-                                                                <td className="p-2.5">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                                                                            {mInfo.full_label}
-                                                                        </span>
-                                                                        {isRowCurrent && (
-                                                                            <Badge variant="outline" className="text-[9px] py-0 px-1 border-indigo-400 text-indigo-600">
-                                                                                Bulan Ini
-                                                                            </Badge>
-                                                                        )}
+                                                        {isOpen && (
+                                                            <tr className="bg-zinc-50/60 dark:bg-zinc-900/40">
+                                                                <td colSpan={9} className="p-3">
+                                                                    <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-x-auto scrollbar-thin bg-white dark:bg-zinc-900">
+                                                                        <table className="w-full text-left text-xs border-collapse">
+                                                                            <thead>
+                                                                                <tr className="bg-zinc-100/60 dark:bg-zinc-800/40 text-zinc-600 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800 text-[10px] uppercase tracking-wider">
+                                                                                    <th className="p-2 font-bold">Periode Bulan</th>
+                                                                                    <th className="p-2 font-bold text-center text-emerald-700 dark:text-emerald-400">Hadir</th>
+                                                                                    <th className="p-2 font-bold text-center text-amber-700 dark:text-amber-400">Terlambat</th>
+                                                                                    <th className="p-2 font-bold text-center text-sky-700 dark:text-sky-400">Izin / Dinas</th>
+                                                                                    <th className="p-2 font-bold text-center text-purple-700 dark:text-purple-400">Sakit</th>
+                                                                                    <th className="p-2 font-bold text-center text-teal-700 dark:text-teal-400">Cuti</th>
+                                                                                    <th className="p-2 font-bold text-center text-rose-700 dark:text-rose-400">Alpha</th>
+                                                                                    <th className="p-2 font-bold text-center">Total Catatan</th>
+                                                                                    <th className="p-2 font-bold text-center text-indigo-700 dark:text-indigo-400">% Kehadiran</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                                                                                {allMonthsInYear.map((mInfo) => {
+                                                                                    const monthData = emp.months?.[mInfo.year_month];
+                                                                                    return (
+                                                                                        <tr key={mInfo.year_month} className={mInfo.is_current ? 'bg-indigo-50/20 dark:bg-indigo-950/10 font-medium' : ''}>
+                                                                                            <td className="p-2 font-semibold text-zinc-800 dark:text-zinc-200">{mInfo.full_label}</td>
+                                                                                            <td className="p-2 text-center font-mono text-emerald-600">{monthData?.hadir ?? 0}</td>
+                                                                                            <td className={`p-2 text-center font-mono ${monthData?.terlambat > 2 ? 'text-rose-600' : 'text-amber-600'}`}>{monthData?.terlambat ?? 0}</td>
+                                                                                            <td className="p-2 text-center font-mono text-sky-600">{monthData?.izin ?? 0}</td>
+                                                                                            <td className="p-2 text-center font-mono text-purple-600">{monthData?.sakit ?? 0}</td>
+                                                                                            <td className="p-2 text-center font-mono text-teal-600">{monthData?.cuti ?? 0}</td>
+                                                                                            <td className={`p-2 text-center font-mono ${monthData?.alpha > 0 ? 'text-rose-600' : 'text-zinc-400'}`}>{monthData?.alpha ?? 0}</td>
+                                                                                            <td className="p-2 text-center font-mono text-zinc-700 dark:text-zinc-300">{monthData?.total ?? 0}</td>
+                                                                                            <td className="p-2 text-center font-mono font-bold text-indigo-600">{monthData?.rate ?? 0}%</td>
+                                                                                        </tr>
+                                                                                    );
+                                                                                })}
+                                                                            </tbody>
+                                                                        </table>
                                                                     </div>
                                                                 </td>
-                                                                <td className="p-2 text-center font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                                                                    {monthData?.hadir ?? 0}
-                                                                </td>
-                                                                <td className={`p-2 text-center font-bold font-mono ${monthData?.terlambat > 2 ? 'text-rose-600' : 'text-amber-600'}`}>
-                                                                    {monthData?.terlambat ?? 0}
-                                                                </td>
-                                                                <td className="p-2 text-center text-sky-600 font-mono">
-                                                                    {monthData?.izin ?? 0}
-                                                                </td>
-                                                                <td className="p-2 text-center text-purple-600 font-mono">
-                                                                    {monthData?.sakit ?? 0}
-                                                                </td>
-                                                                <td className="p-2 text-center text-teal-600 font-mono">
-                                                                    {monthData?.cuti ?? 0}
-                                                                </td>
-                                                                <td className={`p-2 text-center font-bold font-mono ${monthData?.alpha > 0 ? 'text-rose-600' : 'text-zinc-400'}`}>
-                                                                    {monthData?.alpha ?? 0}
-                                                                </td>
-                                                                <td className="p-2 text-center font-bold text-zinc-700 dark:text-zinc-300 font-mono">
-                                                                    {monthData?.total ?? 0}
-                                                                </td>
-                                                                <td className="p-2 text-center font-bold text-indigo-600 dark:text-indigo-400 font-mono">
-                                                                    {monthData?.rate ?? 0}%
-                                                                </td>
                                                             </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                                <tfoot>
-                                                    <tr className="bg-zinc-100/80 dark:bg-zinc-800/80 font-bold border-t border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100">
-                                                        <td className="p-2.5">Total Akumulasi {currentYear}</td>
-                                                        <td className="p-2 text-center text-emerald-600 font-mono">{emp.annual_totals?.hadir}</td>
-                                                        <td className="p-2 text-center text-amber-600 font-mono">{emp.annual_totals?.terlambat}</td>
-                                                        <td className="p-2 text-center text-sky-600 font-mono">{emp.annual_totals?.izin}</td>
-                                                        <td className="p-2 text-center text-purple-600 font-mono">{emp.annual_totals?.sakit}</td>
-                                                        <td className="p-2 text-center text-teal-600 font-mono">{emp.annual_totals?.cuti}</td>
-                                                        <td className="p-2 text-center text-rose-600 font-mono">{emp.annual_totals?.alpha}</td>
-                                                        <td className="p-2 text-center font-mono">{emp.annual_totals?.total}</td>
-                                                        <td className="p-2 text-center text-indigo-600 font-mono">
-                                                            {emp.annual_totals?.total > 0
-                                                                ? Math.round(((emp.annual_totals?.hadir + emp.annual_totals?.terlambat) / Math.max(1, allMonthsInYear.reduce((acc, m) => acc + m.work_days, 0))) * 100)
-                                                                : 0}%
-                                                        </td>
-                                                    </tr>
-                                                </tfoot>
-                                            </table>
-                                        </div>
-                                    </Card>
-                                ))
+                                                        )}
+                                                    </Fragment>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
                             )}
-                        </div>
+                        </Card>
                     </div>
                 )}
 
