@@ -412,7 +412,7 @@ class HcmAttendanceController extends Controller
 
         $annualAttendances = HcmAttendance::select(
             'employee_id',
-            DB::raw("{$monthFormatExpr} as year_month"),
+            DB::raw("{$monthFormatExpr} as `year_month`"),
             DB::raw("SUM(CASE WHEN attendance_category = 'Hadir' THEN 1 ELSE 0 END) as count_hadir"),
             DB::raw("SUM(CASE WHEN attendance_category = 'Terlambat' THEN 1 ELSE 0 END) as count_terlambat"),
             DB::raw("SUM(CASE WHEN attendance_category IN ('Izin', 'Dinas Luar') THEN 1 ELSE 0 END) as count_izin"),
