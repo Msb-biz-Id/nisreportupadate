@@ -1,4 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
+import { formatDate, formatDateTime } from '@/lib/utils';
 import {
     LayoutDashboard,
     Users,
@@ -718,7 +719,7 @@ export default function HcmDashboardIndex({
                                                             </span>
                                                         </div>
                                                         <div className="text-[10px] text-zinc-500 italic mt-0.5">
-                                                            "{leave.reason}" • <span className="font-mono">Diajukan: {leave.applied_at}</span>
+                                                            "{leave.reason}" • <span className="font-mono">Diajukan: {formatDateTime(leave.applied_at)}</span>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2 self-end sm:self-center">
@@ -844,8 +845,8 @@ export default function HcmDashboardIndex({
                                                         </div>
                                                     </div>
                                                     <div className="text-right self-end sm:self-center font-mono text-[10px] text-zinc-500">
-                                                        <div>Diajukan: {item.applied_at}</div>
-                                                        <div className="text-blue-600 font-medium">s.d {item.end_date}</div>
+                                                        <div>Diajukan: {formatDateTime(item.applied_at)}</div>
+                                                        <div className="text-blue-600 font-medium">s.d {formatDate(item.end_date)}</div>
                                                     </div>
                                                 </div>
                                             ))}
@@ -907,7 +908,7 @@ export default function HcmDashboardIndex({
                                                         </div>
                                                     </div>
                                                     <Badge className="bg-amber-500 text-white font-mono text-[10px]">
-                                                        {b.is_today ? 'Hari Ini! 🎂' : `${b.days_remaining} hari lagi (${b.birth_date})`}
+                                                        {b.is_today ? 'Hari Ini! 🎂' : `${b.days_remaining} hari lagi (${formatDate(b.birth_date)})`}
                                                     </Badge>
                                                 </div>
                                             ))}
@@ -1001,7 +1002,7 @@ export default function HcmDashboardIndex({
                                                 </div>
                                                 <div className="flex flex-wrap items-center gap-2 text-[10px] text-zinc-500 font-mono">
                                                     <span>
-                                                        {ev.start_date} {ev.start_date !== ev.end_date ? `s.d ${ev.end_date}` : ''}
+                                                        {formatDate(ev.start_date)} {ev.start_date !== ev.end_date ? `s.d ${formatDate(ev.end_date)}` : ''}
                                                     </span>
                                                     {ev.start_time && <span>• Pukul {ev.start_time} WIB</span>}
                                                     {ev.location && (

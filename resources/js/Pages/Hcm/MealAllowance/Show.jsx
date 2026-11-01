@@ -1,4 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
+import { formatDate, formatDateTime } from '@/lib/utils';
 import { useState, useMemo } from 'react';
 import {
     ArrowLeft,
@@ -367,7 +368,7 @@ export default function MealAllowanceShow({ batch, settings }) {
                             <p className="text-xs sm:text-sm text-zinc-500 mt-1 flex items-center gap-2">
                                 <span>Periode: <strong>{monthNames[batch.period_month]} {batch.period_year}</strong></span>
                                 <span>•</span>
-                                <span>Rencana Bayar: <strong>{batch.payout_date}</strong></span>
+                                <span>Rencana Bayar: <strong>{formatDate(batch.payout_date)}</strong></span>
                                 <span>•</span>
                                 <span>COA: <strong className="font-mono">{batch.coa_code || settings.coa_code}</strong></span>
                             </p>
@@ -476,7 +477,7 @@ export default function MealAllowanceShow({ batch, settings }) {
                                     </div>
                                     <div className="text-[11px] text-zinc-500">
                                         {batch.hcm_signed_at
-                                            ? `Ditandatangani pada: ${batch.hcm_signed_at}`
+                                            ? `Ditandatangani pada: ${formatDateTime(batch.hcm_signed_at)}`
                                             : 'Memastikan akurasi kehadiran, izin, dan status penalti.'}
                                     </div>
                                 </div>
@@ -513,7 +514,7 @@ export default function MealAllowanceShow({ batch, settings }) {
                                     </div>
                                     <div className="text-[11px] text-zinc-500">
                                         {batch.finance_signed_at
-                                            ? `Dicatat pada: ${batch.finance_signed_at}`
+                                            ? `Dicatat pada: ${formatDateTime(batch.finance_signed_at)}`
                                             : 'Penetapan metode pembayaran (Kas/Transfer) dan jurnal kas keluar.'}
                                     </div>
                                 </div>

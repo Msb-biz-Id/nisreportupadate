@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { formatDate } from '@/lib/utils';
 import { Head, router, useForm } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import UniversalDocumentViewer from '@/Components/Hcm/UniversalDocumentViewer';
@@ -259,10 +260,10 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
                 const letter = row.original;
                 return (
                     <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                        <div>{letter.letter_date}</div>
+                        <div>{formatDate(letter.letter_date)}</div>
                         {letter.received_or_sent_date && (
                             <div className="text-[10px] text-zinc-400">
-                                Tercatat: {letter.received_or_sent_date}
+                                Tercatat: {formatDate(letter.received_or_sent_date)}
                             </div>
                         )}
                     </div>

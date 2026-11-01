@@ -1,4 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
+import { formatDate } from '@/lib/utils';
 import { useState, useEffect, useMemo } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent } from '@/Components/ui/card';
@@ -1605,7 +1606,7 @@ export default function CompensationIndex({
                                                 </Badge>
                                             </div>
                                             <div className="text-[11px] text-zinc-400 mt-0.5">
-                                                Berlaku: {h.effective_date} • Dari {rp(h.previous_salary)} $\rightarrow${' '}
+                                                Berlaku: {formatDate(h.effective_date)} • Dari {rp(h.previous_salary)} →{' '}
                                                 {rp(h.new_salary)}
                                             </div>
                                         </div>

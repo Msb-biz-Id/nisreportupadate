@@ -1,4 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
+import { formatDate } from '@/lib/utils';
 import { useState, useMemo } from 'react';
 import {
     CalendarDays,
@@ -221,8 +222,8 @@ export default function LeavesIndex({
                     const req = row.original;
                     return (
                         <div className="text-xs font-mono font-medium text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
-                            {req.start_date}
-                            {req.start_date !== req.end_date && ` s.d. ${req.end_date}`}
+                            {formatDate(req.start_date)}
+                            {req.start_date !== req.end_date && ` s.d. ${formatDate(req.end_date)}`}
                         </div>
                     );
                 },

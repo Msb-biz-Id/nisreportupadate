@@ -1,4 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
+import { formatDateTime } from '@/lib/utils';
 import { useState, useMemo } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Card, CardContent } from '@/Components/ui/card';
@@ -1052,7 +1053,7 @@ export default function SalaryDeductionIndex({
                                                         Gaji Pokok: {rp(item.base_salary_snapshot)} → Take Home: {rp(item.net_salary_snapshot)}
                                                     </div>
                                                     <div>
-                                                        Oleh: {item.creator_name} ({item.created_at})
+                                                        Oleh: {item.creator_name} ({formatDateTime(item.created_at)})
                                                     </div>
                                                 </div>
                                             </div>

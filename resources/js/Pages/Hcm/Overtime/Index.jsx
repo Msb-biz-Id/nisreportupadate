@@ -1,4 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
+import { formatDate } from '@/lib/utils';
 import { useState, useMemo } from 'react';
 import {
     Clock,
@@ -224,7 +225,7 @@ export default function OvertimeIndex({
             header: ({ column }) => <DataTableColumnHeader column={column} title="Periode Cut-Off" />,
             cell: ({ row }) => (
                 <div className="text-xs font-mono font-medium text-zinc-700 dark:text-zinc-300">
-                    {row.original.period_start} s.d. {row.original.period_end}
+                    {formatDate(row.original.period_start)} s.d. {formatDate(row.original.period_end)}
                 </div>
             ),
         },
@@ -235,7 +236,7 @@ export default function OvertimeIndex({
             header: ({ column }) => <DataTableColumnHeader column={column} title="Jadwal Cair" />,
             cell: ({ row }) => (
                 <span className="text-xs font-mono text-zinc-600 dark:text-zinc-400">
-                    {row.original.payout_date}
+                    {formatDate(row.original.payout_date)}
                 </span>
             ),
         },

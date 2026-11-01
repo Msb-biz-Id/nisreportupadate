@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { formatDate } from '@/lib/utils';
 import { Head, router, useForm } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import UniversalDocumentViewer from '@/Components/Hcm/UniversalDocumentViewer';
@@ -396,9 +397,9 @@ export default function DocumentIndex({
                 const doc = row.original;
                 return (
                     <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                        {doc.submission_date ? <div>Diajukan: {doc.submission_date}</div> : null}
+                        {doc.submission_date ? <div>Diajukan: {formatDate(doc.submission_date)}</div> : null}
                         {doc.effective_date && (
-                            <div className="text-[10px] text-zinc-400">Berlaku: {doc.effective_date}</div>
+                            <div className="text-[10px] text-zinc-400">Berlaku: {formatDate(doc.effective_date)}</div>
                         )}
                     </div>
                 );

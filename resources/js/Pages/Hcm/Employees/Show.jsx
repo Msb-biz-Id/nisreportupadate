@@ -1,4 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
+import { formatDate } from '@/lib/utils';
 import { useState } from 'react';
 import {
     ArrowLeft,
@@ -947,7 +948,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                         employee.compensation.histories.map((hist) => (
                                             <TableRow key={hist.id}>
                                                 <TableCell className="text-xs font-mono font-medium">
-                                                    {hist.effective_date}
+                                                    {formatDate(hist.effective_date)}
                                                 </TableCell>
                                                 <TableCell className="text-xs text-zinc-500">
                                                     {formatRp(hist.previous_salary)}
@@ -1157,7 +1158,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                             {employee.leave_requests.map((lr) => (
                                                 <TableRow key={lr.id}>
                                                     <TableCell className="text-xs font-medium">{lr.leave_type}</TableCell>
-                                                    <TableCell className="text-xs font-mono">{lr.start_date} s.d. {lr.end_date}</TableCell>
+                                                    <TableCell className="text-xs font-mono">{formatDate(lr.start_date)} s.d. {formatDate(lr.end_date)}</TableCell>
                                                     <TableCell className="text-xs text-center font-semibold">{lr.total_days} Hari</TableCell>
                                                     <TableCell className="text-xs text-zinc-600">{lr.reason}</TableCell>
                                                     <TableCell className="text-center">
@@ -1210,7 +1211,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                                         employee.overtimes.map((ot) => (
                                             <TableRow key={ot.id}>
                                                 <TableCell className="text-xs font-mono font-medium">
-                                                    {ot.overtime_date}
+                                                    {formatDate(ot.overtime_date)}
                                                 </TableCell>
                                                 <TableCell>
                                                     <span className="font-mono text-xs text-indigo-600 font-semibold">

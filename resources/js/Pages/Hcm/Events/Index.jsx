@@ -1,4 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
+import { formatDate } from '@/lib/utils';
 import { useState } from 'react';
 import {
     CalendarDays,
@@ -400,7 +401,7 @@ export default function HcmEventsIndex({
                                             <div className="flex items-center gap-2">
                                                 <Calendar className="w-3.5 h-3.5 text-zinc-400" />
                                                 <span className="font-mono">
-                                                    {ev.start_date} {ev.start_date !== ev.end_date ? `s.d ${ev.end_date}` : ''}
+                                                    {formatDate(ev.start_date)} {ev.start_date !== ev.end_date ? `s.d ${formatDate(ev.end_date)}` : ''}
                                                 </span>
                                             </div>
 

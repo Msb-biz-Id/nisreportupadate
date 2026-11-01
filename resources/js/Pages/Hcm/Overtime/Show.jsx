@@ -1,4 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
+import { formatDate } from '@/lib/utils';
 import { useState, useMemo } from 'react';
 import {
     ArrowLeft,
@@ -310,7 +311,7 @@ export default function OvertimeShow({
             minSize: 110,
             meta: { title: 'Tanggal', cellClassName: 'font-mono' },
             header: ({ column }) => <DataTableColumnHeader column={column} title="Tanggal" />,
-            cell: ({ row }) => <span className="text-xs font-mono">{row.original.overtime_date}</span>,
+            cell: ({ row }) => <span className="text-xs font-mono">{formatDate(row.original.overtime_date)}</span>,
         },
         {
             accessorKey: 'day_type',
@@ -467,7 +468,7 @@ export default function OvertimeShow({
                                 </Badge>
                             </div>
                             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                                Cut-Off: <span className="font-mono text-zinc-700 dark:text-zinc-300">{batch.period_start}</span> s.d. <span className="font-mono text-zinc-700 dark:text-zinc-300">{batch.period_end}</span> • Tanggal Bayar: <span className="font-mono text-zinc-700 dark:text-zinc-300">{batch.payout_date}</span>
+                                Cut-Off: <span className="font-mono text-zinc-700 dark:text-zinc-300">{formatDate(batch.period_start)}</span> s.d. <span className="font-mono text-zinc-700 dark:text-zinc-300">{formatDate(batch.period_end)}</span> • Tanggal Bayar: <span className="font-mono text-zinc-700 dark:text-zinc-300">{formatDate(batch.payout_date)}</span>
                             </p>
                         </div>
                     </div>
@@ -624,7 +625,7 @@ export default function OvertimeShow({
                                         className="text-xs bg-white dark:bg-zinc-900"
                                     />
                                     <span className="text-[10px] text-zinc-400 block">
-                                        Rentang cut-off: {batch.period_start} s.d. {batch.period_end}
+                                        Rentang cut-off: {formatDate(batch.period_start)} s.d. {formatDate(batch.period_end)}
                                     </span>
                                 </div>
 
@@ -871,7 +872,7 @@ export default function OvertimeShow({
                                 <div className="text-xs text-zinc-500">
                                     {selectedEmployeeIds.length > 0 ? (
                                         <span>
-                                            Menugaskan <strong>{selectedEmployeeIds.length} karyawan</strong> pada tanggal <strong>{itemForm.data.overtime_date}</strong> durasi <strong>{itemForm.data.duration_hours} jam</strong>.
+                                            Menugaskan <strong>{selectedEmployeeIds.length} karyawan</strong> pada tanggal <strong>{formatDate(itemForm.data.overtime_date)}</strong> durasi <strong>{itemForm.data.duration_hours} jam</strong>.
                                         </span>
                                     ) : (
                                         <span>Centang karyawan di atas untuk mengaktifkan tombol simpan penugasan.</span>
@@ -950,7 +951,7 @@ export default function OvertimeShow({
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="p-2.5 bg-zinc-50 dark:bg-zinc-800/40 rounded border border-zinc-200/60 dark:border-zinc-700">
                                     <span className="text-zinc-400 block text-[10px]">TANGGAL LEMBUR</span>
-                                    <span className="font-mono font-bold text-zinc-800 dark:text-zinc-200">{viewItemModal.item.overtime_date}</span>
+                                    <span className="font-mono font-bold text-zinc-800 dark:text-zinc-200">{formatDate(viewItemModal.item.overtime_date)}</span>
                                 </div>
                                 <div className="p-2.5 bg-zinc-50 dark:bg-zinc-800/40 rounded border border-zinc-200/60 dark:border-zinc-700">
                                     <span className="text-zinc-400 block text-[10px]">JENIS HARI</span>
