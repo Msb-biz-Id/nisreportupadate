@@ -96,7 +96,6 @@ export default function AttendanceIndex({
     const [isWaModalOpen, setIsWaModalOpen] = useState(false);
     const [waModalType, setWaModalType] = useState('daily');
     const [isBulkShiftModalOpen, setIsBulkShiftModalOpen] = useState(false);
-    const [isSetAllModalOpen, setIsSetAllModalOpen] = useState(false);
     const [cellDetailModal, setCellDetailModal] = useState({
         isOpen: false,
         employee: null,
@@ -491,20 +490,6 @@ export default function AttendanceIndex({
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [currentTab, isSavingDaily, dailyDate, dailyRows]);
-
-    const handleSetAllPresentSubmit = () => {
-        router.post(
-            route('hcm.attendance.set-all-present'),
-            {
-                date: dailyDate,
-                department: selectedDepartment,
-            },
-            {
-                preserveScroll: true,
-                onSuccess: () => setIsSetAllModalOpen(false),
-            }
-        );
-    };
 
     const handleBulkShiftSubmit = (e) => {
         e.preventDefault();
@@ -1769,16 +1754,6 @@ export default function AttendanceIndex({
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => setIsSetAllModalOpen(true)}
-                                    className="h-8 text-xs gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"
-                                >
-                                    <Check className="h-3.5 w-3.5" />
-                                    1-Klik Semua Hadir
-                                </Button>
-
-                                <Button
-                                    variant="outline"
-                                    size="sm"
                                     onClick={() => setIsBulkShiftModalOpen(true)}
                                     className="h-8 text-xs gap-1.5 border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400"
                                 >
@@ -2282,42 +2257,6 @@ export default function AttendanceIndex({
                             </Button>
                         </DialogFooter>
                     </form>
-                </DialogContent>
-            </Dialog>
-
-            {/* ========================================================================= */}
-            {/* MODAL 3: KONFIRMASI 1-KLIK SEMUA HADIR                                    */}
-            {/* ========================================================================= */}
-            <Dialog open={isSetAllModalOpen} onOpenChange={setIsSetAllModalOpen}>
-                <DialogContent className="max-w-sm">
-                    <DialogHeader>
-                        <DialogTitle className="text-base flex items-center gap-2 text-emerald-600">
-                            <Check className="h-4 w-4" />
-                            Set Seluruhnya Hadir?
-                        </DialogTitle>
-                        <DialogDescription className="text-xs">
-                            Sistem akan menandai seluruh karyawan yang belum diabsen pada tanggal <strong>{dailyDate}</strong> dengan status <strong>Hadir (08:00 - 17:00)</strong>. Karyawan yang sedang cuti atau izin resmi tidak akan tertimpa.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <DialogFooter className="gap-2 pt-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsSetAllModalOpen(false)}
-                        >
-                            Batal
-                        </Button>
-                        <Button
-                            type="button"
-                            size="sm"
-                            onClick={handleSetAllPresentSubmit}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                        >
-                            Ya, Set Semua Hadir
-                        </Button>
-                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 

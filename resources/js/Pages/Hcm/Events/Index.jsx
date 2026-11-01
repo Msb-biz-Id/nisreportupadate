@@ -1,30 +1,16 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import { formatDate } from '@/lib/utils';
-import { useState } from 'react';
-import {
-    CalendarDays,
-    Calendar,
-    Plus,
-    Search,
-    MapPin,
-    Clock,
-    Sparkles,
-    PartyPopper,
-    Edit2,
-    Trash2,
-    CheckCircle2,
-    Users,
-    Building2,
-    Flag,
-    Filter,
-} from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { CalendarDays, Plus, Edit2, Trash2 } from 'lucide-react';
+import { createColumnHelper } from '@tanstack/react-table';
 import AppLayout from '@/Layouts/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Badge } from '@/Components/ui/badge';
 import { Textarea } from '@/Components/ui/textarea';
+import { DataTable } from '@/Components/DataTable/DataTable';
+import { DataTableColumnHeader } from '@/Components/DataTable/DataTableColumnHeader';
 import {
     Dialog,
     DialogContent,
@@ -38,11 +24,9 @@ import { SearchableSelect } from '@/Components/ui/searchable-select';
 export default function HcmEventsIndex({
     events,
     filters,
-    metrics,
     eventTypes,
     today,
 }) {
-    const [search, setSearch] = useState(filters.search || '');
     const [typeFilter, setTypeFilter] = useState(filters.type || 'all');
     const [monthFilter, setMonthFilter] = useState(filters.month || 'all');
     const [yearFilter, setYearFilter] = useState(filters.year || new Date().getFullYear().toString());
@@ -79,8 +63,7 @@ export default function HcmEventsIndex({
         ...eventTypes.map((t) => ({ label: t, value: t })),
     ];
 
-    // Form Event
-    const form = useForm({
+    const emptyForm = {
         title: '',
         event_type: 'Acara Perusahaan',
         organizer_name: '',
@@ -96,44 +79,21 @@ export default function HcmEventsIndex({
         description: '',
         color_code: '#3b82f6',
         is_public: true,
-    });
+    };
 
-    const handleFilterChange = (newSearch, newType, newMonth, newYear) => {
+    const form = useForm(emptyForm);
+
+    const handleFilterChange = (newType, newMonth, newYear) => {
         router.get(
             route('hcm.events.index'),
-            {
-                search: newSearch,
-                type: newType,
-                month: newMonth,
-                year: newYear,
-            },
-            {
-                preserveState: true,
-                replace: true,
-            }
+            { type: newType, month: newMonth, year: newYear },
+            { preserveState: true, replace: true }
         );
     };
 
     const openAddModal = () => {
         setEditingEvent(null);
-        form.reset();
-        form.setData({
-            title: '',
-            event_type: 'Acara Perusahaan',
-            organizer_name: '',
-            start_date: today,
-            end_date: today,
-            start_time: '09:00',
-            end_time: '17:00',
-            location: '',
-            target_audience: 'Semua Tim',
-            reminder_days: 3,
-            is_annual_recurring: false,
-            invitation_file_url: '',
-            description: '',
-            color_code: '#3b82f6',
-            is_public: true,
-        });
+        form.reset({ ...emptyForm, start_date: today, end_date: today });
         setIsModalOpen(true);
     };
 
@@ -143,8 +103,8 @@ export default function HcmEventsIndex({
             title: ev.title,
             event_type: ev.event_type,
             organizer_name: ev.organizer_name || '',
-            start_date: ev.start_date,
-            end_date: ev.end_date,
+            start_date: (ev.start_date || '').slice(0, 10),
+            end_date: (ev.end_date || '').slice(0, 10),
             start_time: ev.start_time || '',
             end_time: ev.end_time || '',
             location: ev.location || '',
@@ -163,298 +123,221 @@ export default function HcmEventsIndex({
         e.preventDefault();
         if (editingEvent) {
             form.put(route('hcm.events.update', editingEvent.uuid || editingEvent.id), {
-                onSuccess: () => {
-                    setIsModalOpen(false);
-                    form.reset();
-                },
+                onSuccess: () => setIsModalOpen(false),
             });
         } else {
             form.post(route('hcm.events.store'), {
-                onSuccess: () => {
-                    setIsModalOpen(false);
-                    form.reset();
-                },
+                onSuccess: () => setIsModalOpen(false),
             });
         }
     };
 
     const handleDelete = (ev) => {
-        if (confirm(`Hapus kegiatan "${ev.title}" dari kalender perusahaan?`)) {
+        if (confirm(`Hapus kegiatan "${ev.title}"?`)) {
             router.delete(route('hcm.events.destroy', ev.uuid || ev.id));
         }
     };
 
-    const isUpcoming = (endDate) => endDate >= today;
+    const isUpcoming = (ev) => new Date(ev.end_date) >= new Date(today);
 
-    return (
-        <AppLayout title="Kalender & Agenda Kegiatan Perusahaan">
-            <Head title="Kalender & Agenda Kegiatan Perusahaan" />
+    const columnHelper = createColumnHelper();
 
-            <div className="space-y-6">
-                {/* 1. Header & Actions */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    const columns = useMemo(
+        () => [
+            columnHelper.display({
+                id: 'no',
+                header: '#',
+                size: 44,
+                cell: ({ row }) => (
+                    <span className="font-mono text-zinc-400">{row.index + 1}</span>
+                ),
+            }),
+            columnHelper.accessor('title', {
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Judul Kegiatan" />,
+                size: 280,
+                cell: ({ row }) => (
                     <div>
-                        <div className="flex items-center gap-2">
-                            <div className="p-2 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400">
-                                <CalendarDays className="w-6 h-6" />
-                            </div>
-                            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                                Kalender & Agenda Perusahaan
-                            </h1>
+                        <div className="flex items-center gap-1.5 font-semibold text-zinc-900 dark:text-zinc-100">
+                            {row.original.title}
+                            {row.original.is_annual_recurring && (
+                                <Badge variant="outline" className="text-[10px]">Tahunan</Badge>
+                            )}
                         </div>
-                        <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-                            Pencatatan kegiatan korporat, gathering, rapat internal, pelatihan, dan hari libur nasional.
-                        </p>
+                        {row.original.description && (
+                            <div className="text-[11px] text-zinc-500 line-clamp-1">{row.original.description}</div>
+                        )}
                     </div>
-
-                    <div className="flex items-center gap-2">
+                ),
+            }),
+            columnHelper.accessor('event_type', {
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Kategori" />,
+                size: 150,
+                cell: ({ row }) => (
+                    <Badge
+                        variant="outline"
+                        className="text-[10px] font-semibold"
+                        style={{ borderColor: row.original.color_code, color: row.original.color_code }}
+                    >
+                        {row.original.event_type}
+                    </Badge>
+                ),
+            }),
+            columnHelper.accessor('start_date', {
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Tanggal & Waktu" />,
+                size: 180,
+                cell: ({ row }) => (
+                    <div className="font-mono text-xs">
+                        {formatDate(row.original.start_date)}
+                        {row.original.start_date !== row.original.end_date && ` – ${formatDate(row.original.end_date)}`}
+                        {row.original.start_time && (
+                            <div className="text-[10px] text-zinc-400">
+                                {row.original.start_time}{row.original.end_time ? ` – ${row.original.end_time}` : ''} WIB
+                            </div>
+                        )}
+                    </div>
+                ),
+            }),
+            columnHelper.accessor('location', {
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Lokasi" />,
+                size: 150,
+                cell: ({ getValue }) => <span className="truncate">{getValue() || '-'}</span>,
+            }),
+            columnHelper.accessor('organizer_name', {
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Penyelenggara" />,
+                size: 150,
+                cell: ({ row }) => (
+                    <span className="truncate">{row.original.organizer_name || row.original.creator?.name || '-'}</span>
+                ),
+            }),
+            columnHelper.display({
+                id: 'status',
+                header: 'Status',
+                size: 100,
+                cell: ({ row }) =>
+                    isUpcoming(row.original) ? (
+                        <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px]">
+                            Mendatang
+                        </Badge>
+                    ) : (
+                        <Badge variant="secondary" className="text-[10px]">Selesai</Badge>
+                    ),
+            }),
+            columnHelper.display({
+                id: 'actions',
+                header: () => <span className="sr-only">Aksi</span>,
+                size: 88,
+                meta: { pinned: 'right' },
+                cell: ({ row }) => (
+                    <div className="flex items-center justify-end gap-1">
                         <Button
-                            onClick={openAddModal}
-                            className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-xs font-semibold shadow-sm"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-zinc-400 hover:text-blue-600"
+                            onClick={() => openEditModal(row.original)}
                         >
-                            <Plus className="w-4 h-4" />
-                            Tambah Kegiatan Baru
+                            <Edit2 className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-zinc-400 hover:text-rose-600"
+                            onClick={() => handleDelete(row.original)}
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                     </div>
-                </div>
+                ),
+            }),
+        ],
+        [today]
+    );
 
-                {/* 2. KPI Metrics Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm">
-                        <CardContent className="p-4 flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600">
-                                <CalendarDays className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <div className="text-xs text-zinc-500">Total Agenda</div>
-                                <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100 font-mono">
-                                    {metrics.total_events} Acara
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+    return (
+        <AppLayout title="Agenda Kegiatan Perusahaan">
+            <Head title="Agenda Kegiatan Perusahaan" />
 
-                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm">
-                        <CardContent className="p-4 flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600">
-                                <Sparkles className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <div className="text-xs text-zinc-500">Agenda Mendatang</div>
-                                <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                                    {metrics.upcoming_events} Acara
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm">
-                        <CardContent className="p-4 flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-600">
-                                <CheckCircle2 className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <div className="text-xs text-zinc-500">Telah Selesai</div>
-                                <div className="text-xl font-bold text-zinc-700 dark:text-zinc-300 font-mono">
-                                    {metrics.completed_events} Acara
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm">
-                        <CardContent className="p-4 flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600">
-                                <Flag className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <div className="text-xs text-zinc-500">Libur Nasional ({currentYear})</div>
-                                <div className="text-xl font-bold text-rose-600 dark:text-rose-400 font-mono">
-                                    {metrics.national_holidays} Hari
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* 3. Filter Toolbar */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-                        <div className="relative w-full sm:w-64">
-                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                            <Input
-                                placeholder="Cari kegiatan / tempat..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        handleFilterChange(search, typeFilter, monthFilter, yearFilter);
-                                    }
-                                }}
-                                className="pl-9 text-xs h-9"
-                            />
+            <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400">
+                            <CalendarDays className="w-5 h-5" />
                         </div>
-
-                        <div className="w-full sm:w-40">
-                            <SearchableSelect
-                                value={monthFilter}
-                                onValueChange={(val) => {
-                                    setMonthFilter(val);
-                                    handleFilterChange(search, typeFilter, val, yearFilter);
-                                }}
-                                options={months}
-                                placeholder="Pilih Bulan"
-                                className="h-9 text-xs"
-                            />
-                        </div>
-
-                        <div className="w-full sm:w-36">
-                            <SearchableSelect
-                                value={yearFilter}
-                                onValueChange={(val) => {
-                                    setYearFilter(val);
-                                    handleFilterChange(search, typeFilter, monthFilter, val);
-                                }}
-                                options={yearOptions}
-                                placeholder="Pilih Tahun"
-                                className="h-9 text-xs"
-                            />
-                        </div>
-
-                        <div className="w-full sm:w-52">
-                            <SearchableSelect
-                                value={typeFilter}
-                                onValueChange={(val) => {
-                                    setTypeFilter(val);
-                                    handleFilterChange(search, val, monthFilter, yearFilter);
-                                }}
-                                options={typeOptions}
-                                placeholder="Kategori Acara"
-                                className="h-9 text-xs"
-                            />
+                        <div>
+                            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                                Agenda Kegiatan Perusahaan
+                            </h1>
+                            <p className="text-xs text-zinc-500">
+                                Kegiatan korporat, gathering, rapat internal, pelatihan, dan hari libur nasional.
+                            </p>
                         </div>
                     </div>
 
-                    <div className="text-xs text-zinc-500 self-end sm:self-center">
-                        Total {events.length} agenda ditemukan
-                    </div>
+                    <Button
+                        onClick={openAddModal}
+                        className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-xs font-semibold shadow-sm"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Tambah Kegiatan
+                    </Button>
                 </div>
 
-                {/* 4. Timeline / Card Grid Agenda Acara */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {events && events.length > 0 ? (
-                        events.map((ev) => {
-                            const active = isUpcoming(ev.end_date);
-                            return (
-                                <Card
-                                    key={ev.id}
-                                    className={`border bg-white dark:bg-zinc-900 shadow-sm transition hover:shadow-md overflow-hidden flex flex-col justify-between ${
-                                        active
-                                            ? 'border-zinc-200 dark:border-zinc-800'
-                                            : 'border-zinc-200/60 dark:border-zinc-800/60 opacity-80'
-                                    }`}
-                                >
-                                    <div className="p-4 space-y-3">
-                                        <div className="flex items-start justify-between gap-2">
-                                            <Badge
-                                                variant="outline"
-                                                className="text-[11px] font-semibold"
-                                                style={{ borderColor: ev.color_code, color: ev.color_code }}
-                                            >
-                                                {ev.event_type}
-                                            </Badge>
-                                            <div className="flex items-center gap-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-7 w-7 text-zinc-400 hover:text-blue-600"
-                                                    onClick={() => openEditModal(ev)}
-                                                >
-                                                    <Edit2 className="w-3.5 h-3.5" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-7 w-7 text-zinc-400 hover:text-rose-600"
-                                                    onClick={() => handleDelete(ev)}
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                </Button>
-                                            </div>
-                                        </div>
+                <DataTable
+                    columns={columns}
+                    data={events || []}
+                    searchPlaceholder="Cari kegiatan / lokasi / deskripsi..."
+                    exportFileName="Agenda_Kegiatan_Perusahaan"
+                    emptyMessage="Tidak ada agenda kegiatan yang cocok dengan kriteria filter."
+                    filterSlot={
+                        <>
+                            <div className="w-52">
+                                <SearchableSelect
+                                    value={typeFilter}
+                                    onValueChange={(val) => {
+                                        setTypeFilter(val);
+                                        handleFilterChange(val, monthFilter, yearFilter);
+                                    }}
+                                    options={typeOptions}
+                                    placeholder="Kategori Acara"
+                                    className="h-9 text-xs"
+                                />
+                            </div>
+                            <div className="w-40">
+                                <SearchableSelect
+                                    value={monthFilter}
+                                    onValueChange={(val) => {
+                                        setMonthFilter(val);
+                                        handleFilterChange(typeFilter, val, yearFilter);
+                                    }}
+                                    options={months}
+                                    placeholder="Bulan"
+                                    className="h-9 text-xs"
+                                />
+                            </div>
+                            <div className="w-36">
+                                <SearchableSelect
+                                    value={yearFilter}
+                                    onValueChange={(val) => {
+                                        setYearFilter(val);
+                                        handleFilterChange(typeFilter, monthFilter, val);
+                                    }}
+                                    options={yearOptions}
+                                    placeholder="Tahun"
+                                    className="h-9 text-xs"
+                                />
+                            </div>
+                        </>
+                    }
+                />
 
-                                        <div>
-                                            <h3
-                                                className="font-bold text-sm sm:text-base leading-snug"
-                                                style={{ color: ev.color_code || '#18181b' }}
-                                            >
-                                                {ev.title}
-                                            </h3>
-                                            {ev.description && (
-                                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
-                                                    {ev.description}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-1.5 pt-2 border-t border-zinc-100 dark:border-zinc-800 text-xs text-zinc-600 dark:text-zinc-400">
-                                            <div className="flex items-center gap-2">
-                                                <Calendar className="w-3.5 h-3.5 text-zinc-400" />
-                                                <span className="font-mono">
-                                                    {formatDate(ev.start_date)} {ev.start_date !== ev.end_date ? `s.d ${formatDate(ev.end_date)}` : ''}
-                                                </span>
-                                            </div>
-
-                                            {ev.start_time && (
-                                                <div className="flex items-center gap-2">
-                                                    <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                                                    <span className="font-mono">
-                                                        {ev.start_time} {ev.end_time ? `- ${ev.end_time}` : 'WIB'}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            {ev.location && (
-                                                <div className="flex items-center gap-2">
-                                                    <MapPin className="w-3.5 h-3.5 text-zinc-400" />
-                                                    <span className="truncate">{ev.location}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="px-4 py-2.5 bg-zinc-50 dark:bg-zinc-850/50 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-400">
-                                        <span>Dibuat oleh: {ev.creator?.name || 'HCM'}</span>
-                                        <span>
-                                            {active ? (
-                                                <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px]">
-                                                    Mendatang
-                                                </Badge>
-                                            ) : (
-                                                <span className="text-zinc-400">Selesai</span>
-                                            )}
-                                        </span>
-                                    </div>
-                                </Card>
-                            );
-                        })
-                    ) : (
-                        <div className="col-span-full py-12 text-center text-zinc-400 text-xs bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800">
-                            Tidak ada agenda kegiatan yang cocok dengan kriteria filter.
-                        </div>
-                    )}
-                </div>
-
-                {/* 5. Modal Tambah / Edit Acara */}
                 <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                     <DialogContent className="sm:max-w-md">
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-2 text-base font-bold">
                                 <CalendarDays className="w-5 h-5 text-blue-600" />
-                                {editingEvent ? 'Edit Agenda Acara Perusahaan' : 'Tambah Agenda Acara Baru'}
+                                {editingEvent ? 'Edit Agenda Acara' : 'Tambah Agenda Acara'}
                             </DialogTitle>
                             <DialogDescription className="text-xs">
-                                Masukkan rincian kegiatan ke kalender kegiatan perusahaan.
+                                Masukkan rincian kegiatan ke kalender perusahaan.
                             </DialogDescription>
                         </DialogHeader>
 

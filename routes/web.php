@@ -342,9 +342,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/export-monthly', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'exportMonthly'])->name('export-monthly');
             Route::get('/export-daily', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'exportDaily'])->name('export-daily');
             Route::get('/wa-summary', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'waSummary'])->name('wa-summary');
-            Route::post('/batch', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'batchStore'])->name('batch-store');
-            Route::post('/set-all-present', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'setAllPresent'])->name('set-all-present');
-            Route::post('/set-bulk', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'setBulkAttendance'])->name('set-bulk');
+    Route::post('/batch', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'batchStore'])->name('batch-store');
+    Route::post('/set-bulk', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'setBulkAttendance'])->name('set-bulk');
             Route::post('/single-update', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'singleUpdate'])->name('single-update');
 
             // Izin Keluar Kantor (Gate Pass)
