@@ -260,7 +260,7 @@ class HcmPdfController extends Controller
         $item->load([
             'payroll.hcmSigner:id,name',
             'payroll.financeSigner:id,name',
-            'employee:id,name,employee_code,department,division,employment_status,legal_entity,bank_name,bank_account_no,bank_account_name,join_date,original_join_date',
+            'employee:id,name,employee_code,department,division,employment_status,legal_entity,bank_name,bank_account_no,join_date,original_join_date',
         ]);
 
         $payroll = $item->payroll;
@@ -305,7 +305,7 @@ class HcmPdfController extends Controller
         $item = HcmPayrollItem::with([
             'payroll.hcmSigner:id,name',
             'payroll.financeSigner:id,name',
-            'employee:id,name,employee_code,department,division,employment_status,legal_entity,bank_name,bank_account_no,bank_account_name,join_date,original_join_date',
+            'employee:id,name,employee_code,department,division,employment_status,legal_entity,bank_name,bank_account_no,join_date,original_join_date',
         ])->where('slip_token', $token)->firstOrFail();
 
         $payroll = $item->payroll;
@@ -442,7 +442,7 @@ class HcmPdfController extends Controller
         $item = HcmMealAllowanceItem::with([
             'batch.hcmSigner:id,name',
             'batch.financeSigner:id,name',
-            'employee:id,name,employee_code,department,division,employment_status,bank_name,bank_account_no,bank_account_name',
+            'employee:id,name,employee_code,department,division,employment_status,bank_name,bank_account_no',
         ])->where('uuid', $uuid)->firstOrFail();
 
         $pdf = self::generateMealSlipPdf($item);
@@ -492,7 +492,7 @@ class HcmPdfController extends Controller
         $item->loadMissing([
             'batch.hcmSigner:id,name',
             'batch.financeSigner:id,name',
-            'employee:id,name,employee_code,department,division,employment_status,bank_name,bank_account_no,bank_account_name',
+            'employee:id,name,employee_code,department,division,employment_status,bank_name,bank_account_no',
         ]);
 
         $batch = $item->batch;
@@ -564,7 +564,7 @@ class HcmPdfController extends Controller
         $item->loadMissing([
             'payroll.hcmSigner:id,name',
             'payroll.financeSigner:id,name',
-            'employee:id,name,employee_code,department,division,employment_status,legal_entity,bank_name,bank_account_no,bank_account_name,join_date,original_join_date',
+            'employee:id,name,employee_code,department,division,employment_status,legal_entity,bank_name,bank_account_no,join_date,original_join_date',
         ]);
 
         $payroll = $item->payroll;

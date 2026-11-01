@@ -85,7 +85,7 @@ class SendHcmSlipEmailJob implements ShouldQueue
         $empSlug = str($employee->name)->slug();
         $filename = "Slip-Gaji-{$item->payroll->period_code}-{$empSlug}.pdf";
         $periodTitle = $item->payroll->period_name ?: $item->payroll->period_code;
-        $bankInfo = ($employee->bank_name ?: 'Bank BRI') . ' - No Rek: ' . ($employee->bank_account_no ?: '-') . ' a.n. ' . ($employee->bank_account_name ?: $employee->name);
+        $bankInfo = ($employee->bank_name ?: 'Bank BRI') . ' - No Rek: ' . ($employee->bank_account_no ?: '-') . ' a.n. ' . ($item->bank_account_name ?: $employee->name);
 
         Mail::to($email)->send(new HcmSlipEmail(
             employee: $employee,
@@ -131,7 +131,7 @@ class SendHcmSlipEmailJob implements ShouldQueue
         $empSlug = str($employee->name)->slug();
         $filename = "Slip-Uang-Makan-{$item->batch->batch_code}-{$empSlug}.pdf";
         $periodTitle = Carbon::createFromDate($item->batch->period_year, $item->batch->period_month, 1)->translatedFormat('F Y');
-        $bankInfo = ($employee->bank_name ?: 'Bank BRI') . ' - No Rek: ' . ($employee->bank_account_no ?: '-') . ' a.n. ' . ($employee->bank_account_name ?: $employee->name);
+        $bankInfo = ($employee->bank_name ?: 'Bank BRI') . ' - No Rek: ' . ($employee->bank_account_no ?: '-') . ' a.n. ' . ($item->bank_account_name ?: $employee->name);
 
         Mail::to($email)->send(new HcmSlipEmail(
             employee: $employee,
@@ -183,7 +183,7 @@ class SendHcmSlipEmailJob implements ShouldQueue
         $filename = "Slip-Lembur-{$batch->batch_code}-{$empSlug}.pdf";
         $periodTitle = Carbon::parse($batch->period_start)->translatedFormat('d M Y') . ' s/d ' . Carbon::parse($batch->period_end)->translatedFormat('d M Y');
         $totalAmount = (float) $overtimes->sum('total_amount');
-        $bankInfo = ($employee->bank_name ?: 'Bank BRI') . ' - No Rek: ' . ($employee->bank_account_no ?: '-') . ' a.n. ' . ($employee->bank_account_name ?: $employee->name);
+        $bankInfo = ($employee->bank_name ?: 'Bank BRI') . ' - No Rek: ' . ($employee->bank_account_no ?: '-') . ' a.n. ' . ($item->bank_account_name ?: $employee->name);
 
         Mail::to($email)->send(new HcmSlipEmail(
             employee: $employee,

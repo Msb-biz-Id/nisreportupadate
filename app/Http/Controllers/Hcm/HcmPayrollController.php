@@ -426,7 +426,7 @@ class HcmPayrollController extends Controller
             'creator:id,name',
             'hcmSigner:id,name',
             'financeSigner:id,name',
-            'items.employee:id,employee_code,name,nickname,department,division,employment_status,bank_name,bank_account_no,bank_account_name',
+            'items.employee:id,employee_code,name,nickname,department,division,employment_status,bank_name,bank_account_no',
         ]);
 
         $fileName = 'Rekap-Payroll-' . $payroll->period_code . '-' . now()->format('Ymd') . '.xlsx';
