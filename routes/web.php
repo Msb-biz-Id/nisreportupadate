@@ -316,6 +316,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('salary-deductions')->name('salary-deductions.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Hcm\HcmSalaryDeductionController::class, 'index'])->name('index');
             Route::post('/', [\App\Http\Controllers\Hcm\HcmSalaryDeductionController::class, 'store'])->name('store');
+            Route::get('/employee/{employee}/history', [\App\Http\Controllers\Hcm\HcmSalaryDeductionController::class, 'employeeHistory'])->name('employee-history');
             Route::put('/{salaryDeduction}', [\App\Http\Controllers\Hcm\HcmSalaryDeductionController::class, 'update'])->name('update');
             Route::delete('/{salaryDeduction}', [\App\Http\Controllers\Hcm\HcmSalaryDeductionController::class, 'destroy'])->name('destroy');
         });
@@ -342,8 +343,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/export-monthly', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'exportMonthly'])->name('export-monthly');
             Route::get('/export-daily', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'exportDaily'])->name('export-daily');
             Route::get('/wa-summary', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'waSummary'])->name('wa-summary');
-    Route::post('/batch', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'batchStore'])->name('batch-store');
-    Route::post('/set-bulk', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'setBulkAttendance'])->name('set-bulk');
+            Route::post('/batch', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'batchStore'])->name('batch-store');
+            Route::post('/set-bulk', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'setBulkAttendance'])->name('set-bulk');
             Route::post('/single-update', [\App\Http\Controllers\Hcm\HcmAttendanceController::class, 'singleUpdate'])->name('single-update');
 
             // Izin Keluar Kantor (Gate Pass)
@@ -351,6 +352,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/exit-permits/{exitPermit}', [\App\Http\Controllers\Hcm\HcmOfficeExitPermitController::class, 'update'])->name('exit-permits.update');
             Route::post('/exit-permits/{exitPermit}/return', [\App\Http\Controllers\Hcm\HcmOfficeExitPermitController::class, 'markReturned'])->name('exit-permits.return');
             Route::delete('/exit-permits/{exitPermit}', [\App\Http\Controllers\Hcm\HcmOfficeExitPermitController::class, 'destroy'])->name('exit-permits.destroy');
+        });
+
+        // Shift Kerja & Roster
+        Route::prefix('shifts')->name('shifts.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'store'])->name('store');
+            Route::put('/{shift}', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'update'])->name('update');
+            Route::delete('/{shift}', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'destroy'])->name('destroy');
+            Route::post('/{shift}/toggle-active', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'toggleActive'])->name('toggle-active');
+            Route::post('/assign-single', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'assignSingleRoster'])->name('assign-single');
+            Route::post('/assign-bulk', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'assignBulkRoster'])->name('assign-bulk');
+            Route::post('/set-default', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'setDefaultShift'])->name('set-default');
+            Route::post('/clear-roster', [\App\Http\Controllers\Hcm\HcmShiftController::class, 'clearRoster'])->name('clear-roster');
         });
 
         // Pengajuan Cuti / Izin / Sakit
