@@ -16,7 +16,6 @@ import {
     Layers,
     Tag,
 } from 'lucide-react';
-import { createColumnHelper } from '@tanstack/react-table';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -226,25 +225,25 @@ export default function HcmEventsIndex({
         }
     };
 
-    const columnHelper = createColumnHelper();
-
     const columns = useMemo(
         () => [
-            columnHelper.display({
+            {
                 id: 'no',
-                header: '#',
-                size: 48,
+                size: 44,
                 minSize: 44,
+                header: ({ column }) => <DataTableColumnHeader column={column} title="#" />,
                 cell: ({ row }) => (
                     <div className="font-mono text-zinc-400 text-center font-medium">
                         {row.index + 1}
                     </div>
                 ),
-            }),
-            columnHelper.accessor('title', {
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Judul Kegiatan" />,
+                meta: { title: '#' },
+            },
+            {
+                accessorKey: 'title',
                 size: 320,
                 minSize: 260,
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Judul Kegiatan" />,
                 cell: ({ row }) => (
                     <div className="max-w-[340px] whitespace-normal break-words py-0.5 space-y-1">
                         <div className="font-semibold text-zinc-900 dark:text-zinc-100 text-xs leading-snug">
@@ -269,11 +268,13 @@ export default function HcmEventsIndex({
                         )}
                     </div>
                 ),
-            }),
-            columnHelper.accessor('event_type', {
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Kategori" />,
+                meta: { title: 'Judul Kegiatan' },
+            },
+            {
+                accessorKey: 'event_type',
                 size: 150,
                 minSize: 130,
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Kategori" />,
                 cell: ({ row }) => {
                     const color = row.original.color_code || '#6366f1';
                     return (
@@ -292,11 +293,13 @@ export default function HcmEventsIndex({
                         </div>
                     );
                 },
-            }),
-            columnHelper.accessor('start_date', {
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Tanggal & Waktu" />,
+                meta: { title: 'Kategori' },
+            },
+            {
+                accessorKey: 'start_date',
                 size: 190,
                 minSize: 160,
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Tanggal & Waktu" />,
                 cell: ({ row }) => {
                     const isMultiDay = row.original.start_date !== row.original.end_date;
                     return (
@@ -320,11 +323,13 @@ export default function HcmEventsIndex({
                         </div>
                     );
                 },
-            }),
-            columnHelper.accessor('location', {
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Lokasi" />,
+                meta: { title: 'Tanggal & Waktu' },
+            },
+            {
+                accessorKey: 'location',
                 size: 180,
                 minSize: 140,
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Lokasi" />,
                 cell: ({ getValue }) => {
                     const val = getValue();
                     if (!val) return <span className="text-zinc-400">-</span>;
@@ -335,11 +340,13 @@ export default function HcmEventsIndex({
                         </div>
                     );
                 },
-            }),
-            columnHelper.accessor('organizer_name', {
-                header: ({ column }) => <DataTableColumnHeader column={column} title="Penyelenggara" />,
+                meta: { title: 'Lokasi' },
+            },
+            {
+                accessorKey: 'organizer_name',
                 size: 170,
                 minSize: 140,
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Penyelenggara" />,
                 cell: ({ row }) => {
                     const organizer = row.original.organizer_name || row.original.creator?.name || '-';
                     const audience = row.original.target_audience;
@@ -357,12 +364,13 @@ export default function HcmEventsIndex({
                         </div>
                     );
                 },
-            }),
-            columnHelper.display({
+                meta: { title: 'Penyelenggara' },
+            },
+            {
                 id: 'status',
-                header: 'Status Pelaksanaan',
                 size: 140,
                 minSize: 130,
+                header: ({ column }) => <DataTableColumnHeader column={column} title="Status Pelaksanaan" />,
                 cell: ({ row }) => {
                     const st = getEventStatus(row.original);
                     return (
@@ -377,13 +385,14 @@ export default function HcmEventsIndex({
                         </div>
                     );
                 },
-            }),
-            columnHelper.display({
+                meta: { title: 'Status Pelaksanaan' },
+            },
+            {
                 id: 'actions',
-                header: () => <span className="sr-only">Aksi</span>,
                 size: 80,
                 minSize: 80,
-                meta: { pinned: 'right' },
+                meta: { pinned: 'right', title: 'Aksi' },
+                header: () => <div className="text-right whitespace-nowrap pr-2">Aksi</div>,
                 cell: ({ row }) => (
                     <div className="flex items-center justify-end gap-1">
                         <Button
@@ -406,7 +415,7 @@ export default function HcmEventsIndex({
                         </Button>
                     </div>
                 ),
-            }),
+            },
         ],
         [todayStr]
     );
@@ -522,64 +531,61 @@ export default function HcmEventsIndex({
                 </div>
 
                 {/* DataTable Agenda Kegiatan */}
-                <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs">
-                    <DataTable
-                        columns={columns}
-                        data={filteredEvents || []}
-                        tableClassName="w-full text-xs border-collapse"
-                        searchPlaceholder="Cari judul kegiatan, lokasi, atau deskripsi..."
-                        exportFileName="Agenda_Kegiatan_Perusahaan"
-                        emptyMessage={
-                            statusFilter === 'upcoming'
-                                ? 'Tidak ada agenda kegiatan mendatang yang belum terlaksana.'
-                                : statusFilter === 'completed'
-                                ? 'Tidak ada agenda kegiatan yang sudah selesai pada periode filter ini.'
-                                : statusFilter === 'ongoing'
-                                ? 'Tidak ada kegiatan yang sedang berlangsung hari ini.'
-                                : 'Tidak ada agenda kegiatan yang cocok dengan kriteria filter.'
-                        }
-                        filterSlot={
-                            <>
-                                <div className="w-48 sm:w-52">
-                                    <SearchableSelect
-                                        value={typeFilter}
-                                        onValueChange={(val) => {
-                                            setTypeFilter(val);
-                                            handleFilterChange(statusFilter, val, monthFilter, yearFilter);
-                                        }}
-                                        options={typeOptions}
-                                        placeholder="Pilih Kategori"
-                                        className="h-9 text-xs"
-                                    />
-                                </div>
-                                <div className="w-36 sm:w-40">
-                                    <SearchableSelect
-                                        value={monthFilter}
-                                        onValueChange={(val) => {
-                                            setMonthFilter(val);
-                                            handleFilterChange(statusFilter, typeFilter, val, yearFilter);
-                                        }}
-                                        options={months}
-                                        placeholder="Bulan"
-                                        className="h-9 text-xs"
-                                    />
-                                </div>
-                                <div className="w-32 sm:w-36">
-                                    <SearchableSelect
-                                        value={yearFilter}
-                                        onValueChange={(val) => {
-                                            setYearFilter(val);
-                                            handleFilterChange(statusFilter, typeFilter, monthFilter, val);
-                                        }}
-                                        options={yearOptions}
-                                        placeholder="Tahun"
-                                        className="h-9 text-xs"
-                                    />
-                                </div>
-                            </>
-                        }
-                    />
-                </div>
+                <DataTable
+                    columns={columns}
+                    data={filteredEvents || []}
+                    searchPlaceholder="Cari judul kegiatan, lokasi, atau deskripsi..."
+                    exportFileName="Agenda_Kegiatan_Perusahaan"
+                    emptyMessage={
+                        statusFilter === 'upcoming'
+                            ? 'Tidak ada agenda kegiatan mendatang yang belum terlaksana.'
+                            : statusFilter === 'completed'
+                            ? 'Tidak ada agenda kegiatan yang sudah selesai pada periode filter ini.'
+                            : statusFilter === 'ongoing'
+                            ? 'Tidak ada kegiatan yang sedang berlangsung hari ini.'
+                            : 'Tidak ada agenda kegiatan yang cocok dengan kriteria filter.'
+                    }
+                    filterSlot={
+                        <>
+                            <div className="w-48 sm:w-52">
+                                <SearchableSelect
+                                    value={typeFilter}
+                                    onValueChange={(val) => {
+                                        setTypeFilter(val);
+                                        handleFilterChange(statusFilter, val, monthFilter, yearFilter);
+                                    }}
+                                    options={typeOptions}
+                                    placeholder="Pilih Kategori"
+                                    className="h-9 text-xs"
+                                />
+                            </div>
+                            <div className="w-36 sm:w-40">
+                                <SearchableSelect
+                                    value={monthFilter}
+                                    onValueChange={(val) => {
+                                        setMonthFilter(val);
+                                        handleFilterChange(statusFilter, typeFilter, val, yearFilter);
+                                    }}
+                                    options={months}
+                                    placeholder="Bulan"
+                                    className="h-9 text-xs"
+                                />
+                            </div>
+                            <div className="w-32 sm:w-36">
+                                <SearchableSelect
+                                    value={yearFilter}
+                                    onValueChange={(val) => {
+                                        setYearFilter(val);
+                                        handleFilterChange(statusFilter, typeFilter, monthFilter, val);
+                                    }}
+                                    options={yearOptions}
+                                    placeholder="Tahun"
+                                    className="h-9 text-xs"
+                                />
+                            </div>
+                        </>
+                    }
+                />
 
                 {/* MODAL FORM: Tambah / Edit Kegiatan */}
                 <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
