@@ -5,6 +5,7 @@ Dokumentasi ini menjelaskan langkah demi langkah deployment aplikasi **ProTrack*
 ---
 
 ## Daftar Isi
+
 1. [Prasyarat Server & cPanel](#1-prasyarat-server--cpanel)
 2. [Arsitektur Direktori di cPanel](#2-arsitektur-direktori-di-cpanel)
 3. [Persiapan di Komputer Lokal (Sebelum Deploy)](#3-persiapan-di-komputer-lokal-sebelum-deploy)
@@ -45,6 +46,7 @@ Pastikan akun hosting cPanel Anda memenuhi kriteria berikut:
 Untuk keamanan terbaik, letakkan source code Laravel di **luar** `public_html`, dan arahkan **Document Root** subdomain ke folder `public/`.
 
 Contoh struktur:
+
 ```text
 /home/USERNAME/
 ├── nis_app/                 <-- Root source code Laravel (Private & aman)
@@ -130,7 +132,7 @@ Buka menu **Terminal** di cPanel atau hubungkan via SSH:
 cd ~
 
 # 2. Clone repository ke folder nis_app
-git clone -b main https://github.com/Msb-biz-Id/nisreportupadate.git nis_app
+git clone -b main https://github.com/Msb-biz-Id/nisreportupadate.git
 
 # 3. Masuk ke folder aplikasi
 cd nis_app
@@ -142,6 +144,7 @@ cp .env.example .env
 ### Opsi B: Menggunakan File Manager (ZIP Upload)
 
 Jika tidak menggunakan Git di server:
+
 1. Di komputer lokal, compress project menjadi `.zip` (**KECUALIKAN** folder `node_modules`, `vendor`, `.git`).  
    *Pastikan folder `public/build` tetap terikut di dalam ZIP!*
 2. Buka **File Manager** cPanel, upload file `.zip` ke folder `/home/USERNAME/`.
@@ -239,9 +242,11 @@ php artisan migrate --seed --force
 ```
 
 > **Catatan Reset Total (Jika ingin mengulang dari database kosong):**
+>
 > ```bash
 > php artisan migrate:fresh --seed --force
 > ```
+>
 > *(PERINGATAN: Perintah `migrate:fresh` akan menghapus seluruh data tabel yang ada).*
 
 ---
@@ -337,11 +342,13 @@ php artisan event:cache
 Laravel membutuhkan satu baris Cron Job di cPanel untuk menjalankan jadwal otomatis (notifikasi, sinkronisasi presensi, dll).
 
 1. Buka menu **Cron Jobs** di cPanel.
-2. Di bagian **Common Settings**, pilih **Once Per Minute (* * * * *)**.
+2. Di bagian **Common Settings**, pilih **Once Per Minute (** ***)**.
 3. Di kolom **Command**, masukkan:
+
    ```bash
    /usr/local/bin/php /home/USERNAME/nis_app/artisan schedule:run >> /dev/null 2>&1
    ```
+
    *(Sesuaikan path `/home/USERNAME/nis_app/artisan` dengan username cPanel Anda).*
 4. Klik **Add New Cron Job**.
 
@@ -350,22 +357,30 @@ Laravel membutuhkan satu baris Cron Job di cPanel untuk menjalankan jadwal otoma
 ## Troubleshooting & Solusi Kendala Umum
 
 ### 1. Error `HTTP 500 | Server Error` saat pertama kali dibuka
+
 - Periksa log error Laravel:
+
   ```bash
   tail -n 50 ~/nis_app/storage/logs/laravel.log
   ```
+
 - Pastikan permission folder storage sudah benar:
+
   ```bash
   chmod -R 775 ~/nis_app/storage ~/nis_app/bootstrap/cache
   ```
+
 - Pastikan `APP_KEY` sudah terisi di `.env`. Jika kosong, jalankan `php artisan key:generate --force`.
 
 ### 2. Tampilan Berantakan / Error `Vite manifest not found at ...`
+
 - Terjadi karena folder `public/build` belum ter-compile atau belum ter-upload.
 - Solusi: Di komputer lokal jalankan `npm run build`, pastikan folder `public/build` ter-upload ke folder `public/build` di server cPanel.
 
 ### 3. Gambar atau Lampiran File Tidak Muncul (`404 Not Found`)
+
 - Jalankan ulang pembuatan symlink storage:
+
   ```bash
   cd ~/nis_app
   rm public/storage
@@ -373,12 +388,15 @@ Laravel membutuhkan satu baris Cron Job di cPanel untuk menjalankan jadwal otoma
   ```
 
 ### 4. Error `SQLSTATE[HY000] [1045] Access denied for user`
+
 - Kredensial database di file `.env` tidak cocok.
 - Pastikan `DB_DATABASE` dan `DB_USERNAME` menyertakan prefix username cPanel (contoh: `u1234567_nisdb`).
 - Pastikan user telah di-*assign* ke database dengan hak akses **ALL PRIVILEGES** di MySQL Databases cPanel.
 
 ### 5. Cara Melakukan Update / Redeploy di Masa Depan
+
 Jika ada commit baru di branch `main`:
+
 ```bash
 cd ~/nis_app
 php artisan down
@@ -391,3 +409,26 @@ php artisan route:cache
 php artisan view:cache
 php artisan up
 ```
+
+### 6. Pembersihan Data Operasional (Wipe Data Transaksional & Jaga Master Data)
+
+Gunakan perintah artisan berikut jika ingin mengosongkan seluruh data transaksi dummy/operasional di modul HCM dan Purchasing dengan tetap mempertahankan Master Data (Opsi Dropdown, Jam Kerja, Master Purchasing, dsb):
+
+```bash
+# 1. Pembersihan standar (HCM & Purchasing, Master Data tetap aman)
+php artisan data:wipe-operational
+
+# 2. Opsi tambahan / spesifik:
+# Hanya bersihkan data operasional HCM saja
+php artisan data:wipe-operational --module=hcm
+
+# Hanya bersihkan data operasional Purchasing saja
+php artisan data:wipe-operational --module=purchasing
+
+# Ikut bersihkan data rekanan/vendor purchasing jika sebelumnya berisi vendor dummy
+php artisan data:wipe-operational --with-vendors
+
+# Jalankan langsung tanpa konfirmasi interaktif (untuk otomatisasi / script)
+php artisan data:wipe-operational --force
+```
+
