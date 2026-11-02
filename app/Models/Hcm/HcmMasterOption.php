@@ -219,6 +219,13 @@ class HcmMasterOption extends Model
             'rights_status' => $pick('hak_karyawan', 'rights_status', 'employee_rights'),
             'asset_clearance' => $pick('pengembalian_aset_paklaring', 'asset_clearance'),
             'clearance_status' => $pick('status_clearance_sheet', 'clearance_status'),
+            'status_penyaluran_reward' => $pick('status_penyaluran_reward') ?: [
+                'Belum Diterima',
+                'Sudah Diterima (Serah Terima Langsung)',
+                'Sudah Ditransfer',
+                'Tertunda / Pending',
+                'Dibatalkan',
+            ],
             'banks' => $pick('nama_bank', 'bank', 'banks') ?: ['Bank BRI', 'Bank Mandiri', 'Bank BCA', 'Bank BNI', 'Bank Syariah Indonesia (BSI)', 'Bank Jateng', 'Tunai / Kas Kantor'],
             'departments_with_codes' => self::getDepartmentsWithCodes(),
             'tenure_buckets' => [

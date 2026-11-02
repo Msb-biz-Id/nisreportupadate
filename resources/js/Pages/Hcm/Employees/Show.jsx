@@ -27,6 +27,8 @@ import {
     Camera,
     Printer,
     Trash2,
+    Edit2,
+    Gift,
     Eye,
     ChevronLeft,
     ChevronRight,
@@ -135,6 +137,120 @@ export default function EmployeeShow({
                 compensationForm.reset();
             },
         });
+    };
+
+    // State & Form Reward & Apresiasi Karyawan
+    const [isRewardModalOpen, setIsRewardModalOpen] = useState(false);
+    const [editingReward, setEditingReward] = useState(null);
+
+    const rewardForm = useForm({
+        employee_id: employee.id,
+        reward_name: '',
+        reward_year: new Date().getFullYear(),
+        distribution_status: 'Belum Diterima',
+        received_date: '',
+        document_status: 'Berita Acara Terlampir',
+        budget_amount: 0,
+        proof_url: '',
+        notes: '',
+    });
+
+    const openAddRewardModal = () => {
+        setEditingReward(null);
+        rewardForm.reset();
+        rewardForm.setData({
+            employee_id: employee.id,
+            reward_name: '',
+            reward_year: new Date().getFullYear(),
+            distribution_status: 'Belum Diterima',
+            received_date: '',
+            document_status: 'Berita Acara Terlampir',
+            budget_amount: 0,
+            proof_url: '',
+            notes: '',
+        });
+        setIsRewardModalOpen(true);
+    };
+
+    const openEditRewardModal = (rw) => {
+        setEditingReward(rw);
+        rewardForm.setData({
+            employee_id: employee.id,
+            reward_name: rw.reward_name,
+            reward_year: rw.reward_year,
+            distribution_status: rw.distribution_status,
+            received_date: rw.received_date ? String(rw.received_date).slice(0, 10) : '',
+            document_status: rw.document_status || 'Berita Acara Terlampir',
+            budget_amount: rw.budget_amount || 0,
+            proof_url: rw.proof_url || '',
+            notes: rw.notes || '',
+        });
+        setIsRewardModalOpen(true);
+    };
+
+    const handleRewardSubmit = (e) => {
+        e.preventDefault();
+        if (editingReward) {
+            rewardForm.put(route('hcm.rewards.update', editingReward.uuid || editingReward.id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setIsRewardModalOpen(false);
+                    rewardForm.reset();
+                },
+            });
+        } else {
+            rewardForm.post(route('hcm.rewards.store'), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setIsRewardModalOpen(false);
+                    rewardForm.reset();
+                },
+            });
+        }
+    };
+
+    const handleRewardDelete = (rw) => {
+        if (confirm(`Hapus catatan penghargaan "${rw.reward_name}" untuk ${employee.name}?`)) {
+            router.delete(route('hcm.rewards.destroy', rw.uuid || rw.id), {
+                preserveScroll: true,
+            });
+        }
+    };
+
+    const getRewardStatusBadge = (st) => {
+        if (st === 'Sudah Diterima (Serah Terima Langsung)') {
+            return (
+                <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Serah Terima
+                </Badge>
+            );
+        }
+        if (st === 'Sudah Ditransfer') {
+            return (
+                <Badge className="bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30 text-[11px] font-semibold gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Ditransfer
+                </Badge>
+            );
+        }
+        if (st === 'Tertunda / Pending') {
+            return (
+                <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[11px] font-semibold gap-1">
+                    <Clock className="w-3 h-3" /> Tertunda
+                </Badge>
+            );
+        }
+        if (st === 'Dibatalkan') {
+            return (
+                <Badge variant="outline" className="border-rose-300 text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/20 text-[11px] gap-1">
+                    <XCircle className="w-3 h-3" /> Dibatalkan
+                </Badge>
+            );
+        }
+        return (
+            <Badge variant="outline" className="border-zinc-300 text-zinc-600 dark:text-zinc-400 text-[11px] gap-1">
+                <Clock className="w-3 h-3" /> Belum Diterima
+            </Badge>
+        );
     };
 
     // Form Rekap Onboarding (Modul 12)
@@ -340,15 +456,17 @@ export default function EmployeeShow({
               { id: 'biodata', label: '1. Biodata Siswa', icon: User },
               { id: 'school', label: '2. Sekolah & Kemitraan PKL', icon: GraduationCap },
               { id: 'attendance', label: '3. Rekap Kehadiran PKL', icon: CalendarCheck },
-              { id: 'offboarding', label: '4. Transisi & Status', icon: LogOut },
+              { id: 'rewards', label: '4. Reward & Apresiasi', icon: Award, count: employee.rewards?.length || 0 },
+              { id: 'offboarding', label: '5. Transisi & Status', icon: LogOut },
           ]
         : [
               { id: 'biodata', label: '1. Biodata & Identitas', icon: User },
               { id: 'contracts', label: '2. Kontrak & Legal PKWT', icon: FileText, count: employee.contracts?.length || 0 },
               { id: 'compensation', label: '3. Kompensasi & Gaji', icon: DollarSign },
               { id: 'attendance', label: '4. Rekap Absensi', icon: CalendarCheck },
-              { id: 'overtime', label: '5. Lembur & Reward', icon: Award },
-              { id: 'offboarding', label: '6. Transisi & Status', icon: LogOut },
+              { id: 'overtime', label: '5. Lembur Mingguan', icon: Clock, count: employee.overtimes?.length || 0 },
+              { id: 'rewards', label: '6. Reward & Apresiasi', icon: Award, count: employee.rewards?.length || 0 },
+              { id: 'offboarding', label: '7. Transisi & Status', icon: LogOut },
           ];
 
     return (
@@ -1761,7 +1879,7 @@ export default function EmployeeShow({
                     </div>
                 )}
 
-                {/* TAB 5: Rekam Lembur & Reward */}
+                {/* TAB 5: Rekam Lembur Mingguan */}
                 {activeTab === 'overtime' && (
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
@@ -1842,59 +1960,227 @@ export default function EmployeeShow({
                                 </TableBody>
                             </Table>
                         </Card>
+                    </div>
+                )}
 
-                        {/* Riwayat Reward & Penghargaan */}
-                        <div className="space-y-2 pt-2">
-                            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Riwayat Reward &amp; Penghargaan</h4>
-                            <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+                {/* TAB 6: Reward & Apresiasi Karyawan */}
+                {activeTab === 'rewards' && (
+                    <div className="space-y-4">
+                        {/* Header Bar */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
+                            <div className="min-w-0">
+                                <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                    <Award className="h-5 w-5 text-amber-500 shrink-0" />
+                                    Reward &amp; Apresiasi Karyawan
+                                </h3>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                                    Rekam jejak penghargaan, bonus prestasi kerja, sertifikat keunggulan, dan apresiasi berkala untuk {employee.name}.
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                <Link
+                                    href={route('hcm.rewards.index')}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 bg-zinc-50 dark:bg-zinc-800/60 hover:bg-zinc-100 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xs transition"
+                                >
+                                    <ExternalLink className="h-3.5 w-3.5 text-zinc-400" />
+                                    <span>Semua Reward Perusahaan</span>
+                                </Link>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={openAddRewardModal}
+                                    className="h-8 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white shadow-xs font-medium"
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    Catat Reward Baru
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Metrik Ringkasan Penghargaan Karyawan */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
+                                <CardContent className="p-4 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Total Penghargaan</p>
+                                        <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">
+                                            {employee.rewards?.length || 0}
+                                            <span className="text-xs font-normal text-zinc-400 ml-1.5 font-sans">Penghargaan</span>
+                                        </p>
+                                    </div>
+                                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60">
+                                        <Award className="w-5 h-5" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
+                                <CardContent className="p-4 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Status Penyaluran</p>
+                                        <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                                            {(employee.rewards || []).filter(r => ['Sudah Diterima (Serah Terima Langsung)', 'Sudah Ditransfer'].includes(r.distribution_status)).length}
+                                            <span className="text-xs font-normal text-zinc-400 ml-1.5 font-sans">Tersalurkan</span>
+                                        </p>
+                                    </div>
+                                    <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+                                        <CheckCircle2 className="w-5 h-5" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
+                                <CardContent className="p-4 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Total Nilai / Hadiah</p>
+                                        <p className="text-xl sm:text-2xl font-bold font-mono text-zinc-900 dark:text-zinc-100 mt-1">
+                                            {formatRp((employee.rewards || []).reduce((acc, r) => acc + (parseFloat(r.budget_amount) || 0), 0))}
+                                        </p>
+                                    </div>
+                                    <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+                                        <DollarSign className="w-5 h-5" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* Tabel Data Reward Karyawan */}
+                        <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+                            <div className="overflow-x-auto scrollbar-thin">
                                 <Table>
-                                    <TableHeader className="bg-zinc-50 dark:bg-zinc-800/50">
+                                    <TableHeader className="bg-slate-50/90 dark:bg-zinc-800/60">
                                         <TableRow>
-                                            <TableHead className="font-bold">Reward / Penghargaan</TableHead>
-                                            <TableHead className="font-bold text-center">Tahun</TableHead>
-                                            <TableHead className="font-bold text-right">Anggaran</TableHead>
-                                            <TableHead className="font-bold text-center">Status Penyaluran</TableHead>
-                                            <TableHead className="font-bold text-center">Tanggal Diterima</TableHead>
+                                            <TableHead className="w-12 text-center font-bold">#</TableHead>
+                                            <TableHead className="font-bold min-w-[240px]">Penghargaan &amp; Keterangan</TableHead>
+                                            <TableHead className="font-bold text-center min-w-[90px]">Tahun</TableHead>
+                                            <TableHead className="font-bold text-right min-w-[130px]">Nilai / Hadiah</TableHead>
+                                            <TableHead className="font-bold text-center min-w-[150px]">Status Penyaluran</TableHead>
+                                            <TableHead className="font-bold text-center min-w-[130px]">Tanggal Diterima</TableHead>
+                                            <TableHead className="font-bold text-center min-w-[100px]">Bukti</TableHead>
+                                            <TableHead className="font-bold text-center min-w-[100px]">Aksi</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {employee.rewards && employee.rewards.length > 0 ? (
-                                            employee.rewards.map((rw) => (
-                                                <TableRow key={rw.id}>
-                                                    <TableCell className="text-xs font-medium">{rw.reward_name}</TableCell>
-                                                    <TableCell className="text-center text-xs">{rw.reward_year}</TableCell>
-                                                    <TableCell className="text-right text-xs font-mono">{formatRp(rw.budget_amount)}</TableCell>
+                                            employee.rewards.map((rw, idx) => (
+                                                <TableRow key={rw.id || idx} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50">
+                                                    <TableCell className="text-center font-mono text-xs text-zinc-400">
+                                                        {idx + 1}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-start gap-2.5">
+                                                            <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 border border-amber-200/60 dark:border-amber-800/60">
+                                                                <Award className="w-4 h-4" />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                                                                    {rw.reward_name}
+                                                                </p>
+                                                                {rw.notes ? (
+                                                                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 line-clamp-2">
+                                                                        {rw.notes}
+                                                                    </p>
+                                                                ) : (
+                                                                    <p className="text-[10px] text-zinc-400 italic mt-0.5">
+                                                                        {rw.document_status || 'Berita Acara Terlampir'}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </TableCell>
                                                     <TableCell className="text-center">
-                                                        <Badge
-                                                            className={`text-[11px] ${
-                                                                rw.distribution_status === 'Dibatalkan'
-                                                                    ? 'bg-rose-500/10 text-rose-600'
-                                                                    : rw.distribution_status === 'Belum Diterima' || rw.distribution_status === 'Tertunda / Pending'
-                                                                    ? 'bg-amber-500/10 text-amber-600'
-                                                                    : 'bg-emerald-500/10 text-emerald-600'
-                                                            }`}
-                                                        >
-                                                            {rw.distribution_status}
+                                                        <Badge variant="outline" className="font-mono text-xs font-semibold">
+                                                            {rw.reward_year}
                                                         </Badge>
                                                     </TableCell>
-                                                    <TableCell className="text-center text-xs">{rw.received_date || '-'}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <span className="font-mono text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                                                            {formatRp(rw.budget_amount)}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="text-center whitespace-nowrap">
+                                                        {getRewardStatusBadge(rw.distribution_status)}
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-mono text-xs text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+                                                        {rw.received_date ? formatDate(rw.received_date) : '-'}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        {rw.proof_url ? (
+                                                            <a
+                                                                href={rw.proof_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-700 hover:underline font-medium"
+                                                            >
+                                                                <ExternalLink className="w-3 h-3" />
+                                                                <span>Lihat</span>
+                                                            </a>
+                                                        ) : (
+                                                            <span className="text-zinc-400 text-xs">-</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <div className="flex items-center justify-center gap-1">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => openEditRewardModal(rw)}
+                                                                className="h-7 w-7 p-0 text-zinc-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
+                                                                title="Edit Data Reward"
+                                                            >
+                                                                <Edit2 className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => handleRewardDelete(rw)}
+                                                                className="h-7 w-7 p-0 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50"
+                                                                title="Hapus Data Reward"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
                                                 </TableRow>
                                             ))
                                         ) : (
                                             <TableRow>
-                                                <TableCell colSpan={5} className="h-20 text-center text-xs text-zinc-400">
-                                                    Belum ada reward / penghargaan tercatat untuk karyawan ini.
+                                                <TableCell colSpan={8} className="py-12 text-center">
+                                                    <div className="max-w-md mx-auto space-y-3">
+                                                        <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200/60 dark:border-amber-800/60">
+                                                            <Award className="w-6 h-6" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                                                                Belum Ada Catatan Reward &amp; Apresiasi
+                                                            </h4>
+                                                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
+                                                                Karyawan ini belum memiliki riwayat reward atau penghargaan tercatat. Klik tombol di bawah untuk mencatat reward pertama.
+                                                            </p>
+                                                        </div>
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            onClick={openAddRewardModal}
+                                                            className="bg-amber-600 hover:bg-amber-700 text-white text-xs gap-1.5 shadow-xs"
+                                                        >
+                                                            <Plus className="w-3.5 h-3.5" />
+                                                            Catat Reward Pertama
+                                                        </Button>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         )}
                                     </TableBody>
                                 </Table>
-                            </Card>
-                        </div>
+                            </div>
+                        </Card>
                     </div>
                 )}
 
-                {/* TAB 6: Transisi & Offboarding (Modul 12) */}
+                {/* TAB 7: Transisi & Offboarding (Modul 12) */}
                 {activeTab === 'offboarding' && (
                     <div className="space-y-4">
                         {/* Rekap Onboarding Karyawan Baru */}
@@ -2296,6 +2582,161 @@ export default function EmployeeShow({
                                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
                             >
                                 {compensationForm.processing ? 'Menyimpan...' : 'Simpan Kenaikan Gaji'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* MODAL 3: Catat / Edit Reward & Apresiasi Karyawan */}
+            <Dialog open={isRewardModalOpen} onOpenChange={setIsRewardModalOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-base flex items-center gap-2">
+                            <Award className="h-4 w-4 text-amber-600" />
+                            {editingReward ? 'Edit Data Reward / Apresiasi' : 'Catat Reward & Apresiasi Karyawan'}
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            {editingReward
+                                ? `Perbarui informasi reward untuk ${employee.name}.`
+                                : `Pencatatan bonus prestasi atau apresiasi kinerja untuk ${employee.name}.`}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleRewardSubmit} className="space-y-3 pt-2">
+                        <div className="space-y-1">
+                            <Label className="text-xs font-semibold">Nama Penghargaan / Apresiasi *</Label>
+                            <Input
+                                required
+                                value={rewardForm.data.reward_name}
+                                onChange={(e) => rewardForm.setData('reward_name', e.target.value)}
+                                placeholder="e.g. Employee of the Month Q1 / Bonus Target"
+                                className="text-xs"
+                            />
+                            {rewardForm.errors.reward_name && (
+                                <p className="text-[11px] text-rose-500">{rewardForm.errors.reward_name}</p>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs font-semibold">Tahun Penghargaan *</Label>
+                                <Input
+                                    type="number"
+                                    min="2020"
+                                    max="2035"
+                                    required
+                                    value={rewardForm.data.reward_year}
+                                    onChange={(e) => rewardForm.setData('reward_year', parseInt(e.target.value) || new Date().getFullYear())}
+                                    className="text-xs font-mono"
+                                />
+                                {rewardForm.errors.reward_year && (
+                                    <p className="text-[11px] text-rose-500">{rewardForm.errors.reward_year}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label className="text-xs font-semibold">Nilai Hadiah (Rp)</Label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="50000"
+                                    value={rewardForm.data.budget_amount}
+                                    onChange={(e) => rewardForm.setData('budget_amount', parseFloat(e.target.value) || 0)}
+                                    placeholder="0"
+                                    className="text-xs font-mono"
+                                />
+                                {rewardForm.errors.budget_amount && (
+                                    <p className="text-[11px] text-rose-500">{rewardForm.errors.budget_amount}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs font-semibold">Status Penyaluran *</Label>
+                                <Select
+                                    value={rewardForm.data.distribution_status}
+                                    onValueChange={(val) => rewardForm.setData('distribution_status', val)}
+                                >
+                                    <SelectTrigger className="text-xs">
+                                        <SelectValue placeholder="Pilih status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {(dropdowns?.status_penyaluran_reward || [
+                                            'Belum Diterima',
+                                            'Sudah Diterima (Serah Terima Langsung)',
+                                            'Sudah Ditransfer',
+                                            'Tertunda / Pending',
+                                            'Dibatalkan',
+                                        ]).map((st) => (
+                                            <SelectItem key={st} value={st} className="text-xs">
+                                                {st}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {rewardForm.errors.distribution_status && (
+                                    <p className="text-[11px] text-rose-500">{rewardForm.errors.distribution_status}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label className="text-xs font-semibold">Tanggal Diterima</Label>
+                                <Input
+                                    type="date"
+                                    value={rewardForm.data.received_date}
+                                    onChange={(e) => rewardForm.setData('received_date', e.target.value)}
+                                    className="text-xs"
+                                />
+                                {rewardForm.errors.received_date && (
+                                    <p className="text-[11px] text-rose-500">{rewardForm.errors.received_date}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-xs font-semibold">Tautan Dokumen / Foto Bukti (Opsional)</Label>
+                            <Input
+                                type="url"
+                                value={rewardForm.data.proof_url}
+                                onChange={(e) => rewardForm.setData('proof_url', e.target.value)}
+                                placeholder="https://..."
+                                className="text-xs font-mono"
+                            />
+                            {rewardForm.errors.proof_url && (
+                                <p className="text-[11px] text-rose-500">{rewardForm.errors.proof_url}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-xs font-semibold">Catatan / Keterangan Tambahan</Label>
+                            <Textarea
+                                rows={2}
+                                value={rewardForm.data.notes}
+                                onChange={(e) => rewardForm.setData('notes', e.target.value)}
+                                placeholder="Dasar penilaian, prestasi yang dicapai..."
+                                className="text-xs resize-none"
+                            />
+                            {rewardForm.errors.notes && (
+                                <p className="text-[11px] text-rose-500">{rewardForm.errors.notes}</p>
+                            )}
+                        </div>
+
+                        <DialogFooter className="gap-2 pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsRewardModalOpen(false)}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={rewardForm.processing}
+                                className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
+                            >
+                                {rewardForm.processing ? 'Menyimpan...' : (editingReward ? 'Simpan Perubahan' : 'Catat Reward')}
                             </Button>
                         </DialogFooter>
                     </form>
