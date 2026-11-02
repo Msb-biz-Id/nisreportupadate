@@ -300,6 +300,7 @@ export default function ExternalLetterIndex({ letters, filters = {}, metrics = {
 
     return (
         <AppLayout
+            title="Surat Eksternal"
             header={
                 <div className="flex items-center gap-2 min-w-0">
                     <Mail className="h-4 w-4 text-indigo-600 shrink-0" />
@@ -309,13 +310,13 @@ export default function ExternalLetterIndex({ letters, filters = {}, metrics = {
         >
             <Head title="Surat Eksternal" />
 
-            <div className="space-y-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                        <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Arsip Korespondensi Eksternal</h1>
-                        <p className="text-xs text-zinc-500 mt-0.5">Surat-menyurat dengan instansi eksternal (BPJS-TK, Disnaker, Bank, Mitra).</p>
-                    </div>
-                    <Button onClick={openCreate} size="sm" className="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs shadow-xs">
+            <div className="space-y-4">
+                {/* Clean Top Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Surat-menyurat dengan instansi eksternal (BPJS-TK, Disnaker, Bank, Mitra).
+                    </p>
+                    <Button onClick={openCreate} size="sm" className="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs shadow-xs w-full sm:w-auto">
                         <Plus className="h-4 w-4" /> Catat Surat Eksternal
                     </Button>
                 </div>

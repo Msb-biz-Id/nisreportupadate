@@ -179,27 +179,29 @@ class HcmAttendanceMonthlyMatrixExport implements FromArray, WithTitle, ShouldAu
                 $isWeekend = $currDate->isWeekend();
 
                 $cellVal = '-';
+                $isPastOrToday = $currDate->lte(Carbon::today());
+
                 if (isset($attKeyed[$emp->id][$d])) {
-                    $cat = $attKeyed[$emp->id][$d]['category'];
+                    $rawCat = strtoupper(trim((string) $attKeyed[$emp->id][$d]['category']));
                     $ot = $attKeyed[$emp->id][$d]['overtime'];
                     $totalOt += $ot;
 
-                    if ($cat === 'PRESENT') {
+                    if (in_array($rawCat, ['PRESENT', 'HADIR'])) {
                         $cellVal = 'H';
                         $cntH++;
-                    } elseif ($cat === 'LATE') {
+                    } elseif (in_array($rawCat, ['LATE', 'TERLAMBAT'])) {
                         $cellVal = 'T';
                         $cntT++;
-                    } elseif ($cat === 'PERMIT') {
+                    } elseif (in_array($rawCat, ['PERMIT', 'IZIN', 'DINAS LUAR'])) {
                         $cellVal = 'I';
                         $cntI++;
-                    } elseif ($cat === 'SICK') {
+                    } elseif (in_array($rawCat, ['SICK', 'SAKIT'])) {
                         $cellVal = 'S';
                         $cntS++;
-                    } elseif ($cat === 'LEAVE') {
+                    } elseif (in_array($rawCat, ['LEAVE', 'CUTI']) || str_contains($rawCat, 'CUTI')) {
                         $cellVal = 'C';
                         $cntC++;
-                    } elseif ($cat === 'ALPHA') {
+                    } elseif (in_array($rawCat, ['ALPHA', 'ALPHA/MANGKIR'])) {
                         $cellVal = 'A';
                         $cntA++;
                     }
@@ -209,7 +211,13 @@ class HcmAttendanceMonthlyMatrixExport implements FromArray, WithTitle, ShouldAu
                     elseif ($cellVal === 'I') $cntI++;
                     elseif ($cellVal === 'C') $cntC++;
                 } else {
-                    $cellVal = $isWeekend ? '-' : '';
+                    // Kebijakan: Hanya yang tidak masuk/izin/sakit yang dicatat; hari kerja aktif auto masuk
+                    if ($isPastOrToday && !$isWeekend) {
+                        $cellVal = 'H';
+                        $cntH++;
+                    } else {
+                        $cellVal = $isWeekend ? '-' : '';
+                    }
                 }
 
                 $row[] = $cellVal;

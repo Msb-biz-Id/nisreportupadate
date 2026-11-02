@@ -345,34 +345,29 @@ export default function OvertimeIndex({
 
     return (
         <AppLayout
+            title="Lembur Mingguan"
             header={
                 <div className="flex items-center gap-2 min-w-0">
                     <Clock className="h-4 w-4 text-indigo-600 shrink-0" />
                     <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
-                        Rekap Lembur Mingguan & Double Sign-Off
+                        Lembur Mingguan &amp; Double Sign-Off
                     </span>
                 </div>
             }
         >
-            <Head title="Lembur Mingguan - Kepegawaian" />
+            <Head title="Lembur Mingguan" />
 
             <div className="space-y-4">
-                {/* Header Banner Canvas */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <div>
-                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <Clock className="h-5 w-5 text-indigo-600 shrink-0" />
-                            <span>Rekap Lembur Mingguan & Double Sign-Off</span>
-                        </h1>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                            Otomatisasi kalkulasi upah lembur reguler & akhir pekan dengan validasi ganda HCM & Keuangan.
-                        </p>
-                    </div>
+                {/* Clean Top Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Kalkulasi upah lembur reguler &amp; akhir pekan dengan validasi ganda HCM &amp; Keuangan.
+                    </p>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                         <Link
                             href={route('hcm.settings.index')}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700 dark:hover:bg-zinc-750 transition shadow-xs"
+                            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700 dark:hover:bg-zinc-750 transition shadow-xs w-full sm:w-auto"
                         >
                             <SlidersHorizontal className="h-3.5 w-3.5 text-indigo-600" />
                             <span>Pengaturan Tarif HCM</span>
@@ -381,7 +376,7 @@ export default function OvertimeIndex({
                         <Button
                             onClick={() => setIsCreateBatchModalOpen(true)}
                             size="sm"
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 shadow-xs"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 shadow-xs w-full sm:w-auto"
                         >
                             <Plus className="h-3.5 w-3.5" />
                             <span>Buat Batch Mingguan</span>

@@ -67,7 +67,6 @@ export default function AttendanceIndex({
     exitPermits = [],
     departments = [],
     divisions = [],
-    positions = [],
     shifts = [],
     attachmentStatuses = [],
     activeEmployeesForGatePass = [],
@@ -114,16 +113,18 @@ export default function AttendanceIndex({
     });
 
     // Form Bulk Shift / Absensi Massal
+    const [bulkTargetMode, setBulkTargetMode] = useState('all'); // 'all' | 'specific'
+    const [bulkEmployeeSearch, setBulkEmployeeSearch] = useState('');
     const bulkShiftForm = useForm({
         date: dailyDate,
         department: 'all',
         division: 'all',
-        shift_id: '',
-        attendance_category: 'Hadir',
+        employee_ids: [],
+        attendance_category: 'Izin',
         clock_in: '08:00',
         clock_out: '17:00',
         notes: '',
-        override_existing: false,
+        override_existing: true,
     });
 
     // State & Forms Izin Keluar Kantor (Gate Pass)
@@ -306,38 +307,57 @@ export default function AttendanceIndex({
         ];
     }, [divisions, activeEmployeesForBulk, bulkShiftForm.data.department]);
 
-    // Estimasi jumlah karyawan yang akan diabsen pada modal bulk absen
-    const bulkTargetEmployeesCount = useMemo(() => {
+    // Daftar karyawan yang eligible berdasarkan filter departemen & divisi
+    const bulkEligibleEmployees = useMemo(() => {
         const dept = bulkShiftForm.data.department;
         const div = bulkShiftForm.data.division;
         return (activeEmployeesForBulk || []).filter((emp) => {
             const matchDept = dept === 'all' || emp.department === dept;
             const matchDiv = div === 'all' || emp.division === div;
             return matchDept && matchDiv;
-        }).length;
+        });
     }, [activeEmployeesForBulk, bulkShiftForm.data.department, bulkShiftForm.data.division]);
 
-    // Handler memilih shift kerja pada modal bulk absen
-    const handleSelectShiftInBulk = (shiftId) => {
-        const shift = (shifts || []).find((s) => String(s.id) === String(shiftId));
-        if (shift) {
-            const startTime = shift.start_time ? shift.start_time.substring(0, 5) : '08:00';
-            const endTime = shift.end_time ? shift.end_time.substring(0, 5) : '17:00';
-            bulkShiftForm.setData({
-                ...bulkShiftForm.data,
-                shift_id: shift.id,
-                clock_in: shift.is_off_day ? '' : startTime,
-                clock_out: shift.is_off_day ? '' : endTime,
-                attendance_category: shift.is_off_day ? 'Libur/Cuti Bersama' : 'Hadir',
-                notes: `Shift: ${shift.name}`,
-            });
-        } else {
-            bulkShiftForm.setData({
-                ...bulkShiftForm.data,
-                shift_id: '',
-            });
-        }
+    // Daftar karyawan yang difilter oleh pencarian nama/NIK
+    const bulkFilteredEmployees = useMemo(() => {
+        if (!bulkEmployeeSearch) return bulkEligibleEmployees;
+        const s = bulkEmployeeSearch.toLowerCase();
+        return bulkEligibleEmployees.filter((e) =>
+            e.name?.toLowerCase().includes(s) ||
+            e.nickname?.toLowerCase().includes(s) ||
+            e.employee_code?.toLowerCase().includes(s)
+        );
+    }, [bulkEligibleEmployees, bulkEmployeeSearch]);
+
+    // Toggle pilih/batal satu karyawan
+    const handleToggleBulkEmployee = (empId) => {
+        const current = bulkShiftForm.data.employee_ids || [];
+        const next = current.includes(empId)
+            ? current.filter((id) => id !== empId)
+            : [...current, empId];
+        bulkShiftForm.setData('employee_ids', next);
     };
+
+    // Pilih seluruh karyawan yang sedang tampil di filter
+    const handleSelectAllFilteredEmployees = () => {
+        const idsToAdd = bulkFilteredEmployees.map((e) => e.id);
+        const current = new Set(bulkShiftForm.data.employee_ids || []);
+        idsToAdd.forEach((id) => current.add(id));
+        bulkShiftForm.setData('employee_ids', Array.from(current));
+    };
+
+    // Bersihkan semua pilihan karyawan
+    const handleClearAllSelectedEmployees = () => {
+        bulkShiftForm.setData('employee_ids', []);
+    };
+
+    // Estimasi jumlah karyawan yang akan diabsen pada modal bulk absen
+    const bulkTargetEmployeesCount = useMemo(() => {
+        if (bulkTargetMode === 'specific') {
+            return (bulkShiftForm.data.employee_ids || []).length;
+        }
+        return bulkEligibleEmployees.length;
+    }, [bulkTargetMode, bulkShiftForm.data.employee_ids, bulkEligibleEmployees]);
 
     // Helper Badge Matriks Bulanan
     const getCategoryBadge = (record, isWeekend) => {
@@ -496,6 +516,7 @@ export default function AttendanceIndex({
         bulkShiftForm.transform((data) => ({
             ...data,
             date: data.date || dailyDate,
+            employee_ids: bulkTargetMode === 'specific' ? data.employee_ids : [],
         })).post(route('hcm.attendance.set-bulk'), {
             preserveScroll: true,
             onSuccess: () => {
@@ -950,41 +971,29 @@ export default function AttendanceIndex({
 
     return (
         <AppLayout
+            title="Presensi Harian"
             header={
                 <div className="flex items-center gap-2 min-w-0">
                     <CalendarDays className="h-4 w-4 text-indigo-600 shrink-0" />
                     <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
-                        Presensi & Absensi Karyawan
+                        Presensi &amp; Absensi Karyawan
                     </span>
                 </div>
             }
         >
-            <Head title="Presensi & Absensi Karyawan - HCM System" />
+            <Head title="Presensi &amp; Absensi Karyawan" />
 
-            <div className="space-y-6">
-                {/* Header Utama & Navigasi Tab */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <div className="p-1.5 rounded-lg bg-indigo-600 text-white shadow-xs">
-                                <CalendarDays className="h-5 w-5" />
-                            </div>
-                            <span>Presensi & Absensi Karyawan</span>
-                        </h1>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                            Matriks kalender bulanan 1–31 hari, rekapitulasi presensi tahunan seluruh karyawan, dan pencatatan harian massal.
-                        </p>
-                    </div>
-
-                    {/* Tab Navigation Switcher */}
-                    <div className="flex items-center gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700/60 self-start md:self-auto shadow-xs">
+            <div className="space-y-4">
+                {/* Responsive Tab Navigation Bar */}
+                <div className="w-full max-w-full overflow-x-auto scrollbar-none pb-0.5">
+                    <div className="inline-flex items-center gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700/60 shadow-xs whitespace-nowrap">
                         <button
                             type="button"
                             onClick={() => {
                                 setCurrentTab('matrix');
                                 applyFilters('matrix');
                             }}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
                                 currentTab === 'matrix'
                                     ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
                                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
@@ -1000,7 +1009,7 @@ export default function AttendanceIndex({
                                 setCurrentTab('dossier');
                                 applyFilters('dossier');
                             }}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
                                 currentTab === 'dossier'
                                     ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
                                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
@@ -1016,14 +1025,14 @@ export default function AttendanceIndex({
                                 setCurrentTab('daily');
                                 applyFilters('daily');
                             }}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
                                 currentTab === 'daily'
                                     ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
                                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                             }`}
                         >
                             <Clock className="h-3.5 w-3.5" />
-                            Entri Harian & Shift
+                            Entri Harian &amp; Shift
                         </button>
 
                         <button
@@ -1032,7 +1041,7 @@ export default function AttendanceIndex({
                                 setCurrentTab('gatepass');
                                 applyFilters('gatepass');
                             }}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
                                 currentTab === 'gatepass'
                                     ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
                                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
@@ -1049,11 +1058,11 @@ export default function AttendanceIndex({
 
                         <Link
                             href={route('hcm.shifts.index')}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-xs"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-zinc-900 transition-all shadow-xs whitespace-nowrap"
                             title="Buka Manajemen Multi-Shift & Roster Jadwal"
                         >
                             <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
-                            <span>Roster & Shift</span>
+                            <span>Roster &amp; Shift</span>
                         </Link>
                     </div>
                 </div>
@@ -1274,7 +1283,7 @@ export default function AttendanceIndex({
                                     className="h-8 w-36 text-xs"
                                 />
 
-                                <div className="w-48">
+                                <div className="w-full sm:w-48">
                                     <SearchableSelect
                                         value={selectedDepartment}
                                         onValueChange={(val) => {
@@ -1346,7 +1355,7 @@ export default function AttendanceIndex({
                                     className="h-8 text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
                                 >
                                     <Sparkles className="h-3.5 w-3.5" />
-                                    Set Massal
+                                    Catat Absen Massal
                                 </Button>
                             </div>
                         </div>
@@ -1749,7 +1758,7 @@ export default function AttendanceIndex({
                                     className="h-8 text-xs gap-1.5 border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400"
                                 >
                                     <Sparkles className="h-3.5 w-3.5" />
-                                    Set Shift
+                                    Catat Absen Massal
                                 </Button>
 
                                 <Button
@@ -2033,97 +2042,56 @@ export default function AttendanceIndex({
             </Dialog>
 
             {/* ========================================================================= */}
-            {/* MODAL 2: SET MASSAL SHIFT / DIVISI                                        */}
+            {/* MODAL 2: CATAT PRESENSI MASSAL (IZIN / SAKIT / ALPHA / DLL)                */}
             {/* ========================================================================= */}
             <Dialog open={isBulkShiftModalOpen} onOpenChange={setIsBulkShiftModalOpen}>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="text-base flex items-center gap-2">
                             <Sparkles className="h-4 w-4 text-indigo-600" />
-                            Set Presensi Massal Per Divisi / Shift
+                            Catat Presensi Massal (Izin / Sakit / Alpha / dll)
                         </DialogTitle>
                         <DialogDescription className="text-xs">
-                            Atur kehadiran massal untuk departemen atau divisi tertentu pada tanggal terpilih ({dailyDate}).
+                            Catat ketidakhadiran atau penyesuaian presensi secara massal per departemen, divisi, atau pilih karyawan tertentu.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <form onSubmit={handleBulkShiftSubmit} className="space-y-3 pt-2">
-                        {/* Preset Waktu Cepat */}
-                        <div className="space-y-1.5 p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700">
-                            <Label className="text-[11px] font-semibold text-zinc-500 uppercase">Preset Jam Kerja Cepat:</Label>
-                            <div className="flex flex-wrap gap-1.5 mt-1">
-                                <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="outline"
-                                    onClick={() => {
-                                        bulkShiftForm.setData({
-                                            ...bulkShiftForm.data,
-                                            clock_in: '07:00',
-                                            clock_out: '15:00',
-                                            notes: 'Shift Pagi (07:00 - 15:00)',
-                                        });
-                                    }}
-                                    className="text-[11px] h-6 px-2"
+                    <form onSubmit={handleBulkShiftSubmit} className="space-y-3 pt-1">
+                        {/* 1. Tanggal & Kategori Presensi */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Tanggal Presensi *</Label>
+                                <Input
+                                    type="date"
+                                    value={bulkShiftForm.data.date || dailyDate}
+                                    onChange={(e) => bulkShiftForm.setData('date', e.target.value)}
+                                    className="h-8 text-xs font-mono"
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label className="text-xs font-medium">Kategori Presensi *</Label>
+                                <select
+                                    value={bulkShiftForm.data.attendance_category}
+                                    onChange={(e) => bulkShiftForm.setData('attendance_category', e.target.value)}
+                                    className="w-full h-8 text-xs rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 font-medium"
                                 >
-                                    Pagi (07:00 - 15:00)
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="outline"
-                                    onClick={() => {
-                                        bulkShiftForm.setData({
-                                            ...bulkShiftForm.data,
-                                            clock_in: '08:00',
-                                            clock_out: '17:00',
-                                            notes: 'Shift Normal (08:00 - 17:00)',
-                                        });
-                                    }}
-                                    className="text-[11px] h-6 px-2"
-                                >
-                                    Normal (08:00 - 17:00)
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="outline"
-                                    onClick={() => {
-                                        bulkShiftForm.setData({
-                                            ...bulkShiftForm.data,
-                                            clock_in: '15:00',
-                                            clock_out: '23:00',
-                                            notes: 'Shift Siang (15:00 - 23:00)',
-                                        });
-                                    }}
-                                    className="text-[11px] h-6 px-2"
-                                >
-                                    Siang (15:00 - 23:00)
-                                </Button>
+                                    <option value="Izin">Izin (Keperluan Pribadi / Keluarga)</option>
+                                    <option value="Sakit">Sakit (Istirahat Medis / Dokter)</option>
+                                    <option value="Alpha/Mangkir">Alpha / Mangkir (Tanpa Keterangan)</option>
+                                    <option value="Cuti">Cuti (Cuti Tahunan / Bersama)</option>
+                                    <option value="Dinas Luar">Dinas Luar (Tugas Lapangan)</option>
+                                    <option value="Terlambat">Terlambat (Datang Terlambat)</option>
+                                    <option value="Pulang Cepat">Pulang Cepat (Mendahului)</option>
+                                    <option value="Libur/Cuti Bersama">Libur / Cuti Bersama</option>
+                                    <option value="Hadir">Hadir (Hadir Normal / Override)</option>
+                                </select>
                             </div>
                         </div>
 
-                        {/* Pilih Shift Kerja (Auto-fill jam) */}
-                        <div className="space-y-1">
-                            <Label className="text-xs font-medium">Pilih Shift Kerja (Opsional)</Label>
-                            <SearchableSelect
-                                value={String(bulkShiftForm.data.shift_id || '')}
-                                onValueChange={(val) => handleSelectShiftInBulk(val)}
-                                options={[
-                                    { value: '', label: '— Isi Manual (tanpa shift) —' },
-                                    ...(shifts || []).map((s) => ({
-                                        value: String(s.id),
-                                        label: `${s.name} (${s.start_time ? s.start_time.substring(0,5) : '?'} - ${s.end_time ? s.end_time.substring(0,5) : '?'})`,
-                                    })),
-                                ]}
-                                placeholder="Pilih shift untuk auto-isi jam..."
-                                clearable={false}
-                                className="h-8 text-xs"
-                            />
-                        </div>
-
-                        {/* Departemen & Divisi */}
-                        <div className="grid grid-cols-2 gap-3">
+                        {/* 2. Filter Departemen & Divisi */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="space-y-1">
                                 <Label className="text-xs font-medium">Departemen</Label>
                                 <SearchableSelect
@@ -2155,75 +2123,180 @@ export default function AttendanceIndex({
                             </div>
                         </div>
 
-                        {/* Info jumlah karyawan yang akan terdampak */}
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700">
-                            <Users className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                            <p className="text-[11px] text-indigo-700 dark:text-indigo-300">
-                                Akan memproses <strong>{bulkTargetEmployeesCount}</strong> karyawan aktif sesuai filter departemen/divisi.
-                            </p>
-                        </div>
-
-                        {/* Kategori */}
-                        <div className="space-y-1">
-                            <Label className="text-xs font-medium">Kategori Kehadiran</Label>
-                            <select
-                                value={bulkShiftForm.data.attendance_category}
-                                onChange={(e) => bulkShiftForm.setData('attendance_category', e.target.value)}
-                                className="w-full h-8 text-xs rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2"
-                            >
-                                <option value="Hadir">Hadir</option>
-                                <option value="Terlambat">Terlambat</option>
-                                <option value="Izin">Izin</option>
-                                <option value="Sakit">Sakit</option>
-                                <option value="Cuti">Cuti</option>
-                                <option value="Dinas Luar">Dinas Luar</option>
-                                <option value="Libur/Cuti Bersama">Libur / Cuti Bersama</option>
-                                <option value="Alpha/Mangkir">Alpha / Mangkir</option>
-                            </select>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <Label className="text-xs font-medium">Jam Masuk</Label>
-                                <Input
-                                    type="time"
-                                    value={bulkShiftForm.data.clock_in}
-                                    onChange={(e) => bulkShiftForm.setData('clock_in', e.target.value)}
-                                    className="h-8 text-xs font-mono"
-                                />
+                        {/* 3. Mode Penerima Presensi */}
+                        <div className="space-y-2 pt-1">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-xs font-medium">Sasaran Karyawan:</Label>
+                                <div className="inline-flex rounded-lg border border-zinc-200 dark:border-zinc-700 p-0.5 bg-zinc-100 dark:bg-zinc-800">
+                                    <button
+                                        type="button"
+                                        onClick={() => setBulkTargetMode('all')}
+                                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
+                                            bulkTargetMode === 'all'
+                                                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                                                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                                        }`}
+                                    >
+                                        Semua ({bulkEligibleEmployees.length})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setBulkTargetMode('specific')}
+                                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
+                                            bulkTargetMode === 'specific'
+                                                ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                                                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                                        }`}
+                                    >
+                                        Pilih Spesifik ({bulkShiftForm.data.employee_ids?.length || 0})
+                                    </button>
+                                </div>
                             </div>
 
-                            <div className="space-y-1">
-                                <Label className="text-xs font-medium">Jam Keluar</Label>
-                                <Input
-                                    type="time"
-                                    value={bulkShiftForm.data.clock_out}
-                                    onChange={(e) => bulkShiftForm.setData('clock_out', e.target.value)}
-                                    className="h-8 text-xs font-mono"
-                                />
-                            </div>
+                            {/* Checklist Karyawan Spesifik */}
+                            {bulkTargetMode === 'specific' && (
+                                <div className="space-y-2 border border-zinc-200 dark:border-zinc-700 rounded-lg p-2.5 bg-zinc-50 dark:bg-zinc-850">
+                                    <div className="flex items-center gap-2">
+                                        <div className="relative flex-1">
+                                            <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-zinc-400" />
+                                            <Input
+                                                type="text"
+                                                placeholder="Cari nama atau NIK karyawan..."
+                                                value={bulkEmployeeSearch}
+                                                onChange={(e) => setBulkEmployeeSearch(e.target.value)}
+                                                className="h-7 pl-8 text-xs bg-white dark:bg-zinc-900"
+                                            />
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            size="xs"
+                                            variant="outline"
+                                            onClick={handleSelectAllFilteredEmployees}
+                                            className="text-[11px] h-7 px-2 shrink-0"
+                                        >
+                                            Pilih Semua
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="xs"
+                                            variant="ghost"
+                                            onClick={handleClearAllSelectedEmployees}
+                                            className="text-[11px] h-7 px-2 shrink-0 text-zinc-500 hover:text-rose-600"
+                                        >
+                                            Reset
+                                        </Button>
+                                    </div>
+
+                                    {/* List scrollable */}
+                                    <div className="max-h-44 overflow-y-auto space-y-1 pr-1 divide-y divide-zinc-200/50 dark:divide-zinc-800">
+                                        {bulkFilteredEmployees.length === 0 ? (
+                                            <div className="text-center py-4 text-xs text-zinc-400">
+                                                Tidak ada karyawan yang cocok dengan kriteria.
+                                            </div>
+                                        ) : (
+                                            bulkFilteredEmployees.map((emp) => {
+                                                const isChecked = (bulkShiftForm.data.employee_ids || []).includes(emp.id);
+                                                return (
+                                                    <label
+                                                        key={emp.id}
+                                                        className={`flex items-center justify-between p-1.5 rounded-md cursor-pointer text-xs transition-colors ${
+                                                            isChecked
+                                                                ? 'bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200'
+                                                                : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={() => handleToggleBulkEmployee(emp.id)}
+                                                                className="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+                                                            />
+                                                            <div className="truncate">
+                                                                <span className="font-medium">{emp.name}</span>
+                                                                {emp.nickname && (
+                                                                    <span className="text-zinc-400 text-[10px] ml-1">({emp.nickname})</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                                            <span className="font-mono text-[10px] text-zinc-400">{emp.employee_code}</span>
+                                                            {emp.division && (
+                                                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">
+                                                                    {emp.division}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    </label>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+
+                                    <div className="text-[11px] text-zinc-500 flex justify-between pt-1">
+                                        <span>Total cocok: <strong>{bulkFilteredEmployees.length}</strong></span>
+                                        <span>Terpilih: <strong className="text-indigo-600 dark:text-indigo-400">{(bulkShiftForm.data.employee_ids || []).length}</strong></span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {bulkTargetMode === 'all' && (
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700">
+                                    <Users className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                                    <p className="text-[11px] text-indigo-700 dark:text-indigo-300">
+                                        Akan menerapkan presensi ke seluruh <strong>{bulkEligibleEmployees.length}</strong> karyawan pada filter departemen/divisi di atas.
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
+                        {/* 4. Jam Masuk & Keluar (Hanya jika Terlambat / Pulang Cepat / Hadir) */}
+                        {['Terlambat', 'Pulang Cepat', 'Hadir'].includes(bulkShiftForm.data.attendance_category) && (
+                            <div className="grid grid-cols-2 gap-3 p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700">
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-medium">Jam Masuk</Label>
+                                    <Input
+                                        type="time"
+                                        value={bulkShiftForm.data.clock_in}
+                                        onChange={(e) => bulkShiftForm.setData('clock_in', e.target.value)}
+                                        className="h-8 text-xs font-mono"
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-medium">Jam Keluar</Label>
+                                    <Input
+                                        type="time"
+                                        value={bulkShiftForm.data.clock_out}
+                                        onChange={(e) => bulkShiftForm.setData('clock_out', e.target.value)}
+                                        className="h-8 text-xs font-mono"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 5. Catatan / Alasan Presensi */}
                         <div className="space-y-1">
-                            <Label className="text-xs font-medium">Catatan Presensi (Opsional)</Label>
+                            <Label className="text-xs font-medium">Alasan / Catatan Presensi (Opsional)</Label>
                             <Input
                                 value={bulkShiftForm.data.notes}
                                 onChange={(e) => bulkShiftForm.setData('notes', e.target.value)}
-                                placeholder="Keterangan jadwal kerja..."
+                                placeholder="Contoh: Sakit flu massal, izin acara keluarga, dll..."
                                 className="h-8 text-xs"
                             />
                         </div>
 
+                        {/* 6. Checkbox Override */}
                         <div className="flex items-center gap-2 pt-1">
                             <input
                                 type="checkbox"
                                 id="override_check"
                                 checked={bulkShiftForm.data.override_existing}
                                 onChange={(e) => bulkShiftForm.setData('override_existing', e.target.checked)}
-                                className="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                                className="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
                             />
                             <Label htmlFor="override_check" className="text-xs text-zinc-600 dark:text-zinc-400 cursor-pointer">
-                                Timpa presensi yang sudah terisi sebelumnya
+                                Timpa presensi yang sudah tercatat sebelumnya pada tanggal ini
                             </Label>
                         </div>
 
@@ -2243,8 +2316,10 @@ export default function AttendanceIndex({
                                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
                             >
                                 {bulkShiftForm.processing
-                                    ? 'Menerapkan...'
-                                    : `Terapkan ke ${bulkTargetEmployeesCount} Karyawan`}
+                                    ? 'Menyimpan...'
+                                    : bulkTargetMode === 'specific'
+                                    ? `Catat untuk ${bulkTargetEmployeesCount} Karyawan Terpilih`
+                                    : `Catat untuk Semua (${bulkTargetEmployeesCount} Karyawan)`}
                             </Button>
                         </DialogFooter>
                     </form>

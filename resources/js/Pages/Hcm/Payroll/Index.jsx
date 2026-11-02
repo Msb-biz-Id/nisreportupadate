@@ -341,31 +341,31 @@ export default function PayrollIndex({
     const rows = payrolls?.data || [];
 
     return (
-        <AppLayout>
-            <Head title="Penggajian Terpadu (Unified Payroll) - HCM" />
+        <AppLayout
+            title="Penggajian (Payroll)"
+            header={
+                <div className="flex items-center gap-2 min-w-0">
+                    <Landmark className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                        Penggajian (Payroll) Karyawan
+                    </span>
+                </div>
+            }
+        >
+            <Head title="Penggajian (Payroll) Karyawan" />
 
-            <div className="space-y-5">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="flex items-center gap-2.5">
-                        <span className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
-                            <Landmark className="h-5 w-5" />
-                        </span>
-                        <div>
-                            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                                Penggajian Terpadu (Unified Payroll Engine)
-                            </h1>
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                Rekapitulasi batch gaji bulanan: Gaji Pokok, Uang Makan, Upah Lembur, Penyesuaian, dan Pemotongan Gaji dengan otorisasi Double Sign-Off.
-                            </p>
-                        </div>
-                    </div>
+            <div className="space-y-4">
+                {/* Clean Top Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Batch penggajian bulanan: Gaji Pokok, Uang Makan, Upah Lembur, dan Pemotongan dengan otorisasi Double Sign-Off.
+                    </p>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
                         <Button
                             type="button"
                             onClick={handleOpenCreate}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold gap-1.5 h-9 text-xs shadow-xs"
+                            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-semibold gap-1.5 h-9 text-xs shadow-xs"
                         >
                             <PlusCircle className="h-4 w-4" />
                             <span>+ Generate Batch Penggajian</span>

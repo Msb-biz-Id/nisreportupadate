@@ -123,27 +123,29 @@ class HcmAttendanceDailyExport implements FromArray, WithTitle, ShouldAutoSize, 
             $notes = '';
 
             if ($att) {
-                $statusText = match ($att->attendance_category) {
-                    'PRESENT' => 'Hadir Tepat',
-                    'LATE' => 'Terlambat',
-                    'PERMIT' => 'Izin',
-                    'SICK' => 'Sakit',
-                    'LEAVE' => 'Cuti',
-                    'ALPHA' => 'Alpha',
+                $rawCat = strtoupper(trim((string)$att->attendance_category));
+                $catNorm = match (true) {
+                    in_array($rawCat, ['PRESENT', 'HADIR']) => 'Hadir Tepat',
+                    in_array($rawCat, ['LATE', 'TERLAMBAT']) => 'Terlambat',
+                    in_array($rawCat, ['PERMIT', 'IZIN', 'DINAS LUAR']) => 'Izin',
+                    in_array($rawCat, ['SICK', 'SAKIT']) => 'Sakit',
+                    in_array($rawCat, ['LEAVE', 'CUTI']) || str_contains($rawCat, 'CUTI') => 'Cuti',
+                    in_array($rawCat, ['ALPHA', 'ALPHA/MANGKIR']) => 'Alpha/Mangkir',
                     default => $att->attendance_category,
                 };
-                $checkIn = $att->check_in ? Carbon::parse($att->check_in)->format('H:i') : '-';
-                $checkOut = $att->check_out ? Carbon::parse($att->check_out)->format('H:i') : '-';
+                $statusText = $catNorm;
+                $checkIn = $att->clock_in ? Carbon::parse($att->clock_in)->format('H:i') : ($att->check_in ? Carbon::parse($att->check_in)->format('H:i') : '-');
+                $checkOut = $att->clock_out ? Carbon::parse($att->clock_out)->format('H:i') : ($att->check_out ? Carbon::parse($att->check_out)->format('H:i') : '-');
                 $lateMinutes = (int) ($att->late_minutes ?? 0);
                 $overtimeHours = (float) ($att->overtime_hours ?? 0);
                 $notes = $att->notes ?? '';
 
-                if ($att->attendance_category === 'PRESENT') $cntHadir++;
-                elseif ($att->attendance_category === 'LATE') $cntTerlambat++;
-                elseif ($att->attendance_category === 'PERMIT') $cntIzin++;
-                elseif ($att->attendance_category === 'SICK') $cntSakit++;
-                elseif ($att->attendance_category === 'LEAVE') $cntCuti++;
-                elseif ($att->attendance_category === 'ALPHA') $cntAlpha++;
+                if (in_array($rawCat, ['PRESENT', 'HADIR'])) $cntHadir++;
+                elseif (in_array($rawCat, ['LATE', 'TERLAMBAT'])) $cntTerlambat++;
+                elseif (in_array($rawCat, ['PERMIT', 'IZIN', 'DINAS LUAR'])) $cntIzin++;
+                elseif (in_array($rawCat, ['SICK', 'SAKIT'])) $cntSakit++;
+                elseif (in_array($rawCat, ['LEAVE', 'CUTI']) || str_contains($rawCat, 'CUTI')) $cntCuti++;
+                elseif (in_array($rawCat, ['ALPHA', 'ALPHA/MANGKIR'])) $cntAlpha++;
             } elseif ($leave) {
                 $statusText = match ($leave->leave_type) {
                     'SAKIT' => 'Sakit (Cuti)',
@@ -155,7 +157,18 @@ class HcmAttendanceDailyExport implements FromArray, WithTitle, ShouldAutoSize, 
                 elseif ($leave->leave_type === 'IZIN') $cntIzin++;
                 else $cntCuti++;
             } else {
-                $cntBelum++;
+                $isPastOrToday = $this->date <= Carbon::today()->toDateString();
+                $isWeekend = $carbonDate->isWeekend();
+
+                if ($isPastOrToday && !$isWeekend) {
+                    $statusText = 'Hadir (Auto)';
+                    $cntHadir++;
+                } else {
+                    $statusText = $isWeekend ? 'Libur Akhir Pekan' : 'Belum Diabsen';
+                    if (!$isWeekend) {
+                        $cntBelum++;
+                    }
+                }
             }
 
             $totalLateMin += $lateMinutes;

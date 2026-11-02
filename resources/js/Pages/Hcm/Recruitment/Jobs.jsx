@@ -446,38 +446,28 @@ export default function JobsIndex({
 
     return (
         <AppLayout
+            title="Lowongan Kerja"
             header={
                 <div className="flex items-center gap-2 min-w-0">
                     <Briefcase className="h-4 w-4 text-indigo-600 shrink-0" />
                     <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
-                        Master Lowongan Kerja & Rekrutmen
+                        Lowongan Kerja
                     </span>
                 </div>
             }
         >
-            <Head title="Master Lowongan Kerja (Loker) - HCM" />
+            <Head title="Lowongan Kerja - HCM" />
 
             <div className="space-y-4">
-                {/* Header Banner Canvas */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <div>
-                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <Briefcase className="h-5 w-5 text-indigo-600 shrink-0" />
-                            <span>Master Lowongan Kerja (Loker)</span>
-                        </h1>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                            Kelola posisi loker pabrik & kantor serta dapatkan link formulir pendaftaran publik mandiri (/karir/[slug]).
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                        <Link
-                            href={route('hcm.recruitment.applicants.index')}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 shadow-xs transition"
-                        >
-                            <Users className="w-3.5 h-3.5 text-indigo-600" />
-                            Pipeline Pelamar ({metrics.total_applicants ?? 0})
-                        </Link>
+                {/* Action Row */}
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Link
+                        href={route('hcm.recruitment.applicants.index')}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 shadow-xs transition"
+                    >
+                        <Users className="w-3.5 h-3.5 text-indigo-600" />
+                        Pipeline Pelamar ({metrics.total_applicants ?? 0})
+                    </Link>
                         <Button
                             onClick={openAddModal}
                             size="sm"
@@ -487,7 +477,6 @@ export default function JobsIndex({
                             Buat Loker Baru
                         </Button>
                     </div>
-                </div>
 
                 {/* 1. Baris Metrik Ringkasan */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

@@ -134,11 +134,12 @@ export default function MonthlyCalendar({
 
     return (
         <AppLayout
+            title="Kalender Presensi Bulanan"
             header={
                 <div className="flex items-center gap-2 min-w-0">
                     <CalendarDays className="h-4 w-4 text-indigo-600 shrink-0" />
                     <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
-                        Matriks Kalender Presensi Bulanan
+                        Kalender Presensi Bulanan
                     </span>
                 </div>
             }
@@ -146,19 +147,8 @@ export default function MonthlyCalendar({
             <Head title={`Presensi Bulanan ${formatMonthIndo(selectedMonth)} - HCM`} />
 
             <div className="space-y-4">
-                {/* Header Banner Canvas */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <div>
-                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <CalendarDays className="h-5 w-5 text-indigo-600 shrink-0" />
-                            <span>Matriks Kalender Presensi Bulanan</span>
-                        </h1>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                            Visualisasi absensi 1-31 hari per karyawan untuk periode {formatMonthIndo(selectedMonth)}.
-                        </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {/* Action Row */}
+                <div className="flex flex-wrap items-center justify-end gap-2">
                         <Button
                             variant="outline"
                             size="sm"
@@ -202,7 +192,6 @@ export default function MonthlyCalendar({
                             <span>Cetak Rekap</span>
                         </Button>
                     </div>
-                </div>
 
                 {/* Segmented Category Filter (Model Karyawan Dual Model) */}
                 <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60">

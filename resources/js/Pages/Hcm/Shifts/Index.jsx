@@ -470,35 +470,29 @@ export default function ShiftsIndex({
 
     return (
         <AppLayout
+            title="Pengaturan Shift"
             header={
                 <div className="flex items-center gap-2 min-w-0">
                     <Clock className="h-4 w-4 text-indigo-600 shrink-0" />
                     <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
-                        Multi-Shift & Roster Management (Pondasi Jadwal)
+                        Multi-Shift &amp; Roster Management
                     </span>
                 </div>
             }
         >
-            <Head title="Multi-Shift & Roster Management - HCM NIS Group" />
+            <Head title="Multi-Shift &amp; Roster Management" />
 
-            <div className="space-y-6">
-                {/* Header Utama & Navigasi Tab */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <div className="p-1.5 rounded-lg bg-indigo-600 text-white shadow-xs">
-                                <Clock className="h-5 w-5" />
-                            </div>
-                            <span>Multi-Shift & Roster Management</span>
-                        </h1>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                            Pondasi jadwal jam kerja, rotasi shift lini produksi/kantor, dan matriks penugasan roster karyawan NIS Group.
-                        </p>
-                    </div>
+            <div className="space-y-4">
+                {/* Clean Top Action Bar */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Pondasi jadwal jam kerja, rotasi shift lini produksi/kantor, dan penugasan roster karyawan.
+                    </p>
 
-                    <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+                    <div className="flex items-center gap-2 self-start md:self-auto flex-wrap w-full md:w-auto">
                         {/* Switcher Tab */}
-                        <div className="flex items-center gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700/60 shadow-xs">
+                        <div className="w-full sm:w-auto overflow-x-auto scrollbar-none">
+                            <div className="inline-flex items-center gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700/60 shadow-xs whitespace-nowrap">
                             <button
                                 type="button"
                                 onClick={() => {
@@ -531,6 +525,7 @@ export default function ShiftsIndex({
                                 Master Shift Kerja ({shifts.length})
                             </button>
                         </div>
+                    </div>
 
                         {/* Link ke Presensi Harian */}
                         <Link

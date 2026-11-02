@@ -632,7 +632,7 @@ export default function AppLayout({ title, header, children }) {
                 </SheetContent>
             </Sheet>
 
-            <div className={cn("transition-all duration-300", isCollapsed ? "lg:pl-20" : "lg:pl-64")}>
+            <div className={cn("transition-all duration-300 min-w-0 max-w-full", isCollapsed ? "lg:pl-20" : "lg:pl-64")}>
                 {/* Top bar - Solid and opaque to prevent scroll-blur bleeding */}
                 <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs px-4 md:px-6">
                     <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)}>
@@ -716,7 +716,7 @@ export default function AppLayout({ title, header, children }) {
                     </div>
                 )}
 
-                <main className="px-4 py-6 md:px-6 lg:px-8">
+                <main className="w-full max-w-full min-w-0 px-4 py-6 md:px-6 lg:px-8">
                     <NotificationContext.Provider value={{ notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, clearAllNotifications }}>
                         {children}
                     </NotificationContext.Provider>

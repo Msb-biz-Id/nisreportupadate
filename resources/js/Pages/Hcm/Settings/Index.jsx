@@ -227,46 +227,27 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
 
     return (
         <AppLayout
-            title="Pengaturan Kepegawaian (HCM)"
+            title="Pengaturan HCM"
             header={
                 <div className="flex items-center gap-2 min-w-0">
                     <SlidersHorizontal className="h-4 w-4 text-indigo-600 shrink-0" />
                     <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
-                        Pengaturan Modul Kepegawaian
+                        Pengaturan HCM
                     </span>
                 </div>
             }
         >
-            <Head title="Pengaturan Kepegawaian (HCM) - Profil & Biaya Lembur" />
+            <Head title="Pengaturan HCM - NISGroup" />
 
             <div className="space-y-6">
-                {/* Header Sub-Modul */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-5">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300">
-                                Sub-Modul HCM
-                            </span>
-                            <span className="text-xs text-zinc-400">&bull;</span>
-                            <span className="text-xs text-zinc-500 dark:text-zinc-400">Konfigurasi Sentral Kepegawaian</span>
-                        </div>
-                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <SlidersHorizontal className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                            <span>Pengaturan Modul Kepegawaian</span>
-                        </h1>
-                        <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                            Atur profil instansi, logo, identitas kop surat, footer dokumen resmi, serta konfigurasi tarif lembur dinamis & tunjangan makan.
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <Link
-                            href={route('hcm.dashboard.index')}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700 dark:hover:bg-zinc-750 transition"
-                        >
-                            Ke Dashboard HCM
-                        </Link>
-                    </div>
+                {/* Header Action Row */}
+                <div className="flex items-center justify-end">
+                    <Link
+                        href={route('hcm.dashboard.index')}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700 dark:hover:bg-zinc-750 transition"
+                    >
+                        Ke Dashboard HCM
+                    </Link>
                 </div>
 
                 {/* Tab Navigation Navigation */}

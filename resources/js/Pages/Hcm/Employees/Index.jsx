@@ -793,7 +793,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
 
     return (
         <AppLayout
-            title={activeCategory === 'intern' ? 'Peserta Magang SMK - NISGroup' : 'Master Karyawan - NISGroup'}
+            title={activeCategory === 'intern' ? 'Peserta Magang SMK' : 'Karyawan & Magang'}
             header={
                 <div className="flex items-center gap-2 min-w-0">
                     {activeCategory === 'intern' ? (
@@ -802,39 +802,23 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                         <Users className="h-4 w-4 text-indigo-600 shrink-0" />
                     )}
                     <span className="text-sm sm:text-base font-semibold truncate text-zinc-900 dark:text-zinc-100">
-                        1. Master Karyawan (Data Umum Karyawan)
+                        {activeCategory === 'intern' ? 'Peserta Magang SMK' : 'Karyawan & Magang'}
                     </span>
                 </div>
             }
         >
-            <Head title={`Master Karyawan - ${activeCategory === 'intern' ? 'Data Peserta Magang NISGroup' : 'Data Karyawan Managerial/Kontrak/Borongan'}`} />
+            <Head title={`Master Karyawan - ${activeCategory === 'intern' ? 'Peserta Magang SMK' : 'Karyawan & Magang'}`} />
 
-            <div className="space-y-5">
-                {/* Banner Judul Modul */}
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-zinc-200/80 dark:border-zinc-800/80">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
-                            {activeCategory === 'intern' ? (
-                                <GraduationCap className="h-5 w-5" />
-                            ) : (
-                                <Users className="h-5 w-5" />
-                            )}
-                        </div>
-                        <div>
-                            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                                1. Master Karyawan (Data Umum Karyawan)
-                            </h1>
-                            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-                                <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                                    {activeCategory === 'intern' ? 'Kategori: Data Peserta Magang NISGroup' : 'Kategori: Data Karyawan Managerial/Kontrak/Borongan NISGroup'}
-                                </span> — {activeCategory === 'intern'
-                                    ? 'Monitoring data siswa PKL/vokasi, asal sekolah SMK, guru pendamping, dan sisa masa magang.'
-                                    : 'Kelola biodata resmi, NIK KTP, BPJS, nomor rekening payroll BRI, ukuran seragam, dan buku induk NISGroup.'}
-                            </p>
-                        </div>
-                    </div>
+            <div className="space-y-4">
+                {/* Clean Top Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {activeCategory === 'intern'
+                            ? 'Kelola data siswa PKL/vokasi, asal sekolah SMK, dan masa magang.'
+                            : 'Kelola data resmi karyawan, NIK KTP, BPJS, rekening payroll, dan buku induk NISGroup.'}
+                    </p>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
                         <Button
                             onClick={() => {
                                 createForm.setData((prev) => ({
@@ -845,7 +829,7 @@ export default function EmployeeIndex({ employees, filters, metrics, dropdowns, 
                                 }));
                                 setIsCreateModalOpen(true);
                             }}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm flex items-center gap-2 text-xs sm:text-sm h-9"
+                            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center justify-center gap-2 text-xs sm:text-sm h-9"
                         >
                             <UserPlus className="h-4 w-4" />
                             <span>{activeCategory === 'intern' ? 'Tambah Peserta Magang' : 'Tambah Karyawan'}</span>

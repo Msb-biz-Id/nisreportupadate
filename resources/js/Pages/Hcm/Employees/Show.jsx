@@ -224,6 +224,7 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
 
     return (
         <AppLayout
+            title={employee.name}
             header={
                 <div className="flex items-center justify-between gap-3 min-w-0">
                     <div className="flex items-center gap-2 min-w-0">

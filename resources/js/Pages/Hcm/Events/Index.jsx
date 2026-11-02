@@ -253,28 +253,29 @@ export default function HcmEventsIndex({
     );
 
     return (
-        <AppLayout title="Agenda Kegiatan Perusahaan">
+        <AppLayout
+            title="Kalender & Event"
+            header={
+                <div className="flex items-center gap-2 min-w-0">
+                    <CalendarDays className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                        Agenda Kegiatan Perusahaan
+                    </span>
+                </div>
+            }
+        >
             <Head title="Agenda Kegiatan Perusahaan" />
 
             <div className="space-y-4">
+                {/* Clean Top Action Bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400">
-                            <CalendarDays className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                                Agenda Kegiatan Perusahaan
-                            </h1>
-                            <p className="text-xs text-zinc-500">
-                                Kegiatan korporat, gathering, rapat internal, pelatihan, dan hari libur nasional.
-                            </p>
-                        </div>
-                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Kegiatan korporat, gathering, rapat internal, pelatihan, dan hari libur nasional.
+                    </p>
 
                     <Button
                         onClick={openAddModal}
-                        className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-xs font-semibold shadow-sm"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-semibold shadow-xs w-full sm:w-auto"
                     >
                         <Plus className="w-4 h-4" />
                         Tambah Kegiatan
@@ -284,6 +285,7 @@ export default function HcmEventsIndex({
                 <DataTable
                     columns={columns}
                     data={events || []}
+                    tableClassName="table-fixed min-w-[850px] border-collapse whitespace-nowrap text-xs"
                     searchPlaceholder="Cari kegiatan / lokasi / deskripsi..."
                     exportFileName="Agenda_Kegiatan_Perusahaan"
                     emptyMessage="Tidak ada agenda kegiatan yang cocok dengan kriteria filter."

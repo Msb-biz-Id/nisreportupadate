@@ -778,39 +778,28 @@ export default function ApplicantsIndex({
 
     return (
         <AppLayout
+            title="Pipeline Pelamar"
             header={
                 <div className="flex items-center gap-2 min-w-0">
                     <Users className="h-4 w-4 text-indigo-600 shrink-0" />
                     <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
-                        Pipeline Pelamar & Wawancara - HCM
+                        Pipeline Pelamar
                     </span>
                 </div>
             }
         >
-            <Head title="Pipeline Pelamar & Rekrutmen - HCM" />
+            <Head title="Pipeline Pelamar - HCM" />
 
             <div className="space-y-4">
-                {/* Header Banner Canvas */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <div>
-                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <Users className="h-5 w-5 text-indigo-600 shrink-0" />
-                            <span>Pipeline Seleksi Pelamar & Talent Acquisition</span>
-                        </h1>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                            Pemeriksaan berkas, rekap wawancara, pemantauan kehadiran kerja, dan 1-Klik konversi pelamar menjadi karyawan baru.
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                        <Link
-                            href={route('hcm.recruitment.jobs.index')}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 shadow-xs transition"
-                        >
-                            <Briefcase className="w-3.5 h-3.5 text-indigo-600" />
-                            Master Loker & Link Publik
-                        </Link>
-                    </div>
+                {/* Action Row */}
+                <div className="flex items-center justify-end">
+                    <Link
+                        href={route('hcm.recruitment.jobs.index')}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 shadow-xs transition"
+                    >
+                        <Briefcase className="w-3.5 h-3.5 text-indigo-600" />
+                        Master Loker & Link Publik
+                    </Link>
                 </div>
 
                 {/* 1. Baris Metrik Ringkasan (Blueprint HRIS) */}

@@ -814,45 +814,31 @@ export default function CompensationIndex({
 
     return (
         <AppLayout
+            title="Kompensasi & Gaji"
             header={
                 <div className="flex items-center gap-2 min-w-0">
                     <Wallet className="h-4 w-4 text-indigo-600 shrink-0" />
                     <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
-                        3. Data Kompensasi &amp; Honor/Gaji
+                        Kompensasi &amp; Gaji Karyawan
                     </span>
                 </div>
             }
         >
-            <Head title="3. Data Kompensasi & Honor/Gaji (Sallary PKWT)" />
+            <Head title="Kompensasi &amp; Gaji Karyawan" />
 
-            <div className="space-y-5">
-                {/* Header Title & Action Button */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <span className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
-                                <Banknote className="h-5 w-5" />
-                            </span>
-                            <div>
-                                <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                                    3. Master Karyawan (Data Kompensasi &amp; Honor/Gaji)
-                                </h1>
-                                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                    <strong className="text-zinc-700 dark:text-zinc-300 font-semibold">
-                                        Kategori: Data Sallary Karyawan NISGroup (Masa Kontrak PKWT)
-                                    </strong>{' '}
-                                    — Rekap honor awal, siklus evaluasi berkala kenaikan upah, dan status pengajuan.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+            <div className="space-y-4">
+                {/* Clean Top Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Rekapitulasi honor awal, siklus evaluasi kenaikan upah, dan status persetujuan gaji PKWT.
+                    </p>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                        <Link href={route('hcm.salary-deductions.index')}>
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                        <Link href={route('hcm.salary-deductions.index')} className="w-full sm:w-auto">
                             <Button
                                 type="button"
                                 variant="outline"
-                                className="border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900/60 dark:text-rose-300 font-semibold gap-1.5 h-9 text-xs shrink-0"
+                                className="w-full sm:w-auto border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900/60 dark:text-rose-300 font-semibold gap-1.5 h-9 text-xs"
                             >
                                 <Scissors className="h-4 w-4 text-rose-600" />
                                 <span>Potongan &amp; Penyesuaian Gaji</span>
@@ -862,7 +848,7 @@ export default function CompensationIndex({
                         <Button
                             type="button"
                             onClick={handleOpenCreate}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs font-semibold gap-1.5 h-9 text-xs shrink-0"
+                            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs font-semibold gap-1.5 h-9 text-xs"
                         >
                             <PlusCircle className="h-4 w-4" />
                             <span>+ Tambah Data Kompensasi</span>
@@ -1043,26 +1029,26 @@ export default function CompensationIndex({
 
 
                 {/* Legenda Warna Status Honor NIS Group */}
-                <div className="p-3 bg-zinc-900/95 dark:bg-zinc-950 text-white rounded-xl border border-zinc-800 shadow-xs mb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2.5 text-xs">
-                    <div className="flex items-center gap-2 font-bold text-zinc-200">
+                <div className="p-3 bg-zinc-900/95 dark:bg-zinc-950 text-white rounded-xl border border-zinc-800 shadow-xs mb-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5 text-xs">
+                    <div className="flex items-center gap-2 font-bold text-zinc-200 shrink-0">
                         <TrendingUp className="h-4 w-4 text-amber-400 shrink-0" />
-                        <span>Keterangan Status Honor (Aturan Siklus Payroll NIS Group):</span>
+                        <span>Keterangan Status Honor (Siklus Payroll NIS Group):</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-semibold bg-[#800020] text-white shadow-xs">
-                            Penyesuaian honor telah berlaku dan diterima
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-[#800020] text-white shadow-xs">
+                            Telah berlaku &amp; diterima
                         </span>
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold bg-yellow-300 text-yellow-950 border border-yellow-400 shadow-xs">
-                            Penyesuaian honor berlaku mulai bulan berjalan
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-300 text-yellow-950 border border-yellow-400 shadow-xs">
+                            Mulai bulan berjalan
                         </span>
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold bg-emerald-500 text-white shadow-xs">
-                            Penyesuaian honor telah disetujui
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500 text-white shadow-xs">
+                            Telah disetujui
                         </span>
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold bg-cyan-400 text-cyan-950 shadow-xs">
-                            Penyesuaian honor sedang dalam proses pengajuan
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-400 text-cyan-950 shadow-xs">
+                            Proses pengajuan
                         </span>
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold bg-rose-400 text-rose-950 shadow-xs">
-                            Penyesuaian honor ditangguhkan sementara
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-400 text-rose-950 shadow-xs">
+                            Ditangguhkan sementara
                         </span>
                     </div>
                 </div>
@@ -1097,33 +1083,37 @@ export default function CompensationIndex({
                     exportFileName={`Kompensasi_Honor_${new Date().toISOString().slice(0, 10)}`}
                     emptyMessage="Tidak ada data kompensasi yang sesuai dengan filter."
                     filterSlot={
-                        <div className="flex flex-wrap items-center gap-2">
-                            <SearchableSelect
-                                value={entity}
-                                onValueChange={(val) => {
-                                    setEntity(val);
-                                    applyFilter(search, status, employmentStatus, val, 1);
-                                }}
-                                options={[
-                                    { label: 'Semua CV / Badan Usaha', value: 'all' },
-                                    ...toOptions(dropdowns.legal_entities || entities),
-                                ]}
-                                placeholder="Semua Badan Usaha"
-                                className="h-8 w-48 text-xs"
-                            />
-                            <SearchableSelect
-                                value={employmentStatus}
-                                onValueChange={(val) => {
-                                    setEmploymentStatus(val);
-                                    applyFilter(search, status, val, entity, 1);
-                                }}
-                                options={[
-                                    { label: 'Semua Status Ketenagakerjaan', value: 'all' },
-                                    ...toOptions(dropdowns.employment_statuses || ['Karyawan Tetap', 'PKWT', 'PKWT Lanjutan', 'Trainee (Probation)']),
-                                ]}
-                                placeholder="Status Kerja"
-                                className="h-8 w-44 text-xs"
-                            />
+                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                            <div className="w-full sm:w-48">
+                                <SearchableSelect
+                                    value={entity}
+                                    onValueChange={(val) => {
+                                        setEntity(val);
+                                        applyFilter(search, status, employmentStatus, val, 1);
+                                    }}
+                                    options={[
+                                        { label: 'Semua CV / Badan Usaha', value: 'all' },
+                                        ...toOptions(dropdowns.legal_entities || entities),
+                                    ]}
+                                    placeholder="Semua Badan Usaha"
+                                    className="h-8 w-full text-xs"
+                                />
+                            </div>
+                            <div className="w-full sm:w-44">
+                                <SearchableSelect
+                                    value={employmentStatus}
+                                    onValueChange={(val) => {
+                                        setEmploymentStatus(val);
+                                        applyFilter(search, status, val, entity, 1);
+                                    }}
+                                    options={[
+                                        { label: 'Semua Status Ketenagakerjaan', value: 'all' },
+                                        ...toOptions(dropdowns.employment_statuses || ['Karyawan Tetap', 'PKWT', 'PKWT Lanjutan', 'Trainee (Probation)']),
+                                    ]}
+                                    placeholder="Status Kerja"
+                                    className="h-8 w-full text-xs"
+                                />
+                            </div>
                             <SearchableSelect
                                 value={status}
                                 onValueChange={(val) => {

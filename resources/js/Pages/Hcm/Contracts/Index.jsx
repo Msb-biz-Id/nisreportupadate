@@ -588,39 +588,29 @@ export default function ContractIndex({ contracts, filters, metrics, dropdowns }
 
     return (
         <AppLayout
-            title="Master Karyawan (Data Kontrak & Legal)"
+            title="Kontrak & PKWT"
             header={
                 <div className="flex items-center gap-2 min-w-0">
                     <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
                     <span className="text-sm sm:text-base font-semibold truncate text-zinc-900 dark:text-zinc-100">
-                        2. Master Karyawan (Data Kontrak &amp; Legal)
+                        Kontrak &amp; PKWT Karyawan
                     </span>
                 </div>
             }
         >
-            <Head title="Master Karyawan (Data Kontrak & Legal)" />
+            <Head title="Kontrak &amp; PKWT Karyawan" />
 
-            <div className="space-y-5">
-                {/* Banner Judul Modul */}
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-zinc-200/80 dark:border-zinc-800/80">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
-                            <FileText className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                                2. Master Karyawan (Data Kontrak &amp; Legal)
-                            </h1>
-                            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-                                <span className="font-semibold text-indigo-600 dark:text-indigo-400">Kategori: Data Kontrak Karyawan NISGroup (Masa Kontrak PKWT)</span> — Monitoring masa kontrak, sisa durasi PKWT, evaluasi perpanjangan, dan naskah perjanjian kerja.
-                            </p>
-                        </div>
-                    </div>
+            <div className="space-y-4">
+                {/* Clean Top Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Monitoring masa kontrak, durasi PKWT, evaluasi perpanjangan, dan berkas perjanjian kerja.
+                    </p>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
                         <Button
                             onClick={openCreateModal}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm flex items-center gap-2 text-xs sm:text-sm h-9"
+                            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center justify-center gap-2 text-xs sm:text-sm h-9"
                         >
                             <Plus className="h-4 w-4" />
                             <span>Terbitkan Kontrak Baru</span>

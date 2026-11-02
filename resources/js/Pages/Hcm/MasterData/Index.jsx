@@ -360,29 +360,33 @@ export default function HcmMasterDataIndex({
     );
 
     return (
-        <AppLayout title="Master Data Kepegawaian">
+        <AppLayout
+            title="Master Data HCM"
+            header={
+                <div className="flex items-center gap-2 min-w-0">
+                    <FolderTree className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                        Master Data Kepegawaian
+                    </span>
+                </div>
+            }
+        >
             <Head title="Master Data Kepegawaian" />
 
-            <div className="space-y-6">
-                {/* Header Utama */}
-                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                            <FolderTree className="h-7 w-7 text-primary" />
-                            Master Data Kepegawaian
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
-                            Kelola seluruh 22 kategori referensi dan opsi dropdown dinamis kepegawaian sesuai Blueprint resmi.
-                        </p>
-                    </div>
+            <div className="space-y-4">
+                {/* Clean Top Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Kelola 22 kategori referensi dan opsi dropdown dinamis kepegawaian NIS Group.
+                    </p>
 
                     {selectedCategory && (
                         <Button
                             onClick={openCreateDialog}
-                            className="inline-flex items-center gap-2 shadow-sm"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white inline-flex items-center gap-2 text-xs shadow-xs w-full sm:w-auto"
                         >
                             <Plus className="h-4 w-4" />
-                            Tambah Data pada {selectedCategory.name}
+                            Tambah Data ({selectedCategory.name})
                         </Button>
                     )}
                 </div>

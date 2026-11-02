@@ -494,34 +494,29 @@ export default function DocumentIndex({
 
     return (
         <AppLayout
+            title="Dokumen & SOP"
             header={
                 <div className="flex items-center gap-2 min-w-0">
                     <ShieldCheck className="h-4 w-4 text-indigo-600 shrink-0" />
                     <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
-                        Dokumen Internal & SOP Perusahaan
+                        Dokumen Internal &amp; SOP Perusahaan
                     </span>
                 </div>
             }
         >
-            <Head title="Dokumen Internal & SOP Perusahaan - HCM" />
+            <Head title="Dokumen Internal &amp; SOP Perusahaan" />
 
             <div className="space-y-4">
-                {/* Header Banner Canvas */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <div>
-                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <ShieldCheck className="h-5 w-5 text-indigo-600 shrink-0" />
-                            <span>Arsip Dokumen Internal & SOP Perusahaan</span>
-                        </h1>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                            Pusat kendali dokumen resmi: Pengajuan RAB, Proposal, Realisasi LPJ, dan SOP Kebijakan Perusahaan terpadu.
-                        </p>
-                    </div>
+                {/* Clean Top Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Pusat kendali dokumen resmi: Pengajuan RAB, Proposal, Realisasi LPJ, dan SOP Kebijakan Perusahaan terpadu.
+                    </p>
 
                     <Button
                         onClick={openCreateModal}
                         size="sm"
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 shadow-xs shrink-0 self-start sm:self-auto"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 shadow-xs w-full sm:w-auto"
                     >
                         <Plus className="h-3.5 w-3.5" />
                         <span>Tambah Dokumen Baru</span>

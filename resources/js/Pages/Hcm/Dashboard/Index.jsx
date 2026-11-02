@@ -88,47 +88,37 @@ export default function HcmDashboardIndex({
             <Head title="Command Center Kepegawaian (HCM) - NISGroup" />
 
             <div className="space-y-6">
-                {/* 1. Header Command Center */}
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-r from-blue-900/10 via-indigo-900/5 to-transparent p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-xl bg-blue-600 text-white shadow-xs">
-                                <LayoutDashboard className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                                        Command Center Kepegawaian
-                                    </h1>
-                                    <Badge className="bg-blue-600/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px]">
-                                        NISGroup HRIS
-                                    </Badge>
-                                </div>
-                                <p className="text-xs text-zinc-500 mt-0.5">
-                                    Agregasi data real-time seluruh unit operasional dan entitas legal terdaftar{legalEntities && legalEntities.length > 0 ? ` (${legalEntities.join(', ')})` : ''}.
-                                </p>
-                            </div>
-                        </div>
+                {/* Header Action & Status Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <Badge className="bg-blue-600/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs">
+                            NISGroup HRIS
+                        </Badge>
+                        {legalEntities && legalEntities.length > 0 && (
+                            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                                Entitas: {legalEntities.join(', ')}
+                            </span>
+                        )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2.5">
-                        <div className={`px-3 py-2 rounded-xl border text-xs flex items-center gap-2 shadow-sm font-medium ${
+                        <div className={`px-3 py-1.5 rounded-xl border text-xs flex items-center gap-2 shadow-xs font-medium ${
                             daysToCutoff <= 1 
                                 ? 'bg-rose-50 border-rose-300 text-rose-700 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300 animate-pulse'
                                 : daysToCutoff <= 3 
                                     ? 'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300'
                                     : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300'
                         }`}>
-                            <Clock className={`w-4 h-4 ${daysToCutoff <= 3 ? 'text-rose-600' : 'text-purple-600'}`} />
+                            <Clock className={`w-3.5 h-3.5 ${daysToCutoff <= 3 ? 'text-rose-600' : 'text-purple-600'}`} />
                             <span>Cut-Off Payroll:</span>
                             <strong className="font-mono">{daysToCutoff <= 0 ? 'Hari Ini!' : `H-${daysToCutoff}`}</strong>
                         </div>
 
                         <Link
                             href={route('hcm.events.index')}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition"
                         >
-                            <PlusCircle className="w-4 h-4" />
+                            <PlusCircle className="w-3.5 h-3.5" />
                             Tambah Agenda/Undangan
                         </Link>
                     </div>

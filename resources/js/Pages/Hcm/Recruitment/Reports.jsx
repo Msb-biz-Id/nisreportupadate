@@ -471,25 +471,20 @@ export default function RecruitmentReports({
 
     return (
         <AppLayout
+            title="Laporan Rekrutmen"
             header={
                 <div className="flex items-center gap-2 min-w-0">
                     <BarChart3 className="h-4 w-4 text-indigo-600 shrink-0" />
                     <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
-                        Laporan Performa Rekrutmen
+                        Laporan Rekrutmen
                     </span>
                 </div>
             }
         >
-            <Head title="Laporan Rekrutmen" />
+            <Head title="Laporan Rekrutmen - HCM" />
 
             <div className="space-y-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                        <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Laporan Performa Rekrutmen</h1>
-                        <p className="text-xs text-zinc-500 mt-0.5">
-                            Rekap pemenuhan kuota, funnel konversi, dan waktu rekrut per loker — siap cetak PDF.
-                        </p>
-                    </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
                     <div className="flex items-center gap-2">
                         {selectedJob && (
                             <Button variant="outline" size="sm" onClick={resetDetail} className="text-xs gap-1.5">

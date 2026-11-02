@@ -370,107 +370,110 @@ export default function RewardsIndex({
     ], [rewards.current_page, rewards.per_page]);
 
     return (
-        <AppLayout title="Reward & Apresiasi Karyawan">
-            <Head title="Reward & Apresiasi Karyawan" />
+        <AppLayout
+            title="Reward & Apresiasi"
+            header={
+                <div className="flex items-center gap-2 min-w-0">
+                    <Award className="h-4 w-4 text-amber-500 shrink-0" />
+                    <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                        Reward &amp; Apresiasi Karyawan
+                    </span>
+                </div>
+            }
+        >
+            <Head title="Reward &amp; Apresiasi Karyawan" />
 
-            <div className="space-y-6">
-                {/* 1. Header & Actions */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                                <Award className="w-6 h-6" />
-                            </div>
-                            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                                Reward & Apresiasi Karyawan
-                            </h1>
-                        </div>
-                        <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-                            Pencatatan penghargaan, sertifikat prestasi, bonus loyalitas, dan berita acara penyerahan reward.
-                        </p>
-                    </div>
+            <div className="space-y-4">
+                {/* 1. Clean Top Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Pencatatan penghargaan, piagam prestasi, bonus loyalitas kerja, dan serah terima reward.
+                    </p>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                         <Button
                             variant="outline"
                             onClick={() => { window.location.href = route('hcm.rewards.export', { status: statusFilter, year: yearFilter, search }); }}
-                            className="gap-1.5 text-xs font-semibold"
+                            className="gap-1.5 text-xs font-semibold w-full sm:w-auto border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50"
                         >
-                            <FileSpreadsheet className="w-4 h-4" />
-                            Export Excel
+                            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                            <span>Export Excel</span>
                         </Button>
                         <Button
                             onClick={openAddModal}
-                            className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-xs font-semibold shadow-sm"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-semibold shadow-xs w-full sm:w-auto"
                         >
                             <Plus className="w-4 h-4" />
-                            Catat Reward Baru
+                            <span>Catat Reward Baru</span>
                         </Button>
                     </div>
                 </div>
 
                 {/* 2. KPI Metrics Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm">
-                        <CardContent className="p-4 flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
+                        <CardContent className="p-3.5 flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600">
                                 <Award className="w-5 h-5" />
                             </div>
-                            <div>
-                                <div className="text-xs text-zinc-500">Total Penghargaan</div>
-                                <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100 font-mono">
+                            <div className="min-w-0">
+                                <div className="text-[11px] text-zinc-500 truncate">Total Penghargaan</div>
+                                <div className="text-lg font-bold text-zinc-900 dark:text-zinc-100 font-mono truncate">
                                     {metrics.total_rewards} Kegiatan
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm">
-                        <CardContent className="p-4 flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600">
+                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
+                        <CardContent className="p-3.5 flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600">
                                 <CheckCircle2 className="w-5 h-5" />
                             </div>
-                            <div>
-                                <div className="text-xs text-zinc-500">Telah Diserahkan / Transfer</div>
-                                <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                            <div className="min-w-0">
+                                <div className="text-[11px] text-zinc-500 truncate">Diserahkan / Transfer</div>
+                                <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 font-mono truncate">
                                     {(metrics.delivered || 0) + (metrics.transferred || 0)}
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm">
-                        <CardContent className="p-4 flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600">
+                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
+                        <CardContent className="p-3.5 flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600">
                                 <Clock className="w-5 h-5" />
                             </div>
-                            <div>
-                                <div className="text-xs text-zinc-500">Pending / Tertunda</div>
-                                <div className="text-xl font-bold text-amber-600 dark:text-amber-400 font-mono">
+                            <div className="min-w-0">
+                                <div className="text-[11px] text-zinc-500 truncate">Pending / Tertunda</div>
+                                <div className="text-lg font-bold text-amber-600 dark:text-amber-400 font-mono truncate">
                                     {metrics.pending}
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm">
-                        <CardContent className="p-4 flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600">
+                    <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
+                        <CardContent className="p-3.5 flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600">
                                 <DollarSign className="w-5 h-5" />
                             </div>
-                            <div>
-                                <div className="text-xs text-zinc-500">Total Anggaran Reward</div>
-                                <div className="text-lg font-bold text-zinc-900 dark:text-zinc-100 font-mono">
+                            <div className="min-w-0">
+                                <div className="text-[11px] text-zinc-500 truncate">Anggaran Reward</div>
+                                <div className="text-base font-bold text-zinc-900 dark:text-zinc-100 font-mono truncate">
                                     {formatRp(metrics.total_budget)}
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
-                </div>                {/* 3. Tabel Daftar Reward with DataTable */}
+                </div>
+
+                {/* 3. Tabel Daftar Reward with DataTable */}
                 <DataTable
                     columns={columns}
                     data={rewards.data || []}
                     serverPagination={rewards}
+                    tableClassName="table-fixed min-w-[950px] border-collapse whitespace-nowrap text-xs"
                     onServerPageChange={(page) => handleFilterChange(search, statusFilter, yearFilter, page)}
                     onServerPerPageChange={(per_page) => handleFilterChange(search, statusFilter, yearFilter, 1, per_page)}
                     onServerSearchChange={(val) => {
@@ -481,29 +484,33 @@ export default function RewardsIndex({
                     searchPlaceholder="Cari reward / nama karyawan..."
                     exportFileName={`Reward_Apresiasi_${new Date().toISOString().slice(0, 10)}`}
                     filterSlot={
-                        <div className="flex flex-wrap items-center gap-2">
-                            <SearchableSelect
-                                value={yearFilter}
-                                onValueChange={(val) => {
-                                    setYearFilter(val);
-                                    handleFilterChange(search, statusFilter, val, 1);
-                                }}
-                                options={yearOptions}
-                                placeholder="Pilih Tahun"
-                                clearable={false}
-                                className="h-8 text-xs w-[130px]"
-                            />
-                            <SearchableSelect
-                                value={statusFilter}
-                                onValueChange={(val) => {
-                                    setStatusFilter(val);
-                                    handleFilterChange(search, val, yearFilter, 1);
-                                }}
-                                options={statusOptions}
-                                placeholder="Status Distribusi"
-                                clearable={false}
-                                className="h-8 text-xs w-[190px]"
-                            />
+                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                            <div className="w-full sm:w-[130px]">
+                                <SearchableSelect
+                                    value={yearFilter}
+                                    onValueChange={(val) => {
+                                        setYearFilter(val);
+                                        handleFilterChange(search, statusFilter, val, 1);
+                                    }}
+                                    options={yearOptions}
+                                    placeholder="Pilih Tahun"
+                                    clearable={false}
+                                    className="h-8 text-xs w-full"
+                                />
+                            </div>
+                            <div className="w-full sm:w-[190px]">
+                                <SearchableSelect
+                                    value={statusFilter}
+                                    onValueChange={(val) => {
+                                        setStatusFilter(val);
+                                        handleFilterChange(search, val, yearFilter, 1);
+                                    }}
+                                    options={statusOptions}
+                                    placeholder="Status Distribusi"
+                                    clearable={false}
+                                    className="h-8 text-xs w-full"
+                                />
+                            </div>
                             {(statusFilter !== 'all' || yearFilter !== 'all' || search !== '') && (
                                 <Button
                                     variant="ghost"

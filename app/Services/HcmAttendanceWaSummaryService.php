@@ -144,7 +144,16 @@ class HcmAttendanceWaSummaryService
                     ];
                 }
             } else {
-                $cntBelum++;
+                $todayStr = Carbon::today()->toDateString();
+                $isPastOrToday = $date <= $todayStr;
+                $isWeekend = $carbonDate->isWeekend();
+
+                if ($isPastOrToday && !$isWeekend) {
+                    // Kebijakan presensi: Hanya yang tidak masuk/izin/sakit yang dicatat; hari kerja aktif auto masuk
+                    $cntHadir++;
+                } else {
+                    $cntBelum++;
+                }
             }
         }
 
@@ -304,28 +313,38 @@ class HcmAttendanceWaSummaryService
             $cntPresent = 0;
             $cntLate = 0;
 
+            $today = Carbon::today();
             for ($d = 1; $d <= $daysInMonth; $d++) {
+                $currDate = $startOfMonth->copy()->day($d);
+                $isWeekend = $currDate->isWeekend();
+                $isPastOrToday = $currDate->lte($today);
+
                 if (isset($attKeyed[$emp->id][$d])) {
-                    $cat = $attKeyed[$emp->id][$d]['category'];
+                    $rawCat = strtoupper(trim((string) $attKeyed[$emp->id][$d]['category']));
                     $ot = $attKeyed[$emp->id][$d]['overtime'];
                     $totalOvertimeHours += $ot;
 
-                    if ($cat === 'PRESENT') {
+                    if (in_array($rawCat, ['PRESENT', 'HADIR'])) {
                         $cntPresent++;
-                    } elseif ($cat === 'LATE') {
+                    } elseif (in_array($rawCat, ['LATE', 'TERLAMBAT'])) {
                         $cntLate++;
                         $totalLateCount++;
-                    } elseif ($cat === 'PERMIT') {
+                    } elseif (in_array($rawCat, ['PERMIT', 'IZIN', 'DINAS LUAR'])) {
                         $totalIzinDays++;
-                    } elseif ($cat === 'SICK') {
+                    } elseif (in_array($rawCat, ['SICK', 'SAKIT'])) {
                         $totalSakitDays++;
-                    } elseif ($cat === 'ALPHA') {
+                    } elseif (in_array($rawCat, ['ALPHA', 'ALPHA/MANGKIR'])) {
                         $totalAlphaDays++;
                     }
                 } elseif (isset($leaveKeyed[$emp->id][$d])) {
                     $code = $leaveKeyed[$emp->id][$d];
                     if ($code === 'S') $totalSakitDays++;
                     elseif ($code === 'I') $totalIzinDays++;
+                } else {
+                    // Kebijakan: Hanya yang tidak masuk/izin/sakit yang dicatat; hari kerja aktif auto masuk
+                    if ($isPastOrToday && !$isWeekend) {
+                        $cntPresent++;
+                    }
                 }
             }
 

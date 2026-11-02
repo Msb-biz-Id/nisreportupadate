@@ -369,6 +369,7 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
 
     return (
         <AppLayout
+            title="Persuratan HCM"
             header={
                 <div className="flex items-center gap-2 min-w-0">
                     <BookOpen className="h-4 w-4 text-indigo-600 shrink-0" />
@@ -378,25 +379,19 @@ export default function LetterIndex({ auth, letters, filters, metrics, letterTyp
                 </div>
             }
         >
-            <Head title="Buku Agenda Persuratan - HCM" />
+            <Head title="Buku Agenda Persuratan HCM" />
 
             <div className="space-y-4">
-                {/* Header Banner Canvas */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-xs">
-                    <div>
-                        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <BookOpen className="h-5 w-5 text-indigo-600 shrink-0" />
-                            <span>Buku Agenda Persuratan HCM</span>
-                        </h1>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                            Pencatatan tertib surat masuk, surat keluar, memo internal dinas, dan arsip fisik SK Direksi.
-                        </p>
-                    </div>
+                {/* Clean Top Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Pencatatan surat masuk, surat keluar, memo internal dinas, dan arsip fisik SK Direksi.
+                    </p>
 
                     <Button
                         onClick={openCreateModal}
                         size="sm"
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 shadow-xs shrink-0 self-start sm:self-auto"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 shadow-xs w-full sm:w-auto"
                     >
                         <Plus className="h-3.5 w-3.5" />
                         <span>Catat Surat Baru</span>

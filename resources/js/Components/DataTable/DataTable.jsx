@@ -147,7 +147,7 @@ export function DataTable({
     };
 
     return (
-        <div className={cn('space-y-0 w-full relative', className)}>
+        <div className={cn('space-y-0 w-full max-w-full min-w-0 relative', className)}>
             {/* Top Toolbar: Search, Filters, Excel Export, Column Visibility & Quick Pagination */}
             <div className="relative sm:sticky sm:top-16 z-20 bg-white/95 dark:bg-zinc-900/95 backdrop-blur px-3.5 py-2.5 rounded-t-xl border border-slate-200 dark:border-slate-800 shadow-xs">
                 <DataTableToolbar
@@ -166,7 +166,7 @@ export function DataTable({
             </div>
 
             {/* Container Tabel dengan border & rounded */}
-            <div className="relative border-x border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs overflow-x-auto w-full scrollbar-thin">
+            <div className="relative border-x border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs overflow-x-auto w-full max-w-full scrollbar-thin">
                 {isLoading && (
                     <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 dark:bg-slate-950/70 backdrop-blur-[1px] transition-all">
                         <div className="flex items-center gap-2.5 px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md">

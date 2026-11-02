@@ -420,42 +420,41 @@ export default function SalaryDeductionIndex({
     const rows = deductions?.data || [];
 
     return (
-        <AppLayout>
-            <Head title="Pemotongan &amp; Penyesuaian Gaji Bulanan - HCM" />
+        <AppLayout
+            title="Potongan Gaji Bulanan"
+            header={
+                <div className="flex items-center gap-2 min-w-0">
+                    <Scissors className="h-4 w-4 text-rose-600 shrink-0" />
+                    <span className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
+                        Potongan Gaji Bulanan
+                    </span>
+                </div>
+            }
+        >
+            <Head title="Potongan Gaji Bulanan" />
 
-            <div className="space-y-5">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <Link
-                                href={route('hcm.compensations.index')}
-                                className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                            >
-                                <ArrowLeft className="h-3.5 w-3.5" />
-                                <span>Kembali ke Master Sallary</span>
-                            </Link>
-                        </div>
-                        <div className="flex items-center gap-2.5">
-                            <span className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/50">
-                                <Scissors className="h-5 w-5" />
-                            </span>
-                            <div>
-                                <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                                    Penyesuaian &amp; Pemotongan Gaji Bulanan
-                                </h1>
-                                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                    Pencatatan sanksi pelanggaran, kelebihan cuti, dan cuti khusus berjenjang (Maternity Leave) terhadap payroll.
-                                </p>
-                            </div>
-                        </div>
+            <div className="space-y-4">
+                {/* Clean Top Action Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Link
+                            href={route('hcm.compensations.index')}
+                            className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                        >
+                            <ArrowLeft className="h-3.5 w-3.5" />
+                            <span>Kembali ke Kompensasi &amp; Gaji</span>
+                        </Link>
+                        <span className="text-zinc-300 hidden sm:inline">|</span>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            Pencatatan sanksi pelanggaran, kelebihan cuti, dan penyesuaian gaji payroll.
+                        </p>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
                         <Button
                             type="button"
                             onClick={handleOpenCreate}
-                            className="bg-rose-600 hover:bg-rose-700 text-white font-semibold gap-1.5 h-9 text-xs shadow-xs"
+                            className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white font-semibold gap-1.5 h-9 text-xs shadow-xs"
                         >
                             <PlusCircle className="h-4 w-4" />
                             <span>+ Catat Pemotongan Gaji</span>
