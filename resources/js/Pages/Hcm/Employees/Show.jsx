@@ -207,6 +207,7 @@ export default function EmployeeShow({
     const [selectedAttMonth, setSelectedAttMonth] = useState(attendanceMonth);
     const [attRecordCategory, setAttRecordCategory] = useState('all');
     const [attRecordSearch, setAttRecordSearch] = useState('');
+    const [attSubTab, setAttSubTab] = useState('recap'); // 'recap' | 'records'
 
     const handleAttendanceFilter = (newYear, newMonth) => {
         setSelectedAttYear(newYear);
@@ -482,7 +483,7 @@ export default function EmployeeShow({
                                     onClick={() =>
                                         setPdfPreview({
                                             url: route('hcm.employees.pdf.paklaring', employee.employee_code || employee.id) + '?action=stream',
-                                            name: `Surat Pengalaman Kerja (Paklaring) - ${employee.name}`,
+                                            name: `Surat Pengalaman Kerja - ${employee.name}`,
                                         })
                                     }
                                     size="sm"
@@ -490,7 +491,7 @@ export default function EmployeeShow({
                                     className="text-xs gap-1.5 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50 shadow-xs"
                                 >
                                     <FileText className="h-3.5 w-3.5 text-amber-600" />
-                                    <span>Paklaring</span>
+                                    <span>Surat Pengalaman Kerja</span>
                                 </Button>
 
                                 <Button
@@ -1344,203 +1345,236 @@ export default function EmployeeShow({
                             </Card>
                         </div>
 
-                        {/* 3. Filter Navigasi Bulan Cepat (Jan - Des + Semua Bulan) */}
-                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
-                            <span className="text-zinc-400 font-semibold text-[11px] shrink-0 mr-1 flex items-center gap-1">
-                                <Filter className="w-3 h-3" /> Filter Bulan:
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => handleAttendanceFilter(selectedAttYear, 'all')}
-                                className={`px-3 py-1.5 rounded-lg font-medium transition shrink-0 border ${
-                                    selectedAttMonth === 'all'
-                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs font-semibold'
-                                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                                }`}
-                            >
-                                Semua Bulan ({selectedAttYear})
-                            </button>
+                        {/* 3. Sub-Tab Switcher: Rekap Tahunan (12 Bulan) vs Log Record Pengecualian */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-2">
+                            <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl w-fit">
+                                <button
+                                    type="button"
+                                    onClick={() => setAttSubTab('recap')}
+                                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                                        attSubTab === 'recap'
+                                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs'
+                                            : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                                    }`}
+                                >
+                                    <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                                    <span>Rekapitulasi 12 Bulan (Tahunan)</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setAttSubTab('records')}
+                                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                                        attSubTab === 'records'
+                                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-xs'
+                                            : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                                    }`}
+                                >
+                                    <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                                    <span>Log Record Pengecualian</span>
+                                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ml-0.5 ${
+                                        attSubTab === 'records'
+                                            ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'
+                                            : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300'
+                                    }`}>
+                                        {attendanceRecords?.length || 0}
+                                    </span>
+                                </button>
+                            </div>
 
-                            {(attendanceMonthlySummaries || []).map((m) => {
-                                const isSelected = String(selectedAttMonth) === String(m.month_num);
-                                const hasException = m.total_exceptions > 0;
-                                return (
+                            {attSubTab === 'records' && (
+                                <span className="text-xs text-zinc-500">
+                                    Menampilkan {filteredAttendanceRecords.length} catatan insiden presensi
+                                </span>
+                            )}
+                        </div>
+
+                        {/* TAB 1: Matriks Rekap 12 Bulan Tahunan (Januari - Desember) */}
+                        {attSubTab === 'recap' && (
+                            <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+                                <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">
+                                            Matriks Presensi Tahunan per Bulan ({selectedAttYear})
+                                        </span>
+                                        <Badge variant="outline" className="text-[10px] text-zinc-500 font-normal">
+                                            12 Bulan Kalender
+                                        </Badge>
+                                    </div>
+                                    <span className="text-[11px] text-zinc-400 hidden sm:inline">
+                                        Data tersinkron otomatis dari rekap absensi utama (klik baris dengan catatan untuk melihat rincian log)
+                                    </span>
+                                </div>
+
+                                <div className="overflow-x-auto scrollbar-thin">
+                                    <Table className="w-full text-xs">
+                                        <TableHeader className="bg-slate-50/90 dark:bg-zinc-800/60">
+                                            <TableRow>
+                                                <TableHead className="font-bold min-w-[130px]">Bulan</TableHead>
+                                                <TableHead className="font-bold text-center min-w-[90px]">Terlambat</TableHead>
+                                                <TableHead className="font-bold text-center min-w-[90px]">Izin / Dinas</TableHead>
+                                                <TableHead className="font-bold text-center min-w-[90px]">Sakit</TableHead>
+                                                <TableHead className="font-bold text-center min-w-[90px]">Cuti</TableHead>
+                                                <TableHead className="font-bold text-center min-w-[100px]">Alpha / Mangkir</TableHead>
+                                                <TableHead className="font-bold text-center min-w-[100px]">Total Insiden</TableHead>
+                                                <TableHead className="font-bold min-w-[140px]">Evaluasi Disiplin</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {(attendanceMonthlySummaries || []).map((m) => {
+                                                const hasExc = m.total_exceptions > 0;
+                                                return (
+                                                    <TableRow
+                                                        key={m.month_num}
+                                                        onClick={() => {
+                                                            if (hasExc) {
+                                                                handleAttendanceFilter(selectedAttYear, String(m.month_num));
+                                                                setAttSubTab('records');
+                                                            }
+                                                        }}
+                                                        className={`transition ${hasExc ? 'cursor-pointer hover:bg-indigo-50/40 dark:hover:bg-indigo-950/30' : 'hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50'}`}
+                                                        title={hasExc ? `Klik untuk melihat rincian ${m.total_exceptions} catatan log bulan ${m.month_name}` : `Bulan ${m.month_name} (Nihil Insiden)`}
+                                                    >
+                                                        <TableCell className="font-medium text-zinc-900 dark:text-zinc-100">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span>{m.month_name}</span>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-center font-mono">
+                                                            {m.terlambat > 0 ? (
+                                                                <span className="text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded">
+                                                                    {m.terlambat}x
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-zinc-300 dark:text-zinc-600">-</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-center font-mono">
+                                                            {m.izin > 0 ? (
+                                                                <span className="text-sky-600 dark:text-sky-400 font-semibold">
+                                                                    {m.izin} hari
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-zinc-300 dark:text-zinc-600">-</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-center font-mono">
+                                                            {m.sakit > 0 ? (
+                                                                <span className="text-indigo-600 dark:text-indigo-400 font-semibold">
+                                                                    {m.sakit} hari
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-zinc-300 dark:text-zinc-600">-</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-center font-mono">
+                                                            {m.cuti > 0 ? (
+                                                                <span className="text-purple-600 dark:text-purple-400 font-semibold">
+                                                                    {m.cuti} hari
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-zinc-300 dark:text-zinc-600">-</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-center font-mono">
+                                                            {m.alpha > 0 ? (
+                                                                <span className="text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded">
+                                                                    {m.alpha} hari
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-zinc-300 dark:text-zinc-600">-</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-center font-mono font-bold">
+                                                            {hasExc ? (
+                                                                <span className="text-zinc-900 dark:text-zinc-100">
+                                                                    {m.total_exceptions}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-emerald-600 text-[11px] font-sans font-normal">0</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {m.alpha > 0 ? (
+                                                                <Badge variant="outline" className="border-rose-300 bg-rose-50 text-rose-700 text-[10px] gap-1">
+                                                                    <XCircle className="w-2.5 h-2.5" /> Ada Alpha ({m.alpha}h)
+                                                                </Badge>
+                                                            ) : m.terlambat >= 4 ? (
+                                                                <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 text-[10px] gap-1">
+                                                                    <Clock className="w-2.5 h-2.5" /> Sanksi Telat ≥4x
+                                                                </Badge>
+                                                            ) : m.terlambat > 0 ? (
+                                                                <Badge variant="outline" className="border-amber-200 text-amber-600 text-[10px]">
+                                                                    {m.terlambat}x Terlambat
+                                                                </Badge>
+                                                            ) : m.total_exceptions > 0 ? (
+                                                                <Badge variant="outline" className="border-sky-200 text-sky-600 text-[10px]">
+                                                                    {m.total_exceptions} Izin/Cuti
+                                                                </Badge>
+                                                            ) : (
+                                                                <Badge variant="outline" className="border-emerald-200 bg-emerald-50/60 text-emerald-700 text-[10px] gap-1">
+                                                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> Sempurna (Nihil)
+                                                                </Badge>
+                                                            )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </Card>
+                        )}
+
+                        {/* TAB 2: Log Record Data Pengecualian Presensi (Izin, Telat, Sakit, Cuti, Alpha) */}
+                        {attSubTab === 'records' && (
+                            <div className="space-y-3 pt-1">
+                                {/* Filter Navigasi Bulan Cepat untuk Tab Log */}
+                                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+                                    <span className="text-zinc-400 font-semibold text-[11px] shrink-0 mr-1 flex items-center gap-1">
+                                        <Filter className="w-3 h-3" /> Filter Bulan:
+                                    </span>
                                     <button
-                                        key={m.month_num}
                                         type="button"
-                                        onClick={() => handleAttendanceFilter(selectedAttYear, String(m.month_num))}
-                                        className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition shrink-0 flex items-center gap-1.5 border ${
-                                            isSelected
-                                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs font-bold'
-                                                : hasException
-                                                ? 'bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100/60'
+                                        onClick={() => handleAttendanceFilter(selectedAttYear, 'all')}
+                                        className={`px-3 py-1.5 rounded-lg font-medium transition shrink-0 border ${
+                                            selectedAttMonth === 'all'
+                                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs font-semibold'
                                                 : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'
                                         }`}
                                     >
-                                        <span>{m.month_short}</span>
-                                        {hasException && (
-                                            <span className={`text-[10px] px-1 py-0.2 rounded-full font-bold ${
-                                                isSelected ? 'bg-indigo-800 text-white' : 'bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200'
-                                            }`}>
-                                                {m.total_exceptions}
-                                            </span>
-                                        )}
+                                        Semua Bulan ({selectedAttYear})
                                     </button>
-                                );
-                            })}
-                        </div>
 
-                        {/* 4. Tabel Matriks Rekap 12 Bulan Tahunan (Januari - Desember) */}
-                        <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-                            <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">
-                                        Rekapitulasi Presensi Tahunan per Bulan ({selectedAttYear})
-                                    </span>
-                                    <Badge variant="outline" className="text-[10px] text-zinc-500 font-normal">
-                                        12 Bulan Kalender
-                                    </Badge>
+                                    {(attendanceMonthlySummaries || []).map((m) => {
+                                        const isSelected = String(selectedAttMonth) === String(m.month_num);
+                                        const hasException = m.total_exceptions > 0;
+                                        return (
+                                            <button
+                                                key={m.month_num}
+                                                type="button"
+                                                onClick={() => handleAttendanceFilter(selectedAttYear, String(m.month_num))}
+                                                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition shrink-0 flex items-center gap-1.5 border ${
+                                                    isSelected
+                                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs font-bold'
+                                                        : hasException
+                                                        ? 'bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100/60'
+                                                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                                                }`}
+                                            >
+                                                <span>{m.month_short}</span>
+                                                {hasException && (
+                                                    <span className={`text-[10px] px-1 py-0.2 rounded-full font-bold ${
+                                                        isSelected ? 'bg-indigo-800 text-white' : 'bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200'
+                                                    }`}>
+                                                        {m.total_exceptions}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
-                                <span className="text-[11px] text-zinc-400 hidden sm:inline">
-                                    Klik tombol pada baris bulan untuk melihat log rincian
-                                </span>
-                            </div>
 
-                            <div className="overflow-x-auto scrollbar-thin">
-                                <Table className="w-full text-xs">
-                                    <TableHeader className="bg-slate-50/90 dark:bg-zinc-800/60">
-                                        <TableRow>
-                                            <TableHead className="font-bold min-w-[130px]">Bulan</TableHead>
-                                            <TableHead className="font-bold text-center min-w-[90px]">Terlambat</TableHead>
-                                            <TableHead className="font-bold text-center min-w-[90px]">Izin / Dinas</TableHead>
-                                            <TableHead className="font-bold text-center min-w-[90px]">Sakit</TableHead>
-                                            <TableHead className="font-bold text-center min-w-[90px]">Cuti</TableHead>
-                                            <TableHead className="font-bold text-center min-w-[100px]">Alpha / Mangkir</TableHead>
-                                            <TableHead className="font-bold text-center min-w-[100px]">Total Insiden</TableHead>
-                                            <TableHead className="font-bold min-w-[140px]">Evaluasi Disiplin</TableHead>
-                                            <TableHead className="font-bold text-right min-w-[90px]">Aksi</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {(attendanceMonthlySummaries || []).map((m) => {
-                                            const isSelected = String(selectedAttMonth) === String(m.month_num);
-                                            const hasExc = m.total_exceptions > 0;
-                                            return (
-                                                <TableRow
-                                                    key={m.month_num}
-                                                    className={`transition hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 ${
-                                                        isSelected ? 'bg-indigo-50/40 dark:bg-indigo-950/30 font-medium' : ''
-                                                    }`}
-                                                >
-                                                    <TableCell className="font-medium text-zinc-900 dark:text-zinc-100">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span>{m.month_name}</span>
-                                                            {isSelected && (
-                                                                <Badge variant="outline" className="text-[9px] px-1 py-0 border-indigo-300 text-indigo-600 bg-indigo-50 dark:bg-indigo-950 dark:text-indigo-300">
-                                                                    Aktif
-                                                                </Badge>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-center font-mono">
-                                                        {m.terlambat > 0 ? (
-                                                            <span className="text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded">
-                                                                {m.terlambat}x
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-zinc-300 dark:text-zinc-600">-</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-center font-mono">
-                                                        {m.izin > 0 ? (
-                                                            <span className="text-sky-600 dark:text-sky-400 font-semibold">
-                                                                {m.izin} hari
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-zinc-300 dark:text-zinc-600">-</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-center font-mono">
-                                                        {m.sakit > 0 ? (
-                                                            <span className="text-indigo-600 dark:text-indigo-400 font-semibold">
-                                                                {m.sakit} hari
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-zinc-300 dark:text-zinc-600">-</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-center font-mono">
-                                                        {m.cuti > 0 ? (
-                                                            <span className="text-purple-600 dark:text-purple-400 font-semibold">
-                                                                {m.cuti} hari
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-zinc-300 dark:text-zinc-600">-</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-center font-mono">
-                                                        {m.alpha > 0 ? (
-                                                            <span className="text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded">
-                                                                {m.alpha} hari
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-zinc-300 dark:text-zinc-600">-</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-center font-mono font-bold">
-                                                        {hasExc ? (
-                                                            <span className="text-zinc-900 dark:text-zinc-100">
-                                                                {m.total_exceptions}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-emerald-600 text-[11px] font-sans font-normal">0</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {m.alpha > 0 ? (
-                                                            <Badge variant="outline" className="border-rose-300 bg-rose-50 text-rose-700 text-[10px] gap-1">
-                                                                <XCircle className="w-2.5 h-2.5" /> Ada Alpha ({m.alpha}h)
-                                                            </Badge>
-                                                        ) : m.terlambat >= 4 ? (
-                                                            <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 text-[10px] gap-1">
-                                                                <Clock className="w-2.5 h-2.5" /> Sanksi Telat ≥4x
-                                                            </Badge>
-                                                        ) : m.terlambat > 0 ? (
-                                                            <Badge variant="outline" className="border-amber-200 text-amber-600 text-[10px]">
-                                                                {m.terlambat}x Terlambat
-                                                            </Badge>
-                                                        ) : m.total_exceptions > 0 ? (
-                                                            <Badge variant="outline" className="border-sky-200 text-sky-600 text-[10px]">
-                                                                {m.total_exceptions} Izin/Cuti
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge variant="outline" className="border-emerald-200 bg-emerald-50/60 text-emerald-700 text-[10px] gap-1">
-                                                                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> Sempurna (Nihil)
-                                                            </Badge>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => handleAttendanceFilter(selectedAttYear, String(m.month_num))}
-                                                            className="h-7 px-2 text-[11px] text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
-                                                        >
-                                                            {isSelected ? 'Terpilih' : hasExc ? `Log (${m.total_exceptions})` : 'Pilih'}
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </Card>
-
-                        {/* 5. Tabel Log Record Data Pengecualian Presensi (Izin, Telat, Sakit, Cuti, Alpha) */}
-                        <div className="space-y-3 pt-1">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                 <div>
                                     <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
                                         <FileCheck className="w-4 h-4 text-indigo-600" />
@@ -1685,6 +1719,7 @@ export default function EmployeeShow({
                                 </div>
                             </Card>
                         </div>
+                        )}
 
                         {/* 6. Riwayat Pengajuan Cuti / Izin Formal */}
                         {employee.leave_requests && employee.leave_requests.length > 0 && (
@@ -1988,7 +2023,7 @@ export default function EmployeeShow({
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label className="text-xs font-medium">Pengembalian Aset & Paklaring</Label>
+                                            <Label className="text-xs font-medium">Pengembalian Aset & Surat Pengalaman Kerja</Label>
                                             <SearchableSelect
                                                 value={offboardingForm.data.asset_clearance}
                                                 onValueChange={(val) => offboardingForm.setData('asset_clearance', val)}
@@ -2011,7 +2046,7 @@ export default function EmployeeShow({
 
                                     <div className="space-y-1">
                                         <Label className="text-xs font-medium">Catatan / Keterangan</Label>
-                                        <Textarea rows={3} value={offboardingForm.data.offboarding_notes} onChange={(e) => offboardingForm.setData('offboarding_notes', e.target.value)} placeholder="e.g. Paklaring sudah diserahkan" />
+                                        <Textarea rows={3} value={offboardingForm.data.offboarding_notes} onChange={(e) => offboardingForm.setData('offboarding_notes', e.target.value)} placeholder="Contoh: Surat Pengalaman Kerja sudah diserahkan" />
                                     </div>
 
                                     <div className="flex justify-end">

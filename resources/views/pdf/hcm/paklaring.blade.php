@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Surat Keterangan Kerja – {{ $employee->name }}</title>
+    <title>Surat Keterangan Pengalaman Kerja – {{ $employee->name }}</title>
     <style>
         @font-face { font-family: 'Inter'; font-weight: 400; src: url('{{ public_path("fonts/Inter-Regular.ttf") }}') format('truetype'); }
         @font-face { font-family: 'Inter'; font-weight: 700; src: url('{{ public_path("fonts/Inter-Bold.ttf") }}') format('truetype'); }
@@ -13,9 +13,9 @@
 
         /* JUDUL DOKUMEN */
         .doc-header { text-align: center; margin: 18px 0 20px 0; }
-        .doc-title { font-size: 14pt; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 1.2px; }
-        .doc-subtitle { font-size: 9pt; font-weight: 600; color: #64748b; letter-spacing: 0.5px; margin-top: 1px; }
-        .doc-underline { width: 180px; height: 2px; background: #a8001c; margin: 5px auto 6px auto; border-radius: 1px; }
+        .doc-title { font-size: 13.5pt; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 1.2px; }
+        .doc-subtitle { font-size: 9pt; font-weight: 600; color: #64748b; letter-spacing: 0.8px; margin-top: 1px; }
+        .doc-underline { width: 190px; height: 2px; background: #a8001c; margin: 5px auto 6px auto; border-radius: 1px; }
         .doc-number { font-size: 9.5pt; font-weight: 600; color: #334155; }
 
         /* BADAN SURAT */
@@ -25,12 +25,12 @@
         /* TABEL DATA KARYAWAN */
         table.employee-table { width: 100%; border-collapse: collapse; margin: 12px 0 16px 0; }
         table.employee-table td { padding: 4.5px 6px; font-size: 10pt; vertical-align: top; }
-        table.employee-table td.label { width: 190px; color: #475569; font-weight: 600; }
+        table.employee-table td.label { width: 195px; color: #475569; font-weight: 600; }
         table.employee-table td.colon { width: 14px; color: #64748b; text-align: center; }
         table.employee-table td.val { color: #0f172a; font-weight: 600; }
 
         /* SIGN SECTION */
-        .sign-wrapper { width: 100%; margin-top: 28px; }
+        .sign-wrapper { width: 100%; margin-top: 26px; }
     </style>
 </head>
 <body>
@@ -41,17 +41,33 @@
 {{-- 2. JUDUL DAN NOMOR SURAT --}}
 <div class="doc-header">
     <div class="doc-title">Surat Keterangan Pengalaman Kerja</div>
-    <div class="doc-subtitle">CERTIFICATE OF EMPLOYMENT</div>
+    <div class="doc-subtitle">SURAT KETERANGAN PENGALAMAN KERJA</div>
     <div class="doc-underline"></div>
     <div class="doc-number">
         Nomor: {{ sprintf('SKP/%s/%s/%d', str_pad((string)$employee->id, 3, '0', STR_PAD_LEFT), now()->format('m'), now()->year) }}
     </div>
 </div>
 
+@php
+    \Carbon\Carbon::setLocale('id');
+    $startDate = $employee->join_date ? \Carbon\Carbon::parse($employee->join_date)->locale('id') : null;
+    $endDate = ($employee->resign_date ?? null) ? \Carbon\Carbon::parse($employee->resign_date)->locale('id') : \Carbon\Carbon::now()->locale('id');
+
+    $masaKerja = '-';
+    if ($startDate && $endDate) {
+        $diff = $startDate->diff($endDate);
+        $parts = [];
+        if ($diff->y > 0) $parts[] = $diff->y . ' Tahun';
+        if ($diff->m > 0) $parts[] = $diff->m . ' Bulan';
+        if ($diff->d > 0 && $diff->y == 0) $parts[] = $diff->d . ' Hari';
+        $masaKerja = count($parts) > 0 ? implode(' ', $parts) : 'Kurang dari 1 bulan';
+    }
+@endphp
+
 {{-- 3. BADAN SURAT --}}
 <div class="letter-content">
     <p>
-        Yang bertanda tangan di bawah ini, Manajemen <strong>{{ $profile['division_name'] }} – {{ $profile['company_name'] }}</strong>, dengan ini menerangkan dengan sebenarnya bahwa:
+        Yang bertanda tangan di bawah ini, Manajemen <strong>{{ $profile['division_name'] }} – {{ $profile['company_name'] }}</strong>, dengan ini menerangkan dengan sesungguhnya bahwa:
     </p>
 
     <table class="employee-table">
@@ -73,15 +89,15 @@
         <tr>
             <td class="label">Tempat / Tanggal Lahir</td>
             <td class="colon">:</td>
-            <td class="val">{{ $employee->birth_place ?? '-' }}, {{ $employee->birth_date ? \Carbon\Carbon::parse($employee->birth_date)->isoFormat('D MMMM Y') : '-' }}</td>
+            <td class="val">{{ $employee->birth_place ?? '-' }}, {{ $employee->birth_date ? \Carbon\Carbon::parse($employee->birth_date)->locale('id')->isoFormat('D MMMM Y') : '-' }}</td>
         </tr>
         <tr>
-            <td class="label">Alamat Tinggal Terakhir</td>
+            <td class="label">Alamat Domisili</td>
             <td class="colon">:</td>
             <td class="val">{{ $employee->address ?? '-' }}</td>
         </tr>
         <tr>
-            <td class="label">Departemen / Divisi Terakhir</td>
+            <td class="label">Departemen / Divisi</td>
             <td class="colon">:</td>
             <td class="val">{{ $employee->department ? ($employee->department . ($employee->division ? ' — ' . $employee->division : '')) : '-' }}</td>
         </tr>
@@ -91,32 +107,31 @@
             <td class="val">{{ $employee->position ?? '-' }}</td>
         </tr>
         <tr>
-            <td class="label">Masa Bekerja</td>
+            <td class="label">Masa Kerja</td>
             <td class="colon">:</td>
             <td class="val">
-                <strong>{{ $employee->join_date ? \Carbon\Carbon::parse($employee->join_date)->isoFormat('D MMMM Y') : '-' }}</strong>
+                <strong>{{ $startDate ? $startDate->isoFormat('D MMMM Y') : '-' }}</strong>
                 &nbsp;s.d.&nbsp;
-                <strong>{{ ($employee->resign_date ?? null) ? \Carbon\Carbon::parse($employee->resign_date)->isoFormat('D MMMM Y') : now()->isoFormat('D MMMM Y') }}</strong>
-                @php
-                    $masa = \Carbon\Carbon::parse($employee->join_date)->diffForHumans(
-                        \Carbon\Carbon::parse($employee->resign_date ?? now()), true, false, 2
-                    );
-                @endphp
-                ({{ $masa }})
+                <strong>{{ $endDate ? $endDate->isoFormat('D MMMM Y') : '-' }}</strong>
+                &nbsp;({{ $masaKerja }})
             </td>
         </tr>
     </table>
 
     <p>
-        Menerangkan bahwa yang bersangkutan benar-benar pernah bekerja pada perusahaan kami dalam kurun waktu tersebut dengan status kepegawaian terakhir sebagai <strong>{{ $employee->employment_status ?? 'Karyawan' }}</strong>.
+        Adalah benar yang bersangkutan telah bekerja dan mengabdikan diri pada perusahaan kami dalam kurun waktu tersebut di atas, dengan status kepegawaian terakhir sebagai <strong>{{ $employee->employment_status ?? 'Karyawan' }}</strong>.
     </p>
 
     <p>
-        Selama masa kerja yang bersangkutan, telah menunjukkan dedikasi, integritas, loyalitas, dan tanggung jawab yang baik terhadap seluruh tugas yang diamanahkan. Kami menyampaikan terima kasih dan apresiasi yang setinggi-tingginya atas sumbangsih dan kerja sama yang telah diberikan selama masa kerja.
+        Selama masa kerja tersebut, yang bersangkutan telah menunjukkan kinerja, dedikasi, integritas, dan loyalitas yang sangat baik bagi kemajuan perusahaan, serta senantiasa menyelesaikan seluruh tugas dan tanggung jawab yang diamanahkan secara profesional.
     </p>
 
     <p>
-        Demikian Surat Keterangan Pengalaman Kerja ini diterbitkan secara sah dan benar untuk dapat dipergunakan sebagaimana mestinya.
+        Manajemen perusahaan menyampaikan terima kasih dan apresiasi yang setinggi-tingginya atas seluruh kerja sama, dedikasi, dan sumbangsih yang telah diberikan selama masa kerja. Semoga kompetensi dan pengalaman yang diperoleh dapat menjadi bekal yang bermanfaat, serta sukses selalu menyertai Saudara/i dalam perjalanan karier di masa yang akan datang.
+    </p>
+
+    <p>
+        Demikian Surat Keterangan Pengalaman Kerja ini dibuat dengan sebenarnya dan secara sah untuk dapat dipergunakan sebagaimana mestinya.
     </p>
 </div>
 

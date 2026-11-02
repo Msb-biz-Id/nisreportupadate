@@ -157,9 +157,9 @@ class HcmPdfController extends Controller
                 'dpi' => 96,
             ]);
 
-        $filename = 'Paklaring-' . str($employee->name)->slug() . '-' . now()->format('Ymd') . '.pdf';
+        $filename = 'Surat-Keterangan-Pengalaman-Kerja-' . str($employee->name)->slug() . '-' . now()->format('Ymd') . '.pdf';
 
-        ActivityLogger::log('export', 'hcm', $employee, "Download/Preview PDF Paklaring: {$employee->name} ({$employee->employee_code})");
+        ActivityLogger::log('export', 'hcm', $employee, "Download/Preview PDF Surat Keterangan Pengalaman Kerja: {$employee->name} ({$employee->employee_code})");
 
         if ($request->query('action') === 'stream' || $request->boolean('preview')) {
             return $pdf->stream($filename);

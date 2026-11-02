@@ -106,7 +106,7 @@ export default function OffboardEmployeeDialog({ isOpen, onClose, employee, drop
                             />
                         </div>
                         <div className="space-y-1">
-                            <Label className="text-xs font-medium">Pengembalian Aset &amp; Paklaring</Label>
+                            <Label className="text-xs font-medium">Pengembalian Aset &amp; Surat Pengalaman Kerja</Label>
                             <SearchableSelect
                                 value={form.data.asset_clearance}
                                 onValueChange={(val) => form.setData('asset_clearance', val)}
@@ -133,7 +133,7 @@ export default function OffboardEmployeeDialog({ isOpen, onClose, employee, drop
                             rows={2}
                             value={form.data.offboarding_notes}
                             onChange={(e) => form.setData('offboarding_notes', e.target.value)}
-                            placeholder="e.g. Paklaring sudah diserahkan"
+                            placeholder="Contoh: Surat Pengalaman Kerja sudah diserahkan"
                         />
                     </div>
 

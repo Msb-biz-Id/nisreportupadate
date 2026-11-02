@@ -835,7 +835,7 @@
               <td>{{ $ofb->rights_status ?: '-' }}</td>
             </tr>
             <tr>
-              <td class="soft">Pengembalian Aset &amp; Paklaring</td>
+              <td class="soft">Pengembalian Aset &amp; Surat Pengalaman Kerja</td>
               <td>{{ $ofb->asset_clearance ?: '-' }}</td>
             </tr>
             <tr>

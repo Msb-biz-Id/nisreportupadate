@@ -438,7 +438,7 @@ export default function HcmSettingsIndex({ profile = {}, overtime = {}, meal_all
                                             Pejabat Penandatangan Resmi & Tanda Tangan Digital
                                         </CardTitle>
                                         <CardDescription>
-                                            Nama pejabat penandatangan otomatis tercetak di lembar pengesahan (Paklaring, Surat Rekomendasi, Laporan Presensi, dsb).
+                                            Nama pejabat penandatangan otomatis tercetak di lembar pengesahan (Surat Pengalaman Kerja, Surat Rekomendasi, Laporan Presensi, dsb).
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
