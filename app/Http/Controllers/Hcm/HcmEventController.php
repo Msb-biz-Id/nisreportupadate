@@ -22,31 +22,39 @@ class HcmEventController extends Controller
         Gate::authorize('hcm.manage-events');
 
         $typeFilter = $request->query('type', 'all');
-        $monthFilter = $request->query('month', date('n'));
+        $statusFilter = $request->query('status', 'all'); // 'all', 'upcoming', 'ongoing', 'completed'
+        $monthFilter = $request->query('month', 'all'); // Default ke 'all' agar seluruh kegiatan tahun berjalan terlihat, atau sesuai query
         $yearFilter = $request->query('year', date('Y'));
         $search = $request->query('search', '');
 
         $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
+
+        $now = Carbon::now();
+        $todayStr = $now->toDateString();
 
         $eventsQuery = HcmCompanyEvent::with('creator:id,name')
             ->when($escapedSearch, fn ($q, $t) => $q->where(fn ($sub) =>
                 $sub->where('title', 'like', "%{$t}%")
                     ->orWhere('location', 'like', "%{$t}%")
                     ->orWhere('description', 'like', "%{$t}%")
+                    ->orWhere('organizer_name', 'like', "%{$t}%")
             ))
             ->when($typeFilter !== 'all', fn ($q) => $q->where('event_type', $typeFilter))
             ->when($yearFilter !== 'all', fn ($q) => $q->whereYear('start_date', (int) $yearFilter))
             ->when($monthFilter !== 'all', fn ($q) => $q->whereMonth('start_date', (int) $monthFilter))
+            ->when($statusFilter === 'upcoming', fn ($q) => $q->whereDate('start_date', '>', $todayStr))
+            ->when($statusFilter === 'ongoing', fn ($q) => $q->whereDate('start_date', '<=', $todayStr)->whereDate('end_date', '>=', $todayStr))
+            ->when($statusFilter === 'completed', fn ($q) => $q->whereDate('end_date', '<', $todayStr))
             ->orderBy('start_date', 'asc');
 
         $events = $eventsQuery->get();
 
         // Metrik Ringkasan Agenda Acara
-        $now = Carbon::now();
         $metrics = [
             'total_events' => HcmCompanyEvent::count(),
-            'upcoming_events' => HcmCompanyEvent::whereDate('start_date', '>=', $now->toDateString())->count(),
-            'completed_events' => HcmCompanyEvent::whereDate('end_date', '<', $now->toDateString())->count(),
+            'upcoming_events' => HcmCompanyEvent::whereDate('start_date', '>', $todayStr)->count(),
+            'ongoing_events' => HcmCompanyEvent::whereDate('start_date', '<=', $todayStr)->whereDate('end_date', '>=', $todayStr)->count(),
+            'completed_events' => HcmCompanyEvent::whereDate('end_date', '<', $todayStr)->count(),
             'national_holidays' => HcmCompanyEvent::where('event_type', 'Libur Nasional')->whereYear('start_date', $now->year)->count(),
         ];
 
@@ -63,13 +71,14 @@ class HcmEventController extends Controller
             'events' => $events,
             'filters' => [
                 'type' => $typeFilter,
+                'status' => $statusFilter,
                 'month' => (string) $monthFilter,
                 'year' => (string) $yearFilter,
                 'search' => $search,
             ],
             'metrics' => $metrics,
             'eventTypes' => $eventTypes,
-            'today' => $now->toDateString(),
+            'today' => $todayStr,
         ]);
     }
 

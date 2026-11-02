@@ -346,7 +346,7 @@ class HcmEmployeeController extends Controller
             'attendances' => fn ($q) => $q->whereBetween('attendance_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
                 ->orderBy('attendance_date'),
             'leaveRequests' => fn ($q) => $q->orderBy('start_date', 'desc')->limit(10),
-            'overtimes.batch' => fn ($q) => $q->orderBy('overtime_date', 'desc')->limit(20),
+            'overtimes' => fn ($q) => $q->with('batch')->orderBy('overtime_date', 'desc')->limit(20),
             'rewards' => fn ($q) => $q->orderByDesc('reward_year')->orderByDesc('id'),
             'salaryDeductions.creator:id,name',
         ]);
