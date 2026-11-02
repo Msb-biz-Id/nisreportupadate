@@ -117,10 +117,13 @@ class HcmAttendanceWaSummaryService
                         'text' => "{$emp->name}{$deptTag} - Alpha (Tanpa Keterangan)",
                     ];
                 }
-            } elseif ($leave) {
+                continue;
+            }
+
+            if ($leave) {
+                $reason = $leave->reason ? " ({$leave->reason})" : "";
                 if ($leave->leave_type === 'SAKIT') {
                     $cntSakit++;
-                    $reason = $leave->reason ? " ({$leave->reason})" : "";
                     $issues[] = [
                         'type' => 'SICK',
                         'order' => 2,
@@ -128,7 +131,6 @@ class HcmAttendanceWaSummaryService
                     ];
                 } elseif ($leave->leave_type === 'IZIN') {
                     $cntIzin++;
-                    $reason = $leave->reason ? " ({$leave->reason})" : "";
                     $issues[] = [
                         'type' => 'PERMIT',
                         'order' => 3,
@@ -136,24 +138,24 @@ class HcmAttendanceWaSummaryService
                     ];
                 } else {
                     $cntCuti++;
-                    $reason = $leave->reason ? " ({$leave->reason})" : "";
                     $issues[] = [
                         'type' => 'LEAVE',
                         'order' => 4,
                         'text' => "{$emp->name}{$deptTag} - Cuti Disetujui{$reason}",
                     ];
                 }
-            } else {
-                $todayStr = Carbon::today()->toDateString();
-                $isPastOrToday = $date <= $todayStr;
-                $isWeekend = $carbonDate->isWeekend();
+                continue;
+            }
 
-                if ($isPastOrToday && !$isWeekend) {
-                    // Kebijakan presensi: Hanya yang tidak masuk/izin/sakit yang dicatat; hari kerja aktif auto masuk
-                    $cntHadir++;
-                } else {
-                    $cntBelum++;
-                }
+            $todayStr = Carbon::today()->toDateString();
+            $isPastOrToday = $date <= $todayStr;
+            $isWeekend = $carbonDate->isWeekend();
+
+            if ($isPastOrToday && !$isWeekend) {
+                // Kebijakan presensi: Hanya yang tidak masuk/izin/sakit yang dicatat; hari kerja aktif auto masuk
+                $cntHadir++;
+            } else {
+                $cntBelum++;
             }
         }
 
@@ -338,8 +340,11 @@ class HcmAttendanceWaSummaryService
                     }
                 } elseif (isset($leaveKeyed[$emp->id][$d])) {
                     $code = $leaveKeyed[$emp->id][$d];
-                    if ($code === 'S') $totalSakitDays++;
-                    elseif ($code === 'I') $totalIzinDays++;
+                    if ($code === 'S') {
+                        $totalSakitDays++;
+                    } elseif ($code === 'I') {
+                        $totalIzinDays++;
+                    }
                 } else {
                     // Kebijakan: Hanya yang tidak masuk/izin/sakit yang dicatat; hari kerja aktif auto masuk
                     if ($isPastOrToday && !$isWeekend) {
@@ -350,7 +355,9 @@ class HcmAttendanceWaSummaryService
 
             $actualDays = $cntPresent + $cntLate;
             $rate = round(($actualDays / $effectiveWorkDays) * 100, 1);
-            if ($rate > 100) $rate = 100.0;
+            if ($rate > 100) {
+                $rate = 100.0;
+            }
             $employeeRates[] = $rate;
 
             if ($cntPresent >= $effectiveWorkDays && $cntLate === 0) {
