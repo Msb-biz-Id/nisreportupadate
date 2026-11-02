@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Hcm;
 
 use App\Http\Controllers\Controller;
+use App\Models\Hcm\HcmAttendance;
 use App\Models\Hcm\HcmCompensation;
 use App\Models\Hcm\HcmCompensationHistory;
 use App\Models\Hcm\HcmContract;
@@ -329,13 +330,125 @@ class HcmEmployeeController extends Controller
     {
         Gate::authorize('hcm.manage-employees');
 
-        $month = $request->query('month', now()->format('Y-m'));
-        try {
-            $monthStart = Carbon::parse($month . '-01')->startOfMonth();
-        } catch (\Throwable $e) {
-            $monthStart = now()->startOfMonth();
+        // Parameter filter tahun dan bulan
+        $selectedYear = (int) $request->query('year', now()->year);
+        if ($selectedYear < 2000 || $selectedYear > 2100) {
+            $selectedYear = (int) now()->year;
         }
-        $monthEnd = $monthStart->copy()->endOfMonth();
+
+        $selectedMonth = $request->query('month', 'all'); // 'all', '1'..'12', atau 'YYYY-MM'
+        $monthNum = null;
+        if ($selectedMonth !== 'all' && $selectedMonth !== '') {
+            if (str_contains($selectedMonth, '-')) {
+                $parts = explode('-', $selectedMonth);
+                $selectedYear = (int) ($parts[0] ?? $selectedYear);
+                $monthNum = (int) ($parts[1] ?? 1);
+            } else {
+                $monthNum = (int) $selectedMonth;
+            }
+            $monthNum = max(1, min(12, $monthNum));
+        }
+
+        $yearStart = Carbon::create($selectedYear, 1, 1)->startOfYear();
+        $yearEnd = Carbon::create($selectedYear, 12, 31)->endOfYear();
+
+        $monthNamesIndo = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+
+        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+        $monthFormatExpr = $isSqlite ? "strftime('%m', attendance_date)" : "DATE_FORMAT(attendance_date, '%m')";
+
+        // Agregat bulanan (Januari - Desember) untuk tahun yang dipilih
+        $monthlyAggregates = HcmAttendance::select(
+            DB::raw("CAST({$monthFormatExpr} AS UNSIGNED) as month_num"),
+            DB::raw("SUM(CASE WHEN attendance_category = 'Terlambat' THEN 1 ELSE 0 END) as count_terlambat"),
+            DB::raw("SUM(CASE WHEN attendance_category IN ('Izin', 'Dinas Luar') THEN 1 ELSE 0 END) as count_izin"),
+            DB::raw("SUM(CASE WHEN attendance_category = 'Sakit' THEN 1 ELSE 0 END) as count_sakit"),
+            DB::raw("SUM(CASE WHEN attendance_category LIKE '%Cuti%' THEN 1 ELSE 0 END) as count_cuti"),
+            DB::raw("SUM(CASE WHEN attendance_category = 'Alpha/Mangkir' THEN 1 ELSE 0 END) as count_alpha"),
+            DB::raw("SUM(CASE WHEN attendance_category = 'Pulang Cepat' THEN 1 ELSE 0 END) as count_pulang_cepat"),
+            DB::raw("SUM(CASE WHEN attendance_category != 'Hadir' THEN 1 ELSE 0 END) as count_exceptions")
+        )
+        ->where('employee_id', $employee->id)
+        ->whereBetween('attendance_date', [$yearStart->toDateString(), $yearEnd->toDateString()])
+        ->groupBy(DB::raw($monthFormatExpr))
+        ->get()
+        ->keyBy('month_num');
+
+        $monthlySummaries = [];
+        $annualTotals = [
+            'terlambat' => 0,
+            'izin' => 0,
+            'sakit' => 0,
+            'cuti' => 0,
+            'alpha' => 0,
+            'pulang_cepat' => 0,
+            'total_exceptions' => 0,
+        ];
+
+        for ($m = 1; $m <= 12; $m++) {
+            $rec = $monthlyAggregates->get($m);
+            $t = (int) ($rec->count_terlambat ?? 0);
+            $i = (int) ($rec->count_izin ?? 0);
+            $s = (int) ($rec->count_sakit ?? 0);
+            $c = (int) ($rec->count_cuti ?? 0);
+            $a = (int) ($rec->count_alpha ?? 0);
+            $pc = (int) ($rec->count_pulang_cepat ?? 0);
+            $exc = (int) ($rec->count_exceptions ?? ($t + $i + $s + $c + $a + $pc));
+
+            $annualTotals['terlambat'] += $t;
+            $annualTotals['izin'] += $i;
+            $annualTotals['sakit'] += $s;
+            $annualTotals['cuti'] += $c;
+            $annualTotals['alpha'] += $a;
+            $annualTotals['pulang_cepat'] += $pc;
+            $annualTotals['total_exceptions'] += $exc;
+
+            $monthlySummaries[] = [
+                'month_num' => $m,
+                'month_name' => $monthNamesIndo[$m],
+                'month_short' => substr($monthNamesIndo[$m], 0, 3),
+                'year_month' => sprintf('%04d-%02d', $selectedYear, $m),
+                'terlambat' => $t,
+                'izin' => $i,
+                'sakit' => $s,
+                'cuti' => $c,
+                'alpha' => $a,
+                'pulang_cepat' => $pc,
+                'total_exceptions' => $exc,
+            ];
+        }
+
+        // Query record data pengecualian (izin, telat, sakit, alpha, cuti, dll)
+        $recordsQuery = HcmAttendance::with(['shift', 'creator:id,name'])
+            ->where('employee_id', $employee->id)
+            ->whereBetween('attendance_date', [$yearStart->toDateString(), $yearEnd->toDateString()])
+            ->where(function ($q) {
+                $q->where('attendance_category', '!=', 'Hadir')
+                  ->orWhereNotNull('notes')
+                  ->orWhere('attendance_category', 'Terlambat');
+            });
+
+        if ($monthNum !== null) {
+            $mStart = Carbon::create($selectedYear, $monthNum, 1)->startOfMonth();
+            $mEnd = $mStart->copy()->endOfMonth();
+            $recordsQuery->whereBetween('attendance_date', [$mStart->toDateString(), $mEnd->toDateString()]);
+        }
+
+        $attendanceRecords = $recordsQuery->orderBy('attendance_date', 'desc')->get();
+
+        // Opsi tahun yang tersedia
+        $yearExpr = $isSqlite ? "strftime('%Y', attendance_date)" : "YEAR(attendance_date)";
+        $firstAttYear = HcmAttendance::where('employee_id', $employee->id)->min(DB::raw($yearExpr));
+        $joinYear = $employee->join_date ? Carbon::parse($employee->join_date)->year : now()->year;
+        $minYear = (int) ($firstAttYear ?: $joinYear);
+        $minYear = min($minYear, (int) now()->year);
+        $maxYear = (int) now()->year + 1;
+        $availableYears = range(max(2020, $minYear), max((int) now()->year, $maxYear));
+        rsort($availableYears);
 
         $employee->load([
             'intern',
@@ -343,9 +456,8 @@ class HcmEmployeeController extends Controller
             'compensation.histories.approver',
             'onboarding',
             'offboarding',
-            'attendances' => fn ($q) => $q->whereBetween('attendance_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
-                ->orderBy('attendance_date'),
-            'leaveRequests' => fn ($q) => $q->orderBy('start_date', 'desc')->limit(10),
+            'leaveRequests' => fn ($q) => $q->whereBetween('start_date', [$yearStart->toDateString(), $yearEnd->toDateString()])
+                ->orderBy('start_date', 'desc'),
             'overtimes' => fn ($q) => $q->with('batch')->orderBy('overtime_date', 'desc')->limit(20),
             'rewards' => fn ($q) => $q->orderByDesc('reward_year')->orderByDesc('id'),
             'salaryDeductions.creator:id,name',
@@ -354,8 +466,12 @@ class HcmEmployeeController extends Controller
         return Inertia::render('Hcm/Employees/Show', [
             'employee' => $employee,
             'dropdowns' => HcmMasterOption::getAllDropdowns(),
-            'attendanceMonth' => $monthStart->format('Y-m'),
-            'attendanceDaysInMonth' => $monthStart->daysInMonth,
+            'attendanceYear' => $selectedYear,
+            'attendanceMonth' => $monthNum ? (string) $monthNum : 'all',
+            'attendanceMonthlySummaries' => $monthlySummaries,
+            'attendanceAnnualTotals' => $annualTotals,
+            'attendanceRecords' => $attendanceRecords,
+            'availableYears' => $availableYears,
         ]);
     }
 

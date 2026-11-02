@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { formatDate } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
     ArrowLeft,
     User,
@@ -31,6 +31,13 @@ import {
     ChevronLeft,
     ChevronRight,
     Scissors,
+    XCircle,
+    Search,
+    Calendar,
+    Paperclip,
+    ShieldAlert,
+    Filter,
+    Sparkles,
 } from 'lucide-react';
 import AppLayout from '@/Layouts/AppLayout';
 import UniversalDocumentViewer from '@/Components/Hcm/UniversalDocumentViewer';
@@ -68,7 +75,16 @@ import { SearchableSelect } from '@/Components/ui/searchable-select';
 
 const toOptions = (arr) => (arr || []).map((v) => (typeof v === 'string' ? { value: v, label: v } : v));
 
-export default function EmployeeShow({ employee, dropdowns, attendanceMonth = null, attendanceDaysInMonth = null }) {
+export default function EmployeeShow({
+    employee,
+    dropdowns,
+    attendanceYear = new Date().getFullYear(),
+    attendanceMonth = 'all',
+    attendanceMonthlySummaries = [],
+    attendanceAnnualTotals = {},
+    attendanceRecords = [],
+    availableYears = [],
+}) {
     const [activeTab, setActiveTab] = useState('biodata');
 
     // State Modals
@@ -186,25 +202,137 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
 
     const isIntern = employee.employee_category === 'INTERN' || employee.job_level === 'Magang';
 
-    // Matriks kehadiran bulanan (Tab 4)
-    const attMonth = attendanceMonth || new Date().toISOString().slice(0, 7);
-    const attMonthDate = new Date(attMonth + '-01');
-    const attMonthLabel = attMonthDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-    const attDaysInMonth = attendanceDaysInMonth || new Date(attMonthDate.getFullYear(), attMonthDate.getMonth() + 1, 0).getDate();
-    const attLeadingBlanks = (attMonthDate.getDay() + 6) % 7;
-    const attMap = {};
-    (employee.attendances || []).forEach((a) => { attMap[(a.attendance_date || '').slice(0, 10)] = a; });
-    const attCatClass = (c) =>
-        c === 'Hadir' ? 'bg-emerald-500/12 text-emerald-700' :
-        c === 'Terlambat' ? 'bg-amber-500/12 text-amber-700' :
-        c === 'Alpha/Mangkir' ? 'bg-rose-500/12 text-rose-700' :
-        c === 'Pulang Cepat' ? 'bg-orange-500/12 text-orange-700' :
-        c ? 'bg-sky-500/12 text-sky-700' : 'bg-zinc-50 text-zinc-300 dark:bg-zinc-800/40';
-    const shiftAttMonth = (delta) => {
-        const d = new Date(attMonth + '-01');
-        d.setMonth(d.getMonth() + delta);
-        router.get(route('hcm.employees.show', employee.employee_code || employee.id), { month: d.toISOString().slice(0, 7) }, { preserveState: true, preserveScroll: true });
+    // State Filter Tab Rekap Absensi Tahunan & Log Insiden
+    const [selectedAttYear, setSelectedAttYear] = useState(attendanceYear);
+    const [selectedAttMonth, setSelectedAttMonth] = useState(attendanceMonth);
+    const [attRecordCategory, setAttRecordCategory] = useState('all');
+    const [attRecordSearch, setAttRecordSearch] = useState('');
+
+    const handleAttendanceFilter = (newYear, newMonth) => {
+        setSelectedAttYear(newYear);
+        setSelectedAttMonth(newMonth);
+        router.get(
+            route('hcm.employees.show', employee.employee_code || employee.id),
+            {
+                year: newYear,
+                month: newMonth || 'all',
+            },
+            {
+                preserveState: true,
+                preserveScroll: true,
+                only: [
+                    'attendanceYear',
+                    'attendanceMonth',
+                    'attendanceMonthlySummaries',
+                    'attendanceAnnualTotals',
+                    'attendanceRecords',
+                    'availableYears',
+                ],
+            }
+        );
     };
+
+    const formatFullDateIndo = (dateStr) => {
+        if (!dateStr) return '-';
+        try {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('id-ID', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+            });
+        } catch {
+            return dateStr;
+        }
+    };
+
+    const getAttCategoryBadge = (category, lateMinutes = 0) => {
+        switch (category) {
+            case 'Terlambat':
+                return (
+                    <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700 text-xs gap-1 font-semibold">
+                        <Clock className="w-3 h-3 text-amber-600" />
+                        Terlambat {lateMinutes > 0 ? `(+${lateMinutes} mnt)` : ''}
+                    </Badge>
+                );
+            case 'Izin':
+            case 'Dinas Luar':
+                return (
+                    <Badge variant="outline" className="border-sky-300 bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-700 text-xs gap-1 font-semibold">
+                        <FileText className="w-3 h-3 text-sky-600" />
+                        {category}
+                    </Badge>
+                );
+            case 'Sakit':
+                return (
+                    <Badge variant="outline" className="border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-700 text-xs gap-1 font-semibold">
+                        <AlertCircle className="w-3 h-3 text-indigo-600" />
+                        Sakit
+                    </Badge>
+                );
+            case 'Alpha/Mangkir':
+                return (
+                    <Badge variant="outline" className="border-rose-300 bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-700 text-xs gap-1 font-semibold">
+                        <XCircle className="w-3 h-3 text-rose-600" />
+                        Alpha / Mangkir
+                    </Badge>
+                );
+            case 'Pulang Cepat':
+                return (
+                    <Badge variant="outline" className="border-orange-300 bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-700 text-xs gap-1 font-semibold">
+                        <Clock className="w-3 h-3 text-orange-600" />
+                        Pulang Cepat
+                    </Badge>
+                );
+            default:
+                if (category?.includes('Cuti')) {
+                    return (
+                        <Badge variant="outline" className="border-purple-300 bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-700 text-xs gap-1 font-semibold">
+                            <CalendarCheck className="w-3 h-3 text-purple-600" />
+                            {category}
+                        </Badge>
+                    );
+                }
+                return (
+                    <Badge variant="outline" className="text-xs">
+                        {category || 'Pengecualian'}
+                    </Badge>
+                );
+        }
+    };
+
+    const filteredAttendanceRecords = useMemo(() => {
+        return (attendanceRecords || []).filter((rec) => {
+            if (attRecordCategory !== 'all') {
+                if (attRecordCategory === 'Terlambat' && rec.attendance_category !== 'Terlambat') return false;
+                if (attRecordCategory === 'Izin' && !['Izin', 'Dinas Luar'].includes(rec.attendance_category)) return false;
+                if (attRecordCategory === 'Sakit' && rec.attendance_category !== 'Sakit') return false;
+                if (attRecordCategory === 'Cuti' && !rec.attendance_category?.includes('Cuti')) return false;
+                if (attRecordCategory === 'Alpha' && rec.attendance_category !== 'Alpha/Mangkir') return false;
+                if (attRecordCategory === 'Pulang Cepat' && rec.attendance_category !== 'Pulang Cepat') return false;
+            }
+
+            if (attRecordSearch.trim()) {
+                const term = attRecordSearch.toLowerCase();
+                const dateStr = (rec.attendance_date || '').toLowerCase();
+                const notesStr = (rec.notes || '').toLowerCase();
+                const catStr = (rec.attendance_category || '').toLowerCase();
+                const shiftStr = (rec.shift?.name || '').toLowerCase();
+                const creatorStr = (rec.creator?.name || '').toLowerCase();
+
+                return (
+                    dateStr.includes(term) ||
+                    notesStr.includes(term) ||
+                    catStr.includes(term) ||
+                    shiftStr.includes(term) ||
+                    creatorStr.includes(term)
+                );
+            }
+
+            return true;
+        });
+    }, [attendanceRecords, attRecordCategory, attRecordSearch]);
 
     const tabs = isIntern
         ? [
@@ -1076,73 +1204,494 @@ export default function EmployeeShow({ employee, dropdowns, attendanceMonth = nu
                     </div>
                 )}
 
-                {/* TAB 4: Rekap Kehadiran Bulanan */}
+                {/* TAB 4: Rekap & Log Presensi Karyawan (Data Izin, Telat, Sakit, Cuti, Alpha) */}
                 {activeTab === 'attendance' && (
-                    <div className="space-y-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                                <CalendarCheck className="h-4 w-4 text-indigo-600" />
-                                Matriks Kehadiran {attMonthLabel}
-                            </h3>
-                            <div className="flex items-center gap-1.5">
-                                <Button variant="outline" size="sm" onClick={() => shiftAttMonth(-1)} className="h-8 w-8 p-0">
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <Button variant="outline" size="sm" onClick={() => shiftAttMonth(1)} className="h-8 w-8 p-0">
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
+                    <div className="space-y-5">
+                        {/* 1. Header Kontrol & Filter Tahun / Bulan */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 shadow-xs">
+                            <div>
+                                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                    <CalendarCheck className="h-4 w-4 text-indigo-600" />
+                                    Rekap & Log Insiden Presensi Karyawan
+                                </h3>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                                    Sistem auto-hadir: Fokus mencatat data pengecualian (izin, keterlambatan, sakit, cuti, atau alpha).
+                                </p>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                                {/* Filter Tahun */}
+                                <div className="flex items-center gap-1.5 bg-zinc-50 dark:bg-zinc-800/80 px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                    <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+                                    <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">Tahun:</span>
+                                    <select
+                                        value={selectedAttYear}
+                                        onChange={(e) => handleAttendanceFilter(parseInt(e.target.value), selectedAttMonth)}
+                                        className="bg-transparent border-0 text-xs font-bold text-zinc-900 dark:text-zinc-100 p-0 focus:ring-0 cursor-pointer"
+                                    >
+                                        {(availableYears || [new Date().getFullYear()]).map((yr) => (
+                                            <option key={yr} value={yr}>
+                                                {yr}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 <Link
                                     href={route('hcm.attendance.index')}
-                                    className="text-xs text-indigo-600 hover:underline flex items-center gap-1 ml-1"
+                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition"
                                 >
-                                    <ExternalLink className="h-3 w-3" />
-                                    Buka Matriks Presensi Massal
+                                    <ExternalLink className="h-3.5 w-3.5 text-indigo-600" />
+                                    <span>Presensi Massal</span>
                                 </Link>
                             </div>
                         </div>
 
-                        <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm">
-                            <CardContent className="p-4">
-                                <div className="grid grid-cols-7 gap-1.5">
-                                    {['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'].map((d) => (
-                                        <div key={d} className="text-[10px] font-semibold uppercase text-zinc-400 text-center py-1">{d}</div>
-                                    ))}
-                                    {Array.from({ length: attLeadingBlanks }).map((_, i) => (
-                                        <div key={`b${i}`} />
-                                    ))}
-                                    {Array.from({ length: attDaysInMonth }).map((_, i) => {
-                                        const day = i + 1;
-                                        const dateStr = `${attMonth}-${String(day).padStart(2, '0')}`;
-                                        const att = attMap[dateStr];
-                                        const cat = att?.attendance_category;
-                                        return (
-                                            <div
-                                                key={day}
-                                                title={cat ? `${dateStr} — ${cat}` : dateStr}
-                                                className={`rounded-md border border-zinc-200/70 dark:border-zinc-800 p-1.5 min-h-[46px] ${attCatClass(cat)}`}
-                                            >
-                                                <div className="text-[11px] font-bold">{day}</div>
-                                                {cat && <div className="text-[9px] font-medium leading-tight mt-0.5">{cat}</div>}
-                                            </div>
-                                        );
-                                    })}
+                        {/* 2. Kartu Indikator Metrik Tahunan (Terlambat, Izin, Sakit, Cuti, Alpha, Total) */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                            <Card className="border border-amber-200/80 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-900/40 shadow-xs">
+                                <CardContent className="p-3">
+                                    <div className="flex items-center justify-between text-amber-700 dark:text-amber-400">
+                                        <span className="text-[11px] font-semibold">Terlambat</span>
+                                        <Clock className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div className="text-xl font-bold font-mono text-amber-800 dark:text-amber-300 mt-1">
+                                        {attendanceAnnualTotals?.terlambat || 0}
+                                        <span className="text-[10px] font-normal font-sans ml-1">kali</span>
+                                    </div>
+                                    <span className="text-[10px] text-amber-600/80">Disiplin jam kerja</span>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border border-sky-200/80 bg-sky-50/40 dark:bg-sky-950/20 dark:border-sky-900/40 shadow-xs">
+                                <CardContent className="p-3">
+                                    <div className="flex items-center justify-between text-sky-700 dark:text-sky-400">
+                                        <span className="text-[11px] font-semibold">Izin / Dinas</span>
+                                        <FileText className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div className="text-xl font-bold font-mono text-sky-800 dark:text-sky-300 mt-1">
+                                        {attendanceAnnualTotals?.izin || 0}
+                                        <span className="text-[10px] font-normal font-sans ml-1">hari</span>
+                                    </div>
+                                    <span className="text-[10px] text-sky-600/80">Izin resmi disetujui</span>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border border-indigo-200/80 bg-indigo-50/40 dark:bg-indigo-950/20 dark:border-indigo-900/40 shadow-xs">
+                                <CardContent className="p-3">
+                                    <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-400">
+                                        <span className="text-[11px] font-semibold">Sakit</span>
+                                        <AlertCircle className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div className="text-xl font-bold font-mono text-indigo-800 dark:text-indigo-300 mt-1">
+                                        {attendanceAnnualTotals?.sakit || 0}
+                                        <span className="text-[10px] font-normal font-sans ml-1">hari</span>
+                                    </div>
+                                    <span className="text-[10px] text-indigo-600/80">Surat dokter / klinis</span>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border border-purple-200/80 bg-purple-50/40 dark:bg-purple-950/20 dark:border-purple-900/40 shadow-xs">
+                                <CardContent className="p-3">
+                                    <div className="flex items-center justify-between text-purple-700 dark:text-purple-400">
+                                        <span className="text-[11px] font-semibold">Cuti Tahunan</span>
+                                        <CalendarCheck className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div className="text-xl font-bold font-mono text-purple-800 dark:text-purple-300 mt-1">
+                                        {attendanceAnnualTotals?.cuti || 0}
+                                        <span className="text-[10px] font-normal font-sans ml-1">hari</span>
+                                    </div>
+                                    <span className="text-[10px] text-purple-600/80">Hak cuti karyawan</span>
+                                </CardContent>
+                            </Card>
+
+                            <Card className={`border shadow-xs ${
+                                (attendanceAnnualTotals?.alpha || 0) > 0
+                                    ? 'border-rose-300 bg-rose-50/60 dark:bg-rose-950/30 dark:border-rose-800'
+                                    : 'border-zinc-200/80 bg-white dark:bg-zinc-900 dark:border-zinc-800'
+                            }`}>
+                                <CardContent className="p-3">
+                                    <div className={`flex items-center justify-between ${
+                                        (attendanceAnnualTotals?.alpha || 0) > 0 ? 'text-rose-700 dark:text-rose-400 font-bold' : 'text-zinc-600 dark:text-zinc-400'
+                                    }`}>
+                                        <span className="text-[11px] font-semibold">Alpha / Mangkir</span>
+                                        <XCircle className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div className={`text-xl font-bold font-mono mt-1 ${
+                                        (attendanceAnnualTotals?.alpha || 0) > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-zinc-800 dark:text-zinc-200'
+                                    }`}>
+                                        {attendanceAnnualTotals?.alpha || 0}
+                                        <span className="text-[10px] font-normal font-sans ml-1">hari</span>
+                                    </div>
+                                    <span className={`text-[10px] ${(attendanceAnnualTotals?.alpha || 0) > 0 ? 'text-rose-600 font-semibold' : 'text-zinc-400'}`}>
+                                        {(attendanceAnnualTotals?.alpha || 0) > 0 ? 'Wajib dipotong gaji' : 'Nihil mangkir'}
+                                    </span>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border border-zinc-200/80 bg-gradient-to-br from-zinc-50 to-indigo-50/30 dark:from-zinc-900 dark:to-indigo-950/20 dark:border-zinc-800 shadow-xs">
+                                <CardContent className="p-3">
+                                    <div className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
+                                        <span className="text-[11px] font-semibold">Total Pengecualian</span>
+                                        <ShieldAlert className="w-3.5 h-3.5 text-indigo-500" />
+                                    </div>
+                                    <div className="text-xl font-bold font-mono text-zinc-900 dark:text-zinc-100 mt-1">
+                                        {attendanceAnnualTotals?.total_exceptions || 0}
+                                        <span className="text-[10px] font-normal font-sans ml-1">catatan</span>
+                                    </div>
+                                    <span className="text-[10px] text-zinc-500">Tahun {selectedAttYear}</span>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* 3. Filter Navigasi Bulan Cepat (Jan - Des + Semua Bulan) */}
+                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+                            <span className="text-zinc-400 font-semibold text-[11px] shrink-0 mr-1 flex items-center gap-1">
+                                <Filter className="w-3 h-3" /> Filter Bulan:
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => handleAttendanceFilter(selectedAttYear, 'all')}
+                                className={`px-3 py-1.5 rounded-lg font-medium transition shrink-0 border ${
+                                    selectedAttMonth === 'all'
+                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs font-semibold'
+                                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                                }`}
+                            >
+                                Semua Bulan ({selectedAttYear})
+                            </button>
+
+                            {(attendanceMonthlySummaries || []).map((m) => {
+                                const isSelected = String(selectedAttMonth) === String(m.month_num);
+                                const hasException = m.total_exceptions > 0;
+                                return (
+                                    <button
+                                        key={m.month_num}
+                                        type="button"
+                                        onClick={() => handleAttendanceFilter(selectedAttYear, String(m.month_num))}
+                                        className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition shrink-0 flex items-center gap-1.5 border ${
+                                            isSelected
+                                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs font-bold'
+                                                : hasException
+                                                ? 'bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100/60'
+                                                : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                                        }`}
+                                    >
+                                        <span>{m.month_short}</span>
+                                        {hasException && (
+                                            <span className={`text-[10px] px-1 py-0.2 rounded-full font-bold ${
+                                                isSelected ? 'bg-indigo-800 text-white' : 'bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200'
+                                            }`}>
+                                                {m.total_exceptions}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* 4. Tabel Matriks Rekap 12 Bulan Tahunan (Januari - Desember) */}
+                        <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+                            <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">
+                                        Rekapitulasi Presensi Tahunan per Bulan ({selectedAttYear})
+                                    </span>
+                                    <Badge variant="outline" className="text-[10px] text-zinc-500 font-normal">
+                                        12 Bulan Kalender
+                                    </Badge>
                                 </div>
-                                <div className="flex flex-wrap gap-3 mt-3 text-[10px] text-zinc-500">
-                                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-emerald-500/40" /> Hadir</span>
-                                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-amber-500/40" /> Terlambat</span>
-                                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-sky-500/40" /> Izin/Cuti/Sakit</span>
-                                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-orange-500/40" /> Pulang Cepat</span>
-                                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-rose-500/40" /> Alpha</span>
-                                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-zinc-200" /> Belum ada data</span>
-                                </div>
-                            </CardContent>
+                                <span className="text-[11px] text-zinc-400 hidden sm:inline">
+                                    Klik tombol pada baris bulan untuk melihat log rincian
+                                </span>
+                            </div>
+
+                            <div className="overflow-x-auto scrollbar-thin">
+                                <Table className="w-full text-xs">
+                                    <TableHeader className="bg-slate-50/90 dark:bg-zinc-800/60">
+                                        <TableRow>
+                                            <TableHead className="font-bold min-w-[130px]">Bulan</TableHead>
+                                            <TableHead className="font-bold text-center min-w-[90px]">Terlambat</TableHead>
+                                            <TableHead className="font-bold text-center min-w-[90px]">Izin / Dinas</TableHead>
+                                            <TableHead className="font-bold text-center min-w-[90px]">Sakit</TableHead>
+                                            <TableHead className="font-bold text-center min-w-[90px]">Cuti</TableHead>
+                                            <TableHead className="font-bold text-center min-w-[100px]">Alpha / Mangkir</TableHead>
+                                            <TableHead className="font-bold text-center min-w-[100px]">Total Insiden</TableHead>
+                                            <TableHead className="font-bold min-w-[140px]">Evaluasi Disiplin</TableHead>
+                                            <TableHead className="font-bold text-right min-w-[90px]">Aksi</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(attendanceMonthlySummaries || []).map((m) => {
+                                            const isSelected = String(selectedAttMonth) === String(m.month_num);
+                                            const hasExc = m.total_exceptions > 0;
+                                            return (
+                                                <TableRow
+                                                    key={m.month_num}
+                                                    className={`transition hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 ${
+                                                        isSelected ? 'bg-indigo-50/40 dark:bg-indigo-950/30 font-medium' : ''
+                                                    }`}
+                                                >
+                                                    <TableCell className="font-medium text-zinc-900 dark:text-zinc-100">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span>{m.month_name}</span>
+                                                            {isSelected && (
+                                                                <Badge variant="outline" className="text-[9px] px-1 py-0 border-indigo-300 text-indigo-600 bg-indigo-50 dark:bg-indigo-950 dark:text-indigo-300">
+                                                                    Aktif
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-mono">
+                                                        {m.terlambat > 0 ? (
+                                                            <span className="text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded">
+                                                                {m.terlambat}x
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-zinc-300 dark:text-zinc-600">-</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-mono">
+                                                        {m.izin > 0 ? (
+                                                            <span className="text-sky-600 dark:text-sky-400 font-semibold">
+                                                                {m.izin} hari
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-zinc-300 dark:text-zinc-600">-</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-mono">
+                                                        {m.sakit > 0 ? (
+                                                            <span className="text-indigo-600 dark:text-indigo-400 font-semibold">
+                                                                {m.sakit} hari
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-zinc-300 dark:text-zinc-600">-</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-mono">
+                                                        {m.cuti > 0 ? (
+                                                            <span className="text-purple-600 dark:text-purple-400 font-semibold">
+                                                                {m.cuti} hari
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-zinc-300 dark:text-zinc-600">-</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-mono">
+                                                        {m.alpha > 0 ? (
+                                                            <span className="text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded">
+                                                                {m.alpha} hari
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-zinc-300 dark:text-zinc-600">-</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-mono font-bold">
+                                                        {hasExc ? (
+                                                            <span className="text-zinc-900 dark:text-zinc-100">
+                                                                {m.total_exceptions}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-emerald-600 text-[11px] font-sans font-normal">0</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {m.alpha > 0 ? (
+                                                            <Badge variant="outline" className="border-rose-300 bg-rose-50 text-rose-700 text-[10px] gap-1">
+                                                                <XCircle className="w-2.5 h-2.5" /> Ada Alpha ({m.alpha}h)
+                                                            </Badge>
+                                                        ) : m.terlambat >= 4 ? (
+                                                            <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 text-[10px] gap-1">
+                                                                <Clock className="w-2.5 h-2.5" /> Sanksi Telat ≥4x
+                                                            </Badge>
+                                                        ) : m.terlambat > 0 ? (
+                                                            <Badge variant="outline" className="border-amber-200 text-amber-600 text-[10px]">
+                                                                {m.terlambat}x Terlambat
+                                                            </Badge>
+                                                        ) : m.total_exceptions > 0 ? (
+                                                            <Badge variant="outline" className="border-sky-200 text-sky-600 text-[10px]">
+                                                                {m.total_exceptions} Izin/Cuti
+                                                            </Badge>
+                                                        ) : (
+                                                            <Badge variant="outline" className="border-emerald-200 bg-emerald-50/60 text-emerald-700 text-[10px] gap-1">
+                                                                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> Sempurna (Nihil)
+                                                            </Badge>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleAttendanceFilter(selectedAttYear, String(m.month_num))}
+                                                            className="h-7 px-2 text-[11px] text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
+                                                        >
+                                                            {isSelected ? 'Terpilih' : hasExc ? `Log (${m.total_exceptions})` : 'Pilih'}
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </div>
                         </Card>
 
-                        {/* Riwayat Pengajuan Cuti / Izin */}
+                        {/* 5. Tabel Log Record Data Pengecualian Presensi (Izin, Telat, Sakit, Cuti, Alpha) */}
+                        <div className="space-y-3 pt-1">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div>
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                                        <FileCheck className="w-4 h-4 text-indigo-600" />
+                                        Log Record Pengecualian Presensi {selectedAttMonth !== 'all' ? `(Bulan ${attendanceMonthlySummaries.find(m => String(m.month_num) === String(selectedAttMonth))?.month_name || ''} ${selectedAttYear})` : `(Sepanjang Tahun ${selectedAttYear})`}
+                                    </h4>
+                                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                                        Daftar kejadian izin, surat sakit, telat, dan ketidakhadiran yang tercatat dalam log absensi.
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {/* Input Search Record */}
+                                    <div className="relative w-44 sm:w-56">
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+                                        <Input
+                                            value={attRecordSearch}
+                                            onChange={(e) => setAttRecordSearch(e.target.value)}
+                                            placeholder="Cari tanggal / catatan..."
+                                            className="h-8 pl-8 text-xs bg-white dark:bg-zinc-900"
+                                        />
+                                    </div>
+
+                                    {/* Filter Chip Kategori Record */}
+                                    <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg text-xs">
+                                        {['all', 'Terlambat', 'Izin', 'Sakit', 'Cuti', 'Alpha'].map((cat) => (
+                                            <button
+                                                key={cat}
+                                                type="button"
+                                                onClick={() => setAttRecordCategory(cat)}
+                                                className={`px-2 py-1 rounded-md text-[11px] font-medium transition ${
+                                                    attRecordCategory === cat
+                                                        ? 'bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs font-semibold'
+                                                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                                                }`}
+                                            >
+                                                {cat === 'all' ? 'Semua' : cat}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+                                <div className="overflow-x-auto scrollbar-thin">
+                                    <Table className="w-full text-xs">
+                                        <TableHeader className="bg-slate-50/90 dark:bg-zinc-800/60">
+                                            <TableRow>
+                                                <TableHead className="w-10 text-center font-bold">#</TableHead>
+                                                <TableHead className="font-bold min-w-[150px]">Tanggal & Hari</TableHead>
+                                                <TableHead className="font-bold min-w-[140px]">Kategori Presensi</TableHead>
+                                                <TableHead className="font-bold min-w-[150px]">Jam & Keterlambatan</TableHead>
+                                                <TableHead className="font-bold min-w-[140px]">Shift Kerja</TableHead>
+                                                <TableHead className="font-bold min-w-[220px]">Keterangan / Alasan</TableHead>
+                                                <TableHead className="font-bold min-w-[100px] text-center">Bukti</TableHead>
+                                                <TableHead className="font-bold min-w-[130px]">Dicatat Oleh</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredAttendanceRecords.length > 0 ? (
+                                                filteredAttendanceRecords.map((rec, idx) => (
+                                                    <TableRow key={rec.id || idx} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50">
+                                                        <TableCell className="text-center font-mono text-zinc-400 text-xs">
+                                                            {idx + 1}
+                                                        </TableCell>
+                                                        <TableCell className="font-medium text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                                                            <div>{formatFullDateIndo(rec.attendance_date)}</div>
+                                                            <div className="text-[10px] font-mono text-zinc-400 mt-0.5">
+                                                                {rec.attendance_date}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="whitespace-nowrap">
+                                                            {getAttCategoryBadge(rec.attendance_category, rec.late_minutes)}
+                                                        </TableCell>
+                                                        <TableCell className="whitespace-nowrap font-mono text-xs">
+                                                            {rec.clock_in ? (
+                                                                <div className="space-y-0.5">
+                                                                    <div className="text-zinc-800 dark:text-zinc-200 font-semibold">
+                                                                        {rec.clock_in.slice(0, 5)} {rec.clock_out ? `– ${rec.clock_out.slice(0, 5)}` : ''} WIB
+                                                                    </div>
+                                                                    {rec.late_minutes > 0 && (
+                                                                        <div className="text-[10px] text-amber-600 font-sans">
+                                                                            Telat {rec.late_minutes} menit
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-zinc-400 font-sans text-[11px]">-</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-zinc-700 dark:text-zinc-300">
+                                                            {rec.shift?.name || 'Shift Standar'}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {rec.notes ? (
+                                                                <div className="text-zinc-700 dark:text-zinc-300 leading-snug whitespace-normal break-words max-w-[260px]">
+                                                                    {rec.notes}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-zinc-400 italic text-[11px]">Tanpa catatan tambahan</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-center">
+                                                            {rec.attachment_url ? (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => setPdfPreview({ url: rec.attachment_url, name: `Lampiran Presensi - ${rec.attendance_date}` })}
+                                                                    className="h-7 px-2 text-[10px] gap-1 border-indigo-200 text-indigo-600"
+                                                                >
+                                                                    <Paperclip className="w-3 h-3" />
+                                                                    <span>Bukti</span>
+                                                                </Button>
+                                                            ) : (
+                                                                <span className="text-zinc-300 dark:text-zinc-700">-</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-zinc-600 dark:text-zinc-400 text-xs">
+                                                            {rec.creator?.name || 'Admin HCM'}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            ) : (
+                                                <TableRow>
+                                                    <TableCell colSpan={8} className="py-10 text-center">
+                                                        <div className="max-w-md mx-auto space-y-2">
+                                                            <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                                                                <CheckCircle2 className="w-5 h-5" />
+                                                            </div>
+                                                            <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                                                                Tidak Ada Catatan Insiden Presensi
+                                                            </div>
+                                                            <p className="text-[11px] text-zinc-500 leading-relaxed">
+                                                                Karyawan memiliki rekam kehadiran sempurna (nihil izin, sakit, telat, atau mangkir) pada periode {selectedAttMonth !== 'all' ? `Bulan ${selectedAttMonth} / ${selectedAttYear}` : `Tahun ${selectedAttYear}`}.
+                                                            </p>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </Card>
+                        </div>
+
+                        {/* 6. Riwayat Pengajuan Cuti / Izin Formal */}
                         {employee.leave_requests && employee.leave_requests.length > 0 && (
                             <div className="space-y-2 pt-2">
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-                                    Riwayat Pengajuan Cuti / Izin
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
+                                    <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                                    Riwayat Pengajuan Cuti / Izin Formal Karyawan
                                 </h4>
                                 <Card className="border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
                                     <Table>
