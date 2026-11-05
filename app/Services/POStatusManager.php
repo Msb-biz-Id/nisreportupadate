@@ -19,11 +19,21 @@ class POStatusManager
         }
 
         DB::transaction(function () use ($order, $user) {
-            $order->update([
+            $updateData = [
                 'status_po' => 'published',
                 'published_at' => now(),
                 'published_by' => $user->id,
-            ]);
+            ];
+
+            // Pastikan jika ini adalah repeat order, timeline produksi wajib kosong/null
+            // agar selalu mendarat di kolom "Baru Masuk (Isi Deadline)" di Kanban.
+            if ($order->is_repeat_order || !empty($order->repeat_from_po_id)) {
+                $updateData['start_production_date'] = null;
+                $updateData['end_production_date'] = null;
+                $updateData['production_days_late'] = 0;
+            }
+
+            $order->update($updateData);
 
             $progresses = Progress::active()->ordered()->get();
             foreach ($progresses as $p) {
@@ -33,6 +43,9 @@ class POStatusManager
                 );
             }
         });
+
+        \App\Services\CacheService::forgetProductionViews($order->brand_id);
+        \App\Services\CacheService::forgetDashboard();
 
         return $order->fresh();
     }

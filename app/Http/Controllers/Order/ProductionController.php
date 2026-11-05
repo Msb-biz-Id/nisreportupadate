@@ -64,6 +64,7 @@ class ProductionController extends Controller
                 ->select([
                     'id', 'no_po', 'nama_po', 'pelanggan_id', 'brand_id', 'status_po',
                     'tanggal_masuk', 'deadline_customer', 'start_production_date', 'end_production_date',
+                    'is_repeat_order', 'repeat_from_po_id',
                     'created_at', 'ekspedisi_id', 'nama_ekspedisi', 'no_resi', 'is_lunas'
                 ])
                 ->with([
@@ -123,9 +124,16 @@ class ProductionController extends Controller
                     ];
                 }
 
+                $hasValidDeadlineProd = !empty($order->end_production_date);
+                if ($hasValidDeadlineProd && ($order->is_repeat_order || !empty($order->repeat_from_po_id)) && !empty($order->tanggal_masuk)) {
+                    if (\Carbon\Carbon::parse($order->end_production_date)->lt(\Carbon\Carbon::parse($order->tanggal_masuk))) {
+                        $hasValidDeadlineProd = false;
+                    }
+                }
+
                 $stageStatus = $order->status_po;
                 if ($order->status_po === 'published') {
-                    $stageStatus = empty($order->end_production_date) ? 'baru_masuk' : 'review';
+                    $stageStatus = $hasValidDeadlineProd ? 'review' : 'baru_masuk';
                 }
 
                 return [
@@ -139,7 +147,7 @@ class ProductionController extends Controller
                     'stage_status'        => $stageStatus,
                     'status_label'        => $statusLabels[$stageStatus] ?? $statusLabels[$order->status_po] ?? $order->status_po,
                     'color'               => $statusColors[$stageStatus] ?? $statusColors[$order->status_po] ?? '#94A3B8',
-                    'needs_deadline'      => empty($order->end_production_date),
+                    'needs_deadline'      => !$hasValidDeadlineProd,
                     'current_progress'    => $currentProgress,
                     'ekspedisi_id'        => $order->ekspedisi_id,
                     'nama_ekspedisi'      => $order->ekspedisi?->nama ?? $order->nama_ekspedisi,
@@ -188,7 +196,8 @@ class ProductionController extends Controller
                 ->select([
                     'id', 'no_po', 'nama_po', 'pelanggan_id', 'brand_id', 'paket_order_id',
                     'status_po', 'tanggal_masuk', 'deadline_customer', 'start_production_date',
-                    'end_production_date', 'is_special_order', 'created_at', 'updated_at'
+                    'end_production_date', 'is_special_order', 'is_repeat_order', 'repeat_from_po_id',
+                    'created_at', 'updated_at'
                 ])
                 ->with([
                     'pelanggan:id,nama',
@@ -216,17 +225,25 @@ class ProductionController extends Controller
             /** @var \App\Models\Order\Order $order */
             foreach ($orders as $order) {
                 $status = $order->status_po;
+
+                $hasValidDeadlineProd = !empty($order->end_production_date);
+                if ($hasValidDeadlineProd && ($order->is_repeat_order || !empty($order->repeat_from_po_id)) && !empty($order->tanggal_masuk)) {
+                    if (\Carbon\Carbon::parse($order->end_production_date)->lt(\Carbon\Carbon::parse($order->tanggal_masuk))) {
+                        $hasValidDeadlineProd = false;
+                    }
+                }
+
                 // Delay orders are in production workflow, map them to on_progress column
                 if ($status === 'delay') {
                     $columnKey = 'on_progress';
                 } elseif ($status === 'published') {
-                    $columnKey = empty($order->end_production_date) ? 'baru_masuk' : 'review';
+                    $columnKey = $hasValidDeadlineProd ? 'review' : 'baru_masuk';
                 } else {
                     $columnKey = $status;
                 }
                 if (! isset($columns[$columnKey])) continue;
 
-                $effectiveDeadline = $order->end_production_date ?? $order->deadline_customer;
+                $effectiveDeadline = $hasValidDeadlineProd ? $order->end_production_date : $order->deadline_customer;
                 $daysRemaining = $effectiveDeadline
                     ? (int) now()->startOfDay()->diffInDays(\Carbon\Carbon::parse((string)$effectiveDeadline), false)
                     : null;
@@ -268,9 +285,9 @@ class ProductionController extends Controller
                     'tanggal_masuk'       => $order->tanggal_masuk ? \Carbon\Carbon::parse((string) $order->tanggal_masuk)->format('Y-m-d') : null,
                     'deadline_customer'   => $order->deadline_customer ? \Carbon\Carbon::parse((string) $order->deadline_customer)->format('Y-m-d') : null,
                     'start_production_date' => $order->start_production_date ? \Carbon\Carbon::parse((string) $order->start_production_date)->format('Y-m-d') : null,
-                    'end_production_date' => $order->end_production_date ? \Carbon\Carbon::parse((string) $order->end_production_date)->format('Y-m-d') : null,
+                    'end_production_date' => $hasValidDeadlineProd ? ($order->end_production_date ? \Carbon\Carbon::parse((string) $order->end_production_date)->format('Y-m-d') : null) : null,
                     'effective_deadline'  => $effectiveDeadline ? \Carbon\Carbon::parse((string) $effectiveDeadline)->format('Y-m-d') : null,
-                    'needs_deadline'      => empty($order->end_production_date),
+                    'needs_deadline'      => !$hasValidDeadlineProd,
                     'is_locked'           => $order->isLocked(),
                     'is_special_order'    => (bool) $order->is_special_order,
                     'has_rijek'           => $order->has_rijek > 0,

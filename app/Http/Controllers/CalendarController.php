@@ -53,17 +53,24 @@ class CalendarController extends Controller
             ->get();
 
         $events = $orders->map(function (Order $o) {
+            $hasValidDeadlineProd = !empty($o->end_production_date);
+            if ($hasValidDeadlineProd && ($o->is_repeat_order || !empty($o->repeat_from_po_id)) && !empty($o->tanggal_masuk)) {
+                if (\Illuminate\Support\Carbon::parse($o->end_production_date)->lt(\Illuminate\Support\Carbon::parse($o->tanggal_masuk))) {
+                    $hasValidDeadlineProd = false;
+                }
+            }
+
             $startDate = $o->start_production_date ?? $o->tanggal_masuk;
-            $endDate = $o->end_production_date ?? $o->deadline_customer;
+            $endDate = ($hasValidDeadlineProd ? $o->end_production_date : null) ?? $o->deadline_customer;
 
             $start = $startDate ? \Illuminate\Support\Carbon::parse((string) $startDate)->toDateString() : null;
             $end = $endDate ? \Illuminate\Support\Carbon::parse((string) $endDate)->toDateString() : null;
             $deadlineCustomer = $o->deadline_customer ? \Illuminate\Support\Carbon::parse((string) $o->deadline_customer)->toDateString() : null;
-            $deadlineProduksi = $o->end_production_date ? \Illuminate\Support\Carbon::parse((string) $o->end_production_date)->toDateString() : null;
+            $deadlineProduksi = $hasValidDeadlineProd ? \Illuminate\Support\Carbon::parse((string) $o->end_production_date)->toDateString() : null;
 
             // Hitung deadline efektif & sisa hari persis seperti Gantt Chart Produksi
             $today = now()->startOfDay();
-            $effectiveDeadline = $o->end_production_date ?? $o->deadline_customer;
+            $effectiveDeadline = ($hasValidDeadlineProd ? $o->end_production_date : null) ?? $o->deadline_customer;
             $deadlineCarbon = $effectiveDeadline ? \Illuminate\Support\Carbon::parse((string) $effectiveDeadline)->startOfDay() : null;
 
             $daysRemaining = null;
@@ -80,7 +87,7 @@ class CalendarController extends Controller
 
             $stageStatus = $o->status_po;
             if ($o->status_po === 'published') {
-                $stageStatus = empty($o->end_production_date) ? 'baru_masuk' : 'review';
+                $stageStatus = $hasValidDeadlineProd ? 'review' : 'baru_masuk';
             }
 
             $effectiveStatus = $isDelayed ? 'delay' : $stageStatus;
