@@ -189,9 +189,27 @@ class OrderController extends Controller
                           });
                     });
                 } elseif ($status === 'baru_masuk') {
-                    $query->where('orders.status_po', 'published')->whereNull('orders.end_production_date');
+                    $query->where('orders.status_po', 'published')
+                          ->where(function ($q) {
+                              $q->whereNull('orders.end_production_date')
+                                ->orWhere(function ($q2) {
+                                    $q2->where(function ($q3) {
+                                        $q3->where('orders.is_repeat_order', 1)
+                                           ->orWhereNotNull('orders.repeat_from_po_id');
+                                    })
+                                    ->whereColumn('orders.end_production_date', '<', 'orders.tanggal_masuk');
+                                });
+                          });
                 } elseif ($status === 'review') {
-                    $query->where('orders.status_po', 'published')->whereNotNull('orders.end_production_date');
+                    $query->where('orders.status_po', 'published')
+                          ->whereNotNull('orders.end_production_date')
+                          ->where(function ($q) {
+                              $q->where(function ($q2) {
+                                  $q2->where('orders.is_repeat_order', 0)
+                                     ->whereNull('orders.repeat_from_po_id');
+                              })
+                              ->orWhereColumn('orders.end_production_date', '>=', 'orders.tanggal_masuk');
+                          });
                 } else {
                     $query->where('orders.status_po', $status);
                 }
@@ -250,11 +268,27 @@ class OrderController extends Controller
             $counts['delay'] = $delayCount;
             $counts['baru_masuk'] = (clone $baseQuery)
                 ->where('orders.status_po', 'published')
-                ->whereNull('orders.end_production_date')
+                ->where(function ($q) {
+                    $q->whereNull('orders.end_production_date')
+                      ->orWhere(function ($q2) {
+                          $q2->where(function ($q3) {
+                              $q3->where('orders.is_repeat_order', 1)
+                                 ->orWhereNotNull('orders.repeat_from_po_id');
+                          })
+                          ->whereColumn('orders.end_production_date', '<', 'orders.tanggal_masuk');
+                      });
+                })
                 ->count();
             $counts['review'] = (clone $baseQuery)
                 ->where('orders.status_po', 'published')
                 ->whereNotNull('orders.end_production_date')
+                ->where(function ($q) {
+                    $q->where(function ($q2) {
+                        $q2->where('orders.is_repeat_order', 0)
+                           ->whereNull('orders.repeat_from_po_id');
+                    })
+                    ->orWhereColumn('orders.end_production_date', '>=', 'orders.tanggal_masuk');
+                })
                 ->count();
             unset($counts['published']);
         }
@@ -652,9 +686,14 @@ class OrderController extends Controller
                 'updated_by' => $user->id,
             ];
 
-            if ($order->isDraft() && !empty($order->end_production_date)) {
-                if (\Carbon\Carbon::parse($order->end_production_date)->gt(\Carbon\Carbon::parse($data['deadline_customer']))) {
-                    $updateData['end_production_date'] = $data['deadline_customer'];
+            if ($order->isDraft()) {
+                if ($order->is_repeat_order || !empty($order->repeat_from_po_id)) {
+                    $updateData['start_production_date'] = null;
+                    $updateData['end_production_date'] = null;
+                } elseif (!empty($order->end_production_date)) {
+                    if (\Carbon\Carbon::parse($order->end_production_date)->gt(\Carbon\Carbon::parse($data['deadline_customer']))) {
+                        $updateData['end_production_date'] = $data['deadline_customer'];
+                    }
                 }
             }
 
@@ -983,6 +1022,9 @@ class OrderController extends Controller
 
         $this->statusManager->publish($order, $request->user());
 
+        \App\Services\CacheService::forgetProductionViews($order->brand_id);
+        \App\Services\CacheService::forgetDashboard();
+
         \App\Services\ActivityLogger::log('publish', 'order', $order, "Publish PO {$order->no_po}");
         \App\Services\Notifications\IdealNotificationService::dispatch('order_published', [
             'no_po' => $order->no_po,
@@ -1212,6 +1254,9 @@ class OrderController extends Controller
 
             return $clone;
         });
+
+        \App\Services\CacheService::forgetProductionViews($brand->id);
+        \App\Services\CacheService::forgetDashboard();
 
         return redirect()->route('orders.edit', $newOrder->id)
             ->with('success', 'PO baru hasil repeat order. Silakan review & terbitkan.');
