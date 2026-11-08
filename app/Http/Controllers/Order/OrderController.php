@@ -969,7 +969,9 @@ class OrderController extends Controller
                 'edit' => $request->user()->can('order.update') && ($order->isDraft() || ! $order->isLocked()),
                 'delete' => $request->user()->can('order.delete') && $order->isDraft(),
                 'publish' => $request->user()->can('order.publish') && $order->isDraft(),
-                'unlock' => $request->user()->can('order.lock-unlock'),
+                'unlock' => $order->status_po === 'selesai'
+                    ? $request->user()->isSuperadmin()
+                    : $request->user()->can('order.lock-unlock'),
                 'bypass_dp' => $request->user()->hasRole('superadmin') || $request->user()->hasRole('owner') || $request->user()->hasRole('admin_keuangan'),
                 'repeat' => $request->user()->can('order.create') && ! $order->isDraft(),
                 'manage_invoice' => $request->user()->can('finance.manage-invoice'),
@@ -1286,9 +1288,13 @@ class OrderController extends Controller
         ]);
 
         $user = $request->user();
+        $isFinished = $order->status_po === 'selesai';
 
-        // Jika user memiliki permission order.lock-unlock (Superadmin/Owner/Supervisor), unlock langsung!
-        if ($user->can('order.lock-unlock')) {
+        // Jika PO selesai: HANYA Superadmin yang bisa unlock langsung.
+        // Jika PO belum selesai: User dengan permission order.lock-unlock (Superadmin/Owner/Supervisor) bisa unlock langsung.
+        $canDirectUnlock = $isFinished ? $user->isSuperadmin() : $user->can('order.lock-unlock');
+
+        if ($canDirectUnlock) {
             $this->statusManager->unlock($order, $user);
             
             // Clear any pending unlock requests
@@ -1314,7 +1320,7 @@ class OrderController extends Controller
             return back()->with('info', 'PO di-unlock. Lakukan perubahan, kemudian re-lock untuk mengembalikan proteksi.');
         }
 
-        // Jika user TIDAK memiliki permission order.lock-unlock (Admin Brand/Reseller/Produksi), ajukan permohonan!
+        // Jika user tidak berhak unlock langsung (Admin Brand/Reseller/Produksi dll), ajukan permohonan!
         $lock = $order->lockStatus;
         if ($lock) {
             $lock->update([
@@ -1348,7 +1354,11 @@ class OrderController extends Controller
 
     public function approveUnlock(Request $request, Order $order)
     {
-        abort_unless($request->user()->can('order.lock-unlock'), 403, 'Anda tidak memiliki hak untuk menyetujui unlock PO.');
+        if ($order->status_po === 'selesai') {
+            abort_unless($request->user()->isSuperadmin(), 403, 'Hanya Superadmin yang memiliki hak untuk menyetujui unlock PO yang sudah selesai.');
+        } else {
+            abort_unless($request->user()->can('order.lock-unlock'), 403, 'Anda tidak memiliki hak untuk menyetujui unlock PO.');
+        }
         $this->guardBrandOwnership($request, $order);
 
         $lock = $order->lockStatus;
@@ -1399,7 +1409,11 @@ class OrderController extends Controller
 
     public function rejectUnlock(Request $request, Order $order)
     {
-        abort_unless($request->user()->can('order.lock-unlock'), 403, 'Anda tidak memiliki hak untuk menolak permohonan unlock PO.');
+        if ($order->status_po === 'selesai') {
+            abort_unless($request->user()->isSuperadmin(), 403, 'Hanya Superadmin yang memiliki hak untuk menolak permohonan unlock PO yang sudah selesai.');
+        } else {
+            abort_unless($request->user()->can('order.lock-unlock'), 403, 'Anda tidak memiliki hak untuk menolak permohonan unlock PO.');
+        }
         $this->guardBrandOwnership($request, $order);
 
         $lock = $order->lockStatus;
@@ -1431,9 +1445,13 @@ class OrderController extends Controller
     {
         $this->guardBrandOwnership($request, $order);
         $user = $request->user();
+        $isFinished = $order->status_po === 'selesai';
 
-        // Jika user memiliki permission order.lock-unlock (Superadmin/Owner/Supervisor), relock langsung!
-        if ($user->can('order.lock-unlock')) {
+        // Jika PO selesai: HANYA Superadmin yang bisa re-lock langsung.
+        // Jika PO belum selesai: User dengan permission order.lock-unlock (Superadmin/Owner/Supervisor) bisa re-lock langsung.
+        $canDirectRelock = $isFinished ? $user->isSuperadmin() : $user->can('order.lock-unlock');
+
+        if ($canDirectRelock) {
             $this->statusManager->relock($order, $user);
 
             // Clear any pending relock requests
@@ -1459,7 +1477,7 @@ class OrderController extends Controller
             return back()->with('success', 'PO kembali ter-lock.');
         }
 
-        // Jika user TIDAK memiliki permission order.lock-unlock (Admin Brand/Reseller/Produksi), ajukan permohonan!
+        // Jika user tidak berhak re-lock langsung (Admin Brand/Reseller/Produksi dll), ajukan permohonan!
         $reason = $request->input('reason', 'Re-lock PO requested by Admin');
         $lock = $order->lockStatus;
         if ($lock) {
@@ -1494,7 +1512,11 @@ class OrderController extends Controller
 
     public function approveRelock(Request $request, Order $order)
     {
-        abort_unless($request->user()->can('order.lock-unlock'), 403, 'Anda tidak memiliki hak untuk menyetujui re-lock PO.');
+        if ($order->status_po === 'selesai') {
+            abort_unless($request->user()->isSuperadmin(), 403, 'Hanya Superadmin yang memiliki hak untuk menyetujui re-lock PO yang sudah selesai.');
+        } else {
+            abort_unless($request->user()->can('order.lock-unlock'), 403, 'Anda tidak memiliki hak untuk menyetujui re-lock PO.');
+        }
         $this->guardBrandOwnership($request, $order);
 
         $lock = $order->lockStatus;
@@ -1545,7 +1567,11 @@ class OrderController extends Controller
 
     public function rejectRelock(Request $request, Order $order)
     {
-        abort_unless($request->user()->can('order.lock-unlock'), 403, 'Anda tidak memiliki hak untuk menolak permohonan re-lock PO.');
+        if ($order->status_po === 'selesai') {
+            abort_unless($request->user()->isSuperadmin(), 403, 'Hanya Superadmin yang memiliki hak untuk menolak permohonan re-lock PO yang sudah selesai.');
+        } else {
+            abort_unless($request->user()->can('order.lock-unlock'), 403, 'Anda tidak memiliki hak untuk menolak permohonan re-lock PO.');
+        }
         $this->guardBrandOwnership($request, $order);
 
         $lock = $order->lockStatus;
