@@ -2148,10 +2148,30 @@ class OrderController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function getOrderRelatedMasters(\Closure $masterQ, string $masterBrandId): array
+    private function getOrderRelatedMasters(\Closure $masterQ, string $masterBrandId, ?string $currentBrandId = null): array
     {
         $namaCol = 'nama';
-        $brandIdCol = 'brand_id';
+        $currentBrandId = $currentBrandId ?? $masterBrandId;
+
+        // Kumpulkan semua brand yang relevan:
+        // brand aktif saat ini, master brand, serta seluruh cabang/hub dalam ekosistem brand tersebut
+        $targetBrandIds = array_filter(array_unique(array_merge(
+            [$currentBrandId, $masterBrandId],
+            BrandContext::effectiveBrandIds(request(), $currentBrandId),
+            BrandContext::effectiveBrandIds(request(), $masterBrandId)
+        )));
+
+        $pelanggan = Customer::active()
+            ->where(function ($w) use ($targetBrandIds) {
+                if (!empty($targetBrandIds)) {
+                    $w->whereIn('brand_id', $targetBrandIds);
+                }
+                $w->orWhereNull('brand_id');
+            })
+            ->orderBy($namaCol)
+            ->limit(2500)
+            ->get(['id', 'kode', 'nama', 'nomor_hp', 'brand_id']);
+
         return [
             'kategori_orders' => KategoriOrder::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama']),
             'jenis_orders' => JenisOrder::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama']),
@@ -2167,7 +2187,7 @@ class OrderController extends Controller
                 ->values()
                 ->toArray(),
             'iklans' => Iklan::active()->where($masterQ)->orderBy($namaCol)->get(['id', 'nama', 'platform']),
-            'pelanggan' => Customer::active()->where($brandIdCol, $masterBrandId)->orderBy($namaCol)->limit(500)->get(['id', 'kode', 'nama', 'nomor_hp']),
+            'pelanggan' => $pelanggan,
         ];
     }
 
@@ -2263,7 +2283,7 @@ class OrderController extends Controller
             $w->where('brand_id', $masterBrandId)->orWhereNull('brand_id');
         });
 
-        $orderMasters = $this->getOrderRelatedMasters($masterQ, $masterBrandId);
+        $orderMasters = $this->getOrderRelatedMasters($masterQ, $masterBrandId, $currentBrandId);
         $productionMasters = $this->getProductionRelatedMasters($masterQ);
         $banks = $this->getAccessibleBanks($masterBrandId, $currentBrandId);
 
