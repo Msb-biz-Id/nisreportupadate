@@ -25,7 +25,13 @@ export function SearchableSelect({ value, onValueChange, onChange, options = [],
 
     const selected = options.find((o) => o.value === value);
     const filtered = search
-        ? options.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
+        ? options.filter((o) => {
+            const q = search.toLowerCase().trim();
+            const labelMatch = o.label?.toLowerCase().includes(q);
+            const sublabelMatch = o.sublabel?.toLowerCase().includes(q);
+            const searchKeyMatch = o.searchKey?.toLowerCase().includes(q);
+            return Boolean(labelMatch || sublabelMatch || searchKeyMatch);
+        })
         : options;
 
     useEffect(() => {
@@ -89,10 +95,24 @@ export function SearchableSelect({ value, onValueChange, onChange, options = [],
                                     key={o.value}
                                     type="button"
                                     onClick={() => select(o.value)}
-                                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                                    className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground text-left"
                                 >
-                                    <Check className={cn('h-3.5 w-3.5 shrink-0', value === o.value ? 'opacity-100' : 'opacity-0')} />
-                                    <span className="truncate">{o.label}</span>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <Check className={cn('h-3.5 w-3.5 shrink-0', value === o.value ? 'opacity-100' : 'opacity-0')} />
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="truncate font-medium leading-snug">{o.label}</span>
+                                            {o.sublabel && (
+                                                <span className="text-[11px] text-muted-foreground truncate leading-tight">
+                                                    {o.sublabel}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {o.badge && (
+                                        <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded ml-2 shrink-0">
+                                            {o.badge}
+                                        </span>
+                                    )}
                                 </button>
                             ))
                         )}

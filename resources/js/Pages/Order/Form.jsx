@@ -2501,12 +2501,28 @@ export default function OrderForm({ mode, masters, order, current_brand_id, rese
                                 </div>
 
                                 <div className="flex flex-col col-span-2">
-                                    <FieldLabel>Pelanggan <span className="text-red-500">*</span></FieldLabel>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <FieldLabel className="mb-0">Pelanggan <span className="text-red-500">*</span></FieldLabel>
+                                        <a
+                                            href={route('master.pelanggan.index')}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-0.5"
+                                            title="Buka Data Pelanggan di tab baru"
+                                        >
+                                            + Pelanggan Baru
+                                        </a>
+                                    </div>
                                     <SearchableSelect
                                         value={data.pelanggan_id}
                                         onValueChange={(v) => setData('pelanggan_id', v)}
-                                        options={masters.pelanggan.map((p) => ({ value: p.id, label: p.nama }))}
-                                        placeholder="Pilih pelanggan"
+                                        options={(masters.pelanggan || []).map((p) => ({
+                                            value: p.id,
+                                            label: p.nama,
+                                            sublabel: p.nomor_hp ? `HP/WA: ${p.nomor_hp}${p.kode ? ` • ${p.kode}` : ''}` : (p.kode || null),
+                                            searchKey: `${p.nama} ${p.nomor_hp || ''} ${p.kode || ''}`,
+                                        }))}
+                                        placeholder="Pilih atau cari nama / nomor HP / kode pelanggan"
                                     />
                                     {errors.pelanggan_id && <p className="mt-1 text-xs text-red-500">{errors.pelanggan_id}</p>}
                                 </div>
